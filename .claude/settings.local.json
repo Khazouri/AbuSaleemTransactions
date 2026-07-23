@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(php -v)",
+      "Bash(composer -V)",
+      "Bash(vagrant --version)",
+      "Bash(php artisan *)",
+      "Bash(npm create *)",
+      "Bash(npm install *)"
+    ]
+  }
+}
