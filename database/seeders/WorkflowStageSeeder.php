@@ -6,18 +6,23 @@ use App\Models\Role;
 use App\Models\WorkflowStage;
 use Illuminate\Database\Seeder;
 
+/**
+ * Seeds the 11 lifecycle stages, in order, from intake to archiving.
+ *
+ * The `responsible_role_id` column set here is INDICATIVE — it tells the UI
+ * who a transaction is normally sitting with at each stage. It is NOT used for
+ * authorisation. Permission to actually move a transaction is decided by
+ * workflow_transitions.required_role_id, seeded in Stage 14.
+ *
+ * Runs after RoleSeeder (looks roles up by code).
+ */
 class WorkflowStageSeeder extends Seeder
 {
-    /**
-     * The 11 lifecycle stages, from intake to final approval + archiving.
-     *
-     * responsible_role_id is the indicative owner shown in the UI; the binding
-     * per-action role check is workflow_transitions.required_role_id (Stage 14).
-     */
     public function run(): void
     {
         $rolesByCode = Role::all()->keyBy('code');
 
+        // [order, code, Arabic name, English name, role usually holding it]
         $stages = [
             [1,  'receive_from_municipality', 'استلام المعاملة من البلدية',      'Receive from municipality',    'R01'],
             [2,  'requirements_check',        'فحص استيفاء المتطلبات',           'Requirements check',           'R02'],
@@ -33,6 +38,8 @@ class WorkflowStageSeeder extends Seeder
         ];
 
         foreach ($stages as [$order, $code, $nameAr, $nameEn, $roleCode]) {
+            // Keyed on `code` so stage ids stay stable across re-seeds —
+            // transactions and transitions both point at them.
             WorkflowStage::updateOrCreate(
                 ['code' => $code],
                 [

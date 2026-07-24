@@ -6,6 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Screen (شاشة) — one of the 22 pages in the application.
+ *
+ * Screens are data, not hard-coded menu entries. The sidebar is generated from
+ * this table (Stage 5), and each screen forms one axis of the permission
+ * matrix, the other being Role.
+ *
+ * @property string      $code   Stable key, e.g. 'transaction_details'
+ * @property string      $name_ar
+ * @property string|null $route  Matching Vue router path
+ * @property int         $sort_order
+ * @property bool        $is_active
+ */
 class Screen extends Model
 {
     protected $fillable = [
@@ -26,16 +39,22 @@ class Screen extends Model
         ];
     }
 
+    /** Parent menu entry, when screens are grouped in the sidebar. */
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Screen::class, 'parent_id');
     }
 
+    /** Screens nested beneath this one. */
     public function children(): HasMany
     {
         return $this->hasMany(Screen::class, 'parent_id');
     }
 
+    /**
+     * The eight permission rows for this screen — one per role.
+     * This is the screen's slice of the permission matrix.
+     */
     public function rolePermissions(): HasMany
     {
         return $this->hasMany(ScreenRolePermission::class);

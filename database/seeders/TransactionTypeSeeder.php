@@ -5,17 +5,24 @@ namespace Database\Seeders;
 use App\Models\TransactionType;
 use Illuminate\Database\Seeder;
 
+/**
+ * Seeds the staff-affairs request types handled by the committee.
+ *
+ * Each type sets its own SLA — a leave request is expected to clear in a week,
+ * a grievance gets twenty days. Stage 17 turns that into a due_date and flags
+ * anything that overruns.
+ *
+ * decision_grade_threshold is 10 for every type: per the workflow spec, a
+ * decision of grade 10 or above must be escalated to وزارة الحكم المحلي
+ * (stage 9) rather than being settled inside the municipality. It is a
+ * per-type column so a category could later be given a different bar without
+ * touching code. Stage 18 enforces it.
+ */
 class TransactionTypeSeeder extends Seeder
 {
-    /**
-     * Staff-affairs transaction types.
-     *
-     * decision_grade_threshold = 10 across the board: per the workflow spec, a
-     * decision of grade 10 or above must be escalated to the Ministry of Local
-     * Governance (stage 9). Enforced by the approval chain in Stage 18.
-     */
     public function run(): void
     {
+        // [code, Arabic name, English name, SLA in days]
         $types = [
             ['PROM', 'ترقية',          'Promotion',       15],
             ['LEAV', 'إجازة',          'Leave',            7],

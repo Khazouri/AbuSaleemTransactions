@@ -1,4 +1,10 @@
 <script setup>
+/**
+ * Login screen (تسجيل الدخول).
+ *
+ * Collects credentials, hands them to the auth store, and on success sends the
+ * user to wherever they were originally headed.
+ */
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -7,23 +13,37 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
+// Form fields, bound with v-model in the template.
 const email = ref('')
 const password = ref('')
+
+// Single message shown above the button; null hides the box.
 const error = ref(null)
 
 async function submit() {
   error.value = null
   try {
     await auth.login(email.value, password.value)
+
+    // The router guard stashes the intended page in ?redirect= when it bounces
+    // someone to login, so returning there completes the journey they started.
     router.push(route.query.redirect || { name: 'dashboard' })
   } catch (e) {
+    // Translate the failure into something the user can act on. The three
+    // cases need genuinely different responses, so they're handled separately
+    // rather than shown as one generic "login failed".
     const res = e?.response
+
     if (res?.status === 422) {
-      // Laravel validation payload: { errors: { email: [msg] } }
+      // Validation/credential failure. Laravel's shape is
+      // { errors: { email: ['...'] } } — take the first message.
       error.value = Object.values(res.data.errors ?? {}).flat()[0] ?? 'بيانات الدخول غير صحيحة'
     } else if (res?.status === 429) {
+      // Tripped the throttle:6,1 limit on the login route — waiting is the fix.
       error.value = 'محاولات كثيرة جداً. يرجى الانتظار دقيقة ثم المحاولة مجدداً.'
     } else {
+      // No response at all: the API is unreachable (VM down, wrong host entry,
+      // CORS). Nothing to do with the credentials, so say so.
       error.value = 'تعذّر الاتصال بالخادم. تأكد من تشغيل abusaleem.test'
     }
   }

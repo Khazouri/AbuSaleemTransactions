@@ -5,13 +5,25 @@ namespace Database\Seeders;
 use App\Models\Department;
 use Illuminate\Database\Seeder;
 
+/**
+ * Seeds a starter department tree for the municipality.
+ *
+ *   بلدية أبو سليم (ABS)              <- root
+ *     ├─ إدارة الشؤون الإدارية (ADM)
+ *     ├─ إدارة الهندسة والمشاريع (ENG)
+ *     ├─ إدارة الشؤون المالية (FIN)
+ *     ├─ مكتب المقرر (REP)
+ *     └─ لجنة شؤون الموظفين (CMT)
+ *
+ * These are a usable starting point, not a fixed structure — departments are
+ * fully editable from the UI in Stage 6. The codes matter because they appear
+ * in transaction reference numbers (YYYY-DEPT-000123).
+ */
 class DepartmentSeeder extends Seeder
 {
-    /**
-     * A small nested department tree for Abu Saleem municipality.
-     */
     public function run(): void
     {
+        // Root first — the children need its id for their parent_id.
         $root = Department::updateOrCreate(
             ['code' => 'ABS'],
             ['name_ar' => 'بلدية أبو سليم', 'name_en' => 'Abu Saleem Municipality', 'parent_id' => null],
@@ -28,6 +40,7 @@ class DepartmentSeeder extends Seeder
         foreach ($children as $child) {
             Department::updateOrCreate(
                 ['code' => $child['code']],
+                // Merge the parent link into each child's attributes.
                 $child + ['parent_id' => $root->id],
             );
         }

@@ -17,11 +17,23 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            // department_id FK is added in the departments migration (departments
-            // is created after this table). Kept nullable + indexed here.
+
+            // Which department the employee belongs to (الإدارة التابع لها).
+            // Declared as a plain column here rather than foreignId() because
+            // this migration runs FIRST — the departments table doesn't exist
+            // yet. The actual foreign key is attached in the departments
+            // migration once its table is in place.
             $table->unsignedBigInteger('department_id')->nullable()->index();
+
+            // Lets an admin disable an account without deleting it. Checked on
+            // every login (AuthController::login) so a deactivated employee is
+            // locked out immediately, even with correct credentials.
             $table->boolean('is_active')->default(true);
+
             $table->rememberToken();
+
+            // Soft delete: staff records stay referenced by transactions,
+            // approvals and audit logs long after the person leaves.
             $table->softDeletes();
             $table->timestamps();
         });

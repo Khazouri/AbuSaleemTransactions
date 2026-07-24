@@ -1,4 +1,11 @@
 <script setup>
+/**
+ * Dashboard placeholder (لوحة التحكم).
+ *
+ * Currently just proves the authenticated session works end to end: it renders
+ * the user, department and roles that came back from the API. Stage 5 replaces
+ * this with the real app shell, and Stage 24 fills it with live KPIs.
+ */
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -6,6 +13,8 @@ const auth = useAuthStore()
 const router = useRouter()
 
 async function signOut() {
+  // logout() revokes the token server-side and clears local state; it swallows
+  // network errors, so it's safe to redirect unconditionally afterwards.
   await auth.logout()
   router.push({ name: 'login' })
 }
