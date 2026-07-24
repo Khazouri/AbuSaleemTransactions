@@ -17,7 +17,12 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            // department_id FK is added in the departments migration (departments
+            // is created after this table). Kept nullable + indexed here.
+            $table->unsignedBigInteger('department_id')->nullable()->index();
+            $table->boolean('is_active')->default(true);
             $table->rememberToken();
+            $table->softDeletes();
             $table->timestamps();
         });
 
