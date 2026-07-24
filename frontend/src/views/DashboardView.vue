@@ -1,86 +1,67 @@
 <script setup>
 /**
- * Dashboard placeholder (لوحة التحكم).
+ * Dashboard (لوحة التحكم).
  *
- * Currently just proves the authenticated session works end to end: it renders
- * the user, department and roles that came back from the API. Stage 5 replaces
- * this with the real app shell, and Stage 24 fills it with live KPIs.
+ * Renders inside AppLayout, so it has no header or logout button of its own —
+ * the top bar owns those. For now it confirms the authenticated session works
+ * by showing who is signed in; Stage 24 replaces this with live KPIs.
  */
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 
+const { t, locale } = useI18n()
 const auth = useAuthStore()
-const router = useRouter()
 
-async function signOut() {
-  // logout() revokes the token server-side and clears local state; it swallows
-  // network errors, so it's safe to redirect unconditionally afterwards.
-  await auth.logout()
-  router.push({ name: 'login' })
-}
+/** Department name in the active language, or an em dash if unassigned. */
+const departmentName = computed(() => {
+  const dept = auth.user?.department
+  if (!dept) return t('common.none')
+  return locale.value === 'ar'
+    ? dept.name_ar || dept.name_en
+    : dept.name_en || dept.name_ar
+})
 </script>
 
 <template>
-  <div class="page" dir="rtl">
-    <header>
-      <div>
-        <h1>لوحة التحكم</h1>
-        <p class="sub">مرحباً، {{ auth.user?.name }}</p>
-      </div>
-      <button @click="signOut">تسجيل الخروج</button>
-    </header>
+  <section class="card">
+    <h2>{{ t('auth.welcome') }}، {{ auth.user?.name }}</h2>
 
-    <section class="card">
-      <h2>بيانات الحساب</h2>
-      <dl>
-        <div><dt>الاسم</dt><dd>{{ auth.user?.name }}</dd></div>
-        <div><dt>البريد الإلكتروني</dt><dd dir="ltr">{{ auth.user?.email }}</dd></div>
-        <div>
-          <dt>الإدارة</dt>
-          <dd>{{ auth.user?.department?.name_ar ?? '—' }}</dd>
-        </div>
-        <div>
-          <dt>الأدوار</dt>
-          <dd>
-            <span v-for="role in auth.user?.roles ?? []" :key="role.id" class="badge">
-              {{ role.code }} — {{ role.name_ar }}
-            </span>
-          </dd>
-        </div>
-      </dl>
-      <p class="note">
-        هذه صفحة مؤقتة — الهيكل الكامل للواجهة (القائمة الجانبية والشاشات) يُبنى في المرحلة 5.
-      </p>
-    </section>
-  </div>
+    <dl>
+      <div>
+        <dt>{{ t('account.name') }}</dt>
+        <dd>{{ auth.user?.name }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('account.email') }}</dt>
+        <!-- Latin text inside an RTL page needs an explicit direction. -->
+        <dd class="ltr">{{ auth.user?.email }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('account.department') }}</dt>
+        <dd>{{ departmentName }}</dd>
+      </div>
+      <div>
+        <dt>{{ t('account.roles') }}</dt>
+        <dd>
+          <span v-for="role in auth.user?.roles ?? []" :key="role.id" class="badge">
+            {{ role.code }} — {{ locale === 'ar' ? role.name_ar : role.name_en }}
+          </span>
+        </dd>
+      </div>
+    </dl>
+  </section>
 </template>
 
 <style scoped>
-.page {
-  max-width: 780px;
-  margin: 3rem auto;
-  padding: 0 1rem;
-  font-family: system-ui, 'Segoe UI', Tahoma, sans-serif;
-}
-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-h1 { margin: 0; font-size: 1.4rem; color: #0f5132; }
-.sub { margin: .25rem 0 0; color: #6b7280; font-size: .9rem; }
-button {
-  padding: .5rem .9rem;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  border-radius: 8px;
-  cursor: pointer;
-}
-button:hover { background: #f9fafb; }
 .card {
-  margin-top: 1.5rem;
+  max-width: 640px;
   padding: 1.5rem;
+  background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  background: #fff;
 }
-h2 { margin: 0 0 1rem; font-size: 1.05rem; }
+h2 { margin: 0 0 1.25rem; font-size: 1.1rem; color: #0f5132; }
 dl { margin: 0; display: grid; gap: .75rem; }
 dl > div { display: grid; grid-template-columns: 130px 1fr; gap: .5rem; align-items: start; }
 dt { color: #6b7280; font-size: .875rem; }
@@ -95,5 +76,4 @@ dd { margin: 0; }
   border-radius: 999px;
   font-size: .8rem;
 }
-.note { margin: 1.25rem 0 0; color: #9ca3af; font-size: .825rem; }
 </style>

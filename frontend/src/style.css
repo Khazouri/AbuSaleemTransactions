@@ -1,9 +1,19 @@
 /*
- * Base styles. The full RTL setup + Arabic webfont (Cairo/Tajawal) and the
- * i18n-driven direction switch land in Stage 5.
+ * Global base styles.
+ *
+ * Text DIRECTION is not set here — the i18n module writes dir="rtl"/"ltr" onto
+ * <html> when the locale changes. Layout CSS therefore uses logical properties
+ * (margin-inline-start, border-inline-start, text-align: start) so the whole
+ * UI mirrors itself automatically instead of needing a separate RTL stylesheet.
  */
+
 :root {
-  font-family: system-ui, 'Segoe UI', Tahoma, Arial, sans-serif;
+  /*
+   * Cairo carries both Arabic and Latin glyphs, so one family covers the UI in
+   * either language. The system fonts after it are fallbacks for the moment
+   * before the webfont loads.
+   */
+  font-family: 'Cairo', system-ui, 'Segoe UI', Tahoma, Arial, sans-serif;
   line-height: 1.5;
   color: #111827;
   background: #f4f6f5;
@@ -32,9 +42,21 @@ h3 {
   font-weight: 600;
 }
 
+/* Form controls don't inherit font by default — without this they'd fall back
+   to the browser default and break the Arabic rendering. */
 button,
 input,
 select,
 textarea {
   font: inherit;
+}
+
+/*
+ * Latin content inside an RTL page (emails, reference numbers, code) must be
+ * forced LTR or the browser reorders it confusingly. Apply dir="ltr" on the
+ * element, or use this helper.
+ */
+.ltr {
+  direction: ltr;
+  text-align: left;
 }

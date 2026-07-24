@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ScreenController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -44,4 +45,12 @@ Route::prefix('auth')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
     });
+});
+
+/*
+ * Signed-in application routes.
+ */
+Route::middleware('auth:sanctum')->group(function () {
+    // Sidebar navigation, filtered to the screens this user may view.
+    Route::get('/screens', [ScreenController::class, 'index']);
 });

@@ -2,13 +2,16 @@
 /**
  * Login screen (تسجيل الدخول).
  *
+ * Stands outside AppLayout — no sidebar or top bar until you're signed in.
  * Collects credentials, hands them to the auth store, and on success sends the
- * user to wherever they were originally headed.
+ * user wherever they were originally headed.
  */
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
@@ -51,25 +54,27 @@ async function submit() {
 </script>
 
 <template>
-  <div class="login-page" dir="rtl">
+  <div class="login-page">
     <form class="card" @submit.prevent="submit">
-      <h1>بلدية أبو سليم</h1>
-      <p class="sub">نظام إدارة المعاملات — تسجيل الدخول</p>
+      <h1>{{ t('app.name') }}</h1>
+      <p class="sub">{{ t('app.subtitle') }} — {{ t('auth.login') }}</p>
 
       <label>
-        البريد الإلكتروني
+        {{ t('auth.email') }}
+        <!-- Email and password are Latin text on an Arabic page, so both
+             inputs are forced left-to-right to read correctly. -->
         <input v-model="email" type="email" required autocomplete="username" dir="ltr" />
       </label>
 
       <label>
-        كلمة المرور
+        {{ t('auth.password') }}
         <input v-model="password" type="password" required autocomplete="current-password" dir="ltr" />
       </label>
 
       <p v-if="error" class="error">{{ error }}</p>
 
       <button type="submit" :disabled="auth.loading">
-        {{ auth.loading ? 'جارٍ الدخول…' : 'تسجيل الدخول' }}
+        {{ auth.loading ? t('auth.loggingIn') : t('auth.login') }}
       </button>
     </form>
   </div>
@@ -81,7 +86,6 @@ async function submit() {
   display: grid;
   place-items: center;
   background: #f4f6f5;
-  font-family: system-ui, 'Segoe UI', Tahoma, sans-serif;
 }
 .card {
   width: min(400px, 92vw);

@@ -1,0 +1,36 @@
+{
+  "app": {
+    "name": "Abu Saleem Municipality",
+    "subtitle": "Transaction Management System"
+  },
+  "nav": {
+    "menu": "Menu",
+    "loading": "Loading menu…",
+    "error": "Could not load the menu"
+  },
+  "auth": {
+    "login": "Sign in",
+    "loggingIn": "Signing in…",
+    "logout": "Sign out",
+    "email": "Email",
+    "password": "Password",
+    "welcome": "Welcome"
+  },
+  "account": {
+    "title": "Account details",
+    "name": "Name",
+    "email": "Email",
+    "department": "Department",
+    "roles": "Roles"
+  },
+  "common": {
+    "language": "Language",
+    "retry": "Retry",
+    "none": "—"
+  },
+  "placeholder": {
+    "title": "Under construction",
+    "body": "This screen is built in a later stage of the implementation plan.",
+    "screen": "Screen"
+  }
+}
