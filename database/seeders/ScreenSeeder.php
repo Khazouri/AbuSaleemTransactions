@@ -6,8 +6,9 @@ use App\Models\Screen;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds the 22 application screens, in the order they appear on the
- * screen-permissions sheet.
+ * Seeds the application screens, in the order they appear on the
+ * screen-permissions sheet — 22 from that sheet, plus `departments` (see the
+ * note beside it below).
  *
  * Two consumers:
  *   - the sidebar (Stage 5) renders these rows, filtered by can_view
@@ -47,6 +48,11 @@ class ScreenSeeder extends Seeder
 
             // --- Administration ------------------------------------------------
             ['users',                    'المستخدمون',                'Users',                        '/users',                    'user'],
+            // NOTE: `departments` is a 23rd screen, not on the original
+            // 22-screen sheet. The system needs somewhere to manage the org
+            // tree (Stage 6) and no existing screen covers it. Restricted to
+            // R08 like the other administration screens.
+            ['departments',              'الإدارات والأقسام',          'Departments',                  '/departments',              'sitemap'],
             ['roles_permissions',        'الأدوار والصلاحيات',         'Roles & Permissions',          '/roles',                    'key'],
             ['settings',                 'الإعدادات العامة',           'General Settings',             '/settings',                 'settings'],
 

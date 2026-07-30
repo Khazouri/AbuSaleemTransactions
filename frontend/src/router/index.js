@@ -41,6 +41,8 @@ const placeholderScreens = [
   ['final_approval', 'approvals/final'],                     // Stage 18
   ['users', 'users'],                                        // Stage 7
   ['roles_permissions', 'roles'],                            // Stage 8
+  // NB: `departments` is NOT here — it's built (Stage 6) and has a real
+  // component below.
   ['settings', 'settings'],                                  // Stage 10
   ['reports', 'reports'],                                    // Stage 24
   ['audit_log', 'audit-log'],                                // Stage 22
@@ -78,6 +80,13 @@ const routes = [
         name: 'dashboard',
         component: () => import('../views/DashboardView.vue'),
         meta: { screenCode: 'dashboard' },
+      },
+      {
+        // Stage 6 — department tree management.
+        path: 'departments',
+        name: 'departments',
+        component: () => import('../views/DepartmentsView.vue'),
+        meta: { screenCode: 'departments' },
       },
       // Expand the list above into one placeholder route each.
       ...placeholderScreens.map(([screenCode, path]) => ({

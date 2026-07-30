@@ -9,7 +9,7 @@ use Illuminate\Database\Seeder;
 
 /**
  * Builds the starting permission matrix: every screen x every role
- * (22 x 8 = 176 rows), each with seven action flags.
+ * (23 x 8 = 184 rows), each with seven action flags.
  *
  * How the rules below are applied:
  *   - R08 (System Admin) is granted every action on every screen.
@@ -60,6 +60,7 @@ class ScreenRolePermissionSeeder extends Seeder
 
         // Administration: empty array = R08 only.
         'users'                   => [],
+        'departments'             => [],
         'roles_permissions'       => [],
         'settings'                => [],
         'templates'               => [],

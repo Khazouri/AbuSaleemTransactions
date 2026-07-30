@@ -66,4 +66,45 @@ class Department extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    /**
+     * Ids of every department below this one, at any depth.
+     *
+     * Exists to stop a cycle. If a department were re-parented under one of its
+     * own descendants, that branch would point at itself in a loop: it would
+     * vanish from the tree (no path from the root) and any recursive walk over
+     * it would never terminate. UpdateDepartmentRequest rejects such a move.
+     *
+     * Fetches the whole table once and walks it in memory — one query no
+     * matter how deep the tree, and an org chart is small enough that loading
+     * it entirely is cheaper than a query per level.
+     *
+     * Iterative rather than recursive, so a malformed tree can't blow the
+     * stack.
+     *
+     * @return array<int> descendant ids (excludes this department)
+     */
+    public function descendantIds(): array
+    {
+        // Children grouped by their parent, so lookups below are O(1).
+        $byParent = static::query()
+            ->select('id', 'parent_id')
+            ->get()
+            ->groupBy('parent_id');
+
+        $ids = [];
+        $queue = [$this->id];
+
+        while ($queue) {
+            $currentId = array_pop($queue);
+
+            foreach ($byParent[$currentId] ?? [] as $child) {
+                $ids[] = $child->id;
+                // Descend into this child on a later pass.
+                $queue[] = $child->id;
+            }
+        }
+
+        return $ids;
+    }
 }
