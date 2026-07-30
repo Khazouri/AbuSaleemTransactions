@@ -130,6 +130,8 @@
     "page": "Page {current} of {last}",
     "previous": "Previous",
     "next": "Next",
+    "details": "Details",
+    "viewDetails": "View details",
     "empty": "No transactions match the current filters.",
     "noReference": "Not generated yet"
   },
@@ -173,6 +175,31 @@
     "empty": "No notes yet.",
     "loadFailed": "The notes could not be loaded.",
     "submitFailed": "The note could not be posted. Please try again."
+  },
+  "transactionDetail": {
+    "back": "Back to transaction list",
+    "currentStage": "Current stage",
+    "submittedAt": "Submitted",
+    "dueDate": "Due date",
+    "actions": "Stage actions",
+    "actionHint": "Available actions are determined by the current stage and your workflow role.",
+    "comment": "Comment (optional)",
+    "processing": "Processing…",
+    "description": "Transaction description",
+    "noDescription": "No description was supplied for this transaction.",
+    "timeline": "Workflow timeline",
+    "noTimeline": "There are no workflow movements yet.",
+    "noAttachments": "There are no attachments yet.",
+    "loadFailed": "The transaction details could not be loaded.",
+    "actionFailed": "The workflow action could not be completed. Please try again."
+  },
+  "workflow": {
+    "actions": {
+      "intake": "Transaction intake",
+      "forward": "Forward",
+      "approve": "Approve",
+      "reject": "Reject"
+    }
   },
   "placeholder": {
     "title": "Under construction",

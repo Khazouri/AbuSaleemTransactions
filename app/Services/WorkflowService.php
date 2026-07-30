@@ -21,6 +21,45 @@ use Illuminate\Support\Facades\DB;
 class WorkflowService
 {
     /**
+     * Actions this actor may currently attempt, for rendering the workspace.
+     *
+     * The transition method repeats every check under a row lock; this is only
+     * an ergonomic preview and must never be treated as authorization by itself.
+     *
+     * @return Collection<int, string>
+     */
+    public function availableActions(Transaction $transaction, User $actor): Collection
+    {
+        if (! $transaction->exists || ! $actor->exists || ! $actor->is_active || $transaction->current_stage_id === null) {
+            return collect();
+        }
+
+        $roleIds = $actor->roles()->pluck('roles.id');
+
+        return WorkflowTransition::query()
+            ->where('from_stage_id', $transaction->current_stage_id)
+            ->where(function ($query) use ($transaction) {
+                $query->whereNull('transaction_type_id');
+
+                if ($transaction->transaction_type_id !== null) {
+                    $query->orWhere('transaction_type_id', $transaction->transaction_type_id);
+                }
+            })
+            ->get()
+            ->groupBy('action')
+            ->map(function (Collection $rules) use ($roleIds) {
+                $specific = $rules->whereNotNull('transaction_type_id');
+                $applicable = $specific->isNotEmpty() ? $specific : $rules->whereNull('transaction_type_id');
+
+                return $applicable->contains(fn (WorkflowTransition $rule) => $rule->required_role_id === null
+                    || $roleIds->contains($rule->required_role_id));
+            })
+            ->filter()
+            ->keys()
+            ->values();
+    }
+
+    /**
      * Move a transaction through one configured workflow transition.
      *
      * The optional comment is unused by the Stage 14 happy path, but belongs at

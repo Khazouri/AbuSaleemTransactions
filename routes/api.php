@@ -150,9 +150,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->delete('templates/{template}', [TemplateController::class, 'destroy']);
 
     /*
-     * Stage 11 — transaction work queue. `filters` must precede any future
-     * /transactions/{transaction} route, otherwise the model wildcard would
-     * consume the literal path and make the lookup data unreachable.
+     * Stage 11 — transaction work queue. Static transaction paths must precede
+     * /transactions/{transaction}, otherwise the model wildcard would consume
+     * their literal path and make their lookup data unreachable.
      */
     Route::middleware('screen.permission:transactions,view')
         ->get('transactions/filters', [TransactionController::class, 'filters']);
@@ -164,6 +164,14 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('transactions/intake-options', [TransactionController::class, 'intakeOptions']);
     Route::middleware('screen.permission:transaction_intake,add')
         ->post('transactions', [TransactionController::class, 'store']);
+
+    // Stage 15 — the detail screen is read by its own capability. The action
+    // endpoint uses that same view gate, then WorkflowService enforces the
+    // transition's configured role under lock (not one broad screen flag).
+    Route::middleware('screen.permission:transaction_details,view')
+        ->get('transactions/{transaction}', [TransactionController::class, 'show']);
+    Route::middleware('screen.permission:transaction_details,view')
+        ->post('transactions/{transaction}/transition', [TransactionController::class, 'transition']);
 
     // Stage 12 — private attachments are written through the dedicated
     // Notes & Attachments capability, not a broad transaction-list privilege.

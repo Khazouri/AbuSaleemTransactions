@@ -14,6 +14,10 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-07-30 21:00 EET — Codex — Stage 15 transaction workspace complete
+
+Added the protected transaction detail/transition API, a full SPA detail workspace (current state, stage timeline, attachment metadata/uploads, notes), and workflow buttons computed for the signed-in actor then enforced again atomically by `WorkflowService`. New feature coverage verifies detail data, successful R02 advancement, and an unauthorized-role 422; all 14 PHPUnit tests, focused Pint, production frontend build, routes, and migration status pass. The Stage 14 map only has `forward` and `approve` actions; Stage 16 will seed exceptions such as reject and its UI labels/modal flow, while this screen already renders returned action codes generically.
+
 ### 2026-07-30 20:23 EET — Codex — Stage 14 workflow happy path complete
 
 Added and seeded the ten generic stage 1→11 workflow rules plus an atomic, row-locking `WorkflowService` that enforces active actors, configured roles, type-specific overrides, required comments, and append-only stage/status histories. The configured MySQL database now contains the ten ordered happy-path transitions; all 12 PHPUnit tests (including the full workflow walk), focused Pint, migration status, and idempotent reseeding pass. Stage 15 can expose this service through its transaction transition endpoint and translate `WorkflowTransitionException` into a 422 response.

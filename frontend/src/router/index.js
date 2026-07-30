@@ -90,6 +90,13 @@ const routes = [
         meta: { screenCode: 'transaction_intake' },
       },
       {
+        // Stage 15 — transaction workspace with workflow actions and timeline.
+        path: 'transactions/:id',
+        name: 'transaction_details',
+        component: () => import('../views/TransactionDetailView.vue'),
+        meta: { screenCode: 'transaction_details' },
+      },
+      {
         // Stage 6 — department tree management.
         path: 'departments',
         name: 'departments',

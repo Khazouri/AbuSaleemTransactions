@@ -19,6 +19,18 @@ class TransactionIntakeTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_an_authorized_user_can_load_intake_options_before_the_transaction_wildcard_route(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/transactions/intake-options')
+            ->assertOk()
+            ->assertJsonPath('data.departments.0.code', 'ADM')
+            ->assertJsonFragment(['code' => 'PROM']);
+    }
+
     public function test_an_authorized_user_can_intake_a_transaction_with_attachments(): void
     {
         $this->seed(DatabaseSeeder::class);

@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Transaction\IndexTransactionRequest;
 use App\Http\Requests\Transaction\StoreTransactionRequest;
+use App\Http\Requests\Transaction\TransitionTransactionRequest;
+use App\Http\Resources\TransactionDetailResource;
 use App\Http\Resources\TransactionResource;
 use App\Models\Attachment;
 use App\Models\Department;
@@ -15,10 +18,13 @@ use App\Models\TransactionStatusHistory;
 use App\Models\TransactionType;
 use App\Models\WorkflowStage;
 use App\Services\TransactionReferenceGenerator;
+use App\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
@@ -164,5 +170,52 @@ class TransactionController extends Controller
         return (new TransactionResource($transaction))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /** Stage 15 — one complete transaction workspace, including its audit timeline. */
+    public function show(Request $request, Transaction $transaction, WorkflowService $workflow): TransactionDetailResource
+    {
+        return $this->detailResource($transaction, $workflow, $request->user());
+    }
+
+    /** Stage 15 — adapt the state-machine failure into the SPA's normal 422 shape. */
+    public function transition(
+        TransitionTransactionRequest $request,
+        Transaction $transaction,
+        WorkflowService $workflow,
+    ): TransactionDetailResource {
+        try {
+            $transaction = $workflow->transition(
+                $transaction,
+                $request->validated('action'),
+                $request->user(),
+                $request->validated('comment'),
+            );
+        } catch (WorkflowTransitionException $exception) {
+            throw ValidationException::withMessages([
+                'action' => [$exception->getMessage()],
+            ]);
+        }
+
+        return $this->detailResource($transaction, $workflow, $request->user());
+    }
+
+    private function detailResource(Transaction $transaction, WorkflowService $workflow, $actor): TransactionDetailResource
+    {
+        $transaction->load([
+            'department:id,name_ar,name_en,code',
+            'transactionType:id,code,name_ar,name_en',
+            'status:id,code,name_ar,name_en,color',
+            'currentStage:id,order_no,code,name_ar,name_en',
+            'createdBy:id,name',
+            'attachments:id,transaction_id,original_name,mime_type,size_bytes,label,uploaded_by_user_id,created_at',
+            'stageLogs' => fn ($query) => $query->orderBy('acted_at')->orderBy('id'),
+            'stageLogs.fromStage:id,order_no,code,name_ar,name_en',
+            'stageLogs.toStage:id,order_no,code,name_ar,name_en',
+            'stageLogs.actedBy:id,name',
+        ]);
+        $transaction->setAttribute('available_actions', $workflow->availableActions($transaction, $actor)->all());
+
+        return new TransactionDetailResource($transaction);
     }
 }
