@@ -14,6 +14,17 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-07-30 — Claude — STAGE_PLAN.md added, resolves the stage 12/19 mystery
+
+Added [STAGE_PLAN.md](STAGE_PLAN.md), the user's original 24-stage plan doc — it's now the source
+of truth for what each stage number means, linked from AGENTS.md's "Staged build-out" bullet.
+This retroactively explains two stage numbers that had zero code comments referencing them: stage
+12 is the file-upload component (independent, buildable any time after Stage 5) and stage 19 is
+e-signature capture on approvals. One wording mismatch to know about: the plan's Stage 1 describes
+a `backend/` subfolder, but the actual repo has Laravel at the root (see AGENTS.md's architecture
+section) — that ship sailed by the time Stage 1 was actually built, so treat STAGE_PLAN.md as the
+goal/scope reference per stage, not literal file-layout instructions.
+
 ### 2026-07-30 — Claude — Stage 8 done, heads-up for Stage 9
 
 Roles/permissions matrix editor is built: `ScreenRolePermissionController` (`GET`/`PUT

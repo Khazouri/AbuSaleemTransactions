@@ -70,11 +70,13 @@ Key architectural facts worth knowing before changing things:
   `text-align: start`, etc.), not `left`/`right`, so the UI mirrors
   automatically when `vue-i18n` flips `dir` on `<html>`. Don't introduce
   physical-direction CSS in new components.
-- **Staged build-out**: `frontend/src/router/index.js`'s `placeholderScreens`
-  list is the map of what's built vs. stubbed. A screen not yet implemented
-  renders `PlaceholderView`; as each stage lands, move its entry out of that
-  list into a real route + view, matching the `departments` entry as the
-  template.
+- **Staged build-out**: [STAGE_PLAN.md](STAGE_PLAN.md) is the source of truth
+  for what each stage number means (goal, what gets built, done-when) —
+  consult it before starting or referencing a stage. In the code,
+  `frontend/src/router/index.js`'s `placeholderScreens` list is the map of
+  what's built vs. stubbed. A screen not yet implemented renders
+  `PlaceholderView`; as each stage lands, move its entry out of that list into
+  a real route + view, matching the `departments` entry as the template.
 
 ## Conventions
 
