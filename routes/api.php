@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
+use App\Http\Controllers\Api\SettingController;
+use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -120,4 +122,27 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::middleware('screen.permission:users,delete')
         ->delete('users/{user}', [UserController::class, 'destroy']);
+
+    /*
+     * Stage 10 — settings and template administration. Each verb is bound to
+     * the matching screen permission, keeping these low-risk CRUD screens in
+     * step with the server-side enforcement introduced in Stage 9.
+     */
+    Route::middleware('screen.permission:settings,view')
+        ->get('settings', [SettingController::class, 'index']);
+    Route::middleware('screen.permission:settings,add')
+        ->post('settings', [SettingController::class, 'store']);
+    Route::middleware('screen.permission:settings,edit')
+        ->put('settings/{setting}', [SettingController::class, 'update']);
+    Route::middleware('screen.permission:settings,delete')
+        ->delete('settings/{setting}', [SettingController::class, 'destroy']);
+
+    Route::middleware('screen.permission:templates,view')
+        ->get('templates', [TemplateController::class, 'index']);
+    Route::middleware('screen.permission:templates,add')
+        ->post('templates', [TemplateController::class, 'store']);
+    Route::middleware('screen.permission:templates,edit')
+        ->put('templates/{template}', [TemplateController::class, 'update']);
+    Route::middleware('screen.permission:templates,delete')
+        ->delete('templates/{template}', [TemplateController::class, 'destroy']);
 });

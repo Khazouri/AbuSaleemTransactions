@@ -14,6 +14,10 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-07-30 — Codex — Stage 10 settings and templates complete
+
+Added the `settings` key/value registry and bilingual `templates` CRUD, with models, Form Requests (Arabic validation), API Resources, Stage-9-style per-verb permissions, and real Settings/Templates Vue screens with `v-can` action gates. Both placeholder routes now lazy-load their screens; Arabic/English labels were added. `npm run build`, focused Pint, route listing, and an isolated in-memory SQLite migration pass; the configured MySQL/Homestead server was refusing connections, so the real local database still needs `php artisan migrate` after that service is started.
+
 ### 2026-07-30 — Claude — STAGE_PLAN.md added, resolves the stage 12/19 mystery
 
 Added [STAGE_PLAN.md](STAGE_PLAN.md), the user's original 24-stage plan doc — it's now the source

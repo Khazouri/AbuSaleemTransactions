@@ -41,11 +41,9 @@ const placeholderScreens = [
   ['final_approval', 'approvals/final'],                     // Stage 18
   // NB: `departments`, `users` and `roles_permissions` are NOT here — they're
   // built (Stages 6-8) and have real components below.
-  ['settings', 'settings'],                                  // Stage 10
   ['reports', 'reports'],                                    // Stage 24
   ['audit_log', 'audit-log'],                                // Stage 22
   ['notifications', 'notifications'],                        // Stage 23
-  ['templates', 'templates'],                                // Stage 10
   ['backup', 'backup'],                                      // later
   ['user_guide', 'guide'],                                   // later
 ]
@@ -99,6 +97,20 @@ const routes = [
         name: 'roles_permissions',
         component: () => import('../views/RolesPermissionsView.vue'),
         meta: { screenCode: 'roles_permissions' },
+      },
+      {
+        // Stage 10 — key/value application settings.
+        path: 'settings',
+        name: 'settings',
+        component: () => import('../views/SettingsView.vue'),
+        meta: { screenCode: 'settings' },
+      },
+      {
+        // Stage 10 — reusable bilingual text templates.
+        path: 'templates',
+        name: 'templates',
+        component: () => import('../views/TemplatesView.vue'),
+        meta: { screenCode: 'templates' },
       },
       // Expand the list above into one placeholder route each.
       ...placeholderScreens.map(([screenCode, path]) => ({

@@ -87,6 +87,29 @@
     "unsavedChanges": "You have unsaved changes.",
     "saveSuccess": "Permissions saved successfully."
   },
+  "settings": {
+    "title": "General Settings",
+    "add": "Add setting",
+    "edit": "Edit setting",
+    "key": "Key",
+    "value": "Value",
+    "empty": "No settings yet.",
+    "keyHint": "Use a stable key such as system.name"
+  },
+  "templates": {
+    "title": "Templates & Forms",
+    "add": "Add template",
+    "edit": "Edit template",
+    "code": "Template code",
+    "nameAr": "Name (Arabic)",
+    "nameEn": "Name (English)",
+    "subjectAr": "Subject (Arabic)",
+    "subjectEn": "Subject (English)",
+    "bodyAr": "Body (Arabic)",
+    "bodyEn": "Body (English)",
+    "empty": "No templates yet.",
+    "codeHint": "A stable code for wiring this template to a later feature"
+  },
   "placeholder": {
     "title": "Under construction",
     "body": "This screen is built in a later stage of the implementation plan.",
