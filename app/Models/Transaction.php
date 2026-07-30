@@ -1,0 +1,87 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+/**
+ * A staff-affairs request travelling through the 11-stage workflow.
+ *
+ * `status` answers how the request is doing; `currentStage` answers where it
+ * is. Their histories are separate because exception handling can change one
+ * without necessarily changing the other.
+ */
+class Transaction extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'reference_number',
+        'title',
+        'description',
+        'department_id',
+        'transaction_type_id',
+        'status_id',
+        'current_stage_id',
+        'created_by_user_id',
+        'submitted_at',
+        'due_date',
+        'decision_grade',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'submitted_at' => 'datetime',
+            'due_date' => 'date',
+        ];
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function transactionType(): BelongsTo
+    {
+        return $this->belongsTo(TransactionType::class);
+    }
+
+    public function status(): BelongsTo
+    {
+        return $this->belongsTo(TransactionStatus::class);
+    }
+
+    public function currentStage(): BelongsTo
+    {
+        return $this->belongsTo(WorkflowStage::class, 'current_stage_id');
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function stageLogs(): HasMany
+    {
+        return $this->hasMany(TransactionStageLog::class);
+    }
+
+    public function statusHistory(): HasMany
+    {
+        return $this->hasMany(TransactionStatusHistory::class);
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(Attachment::class);
+    }
+
+    public function notes(): HasMany
+    {
+        return $this->hasMany(Note::class);
+    }
+}

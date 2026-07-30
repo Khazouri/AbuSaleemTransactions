@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\TemplateController;
+use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -145,4 +146,14 @@ Route::middleware('auth:sanctum')->group(function () {
         ->put('templates/{template}', [TemplateController::class, 'update']);
     Route::middleware('screen.permission:templates,delete')
         ->delete('templates/{template}', [TemplateController::class, 'destroy']);
+
+    /*
+     * Stage 11 — transaction work queue. `filters` must precede any future
+     * /transactions/{transaction} route, otherwise the model wildcard would
+     * consume the literal path and make the lookup data unreachable.
+     */
+    Route::middleware('screen.permission:transactions,view')
+        ->get('transactions/filters', [TransactionController::class, 'filters']);
+    Route::middleware('screen.permission:transactions,view')
+        ->get('transactions', [TransactionController::class, 'index']);
 });

@@ -29,7 +29,6 @@ import PlaceholderView from '../views/PlaceholderView.vue'
  * Format: [screenCode, path]
  */
 const placeholderScreens = [
-  ['transactions', 'transactions'],                          // Stage 11
   ['transaction_intake', 'transactions/create'],             // Stage 13
   ['meetings', 'meetings'],                                  // Stage 20
   ['decisions', 'decisions'],                                // Stage 21
@@ -76,6 +75,13 @@ const routes = [
         name: 'dashboard',
         component: () => import('../views/DashboardView.vue'),
         meta: { screenCode: 'dashboard' },
+      },
+      {
+        // Stage 11 — searchable, paginated transaction work queue.
+        path: 'transactions',
+        name: 'transactions',
+        component: () => import('../views/TransactionsView.vue'),
+        meta: { screenCode: 'transactions' },
       },
       {
         // Stage 6 — department tree management.

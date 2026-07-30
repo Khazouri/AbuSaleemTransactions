@@ -48,3 +48,5 @@ hides buttons the user can't act on — applied to the add/edit/delete buttons o
 and the Save button on Roles & Permissions. When Stage 10+ adds a new screen's CRUD, follow this
 same pattern: split verb routes with `screen.permission:<code>,<action>` instead of a bare
 `apiResource()`, and add `v-can` to its action buttons.
+### 2026-07-30 — Codex — Stage 11 complete and migrated
+Stage 11 adds the transactions schema, protected filterable/paginated list API, and the SPA list screen; its SQLite feature test and production frontend build pass. The configured MySQL server at `192.168.10.10:3306` is reachable and now has all pending migrations through `2026_07_30_000007_create_notes_table` applied.
