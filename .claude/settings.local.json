@@ -7,7 +7,9 @@
       "Bash(vagrant --version)",
       "Bash(php artisan *)",
       "Bash(npm create *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(unzip -o -q \"C:\\\\Users\\\\Dev\\\\AppData\\\\Local\\\\Packages\\\\5319275A.WhatsAppDesktop_cv1g1gvanyjgm\\\\LocalState\\\\sessions\\\\F387079D283BC194245E75DF5B9CD5F99AB1A719\\\\transfers\\\\2026-31\\\\scco-dashboard-template-main.zip\" -d scco-template)",
+      "Bash(gh pr create --base main --head feat/template-design-system-shell --title 'Stage 6: Departments CRUD with tree management' --body ' *)"
     ]
   }
 }
