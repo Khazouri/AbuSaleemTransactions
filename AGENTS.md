@@ -167,12 +167,16 @@ instead of cramming it in here. Rules:
   `CLAUDE.md`); Codex should read it explicitly if not surfaced automatically.
 - **Add new entries at the top, don't rewrite history** — keep the newest
   entry first.
+- **Preserve every previous entry** — adding a handoff note means inserting
+  one new note in descending chronological order only. Never remove, replace,
+  rewrite, or prune an older note unless the user explicitly asks for it.
 - **Format**: `### YYYY-MM-DD HH:MM TZ — <Codex|Claude> — <short title>` followed by 2-4
   sentences: what happened, why it matters to the next agent, any open
   question.
-- **Prune when stale** — once a note's concern is resolved or no longer
-  relevant, delete it. This is a handoff log, not a permanent record; durable
-  facts belong in `AGENTS.md` proper, and history belongs to git.
+- **Mark stale notes through a newer entry** — if an older concern is resolved
+  or no longer relevant, record that resolution in a new top entry instead of
+  deleting the original note. Durable facts still belong in `AGENTS.md`
+  proper.
 - If something you learn is actually durable (a convention, an architectural
   fact, a standing gotcha) — put it in the relevant section of `AGENTS.md`
   itself instead of (or in addition to) a note, so it doesn't get lost when

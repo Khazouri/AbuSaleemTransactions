@@ -48,6 +48,11 @@ class WorkflowTransitionException extends DomainException
         return new self('يجب إدخال سبب لتنفيذ هذا الإجراء.');
     }
 
+    public static function transactionClosed(): self
+    {
+        return new self('لا يمكن تنفيذ إجراء على معاملة ملغاة أو مؤرشفة.');
+    }
+
     public static function ambiguousConfiguration(): self
     {
         return new self('يوجد أكثر من مسار مطابق لهذا الإجراء؛ يرجى مراجعة إعدادات سير العمل.');

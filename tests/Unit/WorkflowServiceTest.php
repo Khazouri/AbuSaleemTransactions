@@ -104,6 +104,7 @@ class WorkflowServiceTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $rules = WorkflowTransition::query()
+            ->where('is_exception', false)
             ->with(['fromStage', 'toStage', 'requiredRole'])
             ->orderBy('order_no')
             ->get();
@@ -115,15 +116,129 @@ class WorkflowServiceTest extends TestCase
         $this->assertFalse($rules->contains('requires_comment', true));
     }
 
-    private function newTransaction(): Transaction
+    public function test_each_seeded_exception_path_moves_to_the_expected_stage_status_and_records_its_reason(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $reviewer = $this->userWithRole('R02');
+        $adminManager = $this->userWithRole('R05');
+        $service = app(WorkflowService::class);
+        $paths = [
+            [2, 'return_missing_docs', $reviewer, 1, 'incomplete', 'المستند المالي غير مرفق.'],
+            [3, 'reject_review', $reviewer, 2, 'rejected', 'المعاملة لا تطابق اللائحة.'],
+            [4, 'request_edit', $reviewer, 3, 'returned', 'يرجى تصحيح بيانات القرار.'],
+            [6, 'cancel', $adminManager, 6, 'cancelled', 'ألغيت المعاملة بناءً على كتاب رسمي.'],
+        ];
+
+        foreach ($paths as [$from, $action, $actor, $to, $status, $reason]) {
+            $transaction = $this->newTransaction($from, 'in_review');
+            $transaction = $service->transition($transaction, $action, $actor, $reason);
+
+            $this->assertSame($to, $transaction->currentStage->order_no);
+            $this->assertSame($status, $transaction->status->code);
+            $this->assertDatabaseHas('transaction_stage_logs', [
+                'transaction_id' => $transaction->id,
+                'from_stage_id' => WorkflowStage::where('order_no', $from)->value('id'),
+                'to_stage_id' => WorkflowStage::where('order_no', $to)->value('id'),
+                'action' => $action,
+                'comment' => $reason,
+                'acted_by_user_id' => $actor->id,
+            ]);
+            $this->assertDatabaseHas('transaction_status_history', [
+                'transaction_id' => $transaction->id,
+                'to_status_id' => TransactionStatus::where('code', $status)->value('id'),
+                'reason' => $reason,
+                'changed_by_user_id' => $actor->id,
+            ]);
+        }
+    }
+
+    public function test_exception_requires_a_non_blank_reason_without_mutating_the_transaction(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $transaction = $this->newTransaction(2, 'in_review');
+        $reviewer = $this->userWithRole('R02');
+
+        try {
+            app(WorkflowService::class)->transition($transaction, 'return_missing_docs', $reviewer, '   ');
+            $this->fail('The exception transition should require a reason.');
+        } catch (WorkflowTransitionException $exception) {
+            $this->assertSame('يجب إدخال سبب لتنفيذ هذا الإجراء.', $exception->getMessage());
+        }
+
+        $transaction->refresh();
+        $this->assertSame(2, $transaction->currentStage->order_no);
+        $this->assertSame('in_review', $transaction->status->code);
+        $this->assertDatabaseCount('transaction_stage_logs', 0);
+        $this->assertDatabaseCount('transaction_status_history', 0);
+    }
+
+    public function test_cancelled_transaction_is_terminal_and_exposes_no_further_actions(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $reviewer = $this->userWithRole('R02');
+        $service = app(WorkflowService::class);
+        $transaction = $service->transition(
+            $this->newTransaction(2, 'in_review'),
+            'cancel',
+            $reviewer,
+            'ألغي الطلب بطلب الجهة.',
+        );
+
+        $this->assertTrue($service->availableActions($transaction, $reviewer)->isEmpty());
+
+        try {
+            $service->transition($transaction, 'approve', $reviewer);
+            $this->fail('A cancelled transaction must not re-enter the workflow.');
+        } catch (WorkflowTransitionException $exception) {
+            $this->assertSame('لا يمكن تنفيذ إجراء على معاملة ملغاة أو مؤرشفة.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('transaction_stage_logs', 1);
+        $this->assertDatabaseCount('transaction_status_history', 1);
+    }
+
+    public function test_exception_rules_are_seeded_for_corrections_and_every_open_stage_can_be_cancelled(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $correctiveRules = WorkflowTransition::query()
+            ->whereIn('action', ['return_missing_docs', 'reject_review', 'request_edit'])
+            ->with(['fromStage', 'toStage'])
+            ->orderBy('from_stage_id')
+            ->get();
+
+        $this->assertCount(3, $correctiveRules);
+        $this->assertSame([2, 3, 4], $correctiveRules->pluck('fromStage.order_no')->all());
+        $this->assertSame([1, 2, 3], $correctiveRules->pluck('toStage.order_no')->all());
+        $this->assertTrue($correctiveRules->every('is_exception', true));
+        $this->assertTrue($correctiveRules->every('requires_comment', true));
+
+        $cancelRules = WorkflowTransition::query()
+            ->where('action', 'cancel')
+            ->with(['fromStage', 'toStage'])
+            ->get();
+
+        $this->assertCount(10, $cancelRules);
+        $this->assertEqualsCanonicalizing(range(1, 10), $cancelRules->pluck('fromStage.order_no')->all());
+        $this->assertTrue($cancelRules->every(
+            fn (WorkflowTransition $rule) => $rule->fromStage->is($rule->toStage)
+                && $rule->is_exception
+                && $rule->requires_comment,
+        ));
+    }
+
+    private function newTransaction(int $stageOrder = 1, string $statusCode = 'new'): Transaction
     {
         return Transaction::create([
-            'reference_number' => now()->format('Y').'-ADM-900001',
+            'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
             'title' => 'اختبار المسار الأساسي',
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'new')->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', 1)->value('id'),
+            'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
+            'current_stage_id' => WorkflowStage::where('order_no', $stageOrder)->value('id'),
             'submitted_at' => now(),
         ]);
     }

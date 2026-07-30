@@ -82,16 +82,67 @@ class TransactionDetailTest extends TestCase
         $this->assertDatabaseCount('transaction_stage_logs', 0);
     }
 
-    private function newTransaction(): Transaction
+    public function test_detail_exposes_exception_metadata_and_endpoint_preserves_the_required_reason(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $transaction = $this->newTransaction(2, 'in_review');
+        $reviewer = $this->userWithRole('R02');
+
+        $this->actingAs($reviewer, 'sanctum')
+            ->getJson("/api/transactions/{$transaction->id}")
+            ->assertOk()
+            ->assertJsonFragment([
+                'action' => 'return_missing_docs',
+                'is_exception' => true,
+                'requires_comment' => true,
+            ])
+            ->assertJsonFragment([
+                'action' => 'cancel',
+                'is_exception' => true,
+                'requires_comment' => true,
+            ]);
+
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/transactions/{$transaction->id}/transition", [
+                'action' => 'return_missing_docs',
+                'comment' => 'صورة المستند المطلوبة غير مرفقة.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.current_stage.order_no', 1)
+            ->assertJsonPath('data.status.code', 'incomplete')
+            ->assertJsonPath('data.timeline.0.action', 'return_missing_docs')
+            ->assertJsonPath('data.timeline.0.comment', 'صورة المستند المطلوبة غير مرفقة.');
+    }
+
+    public function test_exception_endpoint_rejects_a_blank_reason(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $transaction = $this->newTransaction(2, 'in_review');
+        $reviewer = $this->userWithRole('R02');
+
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/transactions/{$transaction->id}/transition", [
+                'action' => 'return_missing_docs',
+                'comment' => '   ',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('action');
+
+        $transaction->refresh();
+        $this->assertSame(2, $transaction->currentStage->order_no);
+        $this->assertDatabaseCount('transaction_stage_logs', 0);
+    }
+
+    private function newTransaction(int $stageOrder = 1, string $statusCode = 'new'): Transaction
     {
         return Transaction::create([
-            'reference_number' => now()->format('Y').'-ADM-800001',
+            'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
             'title' => 'معاملة تفصيلية',
             'description' => 'تفاصيل المعاملة لاختبار شاشة العمل.',
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'new')->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', 1)->value('id'),
+            'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
+            'current_stage_id' => WorkflowStage::where('order_no', $stageOrder)->value('id'),
             'submitted_at' => now(),
         ]);
     }

@@ -185,6 +185,12 @@
     "actionHint": "تظهر الإجراءات المتاحة وفق المرحلة الحالية ودورك في سير العمل.",
     "comment": "تعليق (اختياري)",
     "processing": "جارٍ التنفيذ…",
+    "exceptionActions": "إجراءات الاستثناء — يلزم إدخال سبب قبل التنفيذ.",
+    "exceptionReasonTitle": "سبب إجراء: {action}",
+    "exceptionReasonHint": "سيُحفظ السبب في سجل سير العمل ولا يمكن تركه فارغاً.",
+    "reason": "السبب",
+    "reasonRequired": "يجب إدخال سبب لتنفيذ هذا الإجراء.",
+    "confirmException": "تأكيد الإجراء",
     "description": "وصف المعاملة",
     "noDescription": "لا يوجد وصف لهذه المعاملة.",
     "timeline": "سجل سير العمل",
@@ -198,7 +204,11 @@
       "intake": "استلام المعاملة",
       "forward": "إحالة",
       "approve": "اعتماد",
-      "reject": "رفض"
+      "reject": "رفض",
+      "return_missing_docs": "إرجاع لنقص المستندات",
+      "reject_review": "رفض المراجعة",
+      "request_edit": "طلب تعديل",
+      "cancel": "إلغاء المعاملة"
     }
   },
   "placeholder": {

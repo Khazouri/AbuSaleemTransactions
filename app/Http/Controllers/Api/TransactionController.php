@@ -214,7 +214,13 @@ class TransactionController extends Controller
             'stageLogs.toStage:id,order_no,code,name_ar,name_en',
             'stageLogs.actedBy:id,name',
         ]);
-        $transaction->setAttribute('available_actions', $workflow->availableActions($transaction, $actor)->all());
+        $availableTransitions = $workflow->availableTransitions($transaction, $actor);
+        $transaction->setAttribute('available_actions', $availableTransitions->pluck('action')->all());
+        $transaction->setAttribute('available_transitions', $availableTransitions->map(fn ($rule) => [
+            'action' => $rule->action,
+            'is_exception' => $rule->is_exception,
+            'requires_comment' => $rule->requires_comment,
+        ])->values()->all());
 
         return new TransactionDetailResource($transaction);
     }

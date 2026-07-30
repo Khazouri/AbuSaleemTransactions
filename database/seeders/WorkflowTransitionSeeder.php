@@ -9,7 +9,7 @@ use App\Models\WorkflowTransition;
 use Illuminate\Database\Seeder;
 
 /**
- * Stage 14 — seeds the normal forward path through all eleven stages.
+ * Seeds the normal path and its corrective/terminal exception branches.
  *
  * These rows apply to every transaction type. A later type-specific row for
  * the same stage/action takes precedence in WorkflowService, so a specialized
@@ -54,5 +54,76 @@ class WorkflowTransitionSeeder extends Seeder
                 ],
             );
         }
+
+        // Stage 16 — backward exception paths always preserve an actor's
+        // reason, while cancellation keeps the last active stage as context.
+        $exceptions = [
+            [2, 1, 'return_missing_docs', 'R02', 'incomplete', 20],
+            [3, 2, 'reject_review', 'R02', 'rejected', 20],
+            [4, 3, 'request_edit', 'R02', 'returned', 20],
+        ];
+
+        foreach ($exceptions as [$from, $to, $action, $role, $status, $order]) {
+            $this->seedException(
+                $stages[$from]->id,
+                $stages[$to]->id,
+                $action,
+                $roles[$role]->id,
+                $statuses[$status]->id,
+                $order,
+            );
+        }
+
+        // Cancellation is available to the role responsible for moving each
+        // open stage. The self-loop records where work stopped without falsely
+        // presenting cancellation as progress to an approval/archive stage.
+        $cancellationRoles = [
+            1 => 'R02',
+            2 => 'R02',
+            3 => 'R02',
+            4 => 'R02',
+            5 => 'R05',
+            6 => 'R05',
+            7 => 'R03',
+            8 => 'R03',
+            9 => 'R06',
+            10 => 'R07',
+        ];
+
+        foreach ($cancellationRoles as $stage => $role) {
+            $this->seedException(
+                $stages[$stage]->id,
+                $stages[$stage]->id,
+                'cancel',
+                $roles[$role]->id,
+                $statuses['cancelled']->id,
+                99,
+            );
+        }
+    }
+
+    private function seedException(
+        int $fromStageId,
+        int $toStageId,
+        string $action,
+        int $requiredRoleId,
+        int $statusId,
+        int $order,
+    ): void {
+        WorkflowTransition::updateOrCreate(
+            [
+                'transaction_type_id' => null,
+                'from_stage_id' => $fromStageId,
+                'action' => $action,
+            ],
+            [
+                'to_stage_id' => $toStageId,
+                'required_role_id' => $requiredRoleId,
+                'set_status_id' => $statusId,
+                'is_exception' => true,
+                'requires_comment' => true,
+                'order_no' => $order,
+            ],
+        );
     }
 }

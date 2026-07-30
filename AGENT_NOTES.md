@@ -14,6 +14,10 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-07-30 21:00 EET — Codex — Stage 16 exception flows complete
+
+Seeded missing-document return (2→1), review rejection (3→2), edit request (4→3), and role-gated cancellation at every open stage; all require a reason, write stage/status history, and cancelled/archived transactions are terminal. The detail API now exposes exception metadata and the bilingual SPA renders warning/destructive buttons with mandatory-reason modals. Configured MySQL has 13 exception rows; all 21 PHPUnit tests, focused Pint, production frontend build, routes, migration status, and diff checks pass.
+
 ### 2026-07-30 21:00 EET — Codex — Stage 15 transaction workspace complete
 
 Added the protected transaction detail/transition API, a full SPA detail workspace (current state, stage timeline, attachment metadata/uploads, notes), and workflow buttons computed for the signed-in actor then enforced again atomically by `WorkflowService`. New feature coverage verifies detail data, successful R02 advancement, and an unauthorized-role 422; all 14 PHPUnit tests, focused Pint, production frontend build, routes, and migration status pass. The Stage 14 map only has `forward` and `approve` actions; Stage 16 will seed exceptions such as reject and its UI labels/modal flow, while this screen already renders returned action codes generically.

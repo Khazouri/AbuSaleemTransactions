@@ -30,7 +30,24 @@ class WorkflowService
      */
     public function availableActions(Transaction $transaction, User $actor): Collection
     {
-        if (! $transaction->exists || ! $actor->exists || ! $actor->is_active || $transaction->current_stage_id === null) {
+        return $this->availableTransitions($transaction, $actor)
+            ->pluck('action')
+            ->values();
+    }
+
+    /**
+     * Full rule metadata for rendering normal and exception actions distinctly.
+     *
+     * @return Collection<int, WorkflowTransition>
+     */
+    // Stage 16 — expose exception/comment metadata without weakening execution checks.
+    public function availableTransitions(Transaction $transaction, User $actor): Collection
+    {
+        if (! $transaction->exists
+            || ! $actor->exists
+            || ! $actor->is_active
+            || $transaction->current_stage_id === null
+            || $this->hasTerminalStatus($transaction)) {
             return collect();
         }
 
@@ -45,17 +62,25 @@ class WorkflowService
                     $query->orWhere('transaction_type_id', $transaction->transaction_type_id);
                 }
             })
+            ->orderByRaw('order_no is null')
+            ->orderBy('order_no')
+            ->orderBy('id')
             ->get()
             ->groupBy('action')
             ->map(function (Collection $rules) use ($roleIds) {
                 $specific = $rules->whereNotNull('transaction_type_id');
                 $applicable = $specific->isNotEmpty() ? $specific : $rules->whereNull('transaction_type_id');
+                $allowed = $applicable
+                    ->filter(fn (WorkflowTransition $rule) => $rule->required_role_id === null
+                        || $roleIds->contains($rule->required_role_id))
+                    ->values();
 
-                return $applicable->contains(fn (WorkflowTransition $rule) => $rule->required_role_id === null
-                    || $roleIds->contains($rule->required_role_id));
+                // An ambiguous rule is not genuinely available: execution
+                // would fail closed, so the preview must not invite the click.
+                return $allowed->count() === 1 ? $allowed->first() : null;
             })
             ->filter()
-            ->keys()
+            ->sortBy(fn (WorkflowTransition $rule) => [$rule->order_no === null, $rule->order_no, $rule->id])
             ->values();
     }
 
@@ -96,6 +121,10 @@ class WorkflowService
 
             if ($lockedTransaction->current_stage_id === null) {
                 throw WorkflowTransitionException::currentStageRequired();
+            }
+
+            if ($this->hasTerminalStatus($lockedTransaction)) {
+                throw WorkflowTransitionException::transactionClosed();
             }
 
             $candidates = $this->transitionCandidates($lockedTransaction, $action);
@@ -191,5 +220,16 @@ class WorkflowService
         return $specific->isNotEmpty()
             ? $specific
             : $candidates->whereNull('transaction_type_id')->values();
+    }
+
+    /**
+     * Cancelled and archived work is closed even when its last stage still has
+     * configured rules. This prevents a cancellation self-loop from reopening.
+     */
+    private function hasTerminalStatus(Transaction $transaction): bool
+    {
+        return $transaction->status()
+            ->whereIn('code', ['cancelled', 'archived'])
+            ->exists();
     }
 }

@@ -15,6 +15,10 @@ const error = ref('')
 const actionError = ref('')
 const comment = ref('')
 const acting = ref(false)
+const activeAction = ref('')
+const selectedException = ref(null)
+const exceptionReason = ref('')
+const exceptionError = ref('')
 
 const name = (item) => {
   if (!item) return t('common.none')
@@ -27,7 +31,17 @@ const date = (value) => value
   ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
   : t('common.none')
 const actionLabel = (action) => t(`workflow.actions.${action}`)
-const canAct = computed(() => (transaction.value?.available_actions ?? []).length > 0)
+const transitions = computed(() => {
+  if (transaction.value?.available_transitions?.length) return transaction.value.available_transitions
+  return (transaction.value?.available_actions ?? []).map((action) => ({
+    action,
+    is_exception: false,
+    requires_comment: false,
+  }))
+})
+const normalActions = computed(() => transitions.value.filter((item) => !item.is_exception))
+const exceptionActions = computed(() => transitions.value.filter((item) => item.is_exception))
+const canAct = computed(() => transitions.value.length > 0)
 
 function fileSize(bytes) {
   if (!Number.isFinite(bytes)) return t('common.none')
@@ -50,24 +64,56 @@ async function load() {
   }
 }
 
-async function transition(action) {
+async function transition(action, suppliedComment = comment.value) {
   if (acting.value) return
   acting.value = true
+  activeAction.value = action
   actionError.value = ''
   try {
     const { data } = await api.post(`/transactions/${transaction.value.id}/transition`, {
       action,
-      comment: comment.value.trim() || null,
+      comment: suppliedComment.trim() || null,
     })
     transaction.value = data.data
     comment.value = ''
+    selectedException.value = null
+    exceptionReason.value = ''
+    exceptionError.value = ''
+    return true
   } catch (requestError) {
-    actionError.value = requestError.response?.data?.errors?.action?.[0]
+    const message = requestError.response?.data?.errors?.action?.[0]
       ?? requestError.response?.data?.message
       ?? t('transactionDetail.actionFailed')
+    if (selectedException.value) exceptionError.value = message
+    else actionError.value = message
+    return false
   } finally {
     acting.value = false
+    activeAction.value = ''
   }
+}
+
+// Stage 16 — exception actions pause for an explicit reason before execution.
+function openException(exception) {
+  selectedException.value = exception
+  exceptionReason.value = ''
+  exceptionError.value = ''
+}
+
+function closeException() {
+  if (acting.value) return
+  selectedException.value = null
+  exceptionReason.value = ''
+  exceptionError.value = ''
+}
+
+async function submitException() {
+  exceptionError.value = ''
+  if (!exceptionReason.value.trim()) {
+    exceptionError.value = t('transactionDetail.reasonRequired')
+    return
+  }
+  await transition(selectedException.value.action, exceptionReason.value)
 }
 
 watch(() => route.params.id, load)
@@ -120,15 +166,31 @@ onMounted(load)
       <section v-if="canAct" class="card action-panel">
         <h3>{{ t('transactionDetail.actions') }}</h3>
         <p>{{ t('transactionDetail.actionHint') }}</p>
-        <label>
+        <label v-if="normalActions.length">
           {{ t('transactionDetail.comment') }}
           <textarea v-model="comment" rows="2" maxlength="5000" :disabled="acting" />
         </label>
         <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
         <div class="action-buttons">
-          <button v-for="action in transaction.available_actions" :key="action" class="primary" type="button" :disabled="acting" @click="transition(action)">
-            {{ acting ? t('transactionDetail.processing') : actionLabel(action) }}
+          <button v-for="item in normalActions" :key="item.action" class="primary" type="button" :disabled="acting" @click="transition(item.action)">
+            {{ acting && activeAction === item.action ? t('transactionDetail.processing') : actionLabel(item.action) }}
           </button>
+        </div>
+        <div v-if="exceptionActions.length" class="exception-actions">
+          <p>{{ t('transactionDetail.exceptionActions') }}</p>
+          <div class="action-buttons">
+            <button
+              v-for="item in exceptionActions"
+              :key="item.action"
+              class="exception-button"
+              :class="{ destructive: ['reject_review', 'cancel'].includes(item.action) }"
+              type="button"
+              :disabled="acting"
+              @click="openException(item)"
+            >
+              {{ actionLabel(item.action) }}
+            </button>
+          </div>
         </div>
       </section>
 
@@ -172,10 +234,53 @@ onMounted(load)
           <section class="card"><TransactionNotes :transaction-id="transaction.id" /></section>
         </aside>
       </div>
+
+      <Teleport to="body">
+        <div v-if="selectedException" class="modal-backdrop" @click.self="closeException">
+          <section
+            class="reason-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="exception-title"
+          >
+            <h3 id="exception-title">
+              {{ t('transactionDetail.exceptionReasonTitle', { action: actionLabel(selectedException.action) }) }}
+            </h3>
+            <p>{{ t('transactionDetail.exceptionReasonHint') }}</p>
+            <form @submit.prevent="submitException">
+              <label>
+                {{ t('transactionDetail.reason') }}
+                <textarea
+                  v-model="exceptionReason"
+                  rows="4"
+                  maxlength="5000"
+                  required
+                  autofocus
+                  :disabled="acting"
+                />
+              </label>
+              <p v-if="exceptionError" class="action-error" role="alert">{{ exceptionError }}</p>
+              <div class="modal-actions">
+                <button class="ghost" type="button" :disabled="acting" @click="closeException">
+                  {{ t('common.cancel') }}
+                </button>
+                <button
+                  class="exception-button"
+                  :class="{ destructive: ['reject_review', 'cancel'].includes(selectedException.action) }"
+                  type="submit"
+                  :disabled="acting || !exceptionReason.trim()"
+                >
+                  {{ acting ? t('transactionDetail.processing') : t('transactionDetail.confirmException') }}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </Teleport>
     </template>
   </section>
 </template>
 
 <style scoped>
-.detail { max-inline-size: 82rem; }.back { display: inline-block; margin-bottom: .85rem; color: var(--color-nav); font-size: .85rem; text-decoration: none; }.back:hover { text-decoration: underline; }.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.heading h2 { margin: .15rem 0 0; color: var(--color-nav); font-size: clamp(1.25rem, 3vw, 1.7rem); }.reference { margin: 0; color: var(--color-muted); font-family: var(--font-mono); font-size: .8rem; }.status { display: inline-flex; align-items: center; gap: .4rem; flex: none; padding: .35rem .55rem; border-radius: var(--radius-full); color: var(--color-black-700); background: var(--color-surface-hover); font-size: .82rem; }.status::before { content: ''; inline-size: .55rem; block-size: .55rem; border-radius: 50%; background: var(--status-color); }.card { padding: 1.1rem; }.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }.summary div { display: grid; gap: .2rem; }.summary span { color: var(--color-muted); font-size: .76rem; }.summary strong { color: var(--color-black-700); font-size: .88rem; }.action-panel { margin-bottom: 1rem; }.action-panel h3, .description h3, .timeline h3, .attachments h3 { margin: 0 0 .45rem; color: var(--color-nav); font-size: 1rem; }.action-panel > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.action-panel label { display: grid; gap: .3rem; max-inline-size: 40rem; font-size: .85rem; }.action-panel textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }.action-buttons { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }.primary { padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: #fff; background: var(--color-nav); cursor: pointer; }.primary:disabled { cursor: not-allowed; opacity: .6; }.action-error, .alert { color: #b91c1c; }.action-error { margin: .6rem 0 0; font-size: .84rem; }.alert { padding: .75rem; border: 1px solid #fecaca; border-radius: var(--radius-lg); background: #fef2f2; }.ghost { margin-inline-start: .5rem; padding: .35rem .55rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; }.columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, .85fr); gap: 1rem; align-items: start; }.main-column, .side-column { display: grid; gap: 1rem; }.description p { margin: 0; color: var(--color-black-700); line-height: 1.75; white-space: pre-wrap; }.timeline ol { display: grid; gap: 0; padding: 0; margin: .9rem 0 0; list-style: none; }.timeline li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: .6rem; padding-bottom: 1rem; }.timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .45rem; inset-block-start: .85rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }.dot { position: relative; z-index: 1; inline-size: .9rem; block-size: .9rem; margin-top: .15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }.timeline p { margin: .2rem 0; color: var(--color-black-700); font-size: .85rem; }.timeline small, .attachments small, .state { color: var(--color-muted); font-size: .78rem; }.entry-comment { white-space: pre-wrap; }.attachments ul { display: grid; gap: .65rem; padding: 0; margin: .85rem 0; list-style: none; }.attachments li { display: grid; gap: .15rem; padding-bottom: .65rem; border-bottom: 1px solid var(--color-border); }.file-name { overflow-wrap: anywhere; color: var(--color-black-700); font-size: .83rem; }@media (max-width: 720px) { .columns { grid-template-columns: 1fr; }.heading { flex-direction: column; }.summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.detail { max-inline-size: 82rem; }.back { display: inline-block; margin-bottom: .85rem; color: var(--color-nav); font-size: .85rem; text-decoration: none; }.back:hover { text-decoration: underline; }.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.heading h2 { margin: .15rem 0 0; color: var(--color-nav); font-size: clamp(1.25rem, 3vw, 1.7rem); }.reference { margin: 0; color: var(--color-muted); font-family: var(--font-mono); font-size: .8rem; }.status { display: inline-flex; align-items: center; gap: .4rem; flex: none; padding: .35rem .55rem; border-radius: var(--radius-full); color: var(--color-black-700); background: var(--color-surface-hover); font-size: .82rem; }.status::before { content: ''; inline-size: .55rem; block-size: .55rem; border-radius: 50%; background: var(--status-color); }.card { padding: 1.1rem; }.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }.summary div { display: grid; gap: .2rem; }.summary span { color: var(--color-muted); font-size: .76rem; }.summary strong { color: var(--color-black-700); font-size: .88rem; }.action-panel { margin-bottom: 1rem; }.action-panel h3, .description h3, .timeline h3, .attachments h3 { margin: 0 0 .45rem; color: var(--color-nav); font-size: 1rem; }.action-panel > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.action-panel label, .reason-modal label { display: grid; gap: .3rem; max-inline-size: 40rem; font-size: .85rem; }.action-panel textarea, .reason-modal textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }.action-buttons { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }.primary, .exception-button { padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: #fff; background: var(--color-nav); cursor: pointer; }.primary:disabled, .exception-button:disabled, .ghost:disabled { cursor: not-allowed; opacity: .6; }.exception-actions { padding-top: .85rem; margin-top: .9rem; border-top: 1px solid var(--color-border); }.exception-actions > p { margin: 0; color: var(--color-muted); font-size: .8rem; }.exception-button { color: #78350f; background: #fef3c7; border: 1px solid #fcd34d; }.exception-button.destructive { color: #991b1b; background: #fee2e2; border-color: #fca5a5; }.action-error, .alert { color: #b91c1c; }.action-error { margin: .6rem 0 0; font-size: .84rem; }.alert { padding: .75rem; border: 1px solid #fecaca; border-radius: var(--radius-lg); background: #fef2f2; }.ghost { margin-inline-start: .5rem; padding: .35rem .55rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; }.columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, .85fr); gap: 1rem; align-items: start; }.main-column, .side-column { display: grid; gap: 1rem; }.description p { margin: 0; color: var(--color-black-700); line-height: 1.75; white-space: pre-wrap; }.timeline ol { display: grid; gap: 0; padding: 0; margin: .9rem 0 0; list-style: none; }.timeline li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: .6rem; padding-bottom: 1rem; }.timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .45rem; inset-block-start: .85rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }.dot { position: relative; z-index: 1; inline-size: .9rem; block-size: .9rem; margin-top: .15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }.timeline p { margin: .2rem 0; color: var(--color-black-700); font-size: .85rem; }.timeline small, .attachments small, .state { color: var(--color-muted); font-size: .78rem; }.entry-comment { white-space: pre-wrap; }.attachments ul { display: grid; gap: .65rem; padding: 0; margin: .85rem 0; list-style: none; }.attachments li { display: grid; gap: .15rem; padding-bottom: .65rem; border-bottom: 1px solid var(--color-border); }.file-name { overflow-wrap: anywhere; color: var(--color-black-700); font-size: .83rem; }.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .55); }.reason-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }.reason-modal h3 { margin: 0; color: var(--color-nav); }.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }.reason-modal label { max-inline-size: none; }.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }.modal-actions .ghost { margin: 0; }@media (max-width: 720px) { .columns { grid-template-columns: 1fr; }.heading { flex-direction: column; }.summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

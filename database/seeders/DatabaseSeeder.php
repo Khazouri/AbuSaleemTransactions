@@ -16,7 +16,7 @@ use Illuminate\Database\Seeder;
  *   WorkflowStageSeeder the 11 stages (looks up responsible roles)
  *   TransactionStatus.. the statuses a transaction can hold
  *   TransactionType..   the request types
- *   WorkflowTransition. the Stage 14 happy-path state machine
+ *   WorkflowTransition. the Stage 14/16 normal and exception state machine
  *   ScreenSeeder        the 22 screens
  *   ScreenRolePerm..    the 22 x 8 matrix — needs screens AND roles
  */
@@ -35,7 +35,7 @@ class DatabaseSeeder extends Seeder
             WorkflowStageSeeder::class,
             TransactionStatusSeeder::class,
             TransactionTypeSeeder::class,
-            // Stage 14 — data-driven happy-path transition map.
+            // Stages 14/16 — data-driven normal and exception transition map.
             WorkflowTransitionSeeder::class,
             ScreenSeeder::class,
             ScreenRolePermissionSeeder::class,

@@ -185,6 +185,12 @@
     "actionHint": "Available actions are determined by the current stage and your workflow role.",
     "comment": "Comment (optional)",
     "processing": "Processing…",
+    "exceptionActions": "Exception actions — a reason is required before execution.",
+    "exceptionReasonTitle": "Reason for: {action}",
+    "exceptionReasonHint": "The reason will be preserved in the workflow timeline and cannot be blank.",
+    "reason": "Reason",
+    "reasonRequired": "Enter a reason before performing this action.",
+    "confirmException": "Confirm action",
     "description": "Transaction description",
     "noDescription": "No description was supplied for this transaction.",
     "timeline": "Workflow timeline",
@@ -198,7 +204,11 @@
       "intake": "Transaction intake",
       "forward": "Forward",
       "approve": "Approve",
-      "reject": "Reject"
+      "reject": "Reject",
+      "return_missing_docs": "Return for missing documents",
+      "reject_review": "Reject review",
+      "request_edit": "Request changes",
+      "cancel": "Cancel transaction"
     }
   },
   "placeholder": {

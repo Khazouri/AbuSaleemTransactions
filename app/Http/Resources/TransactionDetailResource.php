@@ -44,6 +44,9 @@ class TransactionDetailResource extends TransactionResource
             // This is calculated for the signed-in actor by the controller;
             // the service remains the final authority when it executes it.
             'available_actions' => $this->available_actions ?? [],
+            // Stage 16 — metadata lets the SPA require reasons and visually
+            // distinguish exception commands from normal forward progress.
+            'available_transitions' => $this->available_transitions ?? [],
         ];
     }
 }
