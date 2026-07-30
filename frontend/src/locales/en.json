@@ -5,8 +5,12 @@
   },
   "nav": {
     "menu": "Menu",
+    "notifications": "Notifications",
     "loading": "Loading menu…",
     "error": "Could not load the menu"
+  },
+  "header": {
+    "settings": "Settings"
   },
   "auth": {
     "login": "Sign in",
@@ -26,7 +30,33 @@
   "common": {
     "language": "Language",
     "retry": "Retry",
-    "none": "—"
+    "none": "—",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "add": "Add",
+    "loading": "Loading…",
+    "active": "Active",
+    "inactive": "Inactive",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "confirmDelete": "Are you sure you want to delete this?"
+  },
+  "departments": {
+    "title": "Departments",
+    "add": "Add department",
+    "edit": "Edit department",
+    "nameAr": "Name (Arabic)",
+    "nameEn": "Name (English)",
+    "code": "Code",
+    "parent": "Parent department",
+    "root": "— None (top level) —",
+    "users": "users",
+    "children": "sub-departments",
+    "empty": "No departments yet.",
+    "codeHint": "Used in transaction reference numbers"
   },
   "placeholder": {
     "title": "Under construction",

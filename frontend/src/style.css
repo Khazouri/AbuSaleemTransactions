@@ -1,5 +1,11 @@
 /*
- * Global base styles.
+ * Global base styles and the design system.
+ *
+ * The visual language (colour scale, semantic colours, shadows, radii, motion)
+ * is ported from the SCCO dashboard template. There it lived in Tailwind's
+ * `@theme`; this SPA doesn't use Tailwind, so the same tokens are exposed as
+ * plain CSS custom properties on :root and consumed by the scoped styles in
+ * each component. Change a token here and the whole UI follows.
  *
  * Text DIRECTION is not set here — the i18n module writes dir="rtl"/"ltr" onto
  * <html> when the locale changes. Layout CSS therefore uses logical properties
@@ -8,15 +14,86 @@
  */
 
 :root {
-  /*
-   * Cairo carries both Arabic and Latin glyphs, so one family covers the UI in
-   * either language. The system fonts after it are fallbacks for the moment
-   * before the webfont loads.
-   */
-  font-family: 'Cairo', system-ui, 'Segoe UI', Tahoma, Arial, sans-serif;
-  line-height: 1.5;
-  color: #111827;
-  background: #f4f6f5;
+  /* -- Typography ----------------------------------------------------------
+     Cairo carries both Arabic and Latin glyphs, so one family covers the UI in
+     either language (the template's Inter has no Arabic coverage). The system
+     fonts after it are fallbacks for the moment before the webfont loads. */
+  --font-sans: 'Cairo', system-ui, 'Segoe UI', Tahoma, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* -- Brand ---------------------------------------------------------------
+     The colours that define the shell — the Abu Saleem green + gold identity.
+     Restyle the whole app by editing these:
+       --color-primary     the gold accent (active nav, avatar, brand mark)
+       --color-nav         the dark-green sidebar background
+       --color-on-primary  text/icon colour when sitting ON a gold surface;
+                           gold is light, so this is dark for legible contrast
+     --color-primary must stay light enough to read against --color-nav, since
+     active nav items are drawn in it. */
+  --color-primary: #d4af37;
+  --color-nav: #0f5132;
+  --color-on-primary: #0f5132;
+
+  /* -- Neutral scale -------------------------------------------------------- */
+  --color-black-50: #fafafa;
+  --color-black-100: #f5f5f5;
+  --color-black-200: #e5e5e5;
+  --color-black-300: #d4d4d4;
+  --color-black-400: #a3a3a3;
+  --color-black-500: #737373;
+  --color-black-600: #525252;
+  --color-black-700: #404040;
+  --color-black-800: #262626;
+  --color-black-900: #171717;
+  --color-black-950: #000000;
+
+  /* -- Semantic accent colours (badges, charts, avatars) ------------------- */
+  --color-blue: #4b8df7;
+  --color-indigo: #6366f1;
+  --color-purple: #8b5cf6;
+  --color-pink: #ec4899;
+  --color-red: #ef4444;
+  --color-orange: #f97316;
+  --color-amber: #f59e0b;
+  --color-yellow: #eab308;
+  --color-lime: #84cc16;
+  --color-green: #22c55e;
+  --color-emerald: #10b981;
+  --color-teal: #14b8a6;
+  --color-cyan: #06b6d4;
+  --color-sky: #0ea5e9;
+  --color-gray: #6b7280;
+  --color-slate: #64748b;
+
+  /* -- Surfaces ------------------------------------------------------------- */
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-hover: #cbd5e1;
+  --color-muted: #64748b;
+
+  /* -- Elevation ------------------------------------------------------------ */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.06), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.12);
+
+  /* -- Radii ---------------------------------------------------------------- */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  color: var(--color-foreground);
+  background: var(--color-background);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -30,6 +107,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  font-size: 14px;
 }
 
 #app {
@@ -51,6 +129,11 @@ textarea {
   font: inherit;
 }
 
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
 /*
  * Latin content inside an RTL page (emails, reference numbers, code) must be
  * forced LTR or the browser reorders it confusingly. Apply dir="ltr" on the
@@ -59,4 +142,82 @@ textarea {
 .ltr {
   direction: ltr;
   text-align: left;
+}
+
+/* -- Scrollbars ------------------------------------------------------------
+   Thin, unobtrusive bars matching the template. Firefox uses the standard
+   properties; WebKit/Blink needs the ::-webkit pseudo-elements. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-black-300) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-black-300);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-black-400);
+}
+/* Even slimmer variant for dense panels like the sidebar nav. */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+/* -- Reusable surface + interaction helpers -------------------------------
+   Ported from the template's utility layer so page-level components can share
+   the same card and hover behaviour without redefining it each time. */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+}
+.card-hover {
+  transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary);
+}
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+.transition-smooth {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* -- Entrance animations --------------------------------------------------- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out forwards;
 }
