@@ -29,7 +29,6 @@ import PlaceholderView from '../views/PlaceholderView.vue'
  * Format: [screenCode, path]
  */
 const placeholderScreens = [
-  ['transaction_intake', 'transactions/create'],             // Stage 13
   ['meetings', 'meetings'],                                  // Stage 20
   ['decisions', 'decisions'],                                // Stage 21
   ['reviewer_approval', 'approvals/reviewer'],               // Stage 18
@@ -82,6 +81,13 @@ const routes = [
         name: 'transactions',
         component: () => import('../views/TransactionsView.vue'),
         meta: { screenCode: 'transactions' },
+      },
+      {
+        // Stage 13 — full transaction intake and reference allocation.
+        path: 'transactions/create',
+        name: 'transaction_intake',
+        component: () => import('../views/TransactionIntakeView.vue'),
+        meta: { screenCode: 'transaction_intake' },
       },
       {
         // Stage 6 — department tree management.

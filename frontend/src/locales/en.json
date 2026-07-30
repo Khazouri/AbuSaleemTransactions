@@ -133,6 +133,26 @@
     "empty": "No transactions match the current filters.",
     "noReference": "Not generated yet"
   },
+  "intake": {
+    "title": "New transaction intake",
+    "subtitle": "Enter the transaction details and supporting documents before sending it to stage one.",
+    "open": "New transaction",
+    "basicData": "Basic details",
+    "subject": "Transaction subject",
+    "description": "Description",
+    "chooseDepartment": "— Choose a department —",
+    "chooseType": "— Choose a transaction type —",
+    "removeFile": "Remove",
+    "tooManyFiles": "No more than 10 files may be attached.",
+    "submit": "Submit transaction",
+    "submitting": "Submitting…",
+    "submitFailed": "The transaction could not be submitted. Please try again.",
+    "loadFailed": "The intake form options could not be loaded.",
+    "successTitle": "Transaction created",
+    "successBody": "The transaction has entered stage one with New status. Its reference number is:",
+    "createAnother": "Enter another transaction",
+    "viewQueue": "View transaction queue"
+  },
   "attachments": {
     "title": "Attachments",
     "file": "File",
@@ -144,6 +164,15 @@
     "upload": "Upload file",
     "uploading": "Uploading…",
     "uploadFailed": "The file could not be uploaded. Please try again."
+  },
+  "notes": {
+    "title": "Notes",
+    "add": "Add an internal note",
+    "post": "Post note",
+    "posting": "Posting…",
+    "empty": "No notes yet.",
+    "loadFailed": "The notes could not be loaded.",
+    "submitFailed": "The note could not be posted. Please try again."
   },
   "placeholder": {
     "title": "Under construction",

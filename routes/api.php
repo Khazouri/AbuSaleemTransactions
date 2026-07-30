@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
@@ -158,8 +159,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:transactions,view')
         ->get('transactions', [TransactionController::class, 'index']);
 
+    // Stage 13 — controlled transaction intake with locked reference allocation.
+    Route::middleware('screen.permission:transaction_intake,view')
+        ->get('transactions/intake-options', [TransactionController::class, 'intakeOptions']);
+    Route::middleware('screen.permission:transaction_intake,add')
+        ->post('transactions', [TransactionController::class, 'store']);
+
     // Stage 12 — private attachments are written through the dedicated
     // Notes & Attachments capability, not a broad transaction-list privilege.
     Route::middleware('screen.permission:notes_attachments,add')
         ->post('transactions/{transaction}/attachments', [AttachmentController::class, 'store']);
+
+    // Stage 13 — conversation notes are independent from changing workflow state.
+    Route::middleware('screen.permission:notes_attachments,view')
+        ->get('transactions/{transaction}/notes', [NoteController::class, 'index']);
+    Route::middleware('screen.permission:notes_attachments,add')
+        ->post('transactions/{transaction}/notes', [NoteController::class, 'store']);
 });

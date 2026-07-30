@@ -87,6 +87,7 @@ onMounted(async () => {
         <h2>{{ t('transactions.title') }}</h2>
         <p v-if="!loading && !loadError" class="count">{{ page.total }}</p>
       </div>
+      <RouterLink v-can="'transaction_intake.add'" class="primary new-intake" :to="{ name: 'transaction_intake' }">{{ t('intake.open') }}</RouterLink>
     </div>
 
     <form class="card filters" @submit.prevent="applyFilters">
@@ -197,7 +198,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.heading { display: flex; align-items: end; justify-content: space-between; margin-bottom: 1rem; }
+.heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 h2 { margin: 0; color: var(--color-nav); font-size: 1.2rem; }.count { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
 .filters, .list { padding: 1.25rem; margin-bottom: 1rem; }.filters h3 { margin: 0 0 1rem; font-size: 1rem; }
 .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
@@ -207,5 +208,5 @@ select:focus, input:focus { outline: 2px solid var(--color-nav); outline-offset:
 button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }.primary { padding: .5rem .9rem; border: 0; color: #fff; background: var(--color-nav); }.ghost { padding: .4rem .65rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }button:disabled { cursor: not-allowed; opacity: .55; }
 .alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid #fecaca; border-radius: var(--radius-lg); color: #b91c1c; background: #fef2f2; }.alert .ghost { margin-inline-start: .5rem; }
 .state { padding: .5rem; margin: 0; color: var(--color-muted); }.table-wrap { overflow-x: auto; }table { width: 100%; min-width: 780px; border-collapse: collapse; }th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }tr:last-child td { border-bottom: 0; }td { font-size: .84rem; }.title { min-width: 12rem; font-weight: 600; }.reference { display: inline-block; font-family: var(--font-mono); font-size: .75rem; white-space: nowrap; }.status { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; }.status::before { content: ''; width: .5rem; height: .5rem; border-radius: 50%; background: var(--status-color); }
-.pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }.upload-action { white-space: nowrap; }.modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .42); }.upload-modal { inline-size: min(100%, 31rem); padding: 1.25rem; }.modal-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.modal-heading h3 { margin: 0; color: var(--color-nav); font-size: 1rem; }.modal-heading .reference { margin: .15rem 0 0; color: var(--color-muted); }
+.pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }.new-intake { text-decoration: none; white-space: nowrap; }.upload-action { white-space: nowrap; }.modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 1rem; background: rgba(15, 23, 42, .42); }.upload-modal { inline-size: min(100%, 31rem); padding: 1.25rem; }.modal-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.modal-heading h3 { margin: 0; color: var(--color-nav); font-size: 1rem; }.modal-heading .reference { margin: .15rem 0 0; color: var(--color-muted); }
 </style>

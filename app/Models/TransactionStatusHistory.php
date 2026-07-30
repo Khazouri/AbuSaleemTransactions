@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** One immutable status change on a transaction, written by Stage 14. */
 class TransactionStatusHistory extends Model
 {
+    // Migration names the append-only table singularly to match the domain
+    // phrase; make that explicit so Eloquent does not infer `...histories`.
+    protected $table = 'transaction_status_history';
+
     protected $guarded = [];
 
     protected function casts(): array
