@@ -39,9 +39,8 @@ const placeholderScreens = [
   ['ministry_approval', 'approvals/ministry'],               // Stage 18
   ['authority_approval', 'approvals/authority'],             // Stage 18
   ['final_approval', 'approvals/final'],                     // Stage 18
-  ['roles_permissions', 'roles'],                            // Stage 8
-  // NB: `departments` and `users` are NOT here — they're built (Stages 6-7)
-  // and have real components below.
+  // NB: `departments`, `users` and `roles_permissions` are NOT here — they're
+  // built (Stages 6-8) and have real components below.
   ['settings', 'settings'],                                  // Stage 10
   ['reports', 'reports'],                                    // Stage 24
   ['audit_log', 'audit-log'],                                // Stage 22
@@ -93,6 +92,13 @@ const routes = [
         name: 'users',
         component: () => import('../views/UsersView.vue'),
         meta: { screenCode: 'users' },
+      },
+      {
+        // Stage 8 — roles & permissions matrix editor.
+        path: 'roles',
+        name: 'roles_permissions',
+        component: () => import('../views/RolesPermissionsView.vue'),
+        meta: { screenCode: 'roles_permissions' },
       },
       // Expand the list above into one placeholder route each.
       ...placeholderScreens.map(([screenCode, path]) => ({

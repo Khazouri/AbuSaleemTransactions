@@ -14,11 +14,16 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
-### 2026-07-30 — Claude — Stage 7 done, heads-up for Stage 8
+### 2026-07-30 — Claude — Stage 8 done, heads-up for Stage 9
 
-Users CRUD is built (UserController, Store/UpdateUserRequest, UsersView.vue) following the
-Departments pattern — flat unpaginated list, no `show` route, self-protection on
-toggle-active/destroy so an admin can't lock themselves out. Along the way I added a minimal
-read-only `GET /roles` (RoleController + RoleResource) purely so the Users form can offer role
-checkboxes — Stage 8 (roles_permissions) should extend this controller for the actual
-matrix editor rather than creating a new one.
+Roles/permissions matrix editor is built: `ScreenRolePermissionController` (`GET`/`PUT
+/screen-role-permissions`, returns/accepts screens+roles+matrix together) rather than extending
+`RoleController` as the earlier note suggested — the matrix isn't shaped like a Role resource
+(it's a bulk grid of `screen_id`/`role_id`/7 flags), so a dedicated controller matched the data
+better. `RoleResource` gained `description`. Frontend: `RolesPermissionsView.vue` — role tabs
+switch which role's column set shows, screens are always all 23 rows regardless of `is_active`.
+Self-lockout is blocked server-side only (no `can_view=false` for your own role on the
+`roles_permissions` screen itself) — there's no client-side disabling of that specific checkbox,
+just a 422 message if you try. Stage 9 (real enforcement) should read `screen_role_permissions`
+for both the Vue route guard (`meta.screenCode`, see `router/index.js`) and API middleware; the
+seeded defaults already lock everyone but R08 out of `roles_permissions` itself.

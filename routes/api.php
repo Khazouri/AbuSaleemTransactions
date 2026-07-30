@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
+use App\Http\Controllers\Api\ScreenRolePermissionController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -78,6 +79,14 @@ Route::middleware('auth:sanctum')->group(function () {
      * on top of the same `roles` table.
      */
     Route::get('/roles', [RoleController::class, 'index']);
+
+    /*
+     * Roles & permissions matrix (Stage 8) — screens x roles x the seven
+     * can_* actions. index() returns screens, roles and the matrix together;
+     * update() bulk-upserts the whole grid in one request.
+     */
+    Route::get('/screen-role-permissions', [ScreenRolePermissionController::class, 'index']);
+    Route::put('/screen-role-permissions', [ScreenRolePermissionController::class, 'update']);
 
     /*
      * Users (المستخدمون) — Stage 7. Same shape as departments: toggle-active

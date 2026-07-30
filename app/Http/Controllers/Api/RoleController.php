@@ -10,9 +10,9 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 /**
  * Read-only role list.
  *
- * Added in Stage 7 purely so the Users screen can offer the eight fixed
- * roles as checkboxes when assigning an account. Stage 8 (roles_permissions)
- * builds the actual matrix editor on top of this same table.
+ * Added in Stage 7 so the Users screen can offer the eight fixed roles as
+ * checkboxes when assigning an account. Stage 8's matrix editor also reads
+ * this (via ScreenRolePermissionController::index()) for its role tabs.
  */
 class RoleController extends Controller
 {

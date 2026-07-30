@@ -72,6 +72,21 @@
     "empty": "لا يوجد مستخدمون بعد.",
     "selfActionBlocked": "لا يمكنك تنفيذ هذا الإجراء على حسابك الخاص."
   },
+  "rolesPermissions": {
+    "title": "الأدوار والصلاحيات",
+    "role": "الدور",
+    "screen": "الشاشة",
+    "can_view": "عرض",
+    "can_add": "إضافة",
+    "can_edit": "تعديل",
+    "can_delete": "حذف",
+    "can_approve": "اعتماد",
+    "can_print": "طباعة",
+    "can_export": "تصدير",
+    "selectAllInColumn": "تحديد الكل",
+    "unsavedChanges": "لديك تغييرات غير محفوظة.",
+    "saveSuccess": "تم حفظ الصلاحيات بنجاح."
+  },
   "placeholder": {
     "title": "قيد الإنشاء",
     "body": "هذه الشاشة ستُبنى في مرحلة لاحقة من خطة التنفيذ.",

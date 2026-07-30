@@ -8,9 +8,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /**
  * Shapes a Role for the API.
  *
- * Currently backs only the read-only role list the Users screen uses to
- * assign roles to an account (Stage 7). Stage 8 extends this alongside the
- * roles/permission matrix editor.
+ * Backs the Users screen's role checkboxes (Stage 7) and the roles/permission
+ * matrix editor's role tabs (Stage 8) — `description` was added for the
+ * latter, as a tooltip/subtitle next to each role tab.
  */
 class RoleResource extends JsonResource
 {
@@ -24,6 +24,7 @@ class RoleResource extends JsonResource
             'code' => $this->code,
             'name_ar' => $this->name_ar,
             'name_en' => $this->name_en,
+            'description' => $this->description,
         ];
     }
 }

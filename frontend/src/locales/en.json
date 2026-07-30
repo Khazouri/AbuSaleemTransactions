@@ -72,6 +72,21 @@
     "empty": "No users yet.",
     "selfActionBlocked": "You can't do that to your own account."
   },
+  "rolesPermissions": {
+    "title": "Roles & Permissions",
+    "role": "Role",
+    "screen": "Screen",
+    "can_view": "View",
+    "can_add": "Add",
+    "can_edit": "Edit",
+    "can_delete": "Delete",
+    "can_approve": "Approve",
+    "can_print": "Print",
+    "can_export": "Export",
+    "selectAllInColumn": "Select all",
+    "unsavedChanges": "You have unsaved changes.",
+    "saveSuccess": "Permissions saved successfully."
+  },
   "placeholder": {
     "title": "Under construction",
     "body": "This screen is built in a later stage of the implementation plan.",
