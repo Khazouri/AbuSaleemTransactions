@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\ScreenController;
 use Illuminate\Support\Facades\Route;
 
@@ -53,4 +54,19 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     // Sidebar navigation, filtered to the screens this user may view.
     Route::get('/screens', [ScreenController::class, 'index']);
+
+    /*
+     * Departments (الإدارات).
+     *
+     * No `show` route — the SPA already holds the full list from index(), so a
+     * single-department endpoint would be dead weight.
+     *
+     * toggle-active is declared BEFORE the resource routes. Registration order
+     * matters: apiResource creates DELETE/PUT on departments/{department}, and
+     * a later, more specific path would still work here, but keeping explicit
+     * routes above the resource is the habit that avoids surprises once
+     * wildcards get involved.
+     */
+    Route::patch('departments/{department}/toggle-active', [DepartmentController::class, 'toggleActive']);
+    Route::apiResource('departments', DepartmentController::class)->except(['show']);
 });
