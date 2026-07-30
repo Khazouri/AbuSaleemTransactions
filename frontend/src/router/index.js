@@ -126,8 +126,11 @@ const router = createRouter({
  * Global guard — runs before every navigation.
  * Return a location to redirect, or true to allow.
  *
- * Stage 9 extends this to check `meta.screenCode` against the user's
- * permission matrix, so a user can't reach a screen their role can't view.
+ * Stage 9 — checks `meta.screenCode` against the user's permission matrix
+ * (auth.can), so a user can't reach a screen their role can't view just by
+ * typing/bookmarking the URL. This is UX only: the matching
+ * screen.permission middleware on the API is what actually enforces it, so
+ * a blocked route and a rejected request always agree.
  */
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
@@ -144,6 +147,12 @@ router.beforeEach(async (to) => {
 
   if (to.meta.guestOnly && auth.isAuthenticated) {
     return { name: 'dashboard' }
+  }
+
+  if (to.meta.screenCode && auth.isAuthenticated && !auth.can(to.meta.screenCode, 'view')) {
+    // Bail out instead of redirecting if even the dashboard is denied —
+    // redirecting to it would just bounce straight back here forever.
+    return to.name === 'dashboard' ? false : { name: 'dashboard' }
   }
 
   return true

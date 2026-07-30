@@ -109,4 +109,47 @@ class User extends Authenticatable
             ->whereHas('permissions', fn ($q) => $q->where('key', $key))
             ->exists();
     }
+
+    /**
+     * Resolved screen x action permission map — the SOURCE OF TRUTH consumed
+     * by both CheckScreenPermission (API) and UserResource (so the SPA's
+     * router guard and v-can directive see the same answer).
+     *
+     * Unioned across every role the user holds: if ANY role grants an action
+     * on a screen, the user has it. Two queries regardless of role count
+     * (roles, then the matching screen_role_permissions rows with their
+     * screen eager-loaded) rather than N.
+     *
+     * @return array<string, array<string, bool>> screen code => action => bool
+     */
+    public function screenPermissions(): array
+    {
+        $roleIds = $this->roles()->pluck('roles.id');
+
+        $rows = ScreenRolePermission::query()
+            ->with('screen:id,code')
+            ->whereIn('role_id', $roleIds)
+            ->get();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $code = $row->screen->code;
+            $map[$code] ??= array_fill_keys(ScreenRolePermission::ACTIONS, false);
+            foreach (ScreenRolePermission::ACTIONS as $action) {
+                $map[$code][$action] = $map[$code][$action] || $row->$action;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Does any of the user's roles grant $action (e.g. 'can_view') on the
+     * screen identified by $screenCode? The single check CheckScreenPermission
+     * runs on every route it guards.
+     */
+    public function hasScreenPermission(string $screenCode, string $action): bool
+    {
+        return (bool) ($this->screenPermissions()[$screenCode][$action] ?? false);
+    }
 }

@@ -179,7 +179,7 @@ onMounted(() => {
 <template>
   <section>
     <div class="toolbar">
-      <button class="primary" @click="startCreate">+ {{ t('users.add') }}</button>
+      <button v-can="'users.add'" class="primary" @click="startCreate">+ {{ t('users.add') }}</button>
     </div>
 
     <p v-if="formError" class="alert">{{ formError }}</p>
@@ -284,8 +284,9 @@ onMounted(() => {
             </td>
 
             <td class="row-actions">
-              <button class="ghost" @click="startEdit(user)">{{ t('common.edit') }}</button>
+              <button v-can="'users.edit'" class="ghost" @click="startEdit(user)">{{ t('common.edit') }}</button>
               <button
+                v-can="'users.edit'"
                 class="ghost"
                 :disabled="user.id === auth.user?.id"
                 :title="user.id === auth.user?.id ? t('users.selfActionBlocked') : ''"
@@ -294,6 +295,7 @@ onMounted(() => {
                 {{ user.is_active ? t('common.deactivate') : t('common.activate') }}
               </button>
               <button
+                v-can="'users.delete'"
                 class="ghost danger"
                 :disabled="user.id === auth.user?.id"
                 :title="user.id === auth.user?.id ? t('users.selfActionBlocked') : ''"

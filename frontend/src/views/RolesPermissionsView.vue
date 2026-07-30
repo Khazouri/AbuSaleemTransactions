@@ -14,8 +14,12 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { useAuthStore } from '../stores/auth'
+import { useScreensStore } from '../stores/screens'
 
 const { t, locale } = useI18n()
+const auth = useAuthStore()
+const screensStore = useScreensStore()
 
 const ACTIONS = ['can_view', 'can_add', 'can_edit', 'can_delete', 'can_approve', 'can_print', 'can_export']
 
@@ -125,6 +129,10 @@ async function save() {
 
   try {
     await api.put('/screen-role-permissions', { items })
+    await Promise.all([
+      auth.fetchMe(),
+      screensStore.fetchScreens(true),
+    ])
     dirty.value = false
     saveSuccess.value = true
   } catch (e) {
@@ -198,7 +206,7 @@ onMounted(load)
       </div>
 
       <div class="actions">
-        <button class="primary" type="button" :disabled="saving || !dirty" @click="save">
+        <button v-can="'roles_permissions.edit'" class="primary" type="button" :disabled="saving || !dirty" @click="save">
           {{ saving ? t('common.saving') : t('common.save') }}
         </button>
         <span v-if="dirty" class="hint">{{ t('rolesPermissions.unsavedChanges') }}</span>

@@ -12,7 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // Stage 9 — screen x action permission enforcement, reading
+        // screen_role_permissions. Applied per-route as
+        // 'screen.permission:<screen_code>,<action>'.
+        $middleware->alias([
+            'screen.permission' => \App\Http\Middleware\CheckScreenPermission::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

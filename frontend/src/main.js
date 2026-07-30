@@ -15,6 +15,7 @@ import i18n from './i18n'
 import { setUnauthorizedHandler } from './lib/api'
 import { useAuthStore } from './stores/auth'
 import { useScreensStore } from './stores/screens'
+import vCan from './directives/can'
 
 /**
  * Application entry point: builds the Vue app, installs Pinia (state),
@@ -30,6 +31,8 @@ app.use(router)
 // Importing i18n has already set <html lang/dir> for the saved locale, so the
 // first paint is in the right language and direction.
 app.use(i18n)
+// Stage 9 — hides elements the signed-in user's role can't act on.
+app.directive('can', vCan)
 
 /*
  * Connect the API client to the stores.

@@ -215,7 +215,7 @@ onMounted(load)
 <template>
   <section>
     <div class="toolbar">
-      <button class="primary" @click="startCreate">+ {{ t('departments.add') }}</button>
+      <button v-can="'departments.add'" class="primary" @click="startCreate">+ {{ t('departments.add') }}</button>
     </div>
 
     <p v-if="formError" class="alert">{{ formError }}</p>
@@ -301,11 +301,11 @@ onMounted(load)
             </td>
 
             <td class="row-actions">
-              <button class="ghost" @click="startEdit(dept)">{{ t('common.edit') }}</button>
-              <button class="ghost" @click="toggleActive(dept)">
+              <button v-can="'departments.edit'" class="ghost" @click="startEdit(dept)">{{ t('common.edit') }}</button>
+              <button v-can="'departments.edit'" class="ghost" @click="toggleActive(dept)">
                 {{ dept.is_active ? t('common.deactivate') : t('common.activate') }}
               </button>
-              <button class="ghost danger" @click="remove(dept)">{{ t('common.delete') }}</button>
+              <button v-can="'departments.delete'" class="ghost danger" @click="remove(dept)">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>

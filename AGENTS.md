@@ -61,11 +61,15 @@ Key architectural facts worth knowing before changing things:
   transaction types, workflow stages) — check for it before assuming a plain
   `destroy()` is safe.
 - **Screens/permissions**: `screens`, `roles`, `permissions`,
-  `screen_role_permissions` model a menu-and-permission matrix. The frontend
-  router already carries a `screenCode` on every route in anticipation of
-  checking it against the signed-in user's permissions (not fully wired yet —
-  check `frontend/src/router/index.js` for the current state before assuming
-  it's enforced).
+  `screen_role_permissions` model a menu-and-permission matrix, and it is
+  enforced on both sides (Stage 9): the API's `screen.permission:<code>,
+  <action>` route middleware (`App\Http\Middleware\CheckScreenPermission`) and
+  the Vue router's `beforeEach` guard (checking `meta.screenCode` against
+  `auth.can()`) both read it, so a blocked route and a rejected request always
+  agree. New CRUD endpoints should register per-verb routes with
+  `screen.permission:<screen_code>,<action>` rather than a bare
+  `apiResource()`, and new action buttons should carry
+  `v-can="'<screen_code>.<action>'"` (`frontend/src/directives/can.js`).
 - **RTL/i18n**: layout CSS uses logical properties (`margin-inline-start`,
   `text-align: start`, etc.), not `left`/`right`, so the UI mirrors
   automatically when `vue-i18n` flips `dir` on `<html>`. Don't introduce

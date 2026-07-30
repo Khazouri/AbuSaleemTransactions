@@ -68,7 +68,12 @@ class AuthController extends Controller
             'token' => $token,
             // Eager-load so the SPA gets roles/department in this one response
             // and doesn't need a follow-up request to render the shell.
-            'user' => new UserResource($user->load('roles', 'department')),
+            //
+            // withPermissions() is what lets the router guard and v-can work
+            // on the very first navigation after signing in — without it the
+            // SPA holds an empty permission set until the next page refresh,
+            // and every screen (including the dashboard) looks forbidden.
+            'user' => (new UserResource($user->load('roles', 'department')))->withPermissions(),
         ]);
     }
 
@@ -79,9 +84,9 @@ class AuthController extends Controller
      */
     public function me(Request $request): UserResource
     {
-        return new UserResource(
+        return (new UserResource(
             $request->user()->load('roles', 'department'),
-        );
+        ))->withPermissions();
     }
 
     /**

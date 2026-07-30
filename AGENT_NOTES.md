@@ -25,16 +25,22 @@ a `backend/` subfolder, but the actual repo has Laravel at the root (see AGENTS.
 section) — that ship sailed by the time Stage 1 was actually built, so treat STAGE_PLAN.md as the
 goal/scope reference per stage, not literal file-layout instructions.
 
-### 2026-07-30 — Claude — Stage 8 done, heads-up for Stage 9
+### 2026-07-30 — Claude — Stage 9 done, heads-up for Stage 10+
 
-Roles/permissions matrix editor is built: `ScreenRolePermissionController` (`GET`/`PUT
-/screen-role-permissions`, returns/accepts screens+roles+matrix together) rather than extending
-`RoleController` as the earlier note suggested — the matrix isn't shaped like a Role resource
-(it's a bulk grid of `screen_id`/`role_id`/7 flags), so a dedicated controller matched the data
-better. `RoleResource` gained `description`. Frontend: `RolesPermissionsView.vue` — role tabs
-switch which role's column set shows, screens are always all 23 rows regardless of `is_active`.
-Self-lockout is blocked server-side only (no `can_view=false` for your own role on the
-`roles_permissions` screen itself) — there's no client-side disabling of that specific checkbox,
-just a 422 message if you try. Stage 9 (real enforcement) should read `screen_role_permissions`
-for both the Vue route guard (`meta.screenCode`, see `router/index.js`) and API middleware; the
-seeded defaults already lock everyone but R08 out of `roles_permissions` itself.
+Enforcement is real now, both sides, reading `screen_role_permissions` as the single source of
+truth. Backend: `User::screenPermissions()`/`hasScreenPermission()` resolve the union across a
+user's roles; `CheckScreenPermission` middleware (aliased `screen.permission` in
+`bootstrap/app.php`) is applied per HTTP verb in `routes/api.php` as
+`screen.permission:<screen_code>,<action>` (e.g. `users,edit`) — `apiResource()` got split into
+individual verb routes for `departments`/`users` specifically so each verb can require a different
+action. `UserResource` now includes a `permissions` map, but ONLY for the caller's own record
+(`$request->user()?->is($this->resource)`) to avoid N extra queries when `UserController::index()`
+wraps every other user in the same resource. `/roles` and `/screens` were deliberately left without
+a `screen.permission` check — see the comments above them in `routes/api.php` for why. Frontend:
+`auth.js` gained `permissions`/`can(screenCode, action)`; the router guard
+(`router/index.js`) now blocks navigation when `can(meta.screenCode, 'view')` is false; a new
+`v-can="'screen.action'"` directive (`frontend/src/directives/can.js`, registered in `main.js`)
+hides buttons the user can't act on — applied to the add/edit/delete buttons on Users, Departments,
+and the Save button on Roles & Permissions. When Stage 10+ adds a new screen's CRUD, follow this
+same pattern: split verb routes with `screen.permission:<code>,<action>` instead of a bare
+`apiResource()`, and add `v-can` to its action buttons.

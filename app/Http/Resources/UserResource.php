@@ -18,6 +18,30 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class UserResource extends JsonResource
 {
+    /** @see withPermissions() */
+    protected bool $includePermissions = false;
+
+    /**
+     * Opt in to the resolved screen x action permission map (Stage 9).
+     *
+     * Opt-IN rather than automatic, because resolving permissions costs a
+     * query pair per user and only the signed-in user's own set is ever
+     * useful — UserController::index() wraps the whole staff roster in this
+     * same resource, where computing it for every row would be waste nobody
+     * reads.
+     *
+     * Deliberately NOT inferred from $request->user(): during login the
+     * request is unauthenticated (that's the point of the endpoint), so any
+     * "is this the caller?" check silently omits the map from the one
+     * response the SPA needs it in most.
+     */
+    public function withPermissions(): static
+    {
+        $this->includePermissions = true;
+
+        return $this;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -48,8 +72,14 @@ class UserResource extends JsonResource
                 'name_en' => $role->name_en,
             ])->values()),
 
-            // Stage 9 adds the resolved screen x action permission set here, so
-            // the SPA can build its menu and hide buttons from one payload.
+            // Stage 9 — the resolved screen x action permission set, so the
+            // SPA's router guard and v-can directive can check it without a
+            // follow-up request. Present only when withPermissions() asked
+            // for it (login and /auth/me).
+            'permissions' => $this->when(
+                $this->includePermissions,
+                fn () => $this->screenPermissions(),
+            ),
         ];
     }
 }

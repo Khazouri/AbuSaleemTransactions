@@ -55,7 +55,9 @@ Route::prefix('auth')->group(function () {
  * Signed-in application routes.
  */
 Route::middleware('auth:sanctum')->group(function () {
-    // Sidebar navigation, filtered to the screens this user may view.
+    // Sidebar navigation, filtered to the screens this user may view. Menu
+    // filtering only — see ScreenController's docblock — so it stays
+    // unguarded by screen.permission itself.
     Route::get('/screens', [ScreenController::class, 'index']);
 
     /*
@@ -64,36 +66,58 @@ Route::middleware('auth:sanctum')->group(function () {
      * No `show` route — the SPA already holds the full list from index(), so a
      * single-department endpoint would be dead weight.
      *
-     * toggle-active is declared BEFORE the resource routes. Registration order
-     * matters: apiResource creates DELETE/PUT on departments/{department}, and
-     * a later, more specific path would still work here, but keeping explicit
-     * routes above the resource is the habit that avoids surprises once
-     * wildcards get involved.
+     * Stage 9 — each verb is gated by screen.permission against the
+     * `departments` screen's matching can_* flag, split out of a plain
+     * apiResource() so index/store/update/destroy can each require a
+     * different action. toggle-active is grouped with update under `edit`
+     * since it's a state change, not a deletion; it stays declared before the
+     * {department} wildcard route so it can't be shadowed.
      */
-    Route::patch('departments/{department}/toggle-active', [DepartmentController::class, 'toggleActive']);
-    Route::apiResource('departments', DepartmentController::class)->except(['show']);
+    Route::middleware('screen.permission:departments,view')
+        ->get('departments', [DepartmentController::class, 'index']);
+    Route::middleware('screen.permission:departments,add')
+        ->post('departments', [DepartmentController::class, 'store']);
+    Route::middleware('screen.permission:departments,edit')->group(function () {
+        Route::patch('departments/{department}/toggle-active', [DepartmentController::class, 'toggleActive']);
+        Route::put('departments/{department}', [DepartmentController::class, 'update']);
+    });
+    Route::middleware('screen.permission:departments,delete')
+        ->delete('departments/{department}', [DepartmentController::class, 'destroy']);
 
     /*
      * Read-only role list (Stage 7) — the Users screen needs it to offer
-     * roles as checkboxes. Stage 8 builds the roles/permission matrix editor
-     * on top of the same `roles` table.
+     * roles as checkboxes, and the Roles & Permissions screen needs it for
+     * its role tabs. It doesn't map to a single screen, and role
+     * codes/names aren't sensitive on their own, so it stays behind
+     * auth:sanctum only rather than a screen.permission check.
      */
     Route::get('/roles', [RoleController::class, 'index']);
 
     /*
      * Roles & permissions matrix (Stage 8) — screens x roles x the seven
      * can_* actions. index() returns screens, roles and the matrix together;
-     * update() bulk-upserts the whole grid in one request.
+     * update() bulk-upserts the whole grid in one request. Stage 9 gates both
+     * behind the `roles_permissions` screen itself.
      */
-    Route::get('/screen-role-permissions', [ScreenRolePermissionController::class, 'index']);
-    Route::put('/screen-role-permissions', [ScreenRolePermissionController::class, 'update']);
+    Route::middleware('screen.permission:roles_permissions,view')
+        ->get('/screen-role-permissions', [ScreenRolePermissionController::class, 'index']);
+    Route::middleware('screen.permission:roles_permissions,edit')
+        ->put('/screen-role-permissions', [ScreenRolePermissionController::class, 'update']);
 
     /*
-     * Users (المستخدمون) — Stage 7. Same shape as departments: toggle-active
-     * declared before the resource so it can't be shadowed by the {user}
-     * wildcard, and no `show` since the SPA already holds the full list from
-     * index().
+     * Users (المستخدمون) — Stage 7. Same shape as departments: verbs gated
+     * individually against the `users` screen (Stage 9), toggle-active grouped
+     * under `edit` and declared before the {user} wildcard, no `show` since
+     * the SPA already holds the full list from index().
      */
-    Route::patch('users/{user}/toggle-active', [UserController::class, 'toggleActive']);
-    Route::apiResource('users', UserController::class)->except(['show']);
+    Route::middleware('screen.permission:users,view')
+        ->get('users', [UserController::class, 'index']);
+    Route::middleware('screen.permission:users,add')
+        ->post('users', [UserController::class, 'store']);
+    Route::middleware('screen.permission:users,edit')->group(function () {
+        Route::patch('users/{user}/toggle-active', [UserController::class, 'toggleActive']);
+        Route::put('users/{user}', [UserController::class, 'update']);
+    });
+    Route::middleware('screen.permission:users,delete')
+        ->delete('users/{user}', [UserController::class, 'destroy']);
 });
