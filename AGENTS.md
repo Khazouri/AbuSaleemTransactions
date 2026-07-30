@@ -63,7 +63,7 @@ Key architectural facts worth knowing before changing things:
 - **Screens/permissions**: `screens`, `roles`, `permissions`,
   `screen_role_permissions` model a menu-and-permission matrix, and it is
   enforced on both sides (Stage 9): the API's `screen.permission:<code>,
-  <action>` route middleware (`App\Http\Middleware\CheckScreenPermission`) and
+<action>` route middleware (`App\Http\Middleware\CheckScreenPermission`) and
   the Vue router's `beforeEach` guard (checking `meta.screenCode` against
   `auth.can()`) both read it, so a blocked route and a rejected request always
   agree. New CRUD endpoints should register per-verb routes with
@@ -87,8 +87,8 @@ Key architectural facts worth knowing before changing things:
 - **Implementation plans first**: before making implementation changes, write
   a concise implementation plan that identifies the intended scope, affected
   areas, and verification approach. Update the plan if new findings materially
-  change the work.
-- **Comment the *why*, not the *what***. This codebase leans heavily on doc
+  change the work. add the plan to AGENT_NOTES.md with prefix of date,time and the agent before starting the implementation.
+- **Comment the _why_, not the _what_**. This codebase leans heavily on doc
   comments that explain non-obvious reasoning (why a check exists, why an
   order matters, why a shortcut is safe) — see
   `app/Http/Controllers/Api/DepartmentController.php` or
@@ -102,7 +102,7 @@ Key architectural facts worth knowing before changing things:
   audience (see `UpdateDepartmentRequest::messages()`). Follow that pattern for
   new resources unless told otherwise.
 - **Route registration order matters**: explicit routes (e.g.
-  `toggle-active`) are declared *before* `apiResource(...)` so a wildcard
+  `toggle-active`) are declared _before_ `apiResource(...)` so a wildcard
   route can't shadow them.
 - **Resources over raw models**: controllers never return Eloquent models
   directly; always wrap in an `Http\Resources` class.
@@ -161,7 +161,7 @@ sessions, neither of which sees the other's conversation. `AGENTS.md` (this
 file) is the shared, stable reference both read automatically — Codex natively,
 Claude Code via the `@AGENTS.md` import in `CLAUDE.md`.
 
-For anything short-lived that the *other* agent should know before continuing
+For anything short-lived that the _other_ agent should know before continuing
 — a decision made, a workaround left in place, something left half-done, a
 question you couldn't resolve — leave a note in [AGENT_NOTES.md](AGENT_NOTES.md)
 instead of cramming it in here. Rules:

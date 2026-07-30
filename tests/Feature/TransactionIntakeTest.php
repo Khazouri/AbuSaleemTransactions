@@ -45,6 +45,7 @@ class TransactionIntakeTest extends TestCase
                 'description' => 'وصف طلب الترقية.',
                 'department_id' => $department->id,
                 'transaction_type_id' => $type->id,
+                'decision_grade' => 11,
                 'attachments' => [[
                     'file' => UploadedFile::fake()->create('promotion.pdf', 120, 'application/pdf'),
                     'label' => 'قرار الترقية',
@@ -58,6 +59,7 @@ class TransactionIntakeTest extends TestCase
 
         $transaction = Transaction::firstOrFail();
         $this->assertSame($admin->id, $transaction->created_by_user_id);
+        $this->assertSame(11, $transaction->decision_grade);
         $this->assertNotNull($transaction->submitted_at);
         $this->assertSame(
             $transaction->submitted_at->copy()->startOfDay()->addDays($type->default_sla_days)->toDateString(),
@@ -91,9 +93,28 @@ class TransactionIntakeTest extends TestCase
                     'title' => "معاملة {$sequence}",
                     'department_id' => $department->id,
                     'transaction_type_id' => $type->id,
+                    'decision_grade' => 9,
                 ])
                 ->assertCreated()
                 ->assertJsonPath('data.reference_number', now()->format('Y').sprintf('-ADM-%06d', $sequence));
         }
+    }
+
+    public function test_decision_grade_is_required_when_the_type_has_a_ministry_threshold(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/transactions', [
+                'title' => 'معاملة بلا درجة',
+                'department_id' => Department::where('code', 'ADM')->value('id'),
+                'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('decision_grade');
+
+        $this->assertDatabaseCount('transactions', 0);
     }
 }

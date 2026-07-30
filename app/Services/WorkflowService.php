@@ -3,10 +3,12 @@
 namespace App\Services;
 
 use App\Exceptions\WorkflowTransitionException;
+use App\Models\Approval;
 use App\Models\Transaction;
 use App\Models\TransactionStageLog;
 use App\Models\TransactionStatusHistory;
 use App\Models\User;
+use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +22,21 @@ use Illuminate\Support\Facades\DB;
  */
 class WorkflowService
 {
+    /**
+     * Workflow stage code => immutable business approval level.
+     *
+     * Stage order remains useful for routing, while this level gives reports
+     * a stable reviewer-to-final sequence even if stage labels later change.
+     */
+    private const APPROVAL_LEVELS = [
+        'requirements_check' => 1,
+        'receive_from_committee' => 2,
+        'approval_by_authority' => 3,
+        'local_governance_ministry' => 4,
+        'competent_authority' => 5,
+        'final_approval_archiving' => 6,
+    ];
+
     /**
      * Actions this actor may currently attempt, for rendering the workspace.
      *
@@ -163,8 +180,9 @@ class WorkflowService
 
             $fromStageId = $lockedTransaction->current_stage_id;
             $fromStatusId = $lockedTransaction->status_id;
+            $toStageId = $this->destinationStageId($lockedTransaction, $rule);
 
-            $lockedTransaction->current_stage_id = $rule->to_stage_id;
+            $lockedTransaction->current_stage_id = $toStageId;
             if ($rule->set_status_id !== null) {
                 $lockedTransaction->status_id = $rule->set_status_id;
             }
@@ -175,12 +193,25 @@ class WorkflowService
             TransactionStageLog::create([
                 'transaction_id' => $lockedTransaction->id,
                 'from_stage_id' => $fromStageId,
-                'to_stage_id' => $rule->to_stage_id,
+                'to_stage_id' => $toStageId,
                 'action' => $action,
                 'comment' => $comment,
                 'acted_by_user_id' => $actor->id,
                 'acted_at' => $occurredAt,
             ]);
+
+            $approvalLevel = $this->approvalLevel($rule);
+            if ($approvalLevel !== null) {
+                Approval::create([
+                    'transaction_id' => $lockedTransaction->id,
+                    'level' => $approvalLevel,
+                    'role_id' => $rule->required_role_id,
+                    'approved_by_user_id' => $actor->id,
+                    'action' => $action,
+                    'comment' => $comment,
+                    'approved_at' => $occurredAt,
+                ]);
+            }
 
             // A configured status is stamped and recorded on every move, even
             // when adjacent stages share a broad status such as `in_review`.
@@ -225,6 +256,36 @@ class WorkflowService
         return $specific->isNotEmpty()
             ? $specific
             : $candidates->whereNull('transaction_type_id')->values();
+    }
+
+    /**
+     * Stage 18 conditional branch: after the admin manager approves, low-grade
+     * work bypasses ministry and lands directly with the competent authority.
+     */
+    private function destinationStageId(Transaction $transaction, WorkflowTransition $rule): int
+    {
+        $fromStageCode = $rule->fromStage()->value('code');
+
+        if ($rule->action !== 'approve'
+            || $fromStageCode !== 'approval_by_authority'
+            || $transaction->requiresMinistryApproval()) {
+            return $rule->to_stage_id;
+        }
+
+        return WorkflowStage::query()
+            ->where('code', 'competent_authority')
+            ->firstOrFail()
+            ->id;
+    }
+
+    /** Only normal `approve` moves belong in the approval-specific ledger. */
+    private function approvalLevel(WorkflowTransition $rule): ?int
+    {
+        if ($rule->action !== 'approve' || $rule->is_exception) {
+            return null;
+        }
+
+        return self::APPROVAL_LEVELS[$rule->fromStage()->value('code')] ?? null;
     }
 
     /**

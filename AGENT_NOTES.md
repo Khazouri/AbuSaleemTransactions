@@ -14,6 +14,10 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-07-30 21:38 EET — Codex — Stage 18 approval chain complete
+
+Added the atomic `approvals` ledger, six permission-gated approval queues, required decision-grade intake, and strict reviewer/committee/admin/ministry-or-bypass/authority/final sequencing; grades below the type threshold skip ministry while at/above-threshold and legacy null grades take the conservative ministry path. Stage 11 now holds `final_approved` work until a final archival approval, and both queue and transaction-detail approval paths honor the matching screen permission before `WorkflowService` rechecks stage/role under lock. Configured MySQL has the migration applied and the stage/transition map reseeded (11 normal moves and 11 cancellation paths); all 29 PHPUnit tests (211 assertions), focused Pint, frontend production build, migration status, routes, and diff checks pass.
+
 ### 2026-07-30 21:16 EET — Codex — Stage 17 SLA and deadline escalation complete
 
 Transaction intake now derives `due_date` from each type's `default_sla_days`; the nightly `transactions:flag-overdue` command backfills legacy dates and records an idempotent `overdue_at` flag only for open transactions. Seeded `deadline_expired` exception transitions let R08 route flagged work to ministry oversight with a mandatory reason, while the detail UI shows the breach and the action only after the sweep flags it. The configured MySQL database has the migration applied and workflow map reseeded; full PHPUnit (23 tests), focused Pint, the frontend production build, migration/schedule checks, and diff validation pass.

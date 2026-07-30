@@ -17,6 +17,9 @@ class TransactionDetailResource extends TransactionResource
                 'name' => $this->createdBy->name,
             ] : null,
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
+            // Stage 18 — the authoritative approval chain, separate from the
+            // broader timeline that also contains forwards and exceptions.
+            'approvals' => ApprovalResource::collection($this->whenLoaded('approvals')),
             'timeline' => $this->whenLoaded('stageLogs', function () {
                 return $this->stageLogs->map(fn ($log) => [
                     'id' => $log->id,

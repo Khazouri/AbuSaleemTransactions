@@ -16,6 +16,7 @@ use App\Models\TransactionStageLog;
 use App\Models\TransactionStatus;
 use App\Models\TransactionStatusHistory;
 use App\Models\TransactionType;
+use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\TransactionDeadlineService;
 use App\Services\TransactionReferenceGenerator;
@@ -43,7 +44,7 @@ class TransactionController extends Controller
         $transactions = Transaction::query()
             ->with([
                 'department:id,name_ar,name_en,code',
-                'transactionType:id,code,name_ar,name_en',
+                'transactionType:id,code,name_ar,name_en,decision_grade_threshold',
                 'status:id,code,name_ar,name_en,color',
                 'currentStage:id,order_no,code,name_ar,name_en',
             ])
@@ -92,7 +93,7 @@ class TransactionController extends Controller
                 'types' => TransactionType::query()
                     ->where('is_active', true)
                     ->orderBy('name_ar')
-                    ->get(['id', 'code', 'name_ar', 'name_en']),
+                    ->get(['id', 'code', 'name_ar', 'name_en', 'decision_grade_threshold']),
             ],
         ]);
     }
@@ -124,6 +125,7 @@ class TransactionController extends Controller
                     'created_by_user_id' => $request->user()->id,
                     'submitted_at' => $submittedAt,
                     'due_date' => $deadlines->dueDateFor($type, $submittedAt),
+                    'decision_grade' => $data['decision_grade'] ?? null,
                 ]);
 
                 foreach ($request->file('attachments', []) as $index => $attachmentInput) {
@@ -161,7 +163,7 @@ class TransactionController extends Controller
 
                 return $transaction->load([
                     'department:id,name_ar,name_en,code',
-                    'transactionType:id,code,name_ar,name_en',
+                    'transactionType:id,code,name_ar,name_en,decision_grade_threshold',
                     'status:id,code,name_ar,name_en,color',
                     'currentStage:id,order_no,code,name_ar,name_en',
                 ]);
@@ -191,10 +193,20 @@ class TransactionController extends Controller
         Transaction $transaction,
         WorkflowService $workflow,
     ): TransactionDetailResource {
+        $action = $request->validated('action');
+
+        // Stage 18 — the older generic workspace endpoint must not become a
+        // back door around a revoked approval-screen capability.
+        if ($action === 'approve' && ! $this->actorCanApproveCurrentLevel($transaction, $request->user())) {
+            throw ValidationException::withMessages([
+                'action' => ['لا تملك صلاحية الاعتماد في هذه المرحلة.'],
+            ]);
+        }
+
         try {
             $transaction = $workflow->transition(
                 $transaction,
-                $request->validated('action'),
+                $action,
                 $request->user(),
                 $request->validated('comment'),
             );
@@ -211,7 +223,7 @@ class TransactionController extends Controller
     {
         $transaction->load([
             'department:id,name_ar,name_en,code',
-            'transactionType:id,code,name_ar,name_en',
+            'transactionType:id,code,name_ar,name_en,decision_grade_threshold',
             'status:id,code,name_ar,name_en,color',
             'currentStage:id,order_no,code,name_ar,name_en',
             'createdBy:id,name',
@@ -220,8 +232,14 @@ class TransactionController extends Controller
             'stageLogs.fromStage:id,order_no,code,name_ar,name_en',
             'stageLogs.toStage:id,order_no,code,name_ar,name_en',
             'stageLogs.actedBy:id,name',
+            'approvals' => fn ($query) => $query->orderBy('approved_at')->orderBy('id'),
+            'approvals.role:id,code,name_ar,name_en',
+            'approvals.approvedBy:id,name',
         ]);
-        $availableTransitions = $workflow->availableTransitions($transaction, $actor);
+        $availableTransitions = $workflow->availableTransitions($transaction, $actor)
+            ->filter(fn ($rule) => $rule->action !== 'approve'
+                || $this->actorCanApproveCurrentLevel($transaction, $actor))
+            ->values();
         $transaction->setAttribute('available_actions', $availableTransitions->pluck('action')->all());
         $transaction->setAttribute('available_transitions', $availableTransitions->map(fn ($rule) => [
             'action' => $rule->action,
@@ -230,5 +248,22 @@ class TransactionController extends Controller
         ])->values()->all());
 
         return new TransactionDetailResource($transaction);
+    }
+
+    /** Approval screen paired with each of Stage 18's six checkpoints. */
+    private function actorCanApproveCurrentLevel(Transaction $transaction, User $actor): bool
+    {
+        $screenByStage = [
+            2 => 'reviewer_approval',
+            7 => 'committee_head_approval',
+            8 => 'admin_manager_approval',
+            9 => 'ministry_approval',
+            10 => 'authority_approval',
+            11 => 'final_approval',
+        ];
+        $stageOrder = $transaction->currentStage()->value('order_no');
+        $screenCode = $screenByStage[$stageOrder] ?? null;
+
+        return $screenCode === null || $actor->hasScreenPermission($screenCode, 'can_approve');
     }
 }

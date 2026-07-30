@@ -23,18 +23,27 @@ class WorkflowTransitionSeeder extends Seeder
         $roles = Role::query()->get()->keyBy('code');
         $statuses = TransactionStatus::query()->get()->keyBy('code');
 
+        // Stage 18 changes several checkpoint verbs/roles. Remove only the
+        // seeded generic happy path first so old rows cannot survive a re-seed
+        // beside their replacement and create an ambiguous route.
+        WorkflowTransition::query()
+            ->whereNull('transaction_type_id')
+            ->where('is_exception', false)
+            ->delete();
+
         // [from, to, action, required role, resulting status]
         $transitions = [
             [1, 2, 'forward', 'R02', 'in_review'],
             [2, 3, 'approve', 'R02', 'in_review'],
             [3, 4, 'forward', 'R02', 'in_review'],
             [4, 5, 'forward', 'R02', 'ready'],
-            [5, 6, 'approve', 'R05', 'ready'],
+            [5, 6, 'forward', 'R05', 'ready'],
             [6, 7, 'forward', 'R05', 'in_meeting'],
-            [7, 8, 'forward', 'R03', 'decided'],
-            [8, 9, 'approve', 'R03', 'approved'],
-            [9, 10, 'approve', 'R06', 'final_approved'],
-            [10, 11, 'approve', 'R07', 'archived'],
+            [7, 8, 'approve', 'R03', 'decided'],
+            [8, 9, 'approve', 'R05', 'approved'],
+            [9, 10, 'approve', 'R06', 'approved'],
+            [10, 11, 'approve', 'R07', 'final_approved'],
+            [11, 11, 'approve', 'R07', 'archived'],
         ];
 
         foreach ($transitions as $order => [$from, $to, $action, $role, $status]) {
@@ -85,9 +94,10 @@ class WorkflowTransitionSeeder extends Seeder
             5 => 'R05',
             6 => 'R05',
             7 => 'R03',
-            8 => 'R03',
+            8 => 'R05',
             9 => 'R06',
             10 => 'R07',
+            11 => 'R07',
         ];
 
         foreach ($cancellationRoles as $stage => $role) {

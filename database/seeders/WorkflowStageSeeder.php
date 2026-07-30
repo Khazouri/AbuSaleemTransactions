@@ -31,7 +31,7 @@ class WorkflowStageSeeder extends Seeder
             [5,  'ministry_endorsement',      'اعتماد الوزارة',                  'Ministry endorsement',         'R05'],
             [6,  'forward_to_committee',      'تحويل المعاملة للجنة القائمة',     'Forward to committee',         'R05'],
             [7,  'receive_from_committee',    'استلام المعاملة من اللجنة',        'Receive from committee',       'R03'],
-            [8,  'approval_by_authority',     'اعتماد (حسب الصلاحيات)',          'Approval (per permissions)',   'R03'],
+            [8,  'approval_by_authority',     'اعتماد (حسب الصلاحيات)',          'Approval (per permissions)',   'R05'],
             [9,  'local_governance_ministry', 'وزارة الحكم المحلي',              'Local Governance Ministry',    'R06'],
             [10, 'competent_authority',       'اعتماد الجهة المختصة',            'Competent authority approval', 'R07'],
             [11, 'final_approval_archiving',  'الاعتماد النهائي والأرشفة',        'Final approval & archiving',   'R07'],

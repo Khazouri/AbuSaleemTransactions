@@ -144,6 +144,8 @@
     "description": "Description",
     "chooseDepartment": "— Choose a department —",
     "chooseType": "— Choose a transaction type —",
+    "decisionGrade": "Decision grade",
+    "decisionGradeHint": "Grades at or above {threshold} require ministry approval.",
     "removeFile": "Remove",
     "tooManyFiles": "No more than 10 files may be attached.",
     "submit": "Submit transaction",
@@ -154,6 +156,25 @@
     "successBody": "The transaction has entered stage one with New status. Its reference number is:",
     "createAnother": "Enter another transaction",
     "viewQueue": "View transaction queue"
+  },
+  "approvals": {
+    "subtitle": "Only transactions currently waiting at this checkpoint appear here.",
+    "decisionGrade": "Decision grade",
+    "comment": "Approval comment (optional)",
+    "approve": "Approve",
+    "approving": "Approving…",
+    "overdue": "This transaction has exceeded its SLA.",
+    "empty": "No transactions are waiting for this approval.",
+    "loadFailed": "The approval queue could not be loaded.",
+    "actionFailed": "The approval could not be completed.",
+    "levels": {
+      "reviewer": "Reviewer approval",
+      "committee-head": "Committee head approval",
+      "admin-manager": "Admin manager approval",
+      "ministry": "Ministry approval",
+      "authority": "Competent authority approval",
+      "final": "Final approval and archiving"
+    }
   },
   "attachments": {
     "title": "Attachments",

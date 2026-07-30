@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
@@ -172,6 +173,29 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('transactions/{transaction}', [TransactionController::class, 'show']);
     Route::middleware('screen.permission:transaction_details,view')
         ->post('transactions/{transaction}/transition', [TransactionController::class, 'transition']);
+
+    /*
+     * Stage 18 — one queue and write gate per approval authority. Literal
+     * routes keep a caller from swapping a level slug under a permission
+     * granted for a different screen.
+     */
+    $approvalScreens = [
+        'reviewer' => 'reviewer_approval',
+        'committee-head' => 'committee_head_approval',
+        'admin-manager' => 'admin_manager_approval',
+        'ministry' => 'ministry_approval',
+        'authority' => 'authority_approval',
+        'final' => 'final_approval',
+    ];
+
+    foreach ($approvalScreens as $level => $screenCode) {
+        Route::middleware("screen.permission:{$screenCode},view")
+            ->get("approvals/{$level}", [ApprovalController::class, 'index'])
+            ->defaults('level', $level);
+        Route::middleware("screen.permission:{$screenCode},approve")
+            ->post("approvals/{$level}/{transaction}", [ApprovalController::class, 'store'])
+            ->defaults('level', $level);
+    }
 
     // Stage 12 — private attachments are written through the dedicated
     // Notes & Attachments capability, not a broad transaction-list privilege.

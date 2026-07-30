@@ -37,12 +37,13 @@ class WorkflowServiceTest extends TestCase
             [2, 3, 'approve', 'R02', 'in_review'],
             [3, 4, 'forward', 'R02', 'in_review'],
             [4, 5, 'forward', 'R02', 'ready'],
-            [5, 6, 'approve', 'R05', 'ready'],
+            [5, 6, 'forward', 'R05', 'ready'],
             [6, 7, 'forward', 'R05', 'in_meeting'],
-            [7, 8, 'forward', 'R03', 'decided'],
-            [8, 9, 'approve', 'R03', 'approved'],
-            [9, 10, 'approve', 'R06', 'final_approved'],
-            [10, 11, 'approve', 'R07', 'archived'],
+            [7, 8, 'approve', 'R03', 'decided'],
+            [8, 9, 'approve', 'R05', 'approved'],
+            [9, 10, 'approve', 'R06', 'approved'],
+            [10, 11, 'approve', 'R07', 'final_approved'],
+            [11, 11, 'approve', 'R07', 'archived'],
         ];
 
         foreach ($steps as [$from, $to, $action, $roleCode, $statusCode]) {
@@ -61,16 +62,21 @@ class WorkflowServiceTest extends TestCase
 
         $this->assertSame(11, $transaction->currentStage->order_no);
         $this->assertSame('archived', $transaction->status->code);
-        $this->assertCount(10, $transaction->stageLogs);
-        $this->assertCount(10, $transaction->statusHistory);
+        $this->assertCount(11, $transaction->stageLogs);
+        $this->assertCount(11, $transaction->statusHistory);
         $this->assertSame(
-            range(2, 11),
+            [...range(2, 11), 11],
             $transaction->stageLogs()
                 ->with('toStage')
                 ->orderBy('id')
                 ->get()
                 ->pluck('toStage.order_no')
                 ->all(),
+        );
+        $this->assertSame(range(1, 6), $transaction->approvals()->orderBy('id')->pluck('level')->all());
+        $this->assertSame(
+            ['R02', 'R03', 'R05', 'R06', 'R07', 'R07'],
+            $transaction->approvals()->with('role')->orderBy('id')->get()->pluck('role.code')->all(),
         );
     }
 
@@ -109,9 +115,13 @@ class WorkflowServiceTest extends TestCase
             ->orderBy('order_no')
             ->get();
 
-        $this->assertCount(10, $rules);
-        $this->assertSame(range(1, 10), $rules->pluck('fromStage.order_no')->all());
-        $this->assertSame(range(2, 11), $rules->pluck('toStage.order_no')->all());
+        $this->assertCount(11, $rules);
+        $this->assertSame(range(1, 11), $rules->pluck('fromStage.order_no')->all());
+        $this->assertSame([...range(2, 11), 11], $rules->pluck('toStage.order_no')->all());
+        $this->assertSame(
+            ['R02', 'R02', 'R02', 'R02', 'R05', 'R05', 'R03', 'R05', 'R06', 'R07', 'R07'],
+            $rules->pluck('requiredRole.code')->all(),
+        );
         $this->assertFalse($rules->contains('is_exception', true));
         $this->assertFalse($rules->contains('requires_comment', true));
     }
@@ -221,8 +231,8 @@ class WorkflowServiceTest extends TestCase
             ->with(['fromStage', 'toStage'])
             ->get();
 
-        $this->assertCount(10, $cancelRules);
-        $this->assertEqualsCanonicalizing(range(1, 10), $cancelRules->pluck('fromStage.order_no')->all());
+        $this->assertCount(11, $cancelRules);
+        $this->assertEqualsCanonicalizing(range(1, 11), $cancelRules->pluck('fromStage.order_no')->all());
         $this->assertTrue($cancelRules->every(
             fn (WorkflowTransition $rule) => $rule->fromStage->is($rule->toStage)
                 && $rule->is_exception
@@ -230,8 +240,69 @@ class WorkflowServiceTest extends TestCase
         ));
     }
 
-    private function newTransaction(int $stageOrder = 1, string $statusCode = 'new'): Transaction
+    public function test_low_grade_transaction_skips_ministry_but_preserves_the_other_approval_levels(): void
     {
+        $this->seed(DatabaseSeeder::class);
+
+        $actors = collect(['R02', 'R03', 'R05', 'R07'])
+            ->mapWithKeys(fn (string $roleCode) => [
+                $roleCode => $this->userWithRole($roleCode),
+            ]);
+        $service = app(WorkflowService::class);
+        $transaction = $this->newTransaction(decisionGrade: 9);
+
+        foreach ([
+            ['forward', 'R02'],
+            ['approve', 'R02'],
+            ['forward', 'R02'],
+            ['forward', 'R02'],
+            ['forward', 'R05'],
+            ['forward', 'R05'],
+            ['approve', 'R03'],
+        ] as [$action, $role]) {
+            $transaction = $service->transition($transaction, $action, $actors[$role]);
+        }
+
+        $transaction = $service->transition($transaction, 'approve', $actors['R05']);
+        $this->assertSame(10, $transaction->currentStage->order_no);
+
+        $transaction = $service->transition($transaction, 'approve', $actors['R07']);
+        $transaction = $service->transition($transaction, 'approve', $actors['R07']);
+
+        $this->assertSame('archived', $transaction->status->code);
+        $this->assertSame([1, 2, 3, 5, 6], $transaction->approvals()->orderBy('id')->pluck('level')->all());
+        $this->assertDatabaseMissing('approvals', [
+            'transaction_id' => $transaction->id,
+            'level' => 4,
+        ]);
+    }
+
+    public function test_actor_cannot_skip_the_admin_manager_checkpoint(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $transaction = $this->newTransaction(8, 'decided');
+        $ministry = $this->userWithRole('R06');
+
+        try {
+            app(WorkflowService::class)->transition($transaction, 'approve', $ministry);
+            $this->fail('Ministry must not be able to approve before the admin manager.');
+        } catch (WorkflowTransitionException $exception) {
+            $this->assertSame(
+                'لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.',
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertDatabaseCount('approvals', 0);
+        $this->assertSame(8, $transaction->refresh()->currentStage->order_no);
+    }
+
+    private function newTransaction(
+        int $stageOrder = 1,
+        string $statusCode = 'new',
+        int $decisionGrade = 10,
+    ): Transaction {
         return Transaction::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
             'title' => 'اختبار المسار الأساسي',
@@ -240,6 +311,7 @@ class WorkflowServiceTest extends TestCase
             'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('order_no', $stageOrder)->value('id'),
             'submitted_at' => now(),
+            'decision_grade' => $decisionGrade,
         ]);
     }
 

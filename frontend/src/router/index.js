@@ -31,12 +31,6 @@ import PlaceholderView from '../views/PlaceholderView.vue'
 const placeholderScreens = [
   ['meetings', 'meetings'],                                  // Stage 20
   ['decisions', 'decisions'],                                // Stage 21
-  ['reviewer_approval', 'approvals/reviewer'],               // Stage 18
-  ['committee_head_approval', 'approvals/committee-head'],   // Stage 18
-  ['admin_manager_approval', 'approvals/admin-manager'],     // Stage 18
-  ['ministry_approval', 'approvals/ministry'],               // Stage 18
-  ['authority_approval', 'approvals/authority'],             // Stage 18
-  ['final_approval', 'approvals/final'],                     // Stage 18
   // NB: `departments`, `users` and `roles_permissions` are NOT here — they're
   // built (Stages 6-8) and have real components below.
   ['reports', 'reports'],                                    // Stage 24
@@ -131,6 +125,20 @@ const routes = [
         component: () => import('../views/TemplatesView.vue'),
         meta: { screenCode: 'templates' },
       },
+      // Stage 18 — role-specific queues backed by one reusable approval view.
+      ...[
+        ['reviewer_approval', 'reviewer'],
+        ['committee_head_approval', 'committee-head'],
+        ['admin_manager_approval', 'admin-manager'],
+        ['ministry_approval', 'ministry'],
+        ['authority_approval', 'authority'],
+        ['final_approval', 'final'],
+      ].map(([screenCode, level]) => ({
+        path: `approvals/${level}`,
+        name: screenCode,
+        component: () => import('../views/ApprovalQueueView.vue'),
+        meta: { screenCode, approvalLevel: level },
+      })),
       // Expand the list above into one placeholder route each.
       ...placeholderScreens.map(([screenCode, path]) => ({
         path,

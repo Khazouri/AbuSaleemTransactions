@@ -86,6 +86,23 @@ class Transaction extends Model
         return $this->hasMany(Note::class);
     }
 
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(Approval::class);
+    }
+
+    /**
+     * Missing legacy grades take the conservative route through ministry.
+     * A null threshold explicitly means that this type never needs ministry.
+     */
+    public function requiresMinistryApproval(): bool
+    {
+        $threshold = $this->transactionType?->decision_grade_threshold;
+
+        return $threshold !== null
+            && ($this->decision_grade === null || $this->decision_grade >= $threshold);
+    }
+
     /** A breach becomes official only when the scheduled sweep records it. */
     public function isOverdue(): bool
     {

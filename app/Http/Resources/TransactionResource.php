@@ -25,7 +25,10 @@ class TransactionResource extends JsonResource
                 'code' => $this->transactionType->code,
                 'name_ar' => $this->transactionType->name_ar,
                 'name_en' => $this->transactionType->name_en,
+                'decision_grade_threshold' => $this->transactionType->decision_grade_threshold,
             ] : null,
+            'decision_grade' => $this->decision_grade,
+            'requires_ministry_approval' => $this->requiresMinistryApproval(),
             'status' => $this->status ? [
                 'code' => $this->status->code,
                 'name_ar' => $this->status->name_ar,
