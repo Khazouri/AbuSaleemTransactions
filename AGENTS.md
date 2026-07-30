@@ -138,6 +138,12 @@ npm run preview                  # preview a production build locally
 There is currently no JS test runner or linter configured in `frontend/` —
 don't assume `npm test` or `npm run lint` exist.
 
+**Run pending migrations whenever there are any** — after creating a new
+migration file, or after pulling changes that added one — run
+`php artisan migrate` before testing or handing off the backend. Don't leave
+migrations unapplied for the next agent or the user to discover as a runtime
+error.
+
 ## Cross-agent handoff (Codex ↔ Claude Code)
 
 This repo is worked on by both Codex and Claude Code, in alternating

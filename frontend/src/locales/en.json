@@ -58,6 +58,20 @@
     "empty": "No departments yet.",
     "codeHint": "Used in transaction reference numbers"
   },
+  "users": {
+    "title": "Users",
+    "add": "Add user",
+    "edit": "Edit user",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "passwordHint": "Leave blank to keep the current password",
+    "department": "Department",
+    "noDepartment": "No department",
+    "roles": "Roles",
+    "empty": "No users yet.",
+    "selfActionBlocked": "You can't do that to your own account."
+  },
   "placeholder": {
     "title": "Under construction",
     "body": "This screen is built in a later stage of the implementation plan.",

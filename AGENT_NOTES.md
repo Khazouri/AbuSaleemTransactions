@@ -14,4 +14,11 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
-_No open notes right now._
+### 2026-07-30 — Claude — Stage 7 done, heads-up for Stage 8
+
+Users CRUD is built (UserController, Store/UpdateUserRequest, UsersView.vue) following the
+Departments pattern — flat unpaginated list, no `show` route, self-protection on
+toggle-active/destroy so an admin can't lock themselves out. Along the way I added a minimal
+read-only `GET /roles` (RoleController + RoleResource) purely so the Users form can offer role
+checkboxes — Stage 8 (roles_permissions) should extend this controller for the actual
+matrix editor rather than creating a new one.

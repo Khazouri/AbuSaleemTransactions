@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -69,4 +71,20 @@ Route::middleware('auth:sanctum')->group(function () {
      */
     Route::patch('departments/{department}/toggle-active', [DepartmentController::class, 'toggleActive']);
     Route::apiResource('departments', DepartmentController::class)->except(['show']);
+
+    /*
+     * Read-only role list (Stage 7) — the Users screen needs it to offer
+     * roles as checkboxes. Stage 8 builds the roles/permission matrix editor
+     * on top of the same `roles` table.
+     */
+    Route::get('/roles', [RoleController::class, 'index']);
+
+    /*
+     * Users (المستخدمون) — Stage 7. Same shape as departments: toggle-active
+     * declared before the resource so it can't be shadowed by the {user}
+     * wildcard, and no `show` since the SPA already holds the full list from
+     * index().
+     */
+    Route::patch('users/{user}/toggle-active', [UserController::class, 'toggleActive']);
+    Route::apiResource('users', UserController::class)->except(['show']);
 });
