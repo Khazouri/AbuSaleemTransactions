@@ -17,6 +17,7 @@ use App\Models\TransactionStatus;
 use App\Models\TransactionStatusHistory;
 use App\Models\TransactionType;
 use App\Models\WorkflowStage;
+use App\Services\TransactionDeadlineService;
 use App\Services\TransactionReferenceGenerator;
 use App\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
@@ -96,16 +97,21 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function store(StoreTransactionRequest $request, TransactionReferenceGenerator $references): JsonResponse
-    {
+    public function store(
+        StoreTransactionRequest $request,
+        TransactionReferenceGenerator $references,
+        TransactionDeadlineService $deadlines,
+    ): JsonResponse {
         $data = $request->validated();
         $storedPaths = [];
 
         try {
-            $transaction = DB::transaction(function () use ($data, $request, $references, &$storedPaths) {
+            $transaction = DB::transaction(function () use ($data, $request, $references, $deadlines, &$storedPaths) {
                 $department = Department::query()->findOrFail($data['department_id']);
+                $type = TransactionType::query()->findOrFail($data['transaction_type_id']);
                 $newStatus = TransactionStatus::query()->where('code', 'new')->firstOrFail();
                 $firstStage = WorkflowStage::query()->where('order_no', 1)->firstOrFail();
+                $submittedAt = now();
 
                 $transaction = Transaction::create([
                     'reference_number' => $references->nextFor($department),
@@ -116,7 +122,8 @@ class TransactionController extends Controller
                     'status_id' => $newStatus->id,
                     'current_stage_id' => $firstStage->id,
                     'created_by_user_id' => $request->user()->id,
-                    'submitted_at' => now(),
+                    'submitted_at' => $submittedAt,
+                    'due_date' => $deadlines->dueDateFor($type, $submittedAt),
                 ]);
 
                 foreach ($request->file('attachments', []) as $index => $attachmentInput) {

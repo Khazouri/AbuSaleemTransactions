@@ -13,6 +13,11 @@ use DomainException;
  */
 class WorkflowTransitionException extends DomainException
 {
+    public static function deadlineNotExpired(): self
+    {
+        return new self('لا يمكن تصعيد المعاملة قبل انتهاء مهلة الإنجاز.');
+    }
+
     public static function transactionNotPersisted(): self
     {
         return new self('يجب حفظ المعاملة قبل تنفيذ إجراء سير العمل.');

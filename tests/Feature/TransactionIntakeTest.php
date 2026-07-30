@@ -59,6 +59,10 @@ class TransactionIntakeTest extends TestCase
         $transaction = Transaction::firstOrFail();
         $this->assertSame($admin->id, $transaction->created_by_user_id);
         $this->assertNotNull($transaction->submitted_at);
+        $this->assertSame(
+            $transaction->submitted_at->copy()->startOfDay()->addDays($type->default_sla_days)->toDateString(),
+            $transaction->due_date?->toDateString(),
+        );
         $this->assertDatabaseHas('transaction_stage_logs', [
             'transaction_id' => $transaction->id,
             'to_stage_id' => WorkflowStage::where('order_no', 1)->value('id'),

@@ -100,6 +100,21 @@ class WorkflowTransitionSeeder extends Seeder
                 99,
             );
         }
+
+        // Stage 17 — once the SLA sweep marks a breach, an administrator can
+        // route the case to ministry oversight. The deadline is a separate
+        // flag, so this does not disguise the actual workflow state as a
+        // reporting-only "overdue" status.
+        foreach (range(1, 10) as $stage) {
+            $this->seedException(
+                $stages[$stage]->id,
+                $stages[9]->id,
+                'deadline_expired',
+                $roles['R08']->id,
+                $statuses['in_review']->id,
+                90,
+            );
+        }
     }
 
     private function seedException(

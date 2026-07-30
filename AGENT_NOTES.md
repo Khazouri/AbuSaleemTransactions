@@ -14,6 +14,10 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-07-30 21:16 EET — Codex — Stage 17 SLA and deadline escalation complete
+
+Transaction intake now derives `due_date` from each type's `default_sla_days`; the nightly `transactions:flag-overdue` command backfills legacy dates and records an idempotent `overdue_at` flag only for open transactions. Seeded `deadline_expired` exception transitions let R08 route flagged work to ministry oversight with a mandatory reason, while the detail UI shows the breach and the action only after the sweep flags it. The configured MySQL database has the migration applied and workflow map reseeded; full PHPUnit (23 tests), focused Pint, the frontend production build, migration/schedule checks, and diff validation pass.
+
 ### 2026-07-30 21:00 EET — Codex — Stage 16 exception flows complete
 
 Seeded missing-document return (2→1), review rejection (3→2), edit request (4→3), and role-gated cancellation at every open stage; all require a reason, write stage/status history, and cancelled/archived transactions are terminal. The detail API now exposes exception metadata and the bilingual SPA renders warning/destructive buttons with mandatory-reason modals. Configured MySQL has 13 exception rows; all 21 PHPUnit tests, focused Pint, production frontend build, routes, migration status, and diff checks pass.

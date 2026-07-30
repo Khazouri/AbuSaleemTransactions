@@ -84,6 +84,10 @@ Key architectural facts worth knowing before changing things:
 
 ## Conventions
 
+- **Implementation plans first**: before making implementation changes, write
+  a concise implementation plan that identifies the intended scope, affected
+  areas, and verification approach. Update the plan if new findings materially
+  change the work.
 - **Comment the *why*, not the *what***. This codebase leans heavily on doc
   comments that explain non-obvious reasoning (why a check exists, why an
   order matters, why a shortcut is safe) — see

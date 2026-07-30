@@ -40,6 +40,8 @@ class TransactionResource extends JsonResource
             ] : null,
             'submitted_at' => $this->submitted_at?->toIso8601String(),
             'due_date' => $this->due_date?->toDateString(),
+            'is_overdue' => $this->isOverdue(),
+            'overdue_at' => $this->overdue_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

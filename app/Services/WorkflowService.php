@@ -80,6 +80,7 @@ class WorkflowService
                 return $allowed->count() === 1 ? $allowed->first() : null;
             })
             ->filter()
+            ->filter(fn (WorkflowTransition $rule) => $rule->action !== 'deadline_expired' || $transaction->isOverdue())
             ->sortBy(fn (WorkflowTransition $rule) => [$rule->order_no === null, $rule->order_no, $rule->id])
             ->values();
     }
@@ -151,6 +152,10 @@ class WorkflowService
 
             /** @var WorkflowTransition $rule */
             $rule = $allowed->first();
+
+            if ($rule->action === 'deadline_expired' && ! $lockedTransaction->isOverdue()) {
+                throw WorkflowTransitionException::deadlineNotExpired();
+            }
 
             if ($rule->requires_comment && $comment === null) {
                 throw WorkflowTransitionException::commentRequired();

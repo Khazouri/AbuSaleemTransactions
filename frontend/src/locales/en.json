@@ -181,6 +181,7 @@
     "currentStage": "Current stage",
     "submittedAt": "Submitted",
     "dueDate": "Due date",
+    "overdue": "The SLA deadline passed on {date}. This transaction can be escalated to the Local Governance Ministry.",
     "actions": "Stage actions",
     "actionHint": "Available actions are determined by the current stage and your workflow role.",
     "comment": "Comment (optional)",
@@ -208,7 +209,8 @@
       "return_missing_docs": "Return for missing documents",
       "reject_review": "Reject review",
       "request_edit": "Request changes",
-      "cancel": "Cancel transaction"
+      "cancel": "Cancel transaction",
+      "deadline_expired": "Escalate overdue transaction"
     }
   },
   "placeholder": {

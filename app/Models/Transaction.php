@@ -37,6 +37,7 @@ class Transaction extends Model
         return [
             'submitted_at' => 'datetime',
             'due_date' => 'date',
+            'overdue_at' => 'datetime',
         ];
     }
 
@@ -83,5 +84,11 @@ class Transaction extends Model
     public function notes(): HasMany
     {
         return $this->hasMany(Note::class);
+    }
+
+    /** A breach becomes official only when the scheduled sweep records it. */
+    public function isOverdue(): bool
+    {
+        return $this->overdue_at !== null;
     }
 }
