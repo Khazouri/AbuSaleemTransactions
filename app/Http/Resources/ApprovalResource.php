@@ -24,6 +24,14 @@ class ApprovalResource extends JsonResource
                 'id' => $this->approvedBy->id,
                 'name' => $this->approvedBy->name,
             ] : null,
+            // The private path never crosses the API boundary. The SPA fetches
+            // this endpoint through its bearer-aware HTTP client.
+            'signature_url' => $this->signature_path
+                ? route('transactions.approvals.signature', [
+                    'transaction' => $this->transaction_id,
+                    'approval' => $this->id,
+                ])
+                : null,
             'approved_at' => $this->approved_at?->toIso8601String(),
         ];
     }

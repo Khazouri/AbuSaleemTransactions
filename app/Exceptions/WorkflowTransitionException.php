@@ -53,6 +53,11 @@ class WorkflowTransitionException extends DomainException
         return new self('يجب إدخال سبب لتنفيذ هذا الإجراء.');
     }
 
+    public static function signatureRequired(): self
+    {
+        return new self('يجب إرفاق التوقيع الإلكتروني لإتمام الاعتماد.');
+    }
+
     public static function transactionClosed(): self
     {
         return new self('لا يمكن تنفيذ إجراء على معاملة ملغاة أو مؤرشفة.');

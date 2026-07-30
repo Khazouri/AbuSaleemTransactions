@@ -47,7 +47,12 @@ class WorkflowServiceTest extends TestCase
         ];
 
         foreach ($steps as [$from, $to, $action, $roleCode, $statusCode]) {
-            $transaction = $service->transition($transaction, $action, $actors[$roleCode]);
+            $transaction = $service->transition(
+                $transaction,
+                $action,
+                $actors[$roleCode],
+                signaturePath: $action === 'approve' ? "signatures/test-{$from}.png" : null,
+            );
 
             $this->assertSame($to, $transaction->currentStage->order_no);
             $this->assertSame($statusCode, $transaction->status->code);
@@ -260,14 +265,34 @@ class WorkflowServiceTest extends TestCase
             ['forward', 'R05'],
             ['approve', 'R03'],
         ] as [$action, $role]) {
-            $transaction = $service->transition($transaction, $action, $actors[$role]);
+            $transaction = $service->transition(
+                $transaction,
+                $action,
+                $actors[$role],
+                signaturePath: $action === 'approve' ? 'signatures/test.png' : null,
+            );
         }
 
-        $transaction = $service->transition($transaction, 'approve', $actors['R05']);
+        $transaction = $service->transition(
+            $transaction,
+            'approve',
+            $actors['R05'],
+            signaturePath: 'signatures/admin-manager.png',
+        );
         $this->assertSame(10, $transaction->currentStage->order_no);
 
-        $transaction = $service->transition($transaction, 'approve', $actors['R07']);
-        $transaction = $service->transition($transaction, 'approve', $actors['R07']);
+        $transaction = $service->transition(
+            $transaction,
+            'approve',
+            $actors['R07'],
+            signaturePath: 'signatures/authority.png',
+        );
+        $transaction = $service->transition(
+            $transaction,
+            'approve',
+            $actors['R07'],
+            signaturePath: 'signatures/final.png',
+        );
 
         $this->assertSame('archived', $transaction->status->code);
         $this->assertSame([1, 2, 3, 5, 6], $transaction->approvals()->orderBy('id')->pluck('level')->all());
@@ -275,6 +300,28 @@ class WorkflowServiceTest extends TestCase
             'transaction_id' => $transaction->id,
             'level' => 4,
         ]);
+    }
+
+    public function test_approval_transition_requires_a_signature_path_before_mutating_state(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $transaction = $this->newTransaction(2, 'in_review');
+        $reviewer = $this->userWithRole('R02');
+
+        try {
+            app(WorkflowService::class)->transition($transaction, 'approve', $reviewer);
+            $this->fail('An approval must not be recorded without signature evidence.');
+        } catch (WorkflowTransitionException $exception) {
+            $this->assertSame(
+                'يجب إرفاق التوقيع الإلكتروني لإتمام الاعتماد.',
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame(2, $transaction->refresh()->currentStage->order_no);
+        $this->assertDatabaseCount('approvals', 0);
+        $this->assertDatabaseCount('transaction_stage_logs', 0);
     }
 
     public function test_actor_cannot_skip_the_admin_manager_checkpoint(): void

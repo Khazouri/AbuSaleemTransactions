@@ -7,10 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Approval\StoreApprovalRequest;
 use App\Http\Resources\TransactionResource;
 use App\Models\Transaction;
+use App\Services\ApprovalSignatureStorage;
 use App\Services\WorkflowService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Stage 18 approval work queues.
@@ -57,6 +59,7 @@ class ApprovalController extends Controller
         Transaction $transaction,
         string $level,
         WorkflowService $workflow,
+        ApprovalSignatureStorage $signatureStorage,
     ): TransactionResource {
         $configuration = $this->configuration($level);
         $currentStageOrder = $transaction->currentStage()->value('order_no');
@@ -73,17 +76,26 @@ class ApprovalController extends Controller
             ]);
         }
 
+        $signaturePath = $signatureStorage->store($request->file('signature'), $transaction);
+
         try {
             $transaction = $workflow->transition(
                 $transaction,
                 'approve',
                 $request->user(),
                 $request->validated('comment'),
+                $signaturePath,
             );
         } catch (WorkflowTransitionException $exception) {
+            $signatureStorage->delete($signaturePath);
+
             throw ValidationException::withMessages([
                 'transaction' => [$exception->getMessage()],
             ]);
+        } catch (Throwable $exception) {
+            $signatureStorage->delete($signaturePath);
+
+            throw $exception;
         }
 
         return new TransactionResource($transaction->load([

@@ -176,6 +176,17 @@
       "final": "Final approval and archiving"
     }
   },
+  "signature": {
+    "title": "Electronic signature",
+    "hint": "Sign inside the box using a mouse, pen, or touch.",
+    "clear": "Clear",
+    "required": "Draw your signature before approving.",
+    "trailTitle": "Approval trail",
+    "trailEmpty": "No approvals have been recorded yet.",
+    "signedBy": "Signed by {name}",
+    "imageAlt": "Signature of {name}",
+    "unavailable": "No signature image is available for this approval."
+  },
   "attachments": {
     "title": "Attachments",
     "file": "File",

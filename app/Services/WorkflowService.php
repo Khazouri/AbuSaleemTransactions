@@ -106,7 +106,9 @@ class WorkflowService
      * Move a transaction through one configured workflow transition.
      *
      * The optional comment is unused by the Stage 14 happy path, but belongs at
-     * this boundary now because Stage 16 exception rules can require it.
+     * this boundary because Stage 16 exception rules can require it. Approval
+     * transitions also require the private signature path introduced in Stage
+     * 19, even when this service is called outside an HTTP controller.
      *
      * @throws WorkflowTransitionException
      */
@@ -116,6 +118,7 @@ class WorkflowService
         string $action,
         User $actor,
         ?string $comment = null,
+        ?string $signaturePath = null,
     ): Transaction {
         if (! $transaction->exists) {
             throw WorkflowTransitionException::transactionNotPersisted();
@@ -127,12 +130,13 @@ class WorkflowService
 
         $action = trim($action);
         $comment = filled($comment) ? trim($comment) : null;
+        $signaturePath = filled($signaturePath) ? trim($signaturePath) : null;
 
         if ($action === '') {
             throw WorkflowTransitionException::actionRequired();
         }
 
-        return DB::transaction(function () use ($transaction, $action, $actor, $comment) {
+        return DB::transaction(function () use ($transaction, $action, $actor, $comment, $signaturePath) {
             $lockedTransaction = Transaction::query()
                 ->lockForUpdate()
                 ->findOrFail($transaction->getKey());
@@ -178,6 +182,11 @@ class WorkflowService
                 throw WorkflowTransitionException::commentRequired();
             }
 
+            $approvalLevel = $this->approvalLevel($rule);
+            if ($approvalLevel !== null && $signaturePath === null) {
+                throw WorkflowTransitionException::signatureRequired();
+            }
+
             $fromStageId = $lockedTransaction->current_stage_id;
             $fromStatusId = $lockedTransaction->status_id;
             $toStageId = $this->destinationStageId($lockedTransaction, $rule);
@@ -200,7 +209,6 @@ class WorkflowService
                 'acted_at' => $occurredAt,
             ]);
 
-            $approvalLevel = $this->approvalLevel($rule);
             if ($approvalLevel !== null) {
                 Approval::create([
                     'transaction_id' => $lockedTransaction->id,
@@ -209,6 +217,7 @@ class WorkflowService
                     'approved_by_user_id' => $actor->id,
                     'action' => $action,
                     'comment' => $comment,
+                    'signature_path' => $signaturePath,
                     'approved_at' => $occurredAt,
                 ]);
             }

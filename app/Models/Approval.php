@@ -15,6 +15,7 @@ class Approval extends Model
         'approved_by_user_id',
         'action',
         'comment',
+        'signature_path',
         'approved_at',
     ];
 

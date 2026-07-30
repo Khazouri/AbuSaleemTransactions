@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ApprovalController;
+use App\Http\Controllers\Api\ApprovalSignatureController;
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
@@ -165,6 +166,15 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('transactions/intake-options', [TransactionController::class, 'intakeOptions']);
     Route::middleware('screen.permission:transaction_intake,add')
         ->post('transactions', [TransactionController::class, 'store']);
+
+    // Stage 19 — private signature images use the same transaction-detail
+    // visibility gate as the approval trail that renders them.
+    Route::middleware('screen.permission:transaction_details,view')
+        ->get(
+            'transactions/{transaction}/approvals/{approval}/signature',
+            [ApprovalSignatureController::class, 'show'],
+        )
+        ->name('transactions.approvals.signature');
 
     // Stage 15 — the detail screen is read by its own capability. The action
     // endpoint uses that same view gate, then WorkflowService enforces the

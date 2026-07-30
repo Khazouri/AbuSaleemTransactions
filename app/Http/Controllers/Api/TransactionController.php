@@ -18,6 +18,7 @@ use App\Models\TransactionStatusHistory;
 use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Services\ApprovalSignatureStorage;
 use App\Services\TransactionDeadlineService;
 use App\Services\TransactionReferenceGenerator;
 use App\Services\WorkflowService;
@@ -192,6 +193,7 @@ class TransactionController extends Controller
         TransitionTransactionRequest $request,
         Transaction $transaction,
         WorkflowService $workflow,
+        ApprovalSignatureStorage $signatureStorage,
     ): TransactionDetailResource {
         $action = $request->validated('action');
 
@@ -203,17 +205,30 @@ class TransactionController extends Controller
             ]);
         }
 
+        // Stage 19 — only an approval writes signature evidence; ordinary
+        // forwards and exception commands remain compact JSON/form commands.
+        $signaturePath = $action === 'approve'
+            ? $signatureStorage->store($request->file('signature'), $transaction)
+            : null;
+
         try {
             $transaction = $workflow->transition(
                 $transaction,
                 $action,
                 $request->user(),
                 $request->validated('comment'),
+                $signaturePath,
             );
         } catch (WorkflowTransitionException $exception) {
+            $signatureStorage->delete($signaturePath);
+
             throw ValidationException::withMessages([
                 'action' => [$exception->getMessage()],
             ]);
+        } catch (Throwable $exception) {
+            $signatureStorage->delete($signaturePath);
+
+            throw $exception;
         }
 
         return $this->detailResource($transaction, $workflow, $request->user());
@@ -232,7 +247,20 @@ class TransactionController extends Controller
             'stageLogs.fromStage:id,order_no,code,name_ar,name_en',
             'stageLogs.toStage:id,order_no,code,name_ar,name_en',
             'stageLogs.actedBy:id,name',
-            'approvals' => fn ($query) => $query->orderBy('approved_at')->orderBy('id'),
+            'approvals' => fn ($query) => $query
+                ->select([
+                    'id',
+                    'transaction_id',
+                    'level',
+                    'role_id',
+                    'approved_by_user_id',
+                    'action',
+                    'comment',
+                    'signature_path',
+                    'approved_at',
+                ])
+                ->orderBy('approved_at')
+                ->orderBy('id'),
             'approvals.role:id,code,name_ar,name_en',
             'approvals.approvedBy:id,name',
         ]);

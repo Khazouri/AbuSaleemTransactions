@@ -3,7 +3,9 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
+import ApprovalTrail from '../components/ApprovalTrail.vue'
 import FileUpload from '../components/FileUpload.vue'
+import SignaturePad from '../components/SignaturePad.vue'
 import TransactionNotes from '../components/TransactionNotes.vue'
 import api from '../lib/api'
 
@@ -19,6 +21,8 @@ const activeAction = ref('')
 const selectedException = ref(null)
 const exceptionReason = ref('')
 const exceptionError = ref('')
+const signaturePad = ref(null)
+const signatureReady = ref(false)
 
 const name = (item) => {
   if (!item) return t('common.none')
@@ -42,6 +46,7 @@ const transitions = computed(() => {
 const normalActions = computed(() => transitions.value.filter((item) => !item.is_exception))
 const exceptionActions = computed(() => transitions.value.filter((item) => item.is_exception))
 const canAct = computed(() => transitions.value.length > 0)
+const requiresSignature = computed(() => normalActions.value.some((item) => item.action === 'approve'))
 
 function fileSize(bytes) {
   if (!Number.isFinite(bytes)) return t('common.none')
@@ -66,14 +71,22 @@ async function load() {
 
 async function transition(action, suppliedComment = comment.value) {
   if (acting.value) return
+  const signature = action === 'approve' ? await signaturePad.value?.toFile() : null
+  if (action === 'approve' && !signature) {
+    actionError.value = t('signature.required')
+    return false
+  }
+
   acting.value = true
   activeAction.value = action
   actionError.value = ''
   try {
-    const { data } = await api.post(`/transactions/${transaction.value.id}/transition`, {
-      action,
-      comment: suppliedComment.trim() || null,
-    })
+    const form = new FormData()
+    form.append('action', action)
+    if (suppliedComment.trim()) form.append('comment', suppliedComment.trim())
+    if (signature) form.append('signature', signature)
+    const { data } = await api.post(`/transactions/${transaction.value.id}/transition`, form)
+    if (signature) signaturePad.value?.clear()
     transaction.value = data.data
     comment.value = ''
     selectedException.value = null
@@ -82,6 +95,7 @@ async function transition(action, suppliedComment = comment.value) {
     return true
   } catch (requestError) {
     const message = requestError.response?.data?.errors?.action?.[0]
+      ?? requestError.response?.data?.errors?.signature?.[0]
       ?? requestError.response?.data?.message
       ?? t('transactionDetail.actionFailed')
     if (selectedException.value) exceptionError.value = message
@@ -175,9 +189,22 @@ onMounted(load)
           {{ t('transactionDetail.comment') }}
           <textarea v-model="comment" rows="2" maxlength="5000" :disabled="acting" />
         </label>
+        <SignaturePad
+          v-if="requiresSignature"
+          ref="signaturePad"
+          :disabled="acting"
+          @change="signatureReady = $event"
+        />
         <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
         <div class="action-buttons">
-          <button v-for="item in normalActions" :key="item.action" class="primary" type="button" :disabled="acting" @click="transition(item.action)">
+          <button
+            v-for="item in normalActions"
+            :key="item.action"
+            class="primary"
+            type="button"
+            :disabled="acting || (item.action === 'approve' && !signatureReady)"
+            @click="transition(item.action)"
+          >
             {{ acting && activeAction === item.action ? t('transactionDetail.processing') : actionLabel(item.action) }}
           </button>
         </div>
@@ -221,6 +248,8 @@ onMounted(load)
               </li>
             </ol>
           </section>
+
+          <ApprovalTrail :approvals="transaction.approvals ?? []" />
         </div>
 
         <aside class="side-column">

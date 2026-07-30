@@ -3,6 +3,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
+import SignaturePad from '../components/SignaturePad.vue'
 import api from '../lib/api'
 
 const route = useRoute()
@@ -13,6 +14,8 @@ const loading = ref(false)
 const approvingId = ref(null)
 const error = ref('')
 const actionErrors = ref({})
+const signatureReady = ref({})
+const signaturePads = new Map()
 
 const level = computed(() => route.meta.approvalLevel)
 const permission = computed(() => `${route.meta.screenCode}.approve`)
@@ -22,6 +25,11 @@ const name = (item) => locale.value === 'ar'
 const date = (value) => value
   ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
   : t('common.none')
+
+function setSignaturePad(id, instance) {
+  if (instance) signaturePads.set(id, instance)
+  else signaturePads.delete(id)
+}
 
 async function load() {
   loading.value = true
@@ -39,16 +47,26 @@ async function load() {
 
 async function approve(transaction) {
   if (approvingId.value) return
+  const signature = await signaturePads.get(transaction.id)?.toFile()
+  if (!signature) {
+    actionErrors.value[transaction.id] = t('signature.required')
+    return
+  }
+
   approvingId.value = transaction.id
   actionErrors.value[transaction.id] = ''
   try {
-    await api.post(`/approvals/${level.value}/${transaction.id}`, {
-      comment: comments.value[transaction.id]?.trim() || null,
-    })
+    const form = new FormData()
+    const approvalComment = comments.value[transaction.id]?.trim()
+    if (approvalComment) form.append('comment', approvalComment)
+    form.append('signature', signature)
+    await api.post(`/approvals/${level.value}/${transaction.id}`, form)
     transactions.value = transactions.value.filter((item) => item.id !== transaction.id)
     delete comments.value[transaction.id]
+    delete signatureReady.value[transaction.id]
   } catch (requestError) {
     actionErrors.value[transaction.id] = requestError.response?.data?.errors?.transaction?.[0]
+      ?? requestError.response?.data?.errors?.signature?.[0]
       ?? requestError.response?.data?.message
       ?? t('approvals.actionFailed')
   } finally {
@@ -96,6 +114,11 @@ onMounted(load)
           {{ t('approvals.comment') }}
           <textarea v-model="comments[transaction.id]" rows="2" maxlength="5000" :disabled="approvingId === transaction.id" />
         </label>
+        <SignaturePad
+          :ref="(instance) => setSignaturePad(transaction.id, instance)"
+          :disabled="approvingId === transaction.id"
+          @change="signatureReady[transaction.id] = $event"
+        />
         <p v-if="actionErrors[transaction.id]" class="action-error" role="alert">{{ actionErrors[transaction.id] }}</p>
         <div class="actions">
           <RouterLink class="ghost link" :to="{ name: 'transaction_details', params: { id: transaction.id } }">
@@ -105,7 +128,7 @@ onMounted(load)
             v-can="permission"
             class="primary"
             type="button"
-            :disabled="approvingId !== null"
+            :disabled="approvingId !== null || !signatureReady[transaction.id]"
             @click="approve(transaction)"
           >
             {{ approvingId === transaction.id ? t('approvals.approving') : t('approvals.approve') }}

@@ -14,6 +14,14 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-07-30 21:55 EET — Codex — Stage 19 e-signature complete
+
+Every new approval now requires a validated canvas-generated PNG on both queue and transaction-detail paths; the private file path is recorded in the atomic approval ledger and compensated on failed workflow moves. Transaction details render the chronological signed approval trail through a bearer-authenticated image endpoint, while legacy Stage 18 rows remain readable with an unavailable-signature state. The configured MySQL migration is applied, and all 32 PHPUnit tests (232 assertions), focused Pint, frontend production build, route/migration checks, and diff validation pass; browser attachment was unavailable for an additional rendered screenshot check.
+
+### 2026-07-30 21:47 EET — Codex — Stage 19 implementation plan
+
+Implement mandatory PNG signature capture on both approval entry points, store the private `signature_path` atomically with each approval, and add an authenticated signature read endpoint plus a visual approval trail on transaction details. Affected areas are the approvals migration/model/resource, workflow and controllers/requests/routes, a reusable Vue signature pad and both approval UIs, bilingual copy, and approval-chain feature coverage. Verify by applying the pending migration, running focused/full PHPUnit and Pint checks, building the SPA, and checking routes and migration status.
+
 ### 2026-07-30 21:38 EET — Codex — Stage 18 approval chain complete
 
 Added the atomic `approvals` ledger, six permission-gated approval queues, required decision-grade intake, and strict reviewer/committee/admin/ministry-or-bypass/authority/final sequencing; grades below the type threshold skip ministry while at/above-threshold and legacy null grades take the conservative ministry path. Stage 11 now holds `final_approved` work until a final archival approval, and both queue and transaction-detail approval paths honor the matching screen permission before `WorkflowService` rechecks stage/role under lock. Configured MySQL has the migration applied and the stage/transition map reseeded (11 normal moves and 11 cancellation paths); all 29 PHPUnit tests (211 assertions), focused Pint, frontend production build, migration status, routes, and diff checks pass.

@@ -12,6 +12,8 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ApprovalChainTest extends TestCase
@@ -20,6 +22,7 @@ class ApprovalChainTest extends TestCase
 
     public function test_reviewer_queue_only_lists_its_checkpoint_and_approval_is_recorded(): void
     {
+        Storage::fake('local');
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
@@ -35,8 +38,10 @@ class ApprovalChainTest extends TestCase
             ->assertJsonPath('data.0.requires_ministry_approval', true);
 
         $this->actingAs($reviewer, 'sanctum')
-            ->postJson("/api/approvals/reviewer/{$pending->id}", [
+            ->withHeader('Accept', 'application/json')
+            ->post("/api/approvals/reviewer/{$pending->id}", [
                 'comment' => 'تمت مراجعة المستندات واعتمادها.',
+                'signature' => $this->signature(),
             ])
             ->assertOk()
             ->assertJsonPath('data.current_stage.order_no', 3);
@@ -49,13 +54,45 @@ class ApprovalChainTest extends TestCase
             'action' => 'approve',
             'comment' => 'تمت مراجعة المستندات واعتمادها.',
         ]);
+        $approval = $pending->approvals()->firstOrFail();
+        $this->assertNotNull($approval->signature_path);
+        Storage::disk('local')->assertExists($approval->signature_path);
 
-        $this->actingAs($reviewer, 'sanctum')
+        $detail = $this->actingAs($reviewer, 'sanctum')
             ->getJson("/api/transactions/{$pending->id}")
             ->assertOk()
             ->assertJsonPath('data.approvals.0.level', 1)
             ->assertJsonPath('data.approvals.0.role.code', 'R02')
-            ->assertJsonPath('data.approvals.0.approved_by.id', $reviewer->id);
+            ->assertJsonPath('data.approvals.0.approved_by.id', $reviewer->id)
+            ->assertJsonPath('data.approvals.0.signature_url', route(
+                'transactions.approvals.signature',
+                ['transaction' => $pending, 'approval' => $approval],
+            ));
+
+        $this->actingAs($reviewer, 'sanctum')
+            ->get(parse_url($detail->json('data.approvals.0.signature_url'), PHP_URL_PATH))
+            ->assertOk()
+            ->assertHeader('content-type', 'image/png');
+    }
+
+    public function test_approval_requires_a_png_signature_without_mutating_the_transaction(): void
+    {
+        Storage::fake('local');
+        $this->seed(DatabaseSeeder::class);
+
+        $reviewer = $this->userWithRole('R02');
+        $pending = $this->transactionAt(2, 'in_review');
+
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/approvals/reviewer/{$pending->id}", [
+                'comment' => 'محاولة بلا توقيع.',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('signature');
+
+        $this->assertDatabaseCount('approvals', 0);
+        $this->assertSame(2, $pending->refresh()->currentStage->order_no);
+        $this->assertSame([], Storage::disk('local')->allFiles());
     }
 
     public function test_queue_permission_and_checkpoint_both_prevent_cross_level_approval(): void
@@ -70,7 +107,10 @@ class ApprovalChainTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($reviewer, 'sanctum')
-            ->postJson("/api/approvals/reviewer/{$adminPending->id}")
+            ->withHeader('Accept', 'application/json')
+            ->post("/api/approvals/reviewer/{$adminPending->id}", [
+                'signature' => $this->signature(),
+            ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('transaction');
 
@@ -90,12 +130,39 @@ class ApprovalChainTest extends TestCase
             ->update(['can_approve' => false]);
 
         $this->actingAs($reviewer, 'sanctum')
-            ->postJson("/api/transactions/{$pending->id}/transition", ['action' => 'approve'])
+            ->withHeader('Accept', 'application/json')
+            ->post("/api/transactions/{$pending->id}/transition", [
+                'action' => 'approve',
+                'signature' => $this->signature(),
+            ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('action');
 
         $this->assertDatabaseCount('approvals', 0);
         $this->assertSame(2, $pending->refresh()->currentStage->order_no);
+    }
+
+    public function test_detail_transition_stores_the_same_signature_evidence_as_the_queue(): void
+    {
+        Storage::fake('local');
+        $this->seed(DatabaseSeeder::class);
+
+        $reviewer = $this->userWithRole('R02');
+        $pending = $this->transactionAt(2, 'in_review');
+
+        $this->actingAs($reviewer, 'sanctum')
+            ->withHeader('Accept', 'application/json')
+            ->post("/api/transactions/{$pending->id}/transition", [
+                'action' => 'approve',
+                'signature' => $this->signature(),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.current_stage.order_no', 3)
+            ->assertJsonPath('data.approvals.0.level', 1);
+
+        $approval = $pending->approvals()->firstOrFail();
+        $this->assertNotNull($approval->signature_path);
+        Storage::disk('local')->assertExists($approval->signature_path);
     }
 
     private function transactionAt(int $stageOrder, string $statusCode): Transaction
@@ -118,5 +185,10 @@ class ApprovalChainTest extends TestCase
         $user->roles()->attach(Role::where('code', $roleCode)->value('id'));
 
         return $user;
+    }
+
+    private function signature(): UploadedFile
+    {
+        return UploadedFile::fake()->image('signature.png', 960, 330);
     }
 }
