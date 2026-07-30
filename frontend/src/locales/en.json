@@ -133,6 +133,18 @@
     "empty": "No transactions match the current filters.",
     "noReference": "Not generated yet"
   },
+  "attachments": {
+    "title": "Attachments",
+    "file": "File",
+    "label": "Attachment label (optional)",
+    "chooseFile": "Choose a file to upload.",
+    "invalidType": "Only PDF, DOC, DOCX, JPG, and PNG files are allowed.",
+    "fileTooLarge": "The maximum file size is 20 MB.",
+    "acceptedHint": "PDF, DOC, DOCX, JPG, or PNG, up to 20 MB.",
+    "upload": "Upload file",
+    "uploading": "Uploading…",
+    "uploadFailed": "The file could not be uploaded. Please try again."
+  },
   "placeholder": {
     "title": "Under construction",
     "body": "This screen is built in a later stage of the implementation plan.",

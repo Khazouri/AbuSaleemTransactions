@@ -133,6 +133,18 @@
     "empty": "لا توجد معاملات مطابقة للتصفية الحالية.",
     "noReference": "لم يُنشأ بعد"
   },
+  "attachments": {
+    "title": "المرفقات",
+    "file": "الملف",
+    "label": "وصف المرفق (اختياري)",
+    "chooseFile": "يرجى اختيار ملف للرفع.",
+    "invalidType": "يسمح بملفات PDF وDOC وDOCX وJPG وPNG فقط.",
+    "fileTooLarge": "الحد الأقصى لحجم الملف هو 20 ميجابايت.",
+    "acceptedHint": "PDF أو DOC أو DOCX أو JPG أو PNG، حتى 20 ميجابايت.",
+    "upload": "رفع ملف",
+    "uploading": "جارٍ الرفع…",
+    "uploadFailed": "تعذّر رفع الملف. حاول مرة أخرى."
+  },
   "placeholder": {
     "title": "قيد الإنشاء",
     "body": "هذه الشاشة ستُبنى في مرحلة لاحقة من خطة التنفيذ.",

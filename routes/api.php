@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\RoleController;
@@ -156,4 +157,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('transactions/filters', [TransactionController::class, 'filters']);
     Route::middleware('screen.permission:transactions,view')
         ->get('transactions', [TransactionController::class, 'index']);
+
+    // Stage 12 — private attachments are written through the dedicated
+    // Notes & Attachments capability, not a broad transaction-list privilege.
+    Route::middleware('screen.permission:notes_attachments,add')
+        ->post('transactions/{transaction}/attachments', [AttachmentController::class, 'store']);
 });
