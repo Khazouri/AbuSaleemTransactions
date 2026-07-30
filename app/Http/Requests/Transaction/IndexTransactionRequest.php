@@ -21,6 +21,9 @@ class IndexTransactionRequest extends FormRequest
             'type_id' => ['nullable', 'integer', Rule::exists('transaction_types', 'id')],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+            // Stage 20 — the meeting-agenda picker looks a transaction up by
+            // reference number or title rather than paging through the queue.
+            'search' => ['nullable', 'string', 'max:255'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }

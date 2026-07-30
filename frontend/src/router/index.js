@@ -29,7 +29,6 @@ import PlaceholderView from '../views/PlaceholderView.vue'
  * Format: [screenCode, path]
  */
 const placeholderScreens = [
-  ['meetings', 'meetings'],                                  // Stage 20
   ['decisions', 'decisions'],                                // Stage 21
   // NB: `departments`, `users` and `roles_permissions` are NOT here — they're
   // built (Stages 6-8) and have real components below.
@@ -124,6 +123,22 @@ const routes = [
         name: 'templates',
         component: () => import('../views/TemplatesView.vue'),
         meta: { screenCode: 'templates' },
+      },
+      {
+        // Stage 20 — committee administration and the meeting schedule.
+        path: 'meetings',
+        name: 'meetings',
+        component: () => import('../views/MeetingsView.vue'),
+        meta: { screenCode: 'meetings' },
+      },
+      {
+        // Stage 20 — single meeting workspace: agenda builder + attendance.
+        // Needs a specific meeting id, so (like transaction_details) it isn't
+        // in placeholderScreens and has no separate sidebar entry.
+        path: 'meetings/:id',
+        name: 'meeting_details',
+        component: () => import('../views/MeetingDetailView.vue'),
+        meta: { screenCode: 'meetings' },
       },
       // Stage 18 — role-specific queues backed by one reusable approval view.
       ...[

@@ -4,7 +4,9 @@ use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\ApprovalSignatureController;
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CommitteeController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
@@ -217,4 +219,45 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('transactions/{transaction}/notes', [NoteController::class, 'index']);
     Route::middleware('screen.permission:notes_attachments,add')
         ->post('transactions/{transaction}/notes', [NoteController::class, 'store']);
+
+    /*
+     * Stage 20 — committees & meetings. Neither has a screen of its own on the
+     * 22/23-screen sheet, so both ride the `meetings` screen's permissions
+     * (committee management is a prerequisite of scheduling that committee's
+     * meetings, not a distinct capability). Literal paths (user-options,
+     * reorder) are declared before their sibling wildcard routes so the model
+     * binding can't swallow them.
+     */
+    Route::middleware('screen.permission:meetings,view')
+        ->get('committees/user-options', [CommitteeController::class, 'userOptions']);
+    Route::middleware('screen.permission:meetings,view')
+        ->get('committees', [CommitteeController::class, 'index']);
+    Route::middleware('screen.permission:meetings,add')
+        ->post('committees', [CommitteeController::class, 'store']);
+    Route::middleware('screen.permission:meetings,edit')->group(function () {
+        Route::patch('committees/{committee}/toggle-active', [CommitteeController::class, 'toggleActive']);
+        Route::put('committees/{committee}', [CommitteeController::class, 'update']);
+        Route::post('committees/{committee}/members', [CommitteeController::class, 'addMember']);
+        Route::delete('committees/{committee}/members/{member}', [CommitteeController::class, 'removeMember']);
+    });
+    Route::middleware('screen.permission:meetings,delete')
+        ->delete('committees/{committee}', [CommitteeController::class, 'destroy']);
+
+    Route::middleware('screen.permission:meetings,view')
+        ->get('meetings', [MeetingController::class, 'index']);
+    Route::middleware('screen.permission:meetings,add')
+        ->post('meetings', [MeetingController::class, 'store']);
+    Route::middleware('screen.permission:meetings,view')
+        ->get('meetings/{meeting}', [MeetingController::class, 'show']);
+    Route::middleware('screen.permission:meetings,edit')->group(function () {
+        Route::put('meetings/{meeting}', [MeetingController::class, 'update']);
+        Route::post('meetings/{meeting}/agenda', [MeetingController::class, 'addAgendaItem']);
+        Route::put('meetings/{meeting}/agenda/reorder', [MeetingController::class, 'reorderAgenda']);
+        Route::delete('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'removeAgendaItem']);
+        Route::post('meetings/{meeting}/attendees', [MeetingController::class, 'addAttendee']);
+        Route::patch('meetings/{meeting}/attendees/{attendee}', [MeetingController::class, 'markAttendance']);
+        Route::delete('meetings/{meeting}/attendees/{attendee}', [MeetingController::class, 'removeAttendee']);
+    });
+    Route::middleware('screen.permission:meetings,delete')
+        ->delete('meetings/{meeting}', [MeetingController::class, 'destroy']);
 });

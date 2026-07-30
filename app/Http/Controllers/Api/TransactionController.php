@@ -56,6 +56,11 @@ class TransactionController extends Controller
             ->when($filters['type_id'] ?? null, fn ($query, int $typeId) => $query->where('transaction_type_id', $typeId))
             ->when($filters['date_from'] ?? null, fn ($query, string $dateFrom) => $query->whereDate('created_at', '>=', $dateFrom))
             ->when($filters['date_to'] ?? null, fn ($query, string $dateTo) => $query->whereDate('created_at', '<=', $dateTo))
+            ->when($filters['search'] ?? null, fn ($query, string $search) => $query->where(
+                fn ($inner) => $inner
+                    ->where('reference_number', 'like', "%{$search}%")
+                    ->orWhere('title', 'like', "%{$search}%"),
+            ))
             ->latest()
             ->paginate($filters['per_page'] ?? 20)
             ->withQueryString();

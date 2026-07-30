@@ -232,6 +232,63 @@
     "loadFailed": "The transaction details could not be loaded.",
     "actionFailed": "The workflow action could not be completed. Please try again."
   },
+  "committees": {
+    "title": "Committees",
+    "add": "Add committee",
+    "edit": "Edit committee",
+    "nameAr": "Name (Arabic)",
+    "nameEn": "Name (English)",
+    "description": "Description",
+    "empty": "No committees yet.",
+    "members": "members",
+    "meetingsHeld": "meetings",
+    "manageMembers": "Manage members",
+    "hideMembers": "Hide members",
+    "addMember": "Add",
+    "chooseUser": "— Choose a user —",
+    "head": "Head",
+    "removeMember": "Remove",
+    "noMembers": "No members yet.",
+    "cannotDeleteHasMeetings": "A committee that has held meetings cannot be deleted."
+  },
+  "meetings": {
+    "title": "Meetings",
+    "schedule": "Schedule meeting",
+    "committee": "Committee",
+    "chooseCommittee": "— Choose a committee —",
+    "meetingTitle": "Meeting title",
+    "scheduledAt": "Date & time",
+    "location": "Location",
+    "status": "Status",
+    "statusScheduled": "Scheduled",
+    "statusCompleted": "Completed",
+    "statusCancelled": "Cancelled",
+    "empty": "No meetings yet.",
+    "attendees": "attendees",
+    "agendaItems": "agenda items",
+    "back": "Back to meetings",
+    "minutes": "Minutes",
+    "saveMinutes": "Save minutes",
+    "delete": "Delete meeting",
+    "agenda": {
+      "title": "Agenda",
+      "empty": "No transactions on the agenda yet.",
+      "searchPlaceholder": "Search by reference number or title…",
+      "add": "Add",
+      "remove": "Remove",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "noResults": "No matching transactions."
+    },
+    "attendance": {
+      "title": "Attendees",
+      "empty": "No attendees yet.",
+      "add": "Add attendee",
+      "chooseUser": "— Choose a user —",
+      "attended": "Attended",
+      "remove": "Remove"
+    }
+  },
   "workflow": {
     "actions": {
       "intake": "Transaction intake",

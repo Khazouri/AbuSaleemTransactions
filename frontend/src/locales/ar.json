@@ -232,6 +232,63 @@
     "loadFailed": "تعذّر تحميل تفاصيل المعاملة.",
     "actionFailed": "تعذّر تنفيذ إجراء سير العمل. حاول مرة أخرى."
   },
+  "committees": {
+    "title": "اللجان",
+    "add": "إضافة لجنة",
+    "edit": "تعديل اللجنة",
+    "nameAr": "الاسم بالعربية",
+    "nameEn": "الاسم بالإنجليزية",
+    "description": "الوصف",
+    "empty": "لا توجد لجان بعد.",
+    "members": "عضو",
+    "meetingsHeld": "اجتماع",
+    "manageMembers": "إدارة الأعضاء",
+    "hideMembers": "إخفاء الأعضاء",
+    "addMember": "إضافة",
+    "chooseUser": "— اختر مستخدماً —",
+    "head": "الرئيس",
+    "removeMember": "إزالة",
+    "noMembers": "لا يوجد أعضاء بعد.",
+    "cannotDeleteHasMeetings": "لا يمكن حذف لجنة عقدت اجتماعات."
+  },
+  "meetings": {
+    "title": "الاجتماعات",
+    "schedule": "جدولة اجتماع",
+    "committee": "اللجنة",
+    "chooseCommittee": "— اختر اللجنة —",
+    "meetingTitle": "عنوان الاجتماع",
+    "scheduledAt": "التاريخ والوقت",
+    "location": "المكان",
+    "status": "الحالة",
+    "statusScheduled": "مجدول",
+    "statusCompleted": "منعقد",
+    "statusCancelled": "ملغى",
+    "empty": "لا توجد اجتماعات بعد.",
+    "attendees": "حاضر",
+    "agendaItems": "بند",
+    "back": "العودة إلى الاجتماعات",
+    "minutes": "محضر الاجتماع",
+    "saveMinutes": "حفظ المحضر",
+    "delete": "حذف الاجتماع",
+    "agenda": {
+      "title": "جدول الأعمال",
+      "empty": "لا توجد معاملات في جدول الأعمال بعد.",
+      "searchPlaceholder": "ابحث بالرقم المرجعي أو العنوان…",
+      "add": "إضافة",
+      "remove": "إزالة",
+      "moveUp": "تحريك لأعلى",
+      "moveDown": "تحريك لأسفل",
+      "noResults": "لا توجد معاملات مطابقة."
+    },
+    "attendance": {
+      "title": "الحضور",
+      "empty": "لا يوجد حاضرون بعد.",
+      "add": "إضافة حاضر",
+      "chooseUser": "— اختر مستخدماً —",
+      "attended": "حاضر",
+      "remove": "إزالة"
+    }
+  },
   "workflow": {
     "actions": {
       "intake": "استلام المعاملة",
