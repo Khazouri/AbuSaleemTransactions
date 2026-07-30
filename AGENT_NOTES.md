@@ -13,6 +13,11 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+
+### 2026-07-30 20:23 EET — Codex — Stage 14 workflow happy path complete
+
+Added and seeded the ten generic stage 1→11 workflow rules plus an atomic, row-locking `WorkflowService` that enforces active actors, configured roles, type-specific overrides, required comments, and append-only stage/status histories. The configured MySQL database now contains the ten ordered happy-path transitions; all 12 PHPUnit tests (including the full workflow walk), focused Pint, migration status, and idempotent reseeding pass. Stage 15 can expose this service through its transaction transition endpoint and translate `WorkflowTransitionException` into a 422 response.
+
 ### 2026-07-30 — Codex — Stage 13 intake flow complete
 
 The transaction-intake placeholder is now a full multipart form that creates a stage-1, `new` transaction, records its initial stage/status history, stores up to ten validated private attachments, and returns a locked, yearly department reference (`YYYY-DEPT-000001`). The notes API and reusable `TransactionNotes` component are also ready for the Stage 15 detail screen; frontend build, all 9 PHPUnit tests, routes, Pint on Stage 13 PHP files, and migration status pass. `TransactionStatusHistory` now explicitly maps to the pre-existing singular `transaction_status_history` table, which the new initial history write surfaced.

@@ -165,8 +165,9 @@ instead of cramming it in here. Rules:
 - **Check `AGENT_NOTES.md` at the start of a session** for anything the other
   agent left. Claude Code gets it automatically (also imported in
   `CLAUDE.md`); Codex should read it explicitly if not surfaced automatically.
-- **Append, don't rewrite history** — newest entry at the top.
-- **Format**: `### YYYY-MM-DD — <Codex|Claude> — <short title>` followed by 2-4
+- **Add new entries at the top, don't rewrite history** — keep the newest
+  entry first.
+- **Format**: `### YYYY-MM-DD HH:MM TZ — <Codex|Claude> — <short title>` followed by 2-4
   sentences: what happened, why it matters to the next agent, any open
   question.
 - **Prune when stale** — once a note's concern is resolved or no longer
