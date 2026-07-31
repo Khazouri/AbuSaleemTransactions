@@ -5,7 +5,10 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** One agenda slot, with just enough of its transaction to render the agenda list. */
+/**
+ * One agenda slot, with just enough of its transaction to render the agenda
+ * list, plus (Stage 21) its votes and, once recorded, its binding decision.
+ */
 class MeetingTransactionResource extends JsonResource
 {
     public function toArray(Request $request): array
@@ -24,6 +27,8 @@ class MeetingTransactionResource extends JsonResource
                     'color' => $this->transaction->status->color,
                 ] : null,
             ]),
+            'votes' => $this->whenLoaded('votes', fn () => VoteResource::collection($this->votes)),
+            'decision' => $this->whenLoaded('decision', fn () => $this->decision ? new DecisionResource($this->decision) : null),
         ];
     }
 }

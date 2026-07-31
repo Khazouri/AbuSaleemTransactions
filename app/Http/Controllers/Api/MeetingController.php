@@ -94,13 +94,24 @@ class MeetingController extends Controller
     }
 
     /**
-     * Delete a meeting. No "held meetings" style guard is needed here the way
-     * committees/departments have one — nothing yet references a meeting from
-     * outside this feature (Stage 21 will add decisions tied to agenda items,
-     * at which point this may need the same preserve-don't-erase treatment).
+     * Delete a meeting. Blocked (422) once any of its agenda items has a
+     * recorded decision — that history must stay attached to a resolvable
+     * meeting, the same "preserve, don't erase" rule CommitteeController's
+     * own destroy() applies to a committee that has held meetings.
      */
     public function destroy(Meeting $meeting): JsonResponse
     {
+        $hasDecisions = MeetingTransaction::query()
+            ->where('meeting_id', $meeting->id)
+            ->whereHas('decision')
+            ->exists();
+
+        if ($hasDecisions) {
+            return response()->json([
+                'message' => 'لا يمكن حذف اجتماع تم تسجيل قرارات فيه. لا يمكن حذف السجل التاريخي المرتبط به.',
+            ], 422);
+        }
+
         $meeting->delete();
 
         return response()->json(null, 204);
@@ -183,6 +194,8 @@ class MeetingController extends Controller
             'attendees.user:id,name',
             'agendaItems.transaction:id,reference_number,title,status_id',
             'agendaItems.transaction.status:id,code,name_ar,name_en,color',
+            'agendaItems.votes.user:id,name',
+            'agendaItems.decision.decidedBy:id,name',
         ]);
     }
 }

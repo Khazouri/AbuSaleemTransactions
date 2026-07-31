@@ -111,6 +111,19 @@ class WorkflowTransitionSeeder extends Seeder
             );
         }
 
+        // Stage 21 — a committee vote to defer keeps the transaction at the
+        // committee stage, status `deferred`, ready to be placed on a future
+        // meeting's agenda instead of advancing to stage 8. See
+        // DecisionController::record for the vote tally that triggers this.
+        $this->seedException(
+            $stages[7]->id,
+            $stages[7]->id,
+            'defer',
+            $roles['R03']->id,
+            $statuses['deferred']->id,
+            50,
+        );
+
         // Stage 17 — once the SLA sweep marks a breach, an administrator can
         // route the case to ministry oversight. The deadline is a separate
         // flag, so this does not disguise the actual workflow state as a

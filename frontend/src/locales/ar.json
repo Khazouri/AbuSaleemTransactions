@@ -289,6 +289,27 @@
       "remove": "إزالة"
     }
   },
+  "decisions": {
+    "tally": {
+      "approve": "موافقة",
+      "reject": "رفض",
+      "defer": "تأجيل"
+    },
+    "vote": {
+      "approve": "موافقة",
+      "reject": "رفض",
+      "defer": "تأجيل"
+    },
+    "outcome": {
+      "approve": "تمت الموافقة",
+      "reject": "تم الرفض",
+      "defer": "تم التأجيل"
+    },
+    "commentPlaceholder": "سبب القرار (اختياري للموافقة، مطلوب للرفض أو التأجيل)",
+    "record": "تسجيل القرار",
+    "recording": "جارٍ تسجيل القرار…",
+    "decidedBy": "قرار من"
+  },
   "workflow": {
     "actions": {
       "intake": "استلام المعاملة",
@@ -299,6 +320,7 @@
       "reject_review": "رفض المراجعة",
       "request_edit": "طلب تعديل",
       "cancel": "إلغاء المعاملة",
+      "defer": "تأجيل القرار",
       "deadline_expired": "تصعيد لانتهاء المهلة"
     }
   },

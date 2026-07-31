@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ApprovalSignatureController;
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommitteeController;
+use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\NoteController;
@@ -260,4 +261,16 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::middleware('screen.permission:meetings,delete')
         ->delete('meetings/{meeting}', [MeetingController::class, 'destroy']);
+
+    /*
+     * Stage 21 — committee voting and decision recording. These ride the
+     * `decisions` screen's own permissions (view=*, add=[R03,R04],
+     * approve=[R03]) rather than `meetings`: casting a vote is open to any
+     * committee member, while only the head can record the binding outcome
+     * that drives WorkflowService::transition().
+     */
+    Route::middleware('screen.permission:decisions,add')
+        ->post('meetings/{meeting}/agenda/{agendaItem}/votes', [DecisionController::class, 'vote']);
+    Route::middleware('screen.permission:decisions,approve')
+        ->post('meetings/{meeting}/agenda/{agendaItem}/decision', [DecisionController::class, 'record']);
 });

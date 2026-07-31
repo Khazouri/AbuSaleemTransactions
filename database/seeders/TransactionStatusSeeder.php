@@ -9,10 +9,10 @@ use Illuminate\Database\Seeder;
  * Seeds every status a transaction can hold, with the badge colour the UI
  * uses for each.
  *
- * The first nine are the normal progression. The last three
- * (returned / rejected / cancelled) are exception outcomes, driven by the
- * exception transitions added in Stage 16 — they're seeded now so those
- * transitions have something to point at.
+ * The first nine are the normal progression. The remaining four
+ * (returned / rejected / cancelled / deferred) are exception outcomes,
+ * driven by the exception transitions added in Stage 16 and Stage 21 — they're
+ * seeded now so those transitions have something to point at.
  */
 class TransactionStatusSeeder extends Seeder
 {
@@ -35,6 +35,9 @@ class TransactionStatusSeeder extends Seeder
             ['returned',       'مرجعة',           'Returned',       '#ea580c'], // sent back a stage
             ['rejected',       'مرفوضة',          'Rejected',       '#dc2626'],
             ['cancelled',      'ملغاة',           'Cancelled',      '#6b7280'],
+
+            // --- Committee voting outcome (Stage 21) -------------------------
+            ['deferred',       'مؤجلة',           'Deferred',       '#64748b'], // sent back to committee for the next meeting
         ];
 
         foreach ($statuses as [$code, $nameAr, $nameEn, $color]) {

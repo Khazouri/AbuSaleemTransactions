@@ -289,6 +289,27 @@
       "remove": "Remove"
     }
   },
+  "decisions": {
+    "tally": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "defer": "Defer"
+    },
+    "vote": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "defer": "Defer"
+    },
+    "outcome": {
+      "approve": "Approved",
+      "reject": "Rejected",
+      "defer": "Deferred"
+    },
+    "commentPlaceholder": "Reason for the decision (optional for approve, required for reject/defer)",
+    "record": "Record decision",
+    "recording": "Recording decision…",
+    "decidedBy": "Decided by"
+  },
   "workflow": {
     "actions": {
       "intake": "Transaction intake",
@@ -299,6 +320,7 @@
       "reject_review": "Reject review",
       "request_edit": "Request changes",
       "cancel": "Cancel transaction",
+      "defer": "Defer decision",
       "deadline_expired": "Escalate overdue transaction"
     }
   },
