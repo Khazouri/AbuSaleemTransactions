@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\ApprovalSignatureController;
 use App\Http\Controllers\Api\AttachmentController;
+use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommitteeController;
 use App\Http\Controllers\Api\DecisionController;
@@ -273,4 +274,15 @@ Route::middleware('auth:sanctum')->group(function () {
         ->post('meetings/{meeting}/agenda/{agendaItem}/votes', [DecisionController::class, 'vote']);
     Route::middleware('screen.permission:decisions,approve')
         ->post('meetings/{meeting}/agenda/{agendaItem}/decision', [DecisionController::class, 'record']);
+
+    /*
+     * Stage 22 — audit log. Read only by design (see AuditLogController), so
+     * only the `view` action is wired; there is no write endpoint to gate.
+     * `filters` is declared first purely for readability — no wildcard route
+     * shares this prefix to shadow it.
+     */
+    Route::middleware('screen.permission:audit_log,view')->group(function () {
+        Route::get('audit-logs/filters', [AuditLogController::class, 'filters']);
+        Route::get('audit-logs', [AuditLogController::class, 'index']);
+    });
 });

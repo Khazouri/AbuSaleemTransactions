@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\AuditLog;
 use Illuminate\Database\Seeder;
 
 /**
@@ -24,7 +25,10 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([
+        // Stage 22 — bootstrap data is not user activity. Without this, every
+        // `migrate:fresh --seed` would open the audit viewer on hundreds of
+        // rows describing the system setting itself up.
+        AuditLog::withoutAuditing(fn () => $this->call([
             // Stage 2 — organisation and identity
             RoleSeeder::class,
             PermissionSeeder::class,
@@ -39,6 +43,6 @@ class DatabaseSeeder extends Seeder
             WorkflowTransitionSeeder::class,
             ScreenSeeder::class,
             ScreenRolePermissionSeeder::class,
-        ]);
+        ]));
     }
 }

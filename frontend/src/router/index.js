@@ -33,7 +33,6 @@ const placeholderScreens = [
   // NB: `departments`, `users` and `roles_permissions` are NOT here — they're
   // built (Stages 6-8) and have real components below.
   ['reports', 'reports'],                                    // Stage 24
-  ['audit_log', 'audit-log'],                                // Stage 22
   ['notifications', 'notifications'],                        // Stage 23
   ['backup', 'backup'],                                      // later
   ['user_guide', 'guide'],                                   // later
@@ -139,6 +138,13 @@ const routes = [
         name: 'meeting_details',
         component: () => import('../views/MeetingDetailView.vue'),
         meta: { screenCode: 'meetings' },
+      },
+      {
+        // Stage 22 — read-only audit trail viewer.
+        path: 'audit-log',
+        name: 'audit_log',
+        component: () => import('../views/AuditLogView.vue'),
+        meta: { screenCode: 'audit_log' },
       },
       // Stage 18 — role-specific queues backed by one reusable approval view.
       ...[
