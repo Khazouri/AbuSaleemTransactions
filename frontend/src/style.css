@@ -221,3 +221,32 @@ textarea {
 .animate-scale-in {
   animation: scaleIn 0.2s ease-out forwards;
 }
+
+/* -- Print ----------------------------------------------------------------
+   Stage 25/27 — the `print` grant seeded on the decisions and user-guide
+   screens finally has a use, so the shell needs to get out of the way.
+
+   The two rules that matter are the last ones: AppLayout keeps the shell at
+   100vh with `overflow: hidden` and scrolls `.content` internally, which on
+   paper clips everything to the first page. Releasing both is what lets a long
+   register or article paginate. */
+@media print {
+  .sidebar,
+  .topbar,
+  .overlay,
+  .no-print {
+    display: none !important;
+  }
+  .shell {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .content {
+    overflow: visible;
+    padding: 0;
+  }
+  body {
+    background: #fff;
+  }
+}

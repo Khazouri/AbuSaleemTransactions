@@ -52,6 +52,11 @@ class AuditLog extends Model
         ScreenRolePermission::class,
         Setting::class,
         Template::class,
+        GuideArticle::class,
+
+        // Stage 26 — taking or destroying a snapshot of the whole system is
+        // exactly the low-volume, high-consequence write this trail is for.
+        Backup::class,
     ];
 
     /** The actions the observer records, and the only values the filter accepts. */

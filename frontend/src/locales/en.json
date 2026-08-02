@@ -110,6 +110,59 @@
     "empty": "No templates yet.",
     "codeHint": "A stable code for wiring this template to a later feature"
   },
+  "guide": {
+    "title": "User Guide",
+    "subtitle": "How the system works, section by section.",
+    "add": "Add article",
+    "edit": "Edit article",
+    "print": "Print",
+    "search": "Search the guide",
+    "empty": "No articles match your search.",
+    "selectPrompt": "Choose an article from the list.",
+    "uncategorised": "General",
+    "draft": "Draft",
+    "published": "Published (visible to everyone)",
+    "code": "Article code",
+    "codeHint": "A stable identifier, e.g. intake.creating-a-transaction",
+    "category": "Section",
+    "sortOrder": "Order",
+    "titleAr": "Title (Arabic)",
+    "titleEn": "Title (English)",
+    "bodyAr": "Body (Arabic)",
+    "bodyEn": "Body (English)",
+    "bodyHint": "Plain text. Leave a blank line between paragraphs.",
+    "saveFailed": "The article could not be saved.",
+    "deleteFailed": "The article could not be deleted."
+  },
+  "backup": {
+    "title": "Backup",
+    "subtitle": "Snapshots of the database and its stored files. A backup also runs automatically every night.",
+    "create": "Create backup",
+    "creating": "Creating backup…",
+    "creatingHint": "The dump is running. This can take a while on a large database — leave this page open.",
+    "created": "Backup {name} created.",
+    "createFailed": "The backup could not be created.",
+    "includeFiles": "Include attachments and signatures",
+    "databaseAndFiles": "Database + files",
+    "databaseOnly": "Database only",
+    "download": "Download",
+    "downloadFailed": "The backup could not be downloaded.",
+    "deleteFailed": "The backup could not be deleted.",
+    "fileMissing": "The archive is no longer on disk.",
+    "scheduled": "Scheduled run",
+    "empty": "No backups yet.",
+    "kb": "KB",
+    "mb": "MB",
+    "restoreNote": "Restoring is not available from this screen. To restore, an administrator unpacks the archive on the server and reloads database.sql with the system stopped.",
+    "columns": {
+      "filename": "File",
+      "size": "Size",
+      "contents": "Contents",
+      "createdBy": "Created by",
+      "createdAt": "Created at",
+      "actions": "Actions"
+    }
+  },
   "transactions": {
     "title": "Transaction Requests",
     "filters": "Filter transactions",
@@ -308,7 +361,43 @@
     "commentPlaceholder": "Reason for the decision (optional for approve, required for reject/defer)",
     "record": "Record decision",
     "recording": "Recording decision…",
-    "decidedBy": "Decided by"
+    "decidedBy": "Decided by",
+    "title": "Decisions & Recommendations",
+    "subtitle": "Every binding committee decision, and the items still awaiting your vote.",
+    "tabs": {
+      "register": "Register",
+      "pending": "Awaiting my vote"
+    },
+    "filters": "Filters",
+    "outcomeLabel": "Outcome",
+    "allOutcomes": "All outcomes",
+    "committee": "Committee",
+    "allCommittees": "All committees",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "search": "Search",
+    "searchPlaceholder": "Reference or subject",
+    "apply": "Apply",
+    "clear": "Clear",
+    "empty": "No decisions match these filters.",
+    "noPending": "Nothing is waiting on your vote.",
+    "yourVote": "Your vote is recorded — choose again to change it.",
+    "voteFailed": "The vote could not be recorded.",
+    "print": "Print",
+    "exportExcel": "Export Excel",
+    "exportPdf": "Export PDF",
+    "exporting": "Exporting…",
+    "exportFailed": "The export could not be generated.",
+    "columns": {
+      "reference": "Reference",
+      "subject": "Subject",
+      "committee": "Committee",
+      "meeting": "Meeting",
+      "outcome": "Outcome",
+      "tally": "Approve / Reject / Defer",
+      "decidedBy": "Decided by",
+      "decidedAt": "Decided at"
+    }
   },
   "workflow": {
     "actions": {
@@ -377,7 +466,9 @@
       "transaction_type": "Transaction type",
       "screen_role_permission": "Screen permission",
       "setting": "Setting",
-      "template": "Template"
+      "template": "Template",
+      "guide_article": "Guide article",
+      "backup": "Backup"
     },
     "fields": {
       "title": "Subject",
@@ -429,11 +520,6 @@
       "meeting_scheduled": "Meeting invitation",
       "decision_recorded": "Committee decision recorded"
     }
-  },
-  "placeholder": {
-    "title": "Under construction",
-    "body": "This screen is built in a later stage of the implementation plan.",
-    "screen": "Screen"
   },
   "dashboard": {
     "title": "Dashboard",

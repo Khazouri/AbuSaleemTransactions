@@ -5,10 +5,12 @@ use App\Http\Controllers\Api\ApprovalSignatureController;
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\CommitteeController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
@@ -277,6 +279,62 @@ Route::middleware('auth:sanctum')->group(function () {
         ->post('meetings/{meeting}/agenda/{agendaItem}/votes', [DecisionController::class, 'vote']);
     Route::middleware('screen.permission:decisions,approve')
         ->post('meetings/{meeting}/agenda/{agendaItem}/decision', [DecisionController::class, 'record']);
+
+    /*
+     * Stage 25 — the `decisions` screen itself, which Stage 21 left a
+     * placeholder because the voting UI belonged in the meeting. These are the
+     * read side: the register of recorded decisions, and the worklist of items
+     * the caller still owes a vote on.
+     *
+     * `pending` sits behind `view`, not `add` — reading your own worklist is
+     * reading. Its vote buttons post back to the endpoint above, which
+     * re-checks `add` and the eligibility rules, so nothing is decided here.
+     * Export is R08-only by default (the `decisions` grants seed `print` to
+     * everyone but not `export`): reading the register on screen and carrying
+     * it out as a file are different privileges.
+     */
+    Route::middleware('screen.permission:decisions,view')->group(function () {
+        Route::get('decisions/filters', [DecisionController::class, 'filters']);
+        Route::get('decisions/pending', [DecisionController::class, 'pending']);
+        Route::get('decisions', [DecisionController::class, 'index']);
+    });
+    Route::middleware('screen.permission:decisions,export')
+        ->get('decisions/export', [DecisionController::class, 'export']);
+
+    /*
+     * Stage 27 — the user guide. The only screen in the system where `view` is
+     * granted to every role but the write verbs are R08-only, which is exactly
+     * what a help section is: everyone reads it, one person maintains it.
+     * Drafts are filtered out in the controller, not here — the permission
+     * decides whether you can edit, the query decides what you can see.
+     */
+    Route::middleware('screen.permission:user_guide,view')
+        ->get('guide-articles', [GuideArticleController::class, 'index']);
+    Route::middleware('screen.permission:user_guide,add')
+        ->post('guide-articles', [GuideArticleController::class, 'store']);
+    Route::middleware('screen.permission:user_guide,edit')
+        ->put('guide-articles/{guideArticle}', [GuideArticleController::class, 'update']);
+    Route::middleware('screen.permission:user_guide,delete')
+        ->delete('guide-articles/{guideArticle}', [GuideArticleController::class, 'destroy']);
+
+    /*
+     * Stage 26 — backups. Every verb here is R08-only, which is what the
+     * `backup` screen's empty DEFAULTS entry already means; no seeder change
+     * was needed to wire it.
+     *
+     * Downloading rides `export` rather than `view` for the same reason the
+     * reports and audit screens split them: listing what snapshots exist and
+     * walking away with a complete copy of the database are not the same
+     * privilege. There is no restore route — see BackupController.
+     */
+    Route::middleware('screen.permission:backup,view')
+        ->get('backups', [BackupController::class, 'index']);
+    Route::middleware('screen.permission:backup,add')
+        ->post('backups', [BackupController::class, 'store']);
+    Route::middleware('screen.permission:backup,export')
+        ->get('backups/{backup}/download', [BackupController::class, 'download']);
+    Route::middleware('screen.permission:backup,delete')
+        ->delete('backups/{backup}', [BackupController::class, 'destroy']);
 
     /*
      * Stage 22 — audit log. Read only by design (see AuditLogController), so

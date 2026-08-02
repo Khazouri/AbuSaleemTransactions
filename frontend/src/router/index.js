@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import AppLayout from '../layouts/AppLayout.vue'
-import PlaceholderView from '../views/PlaceholderView.vue'
 
 /**
  * Application routes and the navigation guard.
@@ -19,22 +18,13 @@ import PlaceholderView from '../views/PlaceholderView.vue'
  *                 it to check the permission matrix before allowing entry
  */
 
-/**
- * Screens that exist in the menu but whose real UI arrives in a later stage.
- * Each becomes a route rendering PlaceholderView, so every sidebar link works
- * today. As each stage lands, its entry moves out of this list and gets a real
- * component.
- *
- * Paths are relative to the layout's "/" parent, hence no leading slash.
- * Format: [screenCode, path]
+/*
+ * There used to be a `placeholderScreens` list here — screens that existed in
+ * the menu but whose real UI was still to come, each rendering PlaceholderView.
+ * Stages 25-27 built the last three (decisions, backup, user_guide), so the
+ * list is gone and PlaceholderView with it: every seeded screen now has a real
+ * component below.
  */
-const placeholderScreens = [
-  ['decisions', 'decisions'],                                // Stage 21
-  // NB: `departments`, `users`, `roles_permissions` and `reports` are NOT
-  // here — they're built (Stages 6-8, 24) and have real components below.
-  ['backup', 'backup'],                                      // later
-  ['user_guide', 'guide'],                                   // later
-]
 
 /*
  * Note the two screens absent from that list: transaction_details
@@ -172,13 +162,29 @@ const routes = [
         component: () => import('../views/ApprovalQueueView.vue'),
         meta: { screenCode, approvalLevel: level },
       })),
-      // Expand the list above into one placeholder route each.
-      ...placeholderScreens.map(([screenCode, path]) => ({
-        path,
-        name: screenCode,
-        component: PlaceholderView,
-        meta: { screenCode },
-      })),
+      {
+        // Stage 25 — the decisions register and the pending-votes worklist.
+        // Recording a decision stays on the meeting screen, where the agenda
+        // context and the signature pad already are.
+        path: 'decisions',
+        name: 'decisions',
+        component: () => import('../views/DecisionsView.vue'),
+        meta: { screenCode: 'decisions' },
+      },
+      {
+        // Stage 26 — snapshots of the database and its stored files.
+        path: 'backup',
+        name: 'backup',
+        component: () => import('../views/BackupView.vue'),
+        meta: { screenCode: 'backup' },
+      },
+      {
+        // Stage 27 — help articles, read by everyone and edited by R08.
+        path: 'guide',
+        name: 'user_guide',
+        component: () => import('../views/GuideView.vue'),
+        meta: { screenCode: 'user_guide' },
+      },
     ],
   },
 

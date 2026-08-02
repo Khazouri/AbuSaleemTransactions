@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Contracts\DatabaseDumper;
 use App\Contracts\SmsSender;
 use App\Models\AuditLog;
 use App\Models\Transaction;
 use App\Observers\AuditObserver;
 use App\Observers\ReportCacheObserver;
+use App\Services\Backup\MysqlDumper;
 use App\Services\Sms\LogSmsSender;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,6 +26,18 @@ class AppServiceProvider extends ServiceProvider
     ];
 
     /**
+     * Stage 26 — how each database driver gets dumped, keyed by connection
+     * driver rather than by environment. Only MySQL is implemented because it
+     * is the only connection this application actually runs on; the test suite
+     * binds its own fake over this, which is the whole point of the contract.
+     *
+     * @var array<string, class-string<DatabaseDumper>>
+     */
+    private const DUMPERS = [
+        'mysql' => MysqlDumper::class,
+    ];
+
+    /**
      * Register any application services.
      */
     public function register(): void
@@ -35,6 +49,20 @@ class AppServiceProvider extends ServiceProvider
             SmsSender::class,
             self::SMS_DRIVERS[config('services.sms.driver')] ?? LogSmsSender::class,
         );
+
+        // No fallback here, unlike SMS above: silently "backing up" with a
+        // dumper that doesn't understand the connection would produce an
+        // archive that only fails when someone tries to restore from it. A
+        // driver with no dumper must fail loudly at resolve time.
+        $this->app->bind(DatabaseDumper::class, function () {
+            $driver = config('database.connections.'.config('database.default').'.driver');
+
+            $dumper = self::DUMPERS[$driver] ?? null;
+
+            abort_if($dumper === null, 500, "لا يوجد برنامج نسخ احتياطي مهيأ لقاعدة بيانات من نوع [{$driver}].");
+
+            return $this->app->make($dumper);
+        });
     }
 
     /**

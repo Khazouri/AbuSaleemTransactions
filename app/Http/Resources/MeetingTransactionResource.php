@@ -29,6 +29,31 @@ class MeetingTransactionResource extends JsonResource
             ]),
             'votes' => $this->whenLoaded('votes', fn () => VoteResource::collection($this->votes)),
             'decision' => $this->whenLoaded('decision', fn () => $this->decision ? new DecisionResource($this->decision) : null),
+            // Stage 25 — the pending-votes worklist shows items from several
+            // meetings at once, so each one has to name its own. Omitted inside
+            // the meeting screen, which already knows.
+            'meeting' => $this->whenLoaded('meeting', fn () => $this->meetingContext()),
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function meetingContext(): ?array
+    {
+        if ($this->meeting === null) {
+            return null;
+        }
+
+        $committee = $this->meeting->relationLoaded('committee') ? $this->meeting->committee : null;
+
+        return [
+            'id' => $this->meeting->id,
+            'title' => $this->meeting->title,
+            'scheduled_at' => $this->meeting->scheduled_at,
+            'committee' => $committee === null ? null : [
+                'id' => $committee->id,
+                'name_ar' => $committee->name_ar,
+                'name_en' => $committee->name_en,
+            ],
         ];
     }
 }

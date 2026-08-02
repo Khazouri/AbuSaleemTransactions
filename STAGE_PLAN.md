@@ -189,6 +189,59 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 
 ---
 
+## TRACK G — The remaining seeded screens
+
+Stage 3 seeded 23 screens into the `screens` table and their grants into
+`screen_role_permissions`. Stages 6–24 built 20 of them. These three stages
+finish the sheet: `decisions` was intentionally left as a placeholder in Stage
+21 (the plan put the voting UI inside the meeting screen), while `backup` and
+`user_guide` were seeded with permissions but never assigned to any stage at
+all.
+
+None of these needs a permission change — every action each one uses was
+already granted when the matrix was first seeded.
+
+### Stage 25 — Decisions register & pending-votes worklist
+**Build:**
+- `GET /decisions` register of every recorded committee decision (filters:
+  outcome, committee, date range, reference/subject search) + `/decisions/export`
+  reusing Stage 24's `ReportDocument`/`ReportExporter`
+- `GET /decisions/pending` — the agenda items the signed-in member still owes a
+  vote on, across every committee they sit on
+- `App\Services\DecisionEligibility` — one predicate shared by the worklist
+  query and the vote endpoint's guard, so the list can't offer an item the
+  endpoint refuses
+- Vue: `/decisions` with a register tab and a worklist tab; voting posts back to
+  the Stage 21 endpoint. Recording a decision stays on the meeting screen.
+
+**Done when:** A decision recorded in a meeting appears in the register, and the
+agenda item it settled disappears from that member's worklist.
+
+### Stage 26 — Backup & retention
+**Build:**
+- `backups` table + `App\Contracts\DatabaseDumper` (driver map in
+  `AppServiceProvider`, `MysqlDumper` shelling to mysqldump)
+- `BackupService`: zip of `database.sql` plus the private attachment/signature
+  trees; failures recorded as a row rather than swallowed
+- `backup:run` command, scheduled nightly, pruning past the retention window
+- Vue: `/backup` — create, list, download, delete
+
+**Done when:** An admin can take a snapshot, download it, and the nightly run
+prunes expired ones.
+**Note:** Restore is deliberately *not* in scope. Reloading the database is a
+server-side operation performed with the system stopped, not a web button.
+
+### Stage 27 — User guide
+**Build:** `guide_articles` (bilingual, `Template`-shaped) + CRUD behind the
+`user_guide` grants; Vue reading pane with search, category grouping, R08 inline
+editing, and a print view.
+**Done when:** An admin publishes an article and every other role can read and
+print it, while drafts stay hidden from them.
+**Note:** Article bodies render as plain text, never `v-html` — the content is
+API-editable and every role lands on this screen.
+
+---
+
 ## Suggested order
 
 ```
@@ -198,6 +251,7 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 14 → 15 → 16 → 17        (workflow engine — the critical path)
 18 → 19 → 20 → 21        (approvals & committees)
 22 → 23 → 24             (cross-cutting)
+25 → 26 → 27             (the remaining seeded screens; 25 depends on 21 and 24)
 ```
 
 **Stages you can pull forward if you want a break from the hard parts:** 10, 12, 22.
