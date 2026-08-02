@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Contracts\SmsSender;
 use App\Models\AuditLog;
+use App\Models\Transaction;
 use App\Observers\AuditObserver;
+use App\Observers\ReportCacheObserver;
 use App\Services\Sms\LogSmsSender;
 use Illuminate\Support\ServiceProvider;
 
@@ -47,5 +49,10 @@ class AppServiceProvider extends ServiceProvider
         foreach (AuditLog::AUDITED_MODELS as $model) {
             $model::observe(AuditObserver::class);
         }
+
+        // Stage 24 — invalidate the cached dashboard aggregates on any
+        // transaction write. See ReportCacheObserver for why this one model
+        // covers every KPI.
+        Transaction::observe(ReportCacheObserver::class);
     }
 }

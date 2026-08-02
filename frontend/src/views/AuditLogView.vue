@@ -3,6 +3,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { downloadExport } from '../lib/download'
 
 const { t, te, locale } = useI18n()
 const logs = ref([])
@@ -20,7 +21,11 @@ function blankFilters() {
   return { user_id: '', action: '', model: '', record_id: '', date_from: '', date_to: '' }
 }
 
-const isBusy = computed(() => loading.value || loadingOptions.value)
+// Stage 24 — which export format is mid-download, or null when idle.
+const exporting = ref(null)
+const exportError = ref(null)
+
+const isBusy = computed(() => loading.value || loadingOptions.value || exporting.value !== null)
 
 /** Falls back to the raw key so a model added server-side is still readable. */
 function modelLabel(key) {
@@ -88,6 +93,30 @@ async function loadOptions() {
   }
 }
 
+/**
+ * Stage 24 — the trail as a file, honouring the filters currently applied
+ * rather than only the page on screen.
+ */
+async function exportAs(format) {
+  exporting.value = format
+  exportError.value = null
+  try {
+    // queryFor() carries a page number, which an export must not have — it
+    // covers the whole filtered set, not the page being looked at.
+    const { page: _page, ...params } = queryFor(1)
+
+    await downloadExport(
+      '/audit-logs/export',
+      { ...params, format, locale: locale.value },
+      `audit-log.${format}`,
+    )
+  } catch (error) {
+    exportError.value = error?.response?.data?.message ?? t('auditLog.exportFailed')
+  } finally {
+    exporting.value = null
+  }
+}
+
 function applyFilters() { load(1) }
 function clearFilters() { filters.value = blankFilters(); load(1) }
 function toggleDetails(id) { openRow.value = openRow.value === id ? null : id }
@@ -104,7 +133,19 @@ onMounted(async () => {
         <h2>{{ t('auditLog.title') }}</h2>
         <p class="subtitle">{{ t('auditLog.subtitle') }}</p>
       </div>
-      <p v-if="!loading && !loadError" class="count">{{ t('auditLog.entries', { count: page.total }) }}</p>
+      <div class="heading-end">
+        <p v-if="!loading && !loadError" class="count">{{ t('auditLog.entries', { count: page.total }) }}</p>
+        <!-- Stage 24 — reading the trail and taking a copy of it are separate
+             grants, hence the export-specific v-can. -->
+        <div v-can="'audit_log.export'" class="export-actions">
+          <button class="ghost" type="button" :disabled="isBusy" @click="exportAs('xlsx')">
+            {{ exporting === 'xlsx' ? t('reports.exporting') : t('reports.exportExcel') }}
+          </button>
+          <button class="ghost" type="button" :disabled="isBusy" @click="exportAs('pdf')">
+            {{ exporting === 'pdf' ? t('reports.exporting') : t('reports.exportPdf') }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <form class="card filters" @submit.prevent="applyFilters">
@@ -154,6 +195,7 @@ onMounted(async () => {
       {{ t('nav.error') }}
       <button class="ghost" type="button" @click="load(page.current_page)">{{ t('common.retry') }}</button>
     </p>
+    <p v-if="exportError" class="alert">{{ exportError }}</p>
 
     <div class="card list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
@@ -244,6 +286,8 @@ onMounted(async () => {
 h2 { margin: 0; color: var(--color-nav); font-size: 1.2rem; }
 .subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
 .count { margin: 0; color: var(--color-muted); font-size: .82rem; }
+.heading-end { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.export-actions { display: flex; gap: .5rem; }
 .filters, .list { padding: 1.25rem; margin-bottom: 1rem; }
 .filters h3 { margin: 0 0 1rem; font-size: 1rem; }
 .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }

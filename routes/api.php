@@ -6,11 +6,13 @@ use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CommitteeController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
@@ -286,6 +288,31 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('audit-logs/filters', [AuditLogController::class, 'filters']);
         Route::get('audit-logs', [AuditLogController::class, 'index']);
     });
+    // Stage 24 — finally uses the `export` grant Stage 22 seeded and left idle.
+    // Separate from `view` on purpose: reading the trail on screen and walking
+    // out with a copy of it are different privileges.
+    Route::middleware('screen.permission:audit_log,export')
+        ->get('audit-logs/export', [AuditLogController::class, 'export']);
+
+    /*
+     * Stage 24 — dashboard KPIs and the reports screen.
+     *
+     * Both read one service, so the tiles and the exported file always agree.
+     * `reports/transactions/export` is the only endpoint here behind `export`
+     * (R06/R07 by default): everyone may look at the numbers, far fewer may
+     * carry them out of the system as a file. The literal `filters` and
+     * `transactions/export` paths sit above nothing that could shadow them, but
+     * are declared first to match the ordering convention elsewhere in here.
+     */
+    Route::middleware('screen.permission:dashboard,view')
+        ->get('dashboard', [DashboardController::class, 'index']);
+
+    Route::middleware('screen.permission:reports,view')->group(function () {
+        Route::get('reports/filters', [ReportController::class, 'filters']);
+        Route::get('reports/transactions', [ReportController::class, 'index']);
+    });
+    Route::middleware('screen.permission:reports,export')
+        ->get('reports/transactions/export', [ReportController::class, 'export']);
 
     /*
      * Stage 23 — notifications. Reads sit behind `notifications,view`, and the

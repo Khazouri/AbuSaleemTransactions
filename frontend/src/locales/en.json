@@ -398,7 +398,8 @@
       "comment": "Comment",
       "outcome": "Outcome",
       "vote": "Vote"
-    }
+    },
+    "exportFailed": "Could not generate the export file."
   },
   "notifications": {
     "title": "Notifications",
@@ -433,5 +434,51 @@
     "title": "Under construction",
     "body": "This screen is built in a later stage of the implementation plan.",
     "screen": "Screen"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "openReports": "Open reports",
+    "byStatus": "By status",
+    "byStage": "By stage",
+    "byDepartment": "By department",
+    "trend": "Last 12 months",
+    "created": "Created",
+    "completedShort": "Completed",
+    "days": "days",
+    "empty": "No data yet.",
+    "tiles": {
+      "total": "Total transactions",
+      "pending": "Pending",
+      "completed": "Completed",
+      "completionRate": "Completion rate",
+      "overdue": "SLA breaches",
+      "cycleTime": "Avg. cycle time"
+    }
+  },
+  "reports": {
+    "title": "Reports & Statistics",
+    "subtitle": "Filterable transaction report with Excel and PDF export.",
+    "filters": "Filters",
+    "department": "Department",
+    "allDepartments": "All departments",
+    "type": "Type",
+    "allTypes": "All types",
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "apply": "Apply",
+    "clear": "Clear",
+    "empty": "No matching transactions.",
+    "reference": "Reference",
+    "subject": "Subject",
+    "stage": "Current stage",
+    "dueDate": "Due date",
+    "createdAt": "Created",
+    "overdueFlag": "Overdue",
+    "exportExcel": "Export Excel",
+    "exportPdf": "Export PDF",
+    "exporting": "Exporting…",
+    "exportFailed": "Could not generate the export file."
   }
 }

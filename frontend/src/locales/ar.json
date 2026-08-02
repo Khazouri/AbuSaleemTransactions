@@ -398,7 +398,8 @@
       "comment": "التعليق",
       "outcome": "النتيجة",
       "vote": "التصويت"
-    }
+    },
+    "exportFailed": "تعذّر إنشاء ملف التصدير."
   },
   "notifications": {
     "title": "الإشعارات",
@@ -433,5 +434,51 @@
     "title": "قيد الإنشاء",
     "body": "هذه الشاشة ستُبنى في مرحلة لاحقة من خطة التنفيذ.",
     "screen": "الشاشة"
+  },
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "openReports": "عرض التقارير",
+    "byStatus": "التوزيع حسب الحالة",
+    "byStage": "التوزيع حسب المرحلة",
+    "byDepartment": "التوزيع حسب الإدارة",
+    "trend": "الحركة خلال ١٢ شهراً",
+    "created": "واردة",
+    "completedShort": "منجزة",
+    "days": "يوم",
+    "empty": "لا توجد بيانات بعد.",
+    "tiles": {
+      "total": "إجمالي المعاملات",
+      "pending": "قيد الإنجاز",
+      "completed": "منجزة",
+      "completionRate": "نسبة الإنجاز",
+      "overdue": "تجاوزت المهلة",
+      "cycleTime": "متوسط زمن الدورة"
+    }
+  },
+  "reports": {
+    "title": "التقارير والإحصائيات",
+    "subtitle": "تقرير المعاملات مع إمكانية التصفية والتصدير.",
+    "filters": "عوامل التصفية",
+    "department": "الإدارة",
+    "allDepartments": "كل الإدارات",
+    "type": "نوع المعاملة",
+    "allTypes": "كل الأنواع",
+    "status": "الحالة",
+    "allStatuses": "كل الحالات",
+    "dateFrom": "من تاريخ",
+    "dateTo": "إلى تاريخ",
+    "apply": "تطبيق",
+    "clear": "مسح",
+    "empty": "لا توجد معاملات مطابقة.",
+    "reference": "الرقم المرجعي",
+    "subject": "الموضوع",
+    "stage": "المرحلة الحالية",
+    "dueDate": "تاريخ الاستحقاق",
+    "createdAt": "تاريخ الإنشاء",
+    "overdueFlag": "متأخرة",
+    "exportExcel": "تصدير Excel",
+    "exportPdf": "تصدير PDF",
+    "exporting": "جارٍ التصدير…",
+    "exportFailed": "تعذّر إنشاء ملف التصدير."
   }
 }

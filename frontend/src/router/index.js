@@ -30,9 +30,8 @@ import PlaceholderView from '../views/PlaceholderView.vue'
  */
 const placeholderScreens = [
   ['decisions', 'decisions'],                                // Stage 21
-  // NB: `departments`, `users` and `roles_permissions` are NOT here — they're
-  // built (Stages 6-8) and have real components below.
-  ['reports', 'reports'],                                    // Stage 24
+  // NB: `departments`, `users`, `roles_permissions` and `reports` are NOT
+  // here — they're built (Stages 6-8, 24) and have real components below.
   ['backup', 'backup'],                                      // later
   ['user_guide', 'guide'],                                   // later
 ]
@@ -144,6 +143,13 @@ const routes = [
         name: 'audit_log',
         component: () => import('../views/AuditLogView.vue'),
         meta: { screenCode: 'audit_log' },
+      },
+      {
+        // Stage 24 — filtered transaction reporting with Excel/PDF export.
+        path: 'reports',
+        name: 'reports',
+        component: () => import('../views/ReportsView.vue'),
+        meta: { screenCode: 'reports' },
       },
       {
         // Stage 23 — notification history and channel preferences.
