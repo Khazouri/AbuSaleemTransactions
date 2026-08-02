@@ -22,6 +22,11 @@ use Illuminate\Support\Facades\DB;
  */
 class WorkflowService
 {
+    // Stage 23 — every path that moves a transaction comes through this
+    // service, so notifying from here means the detail screen, the approval
+    // queues and the committee decision all announce a move exactly once.
+    public function __construct(private readonly NotificationDispatcher $notifications) {}
+
     /**
      * Workflow stage code => immutable business approval level.
      *
@@ -136,7 +141,7 @@ class WorkflowService
             throw WorkflowTransitionException::actionRequired();
         }
 
-        return DB::transaction(function () use ($transaction, $action, $actor, $comment, $signaturePath) {
+        [$movedTransaction, $fromStage, $toStage] = DB::transaction(function () use ($transaction, $action, $actor, $comment, $signaturePath) {
             $lockedTransaction = Transaction::query()
                 ->lockForUpdate()
                 ->findOrFail($transaction->getKey());
@@ -236,8 +241,23 @@ class WorkflowService
                 ]);
             }
 
-            return $lockedTransaction->refresh();
+            // The stage rows travel out of the closure so the notification can
+            // name where the work came from without a second lookup.
+            return [
+                $lockedTransaction->refresh(),
+                WorkflowStage::find($fromStageId),
+                WorkflowStage::find($toStageId),
+            ];
         });
+
+        // Outside the transaction: the notifications describe a move that has
+        // already happened. The dispatcher queues them after-commit as well
+        // (see its send()), so a caller that wraps this in a transaction of
+        // its own — DecisionController does — still can't announce a decision
+        // that later rolls back.
+        $this->notifications->stageChanged($movedTransaction, $actor, $action, $fromStage, $toStage);
+
+        return $movedTransaction;
     }
 
     /**

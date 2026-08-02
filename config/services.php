@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    /*
+     * Stage 23 — which App\Contracts\SmsSender implementation AppServiceProvider
+     * binds. 'log' writes the message to the application log; no real gateway is
+     * contracted yet, so that stays the default.
+     */
+    'sms' => [
+        'driver' => env('SMS_DRIVER', 'log'),
+    ],
+
 ];

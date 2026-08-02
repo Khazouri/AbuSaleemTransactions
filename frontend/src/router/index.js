@@ -33,7 +33,6 @@ const placeholderScreens = [
   // NB: `departments`, `users` and `roles_permissions` are NOT here — they're
   // built (Stages 6-8) and have real components below.
   ['reports', 'reports'],                                    // Stage 24
-  ['notifications', 'notifications'],                        // Stage 23
   ['backup', 'backup'],                                      // later
   ['user_guide', 'guide'],                                   // later
 ]
@@ -145,6 +144,13 @@ const routes = [
         name: 'audit_log',
         component: () => import('../views/AuditLogView.vue'),
         meta: { screenCode: 'audit_log' },
+      },
+      {
+        // Stage 23 — notification history and channel preferences.
+        path: 'notifications',
+        name: 'notifications',
+        component: () => import('../views/NotificationsView.vue'),
+        meta: { screenCode: 'notifications' },
       },
       // Stage 18 — role-specific queues backed by one reusable approval view.
       ...[

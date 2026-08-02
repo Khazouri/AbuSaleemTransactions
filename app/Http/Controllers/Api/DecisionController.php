@@ -15,6 +15,7 @@ use App\Models\MeetingAttendee;
 use App\Models\MeetingTransaction;
 use App\Models\Vote;
 use App\Services\ApprovalSignatureStorage;
+use App\Services\NotificationDispatcher;
 use App\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -104,6 +105,7 @@ class DecisionController extends Controller
         MeetingTransaction $agendaItem,
         WorkflowService $workflow,
         ApprovalSignatureStorage $signatureStorage,
+        NotificationDispatcher $notifications,
     ): JsonResponse {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
@@ -167,6 +169,11 @@ class DecisionController extends Controller
 
             return response()->json(['message' => $exception->getMessage()], 422);
         }
+
+        // Stage 23 — separate from the stage-change notification the same
+        // transition raises: this one names the outcome and the tally, which
+        // is the part the requester and the committee actually ask about.
+        $notifications->decisionRecorded($agendaItem->transaction, $decision, $meeting, $actor);
 
         return (new DecisionResource($decision->load('decidedBy:id,name')))
             ->response()

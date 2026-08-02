@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -45,6 +46,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'phone',
         'department_id',
         'is_active',
     ];
@@ -72,6 +74,20 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    // Stage 23 — where SmsChannel delivers to. Named by Laravel's convention
+    // (routeNotificationFor<Channel>), so the channel never reads the column
+    // itself and a future gateway can route on something else entirely.
+    public function routeNotificationForSms(): ?string
+    {
+        return $this->phone;
+    }
+
+    /** Stage 23 — this user's per-event channel preferences. */
+    public function notificationSettings(): HasMany
+    {
+        return $this->hasMany(NotificationSetting::class);
     }
 
     /** The department this employee works in (الإدارة التابع لها). */

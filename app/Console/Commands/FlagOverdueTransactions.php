@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Transaction;
+use App\Services\NotificationDispatcher;
 use App\Services\TransactionDeadlineService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,7 +21,7 @@ class FlagOverdueTransactions extends Command
 
     protected $description = 'Flag open transactions whose SLA due date has passed.';
 
-    public function handle(TransactionDeadlineService $deadlines): int
+    public function handle(TransactionDeadlineService $deadlines, NotificationDispatcher $notifications): int
     {
         $backfilled = $this->backfillMissingDueDates($deadlines);
         $flagged = 0;
@@ -33,14 +34,23 @@ class FlagOverdueTransactions extends Command
             ->whereDate('due_date', '<', today())
             ->whereDoesntHave('status', fn (Builder $query) => $query->whereIn('code', ['cancelled', 'archived']))
             ->orderBy('id')
-            ->chunkById(100, function ($transactions) use (&$flagged) {
+            ->chunkById(100, function ($transactions) use (&$flagged, $notifications) {
                 foreach ($transactions as $transaction) {
                     // The nullable predicate makes concurrent manual runs
                     // harmless: only the worker that reaches it first flags it.
-                    $flagged += Transaction::query()
+                    $justFlagged = Transaction::query()
                         ->whereKey($transaction->id)
                         ->whereNull('overdue_at')
                         ->update(['overdue_at' => now()]);
+
+                    $flagged += $justFlagged;
+
+                    // Stage 23 — notify from inside that same guard, so a
+                    // breach is announced exactly once no matter how often
+                    // the sweep runs or how many workers race it.
+                    if ($justFlagged > 0) {
+                        $notifications->transactionOverdue($transaction);
+                    }
                 }
             });
 

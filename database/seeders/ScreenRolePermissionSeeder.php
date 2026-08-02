@@ -69,7 +69,11 @@ class ScreenRolePermissionSeeder extends Seeder
         // Oversight: visible to all, exportable only by the senior roles.
         'reports'                 => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],
         'audit_log'               => ['view' => '*', 'export' => ['R06', 'R07']],
-        'notifications'           => ['view' => '*'],
+        // Stage 23: `edit` is granted to everyone because on this screen it
+        // means "mark my own notifications read / set my own channel
+        // preferences" — those endpoints are scoped to the caller, so this is
+        // a self-service right, not an administrative one.
+        'notifications'           => ['view' => '*', 'edit' => '*'],
         'user_guide'              => ['view' => '*', 'print' => '*'],
     ];
 

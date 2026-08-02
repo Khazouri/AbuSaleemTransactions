@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\NoteController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
@@ -284,5 +285,28 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:audit_log,view')->group(function () {
         Route::get('audit-logs/filters', [AuditLogController::class, 'filters']);
         Route::get('audit-logs', [AuditLogController::class, 'index']);
+    });
+
+    /*
+     * Stage 23 — notifications. Reads sit behind `notifications,view`, and the
+     * two things a user can change (marking their own rows read, their own
+     * channel preferences) behind `notifications,edit` — which is why
+     * ScreenRolePermissionSeeder grants that action to every role: a bell you
+     * cannot dismiss is not an administrative capability.
+     *
+     * Every one of these is scoped to the caller inside the controller, so the
+     * permission decides whether the bell works, never whose notifications it
+     * shows. Literal paths (unread-count, settings, read-all) are declared
+     * before the {notification} wildcard so it can't swallow them.
+     */
+    Route::middleware('screen.permission:notifications,view')->group(function () {
+        Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::get('notifications/settings', [NotificationController::class, 'settings']);
+        Route::get('notifications', [NotificationController::class, 'index']);
+    });
+    Route::middleware('screen.permission:notifications,edit')->group(function () {
+        Route::put('notifications/settings', [NotificationController::class, 'updateSettings']);
+        Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
+        Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead']);
     });
 });

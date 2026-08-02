@@ -400,6 +400,35 @@
       "vote": "Vote"
     }
   },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Everything you have been told, and how future notifications reach you.",
+    "empty": "No notifications.",
+    "viewAll": "View all notifications",
+    "markAllRead": "Mark all as read",
+    "showUnread": "Unread only",
+    "showAll": "Show all",
+    "event": "Event type",
+    "preferences": "Notification preferences",
+    "preferencesHint": "Choose how each kind of event reaches you. These settings apply to your account only.",
+    "phone": "Phone number for SMS",
+    "phoneHint": "+218910000000",
+    "phoneNote": "Required for the SMS channel; leave empty to remove your number.",
+    "saved": "Preferences saved.",
+    "channels": {
+      "in_app": "In-app",
+      "email": "Email",
+      "sms": "SMS"
+    },
+    "events": {
+      "transaction_created": "New transaction",
+      "stage_changed": "Transaction stage changed",
+      "action_required": "Transaction waiting for you",
+      "transaction_overdue": "Deadline exceeded",
+      "meeting_scheduled": "Meeting invitation",
+      "decision_recorded": "Committee decision recorded"
+    }
+  },
   "placeholder": {
     "title": "Under construction",
     "body": "This screen is built in a later stage of the implementation plan.",

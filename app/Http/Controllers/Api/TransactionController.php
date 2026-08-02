@@ -19,6 +19,7 @@ use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\ApprovalSignatureStorage;
+use App\Services\NotificationDispatcher;
 use App\Services\TransactionDeadlineService;
 use App\Services\TransactionReferenceGenerator;
 use App\Services\WorkflowService;
@@ -108,6 +109,7 @@ class TransactionController extends Controller
         StoreTransactionRequest $request,
         TransactionReferenceGenerator $references,
         TransactionDeadlineService $deadlines,
+        NotificationDispatcher $notifications,
     ): JsonResponse {
         $data = $request->validated();
         $storedPaths = [];
@@ -181,6 +183,10 @@ class TransactionController extends Controller
 
             throw $exception;
         }
+
+        // Stage 23 — announced only once the intake transaction has committed,
+        // so nobody is told about a reference number that was rolled back.
+        $notifications->transactionCreated($transaction, $request->user());
 
         return (new TransactionResource($transaction))
             ->response()

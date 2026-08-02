@@ -14,6 +14,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useScreensStore } from '../stores/screens'
+import { useNotificationsStore } from '../stores/notifications'
 import { applyLocale, SUPPORTED_LOCALES } from '../i18n'
 import AppIcon from './AppIcon.vue'
 
@@ -28,6 +29,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const screensStore = useScreensStore()
+const notifications = useNotificationsStore()
 
 /**
  * Title of the screen being viewed.
@@ -62,18 +64,91 @@ const initials = computed(() => {
   return name.slice(0, 2).toUpperCase()
 })
 
+// -- Notifications bell (Stage 23) -------------------------------------------
+const bellOpen = ref(false)
+const bellRef = ref(null)
+const bellLoading = ref(false)
+
+/** Title/body in the reader's locale, falling back to whichever half exists. */
+function localised(notification, field) {
+  const [preferred, fallback] = locale.value === 'ar'
+    ? [`${field}_ar`, `${field}_en`]
+    : [`${field}_en`, `${field}_ar`]
+  return notification[preferred] || notification[fallback] || ''
+}
+
+function relativeTime(value) {
+  if (!value) return ''
+  return new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(value))
+}
+
+/** Fetch on open rather than on mount — a closed bell only needs its count. */
+async function toggleBell() {
+  bellOpen.value = !bellOpen.value
+  if (!bellOpen.value) return
+
+  bellLoading.value = true
+  try {
+    await notifications.fetchPreview()
+  } finally {
+    bellLoading.value = false
+  }
+}
+
+/**
+ * Opening a notification marks it read and takes you to what it is about.
+ * Silently tolerates a failed mark: the navigation is the thing the user
+ * asked for, and the badge self-corrects on the next poll.
+ */
+async function openNotification(notification) {
+  bellOpen.value = false
+
+  if (!notification.read_at) {
+    try {
+      await notifications.markRead(notification.id)
+    } catch {
+      // See above — the next poll reconciles the count.
+    }
+  }
+
+  if (notification.transaction_id) {
+    router.push({ name: 'transaction_details', params: { id: notification.transaction_id } })
+  } else if (notification.meeting_id) {
+    router.push({ name: 'meeting_details', params: { id: notification.meeting_id } })
+  } else {
+    router.push({ name: 'notifications' })
+  }
+}
+
+function goNotifications() {
+  bellOpen.value = false
+  router.push({ name: 'notifications' })
+}
+
 // -- User dropdown ----------------------------------------------------------
 const menuOpen = ref(false)
 const menuRef = ref(null)
 
-/** Close the menu when a click lands anywhere outside it. */
+/** Close whichever panel is open when a click lands outside it. */
 function onDocumentClick(event) {
   if (menuRef.value && !menuRef.value.contains(event.target)) {
     menuOpen.value = false
   }
+  if (bellRef.value && !bellRef.value.contains(event.target)) {
+    bellOpen.value = false
+  }
 }
-onMounted(() => document.addEventListener('click', onDocumentClick))
-onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
+onMounted(() => {
+  document.addEventListener('click', onDocumentClick)
+  // One timer for the whole app, owned by the store — see startPolling().
+  notifications.startPolling()
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocumentClick)
+  notifications.stopPolling()
+})
 
 function goSettings() {
   menuOpen.value = false
@@ -83,9 +158,10 @@ function goSettings() {
 async function signOut() {
   menuOpen.value = false
   await auth.logout()
-  // Drop the cached menu too, or the next user to sign in on this browser
-  // would briefly see the previous user's screens.
+  // Drop the cached menu and bell too, or the next user to sign in on this
+  // browser would briefly see the previous user's screens and notifications.
   screensStore.reset()
+  notifications.reset()
   router.push({ name: 'login' })
 }
 </script>
@@ -110,10 +186,59 @@ async function signOut() {
         <span class="lang">{{ otherLocaleLabel }}</span>
       </button>
 
-      <button class="icon-btn" :aria-label="t('nav.notifications')">
-        <AppIcon name="bell" />
-        <span class="dot" />
-      </button>
+      <!-- Stage 23 — live unread count and a preview of the newest items. -->
+      <div ref="bellRef" class="bell">
+        <button
+          class="icon-btn"
+          :aria-label="t('nav.notifications')"
+          :aria-expanded="bellOpen"
+          @click="toggleBell"
+        >
+          <AppIcon name="bell" />
+          <span v-if="notifications.hasUnread" class="dot">{{ notifications.badge }}</span>
+        </button>
+
+        <transition name="menu">
+          <div v-if="bellOpen" class="dropdown notif-panel">
+            <div class="notif-head">
+              <strong>{{ t('notifications.title') }}</strong>
+              <button
+                v-if="notifications.hasUnread"
+                class="link"
+                type="button"
+                @click="notifications.markAllRead()"
+              >{{ t('notifications.markAllRead') }}</button>
+            </div>
+
+            <div class="sep" />
+
+            <p v-if="bellLoading" class="notif-state">{{ t('common.loading') }}</p>
+            <p v-else-if="notifications.preview.length === 0" class="notif-state">
+              {{ t('notifications.empty') }}
+            </p>
+            <button
+              v-for="item in notifications.preview"
+              v-else
+              :key="item.id"
+              class="notif-item"
+              :class="{ unread: !item.read_at }"
+              type="button"
+              @click="openNotification(item)"
+            >
+              <span class="notif-title">{{ localised(item, 'title') }}</span>
+              <span class="notif-body">{{ localised(item, 'body') }}</span>
+              <span class="notif-when">{{ relativeTime(item.created_at) }}</span>
+            </button>
+
+            <div class="sep" />
+
+            <button class="dropdown-item" @click="goNotifications">
+              <AppIcon name="bell" :size="16" />
+              <span>{{ t('notifications.viewAll') }}</span>
+            </button>
+          </div>
+        </transition>
+      </div>
 
       <div ref="menuRef" class="user-menu">
         <button class="user-trigger" @click="menuOpen = !menuOpen">
@@ -200,16 +325,98 @@ async function signOut() {
   font-size: 0.8rem;
   font-weight: 500;
 }
-/* Notification indicator, pinned to the top-end corner of the bell. */
+/* Unread count, pinned to the top-end corner of the bell. */
+.bell {
+  position: relative;
+}
 .dot {
   position: absolute;
-  top: 0.35rem;
-  inset-inline-end: 0.35rem;
-  width: 0.5rem;
-  height: 0.5rem;
+  top: 0.1rem;
+  inset-inline-end: 0.1rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.2rem;
+  display: grid;
+  place-items: center;
   background: var(--color-red);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  /* The count is a number in both locales, so it must not mirror in RTL. */
+  direction: ltr;
   border-radius: var(--radius-full);
   border: 2px solid var(--color-surface);
+}
+
+/* -- Bell dropdown -------------------------------------------------------- */
+.notif-panel {
+  width: 20rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.4rem;
+}
+.notif-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-foreground);
+}
+.link {
+  border: none;
+  background: transparent;
+  color: var(--color-nav);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.notif-state {
+  margin: 0;
+  padding: 0.75rem 0.5rem;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+.notif-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-lg);
+  text-align: start;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.notif-item:hover {
+  background: var(--color-black-100);
+}
+/* Unread is carried by weight and a start-edge marker rather than colour
+   alone, so it survives both themes and doesn't rely on hue to be seen. */
+.notif-item.unread {
+  border-inline-start: 3px solid var(--color-nav);
+}
+.notif-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.notif-item.unread .notif-title {
+  font-weight: 700;
+}
+.notif-body {
+  font-size: 0.75rem;
+  color: var(--color-black-700);
+  /* Two lines is enough to know what it is; the full text is on the screen. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.notif-when {
+  font-size: 0.7rem;
+  color: var(--color-muted);
 }
 
 /* -- User menu ------------------------------------------------------------ */

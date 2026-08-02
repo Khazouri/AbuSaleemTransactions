@@ -17,6 +17,7 @@ use App\Models\Committee;
 use App\Models\Meeting;
 use App\Models\MeetingAttendee;
 use App\Models\MeetingTransaction;
+use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
@@ -53,11 +54,11 @@ class MeetingController extends Controller
      * committee membership can change later and the meeting's attendee list
      * for a given sitting must stay fixed to who was actually invited to it.
      */
-    public function store(StoreMeetingRequest $request): JsonResponse
+    public function store(StoreMeetingRequest $request, NotificationDispatcher $notifications): JsonResponse
     {
         $data = $request->validated();
 
-        $meeting = DB::transaction(function () use ($data, $request) {
+        [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request) {
             $committee = Committee::query()->findOrFail($data['committee_id']);
 
             $meeting = Meeting::create([
@@ -73,8 +74,12 @@ class MeetingController extends Controller
                 ]);
             }
 
-            return $meeting;
+            return [$meeting, $memberUserIds];
         });
+
+        // Stage 23 — the invitation follows the attendee rows just written,
+        // not the committee roster, so the two can never disagree.
+        $notifications->meetingScheduled($meeting, $invitedUserIds, $request->user());
 
         return (new MeetingResource($this->loadDetail($meeting)))
             ->response()
