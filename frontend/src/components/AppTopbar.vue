@@ -16,6 +16,7 @@ import { useAuthStore } from '../stores/auth'
 import { useScreensStore } from '../stores/screens'
 import { useNotificationsStore } from '../stores/notifications'
 import { applyLocale, SUPPORTED_LOCALES } from '../i18n'
+import { theme, toggleTheme } from '../lib/theme'
 import AppIcon from './AppIcon.vue'
 
 defineProps({
@@ -186,6 +187,17 @@ async function signOut() {
         <span class="lang">{{ otherLocaleLabel }}</span>
       </button>
 
+      <!-- Same idea as the language switch: the icon is the theme you'd get,
+           not the one you're in. -->
+      <button
+        class="icon-btn"
+        :title="t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark')"
+        :aria-label="t(theme === 'dark' ? 'theme.toLight' : 'theme.toDark')"
+        @click="toggleTheme"
+      >
+        <AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" />
+      </button>
+
       <!-- Stage 23 — live unread count and a preview of the newest items. -->
       <div ref="bellRef" class="bell">
         <button
@@ -339,7 +351,10 @@ async function signOut() {
   display: grid;
   place-items: center;
   background: var(--color-red);
-  color: #fff;
+  /* The neutral scale inverts with the theme, so this stays the readable
+     opposite of the badge fill: near-white on light mode's deep red, near-black
+     on dark mode's lighter one. */
+  color: var(--color-black-50);
   font-size: 0.65rem;
   font-weight: 700;
   /* The count is a number in both locales, so it must not mirror in RTL. */
@@ -366,7 +381,7 @@ async function signOut() {
 .link {
   border: none;
   background: transparent;
-  color: var(--color-nav);
+  color: var(--color-brand-text);
   font-size: 0.75rem;
   cursor: pointer;
 }
@@ -395,7 +410,7 @@ async function signOut() {
 /* Unread is carried by weight and a start-edge marker rather than colour
    alone, so it survives both themes and doesn't rely on hue to be seen. */
 .notif-item.unread {
-  border-inline-start: 3px solid var(--color-nav);
+  border-inline-start: 3px solid var(--color-brand-text);
 }
 .notif-title {
   font-size: 0.8rem;
@@ -448,7 +463,7 @@ async function signOut() {
   color: var(--color-on-primary);
   font-size: 0.8rem;
   font-weight: 600;
-  border: 2px solid #fff;
+  border: 2px solid var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
 .avatar.lg {
@@ -543,7 +558,7 @@ async function signOut() {
   color: var(--color-red);
 }
 .dropdown-item.danger:hover {
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--color-danger-bg);
 }
 
 /* Dropdown open/close animation. */

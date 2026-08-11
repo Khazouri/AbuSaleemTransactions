@@ -12,6 +12,10 @@
   "header": {
     "settings": "Settings"
   },
+  "theme": {
+    "toDark": "Dark theme",
+    "toLight": "Light theme"
+  },
   "auth": {
     "login": "Sign in",
     "loggingIn": "Signing in…",

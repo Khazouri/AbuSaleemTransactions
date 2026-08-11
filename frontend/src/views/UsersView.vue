@@ -338,7 +338,7 @@ input[type='text'], input[type='email'], input[type='password'], select {
   background: var(--color-surface);
   color: var(--color-foreground);
 }
-input:focus, select:focus { outline: 2px solid var(--color-nav); outline-offset: 1px; }
+input:focus, select:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 .hint { color: var(--color-muted); font-size: .75rem; }
 .field-error { color: var(--color-red); font-size: .78rem; }
 

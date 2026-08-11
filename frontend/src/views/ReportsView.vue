@@ -270,7 +270,7 @@ onMounted(async () => {
 
 <style scoped>
 .heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-nav); font-size: 1.2rem; }
+h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
 .subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
 .export-actions { display: flex; gap: .5rem; }
 .filters, .list { padding: 1.25rem; margin-bottom: 1rem; }
@@ -278,32 +278,32 @@ h2 { margin: 0; color: var(--color-nav); font-size: 1.2rem; }
 .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
 label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }
 select, input { min-width: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
-select:focus, input:focus { outline: 2px solid var(--color-nav); outline-offset: 1px; }
+select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 .actions { display: flex; gap: .5rem; margin-top: 1rem; }
 button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: #fff; background: var(--color-nav); }
+.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
 .ghost { padding: .45rem .7rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
 .ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
 button:disabled { cursor: not-allowed; opacity: .55; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid #fecaca; border-radius: var(--radius-lg); color: #b91c1c; background: #fef2f2; }
+.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
 .alert .ghost { margin-inline-start: .5rem; }
 .state { padding: .5rem; margin: 0; color: var(--color-muted); }
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
 .tile { padding: .8rem .9rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-xl); }
 .tile-label { display: block; color: var(--color-muted); font-size: .75rem; }
-.tile-value { display: block; margin-top: .2rem; color: var(--color-nav); font-size: 1.3rem; }
+.tile-value { display: block; margin-top: .2rem; color: var(--color-brand-text); font-size: 1.3rem; }
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; min-width: 900px; border-collapse: collapse; }
 th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
 th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
 td { font-size: .84rem; }
-tr.overdue td { background: #fff7ed; }
+tr.overdue td { background: var(--color-warning-bg); }
 .nowrap { white-space: nowrap; }
 .subject { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.reference { font-family: var(--font-mono); font-size: .78rem; color: var(--color-nav); }
+.reference { font-family: var(--font-mono); font-size: .78rem; color: var(--color-brand-text); }
 .status { display: inline-block; padding: .12rem .5rem; border: 1px solid; border-radius: 999px; font-size: .75rem; white-space: nowrap; }
-.flag { display: inline-block; margin-inline-start: .35rem; padding: .05rem .4rem; border-radius: 999px; background: #fee2e2; color: #b91c1c; font-size: .68rem; }
+.flag { display: inline-block; margin-inline-start: .35rem; padding: .05rem .4rem; border-radius: 999px; background: var(--color-danger-bg); color: var(--color-danger-fg); font-size: .68rem; }
 .pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }
 </style>

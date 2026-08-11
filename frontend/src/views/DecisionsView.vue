@@ -375,29 +375,29 @@ onMounted(async () => {
 
 <style scoped>
 .heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-nav); font-size: 1.2rem; }
+h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
 .subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
 .heading-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
 
 .tabs { display: flex; gap: .35rem; margin-bottom: 1rem; border-bottom: 1px solid var(--color-border); }
 .tab { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem .9rem; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--color-muted); font-size: .88rem; cursor: pointer; }
-.tab.active { color: var(--color-nav); border-bottom-color: var(--color-nav); }
-.count { display: inline-block; min-width: 1.25rem; padding: .05rem .35rem; border-radius: 999px; background: var(--color-nav); color: #fff; font-size: .7rem; }
+.tab.active { color: var(--color-brand-text); border-bottom-color: var(--color-brand-text); }
+.count { display: inline-block; min-width: 1.25rem; padding: .05rem .35rem; border-radius: 999px; background: var(--color-brand); color: var(--color-on-brand); font-size: .7rem; }
 
 .filters, .list { padding: 1.25rem; margin-bottom: 1rem; }
 .filters h3 { margin: 0 0 1rem; font-size: 1rem; }
 .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
 label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }
 select, input { min-width: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
-select:focus, input:focus { outline: 2px solid var(--color-nav); outline-offset: 1px; }
+select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 .actions { display: flex; gap: .5rem; margin-top: 1rem; }
 button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: #fff; background: var(--color-nav); }
+.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
 .ghost { padding: .45rem .7rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
 .ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
-.ghost.active { border-color: var(--color-nav); color: var(--color-nav); font-weight: 600; }
+.ghost.active { border-color: var(--color-brand-text); color: var(--color-brand-text); font-weight: 600; }
 button:disabled { cursor: not-allowed; opacity: .55; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid #fecaca; border-radius: var(--radius-lg); color: #b91c1c; background: #fef2f2; }
+.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
 .alert .ghost { margin-inline-start: .5rem; }
 .state { padding: 1.25rem; margin: 0; color: var(--color-muted); }
 
@@ -408,12 +408,12 @@ th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space
 td { font-size: .84rem; }
 .nowrap { white-space: nowrap; }
 .subject { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.reference { font-family: var(--font-mono); font-size: .78rem; color: var(--color-nav); }
+.reference { font-family: var(--font-mono); font-size: .78rem; color: var(--color-brand-text); }
 .muted { display: block; color: var(--color-muted); font-size: .72rem; }
 .outcome { display: inline-block; padding: .12rem .55rem; border: 1px solid; border-radius: 999px; font-size: .75rem; white-space: nowrap; }
-.outcome.approve { color: #15803d; border-color: #86efac; background: #f0fdf4; }
-.outcome.reject { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
-.outcome.defer { color: #b45309; border-color: #fed7aa; background: #fffbeb; }
+.outcome.approve { color: var(--color-success-fg); border-color: var(--color-success-border); background: var(--color-success-bg); }
+.outcome.reject { color: var(--color-danger-fg); border-color: var(--color-danger-border); background: var(--color-danger-bg); }
+.outcome.defer { color: var(--color-warning-fg); border-color: var(--color-warning-border); background: var(--color-warning-bg); }
 
 .pending-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
 .pending-item { padding: 1rem 1.15rem; }

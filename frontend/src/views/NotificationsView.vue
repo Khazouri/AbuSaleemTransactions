@@ -238,17 +238,17 @@ onMounted(async () => {
 
 <style scoped>
 .heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-nav); font-size: 1.2rem; }
+h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
 h3 { margin: 0 0 .25rem; font-size: 1rem; }
 .subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
 .head-actions { display: flex; gap: .5rem; }
 .card { padding: 1.25rem; margin-bottom: 1rem; }
 button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: #fff; background: var(--color-nav); }
+.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
 .ghost { padding: .4rem .65rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
 .ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
 button:disabled { cursor: not-allowed; opacity: .55; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid #fecaca; border-radius: var(--radius-lg); color: #b91c1c; background: #fef2f2; }
+.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
 .alert .ghost { margin-inline-start: .5rem; }
 .state { padding: .5rem; margin: 0; color: var(--color-muted); }
 
@@ -257,7 +257,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .rows li { border-bottom: 1px solid var(--color-border); }
 .rows li:last-child { border-bottom: 0; }
 /* Unread is marked on the start edge so it mirrors with the page direction. */
-.rows li.unread { border-inline-start: 3px solid var(--color-nav); }
+.rows li.unread { border-inline-start: 3px solid var(--color-brand-text); }
 .row { display: flex; align-items: start; justify-content: space-between; gap: 1rem; width: 100%; padding: .8rem .7rem; border: 0; background: transparent; text-align: start; flex-wrap: wrap; }
 .row:hover { background: var(--color-surface-hover); }
 .row-main { display: flex; flex-direction: column; gap: .2rem; min-width: 0; flex: 1 1 18rem; }
@@ -279,9 +279,9 @@ th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space
 .check input { width: 1rem; height: 1rem; cursor: pointer; }
 .phone { display: flex; flex-direction: column; gap: .3rem; max-width: 20rem; margin-top: 1rem; color: var(--color-black-700); font-size: .85rem; }
 .phone input { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
-.phone input:focus { outline: 2px solid var(--color-nav); outline-offset: 1px; }
+.phone input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 .phone small { color: var(--color-muted); font-size: .72rem; }
 .actions { display: flex; align-items: center; gap: .75rem; margin-top: 1rem; }
-.saved { color: #166534; font-size: .8rem; }
-.failed { color: #b91c1c; font-size: .8rem; }
+.saved { color: var(--color-success-fg); font-size: .8rem; }
+.failed { color: var(--color-danger-fg); font-size: .8rem; }
 </style>

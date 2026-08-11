@@ -116,5 +116,10 @@ onMounted(prepareCanvas)
 </template>
 
 <style scoped>
-.signature-pad { display: grid; gap: .45rem; }.signature-heading { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }.signature-heading strong { color: var(--color-black-700); font-size: .82rem; }.signature-heading p { margin: .15rem 0 0; color: var(--color-muted); font-size: .73rem; }.signature-heading button { flex: none; padding: .3rem .55rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); cursor: pointer; }.signature-heading button:disabled { cursor: not-allowed; opacity: .5; }canvas { display: block; inline-size: 100%; block-size: auto; max-block-size: 11rem; border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); background: #fff; cursor: crosshair; touch-action: none; }canvas.disabled { cursor: not-allowed; opacity: .65; }
+.signature-pad { display: grid; gap: .45rem; }.signature-heading { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }.signature-heading strong { color: var(--color-black-700); font-size: .82rem; }.signature-heading p { margin: .15rem 0 0; color: var(--color-muted); font-size: .73rem; }.signature-heading button { flex: none; padding: .3rem .55rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); cursor: pointer; }.signature-heading button:disabled { cursor: not-allowed; opacity: .5; }
+/* Stays white in both themes on purpose: the canvas is exported as the stored
+   signature PNG (prepareCanvas fills it white and strokes it in dark ink), so
+   what is drawn here has to be what the approval trail and any printed copy
+   will show. */
+canvas { display: block; inline-size: 100%; block-size: auto; max-block-size: 11rem; border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); background: #fff; cursor: crosshair; touch-action: none; }canvas.disabled { cursor: not-allowed; opacity: .65; }
 </style>

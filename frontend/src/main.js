@@ -9,6 +9,9 @@ import '@fontsource/cairo/600.css'
 import '@fontsource/cairo/700.css'
 
 import './style.css'
+// Imported for its side effect: resolves the saved light/dark preference and
+// stamps <html data-theme> before anything renders.
+import './lib/theme'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'

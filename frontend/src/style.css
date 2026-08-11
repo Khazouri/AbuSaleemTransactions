@@ -11,9 +11,19 @@
  * <html> when the locale changes. Layout CSS therefore uses logical properties
  * (margin-inline-start, border-inline-start, text-align: start) so the whole
  * UI mirrors itself automatically instead of needing a separate RTL stylesheet.
+ *
+ * THEME lives here too. :root below is the light palette; the dark palette is
+ * the override block further down. Components must never hard-code a colour —
+ * a literal hex in a component is invisible to the theme and will stay light on
+ * a dark page. If a shade you need isn't a token, add the token here.
  */
 
 :root {
+  /* Tells the browser which way its own defaults should lean: form controls,
+     the default scrollbar, and any UA colour we don't set ourselves. Without
+     it a native <select> popup stays white in dark mode. */
+  color-scheme: light;
+
   /* -- Typography ----------------------------------------------------------
      Cairo carries both Arabic and Latin glyphs, so one family covers the UI in
      either language (the template's Inter has no Arabic coverage). The system
@@ -29,12 +39,31 @@
        --color-on-primary  text/icon colour when sitting ON a gold surface;
                            gold is light, so this is dark for legible contrast
      --color-primary must stay light enough to read against --color-nav, since
-     active nav items are drawn in it. */
+     active nav items are drawn in it.
+
+     The green splits into three tokens rather than one, because in dark mode a
+     single value can't do all three jobs: a green dark enough to sit behind
+     white sidebar labels is unreadable AS text on a dark page, and vice versa.
+       --color-nav         a SURFACE — the sidebar, always dark, always with
+                           light text on it
+       --color-brand       a FILL for primary buttons and badges, paired with
+                           --color-on-brand for the label on top of it
+       --color-brand-text  the accent green used as TEXT on a page surface
+                           (headings, links, active tabs)
+     In light mode all three are the same green; dark mode lifts the last two. */
   --color-primary: #d4af37;
   --color-nav: #0f5132;
   --color-on-primary: #0f5132;
+  --color-brand: #0f5132;
+  --color-on-brand: #ffffff;
+  --color-brand-text: #0f5132;
 
-  /* -- Neutral scale -------------------------------------------------------- */
+  /* -- Neutral scale --------------------------------------------------------
+     Read as "distance from the page", not as literal blackness: 50 is the
+     faintest wash, 950 the strongest ink. The dark palette INVERTS this scale,
+     which is what lets `color: var(--color-black-700)` stay legible body text
+     and `background: var(--color-black-100)` stay a subtle hover in both
+     themes without either being restated per component. */
   --color-black-50: #fafafa;
   --color-black-100: #f5f5f5;
   --color-black-200: #e5e5e5;
@@ -73,6 +102,26 @@
   --color-border: #e2e8f0;
   --color-border-hover: #cbd5e1;
   --color-muted: #64748b;
+  /* Scrim behind modals and the mobile drawer. */
+  --color-overlay: rgba(15, 23, 42, 0.45);
+
+  /* -- Status --------------------------------------------------------------
+     Alerts, badges and row highlights. Each state is a trio — fg on bg, with
+     border for the outlined variants — so a themed alert is three tokens and
+     never a hand-picked hex. In dark mode the foregrounds lighten and the
+     backgrounds become deep tints of the same hue rather than pastels. */
+  --color-danger-fg: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-success-fg: #15803d;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #86efac;
+  --color-warning-fg: #92400e;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fcd34d;
+  --color-info-fg: #1e40af;
+  --color-info-bg: #dbeafe;
+  --color-info-border: #bfdbfe;
 
   /* -- Elevation ------------------------------------------------------------ */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -96,6 +145,170 @@
   background: var(--color-background);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* -- Dark palette ----------------------------------------------------------
+   Declared TWICE on purpose, and the two blocks must stay identical:
+
+     :root[data-theme='dark']            an explicit choice, from the topbar
+                                         toggle (see lib/theme.js)
+     @media (prefers-color-scheme: dark) the OS preference, for a visitor who
+       :root:not([data-theme='light'])   has never touched the toggle
+
+   Doing it in CSS rather than only in JS means the right theme is painted on
+   the very first frame — there is no moment of white while the bundle boots —
+   and the `:not([data-theme='light'])` guard is what lets someone on a dark
+   OS deliberately choose light and keep it.
+
+   Values are tuned against --color-background: the surfaces stay close
+   together so cards read as slight lifts rather than boxes, and every
+   foreground was checked to clear 4.5:1 on the surface it sits on. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-primary: #e3c15a;
+  --color-on-primary: #1a1608;
+  /* The sidebar keeps its own green, deepened so it isn't the brightest thing
+     on a dark page the way it is on a light one. */
+  --color-nav: #0b2c1d;
+  --color-brand: #1f7a4c;
+  --color-on-brand: #ffffff;
+  --color-brand-text: #5cc98e;
+
+  /* Inverted: 50 stays the faintest wash, 950 the strongest ink. */
+  --color-black-50: #0f1412;
+  --color-black-100: #171f1b;
+  --color-black-200: #212b26;
+  --color-black-300: #2f3b35;
+  --color-black-400: #5c6b63;
+  --color-black-500: #8b9a92;
+  --color-black-600: #a8b5ae;
+  --color-black-700: #c6d1cb;
+  --color-black-800: #e2e8e5;
+  --color-black-900: #f2f5f3;
+  --color-black-950: #ffffff;
+
+  /* Accents lifted to their lighter variants — the light-mode values are mid
+     tones that go muddy against a dark surface. */
+  --color-blue: #60a5fa;
+  --color-indigo: #818cf8;
+  --color-purple: #a78bfa;
+  --color-pink: #f472b6;
+  --color-red: #f87171;
+  --color-orange: #fb923c;
+  --color-amber: #fbbf24;
+  --color-yellow: #facc15;
+  --color-lime: #a3e635;
+  --color-green: #4ade80;
+  --color-emerald: #34d399;
+  --color-teal: #2dd4bf;
+  --color-cyan: #22d3ee;
+  --color-sky: #38bdf8;
+  --color-gray: #9ca3af;
+  --color-slate: #94a3b8;
+
+  --color-background: #0d1211;
+  --color-foreground: #e6ebe8;
+  --color-surface: #151b19;
+  --color-surface-hover: #1f2724;
+  --color-border: #263029;
+  --color-border-hover: #38443d;
+  --color-muted: #9aa8a1;
+  --color-overlay: rgba(0, 0, 0, 0.6);
+
+  --color-danger-fg: #fca5a5;
+  --color-danger-bg: #2a1516;
+  --color-danger-border: #5c2626;
+  --color-success-fg: #6ee7a8;
+  --color-success-bg: #10231a;
+  --color-success-border: #23543c;
+  --color-warning-fg: #fbbf24;
+  --color-warning-bg: #271c0d;
+  --color-warning-border: #5a4318;
+  --color-info-fg: #93c5fd;
+  --color-info-bg: #14203a;
+  --color-info-border: #2a4372;
+
+  /* Shadows carry almost nothing on a dark ground, so they go heavier and
+     lean on the border tokens above for separation instead. */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.55), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+}
+
+@media (prefers-color-scheme: dark) {
+  /* Keep in sync with :root[data-theme='dark'] above. */
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --color-primary: #e3c15a;
+    --color-on-primary: #1a1608;
+    --color-nav: #0b2c1d;
+    --color-brand: #1f7a4c;
+    --color-on-brand: #ffffff;
+    --color-brand-text: #5cc98e;
+
+    --color-black-50: #0f1412;
+    --color-black-100: #171f1b;
+    --color-black-200: #212b26;
+    --color-black-300: #2f3b35;
+    --color-black-400: #5c6b63;
+    --color-black-500: #8b9a92;
+    --color-black-600: #a8b5ae;
+    --color-black-700: #c6d1cb;
+    --color-black-800: #e2e8e5;
+    --color-black-900: #f2f5f3;
+    --color-black-950: #ffffff;
+
+    --color-blue: #60a5fa;
+    --color-indigo: #818cf8;
+    --color-purple: #a78bfa;
+    --color-pink: #f472b6;
+    --color-red: #f87171;
+    --color-orange: #fb923c;
+    --color-amber: #fbbf24;
+    --color-yellow: #facc15;
+    --color-lime: #a3e635;
+    --color-green: #4ade80;
+    --color-emerald: #34d399;
+    --color-teal: #2dd4bf;
+    --color-cyan: #22d3ee;
+    --color-sky: #38bdf8;
+    --color-gray: #9ca3af;
+    --color-slate: #94a3b8;
+
+    --color-background: #0d1211;
+    --color-foreground: #e6ebe8;
+    --color-surface: #151b19;
+    --color-surface-hover: #1f2724;
+    --color-border: #263029;
+    --color-border-hover: #38443d;
+    --color-muted: #9aa8a1;
+    --color-overlay: rgba(0, 0, 0, 0.6);
+
+    --color-danger-fg: #fca5a5;
+    --color-danger-bg: #2a1516;
+    --color-danger-border: #5c2626;
+    --color-success-fg: #6ee7a8;
+    --color-success-bg: #10231a;
+    --color-success-border: #23543c;
+    --color-warning-fg: #fbbf24;
+    --color-warning-bg: #271c0d;
+    --color-warning-border: #5a4318;
+    --color-info-fg: #93c5fd;
+    --color-info-bg: #14203a;
+    --color-info-border: #2a4372;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.55), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+  }
 }
 
 *,
@@ -127,6 +340,19 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+/* Nor do they inherit colour. `color-scheme` alone gets the field background
+   right in dark mode but leaves the typed text at the UA default, so anything
+   a screen styles with a background and no colour would render dark-on-dark. */
+input,
+select,
+textarea {
+  color: var(--color-foreground);
+}
+::placeholder {
+  color: var(--color-muted);
+  opacity: 1;
 }
 
 ::selection {
@@ -200,10 +426,11 @@ textarea {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .glass {
-  background: rgba(255, 255, 255, 0.7);
+  /* Frosted over whatever is behind it, so both halves follow the theme. */
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
 }
 
 /* -- Entrance animations --------------------------------------------------- */
@@ -231,6 +458,29 @@ textarea {
    paper clips everything to the first page. Releasing both is what lets a long
    register or article paginate. */
 @media print {
+  /* Paper is white whatever the screen was, so the dark palette is forced back
+     to ink-on-white here. Without this, printing from dark mode gives light
+     grey text on a background the printer won't render — an unreadable page.
+     Only the tokens that carry text and surfaces need flattening; the accents
+     and status colours still print as colour. */
+  :root,
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --color-background: #fff;
+    --color-surface: #fff;
+    --color-surface-hover: #fff;
+    --color-foreground: #000;
+    --color-muted: #444;
+    --color-border: #ccc;
+    --color-border-hover: #999;
+    --color-brand-text: #0f5132;
+    --color-black-400: #666;
+    --color-black-500: #555;
+    --color-black-600: #444;
+    --color-black-700: #222;
+    --color-black-800: #111;
+    --color-black-900: #000;
+  }
   .sidebar,
   .topbar,
   .overlay,

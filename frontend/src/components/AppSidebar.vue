@@ -129,6 +129,11 @@ const items = computed(() =>
 </template>
 
 <style scoped>
+/* The literal whites below are deliberate, and the only ones left in a view:
+   --color-nav is a dark surface in BOTH themes, so everything drawn on it is a
+   translucent white regardless of the page theme. Swapping these for the
+   neutral scale would invert them to near-black in dark mode — on a still-dark
+   sidebar. */
 .sidebar {
   width: 16rem;
   flex-shrink: 0;

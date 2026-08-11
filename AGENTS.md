@@ -112,6 +112,21 @@ Key architectural facts worth knowing before changing things:
 - **No Tailwind in `frontend/`** — style with the CSS custom properties
   defined in `frontend/src/style.css`. The root-level `tailwind.config.js` only
   applies to the unused Laravel Blade scaffold.
+- **Never hard-code a colour in a component.** The SPA has light and dark
+  themes, and both palettes live in `frontend/src/style.css` — a literal hex in
+  a component is invisible to the theme and will stay light-mode on a dark
+  page. Use the tokens (`--color-surface`, `--color-border`,
+  `--color-black-*`, `--color-danger|success|warning|info-{fg,bg,border}`,
+  `--color-overlay`); if the shade you want isn't there, add a token rather
+  than a literal. The brand green is three tokens, not one: `--color-nav` is
+  the sidebar SURFACE, `--color-brand`/`--color-on-brand` is the button FILL
+  pair, and `--color-brand-text` is the accent green for TEXT on a page
+  surface — picking the wrong one is invisible in light mode and unreadable in
+  dark. The dark palette is declared twice (`:root[data-theme='dark']` and the
+  `prefers-color-scheme` block) and the two must stay identical. The theme
+  itself is chosen in `frontend/src/lib/theme.js`, which mirrors
+  `i18n/index.js`: a stored preference, one `apply` function, applied at import
+  time.
 - **New feature comment marker**: when you add a new feature (a new
   route/endpoint, a new UI screen, a new store action, a new significant
   capability — not a bug fix or refactor), add a one-line comment directly on

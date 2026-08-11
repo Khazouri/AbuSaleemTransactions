@@ -99,7 +99,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--color-overlay);
   backdrop-filter: blur(1px);
 }
 </style>

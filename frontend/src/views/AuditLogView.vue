@@ -283,7 +283,7 @@ onMounted(async () => {
 
 <style scoped>
 .heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-h2 { margin: 0; color: var(--color-nav); font-size: 1.2rem; }
+h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
 .subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
 .count { margin: 0; color: var(--color-muted); font-size: .82rem; }
 .heading-end { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
@@ -293,14 +293,14 @@ h2 { margin: 0; color: var(--color-nav); font-size: 1.2rem; }
 .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
 label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }
 select, input { min-width: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
-select:focus, input:focus { outline: 2px solid var(--color-nav); outline-offset: 1px; }
+select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 .actions { display: flex; gap: .5rem; margin-top: 1rem; }
 button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: #fff; background: var(--color-nav); }
+.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
 .ghost { padding: .4rem .65rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
 .ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
 button:disabled { cursor: not-allowed; opacity: .55; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid #fecaca; border-radius: var(--radius-lg); color: #b91c1c; background: #fef2f2; }
+.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
 .alert .ghost { margin-inline-start: .5rem; }
 .state { padding: .5rem; margin: 0; color: var(--color-muted); }
 .table-wrap { overflow-x: auto; }
@@ -311,20 +311,20 @@ td { font-size: .84rem; }
 .when { white-space: nowrap; }
 .system { color: var(--color-muted); }
 .action { display: inline-block; padding: .12rem .5rem; border-radius: 999px; font-size: .75rem; white-space: nowrap; }
-.action.created { color: #166534; background: #dcfce7; }
-.action.updated { color: #92400e; background: #fef3c7; }
-.action.deleted { color: #b91c1c; background: #fee2e2; }
-.action.restored { color: #1e40af; background: #dbeafe; }
+.action.created { color: var(--color-success-fg); background: var(--color-success-bg); }
+.action.updated { color: var(--color-warning-fg); background: var(--color-warning-bg); }
+.action.deleted { color: var(--color-danger-fg); background: var(--color-danger-bg); }
+.action.restored { color: var(--color-info-fg); background: var(--color-info-bg); }
 .model { margin-inline-end: .35rem; font-weight: 600; }
 .record-id, .record-link { display: inline-block; font-family: var(--font-mono); font-size: .75rem; color: var(--color-muted); }
-.record-link { color: var(--color-nav); }
+.record-link { color: var(--color-brand-text); }
 .origin { font-family: var(--font-mono); font-size: .75rem; color: var(--color-muted); }
 .details-row > td { background: var(--color-surface-hover); }
 .diff { min-width: 0; }
 .diff th, .diff td { padding: .4rem .5rem; border-bottom: 1px solid var(--color-border); font-size: .8rem; }
 .diff .field { font-weight: 600; }
-.diff .old { color: #b91c1c; }
-.diff .new { color: #166534; }
+.diff .old { color: var(--color-danger-fg); }
+.diff .new { color: var(--color-success-fg); }
 .agent { margin: .6rem 0 0; color: var(--color-muted); font-size: .72rem; word-break: break-all; }
 .pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }
 </style>
