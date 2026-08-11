@@ -6,7 +6,7 @@
  * Collects credentials, hands them to the auth store, and on success sends the
  * user wherever they were originally headed.
  */
-import { ref } from 'vue'
+import { defineAsyncComponent, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -15,6 +15,17 @@ const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+
+// Dev-only one-click sign-in for the TestUserSeeder accounts.
+//
+// The import sits inside the DEV branch rather than at the top of the file so
+// that `npm run build` — where import.meta.env.DEV is replaced by the literal
+// false — drops the branch and the whole chunk. The panel is therefore ABSENT
+// from a production bundle, not just hidden: a list of live email addresses
+// whose password is "password" has no business shipping.
+const TestUserPicker = import.meta.env.DEV
+  ? defineAsyncComponent(() => import('../components/DevTestUserPicker.vue'))
+  : null
 
 // Form fields, bound with v-model in the template.
 const email = ref('')
@@ -51,6 +62,20 @@ async function submit() {
     }
   }
 }
+
+/**
+ * Fill the form from the dev picker and sign in.
+ *
+ * It fills the real fields and calls the real submit() rather than posting
+ * directly, so the shortcut exercises exactly the path a typed login takes —
+ * including the error handling above, which is what makes the deliberately
+ * inactive test account show its refusal message instead of failing silently.
+ */
+function signInAs({ email: testEmail, password: testPassword }) {
+  email.value = testEmail
+  password.value = testPassword
+  return submit()
+}
 </script>
 
 <template>
@@ -77,14 +102,21 @@ async function submit() {
         {{ auth.loading ? t('auth.loggingIn') : t('auth.login') }}
       </button>
     </form>
+
+    <!-- Renders only under `npm run dev`; TestUserPicker is null in a build. -->
+    <component :is="TestUserPicker" v-if="TestUserPicker" :busy="auth.loading" @select="signInAs" />
   </div>
 </template>
 
 <style scoped>
 .login-page {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem 0;
   background: var(--color-background);
 }
 .card {
