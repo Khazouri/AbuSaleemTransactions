@@ -6,9 +6,10 @@
  * Collects credentials, hands them to the auth store, and on success sends the
  * user wherever they were originally headed.
  */
-import { defineAsyncComponent, ref } from 'vue'
+import { defineAsyncComponent, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
+import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 
 const { t } = useI18n()
@@ -16,16 +17,30 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-// Dev-only one-click sign-in for the TestUserSeeder accounts.
+// One-click sign-in for the TestUserSeeder accounts. Whether it appears is the
+// BACKEND's decision, not this build's: GET /api/dev/test-users answers 404
+// unless Laravel is running with APP_ENV=local, so the same dist/ shows the
+// panel against a local API and hides it against a real one.
 //
-// The import sits inside the DEV branch rather than at the top of the file so
-// that `npm run build` — where import.meta.env.DEV is replaced by the literal
-// false — drops the branch and the whole chunk. The panel is therefore ABSENT
-// from a production bundle, not just hidden: a list of live email addresses
-// whose password is "password" has no business shipping.
-const TestUserPicker = import.meta.env.DEV
-  ? defineAsyncComponent(() => import('../components/DevTestUserPicker.vue'))
-  : null
+// It is loaded asynchronously so the chunk is only fetched once that call has
+// said yes — a production visitor never downloads it. The accounts themselves
+// come from the response, so no address and no known password is ever compiled
+// into the bundle.
+const TestUserPicker = defineAsyncComponent(() => import('../components/TestUserPicker.vue'))
+
+// Null until the API confirms a local environment; hides the panel outright.
+const testAccounts = ref(null)
+
+onMounted(async () => {
+  try {
+    testAccounts.value = (await api.get('/dev/test-users')).data
+  } catch {
+    // A 404 (not local) is the expected answer in production, and an
+    // unreachable API already reports itself through the login attempt. Either
+    // way the panel simply stays hidden — this is a convenience, never
+    // something whose absence deserves an error message.
+  }
+})
 
 // Form fields, bound with v-model in the template.
 const email = ref('')
@@ -58,22 +73,30 @@ async function submit() {
     } else {
       // No response at all: the API is unreachable (VM down, wrong host entry,
       // CORS). Nothing to do with the credentials, so say so.
-      error.value = 'تعذّر الاتصال بالخادم. تأكد من تشغيل abusaleem.test'
+      //
+      // Naming the Homestead host is the right hint on a dev machine and noise
+      // on a deployed site, where the reader has no VM to start — so the two
+      // audiences get different text. Vite replaces DEV with the literal false
+      // in a build, which folds this to the else branch and keeps the internal
+      // hostname out of the shipped bundle.
+      error.value = import.meta.env.DEV
+        ? 'تعذّر الاتصال بالخادم. تأكد من تشغيل abusaleem.test'
+        : 'تعذّر الاتصال بالخادم. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني.'
     }
   }
 }
 
 /**
- * Fill the form from the dev picker and sign in.
+ * Fill the form from the test-account picker and sign in.
  *
  * It fills the real fields and calls the real submit() rather than posting
  * directly, so the shortcut exercises exactly the path a typed login takes —
  * including the error handling above, which is what makes the deliberately
  * inactive test account show its refusal message instead of failing silently.
  */
-function signInAs({ email: testEmail, password: testPassword }) {
+function signInAs({ email: testEmail }) {
   email.value = testEmail
-  password.value = testPassword
+  password.value = testAccounts.value.password
   return submit()
 }
 </script>
@@ -103,8 +126,15 @@ function signInAs({ email: testEmail, password: testPassword }) {
       </button>
     </form>
 
-    <!-- Renders only under `npm run dev`; TestUserPicker is null in a build. -->
-    <component :is="TestUserPicker" v-if="TestUserPicker" :busy="auth.loading" @select="signInAs" />
+    <!-- Renders only when the API answered /dev/test-users, i.e. APP_ENV=local. -->
+    <TestUserPicker
+      v-if="testAccounts"
+      :users="testAccounts.users"
+      :password="testAccounts.password"
+      :seed-command="testAccounts.seed_command"
+      :busy="auth.loading"
+      @select="signInAs"
+    />
   </div>
 </template>
 

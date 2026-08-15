@@ -1,6 +1,6 @@
 <script setup>
 /**
- * One-click sign-in for the seeded test accounts — DEVELOPMENT ONLY.
+ * One-click sign-in for the seeded test accounts.
  *
  * WHY IT EXISTS: TEST_PLAN.md's happy path needs four different people
  * (R02 -> R05 -> R03 -> R05 -> R06 -> R07) before a transaction reaches
@@ -8,23 +8,28 @@
  * QA pass therefore means signing in and out a dozen times; typing
  * `r05.manager@abusaleem.test` / `password` each time is the slowest part of it.
  *
- * WHY IT IS SAFE: this component is never reached in a production build.
- * LoginView imports it through `defineAsyncComponent` inside an
- * `import.meta.env.DEV` branch, which Rollup resolves to `false` and removes —
- * taking this file and the known-password addresses below out of the bundle
- * entirely, rather than merely hiding them behind a v-if.
+ * WHY IT IS SAFE: this component holds no accounts of its own. The list, and
+ * the shared password, arrive from GET /api/dev/test-users, which is a 404
+ * anywhere the backend is not APP_ENV=local — so a production bundle contains
+ * this markup and nothing to put in it, and LoginView never renders it.
  *
- * WHY THE LIST IS HARD-CODED: it mirrors database/seeders/TestUserSeeder.php.
- * The alternative — an endpoint that lists accounts — would have to exist on
- * the real API, where enumerating users is exactly what the login endpoint
- * already refuses to do (see AuthController's identical-message comment).
- *
- * Keep in step with TestUserSeeder::TEST_USERS if that list ever changes.
+ * That is the deliberate change from the earlier build-time version: the panel
+ * used to be gated on `import.meta.env.DEV` and carried its own copy of the
+ * twelve addresses. The gate belonged to whichever machine ran `npm run build`,
+ * so a `dist/` pointed at a local API could never show it; and the copied list
+ * had to be kept in step with TestUserSeeder by hand. Both problems go away by
+ * letting the server that owns the accounts be the one that lists them.
  */
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 defineProps({
+  /** Rows from GET /api/dev/test-users. */
+  users: { type: Array, required: true },
+  /** The password every seeded account shares, per the same response. */
+  password: { type: String, required: true },
+  /** Artisan command to run when the accounts turn out not to be seeded. */
+  seedCommand: { type: String, default: 'php artisan db:seed --class=TestUserSeeder' },
   /** Mirrors auth.loading, so a second click can't fire mid-request. */
   busy: { type: Boolean, default: false },
 })
@@ -33,64 +38,39 @@ const emit = defineEmits(['select'])
 
 const { locale } = useI18n()
 
-// Every seeded test account shares this password (TestUserSeeder hashes the
-// literal string). Shown in the panel because a broken auto-fill should be
-// recoverable by typing.
-const PASSWORD = 'password'
-
 /**
- * Strings live here rather than in locales/*.json: this is a dev-only tool and
- * its copy has no business shipping in the production locale bundles.
+ * Strings live here rather than in locales/*.json: this is a development tool
+ * and its copy has no business shipping in the production locale bundles.
  */
 const COPY = {
   ar: {
     title: 'حسابات تجريبية — بيئة التطوير فقط',
-    hint: `كلمة المرور لجميع الحسابات: ${PASSWORD}`,
+    hint: 'كلمة المرور لجميع الحسابات:',
     throttle: 'تنبيه: تسجيل الدخول محدود بـ 6 محاولات في الدقيقة، فالتنقل السريع بين الحسابات قد يُرجع خطأ 429.',
-    seed: 'إذا ظهر أن البيانات غير صحيحة، فالحسابات لم تُزرع بعد:',
+    seed: 'الحسابات المُعلَّمة أدناه غير مزروعة في قاعدة البيانات. لزراعتها:',
+    notSeeded: 'غير مزروع',
     inactive: 'موقوف — يُتوقع رفض الدخول',
     show: 'إظهار',
     hide: 'إخفاء',
   },
   en: {
     title: 'Test accounts — development only',
-    hint: `Password for every account: ${PASSWORD}`,
+    hint: 'Password for every account:',
     throttle: 'Note: login is rate-limited to 6 attempts per minute, so hopping quickly between accounts can return a 429.',
-    seed: 'If sign-in reports bad credentials, the accounts have not been seeded yet:',
+    seed: 'The accounts flagged below are not in the database. To seed them:',
+    notSeeded: 'Not seeded',
     inactive: 'Inactive — sign-in is expected to fail',
     show: 'Show',
     hide: 'Hide',
   },
 }
 
-/**
- * [email, role codes, Arabic name, English label, active]
- *
- * The inactive account is listed deliberately: AuthController refuses it with
- * its own message, and that refusal is something the test plan checks. It is
- * marked so its failure reads as the expected outcome, not a broken button.
- */
-const USERS = [
-  { email: 'r01.employee@abusaleem.test', roles: ['R01'], ar: 'موظف تجريبي', en: 'Employee', active: true },
-  { email: 'r02.reviewer@abusaleem.test', roles: ['R02'], ar: 'مقرر تجريبي', en: 'Reviewer', active: true },
-  { email: 'r03.head@abusaleem.test', roles: ['R03'], ar: 'رئيس اللجنة التجريبي', en: 'Committee head', active: true },
-  { email: 'r04.member1@abusaleem.test', roles: ['R04'], ar: 'عضو اللجنة الأول', en: 'Committee member 1', active: true },
-  { email: 'r04.member2@abusaleem.test', roles: ['R04'], ar: 'عضو اللجنة الثاني', en: 'Committee member 2', active: true },
-  { email: 'r04.member3@abusaleem.test', roles: ['R04'], ar: 'عضو اللجنة الثالث', en: 'Committee member 3', active: true },
-  { email: 'r05.manager@abusaleem.test', roles: ['R05'], ar: 'مدير الشؤون الإدارية', en: 'Admin affairs manager', active: true },
-  { email: 'r06.ministry@abusaleem.test', roles: ['R06'], ar: 'مندوب وزارة الحكم المحلي', en: 'Ministry delegate', active: true },
-  { email: 'r07.director@abusaleem.test', roles: ['R07'], ar: 'المدير العام التجريبي', en: 'Director general', active: true },
-  { email: 'r08.sysadmin@abusaleem.test', roles: ['R08'], ar: 'مدير نظام تجريبي', en: 'System admin', active: true },
-  { email: 'multi.role@abusaleem.test', roles: ['R03', 'R04'], ar: 'رئيس وعضو لجنة', en: 'Head + member (union check)', active: true },
-  { email: 'inactive.user@abusaleem.test', roles: ['R01'], ar: 'مستخدم موقوف', en: 'Suspended user', active: false },
-]
-
 // Open by default — the whole point is that signing in as someone else is one
 // click, and a collapsed panel would make it two.
 const open = ref(true)
 
 function pick(user) {
-  emit('select', { email: user.email, password: PASSWORD })
+  emit('select', { email: user.email })
 }
 </script>
 
@@ -104,21 +84,28 @@ function pick(user) {
     </header>
 
     <div v-if="open" class="body">
-      <p class="hint">{{ COPY[locale].hint }}</p>
+      <p class="hint">{{ COPY[locale].hint }} <code dir="ltr">{{ password }}</code></p>
 
       <ul>
-        <li v-for="user in USERS" :key="user.email">
+        <li v-for="user in users" :key="user.email">
+          <!-- The inactive account is listed deliberately: AuthController
+               refuses it with its own message, and that refusal is something
+               the test plan checks. It is marked so its failure reads as the
+               expected outcome, not a broken button. -->
           <button
             type="button"
             class="user"
-            :class="{ inactive: !user.active }"
+            :class="{ inactive: !user.is_active, missing: !user.seeded }"
             :disabled="busy"
-            :title="!user.active ? COPY[locale].inactive : user.email"
+            :title="user.is_active ? user.email : COPY[locale].inactive"
             @click="pick(user)"
           >
             <span class="roles">{{ user.roles.join(' + ') }}</span>
             <span class="who">
-              <span class="name">{{ locale === 'ar' ? user.ar : user.en }}</span>
+              <span class="name">
+                {{ locale === 'ar' ? user.name_ar : user.name_en }}
+                <span v-if="!user.seeded" class="flag">({{ COPY[locale].notSeeded }})</span>
+              </span>
               <!-- Latin address on an Arabic page: force LTR so it reads correctly. -->
               <span class="email" dir="ltr">{{ user.email }}</span>
             </span>
@@ -127,9 +114,11 @@ function pick(user) {
       </ul>
 
       <p class="throttle">{{ COPY[locale].throttle }}</p>
-      <p class="throttle">
+      <!-- Shown only when something is actually missing, so the common case
+           isn't a panel of instructions nobody needs to follow. -->
+      <p v-if="users.some((u) => !u.seeded)" class="throttle">
         {{ COPY[locale].seed }}
-        <code dir="ltr">php artisan db:seed --class=TestUserSeeder</code>
+        <code dir="ltr">{{ seedCommand }}</code>
       </p>
     </div>
   </section>
@@ -190,7 +179,7 @@ ul {
 }
 .user:hover:not(:disabled) { background: var(--color-surface-hover); }
 .user:disabled { opacity: .6; cursor: default; }
-.user.inactive { border-style: dashed; color: var(--color-muted); }
+.user.inactive, .user.missing { border-style: dashed; color: var(--color-muted); }
 .roles {
   flex-shrink: 0;
   padding: .15rem .4rem;
@@ -200,9 +189,10 @@ ul {
   font-size: .7rem;
   font-weight: 600;
 }
-.user.inactive .roles { background: var(--color-muted); }
+.user.inactive .roles, .user.missing .roles { background: var(--color-muted); }
 .who { display: flex; flex-direction: column; min-width: 0; }
 .name { font-size: .82rem; }
+.flag { font-size: .72rem; color: var(--color-muted); }
 .email {
   font-size: .72rem;
   color: var(--color-muted);

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\CommitteeController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\DepartmentController;
+use App\Http\Controllers\Api\DevTestUserController;
 use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\NoteController;
@@ -44,6 +45,16 @@ Route::get('/ping', fn () => response()->json([
     'app' => config('app.name'),
     'time' => now()->toIso8601String(),
 ]));
+
+/**
+ * The seeded test accounts behind the login screen's one-click picker.
+ *
+ * Public and unauthenticated by necessity — it is read to draw the login page,
+ * before anyone has a token. It is a 404 unless APP_ENV=local; the controller
+ * makes that call per request rather than this file making it at boot, so a
+ * cached route table can't smuggle a local decision into production.
+ */
+Route::get('/dev/test-users', [DevTestUserController::class, 'index']);
 
 Route::prefix('auth')->group(function () {
     /*

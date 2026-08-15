@@ -54,6 +54,14 @@ Key architectural facts worth knowing before changing things:
 - **Auth**: Sanctum bearer tokens, not cookies/sessions. Token lives in
   `localStorage` on the frontend; `auth:sanctum` middleware on the backend.
   Login is rate-limited (`throttle:6,1`).
+- **The login screen's test-account picker is gated by the BACKEND**, not the
+  build: `GET /api/dev/test-users` (`DevTestUserController`) is public but
+  answers 404 unless `app()->environment('local')`, and the SPA shows the panel
+  only when that call succeeds. So the same `dist/` shows it against a local
+  API and hides it against a real one. The account list lives in exactly one
+  place — `TestUserSeeder::TEST_USERS`, which the controller reads — so nothing
+  needs keeping in step, and no known-password address is ever compiled into
+  the bundle.
 - **Departments** are master data (referenced by users/transactions), so
   deletion is blocked whenever children or users still reference a row —
   deactivate (`toggle-active`) instead of delete. This "preserve, don't erase"
@@ -162,6 +170,14 @@ npm run preview                  # preview a production build locally
 
 There is currently no JS test runner or linter configured in `frontend/` —
 don't assume `npm test` or `npm run lint` exist.
+
+**Deploying the SPA**: see [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md).
+Only `frontend/dist/` is deployable — uploading the source tree serves an
+`index.html` that points at `/src/main.js`, whose bare `import … from 'vue'`
+no plain web server can resolve, giving a black screen. `VITE_API_BASE_URL` is
+baked in at **build** time from `frontend/.env.production`, so it cannot be
+changed on the server; and `frontend/public/.htaccess` (the `createWebHistory()`
+fallback) must reach the server or every sub-route 404s on refresh.
 
 **Run pending migrations whenever there are any** — after creating a new
 migration file, or after pulling changes that added one — run
