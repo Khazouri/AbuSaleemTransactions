@@ -38,6 +38,23 @@ class TransactionStatusSeeder extends Seeder
 
             // --- Committee voting outcome (Stage 21) -------------------------
             ['deferred',       'مؤجلة',           'Deferred',       '#64748b'], // sent back to committee for the next meeting
+
+            // --- Committee sub-states (Stage 29) ------------------------------
+            // Status-only granularity inside the `receive_from_committee` stage,
+            // written by App\Services\CommitteeStatusService — never by
+            // WorkflowService, so none of these move current_stage_id.
+            ['nominated_for_committee',        'مرشح للجنة',              'Nominated for Committee',        '#0ea5e9'],
+            ['on_agenda',                      'مدرج بجدول الأعمال',       'On Agenda',                      '#6366f1'],
+            ['under_discussion',               'قيد المناقشة',            'Under Discussion',               '#8b5cf6'],
+            ['awaiting_recommendation_approval', 'بانتظار اعتماد التوصية', 'Awaiting Recommendation Approval', '#eab308'],
+            ['completion_required',            'مطلوب استكمال',           'Completion Required',            '#f97316'],
+
+            // Seeded now so Stage 37 (outputs → execution → close) has rows to
+            // point at, but NOT driven by CommitteeStatusService: they reconcile
+            // with the existing approved/final_approved/archived progression
+            // rather than duplicating it — see AGENT_NOTES.md Stage 29 entry.
+            ['in_execution',    'قيد التنفيذ',      'In Execution',    '#0d9488'],
+            ['completed_closed', 'مكتمل ومغلق',     'Completed & Closed', '#166534'],
         ];
 
         foreach ($statuses as [$code, $nameAr, $nameEn, $color]) {
