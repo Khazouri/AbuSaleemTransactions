@@ -5,6 +5,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/docs
 .env
 .env.backup
 .env.production

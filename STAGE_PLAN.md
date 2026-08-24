@@ -242,6 +242,180 @@ API-editable and every role lands on this screen.
 
 ---
 
+## TRACK H — Meetings Management Unit (the committee-side redesign)
+
+A redesign package (see [AGENT_NOTES.md](AGENT_NOTES.md), 2026-08-24) reframes the
+committee side from "meeting admin" into a full **request → study → committee →
+meeting → vote → decision → minutes → execution → close** pipeline. Today that
+side is only Stages 20–21: `MeetingsView` (a bare schedule form) and
+`MeetingDetailView` (an agenda list with ↑/↓ reorder, inline voting, and one
+free-text `minutes` field). These 10 stages evolve that into the 9-screen unit
+the design calls for. Every stage below names the current artifact it **changes**,
+so none is greenfield-only.
+
+**Locked scope decisions:** the sidebar becomes a grouped, collapsible
+"إدارة الاجتماعات" section; the live-meeting screen is a **state-driven runner**
+(no websockets/broadcasting — the video area is a static placeholder); the request
+state machine is **extended** (new statuses seeded and wired through the workflow,
+not UI-only relabels).
+
+**Source legend** (attached redesign package — commit to `docs/meetings-redesign/`
+so these citations resolve): **[Design PDF]** `اجتماع لجنة.pdf` (9-screen design,
+§1–§9 + sidebar on p5); **[Lifecycle PDF]** `1.pdf` (12-stage lifecycle, the
+Stage-7 5-step wizard, the Stage-10 internal path, the state-sequence on p2);
+**[Workflow infographics]** the stage-5–11 municipality infographics; **[UI
+mockups]** the 9 meeting-screen images.
+
+### Stage 28 — Meetings-Unit navigation shell, screens & permissions
+**Goal:** The grouped sidebar section and the 9 screen slots exist and route.
+**Build:**
+- Add `group` + `sort_order` to the `screens` table + `ScreenSeeder`; seed the 9
+  codes (`meetings_dashboard`, `committee_candidates`, keep `meetings`,
+  `meeting_agenda`, `meeting_readiness`, `meeting_live`, keep `decisions`,
+  `meeting_minutes`, `meeting_outputs`) under an "إدارة الاجتماعات" group
+- Seed grants following the existing pattern (view=`*`, the R03/R04 edit path)
+- `stores/screens.js` builds a nested `navGroups`; `AppSidebar.vue` renders the
+  collapsible group; non-meeting screens stay top-level
+- Register lazy routes to empty view scaffolds
+**Mechanism:** flat sidebar → grouped; the single `meetings` screen splits its
+concerns across sibling screens.
+**Done when:** the group renders for a committee role and each new route loads an
+(empty) screen behind its permission.
+**Source:** [Design PDF] p5 (sidebar restructure) + the 9-screen overview table
+(p1); [UI mockups] all 9 (shared left-nav group).
+
+### Stage 29 — Request lifecycle status expansion + workflow wiring
+**Goal:** The committee sub-states exist without corrupting the stage machine.
+**Build:**
+- Add 7 statuses to `TransactionStatusSeeder`: `nominated_for_committee`,
+  `on_agenda`, `under_discussion`, `awaiting_recommendation_approval`,
+  `completion_required`, `in_execution`, `completed_closed`
+- `App\Services\CommitteeStatusService` — a guarded **status-only** write path
+  for the moves that must not change workflow stage; `WorkflowService` stays the
+  sole stage authority
+- Reconcile `in_execution`/`completed_closed` with existing `approved`/
+  `final_approved`/`archived` rather than duplicating them
+**Mechanism:** 13 → 20 statuses; agenda placement and the live runner set status
+without moving stages.
+**Done when:** a transaction passes
+ready→nominated→on_agenda→under_discussion→awaiting_recommendation_approval and a
+feature test proves the stage number is untouched by the status-only moves.
+**Source:** [Lifecycle PDF] p2 "حالات الطلب خلال الدورة" + the 12-stage table
+(p1); [Workflow infographics] stages 5–7.
+**Note:** don't rush — this touches the correctness-sensitive workflow engine.
+
+### Stage 30 — Meeting scheduling model + 5-step wizard
+**Build:**
+- Migrate `meetings` (+`meeting_number`, `meeting_type` {دوري/استثنائي/طارئ},
+  `chairman_user_id`, `rapporteur_user_id`, `expected_duration_minutes`,
+  `agenda_deadline`, `description`)
+- Migrate `meeting_attendees` (+`invitation_status`
+  {pending|confirmed|declined|no_response}, `responded_at`); extend
+  `MeetingController::store/update` + a send-invitations action
+- Rebuild the `MeetingsView` schedule form into the 5-step wizard
+  (requests → details → members/invitations → review/agenda → approve/schedule)
+**Mechanism:** bare schedule form → wizard; attendees gain confirm-attendance.
+**Done when:** a meeting is scheduled through the wizard with invitations sent and
+attendance status tracked.
+**Source:** [Design PDF] §3 (p2); [Lifecycle PDF] Stage 7 "المعالج من 5 خطوات"
+(p1); [UI mockups] the wizard step screens + the الأعضاء والدعوات screen.
+
+### Stage 31 — Agenda builder enhancements
+**Build:**
+- Migrate `meeting_transactions` (+`priority`, `estimated_minutes`, `item_type`
+  {employee_request|administrative|emerging}, nullable `subject`/`department_id`
+  so **non-transaction admin items** are allowed)
+- Agenda-stats + grouping endpoints; dedicated agenda-builder screen (priority,
+  time totals, group-similar)
+**Mechanism:** transaction-only ordered list → typed, prioritized, timed agenda
+with admin items.
+**Done when:** an agenda mixes employee requests and admin items with priorities
+and a computed total time.
+**Source:** [Design PDF] §4 (p2 — تجميع الطلبات المتشابهة, الزمن المتوقع);
+[Lifecycle PDF] Stage 8; [UI mockups] the ترتيب جدول الأعمال + مراجعة وجدول
+الأعمال screens.
+
+### Stage 32 — Candidate-requests screen + command dashboard
+**Build:**
+- `GET /committee-candidates` (transactions in `ready`/`nominated_for_committee`)
+  with actions add-to-meeting / defer / return-to-study / request-completion,
+  each writing status via `CommitteeStatusService`
+- `GET /meetings/dashboard` aggregating KPIs + next-meeting readiness + the
+  request lifecycle funnel; build both screens
+**Mechanism:** the ad-hoc agenda search in `MeetingDetailView` → a first-class
+linking worklist; new command dashboard.
+**Done when:** a studied request appears as a candidate, is added to a meeting
+from that screen, and the dashboard counts move.
+**Source:** [Design PDF] §1 (p1 — 6 KPI cards, next-meeting block, the
+38→18→16→2→16 funnel) + §2 (p1–2 — إضافة/تأجيل/إعادة للدراسة/طلب استكمال); [UI
+mockups] the الطلبات المرشحة للعرض table + the مركز قيادة اللجنة dashboard.
+
+### Stage 33 — Meeting readiness control center
+**Build:**
+- `GET /meetings/{id}/readiness` computing file %, member %, agenda completeness,
+  invitations %, expected quorum, and an exceptions-only list → ready/not-ready
+- The screen; gate "convene" on readiness (R03 exceptional override with a
+  logged reason)
+**Mechanism:** nothing today → a pre-meeting gate.
+**Done when:** an incomplete file blocks convening until resolved or overridden.
+**Source:** [Design PDF] §5 "Pre-Meeting Control Center" (p2–3); [UI mockups] the
+مستوى الجاهزية donut on the meeting-detail and dashboard screens.
+
+### Stage 34 — Live meeting runner
+**Build:**
+- Migrate `meeting_transactions` (+`item_state`
+  {presented|discussion|voting|deciding|complete}) and a discussion-notes store
+- Runner screen: current-item panel, per-item timer, discussion feed, live vote
+  panel (polling), progress, present-attendees, video **placeholder**; reuse the
+  existing vote/decision endpoints; block meeting close until every item is
+  `complete` or decided
+**Mechanism:** inline agenda voting → a dedicated run-the-meeting screen.
+**Done when:** a chair runs a meeting item-by-item and cannot close it with
+unresolved items.
+**Source:** [Design PDF] §6 (p3–4 — "أهم شاشة", بدء التصويت); [Lifecycle PDF]
+Stage 10 internal path (p2); [UI mockups] the مباشر الاجتماع runner (video = the
+static placeholder).
+
+### Stage 35 — Decision templates & richer outcomes
+**Build:**
+- Reuse the `Template` model for decision text; map new outcome types (conditional
+  approval, request-legal-opinion, refer-to-another-body) onto workflow actions
+  (new exception transitions as needed); surface on the runner + `DecisionsView`
+**Mechanism:** fixed approve/reject/defer → templated, richer outcome set.
+**Done when:** a conditional-approval decision is recorded from a template and
+drives the correct transition.
+**Source:** [Design PDF] §7 (p4 — the قالب list); [Workflow infographics] stage 7
+قرار اللجنة.
+
+### Stage 36 — Minutes preparation & approval (المحاضر)
+**Build:**
+- Auto-compile minutes from meeting data (attendance, quorum, agenda, per-item
+  summary, discussions, votes, decisions)
+- Minutes approval lifecycle (draft → head review → member signatures → approved
+  → meeting closed) via new fields/table + `SignaturePad`; the screen; gate
+  meeting close on minutes approval
+**Mechanism:** the single `minutes` text field → a generated, reviewed, signed,
+approved document.
+**Done when:** minutes generate, get signed and approved, and only then does the
+meeting close.
+**Source:** [Design PDF] §8 (p4 — the إعداد المقرر→…→إغلاق cycle); [Lifecycle PDF]
+"بعد انتهاء الاجتماع" + Stage 12 (p1–2); [Workflow infographics] stage 8 اعتماد.
+
+### Stage 37 — Meeting outputs follow-up (مخرجات الاجتماعات)
+**Build:**
+- Meeting-scoped outputs view linking each agenda item → decision → next action →
+  responsible body → execution status; follow decisions into execution
+  (`in_execution` → `completed_closed`)
+**Mechanism:** the generic decisions register → a meeting-to-request outputs
+tracker that closes the loop.
+**Done when:** a meeting's page lists every decision with its downstream action
+and live execution status.
+**Source:** [Design PDF] §9 (p4–5 — the رقم الطلب|الموظف|قرار اللجنة|الإجراء
+التالي|الجهة المسؤولة|الحالة table + the full تقديم→…→إغلاق backbone); [Workflow
+infographics] stages 8–11.
+
+---
+
 ## Suggested order
 
 ```
@@ -252,6 +426,7 @@ API-editable and every role lands on this screen.
 18 → 19 → 20 → 21        (approvals & committees)
 22 → 23 → 24             (cross-cutting)
 25 → 26 → 27             (the remaining seeded screens; 25 depends on 21 and 24)
+28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37   (Track H — meetings unit; 28 & 29 first, all depend on 20–21)
 ```
 
 **Stages you can pull forward if you want a break from the hard parts:** 10, 12, 22.

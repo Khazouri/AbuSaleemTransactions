@@ -2,6 +2,8 @@
 
 A manual QA script for the whole system, Stages 1–27.
 
+> Arabic version: [TEST_PLAN.ar.md](TEST_PLAN.ar.md) — same content.
+
 **Why this document exists.** The automated suite (80 tests / 538 assertions) proves each
 stage in isolation against in-memory sqlite. It does *not* prove that the system works for
 the people it was built for, because until now the only login that existed was
