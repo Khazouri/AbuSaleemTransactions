@@ -269,6 +269,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('meetings/{meeting}', [MeetingController::class, 'show']);
     Route::middleware('screen.permission:meetings,edit')->group(function () {
         Route::put('meetings/{meeting}', [MeetingController::class, 'update']);
+        Route::post('meetings/{meeting}/send-invitations', [MeetingController::class, 'sendInvitations']);
         Route::post('meetings/{meeting}/agenda', [MeetingController::class, 'addAgendaItem']);
         Route::put('meetings/{meeting}/agenda/reorder', [MeetingController::class, 'reorderAgenda']);
         Route::delete('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'removeAgendaItem']);

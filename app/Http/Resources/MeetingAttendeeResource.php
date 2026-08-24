@@ -12,6 +12,8 @@ class MeetingAttendeeResource extends JsonResource
         return [
             'id' => $this->id,
             'attended' => $this->attended,
+            'invitation_status' => $this->invitation_status,
+            'responded_at' => $this->responded_at?->toIso8601String(),
             'user' => $this->whenLoaded('user', fn () => [
                 'id' => $this->user->id,
                 'name' => $this->user->name,

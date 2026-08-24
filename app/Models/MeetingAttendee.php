@@ -5,12 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** One invited attendee of one meeting, and whether they showed up. */
+/** One invited attendee of one meeting, whether they RSVP'd, and whether they showed up. */
 class MeetingAttendee extends Model
 {
     protected $fillable = [
         'meeting_id',
         'user_id',
+        'invitation_status',
+        'responded_at',
         'attended',
     ];
 
@@ -18,6 +20,7 @@ class MeetingAttendee extends Model
     {
         return [
             'attended' => 'boolean',
+            'responded_at' => 'datetime',
         ];
     }
 

@@ -16,6 +16,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $location
  * @property string $status scheduled|completed|cancelled
  * @property string|null $minutes
+ * @property string|null $meeting_number
+ * @property string $meeting_type regular|extraordinary|emergency
+ * @property Carbon|null $agenda_deadline
  */
 class Meeting extends Model
 {
@@ -23,9 +26,16 @@ class Meeting extends Model
 
     protected $fillable = [
         'committee_id',
+        'meeting_number',
         'title',
+        'meeting_type',
         'scheduled_at',
         'location',
+        'chairman_user_id',
+        'rapporteur_user_id',
+        'expected_duration_minutes',
+        'agenda_deadline',
+        'description',
         'status',
         'minutes',
         'created_by_user_id',
@@ -35,6 +45,8 @@ class Meeting extends Model
     {
         return [
             'scheduled_at' => 'datetime',
+            'agenda_deadline' => 'datetime',
+            'expected_duration_minutes' => 'integer',
         ];
     }
 
@@ -46,6 +58,16 @@ class Meeting extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    public function chairman(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'chairman_user_id');
+    }
+
+    public function rapporteur(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rapporteur_user_id');
     }
 
     public function attendees(): HasMany

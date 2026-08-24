@@ -8,9 +8,10 @@
  * meetings, not a separate capability (the backend gates both the same way,
  * see routes/api.php).
  */
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
+import MeetingSchedulingWizard from '../components/MeetingSchedulingWizard.vue'
 import api from '../lib/api'
 
 const { t, locale } = useI18n()
@@ -44,8 +45,6 @@ const savingCommittee = ref(false)
 
 const blankCommitteeForm = () => ({ name_ar: '', name_en: '', description: '', is_active: true })
 const committeeForm = ref(blankCommitteeForm())
-
-const activeCommittees = computed(() => committees.value.filter((c) => c.is_active))
 
 async function loadCommittees() {
   loadingCommittees.value = true
@@ -188,14 +187,10 @@ async function removeMember(committee, member) {
 }
 
 // --- Meetings ----------------------------------------------------------------
+// Stage 30 — scheduling goes through the 5-step MeetingSchedulingWizard rather
+// than a single inline form.
 
-const meetingErrors = ref({})
-const meetingFormError = ref(null)
 const showMeetingForm = ref(false)
-const savingMeeting = ref(false)
-
-const blankMeetingForm = () => ({ committee_id: '', title: '', scheduled_at: '', location: '' })
-const meetingForm = ref(blankMeetingForm())
 
 async function loadMeetings() {
   loadingMeetings.value = true
@@ -210,40 +205,16 @@ async function loadMeetings() {
 }
 
 function startScheduleMeeting() {
-  meetingForm.value = blankMeetingForm()
-  meetingErrors.value = {}
-  meetingFormError.value = null
   showMeetingForm.value = true
 }
 
 function cancelMeetingForm() {
   showMeetingForm.value = false
-  meetingErrors.value = {}
-  meetingFormError.value = null
 }
 
-async function saveMeeting() {
-  savingMeeting.value = true
-  meetingErrors.value = {}
-  meetingFormError.value = null
-
-  try {
-    await api.post('/meetings', {
-      ...meetingForm.value,
-      location: meetingForm.value.location || null,
-    })
-    cancelMeetingForm()
-    await loadMeetings()
-  } catch (e) {
-    if (e?.response?.status === 422) {
-      meetingErrors.value = e.response.data.errors ?? {}
-      meetingFormError.value = e.response.data.message ?? null
-    } else {
-      meetingFormError.value = t('common.none')
-    }
-  } finally {
-    savingMeeting.value = false
-  }
+async function onMeetingScheduled() {
+  showMeetingForm.value = false
+  await loadMeetings()
 }
 
 onMounted(async () => {
@@ -363,43 +334,13 @@ onMounted(async () => {
       </button>
     </div>
 
-    <p v-if="meetingFormError" class="alert">{{ meetingFormError }}</p>
-
-    <form v-if="showMeetingForm" class="card form" @submit.prevent="saveMeeting">
-      <h3>{{ t('meetings.schedule') }}</h3>
-      <div class="grid">
-        <label>
-          {{ t('meetings.committee') }} *
-          <select v-model="meetingForm.committee_id" required>
-            <option value="">{{ t('meetings.chooseCommittee') }}</option>
-            <option v-for="committee in activeCommittees" :key="committee.id" :value="committee.id">
-              {{ name(committee) }}
-            </option>
-          </select>
-          <small v-if="meetingErrors.committee_id" class="field-error">{{ meetingErrors.committee_id[0] }}</small>
-        </label>
-        <label>
-          {{ t('meetings.meetingTitle') }} *
-          <input v-model="meetingForm.title" type="text" required />
-          <small v-if="meetingErrors.title" class="field-error">{{ meetingErrors.title[0] }}</small>
-        </label>
-        <label>
-          {{ t('meetings.scheduledAt') }} *
-          <input v-model="meetingForm.scheduled_at" type="datetime-local" required />
-          <small v-if="meetingErrors.scheduled_at" class="field-error">{{ meetingErrors.scheduled_at[0] }}</small>
-        </label>
-        <label>
-          {{ t('meetings.location') }}
-          <input v-model="meetingForm.location" type="text" />
-        </label>
-      </div>
-      <div class="actions">
-        <button class="primary" type="submit" :disabled="savingMeeting">
-          {{ savingMeeting ? t('common.saving') : t('common.save') }}
-        </button>
-        <button class="ghost" type="button" @click="cancelMeetingForm">{{ t('common.cancel') }}</button>
-      </div>
-    </form>
+    <MeetingSchedulingWizard
+      v-if="showMeetingForm"
+      :committees="committees"
+      :user-options="userOptions"
+      @scheduled="onMeetingScheduled"
+      @cancel="cancelMeetingForm"
+    />
 
     <div class="card">
       <p v-if="loadingMeetings" class="state">{{ t('common.loading') }}</p>

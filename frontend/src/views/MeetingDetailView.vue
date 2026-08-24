@@ -87,6 +87,23 @@ async function removeMeeting() {
   }
 }
 
+// Stage 30 — resend the meeting invitation from the detail page (the wizard
+// already sends it once when scheduling).
+const sendingInvitations = ref(false)
+
+async function sendInvitations() {
+  sendingInvitations.value = true
+  actionError.value = ''
+  try {
+    const { data } = await api.post(`/meetings/${meeting.value.id}/send-invitations`)
+    meeting.value = data.data
+  } catch (requestError) {
+    actionError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    sendingInvitations.value = false
+  }
+}
+
 // --- Agenda ------------------------------------------------------------------
 
 const agendaSearch = ref('')
@@ -182,6 +199,20 @@ async function markAttendance(attendee, attended) {
   try {
     await api.patch(`/meetings/${meeting.value.id}/attendees/${attendee.id}`, { attended })
     attendee.attended = attended
+  } catch (requestError) {
+    attendanceError.value = requestError.response?.data?.message ?? t('common.none')
+  }
+}
+
+// Stage 30 — records a member's RSVP by hand (no public confirm link yet).
+async function setInvitationStatus(attendee, invitationStatus) {
+  attendanceError.value = ''
+  try {
+    const { data } = await api.patch(`/meetings/${meeting.value.id}/attendees/${attendee.id}`, {
+      invitation_status: invitationStatus,
+    })
+    attendee.invitation_status = data.data.invitation_status
+    attendee.responded_at = data.data.responded_at
   } catch (requestError) {
     attendanceError.value = requestError.response?.data?.message ?? t('common.none')
   }
@@ -299,14 +330,33 @@ onMounted(async () => {
           <p class="committee ltr-none">{{ name(meeting.committee) }}</p>
           <h2>{{ meeting.title }}</h2>
         </div>
-        <button v-can="'meetings.delete'" class="ghost danger" type="button" @click="removeMeeting">
-          {{ t('meetings.delete') }}
-        </button>
+        <div class="header-actions">
+          <button
+            v-can="'meetings.edit'"
+            class="ghost"
+            type="button"
+            :disabled="sendingInvitations"
+            @click="sendInvitations"
+          >
+            {{ sendingInvitations ? t('meetings.sendingInvitations') : t('meetings.sendInvitations') }}
+          </button>
+          <button v-can="'meetings.delete'" class="ghost danger" type="button" @click="removeMeeting">
+            {{ t('meetings.delete') }}
+          </button>
+        </div>
       </header>
 
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
 
       <section class="card summary">
+        <div v-if="meeting.meeting_number">
+          <span>{{ t('meetings.meetingNumber') }}</span>
+          <strong>{{ meeting.meeting_number }}</strong>
+        </div>
+        <div>
+          <span>{{ t('meetings.meetingType') }}</span>
+          <strong>{{ t(`meetings.type${meeting.meeting_type.charAt(0).toUpperCase()}${meeting.meeting_type.slice(1)}`) }}</strong>
+        </div>
         <div>
           <span>{{ t('meetings.scheduledAt') }}</span>
           <strong>{{ dateTime(meeting.scheduled_at) }}</strong>
@@ -314,6 +364,22 @@ onMounted(async () => {
         <div v-if="meeting.location">
           <span>{{ t('meetings.location') }}</span>
           <strong>{{ meeting.location }}</strong>
+        </div>
+        <div v-if="meeting.chairman">
+          <span>{{ t('meetings.chairman') }}</span>
+          <strong>{{ meeting.chairman.name }}</strong>
+        </div>
+        <div v-if="meeting.rapporteur">
+          <span>{{ t('meetings.rapporteur') }}</span>
+          <strong>{{ meeting.rapporteur.name }}</strong>
+        </div>
+        <div v-if="meeting.expected_duration_minutes">
+          <span>{{ t('meetings.expectedDuration') }}</span>
+          <strong>{{ meeting.expected_duration_minutes }}</strong>
+        </div>
+        <div v-if="meeting.agenda_deadline">
+          <span>{{ t('meetings.agendaDeadline') }}</span>
+          <strong>{{ dateTime(meeting.agenda_deadline) }}</strong>
         </div>
         <div>
           <span>{{ t('meetings.status') }}</span>
@@ -323,6 +389,11 @@ onMounted(async () => {
             <option value="cancelled">{{ t('meetings.statusCancelled') }}</option>
           </select>
         </div>
+      </section>
+
+      <section v-if="meeting.description" class="card">
+        <h3>{{ t('meetings.description') }}</h3>
+        <p class="description">{{ meeting.description }}</p>
       </section>
 
       <section v-can="'meetings.edit'" class="card">
@@ -450,14 +521,28 @@ onMounted(async () => {
           <p v-if="!meeting.attendees?.length" class="state">{{ t('meetings.attendance.empty') }}</p>
           <ul v-else>
             <li v-for="attendee in meeting.attendees" :key="attendee.id">
-              <label class="checkbox">
-                <input
-                  type="checkbox"
-                  :checked="attendee.attended"
-                  @change="markAttendance(attendee, $event.target.checked)"
-                />
-                {{ attendee.user.name }}
-              </label>
+              <div class="attendee-row">
+                <label class="checkbox">
+                  <input
+                    type="checkbox"
+                    :checked="attendee.attended"
+                    @change="markAttendance(attendee, $event.target.checked)"
+                  />
+                  {{ attendee.user.name }}
+                </label>
+                <select
+                  v-can="'meetings.edit'"
+                  class="invitation-status"
+                  :value="attendee.invitation_status"
+                  :aria-label="t('meetings.attendance.invitation.pending')"
+                  @change="setInvitationStatus(attendee, $event.target.value)"
+                >
+                  <option value="pending">{{ t('meetings.attendance.invitation.pending') }}</option>
+                  <option value="confirmed">{{ t('meetings.attendance.invitation.confirmed') }}</option>
+                  <option value="declined">{{ t('meetings.attendance.invitation.declined') }}</option>
+                  <option value="no_response">{{ t('meetings.attendance.invitation.no_response') }}</option>
+                </select>
+              </div>
               <button v-can="'meetings.edit'" class="ghost danger" type="button" @click="removeAttendee(attendee)">
                 {{ t('meetings.attendance.remove') }}
               </button>
@@ -486,6 +571,8 @@ onMounted(async () => {
 .heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .heading h2 { margin: .15rem 0 0; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
 .committee { margin: 0; color: var(--color-muted); font-size: .8rem; }
+.header-actions { display: flex; gap: .5rem; }
+.description { margin: 0; white-space: pre-wrap; color: var(--color-black-700); font-size: .88rem; }
 .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; }
 .card h3 { margin: 0 0 .6rem; color: var(--color-brand-text); font-size: 1rem; }
 .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; }
@@ -527,6 +614,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 .attendance ul { display: grid; gap: .5rem; padding: 0; margin: 0 0 .85rem; list-style: none; }
 .attendance li { display: flex; align-items: center; justify-content: space-between; gap: .5rem; font-size: .85rem; }
+.attendee-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.invitation-status { padding: .2rem .4rem; font-size: .72rem; }
 label.checkbox { display: flex; align-items: center; gap: .4rem; }
 .add-attendee { display: flex; gap: .5rem; }
 

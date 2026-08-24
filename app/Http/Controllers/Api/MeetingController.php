@@ -19,6 +19,7 @@ use App\Models\MeetingAttendee;
 use App\Models\MeetingTransaction;
 use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 
@@ -182,13 +183,39 @@ class MeetingController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * Updates attendance (`attended`) and/or an attendee's RSVP
+     * (`invitation_status`) — two independent fields on the same row, so
+     * setting the RSVP stamps `responded_at` regardless of whether
+     * `attended` was also sent.
+     */
     public function markAttendance(UpdateMeetingAttendeeRequest $request, Meeting $meeting, MeetingAttendee $attendee): MeetingAttendeeResource
     {
         abort_unless($attendee->meeting_id === $meeting->id, 404);
 
-        $attendee->update($request->validated());
+        $data = $request->validated();
+        if (array_key_exists('invitation_status', $data)) {
+            $data['responded_at'] = now();
+        }
+
+        $attendee->update($data);
 
         return new MeetingAttendeeResource($attendee->load('user:id,name'));
+    }
+
+    /**
+     * Stage 30 — (re)sends the meeting invitation to its current attendees.
+     * Decoupled from store() so the scheduling wizard's final step, and a
+     * later "resend" from the meeting detail screen, both go through the
+     * same explicit action rather than only ever firing once at creation.
+     */
+    public function sendInvitations(Meeting $meeting, NotificationDispatcher $notifications, Request $request): MeetingResource
+    {
+        $attendeeUserIds = $meeting->attendees()->pluck('user_id');
+
+        $notifications->meetingScheduled($meeting, $attendeeUserIds, $request->user());
+
+        return new MeetingResource($this->loadDetail($meeting));
     }
 
     private function loadDetail(Meeting $meeting): Meeting
@@ -196,6 +223,8 @@ class MeetingController extends Controller
         return $meeting->load([
             'committee:id,name_ar,name_en',
             'createdBy:id,name',
+            'chairman:id,name',
+            'rapporteur:id,name',
             'attendees.user:id,name',
             'agendaItems.transaction:id,reference_number,title,status_id',
             'agendaItems.transaction.status:id,code,name_ar,name_en,color',
