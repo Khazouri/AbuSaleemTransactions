@@ -29,6 +29,22 @@ export const useScreensStore = defineStore('screens', () => {
   )
 
   /**
+   * navItems clustered by `group`, in the order they already arrive in
+   * (sort_order) — Stage 28's collapsible sidebar sections read from this.
+   * A screen with no `group` never appears here; it's still in `navItems`
+   * as a flat, top-level entry, same as every screen before Stage 28.
+   */
+  const navGroups = computed(() => {
+    const groups = new Map()
+    for (const screen of navItems.value) {
+      if (!screen.group) continue
+      if (!groups.has(screen.group)) groups.set(screen.group, [])
+      groups.get(screen.group).push(screen)
+    }
+    return Array.from(groups, ([key, items]) => ({ key, items }))
+  })
+
+  /**
    * Fetch the menu once per session.
    * @param {boolean} force re-fetch even if already loaded
    */
@@ -60,5 +76,5 @@ export const useScreensStore = defineStore('screens', () => {
     error.value = null
   }
 
-  return { screens, navItems, loading, error, loaded, fetchScreens, reset }
+  return { screens, navItems, navGroups, loading, error, loaded, fetchScreens, reset }
 })

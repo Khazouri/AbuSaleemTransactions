@@ -119,9 +119,46 @@ const routes = [
         meta: { screenCode: 'meetings' },
       },
       {
+        // Stage 28 — meetings-unit navigation shell: dashboard.
+        path: 'meetings/dashboard',
+        name: 'meetings_dashboard',
+        component: () => import('../views/MeetingsDashboardView.vue'),
+        meta: { screenCode: 'meetings_dashboard' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: candidate transactions.
+        path: 'meetings/candidates',
+        name: 'committee_candidates',
+        component: () => import('../views/CommitteeCandidatesView.vue'),
+        meta: { screenCode: 'committee_candidates' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: agenda builder.
+        path: 'meetings/agenda',
+        name: 'meeting_agenda',
+        component: () => import('../views/MeetingAgendaBuilderView.vue'),
+        meta: { screenCode: 'meeting_agenda' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: readiness gate.
+        path: 'meetings/readiness',
+        name: 'meeting_readiness',
+        component: () => import('../views/MeetingReadinessView.vue'),
+        meta: { screenCode: 'meeting_readiness' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: live runner.
+        path: 'meetings/live',
+        name: 'meeting_live',
+        component: () => import('../views/MeetingLiveView.vue'),
+        meta: { screenCode: 'meeting_live' },
+      },
+      {
         // Stage 20 — single meeting workspace: agenda builder + attendance.
         // Needs a specific meeting id, so (like transaction_details) it isn't
-        // in placeholderScreens and has no separate sidebar entry.
+        // in placeholderScreens and has no separate sidebar entry. vue-router
+        // ranks static segments (meetings/agenda etc. above) over this :id
+        // route regardless of declaration order, so they aren't shadowed.
         path: 'meetings/:id',
         name: 'meeting_details',
         component: () => import('../views/MeetingDetailView.vue'),
@@ -170,6 +207,20 @@ const routes = [
         name: 'decisions',
         component: () => import('../views/DecisionsView.vue'),
         meta: { screenCode: 'decisions' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: minutes.
+        path: 'meetings/minutes',
+        name: 'meeting_minutes',
+        component: () => import('../views/MeetingMinutesView.vue'),
+        meta: { screenCode: 'meeting_minutes' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: outputs tracker.
+        path: 'meetings/outputs',
+        name: 'meeting_outputs',
+        component: () => import('../views/MeetingOutputsView.vue'),
+        meta: { screenCode: 'meeting_outputs' },
       },
       {
         // Stage 26 — snapshots of the database and its stored files.

@@ -7,7 +7,10 @@
     "menu": "Menu",
     "notifications": "Notifications",
     "loading": "Loading menu…",
-    "error": "Could not load the menu"
+    "error": "Could not load the menu",
+    "groups": {
+      "meetings_management": "Meetings Management"
+    }
   },
   "header": {
     "settings": "Settings"
@@ -402,6 +405,15 @@
       "decidedBy": "Decided by",
       "decidedAt": "Decided at"
     }
+  },
+  "meetingsUnit": {
+    "dashboard": { "title": "Meetings Dashboard", "placeholder": "Under construction." },
+    "candidates": { "title": "Committee Candidates", "placeholder": "Under construction." },
+    "agenda": { "title": "Meeting Agenda", "placeholder": "Under construction." },
+    "readiness": { "title": "Meeting Readiness", "placeholder": "Under construction." },
+    "live": { "title": "Live Meeting", "placeholder": "Under construction." },
+    "minutes": { "title": "Minutes", "placeholder": "Under construction." },
+    "outputs": { "title": "Outputs", "placeholder": "Under construction." }
   },
   "workflow": {
     "actions": {

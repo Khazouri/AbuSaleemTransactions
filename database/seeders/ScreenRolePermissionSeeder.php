@@ -9,7 +9,7 @@ use Illuminate\Database\Seeder;
 
 /**
  * Builds the starting permission matrix: every screen x every role
- * (23 x 8 = 184 rows), each with seven action flags.
+ * (30 x 8 = 240 rows), each with seven action flags.
  *
  * How the rules below are applied:
  *   - R08 (System Admin) is granted every action on every screen.
@@ -34,47 +34,60 @@ class ScreenRolePermissionSeeder extends Seeder
      */
     private const DEFAULTS = [
         // Everyone needs the dashboard and the transaction list.
-        'dashboard'               => ['view' => '*', 'print' => '*'],
-        'transactions'            => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],
+        'dashboard' => ['view' => '*', 'print' => '*'],
+        'transactions' => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],
 
         // Intake: the roles that actually register incoming paperwork.
         // R07 is absent — the dean approves, they don't do data entry.
-        'transaction_intake'      => ['view' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'edit' => ['R01', 'R02', 'R05']],
-        'transaction_details'     => ['view' => '*', 'print' => '*', 'export' => '*'],
+        'transaction_intake' => ['view' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'edit' => ['R01', 'R02', 'R05']],
+        'transaction_details' => ['view' => '*', 'print' => '*', 'export' => '*'],
 
         // Notes/attachments: broad read, narrower write.
-        'notes_attachments'       => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05'], 'edit' => ['R01', 'R02']],
+        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05'], 'edit' => ['R01', 'R02']],
 
         // Committee work belongs to the committee roles (R03 head, R04 member).
-        'meetings'                => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
-        'decisions'               => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R03'], 'print' => '*'],
+        // Stage 28's 7 new meetings-unit screens start with the same shape
+        // as `meetings` itself — they're empty navigation shells with no
+        // real actions yet, so exact parity is the correct default. Later
+        // Track H stages (29-37) should tighten these per-screen once real
+        // actions land (e.g. `meeting_live` almost certainly wants narrower
+        // gating once it does something).
+        'meetings_dashboard' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        'committee_candidates' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        'meetings' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        'meeting_agenda' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        'meeting_readiness' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        'meeting_live' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        'decisions' => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R03'], 'print' => '*'],
+        'meeting_minutes' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        'meeting_outputs' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
 
         // One approval screen per authority — single-role by design, so no one
         // can approve at a level that isn't theirs.
-        'reviewer_approval'       => ['view' => ['R02'], 'approve' => ['R02']],
+        'reviewer_approval' => ['view' => ['R02'], 'approve' => ['R02']],
         'committee_head_approval' => ['view' => ['R03'], 'approve' => ['R03']],
-        'admin_manager_approval'  => ['view' => ['R05'], 'approve' => ['R05']],
-        'ministry_approval'       => ['view' => ['R06'], 'approve' => ['R06']],
-        'authority_approval'      => ['view' => ['R07'], 'approve' => ['R07']],
-        'final_approval'          => ['view' => ['R07'], 'approve' => ['R07']],
+        'admin_manager_approval' => ['view' => ['R05'], 'approve' => ['R05']],
+        'ministry_approval' => ['view' => ['R06'], 'approve' => ['R06']],
+        'authority_approval' => ['view' => ['R07'], 'approve' => ['R07']],
+        'final_approval' => ['view' => ['R07'], 'approve' => ['R07']],
 
         // Administration: empty array = R08 only.
-        'users'                   => [],
-        'departments'             => [],
-        'roles_permissions'       => [],
-        'settings'                => [],
-        'templates'               => [],
-        'backup'                  => [],
+        'users' => [],
+        'departments' => [],
+        'roles_permissions' => [],
+        'settings' => [],
+        'templates' => [],
+        'backup' => [],
 
         // Oversight: visible to all, exportable only by the senior roles.
-        'reports'                 => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],
-        'audit_log'               => ['view' => '*', 'export' => ['R06', 'R07']],
+        'reports' => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],
+        'audit_log' => ['view' => '*', 'export' => ['R06', 'R07']],
         // Stage 23: `edit` is granted to everyone because on this screen it
         // means "mark my own notifications read / set my own channel
         // preferences" — those endpoints are scoped to the caller, so this is
         // a self-service right, not an administrative one.
-        'notifications'           => ['view' => '*', 'edit' => '*'],
-        'user_guide'              => ['view' => '*', 'print' => '*'],
+        'notifications' => ['view' => '*', 'edit' => '*'],
+        'user_guide' => ['view' => '*', 'print' => '*'],
     ];
 
     /** Maps the short action names used above to the real column names. */
@@ -112,7 +125,7 @@ class ScreenRolePermissionSeeder extends Seeder
      * Work out the seven action flags for one role on one screen.
      *
      * @param  array<string, string|array<string>>  $grants  This screen's DEFAULTS entry
-     * @return array<string, bool>                           Column name => allowed
+     * @return array<string, bool> Column name => allowed
      */
     private function flagsFor(Role $role, array $grants): array
     {

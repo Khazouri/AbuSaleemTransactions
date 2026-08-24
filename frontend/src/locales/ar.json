@@ -7,7 +7,10 @@
     "menu": "القائمة",
     "notifications": "الإشعارات",
     "loading": "جارٍ تحميل القائمة…",
-    "error": "تعذّر تحميل القائمة"
+    "error": "تعذّر تحميل القائمة",
+    "groups": {
+      "meetings_management": "إدارة الاجتماعات"
+    }
   },
   "header": {
     "settings": "الإعدادات"
@@ -402,6 +405,15 @@
       "decidedBy": "صاحب القرار",
       "decidedAt": "تاريخ القرار"
     }
+  },
+  "meetingsUnit": {
+    "dashboard": { "title": "لوحة قيادة الاجتماعات", "placeholder": "قيد الإنشاء." },
+    "candidates": { "title": "الطلبات المرشحة", "placeholder": "قيد الإنشاء." },
+    "agenda": { "title": "جدول الأعمال", "placeholder": "قيد الإنشاء." },
+    "readiness": { "title": "جاهزية الاجتماع", "placeholder": "قيد الإنشاء." },
+    "live": { "title": "مباشرة الاجتماع", "placeholder": "قيد الإنشاء." },
+    "minutes": { "title": "المحاضر", "placeholder": "قيد الإنشاء." },
+    "outputs": { "title": "المخرجات", "placeholder": "قيد الإنشاء." }
   },
   "workflow": {
     "actions": {

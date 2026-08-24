@@ -11,12 +11,12 @@
  *   collapsed  desktop rail — icons only, labels hidden (width handled in CSS)
  *   mobileOpen off-canvas drawer slid into view on small screens
  */
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useScreensStore } from '../stores/screens'
 import AppIcon from './AppIcon.vue'
 
-defineProps({
+const props = defineProps({
   /** Desktop rail mode: show icons only, hide text labels. */
   collapsed: { type: Boolean, default: false },
   /** Small-screen flag: switches the sidebar to a fixed off-canvas drawer. */
@@ -50,6 +50,14 @@ const ICON_BY_CODE = {
   transaction_details: 'file-text',
   meetings: 'calendar',
   decisions: 'check-circle',
+  // Stage 28 — meetings management group.
+  meetings_dashboard: 'grid',
+  committee_candidates: 'file-plus',
+  meeting_agenda: 'file-text',
+  meeting_readiness: 'check-square',
+  meeting_live: 'video',
+  meeting_minutes: 'book',
+  meeting_outputs: 'bar-chart',
   reviewer_approval: 'check-square',
   committee_head_approval: 'check-square',
   admin_manager_approval: 'check-square',
@@ -69,20 +77,65 @@ const ICON_BY_CODE = {
 const iconFor = (code) => ICON_BY_CODE[code] || 'dot'
 
 /**
- * Menu entries labelled in the active language.
+ * Screen label in the active language.
  *
  * The API sends both names, so switching language relabels the menu instantly
  * with no extra request. Arabic falls back to English if a translation is
  * missing, and vice versa.
  */
-const items = computed(() =>
-  screensStore.navItems.map((screen) => ({
-    ...screen,
-    label: locale.value === 'ar'
-      ? screen.name_ar || screen.name_en
-      : screen.name_en || screen.name_ar,
-  })),
-)
+const label = (screen) =>
+  locale.value === 'ar' ? screen.name_ar || screen.name_en : screen.name_en || screen.name_ar
+const labelled = (screen) => ({ ...screen, label: label(screen) })
+
+/**
+ * Stage 28 — groups the user has explicitly collapsed. Empty by default, so
+ * every group starts expanded; tracking the exception (collapsed) rather
+ * than the rule (expanded) means a newly-seeded group needs no extra state.
+ */
+const collapsedGroups = ref(new Set())
+const isExpanded = (key) => !collapsedGroups.value.has(key)
+function toggleGroup(key) {
+  const next = new Set(collapsedGroups.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsedGroups.value = next
+}
+
+/**
+ * One ordered list of render entries — either a flat `{ type: 'item' }` or
+ * a `{ type: 'group' }` — built by walking navItems in sort_order and
+ * dropping in each group's block at the position of its FIRST member. That
+ * keeps a group sitting exactly where its sort_order puts it instead of
+ * being pinned to the top or bottom of the menu, and a grouped screen is
+ * never also rendered as a flat entry.
+ *
+ * In rail mode (collapsed) there's no room for a group header, so every
+ * screen — grouped or not — falls back to one flat icon list, identical to
+ * pre-Stage-28 behaviour.
+ */
+const entries = computed(() => {
+  if (props.collapsed) {
+    return screensStore.navItems.map((screen) => ({ type: 'item', screen: labelled(screen) }))
+  }
+
+  const groupsByKey = new Map(screensStore.navGroups.map((g) => [g.key, g.items]))
+  const placed = new Set()
+  const list = []
+  for (const screen of screensStore.navItems) {
+    if (!screen.group) {
+      list.push({ type: 'item', screen: labelled(screen) })
+      continue
+    }
+    if (placed.has(screen.group)) continue
+    placed.add(screen.group)
+    list.push({
+      type: 'group',
+      key: screen.group,
+      items: groupsByKey.get(screen.group).map(labelled),
+    })
+  }
+  return list
+})
 </script>
 
 <template>
@@ -106,23 +159,51 @@ const items = computed(() =>
       </p>
 
       <ul v-else>
-        <li v-for="item in items" :key="item.code">
+        <template v-for="entry in entries" :key="entry.type === 'item' ? entry.screen.code : entry.key">
           <!--
             RouterLink applies .router-link-active automatically, which is what
             highlights the current screen without any manual tracking. In rail
             mode the label collapses away, so `title` keeps it discoverable on
             hover.
           -->
-          <RouterLink
-            :to="item.route"
-            class="nav-link"
-            :class="{ center: collapsed }"
-            :title="collapsed ? item.label : null"
-          >
-            <AppIcon :name="iconFor(item.code)" class="nav-icon" />
-            <span v-if="!collapsed" class="nav-label">{{ item.label }}</span>
-          </RouterLink>
-        </li>
+          <li v-if="entry.type === 'item'">
+            <RouterLink
+              :to="entry.screen.route"
+              class="nav-link"
+              :class="{ center: collapsed }"
+              :title="collapsed ? entry.screen.label : null"
+            >
+              <AppIcon :name="iconFor(entry.screen.code)" class="nav-icon" />
+              <span v-if="!collapsed" class="nav-label">{{ entry.screen.label }}</span>
+            </RouterLink>
+          </li>
+
+          <!-- Stage 28 — a collapsible group, e.g. "إدارة الاجتماعات". Only
+               ever reached when NOT collapsed: rail mode flattens groups. -->
+          <li v-else class="nav-group">
+            <button
+              type="button"
+              class="nav-group-toggle"
+              :aria-expanded="isExpanded(entry.key)"
+              @click="toggleGroup(entry.key)"
+            >
+              <span class="nav-group-label">{{ t(`nav.groups.${entry.key}`) }}</span>
+              <AppIcon
+                name="chevron-down"
+                class="nav-group-chevron"
+                :class="{ collapsed: !isExpanded(entry.key) }"
+              />
+            </button>
+            <ul v-show="isExpanded(entry.key)" class="nav-group-items">
+              <li v-for="screen in entry.items" :key="screen.code">
+                <RouterLink :to="screen.route" class="nav-link nav-sublink">
+                  <AppIcon :name="iconFor(screen.code)" class="nav-icon" />
+                  <span class="nav-label">{{ screen.label }}</span>
+                </RouterLink>
+              </li>
+            </ul>
+          </li>
+        </template>
       </ul>
     </nav>
   </aside>
@@ -262,6 +343,54 @@ ul {
 }
 .state.error {
   color: #fecaca;
+}
+
+/* -- Stage 28: collapsible group ------------------------------------------ */
+.nav-group-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius-xl);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.nav-group-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.nav-group-label {
+  /* Logical: reads from the start edge, mirrors with dir like .nav-label. */
+  text-align: start;
+}
+.nav-group-chevron {
+  flex-shrink: 0;
+  /* Pure vertical rotation (down <-> up) — no left/right involved, so this
+     needs no RTL-specific override, unlike the mobile drawer's translateX. */
+  transition: transform 0.2s ease;
+}
+.nav-group-chevron.collapsed {
+  transform: rotate(-180deg);
+}
+.nav-group-items {
+  list-style: none;
+  margin: 0.15rem 0 0.25rem;
+  padding-inline-start: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.nav-sublink {
+  padding-inline-start: 1.75rem;
 }
 
 /* -- Mobile: off-canvas drawer -------------------------------------------
