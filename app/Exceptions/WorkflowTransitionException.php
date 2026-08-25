@@ -60,7 +60,7 @@ class WorkflowTransitionException extends DomainException
 
     public static function transactionClosed(): self
     {
-        return new self('لا يمكن تنفيذ إجراء على معاملة ملغاة أو مؤرشفة.');
+        return new self('لا يمكن تنفيذ إجراء سير عمل على معاملة ملغاة أو خرجت إلى التنفيذ أو أغلقت.');
     }
 
     public static function ambiguousConfiguration(): self

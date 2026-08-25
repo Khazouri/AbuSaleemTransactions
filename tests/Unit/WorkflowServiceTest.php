@@ -43,7 +43,7 @@ class WorkflowServiceTest extends TestCase
             [8, 9, 'approve', 'R05', 'approved'],
             [9, 10, 'approve', 'R06', 'approved'],
             [10, 11, 'approve', 'R07', 'final_approved'],
-            [11, 11, 'approve', 'R07', 'archived'],
+            [11, 11, 'approve', 'R07', 'in_execution'],
         ];
 
         foreach ($steps as [$from, $to, $action, $roleCode, $statusCode]) {
@@ -66,7 +66,7 @@ class WorkflowServiceTest extends TestCase
         }
 
         $this->assertSame(11, $transaction->currentStage->order_no);
-        $this->assertSame('archived', $transaction->status->code);
+        $this->assertSame('in_execution', $transaction->status->code);
         $this->assertCount(11, $transaction->stageLogs);
         $this->assertCount(11, $transaction->statusHistory);
         $this->assertSame(
@@ -208,7 +208,7 @@ class WorkflowServiceTest extends TestCase
             $service->transition($transaction, 'approve', $reviewer);
             $this->fail('A cancelled transaction must not re-enter the workflow.');
         } catch (WorkflowTransitionException $exception) {
-            $this->assertSame('لا يمكن تنفيذ إجراء على معاملة ملغاة أو مؤرشفة.', $exception->getMessage());
+            $this->assertSame('لا يمكن تنفيذ إجراء سير عمل على معاملة ملغاة أو خرجت إلى التنفيذ أو أغلقت.', $exception->getMessage());
         }
 
         $this->assertDatabaseCount('transaction_stage_logs', 1);
@@ -294,7 +294,7 @@ class WorkflowServiceTest extends TestCase
             signaturePath: 'signatures/final.png',
         );
 
-        $this->assertSame('archived', $transaction->status->code);
+        $this->assertSame('in_execution', $transaction->status->code);
         $this->assertSame([1, 2, 3, 5, 6], $transaction->approvals()->orderBy('id')->pluck('level')->all());
         $this->assertDatabaseMissing('approvals', [
             'transaction_id' => $transaction->id,

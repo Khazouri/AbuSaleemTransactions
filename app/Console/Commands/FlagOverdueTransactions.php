@@ -32,7 +32,10 @@ class FlagOverdueTransactions extends Command
             // A date SLA remains valid for the whole due date; it breaches
             // only from the following calendar day.
             ->whereDate('due_date', '<', today())
-            ->whereDoesntHave('status', fn (Builder $query) => $query->whereIn('code', ['cancelled', 'archived']))
+            ->whereDoesntHave('status', fn (Builder $query) => $query->whereIn(
+                'code',
+                ['cancelled', 'archived', 'completed_closed'],
+            ))
             ->orderBy('id')
             ->chunkById(100, function ($transactions) use (&$flagged, $notifications) {
                 foreach ($transactions as $transaction) {

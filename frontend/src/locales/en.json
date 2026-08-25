@@ -687,7 +687,43 @@
         "sign": "Sign"
       }
     },
-    "outputs": { "title": "Outputs", "placeholder": "Under construction." }
+    "outputs": {
+      "title": "Meeting outputs",
+      "subtitle": "Follow every committee decision through approval, execution, and closure.",
+      "detailHint": "Open the meeting's decisions and their downstream execution status.",
+      "open": "Open outputs tracker",
+      "refresh": "Refresh status",
+      "chooseMeeting": "Meeting",
+      "chooseMeetingPlaceholder": "Choose a meeting",
+      "noMeetingSelected": "Choose a meeting to view its outputs.",
+      "meeting": "Meeting",
+      "error": "The meeting outputs could not be loaded.",
+      "tableTitle": "Request follow-up",
+      "liveHint": "Statuses follow the live transaction workflow and refresh automatically.",
+      "empty": "This meeting has no request items to follow.",
+      "awaitingDecision": "Awaiting committee decision",
+      "complete": "Complete and close",
+      "completeConfirm": "Confirm that execution is complete and close this request?",
+      "summary": {
+        "title": "Meeting output summary",
+        "total_items": "Agenda items",
+        "decisions": "Decisions",
+        "advanced": "Advanced downstream",
+        "awaiting_action": "Awaiting action",
+        "in_execution": "In execution",
+        "completed_closed": "Completed and closed"
+      },
+      "columns": {
+        "request": "Request",
+        "employee": "Employee",
+        "decision": "Committee decision",
+        "decisionDate": "Decision date",
+        "nextAction": "Next action",
+        "responsibleBody": "Responsible body",
+        "status": "Status",
+        "action": "Action"
+      }
+    }
   },
   "workflow": {
     "actions": {

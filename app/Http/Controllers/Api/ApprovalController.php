@@ -45,7 +45,12 @@ class ApprovalController extends Controller
                 'currentStage:id,order_no,code,name_ar,name_en',
             ])
             ->whereHas('currentStage', fn ($query) => $query->where('order_no', $configuration['stage']))
-            ->whereDoesntHave('status', fn ($query) => $query->whereIn('code', ['cancelled', 'archived']))
+            // Stage 37: final approval moves to in_execution; keeping that
+            // status out prevents the stage-11 self-loop being approved twice.
+            ->whereDoesntHave('status', fn ($query) => $query->whereIn(
+                'code',
+                ['cancelled', 'archived', 'in_execution', 'completed_closed'],
+            ))
             ->latest('submitted_at')
             ->paginate(20)
             ->withQueryString();

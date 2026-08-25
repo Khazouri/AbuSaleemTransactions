@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Hash;
  * every action on every screen. Clicking through as that account proves almost
  * nothing — the six approval screens are single-role by design, and the happy
  * path deliberately needs four different people (R02 -> R05 -> R03 -> R05 ->
- * R06 -> R07) to reach `archived`. Without these accounts none of those gates
+ * R06 -> R07) to reach `in_execution`. Without these accounts none of those gates
  * is ever actually hit. See TEST_PLAN.md for the script that uses them.
  *
  * SECURITY: every account below has the password `password`. This is

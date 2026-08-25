@@ -166,7 +166,7 @@ class CommitteeStatusService
     private function hasTerminalStatus(Transaction $transaction): bool
     {
         return $transaction->status()
-            ->whereIn('code', ['cancelled', 'archived'])
+            ->whereIn('code', ['cancelled', 'archived', 'completed_closed'])
             ->exists();
     }
 }

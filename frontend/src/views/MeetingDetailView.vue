@@ -353,6 +353,15 @@ onMounted(async () => {
         </RouterLink>
       </section>
 
+      <!-- Stage 37 — meeting-scoped outputs follow-up. -->
+      <section v-can="'meeting_outputs.view'" class="card minutes-link">
+        <h3>{{ t('meetingsUnit.outputs.title') }}</h3>
+        <p class="minutes-status">{{ t('meetingsUnit.outputs.detailHint') }}</p>
+        <RouterLink class="ghost" :to="{ name: 'meeting_outputs', query: { meeting: meeting.id } }">
+          {{ t('meetingsUnit.outputs.open') }}
+        </RouterLink>
+      </section>
+
       <div class="columns">
         <section class="card agenda">
           <div class="agenda-heading">

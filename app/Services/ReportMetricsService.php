@@ -24,7 +24,7 @@ class ReportMetricsService
      * Work is finished once it has been approved at the last checkpoint or
      * filed away. Everything else that isn't abandoned is still someone's job.
      */
-    public const COMPLETED_STATUSES = ['final_approved', 'archived'];
+    public const COMPLETED_STATUSES = ['final_approved', 'archived', 'completed_closed'];
 
     /** Abandoned outcomes: they leave the pipeline without ever completing. */
     public const ABANDONED_STATUSES = ['cancelled', 'rejected'];

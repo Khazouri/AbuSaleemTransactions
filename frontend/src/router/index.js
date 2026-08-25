@@ -216,7 +216,7 @@ const routes = [
         meta: { screenCode: 'meeting_minutes' },
       },
       {
-        // Stage 28 — meetings-unit navigation shell: outputs tracker.
+        // Stage 37 — meeting decisions followed through execution and close.
         path: 'meetings/outputs',
         name: 'meeting_outputs',
         component: () => import('../views/MeetingOutputsView.vue'),

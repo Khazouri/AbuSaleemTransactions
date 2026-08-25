@@ -54,10 +54,9 @@ class TransactionStatusSeeder extends Seeder
             ['awaiting_recommendation_approval', 'بانتظار اعتماد التوصية', 'Awaiting Recommendation Approval', '#eab308'],
             ['completion_required',            'مطلوب استكمال',           'Completion Required',            '#f97316'],
 
-            // Seeded now so Stage 37 (outputs → execution → close) has rows to
-            // point at, but NOT driven by CommitteeStatusService: they reconcile
-            // with the existing approved/final_approved/archived progression
-            // rather than duplicating it — see AGENT_NOTES.md Stage 29 entry.
+            // Stage 37 reconciles these with the existing downstream path:
+            // final approval enters in_execution, then the meeting outputs
+            // tracker performs the status-only completed_closed move.
             ['in_execution',    'قيد التنفيذ',      'In Execution',    '#0d9488'],
             ['completed_closed', 'مكتمل ومغلق',     'Completed & Closed', '#166534'],
         ];

@@ -43,7 +43,9 @@ class WorkflowTransitionSeeder extends Seeder
             [8, 9, 'approve', 'R05', 'approved'],
             [9, 10, 'approve', 'R06', 'approved'],
             [10, 11, 'approve', 'R07', 'final_approved'],
-            [11, 11, 'approve', 'R07', 'archived'],
+            // Stage 37 — final approval hands the request to execution. The
+            // meeting outputs tracker performs the later status-only close.
+            [11, 11, 'approve', 'R07', 'in_execution'],
         ];
 
         foreach ($transitions as $order => [$from, $to, $action, $role, $status]) {

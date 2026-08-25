@@ -687,7 +687,43 @@
         "sign": "توقيع"
       }
     },
-    "outputs": { "title": "المخرجات", "placeholder": "قيد الإنشاء." }
+    "outputs": {
+      "title": "مخرجات الاجتماعات",
+      "subtitle": "متابعة كل قرار لجنة خلال الاعتماد والتنفيذ والإغلاق.",
+      "detailHint": "فتح قرارات الاجتماع وحالة تنفيذها في مسار المعاملات.",
+      "open": "فتح متابعة المخرجات",
+      "refresh": "تحديث الحالة",
+      "chooseMeeting": "الاجتماع",
+      "chooseMeetingPlaceholder": "اختر اجتماعاً",
+      "noMeetingSelected": "اختر اجتماعاً لعرض مخرجاته.",
+      "meeting": "اجتماع",
+      "error": "تعذر تحميل مخرجات الاجتماع.",
+      "tableTitle": "متابعة الطلبات",
+      "liveHint": "تعكس الحالات مسار المعاملة الفعلي وتتحدث تلقائياً.",
+      "empty": "لا توجد في هذا الاجتماع طلبات قابلة للمتابعة.",
+      "awaitingDecision": "بانتظار قرار اللجنة",
+      "complete": "إكمال وإغلاق",
+      "completeConfirm": "هل تؤكد اكتمال التنفيذ وإغلاق هذا الطلب؟",
+      "summary": {
+        "title": "ملخص مخرجات الاجتماع",
+        "total_items": "بنود جدول الأعمال",
+        "decisions": "القرارات",
+        "advanced": "انتقلت للمرحلة التالية",
+        "awaiting_action": "بانتظار إجراء",
+        "in_execution": "قيد التنفيذ",
+        "completed_closed": "مكتمل ومغلق"
+      },
+      "columns": {
+        "request": "رقم الطلب",
+        "employee": "الموظف",
+        "decision": "قرار اللجنة",
+        "decisionDate": "تاريخ القرار",
+        "nextAction": "الإجراء التالي",
+        "responsibleBody": "الجهة المسؤولة",
+        "status": "الحالة",
+        "action": "الإجراء"
+      }
+    }
   },
   "workflow": {
     "actions": {

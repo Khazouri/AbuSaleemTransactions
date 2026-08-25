@@ -4,7 +4,7 @@
  *
  * WHY IT EXISTS: TEST_PLAN.md's happy path needs four different people
  * (R02 -> R05 -> R03 -> R05 -> R06 -> R07) before a transaction reaches
- * `archived`, and the six approval screens are single-role by design. A manual
+ * `in_execution`, and the six approval screens are single-role by design. A manual
  * QA pass therefore means signing in and out a dozen times; typing
  * `r05.manager@abusaleem.test` / `password` each time is the slowest part of it.
  *

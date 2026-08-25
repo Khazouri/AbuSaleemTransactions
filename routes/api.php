@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\MeetingDiscussionNoteController;
 use App\Http\Controllers\Api\MeetingMinutesController;
+use App\Http\Controllers\Api\MeetingOutputsController;
 use App\Http\Controllers\Api\MeetingReadinessController;
 use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\NoteController;
@@ -365,6 +366,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:meeting_minutes,view')
         ->get('meeting-minutes/signatures/{signature}', [MeetingMinutesController::class, 'signatureImage'])
         ->name('meeting-minutes.signature');
+
+    /*
+     * Stage 37 — the live, meeting-scoped decision/output tracker. Reading is
+     * broad like the screen; only the head's `edit` grant may certify that an
+     * in-execution request is complete and closed.
+     */
+    Route::middleware('screen.permission:meeting_outputs,view')
+        ->get('meetings/{meeting}/outputs', [MeetingOutputsController::class, 'show']);
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->post('meetings/{meeting}/outputs/{agendaItem}/complete', [MeetingOutputsController::class, 'complete']);
 
     /*
      * Stage 21 — committee voting and decision recording. These ride the

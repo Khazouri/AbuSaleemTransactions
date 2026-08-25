@@ -318,13 +318,14 @@ class WorkflowService
     }
 
     /**
-     * Cancelled and archived work is closed even when its last stage still has
-     * configured rules. This prevents a cancellation self-loop from reopening.
+     * These statuses have left the stage-changing workflow even when the last
+     * stage still has configured rules. `in_execution` is deliberately here:
+     * Stage 37's status-only output service owns its eventual close.
      */
     private function hasTerminalStatus(Transaction $transaction): bool
     {
         return $transaction->status()
-            ->whereIn('code', ['cancelled', 'archived'])
+            ->whereIn('code', ['cancelled', 'archived', 'in_execution', 'completed_closed'])
             ->exists();
     }
 }
