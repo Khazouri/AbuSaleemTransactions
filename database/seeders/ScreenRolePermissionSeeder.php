@@ -59,7 +59,10 @@ class ScreenRolePermissionSeeder extends Seeder
         'meeting_readiness' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
         'meeting_live' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
         'decisions' => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R03'], 'print' => '*'],
-        'meeting_minutes' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        // Stage 36: `add` covers both generating a draft and casting one's
+        // own signature (mirrors `decisions,add` covering vote-casting);
+        // `approve` is the head's review decision, same split as `decisions`.
+        'meeting_minutes' => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R03'], 'edit' => ['R03'], 'print' => '*'],
         'meeting_outputs' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
 
         // One approval screen per authority — single-role by design, so no one

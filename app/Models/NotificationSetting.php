@@ -37,6 +37,7 @@ class NotificationSetting extends Model
         'transaction_overdue' => ['in_app' => true, 'email' => true, 'sms' => false],
         'meeting_scheduled' => ['in_app' => true, 'email' => true, 'sms' => false],
         'decision_recorded' => ['in_app' => true, 'email' => true, 'sms' => false],
+        'minutes_approved' => ['in_app' => true, 'email' => true, 'sms' => false],
     ];
 
     /** The preference columns, in the order the preferences screen shows them. */

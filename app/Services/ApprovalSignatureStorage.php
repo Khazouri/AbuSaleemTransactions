@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\MeetingMinutes;
 use App\Models\Transaction;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -15,6 +16,12 @@ class ApprovalSignatureStorage
     public function store(UploadedFile $signature, Transaction $transaction): string
     {
         return $signature->store("signatures/{$transaction->getKey()}", self::DISK);
+    }
+
+    // Stage 36 — one committee member's signature on one meeting's minutes.
+    public function storeForMeetingMinutes(UploadedFile $signature, MeetingMinutes $minutes): string
+    {
+        return $signature->store("meeting-minutes/{$minutes->getKey()}", self::DISK);
     }
 
     /**

@@ -19,6 +19,7 @@ use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\MeetingAttendee;
+use App\Models\MeetingMinutes;
 use App\Models\MeetingTransaction;
 use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
@@ -102,6 +103,13 @@ class MeetingController extends Controller
      * code path rather than adding a second "close" action either could
      * still bypass. Blocked (422) while any agenda item is unresolved —
      * see MeetingTransaction::isResolved().
+     *
+     * Stage 36 adds a second, independent gate right after: closing also
+     * requires the meeting's minutes to have completed their own
+     * generate → review → sign lifecycle. No exemption for an
+     * empty/attendee-less meeting — MeetingMinutesController::review()
+     * itself resolves that case by auto-approving when there is nothing to
+     * sign, so `generate` then `review` is still the required path.
      */
     public function update(UpdateMeetingRequest $request, Meeting $meeting): MeetingResource|JsonResponse
     {
@@ -114,6 +122,13 @@ class MeetingController extends Controller
             if ($unresolved->isNotEmpty()) {
                 return response()->json([
                     'message' => 'لا يمكن إغلاق الاجتماع قبل استكمال جميع بنود جدول الأعمال (تصويت وقرار، أو إنهاء يدوي للبنود الإدارية).',
+                ], 422);
+            }
+
+            $minutes = $meeting->meetingMinutes()->first();
+            if ($minutes === null || $minutes->status !== MeetingMinutes::STATUS_APPROVED) {
+                return response()->json([
+                    'message' => 'لا يمكن إغلاق الاجتماع قبل اعتماد محضر الاجتماع (إنشاء، مراجعة، وتوقيع الحضور).',
                 ], 422);
             }
         }
@@ -368,6 +383,7 @@ class MeetingController extends Controller
             'chairman:id,name',
             'rapporteur:id,name',
             'convenedBy:id,name',
+            'meetingMinutes',
             'attendees.user:id,name',
             'agendaItems.transaction:id,reference_number,title,status_id',
             'agendaItems.transaction.status:id,code,name_ar,name_en,color',

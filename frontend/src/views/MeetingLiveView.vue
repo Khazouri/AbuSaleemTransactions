@@ -240,6 +240,9 @@ onMounted(async () => {
           <span class="pill" :class="allResolved ? 'good' : 'bad'">
             {{ resolvedCount }}/{{ totalCount }} {{ t('meetingsUnit.live.progress.resolved') }}
           </span>
+          <RouterLink v-can="'meeting_minutes.view'" class="ghost" :to="{ name: 'meeting_minutes', query: { meeting: meeting.id } }">
+            {{ t('meetings.openMinutes') }}
+          </RouterLink>
           <button
             v-can="'meetings.edit'"
             class="primary"
@@ -373,6 +376,7 @@ select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-ho
 .committee { margin: 0 0 .2rem; color: var(--color-muted); font-size: .8rem; }
 .runner-header h2 { margin: 0; color: var(--color-brand-text); }
 .header-actions { display: flex; align-items: center; gap: .6rem; }
+.header-actions a.ghost { display: inline-block; text-decoration: none; }
 
 .pill { display: inline-block; padding: .25rem .7rem; border-radius: 999px; font-size: .8rem; background: var(--color-surface-hover); border: 1px solid var(--color-border); }
 .pill.small { font-size: .7rem; padding: .15rem .5rem; }

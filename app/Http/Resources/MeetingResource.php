@@ -26,7 +26,6 @@ class MeetingResource extends JsonResource
             'agenda_deadline' => $this->agenda_deadline?->toIso8601String(),
             'description' => $this->description,
             'status' => $this->status,
-            'minutes' => $this->minutes,
             'convened_at' => $this->convened_at?->toIso8601String(),
             'readiness_override_reason' => $this->readiness_override_reason,
             'convened_by' => $this->whenLoaded('convenedBy', fn () => $this->convenedBy ? [
@@ -53,6 +52,9 @@ class MeetingResource extends JsonResource
 
             'attendees_count' => $this->whenCounted('attendees'),
             'agenda_items_count' => $this->whenCounted('agendaItems'),
+            // Stage 36 — a cheap status badge (the detail screen's link into
+            // the dedicated minutes screen); the full document lives there.
+            'minutes_status' => $this->whenLoaded('meetingMinutes', fn () => $this->meetingMinutes?->status),
 
             'attendees' => MeetingAttendeeResource::collection($this->whenLoaded('attendees')),
             'agenda_items' => MeetingTransactionResource::collection($this->whenLoaded('agendaItems')),

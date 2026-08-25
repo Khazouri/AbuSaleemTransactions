@@ -127,7 +127,39 @@ class MeetingLiveRunnerTest extends TestCase
             ])
             ->assertCreated();
 
-        // Both items resolved now.
+        // Both agenda items resolved, but the minutes haven't even been
+        // generated yet — Stage 36's second, independent close gate.
+        $this->actingAs($head, 'sanctum')
+            ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])
+            ->assertStatus(422);
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
+            ->assertOk();
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'pending_signatures');
+
+        // Signed by only one of the two attendees — still not approved.
+        $this->actingAs($head, 'sanctum')
+            ->post("/api/meetings/{$meeting->id}/minutes/sign", [
+                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'pending_signatures');
+        $this->actingAs($head, 'sanctum')
+            ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])
+            ->assertStatus(422);
+
+        // Both attendees signed — minutes auto-approve, and the meeting can close.
+        $this->actingAs($member, 'sanctum')
+            ->post("/api/meetings/{$meeting->id}/minutes/sign", [
+                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'approved');
+
         $this->actingAs($head, 'sanctum')
             ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])
             ->assertOk()
@@ -146,6 +178,20 @@ class MeetingLiveRunnerTest extends TestCase
             'scheduled_at' => now()->addDay(),
             'created_by_user_id' => $head->id,
         ]);
+
+        // No agenda items and nobody attended: the minutes still need to be
+        // generated and reviewed, but review auto-approves with no signers.
+        $this->actingAs($head, 'sanctum')
+            ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])
+            ->assertStatus(422);
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
+            ->assertOk();
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'approved');
 
         $this->actingAs($head, 'sanctum')
             ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])

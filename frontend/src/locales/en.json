@@ -342,7 +342,7 @@
     "agendaItems": "agenda items",
     "back": "Back to meetings",
     "minutes": "Minutes",
-    "saveMinutes": "Save minutes",
+    "openMinutes": "Open minutes",
     "delete": "Delete meeting",
     "sendInvitations": "Send invitations",
     "sendingInvitations": "Sending invitations…",
@@ -649,7 +649,44 @@
         "post": "Post"
       }
     },
-    "minutes": { "title": "Minutes", "placeholder": "Under construction." },
+    "minutes": {
+      "title": "Minutes",
+      "subtitle": "Generate, review, and sign the meeting's minutes.",
+      "chooseMeeting": "Meeting",
+      "chooseMeetingPlaceholder": "— Choose a meeting —",
+      "noMeetingSelected": "Choose a meeting to view its minutes.",
+      "error": "Failed to load the meeting's minutes.",
+      "notGenerated": "Minutes have not been generated for this meeting yet.",
+      "generate": "Generate minutes",
+      "regenerate": "Regenerate minutes",
+      "changesRequestedNote": "Changes were requested on this draft",
+      "status": {
+        "draft": "Draft",
+        "pending_signatures": "Pending signatures",
+        "approved": "Approved"
+      },
+      "sections": {
+        "meetingInfo": "Meeting details",
+        "attendance": "Attendance",
+        "present": "Present",
+        "absent": "Absent",
+        "agendaItems": "Agenda items"
+      },
+      "review": {
+        "title": "Review minutes",
+        "approve": "Approve minutes",
+        "requestChanges": "Request changes",
+        "reasonPlaceholder": "Reason for the requested changes…",
+        "submit": "Submit"
+      },
+      "signatures": {
+        "title": "Signatures",
+        "none": "No signatures required.",
+        "signed": "Signed",
+        "pending": "Pending",
+        "sign": "Sign"
+      }
+    },
     "outputs": { "title": "Outputs", "placeholder": "Under construction." }
   },
   "workflow": {

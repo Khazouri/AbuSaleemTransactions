@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -15,7 +16,6 @@ use Illuminate\Support\Carbon;
  * @property Carbon $scheduled_at
  * @property string|null $location
  * @property string $status scheduled|completed|cancelled
- * @property string|null $minutes
  * @property string|null $meeting_number
  * @property string $meeting_type regular|extraordinary|emergency
  * @property Carbon|null $agenda_deadline
@@ -39,7 +39,6 @@ class Meeting extends Model
         'agenda_deadline',
         'description',
         'status',
-        'minutes',
         'created_by_user_id',
         'convened_at',
         'convened_by_user_id',
@@ -90,5 +89,11 @@ class Meeting extends Model
     public function agendaItems(): HasMany
     {
         return $this->hasMany(MeetingTransaction::class)->orderBy('agenda_order');
+    }
+
+    /** Stage 36 — the compiled/reviewed/signed minutes document, one per meeting. */
+    public function meetingMinutes(): HasOne
+    {
+        return $this->hasOne(MeetingMinutes::class);
     }
 }

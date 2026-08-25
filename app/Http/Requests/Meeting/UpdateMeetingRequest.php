@@ -26,7 +26,6 @@ class UpdateMeetingRequest extends FormRequest
             'agenda_deadline' => ['nullable', 'date'],
             'description' => ['nullable', 'string'],
             'status' => ['sometimes', 'required', Rule::in(['scheduled', 'completed', 'cancelled'])],
-            'minutes' => ['nullable', 'string'],
         ];
     }
 

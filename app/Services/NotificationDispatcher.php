@@ -10,6 +10,7 @@ use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use App\Notifications\ActionRequiredNotification;
 use App\Notifications\DecisionRecordedNotification;
+use App\Notifications\MeetingMinutesApprovedNotification;
 use App\Notifications\MeetingScheduledNotification;
 use App\Notifications\SystemNotification;
 use App\Notifications\TransactionCreatedNotification;
@@ -119,6 +120,25 @@ class NotificationDispatcher
             ->unique('id');
 
         $this->send($recipients, new DecisionRecordedNotification($transaction, $decision));
+    }
+
+    /**
+     * Stage 36 — the minutes finished their lifecycle. Fired only on the
+     * transition into `approved` (see MeetingMinutesController::sign), not
+     * on generate/review — those are same-session feedback between two
+     * people already looking at the screen together.
+     */
+    public function minutesApproved(Meeting $meeting, User $actor): void
+    {
+        $memberIds = $meeting->committee?->members()->pluck('user_id') ?? collect();
+
+        $recipients = User::query()
+            ->whereIn('id', $memberIds->all())
+            ->where('is_active', true)
+            ->whereKeyNot($actor->id)
+            ->get();
+
+        $this->send($recipients, new MeetingMinutesApprovedNotification($meeting));
     }
 
     /**

@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\DevTestUserController;
 use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\MeetingDiscussionNoteController;
+use App\Http\Controllers\Api\MeetingMinutesController;
 use App\Http\Controllers\Api\MeetingReadinessController;
 use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\NoteController;
@@ -345,6 +346,25 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('meetings/{meeting}/agenda/{agendaItem}/notes', [MeetingDiscussionNoteController::class, 'index']);
     Route::middleware('screen.permission:meeting_live,add')
         ->post('meetings/{meeting}/agenda/{agendaItem}/notes', [MeetingDiscussionNoteController::class, 'store']);
+
+    /*
+     * Stage 36 — minutes: generate/regenerate a draft, the head's review
+     * decision, and each attendee's own signature. `add` covers both
+     * generating and signing (mirrors `decisions,add` covering vote-casting);
+     * `approve` is the head-only review, same split as `decisions`.
+     */
+    Route::middleware('screen.permission:meeting_minutes,view')
+        ->get('meetings/{meeting}/minutes', [MeetingMinutesController::class, 'show']);
+    Route::middleware('screen.permission:meeting_minutes,add')->group(function () {
+        Route::post('meetings/{meeting}/minutes/generate', [MeetingMinutesController::class, 'generate']);
+        Route::post('meetings/{meeting}/minutes/sign', [MeetingMinutesController::class, 'sign']);
+    });
+    Route::middleware('screen.permission:meeting_minutes,approve')
+        ->post('meetings/{meeting}/minutes/review', [MeetingMinutesController::class, 'review']);
+    // Private signature images, same visibility gate as the document itself.
+    Route::middleware('screen.permission:meeting_minutes,view')
+        ->get('meeting-minutes/signatures/{signature}', [MeetingMinutesController::class, 'signatureImage'])
+        ->name('meeting-minutes.signature');
 
     /*
      * Stage 21 — committee voting and decision recording. These ride the

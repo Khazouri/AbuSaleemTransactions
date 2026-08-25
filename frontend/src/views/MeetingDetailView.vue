@@ -47,16 +47,14 @@ async function load() {
   }
 }
 
-// --- Meeting fields (status / minutes) --------------------------------------
+// --- Meeting fields (status) -------------------------------------------------
 
 const statusValue = ref('scheduled')
-const minutesValue = ref('')
 const savingMeeting = ref(false)
 
 watch(meeting, (value) => {
   if (!value) return
   statusValue.value = value.status
-  minutesValue.value = value.minutes ?? ''
 })
 
 async function saveMeetingFields() {
@@ -65,7 +63,6 @@ async function saveMeetingFields() {
   try {
     const { data } = await api.put(`/meetings/${meeting.value.id}`, {
       status: statusValue.value,
-      minutes: minutesValue.value || null,
     })
     meeting.value = data.data
   } catch (requestError) {
@@ -346,14 +343,14 @@ onMounted(async () => {
         <p class="description">{{ meeting.description }}</p>
       </section>
 
-      <section v-can="'meetings.edit'" class="card">
+      <section v-can="'meeting_minutes.view'" class="card minutes-link">
         <h3>{{ t('meetings.minutes') }}</h3>
-        <textarea v-model="minutesValue" :aria-label="t('meetings.minutes')" rows="4" />
-        <div class="actions">
-          <button class="primary" type="button" :disabled="savingMeeting" @click="saveMeetingFields">
-            {{ savingMeeting ? t('common.saving') : t('meetings.saveMinutes') }}
-          </button>
-        </div>
+        <p v-if="meeting.minutes_status" class="minutes-status">
+          {{ t(`meetingsUnit.minutes.status.${meeting.minutes_status}`) }}
+        </p>
+        <RouterLink class="ghost" :to="{ name: 'meeting_minutes', query: { meeting: meeting.id } }">
+          {{ t('meetings.openMinutes') }}
+        </RouterLink>
       </section>
 
       <div class="columns">
@@ -511,6 +508,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); margin-inline-start: .3rem; }
 .ghost:hover { background: var(--color-surface-hover); }
 .ghost.danger { color: var(--color-danger-fg); border-color: var(--color-danger-border); }
+.minutes-link .ghost { display: inline-block; text-decoration: none; }
+.minutes-status { margin: 0 0 .5rem; color: var(--color-muted); font-size: .82rem; }
 .alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: 0 0 .75rem; }
 .state { color: var(--color-muted); font-size: .85rem; margin: 0; }
 

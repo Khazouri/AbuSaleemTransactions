@@ -342,7 +342,7 @@
     "agendaItems": "بند",
     "back": "العودة إلى الاجتماعات",
     "minutes": "محضر الاجتماع",
-    "saveMinutes": "حفظ المحضر",
+    "openMinutes": "فتح المحضر",
     "delete": "حذف الاجتماع",
     "sendInvitations": "إرسال الدعوات",
     "sendingInvitations": "جارٍ إرسال الدعوات…",
@@ -649,7 +649,44 @@
         "post": "إضافة"
       }
     },
-    "minutes": { "title": "المحاضر", "placeholder": "قيد الإنشاء." },
+    "minutes": {
+      "title": "المحاضر",
+      "subtitle": "إنشاء محضر الاجتماع ومراجعته وتوقيعه.",
+      "chooseMeeting": "الاجتماع",
+      "chooseMeetingPlaceholder": "— اختر اجتماعاً —",
+      "noMeetingSelected": "اختر اجتماعاً لعرض محضره.",
+      "error": "تعذر تحميل محضر الاجتماع.",
+      "notGenerated": "لم يتم إنشاء محضر لهذا الاجتماع بعد.",
+      "generate": "إنشاء المحضر",
+      "regenerate": "إعادة إنشاء المحضر",
+      "changesRequestedNote": "طُلب تعديل المحضر",
+      "status": {
+        "draft": "مسودة",
+        "pending_signatures": "بانتظار التوقيعات",
+        "approved": "معتمد"
+      },
+      "sections": {
+        "meetingInfo": "بيانات الاجتماع",
+        "attendance": "الحضور",
+        "present": "الحاضرون",
+        "absent": "الغائبون",
+        "agendaItems": "بنود جدول الأعمال"
+      },
+      "review": {
+        "title": "مراجعة المحضر",
+        "approve": "اعتماد المحضر",
+        "requestChanges": "طلب تعديل",
+        "reasonPlaceholder": "سبب طلب التعديل…",
+        "submit": "إرسال"
+      },
+      "signatures": {
+        "title": "التوقيعات",
+        "none": "لا يوجد موقّعون مطلوبون.",
+        "signed": "تم التوقيع",
+        "pending": "بانتظار التوقيع",
+        "sign": "توقيع"
+      }
+    },
     "outputs": { "title": "المخرجات", "placeholder": "قيد الإنشاء." }
   },
   "workflow": {
