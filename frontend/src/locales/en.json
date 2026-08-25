@@ -108,6 +108,9 @@
     "add": "Add template",
     "edit": "Edit template",
     "code": "Template code",
+    "category": "Usage type",
+    "categoryGeneral": "General",
+    "categoryDecision": "Committee decisions",
     "nameAr": "Name (Arabic)",
     "nameEn": "Name (English)",
     "subjectAr": "Subject (Arabic)",
@@ -423,19 +426,33 @@
     "tally": {
       "approve": "Approve",
       "reject": "Reject",
-      "defer": "Defer"
+      "defer": "Defer",
+      "conditional_approval": "Conditional",
+      "legal_opinion": "Legal opinion",
+      "refer_other_body": "Referred"
     },
     "vote": {
       "approve": "Approve",
       "reject": "Reject",
-      "defer": "Defer"
+      "defer": "Defer",
+      "conditional_approval": "Conditional approval",
+      "legal_opinion": "Request legal opinion",
+      "refer_other_body": "Refer to another body"
     },
     "outcome": {
       "approve": "Approved",
       "reject": "Rejected",
-      "defer": "Deferred"
+      "defer": "Deferred",
+      "conditional_approval": "Conditionally approved",
+      "legal_opinion": "Legal opinion requested",
+      "refer_other_body": "Referred to another body"
     },
-    "commentPlaceholder": "Reason for the decision (optional for approve, required for reject/defer)",
+    "template": {
+      "usedLabel": "Template used",
+      "choose": "Choose a decision template",
+      "use": "Use template"
+    },
+    "commentPlaceholder": "Reason for the decision (optional for approve, required for the other outcomes)",
     "record": "Record decision",
     "recording": "Recording decision…",
     "decidedBy": "Decided by",
@@ -471,7 +488,8 @@
       "committee": "Committee",
       "meeting": "Meeting",
       "outcome": "Outcome",
-      "tally": "Approve / Reject / Defer",
+      "tally": "Approve / Reject / Defer / Conditional / Legal / Referred",
+      "template": "Template",
       "decidedBy": "Decided by",
       "decidedAt": "Decided at"
     }
@@ -646,6 +664,9 @@
       "cancel": "Cancel transaction",
       "defer": "Defer decision",
       "return_to_study": "Return to study",
+      "conditional_approve": "Conditional approval",
+      "request_legal_opinion": "Request legal opinion",
+      "refer_to_another_body": "Refer to another body",
       "deadline_expired": "Escalate overdue transaction"
     }
   },

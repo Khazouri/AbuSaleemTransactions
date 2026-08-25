@@ -18,6 +18,7 @@ class UpdateTemplateRequest extends FormRequest
 
         return [
             'code' => ['sometimes', 'required', 'string', 'max:100', Rule::unique('templates', 'code')->ignore($template)],
+            'category' => ['nullable', 'string', 'max:50'],
             'name_ar' => ['sometimes', 'required', 'string', 'max:255'],
             'name_en' => ['nullable', 'string', 'max:255'],
             'subject_ar' => ['nullable', 'string', 'max:255'],

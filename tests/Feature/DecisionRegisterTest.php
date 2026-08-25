@@ -140,7 +140,10 @@ class DecisionRegisterTest extends TestCase
         $this->actingAs($this->userWithRole('R04'), 'sanctum')
             ->getJson('/api/decisions/filters')
             ->assertOk()
-            ->assertJsonPath('data.outcomes', ['approve', 'reject', 'defer'])
+            ->assertJsonPath('data.outcomes', [
+                'approve', 'reject', 'defer',
+                'conditional_approval', 'legal_opinion', 'refer_other_body',
+            ])
             ->assertJsonPath('data.formats', ['xlsx', 'pdf'])
             ->assertJsonPath('data.committees.0.name_ar', 'لجنة المشتريات');
     }

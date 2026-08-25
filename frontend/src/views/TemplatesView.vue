@@ -13,7 +13,7 @@ const formError = ref(null)
 const errors = ref({})
 const editingId = ref(null)
 const showForm = ref(false)
-const blankForm = () => ({ code: '', name_ar: '', name_en: '', subject_ar: '', subject_en: '', body_ar: '', body_en: '', is_active: true })
+const blankForm = () => ({ code: '', category: '', name_ar: '', name_en: '', subject_ar: '', subject_en: '', body_ar: '', body_en: '', is_active: true })
 const form = ref(blankForm())
 const activeName = computed(() => locale.value === 'ar' ? 'name_ar' : 'name_en')
 
@@ -26,7 +26,7 @@ async function save() {
   saving.value = true; errors.value = {}; formError.value = null
   try {
     const payload = { ...form.value }
-    for (const key of ['name_en', 'subject_ar', 'subject_en', 'body_en']) payload[key] = payload[key] || null
+    for (const key of ['category', 'name_en', 'subject_ar', 'subject_en', 'body_en']) payload[key] = payload[key] || null
     if (editingId.value === null) await api.post('/templates', payload)
     else await api.put(`/templates/${editingId.value}`, payload)
     cancelForm(); await load()
@@ -44,6 +44,13 @@ onMounted(load)
       <h3>{{ editingId === null ? t('templates.add') : t('templates.edit') }}</h3>
       <div class="grid">
         <label>{{ t('templates.code') }} *<input v-model="form.code" class="ltr" required /><small class="hint">{{ t('templates.codeHint') }}</small><small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small></label>
+        <label>{{ t('templates.category') }}
+          <select v-model="form.category">
+            <option value="">{{ t('templates.categoryGeneral') }}</option>
+            <option value="decision">{{ t('templates.categoryDecision') }}</option>
+          </select>
+          <small v-if="errors.category" class="field-error">{{ errors.category[0] }}</small>
+        </label>
         <label>{{ t('templates.nameAr') }} *<input v-model="form.name_ar" required /><small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small></label>
         <label>{{ t('templates.nameEn') }}<input v-model="form.name_en" class="ltr" /><small v-if="errors.name_en" class="field-error">{{ errors.name_en[0] }}</small></label>
         <label>{{ t('templates.subjectAr') }}<input v-model="form.subject_ar" /><small v-if="errors.subject_ar" class="field-error">{{ errors.subject_ar[0] }}</small></label>
@@ -56,10 +63,10 @@ onMounted(load)
       <label class="checkbox"><input v-model="form.is_active" type="checkbox" />{{ t('common.active') }}</label>
       <div class="actions"><button class="primary" type="submit" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button><button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button></div>
     </form>
-    <div class="card list"><p v-if="loading" class="state">{{ t('common.loading') }}</p><p v-else-if="loadError" class="state error">{{ t('nav.error') }} <button class="ghost" @click="load">{{ t('common.retry') }}</button></p><p v-else-if="templates.length === 0" class="state">{{ t('templates.empty') }}</p><table v-else><thead><tr><th>{{ t('templates.code') }}</th><th>{{ t('templates.nameAr') }}</th><th></th></tr></thead><tbody><tr v-for="template in templates" :key="template.id" :class="{ dimmed: !template.is_active }"><td><code class="ltr">{{ template.code }}</code></td><td>{{ label(template) }} <span v-if="!template.is_active" class="pill">{{ t('common.inactive') }}</span></td><td class="row-actions"><button v-can="'templates.edit'" class="ghost" @click="startEdit(template)">{{ t('common.edit') }}</button><button v-can="'templates.delete'" class="ghost danger" @click="remove(template)">{{ t('common.delete') }}</button></td></tr></tbody></table></div>
+    <div class="card list"><p v-if="loading" class="state">{{ t('common.loading') }}</p><p v-else-if="loadError" class="state error">{{ t('nav.error') }} <button class="ghost" @click="load">{{ t('common.retry') }}</button></p><p v-else-if="templates.length === 0" class="state">{{ t('templates.empty') }}</p><table v-else><thead><tr><th>{{ t('templates.code') }}</th><th>{{ t('templates.nameAr') }}</th><th></th></tr></thead><tbody><tr v-for="template in templates" :key="template.id" :class="{ dimmed: !template.is_active }"><td><code class="ltr">{{ template.code }}</code></td><td>{{ label(template) }} <span v-if="template.category === 'decision'" class="pill">{{ t('templates.categoryDecision') }}</span> <span v-if="!template.is_active" class="pill">{{ t('common.inactive') }}</span></td><td class="row-actions"><button v-can="'templates.edit'" class="ghost" @click="startEdit(template)">{{ t('common.edit') }}</button><button v-can="'templates.delete'" class="ghost danger" @click="remove(template)">{{ t('common.delete') }}</button></td></tr></tbody></table></div>
   </section>
 </template>
 
 <style scoped>
-.toolbar { margin-bottom: 1rem; }.card { padding: 1.25rem; margin-bottom: 1rem; }.form h3 { margin: 0 0 1rem; font-size: 1rem; }.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }.bodies { margin-top: 1rem; }label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; }label.checkbox { flex-direction: row; align-items: center; gap: .5rem; margin-top: 1rem; }input, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); }textarea { resize: vertical; }.hint, .state { color: var(--color-muted); font-size: .8rem; }.field-error, .state.error { color: var(--color-red); }.actions { display: flex; gap: .5rem; margin-top: 1.25rem; }.alert { padding: .65rem .8rem; color: var(--color-red); border: 1px solid var(--color-red); border-radius: var(--radius-lg); margin: 0 0 1rem; }.list { overflow-x: auto; }table { width: 100%; border-collapse: collapse; }th { text-align: start; color: var(--color-muted); font-size: .78rem; }th, td { padding: .6rem .5rem; border-bottom: 1px solid var(--color-border); }tr:last-child td { border-bottom: 0; }tr.dimmed { opacity: .55; }.pill { margin-inline-start: .5rem; padding: .1rem .5rem; background: var(--color-black-100); color: var(--color-muted); border-radius: var(--radius-full); font-size: .72rem; }.row-actions { text-align: end; white-space: nowrap; }button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }.primary { padding: .5rem .9rem; border: 0; background: var(--color-primary); color: var(--color-on-primary); }.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-foreground); margin-inline-start: .3rem; }.ghost.danger { color: var(--color-red); border-color: var(--color-red); }
+.toolbar { margin-bottom: 1rem; }.card { padding: 1.25rem; margin-bottom: 1rem; }.form h3 { margin: 0 0 1rem; font-size: 1rem; }.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }.bodies { margin-top: 1rem; }label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; }label.checkbox { flex-direction: row; align-items: center; gap: .5rem; margin-top: 1rem; }input, select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); }textarea { resize: vertical; }.hint, .state { color: var(--color-muted); font-size: .8rem; }.field-error, .state.error { color: var(--color-red); }.actions { display: flex; gap: .5rem; margin-top: 1.25rem; }.alert { padding: .65rem .8rem; color: var(--color-red); border: 1px solid var(--color-red); border-radius: var(--radius-lg); margin: 0 0 1rem; }.list { overflow-x: auto; }table { width: 100%; border-collapse: collapse; }th { text-align: start; color: var(--color-muted); font-size: .78rem; }th, td { padding: .6rem .5rem; border-bottom: 1px solid var(--color-border); }tr:last-child td { border-bottom: 0; }tr.dimmed { opacity: .55; }.pill { margin-inline-start: .5rem; padding: .1rem .5rem; background: var(--color-black-100); color: var(--color-muted); border-radius: var(--radius-full); font-size: .72rem; }.row-actions { text-align: end; white-space: nowrap; }button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }.primary { padding: .5rem .9rem; border: 0; background: var(--color-primary); color: var(--color-on-primary); }.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-foreground); margin-inline-start: .3rem; }.ghost.danger { color: var(--color-red); border-color: var(--color-red); }
 </style>

@@ -7,8 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 /** A bilingual reusable subject/body pair, managed before it is wired to workflow events. */
 class Template extends Model
 {
+    /** Stage 35 — committee decision text (DecisionController::filters()). */
+    public const CATEGORY_DECISION = 'decision';
+
     protected $fillable = [
         'code',
+        'category',
         'name_ar',
         'name_en',
         'subject_ar',

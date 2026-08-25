@@ -374,6 +374,7 @@ class MeetingController extends Controller
             'agendaItems.department:id,name_ar,name_en',
             'agendaItems.votes.user:id,name',
             'agendaItems.decision.decidedBy:id,name',
+            'agendaItems.decision.template:id,code,name_ar,name_en',
             'agendaItems.notes.createdBy:id,name',
         ]);
     }

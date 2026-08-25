@@ -1,21 +1,19 @@
 <script setup>
 // Stage 34 — the live meeting runner. Item state (presented/discussion/
-// voting/deciding/complete) and the discussion feed are new; the vote/tally/
-// record-decision block below is lifted from MeetingDetailView.vue's Stage 21
-// markup unchanged (same endpoints, same castVote/recordDecision logic) per
-// this stage's own "reuse the existing vote/decision endpoints" scope.
+// voting/deciding/complete) and the discussion feed are new. The vote/tally/
+// record-decision block is Stage 35's shared AgendaItemDecisionPanel (it used
+// to be lifted, duplicated, from MeetingDetailView.vue's Stage 21 markup —
+// see that component's docblock).
 // Polling GET /meetings/{id} every 5s is what keeps every attendee's runner
 // — timer, votes, notes, item state — in sync without a socket.
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import SignaturePad from '../components/SignaturePad.vue'
+import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
 import api from '../lib/api'
-import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const { t, locale } = useI18n()
-const auth = useAuthStore()
 
 const name = (item) => {
   if (!item) return t('common.none')
@@ -166,71 +164,18 @@ async function postNote(item) {
   }
 }
 
-// --- Voting & decisions (Stage 21 endpoints, unchanged) -------------------------
+// --- Decision templates (Stage 35) -----------------------------------------
+// Fed to AgendaItemDecisionPanel — see its docblock for why the vote/tally/
+// record-decision block used to be duplicated inline here.
 
-const votingError = ref({})
-const votingBusy = ref({})
-const decisionComments = ref({})
-const decisionError = ref({})
-const decidingBusy = ref({})
-const signatureReady = ref({})
-const signaturePads = new Map()
+const decisionTemplates = ref([])
 
-function setSignaturePad(id, instance) {
-  if (instance) signaturePads.set(id, instance)
-  else signaturePads.delete(id)
-}
-
-function tally(item) {
-  const counts = { approve: 0, reject: 0, defer: 0 }
-  for (const vote of item.votes ?? []) counts[vote.vote] = (counts[vote.vote] ?? 0) + 1
-  return counts
-}
-
-function predictedOutcome(item) {
-  const counts = tally(item)
-  const max = Math.max(counts.approve, counts.reject, counts.defer)
-  if (max === 0) return null
-  const leaders = Object.entries(counts).filter(([, count]) => count === max)
-  return leaders.length === 1 ? leaders[0][0] : null
-}
-
-function myVote(item) {
-  return (item.votes ?? []).find((vote) => vote.user.id === auth.user?.id)?.vote ?? null
-}
-
-async function castVote(item, voteValue) {
-  votingError.value[item.id] = ''
-  votingBusy.value[item.id] = true
+async function loadDecisionTemplates() {
   try {
-    await api.post(`/meetings/${meeting.value.id}/agenda/${item.id}/votes`, { vote: voteValue })
-    await load()
-  } catch (requestError) {
-    votingError.value[item.id] = requestError.response?.data?.message ?? t('common.none')
-  } finally {
-    votingBusy.value[item.id] = false
-  }
-}
-
-async function recordDecision(item) {
-  decisionError.value[item.id] = ''
-  decidingBusy.value[item.id] = true
-  try {
-    const form = new FormData()
-    const comment = decisionComments.value[item.id]?.trim()
-    if (comment) form.append('comment', comment)
-    if (predictedOutcome(item) === 'approve') {
-      const signature = await signaturePads.get(item.id)?.toFile()
-      if (signature) form.append('signature', signature)
-    }
-    await api.post(`/meetings/${meeting.value.id}/agenda/${item.id}/decision`, form)
-    delete decisionComments.value[item.id]
-    delete signatureReady.value[item.id]
-    await load()
-  } catch (requestError) {
-    decisionError.value[item.id] = requestError.response?.data?.message ?? t('common.none')
-  } finally {
-    decidingBusy.value[item.id] = false
+    const { data } = await api.get('/decisions/filters')
+    decisionTemplates.value = data.data?.templates ?? []
+  } catch {
+    decisionTemplates.value = []
   }
 }
 
@@ -252,7 +197,9 @@ async function closeMeeting() {
   }
 }
 
-onMounted(loadMeetings)
+onMounted(async () => {
+  await Promise.all([loadMeetings(), loadDecisionTemplates()])
+})
 </script>
 
 <template>
@@ -364,64 +311,13 @@ onMounted(loadMeetings)
           </div>
           <p v-if="stateError" class="alert">{{ stateError }}</p>
 
-          <div v-if="currentItem.item_type === 'employee_request'" class="decision-block">
-            <template v-if="currentItem.decision">
-              <p class="decision-result">
-                {{ t(`decisions.outcome.${currentItem.decision.outcome}`) }}
-                — {{ t('decisions.decidedBy') }} {{ currentItem.decision.decided_by?.name }}
-                ({{ dateTime(currentItem.decision.decided_at) }})
-              </p>
-              <p v-if="currentItem.decision.comment" class="decision-comment">{{ currentItem.decision.comment }}</p>
-            </template>
-            <template v-else>
-              <div class="tally">
-                <span>{{ t('decisions.tally.approve') }}: {{ tally(currentItem).approve }}</span>
-                <span>{{ t('decisions.tally.reject') }}: {{ tally(currentItem).reject }}</span>
-                <span>{{ t('decisions.tally.defer') }}: {{ tally(currentItem).defer }}</span>
-              </div>
-
-              <div v-can="'decisions.add'" class="vote-actions">
-                <button
-                  v-for="option in ['approve', 'reject', 'defer']"
-                  :key="option"
-                  class="ghost"
-                  :class="{ active: myVote(currentItem) === option }"
-                  type="button"
-                  :disabled="votingBusy[currentItem.id]"
-                  @click="castVote(currentItem, option)"
-                >
-                  {{ t(`decisions.vote.${option}`) }}
-                </button>
-              </div>
-              <p v-if="votingError[currentItem.id]" class="alert">{{ votingError[currentItem.id] }}</p>
-
-              <div v-can="'decisions.approve'" class="record-decision">
-                <textarea
-                  v-model="decisionComments[currentItem.id]"
-                  :placeholder="t('decisions.commentPlaceholder')"
-                  :aria-label="t('decisions.commentPlaceholder')"
-                  rows="2"
-                />
-                <SignaturePad
-                  v-if="predictedOutcome(currentItem) === 'approve'"
-                  :ref="(instance) => setSignaturePad(currentItem.id, instance)"
-                  :disabled="decidingBusy[currentItem.id]"
-                  @change="signatureReady[currentItem.id] = $event"
-                />
-                <div class="actions">
-                  <button
-                    class="primary"
-                    type="button"
-                    :disabled="decidingBusy[currentItem.id] || !predictedOutcome(currentItem) || (predictedOutcome(currentItem) === 'approve' && !signatureReady[currentItem.id])"
-                    @click="recordDecision(currentItem)"
-                  >
-                    {{ decidingBusy[currentItem.id] ? t('decisions.recording') : t('decisions.record') }}
-                  </button>
-                </div>
-                <p v-if="decisionError[currentItem.id]" class="alert">{{ decisionError[currentItem.id] }}</p>
-              </div>
-            </template>
-          </div>
+          <AgendaItemDecisionPanel
+            v-if="currentItem.item_type === 'employee_request'"
+            :meeting-id="meeting.id"
+            :item="currentItem"
+            :templates="decisionTemplates"
+            @refresh="load"
+          />
 
           <div class="discussion">
             <h4>{{ t('meetingsUnit.live.discussion.title') }}</h4>
@@ -514,16 +410,6 @@ select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-ho
 
 .state-controls { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }
 .state-controls button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
-
-.decision-block { display: grid; gap: .5rem; padding: .65rem .75rem; background: var(--color-surface-hover); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: .75rem; }
-.decision-result { margin: 0; color: var(--color-brand-text); font-size: .82rem; font-weight: 600; }
-.decision-comment { margin: 0; color: var(--color-muted); font-size: .8rem; }
-.tally { display: flex; gap: .8rem; font-size: .82rem; color: var(--color-black-700); }
-.vote-actions { display: flex; gap: .4rem; }
-.vote-actions button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
-.record-decision { display: grid; gap: .5rem; margin-top: .25rem; padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
-.record-decision textarea { width: 100%; padding: .45rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px; background: var(--color-surface); resize: vertical; font: inherit; box-sizing: border-box; }
-.record-decision .actions { margin: 0; display: flex; justify-content: flex-end; }
 
 .discussion { padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
 .discussion h4 { margin: 0 0 .5rem; font-size: .88rem; color: var(--color-black-800); }

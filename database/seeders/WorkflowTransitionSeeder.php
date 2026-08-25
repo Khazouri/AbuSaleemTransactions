@@ -124,6 +124,37 @@ class WorkflowTransitionSeeder extends Seeder
             50,
         );
 
+        // Stage 35 — three more committee-decision outcomes alongside
+        // approve/reject(cancel)/defer. `conditional_approve` moves forward
+        // like `approve` (same destination stage) but stays an exception row
+        // — see DecisionController::ACTIONS and this stage's AGENT_NOTES entry
+        // for why none of the three require a signature or write an Approval
+        // ledger row, unlike the plain `approve` action at this same stage.
+        $this->seedException(
+            $stages[7]->id,
+            $stages[8]->id,
+            'conditional_approve',
+            $roles['R03']->id,
+            $statuses['approved_with_conditions']->id,
+            51,
+        );
+        $this->seedException(
+            $stages[7]->id,
+            $stages[7]->id,
+            'request_legal_opinion',
+            $roles['R03']->id,
+            $statuses['legal_opinion_requested']->id,
+            52,
+        );
+        $this->seedException(
+            $stages[7]->id,
+            $stages[7]->id,
+            'refer_to_another_body',
+            $roles['R03']->id,
+            $statuses['referred_to_other_body']->id,
+            53,
+        );
+
         // Stage 32 — the candidate-requests worklist's "return to study": the
         // committee sends a request back to the observations checkpoint for
         // more work before it can be nominated again. Unlike CommitteeStatusService's

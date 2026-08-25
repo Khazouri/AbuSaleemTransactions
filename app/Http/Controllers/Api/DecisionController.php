@@ -15,6 +15,7 @@ use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Meeting;
 use App\Models\MeetingTransaction;
+use App\Models\Template;
 use App\Models\Vote;
 use App\Services\ApprovalSignatureStorage;
 use App\Services\DecisionEligibility;
@@ -67,10 +68,14 @@ class DecisionController extends Controller
                 'approve' => 'تمت الموافقة',
                 'reject' => 'تم الرفض',
                 'defer' => 'تم التأجيل',
+                'conditional_approval' => 'اعتماد مشروط',
+                'legal_opinion' => 'طلب رأي قانوني',
+                'refer_other_body' => 'إحالة لجهة أخرى',
             ],
             'columns' => [
                 'الرقم المرجعي', 'الموضوع', 'اللجنة', 'الاجتماع', 'تاريخ الاجتماع',
-                'النتيجة', 'موافق', 'رافض', 'مؤجل', 'صاحب القرار', 'تاريخ القرار', 'الملاحظات',
+                'النتيجة', 'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة',
+                'القالب', 'صاحب القرار', 'تاريخ القرار', 'الملاحظات',
             ],
             'none' => '—',
         ],
@@ -89,10 +94,14 @@ class DecisionController extends Controller
                 'approve' => 'Approved',
                 'reject' => 'Rejected',
                 'defer' => 'Deferred',
+                'conditional_approval' => 'Conditionally Approved',
+                'legal_opinion' => 'Legal Opinion Requested',
+                'refer_other_body' => 'Referred to Another Body',
             ],
             'columns' => [
                 'Reference', 'Subject', 'Committee', 'Meeting', 'Meeting date',
-                'Outcome', 'Approve', 'Reject', 'Defer', 'Decided by', 'Decided at', 'Comment',
+                'Outcome', 'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred',
+                'Template', 'Decided by', 'Decided at', 'Comment',
             ],
             'none' => '—',
         ],
@@ -104,10 +113,17 @@ class DecisionController extends Controller
      * self-loop `cancel` exception rather than inventing a second terminal
      * outcome; `defer` is the new Stage 21 self-loop.
      */
+    // Stage 35 — three richer outcomes alongside the original three, each
+    // still mapping onto one workflow_transitions row at stage 7. See
+    // WorkflowTransitionSeeder and this stage's AGENT_NOTES entry for why
+    // none of the three new ones need a signature.
     private const ACTIONS = [
         'approve' => 'approve',
         'reject' => 'cancel',
         'defer' => 'defer',
+        'conditional_approval' => 'conditional_approve',
+        'legal_opinion' => 'request_legal_opinion',
+        'refer_other_body' => 'refer_to_another_body',
     ];
 
     public function vote(
@@ -202,6 +218,7 @@ class DecisionController extends Controller
         $outcome = $leaders->keys()->first();
         $action = self::ACTIONS[$outcome];
         $comment = $request->validated('comment');
+        $templateId = $request->validated('template_id');
         $actor = $request->user();
 
         $signaturePath = $action === 'approve' && $request->hasFile('signature')
@@ -210,7 +227,7 @@ class DecisionController extends Controller
 
         try {
             $decision = DB::transaction(function () use (
-                $workflow, $agendaItem, $action, $actor, $comment, $signaturePath, $outcome, $tally,
+                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally,
             ) {
                 $workflow->transition($agendaItem->transaction, $action, $actor, $comment, $signaturePath);
 
@@ -222,10 +239,14 @@ class DecisionController extends Controller
 
                 return Decision::create([
                     'meeting_transaction_id' => $agendaItem->id,
+                    'template_id' => $templateId,
                     'outcome' => $outcome,
                     'votes_approve_count' => $tally['approve'],
                     'votes_reject_count' => $tally['reject'],
                     'votes_defer_count' => $tally['defer'],
+                    'votes_conditional_approval_count' => $tally['conditional_approval'],
+                    'votes_legal_opinion_count' => $tally['legal_opinion'],
+                    'votes_refer_other_body_count' => $tally['refer_other_body'],
                     'comment' => $comment,
                     'decided_by_user_id' => $actor->id,
                     'decided_at' => now(),
@@ -242,7 +263,7 @@ class DecisionController extends Controller
         // is the part the requester and the committee actually ask about.
         $notifications->decisionRecorded($agendaItem->transaction, $decision, $meeting, $actor);
 
-        return (new DecisionResource($decision->load('decidedBy:id,name')))
+        return (new DecisionResource($decision->load('decidedBy:id,name', 'template:id,code,name_ar,name_en')))
             ->response()
             ->setStatusCode(201);
     }
@@ -283,7 +304,14 @@ class DecisionController extends Controller
         return MeetingTransactionResource::collection($items);
     }
 
-    /** Lookups travel separately so the filter bar works before any rows do. */
+    /**
+     * Lookups travel separately so the filter bar works before any rows do.
+     *
+     * Stage 35 — `templates` also feeds the record-decision panel on the
+     * meeting-detail and live-runner screens: `decisions,view` is seeded
+     * `'*'`, the one grant every committee member actually has, unlike the
+     * `templates` CRUD screen itself (R08-only).
+     */
     public function filters(): JsonResponse
     {
         return response()->json([
@@ -293,6 +321,11 @@ class DecisionController extends Controller
                     ->get(['id', 'name_ar', 'name_en']),
                 'outcomes' => IndexDecisionRequest::OUTCOMES,
                 'formats' => ReportExporter::FORMATS,
+                'templates' => Template::query()
+                    ->where('is_active', true)
+                    ->where('category', Template::CATEGORY_DECISION)
+                    ->orderBy('name_ar')
+                    ->get(['id', 'code', 'name_ar', 'name_en', 'subject_ar', 'subject_en', 'body_ar', 'body_en']),
             ],
         ]);
     }
@@ -338,6 +371,7 @@ class DecisionController extends Controller
         return Decision::query()
             ->with([
                 'decidedBy:id,name',
+                'template:id,code,name_ar,name_en',
                 'meetingTransaction:id,meeting_id,transaction_id',
                 'meetingTransaction.transaction:id,reference_number,title',
                 'meetingTransaction.meeting:id,title,scheduled_at,committee_id',
@@ -394,6 +428,10 @@ class DecisionController extends Controller
             $decision->votes_approve_count,
             $decision->votes_reject_count,
             $decision->votes_defer_count,
+            $decision->votes_conditional_approval_count,
+            $decision->votes_legal_opinion_count,
+            $decision->votes_refer_other_body_count,
+            $this->localName($decision->template, $locale, $labels),
             $decision->decidedBy?->name ?? $labels['none'],
             $decision->decided_at?->format('Y-m-d H:i') ?? $labels['none'],
             $decision->comment ?? $labels['none'],
@@ -443,9 +481,13 @@ class DecisionController extends Controller
     {
         return [
             ['label' => $labels['total'], 'value' => (string) $rows->count()],
-            ['label' => $labels['outcomes']['approve'], 'value' => (string) $rows->where('outcome', 'approve')->count()],
-            ['label' => $labels['outcomes']['reject'], 'value' => (string) $rows->where('outcome', 'reject')->count()],
-            ['label' => $labels['outcomes']['defer'], 'value' => (string) $rows->where('outcome', 'defer')->count()],
+            ...collect(self::ACTIONS)
+                ->keys()
+                ->map(fn (string $outcome) => [
+                    'label' => $labels['outcomes'][$outcome],
+                    'value' => (string) $rows->where('outcome', $outcome)->count(),
+                ])
+                ->all(),
         ];
     }
 

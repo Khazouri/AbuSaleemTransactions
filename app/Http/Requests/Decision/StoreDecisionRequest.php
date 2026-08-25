@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Decision;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /** Records the committee's binding decision for an agenda item. */
 class StoreDecisionRequest extends FormRequest
@@ -23,6 +24,15 @@ class StoreDecisionRequest extends FormRequest
     {
         return [
             'comment' => ['nullable', 'string', 'max:5000'],
+            // Stage 35 — which reusable text the comment was drafted from, if
+            // any; must be an active template, but not necessarily a
+            // `category=decision` one — the recording UI narrows the picker,
+            // this only guards against a stale or fabricated id.
+            'template_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('templates', 'id')->where(fn ($query) => $query->where('is_active', true)),
+            ],
             'signature' => [
                 'nullable',
                 'file',
@@ -38,6 +48,7 @@ class StoreDecisionRequest extends FormRequest
     {
         return [
             'comment.max' => 'لا يمكن أن يتجاوز التعليق 5000 حرف.',
+            'template_id.exists' => 'القالب المحدد غير صالح.',
             'signature.image' => 'يجب أن يكون التوقيع صورة صالحة.',
             'signature.mimes' => 'يجب حفظ التوقيع بصيغة PNG.',
             'signature.max' => 'لا يمكن أن يتجاوز حجم التوقيع 2 ميجابايت.',

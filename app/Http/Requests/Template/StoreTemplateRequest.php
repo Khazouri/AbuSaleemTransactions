@@ -15,6 +15,7 @@ class StoreTemplateRequest extends FormRequest
     {
         return [
             'code' => ['required', 'string', 'max:100', 'unique:templates,code'],
+            'category' => ['nullable', 'string', 'max:50'],
             'name_ar' => ['required', 'string', 'max:255'],
             'name_en' => ['nullable', 'string', 'max:255'],
             'subject_ar' => ['nullable', 'string', 'max:255'],

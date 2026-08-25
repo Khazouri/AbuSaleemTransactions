@@ -39,6 +39,11 @@ class TransactionStatusSeeder extends Seeder
             // --- Committee voting outcome (Stage 21) -------------------------
             ['deferred',       'مؤجلة',           'Deferred',       '#64748b'], // sent back to committee for the next meeting
 
+            // --- Richer committee decision outcomes (Stage 35) ---------------
+            ['approved_with_conditions', 'اعتماد مشروط',     'Approved with Conditions', '#0891b2'], // like approve, but forwards a condition text
+            ['legal_opinion_requested',  'طلب رأي قانوني',   'Legal Opinion Requested',  '#a21caf'], // self-loop at stage 7, pending legal review
+            ['referred_to_other_body',   'أحيلت لجهة أخرى',  'Referred to Other Body',  '#57534e'], // self-loop at stage 7, outside this committee's remit
+
             // --- Committee sub-states (Stage 29) ------------------------------
             // Status-only granularity inside the `receive_from_committee` stage,
             // written by App\Services\CommitteeStatusService — never by

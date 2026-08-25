@@ -11,8 +11,11 @@ use Illuminate\Validation\Rule;
  */
 class IndexDecisionRequest extends FormRequest
 {
-    /** The three outcomes DecisionController::record can produce. */
-    public const OUTCOMES = ['approve', 'reject', 'defer'];
+    /** The six outcomes DecisionController::record can produce (Stage 35). */
+    public const OUTCOMES = [
+        'approve', 'reject', 'defer',
+        'conditional_approval', 'legal_opinion', 'refer_other_body',
+    ];
 
     public function authorize(): bool
     {

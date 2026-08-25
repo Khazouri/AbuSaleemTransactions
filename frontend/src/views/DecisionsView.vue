@@ -14,6 +14,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { DECISION_OUTCOMES } from '../lib/decisionOutcomes'
 import { downloadExport } from '../lib/download'
 import { useAuthStore } from '../stores/auth'
 
@@ -131,7 +132,7 @@ async function exportAs(format) {
 // the votes already in the payload so the counts move the moment you vote.
 
 function tally(item) {
-  const counts = { approve: 0, reject: 0, defer: 0 }
+  const counts = Object.fromEntries(DECISION_OUTCOMES.map((outcome) => [outcome, 0]))
   for (const vote of item.votes ?? []) counts[vote.vote] = (counts[vote.vote] ?? 0) + 1
   return counts
 }
@@ -266,6 +267,7 @@ onMounted(async () => {
                 <th>{{ t('decisions.columns.meeting') }}</th>
                 <th>{{ t('decisions.columns.outcome') }}</th>
                 <th>{{ t('decisions.columns.tally') }}</th>
+                <th>{{ t('decisions.columns.template') }}</th>
                 <th>{{ t('decisions.columns.decidedBy') }}</th>
                 <th>{{ t('decisions.columns.decidedAt') }}</th>
               </tr>
@@ -295,7 +297,10 @@ onMounted(async () => {
                 </td>
                 <td class="ltr nowrap">
                   {{ row.votes_approve_count }} / {{ row.votes_reject_count }} / {{ row.votes_defer_count }}
+                  / {{ row.votes_conditional_approval_count }} / {{ row.votes_legal_opinion_count }}
+                  / {{ row.votes_refer_other_body_count }}
                 </td>
+                <td>{{ row.template ? localName(row.template) : t('common.none') }}</td>
                 <td>{{ row.decided_by?.name ?? t('common.none') }}</td>
                 <td class="nowrap">{{ dateTime(row.decided_at) }}</td>
               </tr>
@@ -347,14 +352,14 @@ onMounted(async () => {
           </div>
 
           <div class="tally">
-            <span>{{ t('decisions.tally.approve') }}: {{ tally(item).approve }}</span>
-            <span>{{ t('decisions.tally.reject') }}: {{ tally(item).reject }}</span>
-            <span>{{ t('decisions.tally.defer') }}: {{ tally(item).defer }}</span>
+            <span v-for="outcome in DECISION_OUTCOMES" :key="outcome">
+              {{ t(`decisions.tally.${outcome}`) }}: {{ tally(item)[outcome] }}
+            </span>
           </div>
 
           <div v-can="'decisions.add'" class="vote-actions no-print">
             <button
-              v-for="option in ['approve', 'reject', 'defer']"
+              v-for="option in DECISION_OUTCOMES"
               :key="option"
               class="ghost"
               :class="{ active: myVote(item) === option }"
@@ -402,7 +407,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .state { padding: 1.25rem; margin: 0; color: var(--color-muted); }
 
 .table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 900px; border-collapse: collapse; }
+table { width: 100%; min-width: 1150px; border-collapse: collapse; }
 th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
 th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
 td { font-size: .84rem; }
@@ -414,13 +419,16 @@ td { font-size: .84rem; }
 .outcome.approve { color: var(--color-success-fg); border-color: var(--color-success-border); background: var(--color-success-bg); }
 .outcome.reject { color: var(--color-danger-fg); border-color: var(--color-danger-border); background: var(--color-danger-bg); }
 .outcome.defer { color: var(--color-warning-fg); border-color: var(--color-warning-border); background: var(--color-warning-bg); }
+.outcome.conditional_approval { color: var(--color-info-fg); border-color: var(--color-info-border); background: var(--color-info-bg); }
+.outcome.legal_opinion { color: var(--color-warning-fg); border-color: var(--color-warning-border); background: var(--color-warning-bg); }
+.outcome.refer_other_body { color: var(--color-muted); border-color: var(--color-border-hover); background: var(--color-surface-hover); }
 
 .pending-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
 .pending-item { padding: 1rem 1.15rem; }
 .pending-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .pending-title { display: block; margin-top: .2rem; font-size: .95rem; }
 .pending-meta { text-align: end; font-size: .82rem; }
-.tally { display: flex; gap: 1rem; margin: .75rem 0 .5rem; color: var(--color-muted); font-size: .8rem; }
+.tally { display: flex; gap: 1rem; flex-wrap: wrap; margin: .75rem 0 .5rem; color: var(--color-muted); font-size: .8rem; }
 .vote-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 .pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }
 </style>

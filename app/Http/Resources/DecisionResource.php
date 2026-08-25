@@ -17,11 +17,21 @@ class DecisionResource extends JsonResource
             'votes_approve_count' => $this->votes_approve_count,
             'votes_reject_count' => $this->votes_reject_count,
             'votes_defer_count' => $this->votes_defer_count,
+            // Stage 35 — three richer outcomes alongside the original three.
+            'votes_conditional_approval_count' => $this->votes_conditional_approval_count,
+            'votes_legal_opinion_count' => $this->votes_legal_opinion_count,
+            'votes_refer_other_body_count' => $this->votes_refer_other_body_count,
             'comment' => $this->comment,
             'decided_at' => $this->decided_at,
             'decided_by' => $this->whenLoaded('decidedBy', fn () => $this->decidedBy ? [
                 'id' => $this->decidedBy->id,
                 'name' => $this->decidedBy->name,
+            ] : null),
+            'template' => $this->whenLoaded('template', fn () => $this->template ? [
+                'id' => $this->template->id,
+                'code' => $this->template->code,
+                'name_ar' => $this->template->name_ar,
+                'name_en' => $this->template->name_en,
             ] : null),
             // Stage 25 — the register lists decisions away from the meeting
             // that produced them, so it needs enough context to link back.

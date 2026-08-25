@@ -108,6 +108,9 @@
     "add": "إضافة قالب",
     "edit": "تعديل القالب",
     "code": "رمز القالب",
+    "category": "نوع الاستخدام",
+    "categoryGeneral": "عام",
+    "categoryDecision": "قرارات اللجان",
     "nameAr": "الاسم بالعربية",
     "nameEn": "الاسم بالإنجليزية",
     "subjectAr": "الموضوع بالعربية",
@@ -423,19 +426,33 @@
     "tally": {
       "approve": "موافقة",
       "reject": "رفض",
-      "defer": "تأجيل"
+      "defer": "تأجيل",
+      "conditional_approval": "اعتماد مشروط",
+      "legal_opinion": "رأي قانوني",
+      "refer_other_body": "إحالة"
     },
     "vote": {
       "approve": "موافقة",
       "reject": "رفض",
-      "defer": "تأجيل"
+      "defer": "تأجيل",
+      "conditional_approval": "اعتماد مشروط",
+      "legal_opinion": "طلب رأي قانوني",
+      "refer_other_body": "إحالة لجهة أخرى"
     },
     "outcome": {
       "approve": "تمت الموافقة",
       "reject": "تم الرفض",
-      "defer": "تم التأجيل"
+      "defer": "تم التأجيل",
+      "conditional_approval": "اعتماد مشروط",
+      "legal_opinion": "طلب رأي قانوني",
+      "refer_other_body": "إحالة لجهة أخرى"
     },
-    "commentPlaceholder": "سبب القرار (اختياري للموافقة، مطلوب للرفض أو التأجيل)",
+    "template": {
+      "usedLabel": "القالب المستخدم",
+      "choose": "اختر قالباً للقرار",
+      "use": "استخدام القالب"
+    },
+    "commentPlaceholder": "سبب القرار (اختياري للموافقة، مطلوب لبقية النتائج)",
     "record": "تسجيل القرار",
     "recording": "جارٍ تسجيل القرار…",
     "decidedBy": "قرار من",
@@ -471,7 +488,8 @@
       "committee": "اللجنة",
       "meeting": "الاجتماع",
       "outcome": "النتيجة",
-      "tally": "موافق / رافض / مؤجل",
+      "tally": "موافق / رافض / مؤجل / مشروط / رأي قانوني / إحالة",
+      "template": "القالب",
       "decidedBy": "صاحب القرار",
       "decidedAt": "تاريخ القرار"
     }
@@ -646,6 +664,9 @@
       "cancel": "إلغاء المعاملة",
       "defer": "تأجيل القرار",
       "return_to_study": "إعادة للدراسة",
+      "conditional_approve": "اعتماد مشروط",
+      "request_legal_opinion": "طلب رأي قانوني",
+      "refer_to_another_body": "إحالة لجهة أخرى",
       "deadline_expired": "تصعيد لانتهاء المهلة"
     }
   },

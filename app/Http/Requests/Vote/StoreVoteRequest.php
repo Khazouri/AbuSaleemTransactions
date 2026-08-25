@@ -16,7 +16,12 @@ class StoreVoteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'vote' => ['required', 'string', Rule::in(['approve', 'reject', 'defer'])],
+            // Stage 35 — three richer outcomes alongside the original three;
+            // see DecisionController::ACTIONS for what each drives.
+            'vote' => ['required', 'string', Rule::in([
+                'approve', 'reject', 'defer',
+                'conditional_approval', 'legal_opinion', 'refer_other_body',
+            ])],
             'comment' => ['nullable', 'string', 'max:2000'],
         ];
     }
