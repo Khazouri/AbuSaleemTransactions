@@ -9,6 +9,7 @@ use App\Http\Requests\Meeting\UpdateMeetingRequest;
 use App\Http\Requests\MeetingAgenda\ReorderMeetingAgendaRequest;
 use App\Http\Requests\MeetingAgenda\StoreMeetingAgendaRequest;
 use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemRequest;
+use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemStateRequest;
 use App\Http\Requests\MeetingAttendee\StoreMeetingAttendeeRequest;
 use App\Http\Requests\MeetingAttendee\UpdateMeetingAttendeeRequest;
 use App\Http\Resources\MeetingAttendeeResource;
@@ -94,9 +95,30 @@ class MeetingController extends Controller
         return new MeetingResource($this->loadDetail($meeting));
     }
 
-    public function update(UpdateMeetingRequest $request, Meeting $meeting): MeetingResource
+    /**
+     * Stage 34 — closing a meeting rides this same generic status update
+     * (the pre-existing `MeetingDetailView` status dropdown already PUTs
+     * here), so the gate protects that dropdown and the live runner from one
+     * code path rather than adding a second "close" action either could
+     * still bypass. Blocked (422) while any agenda item is unresolved —
+     * see MeetingTransaction::isResolved().
+     */
+    public function update(UpdateMeetingRequest $request, Meeting $meeting): MeetingResource|JsonResponse
     {
-        $meeting->update($request->validated());
+        $data = $request->validated();
+
+        if (($data['status'] ?? null) === 'completed') {
+            $unresolved = $meeting->agendaItems()->with('decision')->get()
+                ->reject(fn (MeetingTransaction $item) => $item->isResolved());
+
+            if ($unresolved->isNotEmpty()) {
+                return response()->json([
+                    'message' => 'لا يمكن إغلاق الاجتماع قبل استكمال جميع بنود جدول الأعمال (تصويت وقرار، أو إنهاء يدوي للبنود الإدارية).',
+                ], 422);
+            }
+        }
+
+        $meeting->update($data);
 
         return new MeetingResource($this->loadDetail($meeting));
     }
@@ -155,6 +177,43 @@ class MeetingController extends Controller
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
         $agendaItem->update($request->validated());
+
+        return new MeetingTransactionResource($agendaItem->load([
+            'transaction:id,reference_number,title,status_id',
+            'transaction.status:id,code,name_ar,name_en,color',
+            'department:id,name_ar,name_en',
+        ]));
+    }
+
+    /**
+     * Stage 34 — the live runner advancing (or reopening) one agenda item's
+     * state. A resolved item (already has a decision) refuses any further
+     * change, mirroring DecisionEligibility's "voting closes once decided"
+     * rule. `complete` is refused outright for a request item — that state
+     * is only ever reached as a side effect of DecisionController::record(),
+     * so a `complete` request item always means a real recorded decision.
+     */
+    public function updateItemState(UpdateMeetingAgendaItemStateRequest $request, Meeting $meeting, MeetingTransaction $agendaItem): MeetingTransactionResource|JsonResponse
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        if ($agendaItem->decision()->exists()) {
+            return response()->json([
+                'message' => 'تم إنهاء هذا البند بالفعل، لا يمكن تغيير حالته.',
+            ], 422);
+        }
+
+        $newState = $request->validated('item_state');
+
+        if ($newState === 'complete' && $agendaItem->item_type === 'employee_request') {
+            return response()->json([
+                'message' => 'بنود الطلبات تُستكمل تلقائياً عند تسجيل القرار، لا يمكن إنهاؤها يدوياً.',
+            ], 422);
+        }
+
+        if ($newState !== $agendaItem->item_state) {
+            $agendaItem->update(['item_state' => $newState, 'state_changed_at' => now()]);
+        }
 
         return new MeetingTransactionResource($agendaItem->load([
             'transaction:id,reference_number,title,status_id',
@@ -315,6 +374,7 @@ class MeetingController extends Controller
             'agendaItems.department:id,name_ar,name_en',
             'agendaItems.votes.user:id,name',
             'agendaItems.decision.decidedBy:id,name',
+            'agendaItems.notes.createdBy:id,name',
         ]);
     }
 }

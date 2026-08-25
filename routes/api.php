@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DevTestUserController;
 use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MeetingController;
+use App\Http\Controllers\Api\MeetingDiscussionNoteController;
 use App\Http\Controllers\Api\MeetingReadinessController;
 use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\NoteController;
@@ -330,6 +331,20 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('meetings/{meeting}/readiness', [MeetingReadinessController::class, 'show']);
     Route::middleware('screen.permission:meeting_readiness,edit')
         ->post('meetings/{meeting}/convene', [MeetingReadinessController::class, 'convene']);
+
+    /*
+     * Stage 34 — the live meeting runner. Rides the `meeting_live` screen's
+     * own grants: `edit` (R03, the chair) advances an item's state; `view`/
+     * `add` (everyone/R03+R04) read and post to the discussion feed. Closing
+     * a meeting stays on the generic `meetings,edit` update() above — see
+     * that method's docblock for why it isn't a separate endpoint here.
+     */
+    Route::middleware('screen.permission:meeting_live,edit')
+        ->patch('meetings/{meeting}/agenda/{agendaItem}/state', [MeetingController::class, 'updateItemState']);
+    Route::middleware('screen.permission:meeting_live,view')
+        ->get('meetings/{meeting}/agenda/{agendaItem}/notes', [MeetingDiscussionNoteController::class, 'index']);
+    Route::middleware('screen.permission:meeting_live,add')
+        ->post('meetings/{meeting}/agenda/{agendaItem}/notes', [MeetingDiscussionNoteController::class, 'store']);
 
     /*
      * Stage 21 — committee voting and decision recording. These ride the

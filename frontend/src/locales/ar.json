@@ -601,7 +601,36 @@
         "processing": "جارٍ المباشرة…"
       }
     },
-    "live": { "title": "مباشرة الاجتماع", "placeholder": "قيد الإنشاء." },
+    "live": {
+      "title": "مباشرة الاجتماع",
+      "subtitle": "إدارة الاجتماع بندًا بندًا: النقاش والتصويت والقرار لكل بند.",
+      "chooseMeeting": "اختر اجتماعاً",
+      "chooseMeetingPlaceholder": "— اختر اجتماعاً —",
+      "noMeetingSelected": "اختر اجتماعاً لبدء المباشرة.",
+      "error": "تعذر تحميل بيانات الاجتماع.",
+      "notConvened": "لم يُفتتح هذا الاجتماع بعد. يجب افتتاحه من شاشة الجاهزية قبل المباشرة.",
+      "goToReadiness": "الذهاب لشاشة الجاهزية",
+      "closeMeeting": "إغلاق الاجتماع",
+      "videoPlaceholder": "بث الفيديو — غير متاح في هذا الإصدار",
+      "presentAttendees": "الحاضرون",
+      "noAttendees": "لا يوجد حاضرون مسجَّلون بعد.",
+      "noItems": "لا توجد بنود في جدول الأعمال.",
+      "progress": { "resolved": "بنود منتهية" },
+      "states": {
+        "presented": "معروض",
+        "discussion": "قيد النقاش",
+        "voting": "التصويت",
+        "deciding": "اتخاذ القرار",
+        "complete": "منتهٍ"
+      },
+      "timer": "الوقت المنقضي",
+      "discussion": {
+        "title": "سجل النقاش",
+        "empty": "لا توجد ملاحظات بعد.",
+        "placeholder": "أضف ملاحظة على النقاش…",
+        "post": "إضافة"
+      }
+    },
     "minutes": { "title": "المحاضر", "placeholder": "قيد الإنشاء." },
     "outputs": { "title": "المخرجات", "placeholder": "قيد الإنشاء." }
   },

@@ -214,6 +214,12 @@ class DecisionController extends Controller
             ) {
                 $workflow->transition($agendaItem->transaction, $action, $actor, $comment, $signaturePath);
 
+                // Stage 34 — the live runner's own progress state follows a
+                // recorded decision automatically; the runner's manual state
+                // endpoint refuses to set 'complete' on a request item
+                // directly, so this is the only path that gets it there.
+                $agendaItem->update(['item_state' => 'complete', 'state_changed_at' => now()]);
+
                 return Decision::create([
                     'meeting_transaction_id' => $agendaItem->id,
                     'outcome' => $outcome,

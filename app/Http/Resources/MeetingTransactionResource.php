@@ -23,6 +23,13 @@ class MeetingTransactionResource extends JsonResource
             'priority' => $this->priority,
             'estimated_minutes' => $this->estimated_minutes,
             'subject' => $this->subject,
+            // Stage 34 — the runner's own progress tracker; is_resolved is the
+            // same predicate MeetingController::update()'s close gate uses, so
+            // the progress bar and the gate can never disagree.
+            'item_state' => $this->item_state,
+            'state_changed_at' => $this->state_changed_at?->toIso8601String(),
+            'is_resolved' => $this->isResolved(),
+            'notes' => $this->whenLoaded('notes', fn () => MeetingDiscussionNoteResource::collection($this->notes)),
             'department' => $this->whenLoaded('department', fn () => $this->department ? [
                 'id' => $this->department->id,
                 'name_ar' => $this->department->name_ar,

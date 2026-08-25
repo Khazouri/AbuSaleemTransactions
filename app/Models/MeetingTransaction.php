@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  *
  * @property string $item_type employee_request|administrative|emerging
  * @property string|null $priority high|medium|low
+ * @property string $item_state presented|discussion|voting|deciding|complete
  */
 class MeetingTransaction extends Model
 {
@@ -22,6 +23,7 @@ class MeetingTransaction extends Model
     // item_type would read null (not 'employee_request') until refetched.
     protected $attributes = [
         'item_type' => 'employee_request',
+        'item_state' => 'presented',
     ];
 
     protected $fillable = [
@@ -33,13 +35,33 @@ class MeetingTransaction extends Model
         'estimated_minutes',
         'subject',
         'department_id',
+        'item_state',
+        'state_changed_at',
     ];
 
     protected function casts(): array
     {
         return [
             'estimated_minutes' => 'integer',
+            'state_changed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Stage 34 — the one place "is this agenda item done?" is decided, so the
+     * meeting-close gate and the runner's progress readout can't disagree.
+     * A request item reaches this only via a recorded decision (see
+     * DecisionController::record); an admin/emerging item only via the
+     * runner's manual state endpoint, which is the case the vote/decision
+     * machinery has no way to resolve on its own.
+     */
+    public function isResolved(): bool
+    {
+        if ($this->item_state === 'complete') {
+            return true;
+        }
+
+        return $this->relationLoaded('decision') ? $this->decision !== null : $this->decision()->exists();
     }
 
     public function meeting(): BelongsTo
@@ -68,5 +90,11 @@ class MeetingTransaction extends Model
     public function decision(): HasOne
     {
         return $this->hasOne(Decision::class);
+    }
+
+    /** Stage 34 — the live runner's discussion feed, oldest first. */
+    public function notes(): HasMany
+    {
+        return $this->hasMany(MeetingDiscussionNote::class)->orderBy('created_at');
     }
 }

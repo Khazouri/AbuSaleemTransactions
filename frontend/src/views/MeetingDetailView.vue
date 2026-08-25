@@ -71,6 +71,10 @@ async function saveMeetingFields() {
     })
     meeting.value = data.data
   } catch (requestError) {
+    // Stage 34 — closing a meeting can now genuinely 422 (unresolved agenda
+    // items); without this the dropdown would keep showing the rejected
+    // "completed" selection instead of the server's actual status.
+    statusValue.value = meeting.value.status
     actionError.value = requestError.response?.data?.message ?? t('common.none')
   } finally {
     savingMeeting.value = false
@@ -412,13 +416,19 @@ onMounted(async () => {
         <section class="card agenda">
           <div class="agenda-heading">
             <h3>{{ t('meetings.agenda.title') }}</h3>
-            <RouterLink
-              v-can="'meeting_agenda.edit'"
-              class="ghost"
-              :to="{ name: 'meeting_agenda', query: { meeting: meeting.id } }"
-            >
-              {{ t('meetings.agenda.openBuilder') }}
-            </RouterLink>
+            <div class="agenda-heading-links">
+              <RouterLink
+                v-can="'meeting_agenda.edit'"
+                class="ghost"
+                :to="{ name: 'meeting_agenda', query: { meeting: meeting.id } }"
+              >
+                {{ t('meetings.agenda.openBuilder') }}
+              </RouterLink>
+              <!-- Stage 34 — live meeting runner. -->
+              <RouterLink class="ghost" :to="{ name: 'meeting_live', query: { meeting: meeting.id } }">
+                {{ t('meetingsUnit.live.title') }}
+              </RouterLink>
+            </div>
           </div>
           <p v-if="agendaError" class="alert">{{ agendaError }}</p>
           <p v-if="!meeting.agenda_items?.length" class="state">{{ t('meetings.agenda.empty') }}</p>
@@ -615,6 +625,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .agenda-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .6rem; }
 .agenda-heading h3 { margin: 0; }
 .agenda-heading .ghost { text-decoration: none; }
+.agenda-heading-links { display: flex; gap: .5rem; flex-wrap: wrap; }
 .agenda ol { display: grid; gap: .6rem; padding: 0; margin: 0 0 1rem; list-style: none; }
 .agenda li { display: grid; gap: .5rem; padding-bottom: .75rem; border-bottom: 1px solid var(--color-border); font-size: .86rem; }
 .agenda li .row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
