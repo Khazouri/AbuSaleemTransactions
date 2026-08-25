@@ -16,7 +16,19 @@ class MeetingTransactionResource extends JsonResource
         return [
             'id' => $this->id,
             'agenda_order' => $this->agenda_order,
-            'transaction' => $this->whenLoaded('transaction', fn () => [
+            // Stage 31 — item_type/priority/estimated_minutes apply to every
+            // item; subject/department are the admin-item's own, since it has
+            // no transaction to read them from.
+            'item_type' => $this->item_type,
+            'priority' => $this->priority,
+            'estimated_minutes' => $this->estimated_minutes,
+            'subject' => $this->subject,
+            'department' => $this->whenLoaded('department', fn () => $this->department ? [
+                'id' => $this->department->id,
+                'name_ar' => $this->department->name_ar,
+                'name_en' => $this->department->name_en,
+            ] : null),
+            'transaction' => $this->whenLoaded('transaction', fn () => $this->transaction ? [
                 'id' => $this->transaction->id,
                 'reference_number' => $this->transaction->reference_number,
                 'title' => $this->transaction->title,
@@ -26,7 +38,7 @@ class MeetingTransactionResource extends JsonResource
                     'name_en' => $this->transaction->status->name_en,
                     'color' => $this->transaction->status->color,
                 ] : null,
-            ]),
+            ] : null),
             'votes' => $this->whenLoaded('votes', fn () => VoteResource::collection($this->votes)),
             'decision' => $this->whenLoaded('decision', fn () => $this->decision ? new DecisionResource($this->decision) : null),
             // Stage 25 — the pending-votes worklist shows items from several

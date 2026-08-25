@@ -351,7 +351,23 @@
       "remove": "Remove",
       "moveUp": "Move up",
       "moveDown": "Move down",
-      "noResults": "No matching transactions."
+      "noResults": "No matching transactions.",
+      "openBuilder": "Open agenda builder",
+      "subject": "Subject",
+      "department": "Department",
+      "estimatedMinutes": "Estimated time (minutes)",
+      "minutesShort": "min",
+      "itemType": {
+        "employee_request": "Employee request",
+        "administrative": "Administrative item",
+        "emerging": "Emerging item"
+      },
+      "priority": {
+        "label": "Priority",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      }
     },
     "attendance": {
       "title": "Attendees",
@@ -463,7 +479,23 @@
   "meetingsUnit": {
     "dashboard": { "title": "Meetings Dashboard", "placeholder": "Under construction." },
     "candidates": { "title": "Committee Candidates", "placeholder": "Under construction." },
-    "agenda": { "title": "Meeting Agenda", "placeholder": "Under construction." },
+    "agenda": {
+      "title": "Meeting Agenda",
+      "chooseMeeting": "Meeting",
+      "chooseMeetingPlaceholder": "— Choose a meeting —",
+      "noMeetingSelected": "Choose a meeting to view and build its agenda.",
+      "addItem": "Add item",
+      "stats": {
+        "totalItems": "Items",
+        "totalMinutes": "Total estimated time (minutes)",
+        "byPriority": "By priority",
+        "byType": "By type",
+        "showGroups": "Show grouping by department",
+        "hideGroups": "Hide grouping",
+        "groupsTitle": "Similar items by department",
+        "noDepartment": "No department"
+      }
+    },
     "readiness": { "title": "Meeting Readiness", "placeholder": "Under construction." },
     "live": { "title": "Live Meeting", "placeholder": "Under construction." },
     "minutes": { "title": "Minutes", "placeholder": "Under construction." },

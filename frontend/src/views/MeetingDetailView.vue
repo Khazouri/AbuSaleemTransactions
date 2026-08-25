@@ -112,7 +112,9 @@ const agendaSearching = ref(false)
 const agendaError = ref('')
 let searchTimer = null
 
-const agendaTransactionIds = computed(() => new Set((meeting.value?.agenda_items ?? []).map((i) => i.transaction.id)))
+const agendaTransactionIds = computed(() => new Set(
+  (meeting.value?.agenda_items ?? []).filter((i) => i.transaction).map((i) => i.transaction.id),
+))
 
 watch(agendaSearch, (value) => {
   clearTimeout(searchTimer)
@@ -408,25 +410,43 @@ onMounted(async () => {
 
       <div class="columns">
         <section class="card agenda">
-          <h3>{{ t('meetings.agenda.title') }}</h3>
+          <div class="agenda-heading">
+            <h3>{{ t('meetings.agenda.title') }}</h3>
+            <RouterLink
+              v-can="'meeting_agenda.edit'"
+              class="ghost"
+              :to="{ name: 'meeting_agenda', query: { meeting: meeting.id } }"
+            >
+              {{ t('meetings.agenda.openBuilder') }}
+            </RouterLink>
+          </div>
           <p v-if="agendaError" class="alert">{{ agendaError }}</p>
           <p v-if="!meeting.agenda_items?.length" class="state">{{ t('meetings.agenda.empty') }}</p>
           <ol v-else>
             <li v-for="(item, index) in meeting.agenda_items" :key="item.id">
               <div class="row">
                 <div>
-                  <span class="ref ltr">{{ item.transaction.reference_number || `#${item.transaction.id}` }}</span>
-                  <strong>{{ item.transaction.title }}</strong>
-                  <span v-if="item.transaction.status" class="pill">{{ name(item.transaction.status) }}</span>
+                  <template v-if="item.transaction">
+                    <span class="ref ltr">{{ item.transaction.reference_number || `#${item.transaction.id}` }}</span>
+                    <strong>{{ item.transaction.title }}</strong>
+                    <span v-if="item.transaction.status" class="pill">{{ name(item.transaction.status) }}</span>
+                  </template>
+                  <template v-else>
+                    <strong>{{ item.subject }}</strong>
+                    <span class="pill">{{ t(`meetings.agenda.itemType.${item.item_type}`) }}</span>
+                    <span v-if="item.department" class="pill">{{ name(item.department) }}</span>
+                  </template>
+                  <span v-if="item.priority" class="pill">{{ t(`meetings.agenda.priority.${item.priority}`) }}</span>
+                  <span v-if="item.estimated_minutes" class="pill">{{ item.estimated_minutes }} {{ t('meetings.agenda.minutesShort') }}</span>
                 </div>
-                <div v-can="'meetings.edit'" class="item-actions">
+                <div v-can="'meeting_agenda.edit'" class="item-actions">
                   <button class="ghost" type="button" :disabled="index === 0" @click="moveAgendaItem(index, -1)">↑</button>
                   <button class="ghost" type="button" :disabled="index === meeting.agenda_items.length - 1" @click="moveAgendaItem(index, 1)">↓</button>
                   <button class="ghost danger" type="button" @click="removeFromAgenda(item)">{{ t('meetings.agenda.remove') }}</button>
                 </div>
               </div>
 
-              <div class="decision-block">
+              <div v-if="item.item_type === 'employee_request'" class="decision-block">
                 <template v-if="item.decision">
                   <p class="decision-result">
                     {{ t(`decisions.outcome.${item.decision.outcome}`) }}
@@ -487,7 +507,7 @@ onMounted(async () => {
             </li>
           </ol>
 
-          <div v-can="'meetings.edit'" class="agenda-search">
+          <div v-can="'meeting_agenda.edit'" class="agenda-search">
             <input
               v-model="agendaSearch"
               type="text"
@@ -592,6 +612,9 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .state { color: var(--color-muted); font-size: .85rem; margin: 0; }
 
 .columns { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(16rem, .8fr); gap: 1rem; align-items: start; }
+.agenda-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .6rem; }
+.agenda-heading h3 { margin: 0; }
+.agenda-heading .ghost { text-decoration: none; }
 .agenda ol { display: grid; gap: .6rem; padding: 0; margin: 0 0 1rem; list-style: none; }
 .agenda li { display: grid; gap: .5rem; padding-bottom: .75rem; border-bottom: 1px solid var(--color-border); font-size: .86rem; }
 .agenda li .row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }

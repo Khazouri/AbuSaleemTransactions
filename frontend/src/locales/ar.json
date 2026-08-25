@@ -351,7 +351,23 @@
       "remove": "إزالة",
       "moveUp": "تحريك لأعلى",
       "moveDown": "تحريك لأسفل",
-      "noResults": "لا توجد معاملات مطابقة."
+      "noResults": "لا توجد معاملات مطابقة.",
+      "openBuilder": "فتح معد جدول الأعمال",
+      "subject": "الموضوع",
+      "department": "الإدارة",
+      "estimatedMinutes": "الزمن المتوقع (دقيقة)",
+      "minutesShort": "د",
+      "itemType": {
+        "employee_request": "طلب موظف",
+        "administrative": "بند إداري",
+        "emerging": "بند طارئ"
+      },
+      "priority": {
+        "label": "الأولوية",
+        "high": "عالية",
+        "medium": "متوسطة",
+        "low": "منخفضة"
+      }
     },
     "attendance": {
       "title": "الحضور",
@@ -463,7 +479,23 @@
   "meetingsUnit": {
     "dashboard": { "title": "لوحة قيادة الاجتماعات", "placeholder": "قيد الإنشاء." },
     "candidates": { "title": "الطلبات المرشحة", "placeholder": "قيد الإنشاء." },
-    "agenda": { "title": "جدول الأعمال", "placeholder": "قيد الإنشاء." },
+    "agenda": {
+      "title": "جدول الأعمال",
+      "chooseMeeting": "الاجتماع",
+      "chooseMeetingPlaceholder": "— اختر اجتماعاً —",
+      "noMeetingSelected": "اختر اجتماعاً لعرض وبناء جدول أعماله.",
+      "addItem": "إضافة بند",
+      "stats": {
+        "totalItems": "عدد البنود",
+        "totalMinutes": "إجمالي الوقت المتوقع (دقيقة)",
+        "byPriority": "حسب الأولوية",
+        "byType": "حسب النوع",
+        "showGroups": "عرض التجميع حسب الإدارة",
+        "hideGroups": "إخفاء التجميع",
+        "groupsTitle": "البنود المتشابهة حسب الإدارة",
+        "noDepartment": "بدون إدارة"
+      }
+    },
     "readiness": { "title": "جاهزية الاجتماع", "placeholder": "قيد الإنشاء." },
     "live": { "title": "مباشرة الاجتماع", "placeholder": "قيد الإنشاء." },
     "minutes": { "title": "المحاضر", "placeholder": "قيد الإنشاء." },

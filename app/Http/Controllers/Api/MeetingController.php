@@ -8,12 +8,14 @@ use App\Http\Requests\Meeting\StoreMeetingRequest;
 use App\Http\Requests\Meeting\UpdateMeetingRequest;
 use App\Http\Requests\MeetingAgenda\ReorderMeetingAgendaRequest;
 use App\Http\Requests\MeetingAgenda\StoreMeetingAgendaRequest;
+use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemRequest;
 use App\Http\Requests\MeetingAttendee\StoreMeetingAttendeeRequest;
 use App\Http\Requests\MeetingAttendee\UpdateMeetingAttendeeRequest;
 use App\Http\Resources\MeetingAttendeeResource;
 use App\Http\Resources\MeetingResource;
 use App\Http\Resources\MeetingTransactionResource;
 use App\Models\Committee;
+use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\MeetingAttendee;
 use App\Models\MeetingTransaction;
@@ -123,19 +125,42 @@ class MeetingController extends Controller
         return response()->json(null, 204);
     }
 
+    /**
+     * Stage 31 — an item is either an `employee_request` riding a transaction
+     * (the only kind before this stage) or a standalone `administrative`/
+     * `emerging` item; the FormRequest's conditional rules already picked
+     * which of transaction_id/subject is present, so this just stores
+     * whichever validated shape arrived.
+     */
     public function addAgendaItem(StoreMeetingAgendaRequest $request, Meeting $meeting): JsonResponse
     {
         $nextOrder = ($meeting->agendaItems()->max('agenda_order') ?? 0) + 1;
 
         $item = $meeting->agendaItems()->create([
-            'transaction_id' => $request->validated('transaction_id'),
+            ...$request->validated(),
+            'item_type' => $request->validated('item_type') ?? 'employee_request',
             'agenda_order' => $nextOrder,
         ]);
 
         return (new MeetingTransactionResource($item->load([
             'transaction:id,reference_number,title,status_id',
             'transaction.status:id,code,name_ar,name_en,color',
+            'department:id,name_ar,name_en',
         ])))->response()->setStatusCode(201);
+    }
+
+    /** Stage 31 — priority/time/subject/department only; see the FormRequest for why item_type/transaction_id stay fixed. */
+    public function updateAgendaItem(UpdateMeetingAgendaItemRequest $request, Meeting $meeting, MeetingTransaction $agendaItem): MeetingTransactionResource
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        $agendaItem->update($request->validated());
+
+        return new MeetingTransactionResource($agendaItem->load([
+            'transaction:id,reference_number,title,status_id',
+            'transaction.status:id,code,name_ar,name_en,color',
+            'department:id,name_ar,name_en',
+        ]));
     }
 
     public function removeAgendaItem(Meeting $meeting, MeetingTransaction $agendaItem): JsonResponse
@@ -160,8 +185,66 @@ class MeetingController extends Controller
             $meeting->agendaItems()->with([
                 'transaction:id,reference_number,title,status_id',
                 'transaction.status:id,code,name_ar,name_en,color',
+                'department:id,name_ar,name_en',
             ])->get(),
         );
+    }
+
+    /**
+     * Stage 31 — totals and a "group similar" view over the agenda, so the
+     * builder screen can show a computed total time and cluster items by
+     * effective department (the item's own for an admin item, its
+     * transaction's for a request — there's no free-text similarity match
+     * here, department is the one dimension both item shapes share).
+     */
+    public function agendaStats(Meeting $meeting): JsonResponse
+    {
+        $items = $meeting->agendaItems()->with([
+            'transaction:id,reference_number,title,department_id',
+            'transaction.department:id,name_ar,name_en',
+            'department:id,name_ar,name_en',
+        ])->get();
+
+        $byPriority = ['high' => 0, 'medium' => 0, 'low' => 0, 'none' => 0];
+        $byType = ['employee_request' => 0, 'administrative' => 0, 'emerging' => 0];
+        $groups = [];
+
+        foreach ($items as $item) {
+            $byPriority[$item->priority ?? 'none']++;
+            $byType[$item->item_type]++;
+
+            $department = $item->department ?? $item->transaction?->department;
+            $key = $department?->id ?? 0;
+
+            $groups[$key]['department'] ??= $department ? [
+                'id' => $department->id,
+                'name_ar' => $department->name_ar,
+                'name_en' => $department->name_en,
+            ] : null;
+            $groups[$key]['items'][] = [
+                'id' => $item->id,
+                'label' => $item->transaction?->title ?? $item->subject,
+            ];
+        }
+
+        return response()->json(['data' => [
+            'total_items' => $items->count(),
+            'total_estimated_minutes' => (int) $items->sum('estimated_minutes'),
+            'by_priority' => $byPriority,
+            'by_type' => $byType,
+            'groups' => array_values($groups),
+        ]]);
+    }
+
+    /** Stage 31 — department picker for the agenda builder's admin-item form; `departments` itself grants no role access. */
+    public function departmentOptions(): JsonResponse
+    {
+        return response()->json([
+            'data' => Department::query()
+                ->where('is_active', true)
+                ->orderBy('name_ar')
+                ->get(['id', 'name_ar', 'name_en']),
+        ]);
     }
 
     /** Invites one extra attendee beyond the committee members auto-invited at creation. */
@@ -228,6 +311,7 @@ class MeetingController extends Controller
             'attendees.user:id,name',
             'agendaItems.transaction:id,reference_number,title,status_id',
             'agendaItems.transaction.status:id,code,name_ar,name_en,color',
+            'agendaItems.department:id,name_ar,name_en',
             'agendaItems.votes.user:id,name',
             'agendaItems.decision.decidedBy:id,name',
         ]);

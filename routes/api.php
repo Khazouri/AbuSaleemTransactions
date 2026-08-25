@@ -261,6 +261,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:meetings,delete')
         ->delete('committees/{committee}', [CommitteeController::class, 'destroy']);
 
+    Route::middleware('screen.permission:meeting_agenda,view')
+        ->get('meetings/department-options', [MeetingController::class, 'departmentOptions']);
     Route::middleware('screen.permission:meetings,view')
         ->get('meetings', [MeetingController::class, 'index']);
     Route::middleware('screen.permission:meetings,add')
@@ -270,15 +272,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:meetings,edit')->group(function () {
         Route::put('meetings/{meeting}', [MeetingController::class, 'update']);
         Route::post('meetings/{meeting}/send-invitations', [MeetingController::class, 'sendInvitations']);
-        Route::post('meetings/{meeting}/agenda', [MeetingController::class, 'addAgendaItem']);
-        Route::put('meetings/{meeting}/agenda/reorder', [MeetingController::class, 'reorderAgenda']);
-        Route::delete('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'removeAgendaItem']);
         Route::post('meetings/{meeting}/attendees', [MeetingController::class, 'addAttendee']);
         Route::patch('meetings/{meeting}/attendees/{attendee}', [MeetingController::class, 'markAttendance']);
         Route::delete('meetings/{meeting}/attendees/{attendee}', [MeetingController::class, 'removeAttendee']);
     });
     Route::middleware('screen.permission:meetings,delete')
         ->delete('meetings/{meeting}', [MeetingController::class, 'destroy']);
+
+    /*
+     * Stage 31 — agenda building rides the `meeting_agenda` screen's own
+     * permissions rather than `meetings` (grants are identical today, so no
+     * role's access actually changes) — building the agenda is that screen's
+     * declared domain, not the meeting record's.
+     */
+    Route::middleware('screen.permission:meeting_agenda,view')
+        ->get('meetings/{meeting}/agenda/stats', [MeetingController::class, 'agendaStats']);
+    Route::middleware('screen.permission:meeting_agenda,edit')->group(function () {
+        Route::post('meetings/{meeting}/agenda', [MeetingController::class, 'addAgendaItem']);
+        Route::put('meetings/{meeting}/agenda/reorder', [MeetingController::class, 'reorderAgenda']);
+        Route::patch('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'updateAgendaItem']);
+        Route::delete('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'removeAgendaItem']);
+    });
 
     /*
      * Stage 21 — committee voting and decision recording. These ride the

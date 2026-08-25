@@ -162,6 +162,14 @@ class DecisionController extends Controller
     ): JsonResponse {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
+        // Stage 31 — an admin/emerging item has no transaction for
+        // WorkflowService::transition() to move.
+        if ($agendaItem->item_type !== 'employee_request') {
+            return response()->json([
+                'message' => 'لا يمكن تسجيل قرار على بند غير مرتبط بمعاملة.',
+            ], 422);
+        }
+
         if ($agendaItem->decision()->exists()) {
             return response()->json([
                 'message' => 'تم تسجيل قرار هذا البند بالفعل.',

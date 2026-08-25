@@ -37,6 +37,12 @@ class DecisionEligibility
      */
     public function reasonBlockingVote(MeetingTransaction $agendaItem, User $user): ?string
     {
+        // Stage 31 — an admin/emerging item has no transaction to run through
+        // WorkflowService::transition(), so it can never go to a vote.
+        if ($agendaItem->item_type !== 'employee_request') {
+            return 'التصويت مقصور على بنود الطلبات المرتبطة بمعاملة.';
+        }
+
         if ($agendaItem->decision()->exists()) {
             return 'تم تسجيل قرار هذا البند بالفعل، لا يمكن التصويت بعد الآن.';
         }
@@ -74,6 +80,7 @@ class DecisionEligibility
     public function pendingVotesQuery(User $user): Builder
     {
         return MeetingTransaction::query()
+            ->where('item_type', 'employee_request')
             ->whereDoesntHave('decision')
             ->whereHas('meeting', function (Builder $meeting) use ($user) {
                 $meeting
