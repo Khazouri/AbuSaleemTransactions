@@ -124,11 +124,20 @@ onMounted(load)
             <span v-if="nextMeeting.location" class="muted">{{ nextMeeting.location }}</span>
             <div class="counts">
               <span>{{ nextMeeting.agenda_items_count }} {{ t('meetingsUnit.dashboard.nextMeeting.items') }}</span>
-              <span>{{ nextMeeting.attendees_confirmed }}/{{ nextMeeting.attendees_total }} {{ t('meetingsUnit.dashboard.nextMeeting.confirmed') }}</span>
+              <span class="pill" :class="nextMeeting.readiness.ready ? 'good' : 'bad'">
+                {{ nextMeeting.readiness.ready
+                  ? t('meetingsUnit.dashboard.nextMeeting.ready')
+                  : t('meetingsUnit.dashboard.nextMeeting.notReady', { count: nextMeeting.readiness.exceptions_count }) }}
+              </span>
             </div>
-            <RouterLink class="ghost" :to="{ name: 'meeting_details', params: { id: nextMeeting.id } }">
-              {{ t('meetingsUnit.dashboard.nextMeeting.open') }}
-            </RouterLink>
+            <div class="next-meeting-links">
+              <RouterLink class="ghost" :to="{ name: 'meeting_details', params: { id: nextMeeting.id } }">
+                {{ t('meetingsUnit.dashboard.nextMeeting.open') }}
+              </RouterLink>
+              <RouterLink class="ghost" :to="{ name: 'meeting_readiness', query: { meeting: nextMeeting.id } }">
+                {{ t('meetingsUnit.dashboard.nextMeeting.checkReadiness') }}
+              </RouterLink>
+            </div>
           </div>
         </section>
       </div>
@@ -176,6 +185,10 @@ onMounted(load)
 .next-meeting { display: grid; gap: .3rem; font-size: .88rem; }
 .next-meeting strong { color: var(--color-brand-text); font-size: 1rem; }
 .muted { color: var(--color-muted); font-size: .82rem; }
-.counts { display: flex; gap: 1rem; margin: .4rem 0; color: var(--color-black-700); font-size: .82rem; }
-.next-meeting .ghost { justify-self: start; margin-top: .3rem; }
+.counts { display: flex; align-items: center; gap: .6rem; margin: .4rem 0; color: var(--color-black-700); font-size: .82rem; }
+.pill { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .74rem; }
+.pill.good { background: var(--color-success-bg); color: var(--color-success-fg); border: 1px solid var(--color-success-border); }
+.pill.bad { background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); }
+.next-meeting-links { display: flex; gap: .5rem; margin-top: .3rem; }
+.next-meeting-links .ghost { justify-self: start; }
 </style>

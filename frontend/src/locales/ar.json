@@ -500,9 +500,10 @@
         "title": "الاجتماع القادم",
         "none": "لا يوجد اجتماع قادم مجدول.",
         "items": "بند بجدول الأعمال",
-        "attendees": "مدعو",
-        "confirmed": "أكد الحضور",
-        "open": "فتح الاجتماع"
+        "ready": "جاهز للمباشرة",
+        "notReady": "غير جاهز ({count})",
+        "open": "فتح الاجتماع",
+        "checkReadiness": "التحقق من الجاهزية"
       },
       "error": "تعذر تحميل بيانات اللوحة."
     },
@@ -557,7 +558,49 @@
         "noDepartment": "بدون إدارة"
       }
     },
-    "readiness": { "title": "جاهزية الاجتماع", "placeholder": "قيد الإنشاء." },
+    "readiness": {
+      "title": "جاهزية الاجتماع",
+      "subtitle": "تحقق من جاهزية الاجتماع قبل مباشرته.",
+      "chooseMeeting": "الاجتماع",
+      "chooseMeetingPlaceholder": "— اختر اجتماعاً —",
+      "noMeetingSelected": "اختر اجتماعاً للتحقق من جاهزيته.",
+      "error": "تعذر تحميل بيانات الجاهزية.",
+      "verdict": { "ready": "جاهز للمباشرة", "notReady": "غير جاهز" },
+      "percentages": {
+        "file": "الملفات",
+        "member": "تغطية الأعضاء",
+        "agenda": "اكتمال جدول الأعمال",
+        "invitation": "الردود على الدعوات"
+      },
+      "quorum": {
+        "title": "النصاب",
+        "required": "المطلوب",
+        "confirmed": "المؤكَّد",
+        "met": "النصاب مكتمل",
+        "notMet": "النصاب غير مكتمل"
+      },
+      "exceptions": {
+        "title": "الاستثناءات",
+        "none": "لا توجد استثناءات — الاجتماع جاهز بالكامل.",
+        "empty_agenda": "لا يحتوي جدول الأعمال على أي بنود بعد.",
+        "quorum_not_met": "الأعضاء المؤكَّدون ({confirmed}/{required}) لا يحققون النصاب.",
+        "missing_files": "{count} بند/بنود طلبات بلا مرفقات.",
+        "unconfirmed_members": "{count} عضو/أعضاء لم تتم دعوتهم لهذا الاجتماع.",
+        "incomplete_agenda_items": "بعض بنود جدول الأعمال بلا أولوية أو وقت متوقع.",
+        "pending_invitations": "بعض المدعوين لم يردوا على الدعوة بعد."
+      },
+      "convene": {
+        "title": "مباشرة الاجتماع",
+        "button": "مباشرة",
+        "alreadyConvened": "تمت المباشرة في {date}",
+        "reasonLabel": "سبب التجاوز",
+        "reasonRequiredHint": "مطلوب — الاجتماع غير جاهز بالكامل",
+        "reasonOptionalHint": "غير مطلوب — الاجتماع جاهز بالكامل",
+        "confirm": "مباشرة",
+        "cancel": "إلغاء",
+        "processing": "جارٍ المباشرة…"
+      }
+    },
     "live": { "title": "مباشرة الاجتماع", "placeholder": "قيد الإنشاء." },
     "minutes": { "title": "المحاضر", "placeholder": "قيد الإنشاء." },
     "outputs": { "title": "المخرجات", "placeholder": "قيد الإنشاء." }

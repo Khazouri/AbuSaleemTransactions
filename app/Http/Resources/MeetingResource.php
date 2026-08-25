@@ -27,6 +27,12 @@ class MeetingResource extends JsonResource
             'description' => $this->description,
             'status' => $this->status,
             'minutes' => $this->minutes,
+            'convened_at' => $this->convened_at?->toIso8601String(),
+            'readiness_override_reason' => $this->readiness_override_reason,
+            'convened_by' => $this->whenLoaded('convenedBy', fn () => $this->convenedBy ? [
+                'id' => $this->convenedBy->id,
+                'name' => $this->convenedBy->name,
+            ] : null),
             'committee' => $this->whenLoaded('committee', fn () => [
                 'id' => $this->committee->id,
                 'name_ar' => $this->committee->name_ar,

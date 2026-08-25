@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DevTestUserController;
 use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MeetingController;
+use App\Http\Controllers\Api\MeetingReadinessController;
 use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
@@ -318,6 +319,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'updateAgendaItem']);
         Route::delete('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'removeAgendaItem']);
     });
+
+    /*
+     * Stage 33 — the pre-meeting readiness gate. Rides the `meeting_readiness`
+     * screen's own grants (view=* for the read side, edit=[R03] for convene —
+     * which doubles as the "R03 exceptional override" requirement, see
+     * MeetingReadinessController's docblock).
+     */
+    Route::middleware('screen.permission:meeting_readiness,view')
+        ->get('meetings/{meeting}/readiness', [MeetingReadinessController::class, 'show']);
+    Route::middleware('screen.permission:meeting_readiness,edit')
+        ->post('meetings/{meeting}/convene', [MeetingReadinessController::class, 'convene']);
 
     /*
      * Stage 21 — committee voting and decision recording. These ride the

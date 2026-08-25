@@ -19,6 +19,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $meeting_number
  * @property string $meeting_type regular|extraordinary|emergency
  * @property Carbon|null $agenda_deadline
+ * @property Carbon|null $convened_at
+ * @property string|null $readiness_override_reason
  */
 class Meeting extends Model
 {
@@ -39,6 +41,9 @@ class Meeting extends Model
         'status',
         'minutes',
         'created_by_user_id',
+        'convened_at',
+        'convened_by_user_id',
+        'readiness_override_reason',
     ];
 
     protected function casts(): array
@@ -47,6 +52,7 @@ class Meeting extends Model
             'scheduled_at' => 'datetime',
             'agenda_deadline' => 'datetime',
             'expected_duration_minutes' => 'integer',
+            'convened_at' => 'datetime',
         ];
     }
 
@@ -68,6 +74,11 @@ class Meeting extends Model
     public function rapporteur(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rapporteur_user_id');
+    }
+
+    public function convenedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'convened_by_user_id');
     }
 
     public function attendees(): HasMany

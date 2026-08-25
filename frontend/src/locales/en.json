@@ -500,9 +500,10 @@
         "title": "Next meeting",
         "none": "No upcoming meeting is scheduled.",
         "items": "agenda item(s)",
-        "attendees": "invited",
-        "confirmed": "confirmed",
-        "open": "Open meeting"
+        "ready": "Ready to convene",
+        "notReady": "Not ready ({count})",
+        "open": "Open meeting",
+        "checkReadiness": "Check readiness"
       },
       "error": "Could not load the dashboard data."
     },
@@ -557,7 +558,49 @@
         "noDepartment": "No department"
       }
     },
-    "readiness": { "title": "Meeting Readiness", "placeholder": "Under construction." },
+    "readiness": {
+      "title": "Meeting Readiness",
+      "subtitle": "Check a meeting's readiness before convening it.",
+      "chooseMeeting": "Meeting",
+      "chooseMeetingPlaceholder": "— Choose a meeting —",
+      "noMeetingSelected": "Choose a meeting to check its readiness.",
+      "error": "Could not load readiness data.",
+      "verdict": { "ready": "Ready to convene", "notReady": "Not ready" },
+      "percentages": {
+        "file": "Case files",
+        "member": "Member roster",
+        "agenda": "Agenda completeness",
+        "invitation": "Invitation responses"
+      },
+      "quorum": {
+        "title": "Quorum",
+        "required": "Required",
+        "confirmed": "Confirmed",
+        "met": "Quorum met",
+        "notMet": "Quorum not met"
+      },
+      "exceptions": {
+        "title": "Exceptions",
+        "none": "No exceptions — the meeting is fully ready.",
+        "empty_agenda": "The agenda has no items yet.",
+        "quorum_not_met": "Confirmed members ({confirmed}/{required}) do not meet quorum.",
+        "missing_files": "{count} request item(s) are missing attachments.",
+        "unconfirmed_members": "{count} committee member(s) were not invited to this meeting.",
+        "incomplete_agenda_items": "Some agenda items are missing a priority or estimated time.",
+        "pending_invitations": "Some attendees have not responded to their invitation."
+      },
+      "convene": {
+        "title": "Convene meeting",
+        "button": "Convene",
+        "alreadyConvened": "Convened at {date}",
+        "reasonLabel": "Override reason",
+        "reasonRequiredHint": "Required — the meeting is not fully ready",
+        "reasonOptionalHint": "Not required — the meeting is fully ready",
+        "confirm": "Convene",
+        "cancel": "Cancel",
+        "processing": "Convening…"
+      }
+    },
     "live": { "title": "Live Meeting", "placeholder": "Under construction." },
     "minutes": { "title": "Minutes", "placeholder": "Under construction." },
     "outputs": { "title": "Outputs", "placeholder": "Under construction." }

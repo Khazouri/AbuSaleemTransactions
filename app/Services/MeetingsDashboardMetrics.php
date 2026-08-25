@@ -17,7 +17,10 @@ use App\Models\Transaction;
  */
 class MeetingsDashboardMetrics
 {
-    public function __construct(private readonly CommitteeStatusService $committeeStatus) {}
+    public function __construct(
+        private readonly CommitteeStatusService $committeeStatus,
+        private readonly MeetingReadinessService $readiness,
+    ) {}
 
     public function kpis(): array
     {
@@ -58,8 +61,10 @@ class MeetingsDashboardMetrics
     }
 
     /**
-     * A lightweight preview only — file/member/quorum readiness percentages
-     * are Stage 33's GET /meetings/{id}/readiness scope, not this one.
+     * Stage 33 — reads MeetingReadinessService rather than re-deriving its
+     * own confirmed/total counts, so the dashboard tile can never disagree
+     * with the dedicated readiness screen (per the Stage 32 note's own
+     * open item).
      */
     public function nextMeeting(): ?array
     {
@@ -75,6 +80,8 @@ class MeetingsDashboardMetrics
             return null;
         }
 
+        $readiness = $this->readiness->compute($meeting);
+
         return [
             'id' => $meeting->id,
             'title' => $meeting->title,
@@ -86,8 +93,10 @@ class MeetingsDashboardMetrics
             'scheduled_at' => $meeting->scheduled_at?->toIso8601String(),
             'location' => $meeting->location,
             'agenda_items_count' => $meeting->agenda_items_count,
-            'attendees_total' => $meeting->attendees()->count(),
-            'attendees_confirmed' => $meeting->attendees()->where('invitation_status', 'confirmed')->count(),
+            'readiness' => [
+                'ready' => $readiness['ready'],
+                'exceptions_count' => count($readiness['exceptions']),
+            ],
         ];
     }
 

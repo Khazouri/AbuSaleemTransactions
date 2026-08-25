@@ -308,6 +308,7 @@ class MeetingController extends Controller
             'createdBy:id,name',
             'chairman:id,name',
             'rapporteur:id,name',
+            'convenedBy:id,name',
             'attendees.user:id,name',
             'agendaItems.transaction:id,reference_number,title,status_id',
             'agendaItems.transaction.status:id,code,name_ar,name_en,color',
