@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BackupController;
+use App\Http\Controllers\Api\CommitteeCandidateController;
 use App\Http\Controllers\Api\CommitteeController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DecisionController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DevTestUserController;
 use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MeetingController;
+use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReportController;
@@ -260,6 +262,29 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::middleware('screen.permission:meetings,delete')
         ->delete('committees/{committee}', [CommitteeController::class, 'destroy']);
+
+    /*
+     * Stage 32 — the candidate-requests worklist. Rides the `committee_candidates`
+     * screen's own grants (add=[R03,R04] gates nominate, edit=[R03] gates the
+     * other three) rather than `meetings` — see CommitteeCandidateController's
+     * docblock for why defer/return-to-study run through WorkflowService while
+     * nominate/request-completion run through CommitteeStatusService.
+     */
+    Route::middleware('screen.permission:committee_candidates,view')
+        ->get('committee-candidates', [CommitteeCandidateController::class, 'index']);
+    Route::middleware('screen.permission:committee_candidates,add')
+        ->post('committee-candidates/{transaction}/nominate', [CommitteeCandidateController::class, 'nominate']);
+    Route::middleware('screen.permission:committee_candidates,edit')->group(function () {
+        Route::post('committee-candidates/{transaction}/defer', [CommitteeCandidateController::class, 'defer']);
+        Route::post('committee-candidates/{transaction}/return-to-study', [CommitteeCandidateController::class, 'returnToStudy']);
+        Route::post('committee-candidates/{transaction}/request-completion', [CommitteeCandidateController::class, 'requestCompletion']);
+    });
+
+    // Stage 32 — the meetings-unit command dashboard. A literal path declared
+    // before the `meetings/{meeting}` wildcard below, same reason
+    // department-options is.
+    Route::middleware('screen.permission:meetings_dashboard,view')
+        ->get('meetings/dashboard', [MeetingsDashboardController::class, 'index']);
 
     Route::middleware('screen.permission:meeting_agenda,view')
         ->get('meetings/department-options', [MeetingController::class, 'departmentOptions']);

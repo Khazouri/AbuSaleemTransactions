@@ -477,8 +477,69 @@
     }
   },
   "meetingsUnit": {
-    "dashboard": { "title": "Meetings Dashboard", "placeholder": "Under construction." },
-    "candidates": { "title": "Committee Candidates", "placeholder": "Under construction." },
+    "dashboard": {
+      "title": "Meetings Dashboard",
+      "subtitle": "An overview of the committee's request pipeline and the next meeting.",
+      "kpis": {
+        "candidates": "Candidate requests",
+        "upcomingMeetings": "Upcoming meetings",
+        "meetingsHeld": "Meetings held",
+        "pendingDecisions": "Items awaiting decision",
+        "overdueItems": "Overdue committee items",
+        "decisionsThisMonth": "Decisions this month"
+      },
+      "funnel": {
+        "title": "Committee request pipeline",
+        "candidates": "Candidates",
+        "onAgenda": "On agenda",
+        "inDiscussion": "In discussion",
+        "decided": "Decided",
+        "closed": "Closed"
+      },
+      "nextMeeting": {
+        "title": "Next meeting",
+        "none": "No upcoming meeting is scheduled.",
+        "items": "agenda item(s)",
+        "attendees": "invited",
+        "confirmed": "confirmed",
+        "open": "Open meeting"
+      },
+      "error": "Could not load the dashboard data."
+    },
+    "candidates": {
+      "title": "Committee Candidates",
+      "subtitle": "Requests ready with the committee, before they're placed on a meeting's agenda.",
+      "filters": {
+        "status": "Status",
+        "allStatuses": "All statuses",
+        "department": "Department",
+        "allDepartments": "All departments",
+        "search": "Search",
+        "searchPlaceholder": "Reference number or title"
+      },
+      "table": {
+        "reference": "Reference",
+        "title": "Title",
+        "department": "Department",
+        "status": "Status",
+        "submitted": "Submitted",
+        "overdue": "Overdue",
+        "actions": "Actions"
+      },
+      "empty": "No candidate requests right now.",
+      "actions": {
+        "nominate": "Add to committee list",
+        "defer": "Defer",
+        "returnToStudy": "Return to study",
+        "requestCompletion": "Request completion"
+      },
+      "commentLabel": "Reason",
+      "commentRequiredHint": "required for this action",
+      "commentOptionalHint": "optional",
+      "confirm": "Confirm",
+      "cancelPrompt": "Cancel",
+      "processing": "Processing…"
+    },
     "agenda": {
       "title": "Meeting Agenda",
       "chooseMeeting": "Meeting",
@@ -512,6 +573,7 @@
       "request_edit": "Request changes",
       "cancel": "Cancel transaction",
       "defer": "Defer decision",
+      "return_to_study": "Return to study",
       "deadline_expired": "Escalate overdue transaction"
     }
   },

@@ -7,6 +7,7 @@ use App\Models\Transaction;
 use App\Models\TransactionStatus;
 use App\Models\TransactionStatusHistory;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -57,8 +58,13 @@ class CommitteeStatusService
             'to' => 'awaiting_recommendation_approval',
             'requires_comment' => false,
         ],
+        // Stage 32 widened this action's origin beyond the mid-discussion
+        // statuses it started with: the candidate-requests worklist offers
+        // "request completion" on a not-yet-nominated/nominated item too, so
+        // staff can ask for missing material before it ever reaches an
+        // agenda, not only once discussion has begun.
         'require_completion' => [
-            'from' => ['under_discussion', 'awaiting_recommendation_approval'],
+            'from' => ['ready', 'in_meeting', 'nominated_for_committee', 'under_discussion', 'awaiting_recommendation_approval'],
             'to' => 'completion_required',
             'requires_comment' => true,
         ],
@@ -70,6 +76,16 @@ class CommitteeStatusService
     ];
 
     private const COMMITTEE_STAGE_CODE = 'receive_from_committee';
+
+    /**
+     * Stage 32 — the committee's "candidate pool": sitting at this stage, not
+     * yet placed on any meeting's agenda. Exactly `nominate`'s origin
+     * statuses plus the status it moves them to — the same set the
+     * candidate-requests worklist and the meetings dashboard's funnel/KPIs
+     * both read, so a request the worklist lists is always one the dashboard
+     * is already counting.
+     */
+    public const CANDIDATE_STATUSES = ['ready', 'in_meeting', 'nominated_for_committee'];
 
     /**
      * @throws CommitteeStatusTransitionException
@@ -135,6 +151,16 @@ class CommitteeStatusService
 
             return $locked->refresh();
         });
+    }
+
+    /**
+     * @return Builder<Transaction>
+     */
+    public function candidatesQuery(): Builder
+    {
+        return Transaction::query()
+            ->whereHas('currentStage', fn ($query) => $query->where('code', self::COMMITTEE_STAGE_CODE))
+            ->whereHas('status', fn ($query) => $query->whereIn('code', self::CANDIDATE_STATUSES));
     }
 
     private function hasTerminalStatus(Transaction $transaction): bool

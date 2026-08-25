@@ -477,8 +477,69 @@
     }
   },
   "meetingsUnit": {
-    "dashboard": { "title": "لوحة قيادة الاجتماعات", "placeholder": "قيد الإنشاء." },
-    "candidates": { "title": "الطلبات المرشحة", "placeholder": "قيد الإنشاء." },
+    "dashboard": {
+      "title": "لوحة قيادة الاجتماعات",
+      "subtitle": "نظرة عامة على مسار الطلبات لدى اللجنة والاجتماع القادم.",
+      "kpis": {
+        "candidates": "الطلبات المرشحة",
+        "upcomingMeetings": "الاجتماعات القادمة",
+        "meetingsHeld": "الاجتماعات المنعقدة",
+        "pendingDecisions": "بنود بانتظار القرار",
+        "overdueItems": "طلبات متأخرة لدى اللجنة",
+        "decisionsThisMonth": "قرارات هذا الشهر"
+      },
+      "funnel": {
+        "title": "مسار الطلبات لدى اللجنة",
+        "candidates": "مرشحة",
+        "onAgenda": "على جدول الأعمال",
+        "inDiscussion": "قيد المناقشة",
+        "decided": "صدر قرارها",
+        "closed": "مغلقة"
+      },
+      "nextMeeting": {
+        "title": "الاجتماع القادم",
+        "none": "لا يوجد اجتماع قادم مجدول.",
+        "items": "بند بجدول الأعمال",
+        "attendees": "مدعو",
+        "confirmed": "أكد الحضور",
+        "open": "فتح الاجتماع"
+      },
+      "error": "تعذر تحميل بيانات اللوحة."
+    },
+    "candidates": {
+      "title": "الطلبات المرشحة للعرض",
+      "subtitle": "الطلبات الجاهزة لدى اللجنة، قبل إدراجها في جدول أعمال أحد الاجتماعات.",
+      "filters": {
+        "status": "الحالة",
+        "allStatuses": "كل الحالات",
+        "department": "الإدارة",
+        "allDepartments": "كل الإدارات",
+        "search": "بحث",
+        "searchPlaceholder": "رقم المرجع أو العنوان"
+      },
+      "table": {
+        "reference": "المرجع",
+        "title": "العنوان",
+        "department": "الإدارة",
+        "status": "الحالة",
+        "submitted": "تاريخ التقديم",
+        "overdue": "متأخرة",
+        "actions": "إجراءات"
+      },
+      "empty": "لا توجد طلبات مرشحة حالياً.",
+      "actions": {
+        "nominate": "إضافة لقائمة اللجنة",
+        "defer": "تأجيل",
+        "returnToStudy": "إعادة للدراسة",
+        "requestCompletion": "طلب استكمال"
+      },
+      "commentLabel": "السبب",
+      "commentRequiredHint": "مطلوب لهذا الإجراء",
+      "commentOptionalHint": "اختياري",
+      "confirm": "تنفيذ",
+      "cancelPrompt": "إلغاء",
+      "processing": "جارٍ التنفيذ…"
+    },
     "agenda": {
       "title": "جدول الأعمال",
       "chooseMeeting": "الاجتماع",
@@ -512,6 +573,7 @@
       "request_edit": "طلب تعديل",
       "cancel": "إلغاء المعاملة",
       "defer": "تأجيل القرار",
+      "return_to_study": "إعادة للدراسة",
       "deadline_expired": "تصعيد لانتهاء المهلة"
     }
   },

@@ -124,6 +124,20 @@ class WorkflowTransitionSeeder extends Seeder
             50,
         );
 
+        // Stage 32 — the candidate-requests worklist's "return to study": the
+        // committee sends a request back to the observations checkpoint for
+        // more work before it can be nominated again. Unlike CommitteeStatusService's
+        // status-only moves, this crosses back over a stage boundary, so it
+        // has to be a WorkflowService exception, not a committee sub-status.
+        $this->seedException(
+            $stages[7]->id,
+            $stages[4]->id,
+            'return_to_study',
+            $roles['R03']->id,
+            $statuses['returned']->id,
+            55,
+        );
+
         // Stage 17 — once the SLA sweep marks a breach, an administrator can
         // route the case to ministry oversight. The deadline is a separate
         // flag, so this does not disguise the actual workflow state as a
