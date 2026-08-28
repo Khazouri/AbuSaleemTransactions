@@ -28,28 +28,35 @@ class PermissionSeeder extends Seeder
         // key => [name_ar, name_en, UI group, roles that hold it]
         $catalogue = [
             // --- Working with transactions -----------------------------------
-            'transactions.add'        => ['إضافة معاملة جديدة',          'Add transaction',          'transactions', ['R01', 'R08']],
-            'transactions.view'       => ['عرض المعاملات',               'View transactions',        'transactions', ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08']],
-            'transactions.edit'       => ['تعديل المعاملة',              'Edit transaction',         'transactions', ['R01', 'R02', 'R05', 'R08']],
-            'transactions.delete'     => ['حذف المعاملة',                'Delete transaction',       'transactions', ['R08']],
-            'transactions.notes'      => ['إضافة ملاحظات',               'Add notes',                'transactions', ['R01', 'R02', 'R03', 'R04', 'R05', 'R08']],
-            'transactions.attachments'=> ['رفع / تنزيل المرفقات',        'Manage attachments',       'transactions', ['R01', 'R02', 'R03', 'R04', 'R05', 'R08']],
+            // Diagram-alignment redesign (see AGENT_NOTES.md): R09/R10 are
+            // added everywhere R05 already appears, since they receive and
+            // register requests at the new front-half stages exactly like
+            // R05/HR does for its own routed path. Note this catalogue is not
+            // read by any enforcement code any more (screen_role_permissions
+            // has been the real source of truth since Stage 9) — kept in step
+            // anyway so it stays an accurate reference rather than stale data.
+            'transactions.add' => ['إضافة معاملة جديدة',          'Add transaction',          'transactions', ['R01', 'R08']],
+            'transactions.view' => ['عرض المعاملات',               'View transactions',        'transactions', ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08', 'R09', 'R10']],
+            'transactions.edit' => ['تعديل المعاملة',              'Edit transaction',         'transactions', ['R01', 'R02', 'R05', 'R08', 'R09', 'R10']],
+            'transactions.delete' => ['حذف المعاملة',                'Delete transaction',       'transactions', ['R08']],
+            'transactions.notes' => ['إضافة ملاحظات',               'Add notes',                'transactions', ['R01', 'R02', 'R03', 'R04', 'R05', 'R08', 'R09', 'R10']],
+            'transactions.attachments' => ['رفع / تنزيل المرفقات',        'Manage attachments',       'transactions', ['R01', 'R02', 'R03', 'R04', 'R05', 'R08', 'R09', 'R10']],
 
             // --- Moving them through the workflow ----------------------------
             // R01 is absent: an employee submits a request but never advances it.
-            'transactions.forward'    => ['اعتماد / إرسال للمعالجة',      'Forward for processing',   'workflow',     ['R02', 'R03', 'R05', 'R06', 'R07', 'R08']],
-            'decisions.approve'       => ['اعتماد القرار',               'Approve decision',         'workflow',     ['R03', 'R04', 'R05', 'R06', 'R07', 'R08']],
+            'transactions.forward' => ['اعتماد / إرسال للمعالجة',      'Forward for processing',   'workflow',     ['R02', 'R03', 'R05', 'R06', 'R07', 'R08', 'R09', 'R10']],
+            'decisions.approve' => ['اعتماد القرار',               'Approve decision',         'workflow',     ['R03', 'R04', 'R05', 'R06', 'R07', 'R08']],
             // The last word on a transaction — ministry, dean, or sysadmin only.
             'decisions.final_approve' => ['الاعتماد النهائي',            'Final approval',           'workflow',     ['R06', 'R07', 'R08']],
 
             // --- Administration (System Admin only) --------------------------
-            'users.manage'            => ['إدارة المستخدمين',            'Manage users',             'admin',        ['R08']],
-            'roles.manage'            => ['إدارة الصلاحيات',             'Manage permissions',       'admin',        ['R08']],
-            'settings.manage'         => ['إعدادات النظام',              'System settings',          'admin',        ['R08']],
+            'users.manage' => ['إدارة المستخدمين',            'Manage users',             'admin',        ['R08']],
+            'roles.manage' => ['إدارة الصلاحيات',             'Manage permissions',       'admin',        ['R08']],
+            'settings.manage' => ['إعدادات النظام',              'System settings',          'admin',        ['R08']],
 
             // --- Visibility, granted broadly ---------------------------------
-            'reports.view'            => ['التقارير والإحصائيات',        'Reports & statistics',     'reports',      ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08']],
-            'audit.view'              => ['سجل التدقيق',                 'Audit log',                'audit',        ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08']],
+            'reports.view' => ['التقارير والإحصائيات',        'Reports & statistics',     'reports',      ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08', 'R09', 'R10']],
+            'audit.view' => ['سجل التدقيق',                 'Audit log',                'audit',        ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08', 'R09', 'R10']],
         ];
 
         // Fetch every role once and index by code, so the loop below does no

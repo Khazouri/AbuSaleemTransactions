@@ -20,30 +20,45 @@ class WorkflowServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_happy_path_moves_a_transaction_from_stage_one_to_eleven_with_complete_logs(): void
+    public function test_happy_path_moves_a_transaction_from_stage_one_to_fourteen_with_complete_logs(): void
     {
         $this->seed(DatabaseSeeder::class);
+
+        // Diagram-alignment redesign (see AGENT_NOTES.md): the walk now
+        // opens with the three new front-half stages before it reaches the
+        // stage that used to be first in this test. Those three hops are
+        // manager-gated, not role-gated, so a submitter+manager pair is
+        // wired up ($employee->manager_id) exactly like production data.
+        $employee = $this->userWithRole('R01');
+        $manager = User::factory()->create(['is_active' => true]);
+        $employee->manager_id = $manager->id;
+        $employee->save();
 
         $actors = collect(['R02', 'R03', 'R05', 'R06', 'R07'])
             ->mapWithKeys(fn (string $roleCode) => [
                 $roleCode => $this->userWithRole($roleCode),
             ]);
+        $actors['R01'] = $employee;
+        $actors['MANAGER'] = $manager;
 
-        $transaction = $this->newTransaction();
+        $transaction = $this->newTransaction(createdByUserId: $employee->id);
         $service = app(WorkflowService::class);
 
         $steps = [
-            [1, 2, 'forward', 'R02', 'in_review'],
-            [2, 3, 'approve', 'R02', 'in_review'],
-            [3, 4, 'forward', 'R02', 'in_review'],
-            [4, 5, 'forward', 'R02', 'ready'],
-            [5, 6, 'forward', 'R05', 'ready'],
-            [6, 7, 'forward', 'R05', 'in_meeting'],
-            [7, 8, 'approve', 'R03', 'decided'],
-            [8, 9, 'approve', 'R05', 'approved'],
-            [9, 10, 'approve', 'R06', 'approved'],
-            [10, 11, 'approve', 'R07', 'final_approved'],
-            [11, 11, 'approve', 'R07', 'in_execution'],
+            ['receive_from_municipality', 'direct_manager_review', 'submit', 'R01', 'in_review'],
+            ['direct_manager_review', 'administrative_routing', 'forward', 'MANAGER', 'in_review'],
+            ['administrative_routing', 'receive_and_register', 'route_to_hr', 'MANAGER', 'routed_to_hr'],
+            ['receive_and_register', 'requirements_check', 'register', 'R05', 'registered'],
+            ['requirements_check', 'reviewer_review', 'approve', 'R02', 'in_review'],
+            ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
+            ['observations', 'ministry_endorsement', 'forward', 'R02', 'ready'],
+            ['ministry_endorsement', 'forward_to_committee', 'forward', 'R05', 'ready'],
+            ['forward_to_committee', 'receive_from_committee', 'forward', 'R05', 'in_meeting'],
+            ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'decided'],
+            ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'approved'],
+            ['local_governance_ministry', 'competent_authority', 'approve', 'R06', 'approved'],
+            ['competent_authority', 'final_approval_archiving', 'approve', 'R07', 'final_approved'],
+            ['final_approval_archiving', 'final_approval_archiving', 'approve', 'R07', 'in_execution'],
         ];
 
         foreach ($steps as [$from, $to, $action, $roleCode, $statusCode]) {
@@ -54,30 +69,39 @@ class WorkflowServiceTest extends TestCase
                 signaturePath: $action === 'approve' ? "signatures/test-{$from}.png" : null,
             );
 
-            $this->assertSame($to, $transaction->currentStage->order_no);
+            $this->assertSame($to, $transaction->currentStage->code);
             $this->assertSame($statusCode, $transaction->status->code);
             $this->assertDatabaseHas('transaction_stage_logs', [
                 'transaction_id' => $transaction->id,
-                'from_stage_id' => WorkflowStage::where('order_no', $from)->value('id'),
-                'to_stage_id' => WorkflowStage::where('order_no', $to)->value('id'),
+                'from_stage_id' => WorkflowStage::where('code', $from)->value('id'),
+                'to_stage_id' => WorkflowStage::where('code', $to)->value('id'),
                 'action' => $action,
                 'acted_by_user_id' => $actors[$roleCode]->id,
             ]);
         }
 
-        $this->assertSame(11, $transaction->currentStage->order_no);
+        $this->assertSame('final_approval_archiving', $transaction->currentStage->code);
         $this->assertSame('in_execution', $transaction->status->code);
-        $this->assertCount(11, $transaction->stageLogs);
-        $this->assertCount(11, $transaction->statusHistory);
+        $this->assertCount(14, $transaction->stageLogs);
+        $this->assertCount(14, $transaction->statusHistory);
         $this->assertSame(
-            [...range(2, 11), 11],
+            [
+                'direct_manager_review', 'administrative_routing', 'receive_and_register',
+                'requirements_check', 'reviewer_review', 'observations', 'ministry_endorsement',
+                'forward_to_committee', 'receive_from_committee', 'approval_by_authority',
+                'local_governance_ministry', 'competent_authority', 'final_approval_archiving',
+                'final_approval_archiving',
+            ],
             $transaction->stageLogs()
                 ->with('toStage')
                 ->orderBy('id')
                 ->get()
-                ->pluck('toStage.order_no')
+                ->pluck('toStage.code')
                 ->all(),
         );
+        // The four new front-half hops (submit/forward/route_to_hr/register)
+        // are none of them action `approve`, so they write no Approval ledger
+        // row — the level sequence is exactly what it was before this stage.
         $this->assertSame(range(1, 6), $transaction->approvals()->orderBy('id')->pluck('level')->all());
         $this->assertSame(
             ['R02', 'R03', 'R05', 'R06', 'R07', 'R07'],
@@ -89,12 +113,15 @@ class WorkflowServiceTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
+        // Diagram-alignment redesign: the outbound action from stage one is
+        // now `submit` (R01/R08), not `forward` — an R02 actor has the wrong
+        // role for it, which is exactly the case this test wants.
         $transaction = $this->newTransaction();
-        $employee = $this->userWithRole('R01');
+        $reviewer = $this->userWithRole('R02');
 
         try {
-            app(WorkflowService::class)->transition($transaction, 'forward', $employee);
-            $this->fail('The transition should reject an actor without R02.');
+            app(WorkflowService::class)->transition($transaction, 'submit', $reviewer);
+            $this->fail('The transition should reject an actor without R01.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame(
                 'لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.',
@@ -104,7 +131,7 @@ class WorkflowServiceTest extends TestCase
 
         $transaction->refresh();
 
-        $this->assertSame(1, $transaction->currentStage->order_no);
+        $this->assertSame('receive_from_municipality', $transaction->currentStage->code);
         $this->assertSame('new', $transaction->status->code);
         $this->assertDatabaseCount('transaction_stage_logs', 0);
         $this->assertDatabaseCount('transaction_status_history', 0);
@@ -117,18 +144,47 @@ class WorkflowServiceTest extends TestCase
         $rules = WorkflowTransition::query()
             ->where('is_exception', false)
             ->with(['fromStage', 'toStage', 'requiredRole'])
-            ->orderBy('order_no')
             ->get();
 
-        $this->assertCount(11, $rules);
-        $this->assertSame(range(1, 11), $rules->pluck('fromStage.order_no')->all());
-        $this->assertSame([...range(2, 11), 11], $rules->pluck('toStage.order_no')->all());
-        $this->assertSame(
-            ['R02', 'R02', 'R02', 'R02', 'R05', 'R05', 'R03', 'R05', 'R06', 'R07', 'R07'],
-            $rules->pluck('requiredRole.code')->all(),
-        );
+        // Diagram-alignment redesign: this is no longer literally "one rule
+        // per stage". administrative_routing's only outbound moves are its
+        // three route_to_* branches, all modelled as exceptions (see
+        // WorkflowTransitionSeeder), so it contributes zero non-exception
+        // rows; receive_and_register converges through three role-scoped
+        // `register` rows instead of one. 11 (the old total) - 1
+        // (administrative_routing) + 3 (register) + 2 (submit, and the new
+        // manager-gated forward into administrative_routing) = 15.
+        $this->assertCount(15, $rules);
         $this->assertFalse($rules->contains('is_exception', true));
         $this->assertFalse($rules->contains('requires_comment', true));
+
+        $countsByFromStageCode = $rules->groupBy('fromStage.code')->map->count();
+        foreach ([
+            'receive_from_municipality' => 1,
+            'direct_manager_review' => 1,
+            'receive_and_register' => 3,
+            'requirements_check' => 1,
+            'reviewer_review' => 1,
+            'observations' => 1,
+            'ministry_endorsement' => 1,
+            'forward_to_committee' => 1,
+            'receive_from_committee' => 1,
+            'approval_by_authority' => 1,
+            'local_governance_ministry' => 1,
+            'competent_authority' => 1,
+            'final_approval_archiving' => 1,
+        ] as $stageCode => $expectedCount) {
+            $this->assertSame($expectedCount, $countsByFromStageCode->get($stageCode, 0), "stage {$stageCode}");
+        }
+        $this->assertArrayNotHasKey('administrative_routing', $countsByFromStageCode->all());
+
+        // The three `register` rows are what makes the routing enforceable:
+        // one per legitimate receiving role, all converging on the same
+        // destination stage.
+        $registerRules = $rules->where('action', 'register')->values();
+        $this->assertCount(3, $registerRules);
+        $this->assertEqualsCanonicalizing(['R05', 'R09', 'R10'], $registerRules->pluck('requiredRole.code')->all());
+        $this->assertTrue($registerRules->every(fn (WorkflowTransition $rule) => $rule->toStage->code === 'requirements_check'));
     }
 
     public function test_each_seeded_exception_path_moves_to_the_expected_stage_status_and_records_its_reason(): void
@@ -139,22 +195,22 @@ class WorkflowServiceTest extends TestCase
         $adminManager = $this->userWithRole('R05');
         $service = app(WorkflowService::class);
         $paths = [
-            [2, 'return_missing_docs', $reviewer, 1, 'incomplete', 'المستند المالي غير مرفق.'],
-            [3, 'reject_review', $reviewer, 2, 'rejected', 'المعاملة لا تطابق اللائحة.'],
-            [4, 'request_edit', $reviewer, 3, 'returned', 'يرجى تصحيح بيانات القرار.'],
-            [6, 'cancel', $adminManager, 6, 'cancelled', 'ألغيت المعاملة بناءً على كتاب رسمي.'],
+            ['requirements_check', 'return_missing_docs', $reviewer, 'receive_from_municipality', 'incomplete', 'المستند المالي غير مرفق.'],
+            ['reviewer_review', 'reject_review', $reviewer, 'requirements_check', 'rejected', 'المعاملة لا تطابق اللائحة.'],
+            ['observations', 'request_edit', $reviewer, 'reviewer_review', 'returned', 'يرجى تصحيح بيانات القرار.'],
+            ['forward_to_committee', 'cancel', $adminManager, 'forward_to_committee', 'cancelled', 'ألغيت المعاملة بناءً على كتاب رسمي.'],
         ];
 
         foreach ($paths as [$from, $action, $actor, $to, $status, $reason]) {
             $transaction = $this->newTransaction($from, 'in_review');
             $transaction = $service->transition($transaction, $action, $actor, $reason);
 
-            $this->assertSame($to, $transaction->currentStage->order_no);
+            $this->assertSame($to, $transaction->currentStage->code);
             $this->assertSame($status, $transaction->status->code);
             $this->assertDatabaseHas('transaction_stage_logs', [
                 'transaction_id' => $transaction->id,
-                'from_stage_id' => WorkflowStage::where('order_no', $from)->value('id'),
-                'to_stage_id' => WorkflowStage::where('order_no', $to)->value('id'),
+                'from_stage_id' => WorkflowStage::where('code', $from)->value('id'),
+                'to_stage_id' => WorkflowStage::where('code', $to)->value('id'),
                 'action' => $action,
                 'comment' => $reason,
                 'acted_by_user_id' => $actor->id,
@@ -172,7 +228,7 @@ class WorkflowServiceTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $transaction = $this->newTransaction(2, 'in_review');
+        $transaction = $this->newTransaction('requirements_check', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
         try {
@@ -183,7 +239,7 @@ class WorkflowServiceTest extends TestCase
         }
 
         $transaction->refresh();
-        $this->assertSame(2, $transaction->currentStage->order_no);
+        $this->assertSame('requirements_check', $transaction->currentStage->code);
         $this->assertSame('in_review', $transaction->status->code);
         $this->assertDatabaseCount('transaction_stage_logs', 0);
         $this->assertDatabaseCount('transaction_status_history', 0);
@@ -196,7 +252,7 @@ class WorkflowServiceTest extends TestCase
         $reviewer = $this->userWithRole('R02');
         $service = app(WorkflowService::class);
         $transaction = $service->transition(
-            $this->newTransaction(2, 'in_review'),
+            $this->newTransaction('requirements_check', 'in_review'),
             'cancel',
             $reviewer,
             'ألغي الطلب بطلب الجهة.',
@@ -225,9 +281,13 @@ class WorkflowServiceTest extends TestCase
             ->orderBy('from_stage_id')
             ->get();
 
+        // Diagram-alignment redesign: these three corrective rules sit on
+        // pre-existing stages that were only renumbered (requirements_check,
+        // reviewer_review, observations are now order_no 5/6/7, not 2/3/4);
+        // stage IDENTITY (and so which stage each rule targets) is unchanged.
         $this->assertCount(3, $correctiveRules);
-        $this->assertSame([2, 3, 4], $correctiveRules->pluck('fromStage.order_no')->all());
-        $this->assertSame([1, 2, 3], $correctiveRules->pluck('toStage.order_no')->all());
+        $this->assertSame([5, 6, 7], $correctiveRules->pluck('fromStage.order_no')->all());
+        $this->assertSame([1, 5, 6], $correctiveRules->pluck('toStage.order_no')->all());
         $this->assertTrue($correctiveRules->every('is_exception', true));
         $this->assertTrue($correctiveRules->every('requires_comment', true));
 
@@ -236,8 +296,18 @@ class WorkflowServiceTest extends TestCase
             ->with(['fromStage', 'toStage'])
             ->get();
 
-        $this->assertCount(11, $cancelRules);
-        $this->assertEqualsCanonicalizing(range(1, 11), $cancelRules->pluck('fromStage.order_no')->all());
+        // Diagram-alignment redesign: 11 (unchanged) + the two new
+        // manager-gated stages (direct_manager_review, administrative_routing,
+        // one cancel row each) + receive_and_register's three role-scoped
+        // cancel rows (any of its three legitimate receiving roles may
+        // cancel, unlike `register` this isn't status-gated — see
+        // WorkflowTransitionSeeder) = 16. receive_and_register's order_no
+        // (4) appears three times, once per role-scoped row.
+        $this->assertCount(16, $cancelRules);
+        $this->assertEqualsCanonicalizing(
+            [1, 2, 3, 4, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+            $cancelRules->pluck('fromStage.order_no')->all(),
+        );
         $this->assertTrue($cancelRules->every(
             fn (WorkflowTransition $rule) => $rule->fromStage->is($rule->toStage)
                 && $rule->is_exception
@@ -254,10 +324,14 @@ class WorkflowServiceTest extends TestCase
                 $roleCode => $this->userWithRole($roleCode),
             ]);
         $service = app(WorkflowService::class);
-        $transaction = $this->newTransaction(decisionGrade: 9);
+        // Diagram-alignment redesign: this test's subject is the decision-grade
+        // ministry-skip branch deep in the unchanged back half, not the new
+        // front-half hops — start it past those (at requirements_check,
+        // matching what used to be the effective starting point after the
+        // very first `forward` step below, which is why that step is gone).
+        $transaction = $this->newTransaction(stageCode: 'requirements_check', statusCode: 'in_review', decisionGrade: 9);
 
         foreach ([
-            ['forward', 'R02'],
             ['approve', 'R02'],
             ['forward', 'R02'],
             ['forward', 'R02'],
@@ -279,7 +353,7 @@ class WorkflowServiceTest extends TestCase
             $actors['R05'],
             signaturePath: 'signatures/admin-manager.png',
         );
-        $this->assertSame(10, $transaction->currentStage->order_no);
+        $this->assertSame('competent_authority', $transaction->currentStage->code);
 
         $transaction = $service->transition(
             $transaction,
@@ -306,7 +380,7 @@ class WorkflowServiceTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $transaction = $this->newTransaction(2, 'in_review');
+        $transaction = $this->newTransaction('requirements_check', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
         try {
@@ -319,7 +393,7 @@ class WorkflowServiceTest extends TestCase
             );
         }
 
-        $this->assertSame(2, $transaction->refresh()->currentStage->order_no);
+        $this->assertSame('requirements_check', $transaction->refresh()->currentStage->code);
         $this->assertDatabaseCount('approvals', 0);
         $this->assertDatabaseCount('transaction_stage_logs', 0);
     }
@@ -328,7 +402,7 @@ class WorkflowServiceTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $transaction = $this->newTransaction(8, 'decided');
+        $transaction = $this->newTransaction('approval_by_authority', 'decided');
         $ministry = $this->userWithRole('R06');
 
         try {
@@ -342,13 +416,14 @@ class WorkflowServiceTest extends TestCase
         }
 
         $this->assertDatabaseCount('approvals', 0);
-        $this->assertSame(8, $transaction->refresh()->currentStage->order_no);
+        $this->assertSame('approval_by_authority', $transaction->refresh()->currentStage->code);
     }
 
     private function newTransaction(
-        int $stageOrder = 1,
+        string $stageCode = 'receive_from_municipality',
         string $statusCode = 'new',
         int $decisionGrade = 10,
+        ?int $createdByUserId = null,
     ): Transaction {
         return Transaction::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
@@ -356,9 +431,10 @@ class WorkflowServiceTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
             'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', $stageOrder)->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => now(),
             'decision_grade' => $decisionGrade,
+            'created_by_user_id' => $createdByUserId,
         ]);
     }
 

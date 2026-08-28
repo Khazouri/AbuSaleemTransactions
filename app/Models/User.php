@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -19,10 +20,10 @@ use Laravel\Sanctum\HasApiTokens;
  * permissions of their own: everything they may do is inherited from the roles
  * attached to them.
  *
- * @property string      $name
- * @property string      $email
- * @property int|null    $department_id
- * @property bool        $is_active     False blocks login (see AuthController)
+ * @property string $name
+ * @property string $email
+ * @property int|null $department_id
+ * @property bool $is_active False blocks login (see AuthController)
  */
 class User extends Authenticatable
 {
@@ -31,7 +32,7 @@ class User extends Authenticatable
      * Notifiable    — receives the notifications built in Stage 23
      * SoftDeletes   — keeps the record alive for historical transactions
      *
-     * @use HasFactory<\Database\Factories\UserFactory>
+     * @use HasFactory<UserFactory>
      */
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
@@ -48,6 +49,7 @@ class User extends Authenticatable
         'password',
         'phone',
         'department_id',
+        'manager_id',
         'is_active',
     ];
 
@@ -94,6 +96,23 @@ class User extends Authenticatable
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * This employee's direct manager (المدير المباشر) — the actor
+     * WorkflowService::actorMayUse resolves for `requires_submitter_manager`
+     * rows. Nullable: an employee with no manager assigned falls through to
+     * the R08 override there rather than being permanently stranded.
+     */
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    /** Employees who report directly to this user. */
+    public function directReports(): HasMany
+    {
+        return $this->hasMany(User::class, 'manager_id');
     }
 
     /** Roles held by this user — the source of all their capabilities. */

@@ -7,15 +7,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * WorkflowStage (مرحلة) — one of the 11 steps a transaction passes through.
+ * WorkflowStage (مرحلة) — one of the 14 steps a transaction passes through.
  *
- * Order runs 1 (استلام المعاملة من البلدية) to 11 (الاعتماد النهائي والأرشفة);
- * see the migration for the full list.
+ * Order runs 1 (استلام المعاملة من البلدية) to 14 (الاعتماد النهائي والأرشفة);
+ * see the migration for the full list. Stages 2–4 (direct manager review,
+ * administrative routing, receive & register) were added by the
+ * diagram-alignment redesign — see AGENT_NOTES.md.
  *
- * @property int         $order_no  1..11
- * @property string      $code      e.g. 'requirements_check'
- * @property string      $name_ar
- * @property int|null    $responsible_role_id  Display only — NOT access control
+ * @property int $order_no 1..14
+ * @property string $code e.g. 'requirements_check'
+ * @property string $name_ar
+ * @property int|null $responsible_role_id Display only — NOT access control
  */
 class WorkflowStage extends Model
 {

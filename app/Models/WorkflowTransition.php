@@ -17,9 +17,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * matches, the move is refused — which means the rules are entirely data, and
  * adding a path is an INSERT rather than a code change.
  *
- * @property string   $action            approve, reject, return_missing_docs...
- * @property bool     $is_exception      Exception path vs normal progress
- * @property bool     $requires_comment  Force the actor to give a reason
+ * @property string $action approve, reject, return_missing_docs...
+ * @property bool $is_exception Exception path vs normal progress
+ * @property bool $requires_comment Force the actor to give a reason
  */
 class WorkflowTransition extends Model
 {
@@ -29,6 +29,8 @@ class WorkflowTransition extends Model
         'to_stage_id',
         'action',
         'required_role_id',
+        'requires_submitter_manager',
+        'required_status_id',
         'set_status_id',
         'is_exception',
         'requires_comment',
@@ -40,6 +42,7 @@ class WorkflowTransition extends Model
         return [
             'is_exception' => 'boolean',
             'requires_comment' => 'boolean',
+            'requires_submitter_manager' => 'boolean',
         ];
     }
 
@@ -80,5 +83,16 @@ class WorkflowTransition extends Model
     public function setStatus(): BelongsTo
     {
         return $this->belongsTo(TransactionStatus::class, 'set_status_id');
+    }
+
+    /**
+     * The transaction's CURRENT status this rule additionally requires, on
+     * top of `required_role_id`. Null means no status restriction. This is
+     * what makes three-way administrative routing enforceable: role alone
+     * can't distinguish which of several routed-to statuses a file carries.
+     */
+    public function requiredStatus(): BelongsTo
+    {
+        return $this->belongsTo(TransactionStatus::class, 'required_status_id');
     }
 }

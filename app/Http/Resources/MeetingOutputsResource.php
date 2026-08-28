@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\WorkflowStage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,10 +11,16 @@ class MeetingOutputsResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        // Looked up by code, not hardcoded, so a stage renumber can't
+        // silently change what "advanced past committee" means here.
+        $committeeStageOrder = WorkflowStage::query()
+            ->where('code', 'receive_from_committee')
+            ->value('order_no') ?? 0;
+
         $requestItems = $this->agendaItems->whereNotNull('transaction_id')->values();
         $decidedItems = $requestItems->filter(fn ($item) => $item->decision !== null);
         $advancedItems = $decidedItems->filter(
-            fn ($item) => ($item->transaction?->currentStage?->order_no ?? 0) > 7,
+            fn ($item) => ($item->transaction?->currentStage?->order_no ?? 0) > $committeeStageOrder,
         );
 
         return [

@@ -26,8 +26,8 @@ class ApprovalChainTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $pending = $this->transactionAt(2, 'in_review');
-        $this->transactionAt(8, 'decided');
+        $pending = $this->transactionAt('requirements_check', 'in_review');
+        $this->transactionAt('approval_by_authority', 'decided');
 
         $this->actingAs($reviewer, 'sanctum')
             ->getJson('/api/approvals/reviewer')
@@ -44,7 +44,7 @@ class ApprovalChainTest extends TestCase
                 'signature' => $this->signature(),
             ])
             ->assertOk()
-            ->assertJsonPath('data.current_stage.order_no', 3);
+            ->assertJsonPath('data.current_stage.code', 'reviewer_review');
 
         $this->assertDatabaseHas('approvals', [
             'transaction_id' => $pending->id,
@@ -81,7 +81,7 @@ class ApprovalChainTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $pending = $this->transactionAt(2, 'in_review');
+        $pending = $this->transactionAt('requirements_check', 'in_review');
 
         $this->actingAs($reviewer, 'sanctum')
             ->postJson("/api/approvals/reviewer/{$pending->id}", [
@@ -91,7 +91,7 @@ class ApprovalChainTest extends TestCase
             ->assertJsonValidationErrors('signature');
 
         $this->assertDatabaseCount('approvals', 0);
-        $this->assertSame(2, $pending->refresh()->currentStage->order_no);
+        $this->assertSame('requirements_check', $pending->refresh()->currentStage->code);
         $this->assertSame([], Storage::disk('local')->allFiles());
     }
 
@@ -100,7 +100,7 @@ class ApprovalChainTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $adminPending = $this->transactionAt(8, 'decided');
+        $adminPending = $this->transactionAt('approval_by_authority', 'decided');
 
         $this->actingAs($reviewer, 'sanctum')
             ->getJson('/api/approvals/admin-manager')
@@ -115,7 +115,7 @@ class ApprovalChainTest extends TestCase
             ->assertJsonValidationErrors('transaction');
 
         $this->assertDatabaseCount('approvals', 0);
-        $this->assertSame(8, $adminPending->refresh()->currentStage->order_no);
+        $this->assertSame('approval_by_authority', $adminPending->refresh()->currentStage->code);
     }
 
     public function test_detail_transition_cannot_bypass_a_revoked_approval_screen_permission(): void
@@ -123,7 +123,7 @@ class ApprovalChainTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $pending = $this->transactionAt(2, 'in_review');
+        $pending = $this->transactionAt('requirements_check', 'in_review');
         ScreenRolePermission::query()
             ->where('role_id', Role::where('code', 'R02')->value('id'))
             ->whereHas('screen', fn ($query) => $query->where('code', 'reviewer_approval'))
@@ -139,7 +139,7 @@ class ApprovalChainTest extends TestCase
             ->assertJsonValidationErrors('action');
 
         $this->assertDatabaseCount('approvals', 0);
-        $this->assertSame(2, $pending->refresh()->currentStage->order_no);
+        $this->assertSame('requirements_check', $pending->refresh()->currentStage->code);
     }
 
     public function test_detail_transition_stores_the_same_signature_evidence_as_the_queue(): void
@@ -148,7 +148,7 @@ class ApprovalChainTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $pending = $this->transactionAt(2, 'in_review');
+        $pending = $this->transactionAt('requirements_check', 'in_review');
 
         $this->actingAs($reviewer, 'sanctum')
             ->withHeader('Accept', 'application/json')
@@ -157,7 +157,7 @@ class ApprovalChainTest extends TestCase
                 'signature' => $this->signature(),
             ])
             ->assertOk()
-            ->assertJsonPath('data.current_stage.order_no', 3)
+            ->assertJsonPath('data.current_stage.code', 'reviewer_review')
             ->assertJsonPath('data.approvals.0.level', 1);
 
         $approval = $pending->approvals()->firstOrFail();
@@ -165,7 +165,7 @@ class ApprovalChainTest extends TestCase
         Storage::disk('local')->assertExists($approval->signature_path);
     }
 
-    private function transactionAt(int $stageOrder, string $statusCode): Transaction
+    private function transactionAt(string $stageCode, string $statusCode): Transaction
     {
         return Transaction::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
@@ -173,7 +173,7 @@ class ApprovalChainTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
             'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', $stageOrder)->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => now(),
             'decision_grade' => 10,
         ]);

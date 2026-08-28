@@ -24,12 +24,12 @@ use Throwable;
 class ApprovalController extends Controller
 {
     private const LEVELS = [
-        'reviewer' => ['stage' => 2, 'role' => 'R02'],
-        'committee-head' => ['stage' => 7, 'role' => 'R03'],
-        'admin-manager' => ['stage' => 8, 'role' => 'R05'],
-        'ministry' => ['stage' => 9, 'role' => 'R06'],
-        'authority' => ['stage' => 10, 'role' => 'R07'],
-        'final' => ['stage' => 11, 'role' => 'R07'],
+        'reviewer' => ['stage' => 'requirements_check', 'role' => 'R02'],
+        'committee-head' => ['stage' => 'receive_from_committee', 'role' => 'R03'],
+        'admin-manager' => ['stage' => 'approval_by_authority', 'role' => 'R05'],
+        'ministry' => ['stage' => 'local_governance_ministry', 'role' => 'R06'],
+        'authority' => ['stage' => 'competent_authority', 'role' => 'R07'],
+        'final' => ['stage' => 'final_approval_archiving', 'role' => 'R07'],
     ];
 
     // Stage 18 — role-specific pending approval queues.
@@ -44,7 +44,7 @@ class ApprovalController extends Controller
                 'status:id,code,name_ar,name_en,color',
                 'currentStage:id,order_no,code,name_ar,name_en',
             ])
-            ->whereHas('currentStage', fn ($query) => $query->where('order_no', $configuration['stage']))
+            ->whereHas('currentStage', fn ($query) => $query->where('code', $configuration['stage']))
             // Stage 37: final approval moves to in_execution; keeping that
             // status out prevents the stage-11 self-loop being approved twice.
             ->whereDoesntHave('status', fn ($query) => $query->whereIn(
@@ -67,9 +67,9 @@ class ApprovalController extends Controller
         ApprovalSignatureStorage $signatureStorage,
     ): TransactionResource {
         $configuration = $this->configuration($level);
-        $currentStageOrder = $transaction->currentStage()->value('order_no');
+        $currentStageCode = $transaction->currentStage()->value('code');
 
-        if ($currentStageOrder !== $configuration['stage']) {
+        if ($currentStageCode !== $configuration['stage']) {
             throw ValidationException::withMessages([
                 'transaction' => ['لا توجد المعاملة في مستوى الاعتماد المطلوب.'],
             ]);
@@ -115,7 +115,7 @@ class ApprovalController extends Controller
      * Routes only supply known constants, but fail closed if one is ever
      * miswired instead of silently exposing a broader queue.
      *
-     * @return array{stage: int, role: string}
+     * @return array{stage: string, role: string}
      */
     private function configuration(string $level): array
     {

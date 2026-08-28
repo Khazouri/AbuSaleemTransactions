@@ -75,6 +75,8 @@
     "passwordHint": "اتركه فارغاً للإبقاء على كلمة المرور الحالية",
     "department": "الإدارة",
     "noDepartment": "بدون إدارة",
+    "manager": "المدير المباشر",
+    "noManager": "بدون مدير مباشر",
     "roles": "الأدوار",
     "empty": "لا يوجد مستخدمون بعد.",
     "selfActionBlocked": "لا يمكنك تنفيذ هذا الإجراء على حسابك الخاص."
@@ -728,6 +730,7 @@
   "workflow": {
     "actions": {
       "intake": "استلام المعاملة",
+      "submit": "تقديم الطلب",
       "forward": "إحالة",
       "approve": "اعتماد",
       "reject": "رفض",
@@ -740,7 +743,12 @@
       "conditional_approve": "اعتماد مشروط",
       "request_legal_opinion": "طلب رأي قانوني",
       "refer_to_another_body": "إحالة لجهة أخرى",
-      "deadline_expired": "تصعيد لانتهاء المهلة"
+      "deadline_expired": "تصعيد لانتهاء المهلة",
+      "route_to_hr": "إحالة إلى الموارد البشرية",
+      "route_to_diwan": "إحالة إلى وكيل الديوان",
+      "route_to_committee_secretary": "إحالة إلى أمين سر اللجنة",
+      "register": "تسجيل الاستلام",
+      "return_to_employee": "إعادة إلى الموظف"
     }
   },
   "auditLog": {

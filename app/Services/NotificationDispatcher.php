@@ -173,7 +173,17 @@ class NotificationDispatcher
      * hatches someone reaches for, not work waiting in a queue, and including
      * them would tell every role holding a cancellation right that they have
      * something to do. A rule with no required_role_id names nobody in
-     * particular, so it contributes no recipients either.
+     * particular on its own, EXCEPT when it is manager-gated
+     * (requires_submitter_manager) — see below.
+     *
+     * Diagram-alignment redesign: direct_manager_review's only outbound row is
+     * manager-gated with required_role_id null (no fixed role can act there),
+     * so without this the role-based branch alone would find nobody and the
+     * manager would never hear about work waiting for them. Whenever any
+     * outbound row is manager-gated, the creator's active manager is added
+     * alongside whatever role-based recipients are also found — mirroring
+     * WorkflowService::actorIsCreatorsActiveManager()'s resolution so "who can
+     * act next" and "who gets told" can never disagree.
      *
      * @param  array<int, int>  $excludeUserIds
      * @return Collection<int, User>
@@ -184,7 +194,7 @@ class NotificationDispatcher
             return collect();
         }
 
-        $roleIds = WorkflowTransition::query()
+        $outboundRules = WorkflowTransition::query()
             ->where('from_stage_id', $stageId)
             ->where('is_exception', false)
             ->where(function ($query) use ($transaction) {
@@ -194,20 +204,49 @@ class NotificationDispatcher
                     $query->orWhere('transaction_type_id', $transaction->transaction_type_id);
                 }
             })
-            ->whereNotNull('required_role_id')
-            ->pluck('required_role_id')
-            ->unique()
-            ->all();
+            ->get(['required_role_id', 'requires_submitter_manager']);
 
-        if ($roleIds === []) {
-            return collect();
+        $roleIds = $outboundRules->whereNotNull('required_role_id')->pluck('required_role_id')->unique()->all();
+
+        $recipients = $roleIds === []
+            ? collect()
+            : User::query()
+                ->where('is_active', true)
+                ->when($excludeUserIds !== [], fn ($query) => $query->whereKeyNot($excludeUserIds))
+                ->whereHas('roles', fn ($query) => $query->whereIn('roles.id', $roleIds))
+                ->get();
+
+        if ($outboundRules->contains(fn (WorkflowTransition $rule) => $rule->requires_submitter_manager)) {
+            $manager = $this->creatorsActiveManager($transaction);
+
+            if ($manager !== null && ! in_array($manager->id, $excludeUserIds, true)) {
+                $recipients->push($manager);
+            }
         }
 
-        return User::query()
-            ->where('is_active', true)
-            ->when($excludeUserIds !== [], fn ($query) => $query->whereKeyNot($excludeUserIds))
-            ->whereHas('roles', fn ($query) => $query->whereIn('roles.id', $roleIds))
-            ->get();
+        return $recipients->unique('id');
+    }
+
+    /**
+     * The transaction creator's manager, resolved the same way
+     * WorkflowService::actorIsCreatorsActiveManager() resolves it: a dangling
+     * manager_id (never set, or pointing at a since-deactivated/deleted
+     * account) must not name anyone, rather than notifying a manager who
+     * could no longer act on this anyway.
+     */
+    private function creatorsActiveManager(Transaction $transaction): ?User
+    {
+        if ($transaction->created_by_user_id === null) {
+            return null;
+        }
+
+        $managerId = User::query()->whereKey($transaction->created_by_user_id)->value('manager_id');
+
+        if ($managerId === null) {
+            return null;
+        }
+
+        return User::query()->whereKey($managerId)->where('is_active', true)->first();
     }
 
     /**

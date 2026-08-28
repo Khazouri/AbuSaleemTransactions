@@ -5,22 +5,29 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * WORKFLOW_STAGES (مراحل المعاملة) — the 11 steps of a transaction's life
+ * WORKFLOW_STAGES (مراحل المعاملة) — the 14 steps of a transaction's life
  * ---------------------------------------------------------------------------
  * Every transaction sits at exactly one stage at any moment
  * (transactions.current_stage_id). The stages, in order:
  *
- *    1  استلام المعاملة من البلدية     Receive from municipality
- *    2  فحص استيفاء المتطلبات          Check the paperwork is complete
- *    3  مراجعة المقرر وفق اللوائح       Reviewer checks it against regulations
- *    4  إبداء الملاحظات (إن وجدت)      Raise observations, if any
- *    5  اعتماد الوزارة                 Ministry endorsement
- *    6  تحويل المعاملة للجنة القائمة    Forward to the standing committee
- *    7  استلام المعاملة من اللجنة       Committee receives it
- *    8  اعتماد (حسب الصلاحيات)         Approval, per the approver's authority
- *    9  وزارة الحكم المحلي             Ministry of Local Governance
- *   10  اعتماد الجهة المختصة           Competent authority approval
- *   11  الاعتماد النهائي والأرشفة       Final approval and archiving
+ *    1  استلام المعاملة من البلدية          Receive from municipality
+ *    2  مراجعة الطلب من المدير المباشر       Direct manager review
+ *    3  إحالة الطلب لأحد المسارات الإدارية   Administrative routing (HR / Diwan / committee secretary)
+ *    4  الاستلام والتسجيل                   Receive and register
+ *    5  فحص استيفاء المتطلبات               Check the paperwork is complete
+ *    6  مراجعة المقرر وفق اللوائح            Reviewer checks it against regulations
+ *    7  إبداء الملاحظات (إن وجدت)           Raise observations, if any
+ *    8  اعتماد الوزارة                      Ministry endorsement
+ *    9  تحويل المعاملة للجنة القائمة         Forward to the standing committee
+ *   10  استلام المعاملة من اللجنة            Committee receives it
+ *   11  اعتماد (حسب الصلاحيات)              Approval, per the approver's authority
+ *   12  وزارة الحكم المحلي                  Ministry of Local Governance
+ *   13  اعتماد الجهة المختصة                Competent authority approval
+ *   14  الاعتماد النهائي والأرشفة            Final approval and archiving
+ *
+ * Stages 2–4 were added by the diagram-alignment redesign (see
+ * AGENT_NOTES.md, "Employee Affairs Committee request" infographic); stages
+ * 5–14 are the original stages 2–11, renumbered but otherwise unchanged.
  *
  * NOTE this table only names the stages. What may move a transaction BETWEEN
  * them — which action, performed by which role — lives in workflow_transitions.

@@ -48,7 +48,7 @@ class NotificationTest extends TestCase
         $actor = $this->userWithRole('R02');
         $nextActor = $this->userWithRole('R05');
         $bystander = $this->userWithRole('R04');
-        $transaction = $this->transactionAtStage(4, $creator);
+        $transaction = $this->transactionAtStage('observations', $creator);
 
         app(WorkflowService::class)->transition($transaction, 'forward', $actor);
 
@@ -70,6 +70,41 @@ class NotificationTest extends TestCase
         Notification::assertNotSentTo($bystander, ActionRequiredNotification::class);
     }
 
+    /**
+     * Diagram-alignment redesign (see AGENT_NOTES.md): direct_manager_review's
+     * only outbound row (`forward`, to administrative_routing) is
+     * manager-gated with required_role_id null — no fixed role can be
+     * resolved for it. Without the actorsForStage() fix, a request landing
+     * there would notify nobody at all; the manager must hear about it the
+     * same way any other next-actor would.
+     */
+    public function test_landing_at_direct_manager_review_notifies_the_creators_manager(): void
+    {
+        Notification::fake();
+
+        $manager = $this->userWithRole('R05');
+        $employee = $this->userWithRole('R01');
+        $employee->manager_id = $manager->id;
+        $employee->save();
+
+        $transaction = $this->transactionAtStage('receive_from_municipality', $employee);
+
+        app(WorkflowService::class)->applySystemTransition(
+            $transaction,
+            'receive_from_municipality',
+            'submit',
+            $employee,
+        );
+
+        Notification::assertSentTo($manager, ActionRequiredNotification::class);
+
+        // The employee submitted their own request, so they are both the
+        // creator and the actor — stageChanged() must not notify them of
+        // their own action under either event type.
+        Notification::assertNotSentTo($employee, ActionRequiredNotification::class);
+        Notification::assertNotSentTo($employee, TransactionStageChangedNotification::class);
+    }
+
     /** A stored preference overrides the default, and clearing every channel silences the event. */
     public function test_stored_preferences_narrow_the_channels_and_clearing_them_all_sends_nothing(): void
     {
@@ -78,7 +113,7 @@ class NotificationTest extends TestCase
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
         $nextActor = $this->userWithRole('R05');
-        $transaction = $this->transactionAtStage(4, $creator);
+        $transaction = $this->transactionAtStage('observations', $creator);
 
         // The next actor drops email but keeps the bell...
         NotificationSetting::create([
@@ -144,7 +179,7 @@ class NotificationTest extends TestCase
     {
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
-        $transaction = $this->transactionAtStage(4, $creator);
+        $transaction = $this->transactionAtStage('observations', $creator);
 
         app(WorkflowService::class)->transition($transaction, 'forward', $actor);
 
@@ -173,7 +208,7 @@ class NotificationTest extends TestCase
         $actor = $this->userWithRole('R02');
         $stranger = $this->userWithRole('R01');
 
-        app(WorkflowService::class)->transition($this->transactionAtStage(4, $creator), 'forward', $actor);
+        app(WorkflowService::class)->transition($this->transactionAtStage('observations', $creator), 'forward', $actor);
 
         $this->actingAs($stranger)
             ->getJson('/api/notifications')
@@ -233,7 +268,7 @@ class NotificationTest extends TestCase
             ->assertJsonValidationErrors('settings.0.event_type');
     }
 
-    private function transactionAtStage(int $stageOrder, User $creator): Transaction
+    private function transactionAtStage(string $stageCode, User $creator): Transaction
     {
         return Transaction::create([
             'reference_number' => '2026-ADM-'.fake()->unique()->numerify('######'),
@@ -241,7 +276,7 @@ class NotificationTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
             'status_id' => TransactionStatus::where('code', 'in_review')->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', $stageOrder)->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'created_by_user_id' => $creator->id,
             'submitted_at' => now(),
             'decision_grade' => 10,

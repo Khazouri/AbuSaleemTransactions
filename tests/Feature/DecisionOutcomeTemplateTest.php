@@ -46,7 +46,7 @@ class DecisionOutcomeTemplateTest extends TestCase
             ->assertJsonPath('data.outcome', 'conditional_approval')
             ->assertJsonPath('data.votes_conditional_approval_count', 2);
 
-        $stageEight = WorkflowStage::where('order_no', 8)->firstOrFail();
+        $stageEight = WorkflowStage::where('code', 'approval_by_authority')->firstOrFail();
         $transaction = $agendaItem->transaction()->first()->fresh();
 
         $this->assertSame($stageEight->id, $transaction->current_stage_id);
@@ -81,7 +81,7 @@ class DecisionOutcomeTemplateTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'legal_opinion');
 
-        $stageSeven = WorkflowStage::where('order_no', 7)->firstOrFail();
+        $stageSeven = WorkflowStage::where('code', 'receive_from_committee')->firstOrFail();
         $transaction = $agendaItem->transaction()->first()->fresh();
 
         $this->assertSame($stageSeven->id, $transaction->current_stage_id);
@@ -108,7 +108,7 @@ class DecisionOutcomeTemplateTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'refer_other_body');
 
-        $stageSeven = WorkflowStage::where('order_no', 7)->firstOrFail();
+        $stageSeven = WorkflowStage::where('code', 'receive_from_committee')->firstOrFail();
         $transaction = $agendaItem->transaction()->first()->fresh();
 
         $this->assertSame($stageSeven->id, $transaction->current_stage_id);
@@ -251,7 +251,7 @@ class DecisionOutcomeTemplateTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
             'status_id' => TransactionStatus::where('code', 'in_meeting')->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', 7)->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
         ]);
     }

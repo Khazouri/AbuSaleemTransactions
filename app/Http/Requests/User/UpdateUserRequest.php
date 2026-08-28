@@ -39,6 +39,13 @@ class UpdateUserRequest extends FormRequest
 
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
 
+            // A user cannot be their own manager — that would make the
+            // direct-manager workflow stage permanently unreachable for them.
+            'manager_id' => [
+                'nullable', 'integer', 'exists:users,id',
+                Rule::notIn([$user->id]),
+            ],
+
             'role_ids' => ['sometimes', 'array'],
             'role_ids.*' => ['integer', 'exists:roles,id'],
 
@@ -58,6 +65,8 @@ class UpdateUserRequest extends FormRequest
             'email.unique' => 'هذا البريد الإلكتروني مستخدم بالفعل.',
             'password.min' => 'كلمة المرور يجب ألا تقل عن 8 أحرف.',
             'department_id.exists' => 'الإدارة المحددة غير موجودة.',
+            'manager_id.exists' => 'المدير المباشر المحدد غير موجود.',
+            'manager_id.not_in' => 'لا يمكن أن يكون المستخدم مديره المباشر.',
             'role_ids.*.exists' => 'أحد الأدوار المحددة غير موجود.',
         ];
     }

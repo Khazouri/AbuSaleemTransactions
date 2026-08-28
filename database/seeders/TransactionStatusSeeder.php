@@ -59,6 +59,17 @@ class TransactionStatusSeeder extends Seeder
             // tracker performs the status-only completed_closed move.
             ['in_execution',    'قيد التنفيذ',      'In Execution',    '#0d9488'],
             ['completed_closed', 'مكتمل ومغلق',     'Completed & Closed', '#166534'],
+
+            // --- Diagram-alignment redesign: 3-way administrative routing
+            // and registration (see AGENT_NOTES.md) ---------------------------
+            // Which route a request took is recorded as its status, since
+            // that is also how WorkflowTransitionSeeder's `register` rows
+            // enforce that only the matching receiving role can register it
+            // (required_status_id) — see actorMayUse() in WorkflowService.
+            ['routed_to_hr',                   'موجّه إلى الموارد البشرية',        'Routed to HR',                    '#2563eb'],
+            ['routed_to_diwan',                'موجّه إلى وكيل الديوان',           'Routed to Diwan Deputy',          '#4f46e5'],
+            ['routed_to_committee_secretary',  'موجّه إلى أمين سر اللجنة',         'Routed to Committee Secretary',   '#7c3aed'],
+            ['registered',                     'تم التسجيل',                     'Registered',                      '#0891b2'],
         ];
 
         foreach ($statuses as [$code, $nameAr, $nameEn, $color]) {

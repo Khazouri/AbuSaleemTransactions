@@ -22,7 +22,13 @@ class TransactionDetailTest extends TestCase
     public function test_a_role_appropriate_actor_can_read_the_detail_and_advance_it(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $transaction = $this->newTransaction();
+        // Diagram-alignment redesign (see AGENT_NOTES.md): stage one's only
+        // outbound action is now `submit` (manager-gated hops follow), which
+        // isn't this test's subject. Start past the new front-half stages,
+        // at reviewer_review, so this stays a plain role-gated `forward`
+        // advance with no signature involved (that's `approve`'s concern,
+        // covered by the approval-chain tests).
+        $transaction = $this->newTransaction('reviewer_review', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
         Attachment::create([
@@ -55,9 +61,9 @@ class TransactionDetailTest extends TestCase
                 'comment' => 'تمت الإحالة للمراجعة.',
             ])
             ->assertOk()
-            ->assertJsonPath('data.current_stage.order_no', 2)
+            ->assertJsonPath('data.current_stage.code', 'observations')
             ->assertJsonPath('data.status.code', 'in_review')
-            ->assertJsonPath('data.available_actions.0', 'approve');
+            ->assertJsonPath('data.available_actions.0', 'forward');
 
         $this->assertDatabaseHas('transaction_stage_logs', [
             'transaction_id' => $transaction->id,
@@ -78,14 +84,14 @@ class TransactionDetailTest extends TestCase
             ->assertJsonValidationErrors('action');
 
         $transaction->refresh();
-        $this->assertSame(1, $transaction->currentStage->order_no);
+        $this->assertSame('receive_from_municipality', $transaction->currentStage->code);
         $this->assertDatabaseCount('transaction_stage_logs', 0);
     }
 
     public function test_detail_exposes_exception_metadata_and_endpoint_preserves_the_required_reason(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $transaction = $this->newTransaction(2, 'in_review');
+        $transaction = $this->newTransaction('requirements_check', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
         $this->actingAs($reviewer, 'sanctum')
@@ -108,7 +114,7 @@ class TransactionDetailTest extends TestCase
                 'comment' => 'صورة المستند المطلوبة غير مرفقة.',
             ])
             ->assertOk()
-            ->assertJsonPath('data.current_stage.order_no', 1)
+            ->assertJsonPath('data.current_stage.code', 'receive_from_municipality')
             ->assertJsonPath('data.status.code', 'incomplete')
             ->assertJsonPath('data.timeline.0.action', 'return_missing_docs')
             ->assertJsonPath('data.timeline.0.comment', 'صورة المستند المطلوبة غير مرفقة.');
@@ -117,7 +123,7 @@ class TransactionDetailTest extends TestCase
     public function test_exception_endpoint_rejects_a_blank_reason(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $transaction = $this->newTransaction(2, 'in_review');
+        $transaction = $this->newTransaction('requirements_check', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
         $this->actingAs($reviewer, 'sanctum')
@@ -129,11 +135,11 @@ class TransactionDetailTest extends TestCase
             ->assertJsonValidationErrors('action');
 
         $transaction->refresh();
-        $this->assertSame(2, $transaction->currentStage->order_no);
+        $this->assertSame('requirements_check', $transaction->currentStage->code);
         $this->assertDatabaseCount('transaction_stage_logs', 0);
     }
 
-    private function newTransaction(int $stageOrder = 1, string $statusCode = 'new'): Transaction
+    private function newTransaction(string $stageCode = 'receive_from_municipality', string $statusCode = 'new'): Transaction
     {
         return Transaction::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
@@ -142,7 +148,7 @@ class TransactionDetailTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
             'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', $stageOrder)->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => now(),
         ]);
     }

@@ -15,9 +15,22 @@ use Illuminate\Support\Facades\Hash;
  * WHY THIS EXISTS: AdminUserSeeder creates a single R08 account, and R08 holds
  * every action on every screen. Clicking through as that account proves almost
  * nothing — the six approval screens are single-role by design, and the happy
- * path deliberately needs four different people (R02 -> R05 -> R03 -> R05 ->
- * R06 -> R07) to reach `in_execution`. Without these accounts none of those gates
- * is ever actually hit. See TEST_PLAN.md for the script that uses them.
+ * path deliberately needs several different people to reach `in_execution`:
+ * submit (R01) -> direct-manager review + administrative routing (the
+ * submitter's own manager, or an R08 override) -> receive & register
+ * (R05/R10/R09, whichever matches the chosen route) -> R02 -> R05 -> R03 ->
+ * R05 -> R06 -> R07. Without these accounts none of those gates is ever
+ * actually hit. See TEST_PLAN.md for the script that uses them.
+ *
+ * Diagram-alignment redesign (see AGENT_NOTES.md): r09.secretary@ and
+ * r10.diwan@ cover the two new receiving roles at receive_and_register
+ * (R05/HR already existed as r05.manager@). r01.employee@'s `manager_id` is
+ * wired to r02.reviewer@ below so the new front-half stages are walkable
+ * end to end with a real assigned manager, not only through the R08
+ * fallback — without that wiring, every manual walk of `submit ->
+ * direct_manager_review` would fall through to the admin override and the
+ * manager-specific checks (and the manager's own notification) would never
+ * actually be exercised by hand.
  *
  * SECURITY: every account below has the password `password`. This is
  * development data. It is NOT called from DatabaseSeeder — run it explicitly:
@@ -76,6 +89,10 @@ class TestUserSeeder extends Seeder
         ['r08.sysadmin@abusaleem.test',   'مدير نظام تجريبي',        'System admin',                 ['R08'],        'ADM', '+218910000010', true],
         ['multi.role@abusaleem.test',     'رئيس وعضو لجنة',          'Head + member (union check)',  ['R03', 'R04'], 'CMT', '+218910000011', true],
         ['inactive.user@abusaleem.test',  'مستخدم موقوف',            'Suspended user',               ['R01'],        'FIN', '+218910000012', false],
+        // Diagram-alignment redesign — the two new receiving roles at
+        // receive_and_register (R05/HR already existed as r05.manager@).
+        ['r09.secretary@abusaleem.test',  'أمين سر اللجنة التجريبي', 'Committee secretary',          ['R09'],        'CMT', '+218910000013', true],
+        ['r10.diwan@abusaleem.test',      'وكيل الديوان التجريبي',   'Diwan deputy',                 ['R10'],        'ABS', '+218910000014', true],
     ];
 
     public function run(): void
@@ -85,6 +102,10 @@ class TestUserSeeder extends Seeder
         // upserts precisely so that assumption isn't needed.
         $departments = Department::query()->get()->keyBy('code');
         $roles = Role::query()->get()->keyBy('code');
+
+        // Keyed by email so the manager-wiring step below can look up an
+        // already-fetched model instead of re-querying.
+        $users = [];
 
         // The English label is metadata for the login picker only — it has no
         // column, so it is skipped here with a bare comma.
@@ -110,6 +131,19 @@ class TestUserSeeder extends Seeder
             $user->roles()->sync(
                 collect($roleCodes)->map(fn (string $code) => $roles[$code]->id)->all(),
             );
+
+            $users[$email] = $user;
         }
+
+        // Diagram-alignment redesign (see AGENT_NOTES.md): wire a real
+        // direct-manager link so `submit -> direct_manager_review ->
+        // administrative_routing` is walkable end to end as an actual
+        // assigned manager, not only through the R08 fallback. r02.reviewer@
+        // doubles as the manager here rather than growing the roster with a
+        // dedicated account for one relationship — WorkflowService's
+        // manager-gated rows check the `manager_id` link only, never role, so
+        // this does not change anything r02.reviewer@ can already do.
+        $users['r01.employee@abusaleem.test']->manager_id = $users['r02.reviewer@abusaleem.test']->id;
+        $users['r01.employee@abusaleem.test']->save();
     }
 }

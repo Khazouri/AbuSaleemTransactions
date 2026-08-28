@@ -33,8 +33,8 @@ class CommitteeCandidatesDashboardTest extends TestCase
 
         $head = $this->userWithRole('R03');
         $candidate = $this->committeeTransaction('in_meeting');
-        $earlierStage = $this->transactionAt(2, 'in_review');
-        $alreadyApproved = $this->transactionAt(8, 'approved');
+        $earlierStage = $this->transactionAt('requirements_check', 'in_review');
+        $alreadyApproved = $this->transactionAt('approval_by_authority', 'approved');
 
         $response = $this->actingAs($head, 'sanctum')
             ->getJson('/api/committee-candidates')
@@ -144,9 +144,9 @@ class CommitteeCandidatesDashboardTest extends TestCase
 
         $this->committeeTransaction('in_meeting');
         $this->committeeTransaction('nominated_for_committee');
-        $onAgenda = $this->transactionAt(7, 'on_agenda');
-        $decided = $this->transactionAt(7, 'decided');
-        $this->transactionAt(9, 'approved');
+        $onAgenda = $this->transactionAt('receive_from_committee', 'on_agenda');
+        $decided = $this->transactionAt('receive_from_committee', 'decided');
+        $this->transactionAt('local_governance_ministry', 'approved');
 
         // overdue_at isn't mass-assignable (only the SLA sweep sets it in
         // production), so it's set directly here rather than via update().
@@ -237,10 +237,10 @@ class CommitteeCandidatesDashboardTest extends TestCase
 
     private function committeeTransaction(string $statusCode): Transaction
     {
-        return $this->transactionAt(7, $statusCode);
+        return $this->transactionAt('receive_from_committee', $statusCode);
     }
 
-    private function transactionAt(int $stageOrder, string $statusCode): Transaction
+    private function transactionAt(string $stageCode, string $statusCode): Transaction
     {
         return Transaction::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
@@ -248,7 +248,7 @@ class CommitteeCandidatesDashboardTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
             'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', $stageOrder)->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => now(),
         ]);
     }

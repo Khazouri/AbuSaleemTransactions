@@ -31,7 +31,7 @@ class MeetingOutputsTest extends TestCase
 
     public function test_the_tracker_scopes_request_outputs_to_one_meeting_with_live_downstream_context(): void
     {
-        [$head, $member, $employee, $meeting, $agendaItem] = $this->decidedMeetingOutput(8, 'decided');
+        [$head, $member, $employee, $meeting, $agendaItem] = $this->decidedMeetingOutput('approval_by_authority', 'decided');
 
         // Administrative/emerging items still count toward the meeting total,
         // but have no request lifecycle and therefore are not output rows.
@@ -64,7 +64,7 @@ class MeetingOutputsTest extends TestCase
 
     public function test_final_approval_enters_execution_then_the_head_closes_it_without_moving_stage(): void
     {
-        [$head, $member, , $meeting, $agendaItem, $transaction] = $this->decidedMeetingOutput(11, 'final_approved');
+        [$head, $member, , $meeting, $agendaItem, $transaction] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
         $finalApprover = $this->userWithRole('R07');
 
         $this->actingAs($finalApprover, 'sanctum')
@@ -74,7 +74,7 @@ class MeetingOutputsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status.code', 'in_execution');
 
-        $this->assertSame(11, $transaction->fresh()->currentStage->order_no);
+        $this->assertSame('final_approval_archiving', $transaction->fresh()->currentStage->code);
         $this->assertDatabaseHas('approvals', [
             'transaction_id' => $transaction->id,
             'level' => 6,
@@ -110,7 +110,7 @@ class MeetingOutputsTest extends TestCase
             ->assertJsonPath('data.outputs.0.can_complete', false);
 
         $closed = $transaction->fresh();
-        $this->assertSame(11, $closed->currentStage->order_no);
+        $this->assertSame('final_approval_archiving', $closed->currentStage->code);
         $this->assertSame('completed_closed', $closed->status->code);
         $this->assertDatabaseHas('transaction_status_history', [
             'transaction_id' => $transaction->id,
@@ -126,7 +126,7 @@ class MeetingOutputsTest extends TestCase
 
     public function test_completion_requires_the_output_to_belong_to_the_selected_meeting(): void
     {
-        [$head, , , $meeting, $agendaItem] = $this->decidedMeetingOutput(11, 'in_execution');
+        [$head, , , $meeting, $agendaItem] = $this->decidedMeetingOutput('final_approval_archiving', 'in_execution');
         $otherCommittee = Committee::create(['name_ar' => 'لجنة أخرى']);
         $otherMeeting = Meeting::create([
             'committee_id' => $otherCommittee->id,
@@ -144,7 +144,7 @@ class MeetingOutputsTest extends TestCase
 
     public function test_completion_rejects_a_request_that_has_not_entered_execution(): void
     {
-        [$head, , , $meeting, $agendaItem, $transaction] = $this->decidedMeetingOutput(11, 'final_approved');
+        [$head, , , $meeting, $agendaItem, $transaction] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
 
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
@@ -156,7 +156,7 @@ class MeetingOutputsTest extends TestCase
     }
 
     /** @return array{0: User, 1: User, 2: User, 3: Meeting, 4: MeetingTransaction, 5: Transaction} */
-    private function decidedMeetingOutput(int $stageOrder, string $statusCode): array
+    private function decidedMeetingOutput(string $stageCode, string $statusCode): array
     {
         $head = $this->userWithRole('R03');
         $member = $this->userWithRole('R04');
@@ -179,7 +179,7 @@ class MeetingOutputsTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
             'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', $stageOrder)->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'created_by_user_id' => $employee->id,
             'submitted_at' => now(),
         ]);

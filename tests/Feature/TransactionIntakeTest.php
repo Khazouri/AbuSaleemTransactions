@@ -52,10 +52,14 @@ class TransactionIntakeTest extends TestCase
                 ]],
             ], ['Accept' => 'application/json']);
 
+        // Diagram-alignment redesign (see AGENT_NOTES.md): intake now performs
+        // one additional system hop into direct_manager_review in the same
+        // request, so the transaction created here is never actually left
+        // sitting at receive_from_municipality.
         $response->assertCreated()
             ->assertJsonPath('data.reference_number', now()->format('Y').'-ADM-000001')
-            ->assertJsonPath('data.status.code', 'new')
-            ->assertJsonPath('data.current_stage.order_no', 1);
+            ->assertJsonPath('data.status.code', 'in_review')
+            ->assertJsonPath('data.current_stage.code', 'direct_manager_review');
 
         $transaction = Transaction::firstOrFail();
         $this->assertSame($admin->id, $transaction->created_by_user_id);
@@ -65,14 +69,29 @@ class TransactionIntakeTest extends TestCase
             $transaction->submitted_at->copy()->startOfDay()->addDays($type->default_sla_days)->toDateString(),
             $transaction->due_date?->toDateString(),
         );
+        // The intake stage log at receive_from_municipality is still written
+        // first — this proves the truthful origin point is preserved even
+        // though the transaction has already moved on by the time this
+        // response is read.
         $this->assertDatabaseHas('transaction_stage_logs', [
             'transaction_id' => $transaction->id,
-            'to_stage_id' => WorkflowStage::where('order_no', 1)->value('id'),
+            'to_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
             'action' => 'intake',
+        ]);
+        $this->assertDatabaseHas('transaction_stage_logs', [
+            'transaction_id' => $transaction->id,
+            'from_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
+            'to_stage_id' => WorkflowStage::where('code', 'direct_manager_review')->value('id'),
+            'action' => 'submit',
+            'acted_by_user_id' => $admin->id,
         ]);
         $this->assertDatabaseHas('transaction_status_history', [
             'transaction_id' => $transaction->id,
             'to_status_id' => TransactionStatus::where('code', 'new')->value('id'),
+        ]);
+        $this->assertDatabaseHas('transaction_status_history', [
+            'transaction_id' => $transaction->id,
+            'to_status_id' => TransactionStatus::where('code', 'in_review')->value('id'),
         ]);
 
         $attachment = Attachment::firstOrFail();

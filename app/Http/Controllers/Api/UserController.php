@@ -28,7 +28,7 @@ class UserController extends Controller
     public function index(): AnonymousResourceCollection
     {
         $users = User::query()
-            ->with(['department', 'roles'])
+            ->with(['department', 'roles', 'manager'])
             ->orderBy('name')
             ->get();
 
@@ -43,7 +43,7 @@ class UserController extends Controller
         $user = User::create($data);
         $user->roles()->sync($request->validated('role_ids', []));
 
-        return (new UserResource($user->load('department', 'roles')))
+        return (new UserResource($user->load('department', 'roles', 'manager')))
             ->response()
             ->setStatusCode(201);
     }
@@ -64,7 +64,7 @@ class UserController extends Controller
             $user->roles()->sync($request->validated('role_ids'));
         }
 
-        return new UserResource($user->load('department', 'roles'));
+        return new UserResource($user->load('department', 'roles', 'manager'));
     }
 
     /**
@@ -83,7 +83,7 @@ class UserController extends Controller
 
         $user->update(['is_active' => ! $user->is_active]);
 
-        return new UserResource($user->load('department', 'roles'));
+        return new UserResource($user->load('department', 'roles', 'manager'));
     }
 
     /**

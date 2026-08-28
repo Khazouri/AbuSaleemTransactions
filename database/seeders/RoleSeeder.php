@@ -26,6 +26,11 @@ class RoleSeeder extends Seeder
             ['code' => 'R06', 'name_ar' => 'وزارة الحكم المحلي', 'name_en' => 'Ministry', 'description' => 'تراجع وتدقق المعاملات قبل الاعتماد النهائي'],
             ['code' => 'R07', 'name_ar' => 'المدير العام / العميد', 'name_en' => 'Director / Dean', 'description' => 'يعتمد المعاملات اعتماداً نهائياً على مستوى البلدية'],
             ['code' => 'R08', 'name_ar' => 'مدير النظام', 'name_en' => 'System Admin', 'description' => 'إدارة النظام والمستخدمين والصلاحيات والإعدادات'],
+            // Diagram-alignment roles — see AGENT_NOTES.md for the source
+            // (the "Employee Affairs Committee request" infographic). Additive
+            // only: RoleSeeder upserts on `code`, so nothing above is affected.
+            ['code' => 'R09', 'name_ar' => 'أمين سر اللجنة', 'name_en' => 'Committee Secretary', 'description' => 'يستلم الملف بعد اكتمال الدراسة ويُعِدّ جدول أعمال اللجنة'],
+            ['code' => 'R10', 'name_ar' => 'وكيل الديوان', 'name_en' => 'Diwan Deputy', 'description' => 'أحد مسارات الإحالة الإدارية من المدير المباشر'],
         ];
 
         foreach ($roles as $role) {

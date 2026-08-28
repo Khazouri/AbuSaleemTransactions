@@ -52,10 +52,16 @@ class ScreenRolePermissionSeeder extends Seeder
         // Track H stages (29-37) should tighten these per-screen once real
         // actions land (e.g. `meeting_live` almost certainly wants narrower
         // gating once it does something).
-        'meetings_dashboard' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
-        'committee_candidates' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        // Diagram-alignment redesign (see AGENT_NOTES.md): R09 (Committee
+        // Secretary) receives the file once study is complete and prepares
+        // the committee's agenda — the same "add"/"edit" reach R03 (head) and
+        // R04 (member) already hold on these three screens, since agenda
+        // placement is gated by this screen permission inside
+        // CommitteeStatusService, not by a fixed WorkflowService role.
+        'meetings_dashboard' => ['view' => '*', 'add' => ['R03', 'R04', 'R09'], 'edit' => ['R03', 'R09'], 'print' => '*'],
+        'committee_candidates' => ['view' => '*', 'add' => ['R03', 'R04', 'R09'], 'edit' => ['R03', 'R09'], 'print' => '*'],
         'meetings' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
-        'meeting_agenda' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        'meeting_agenda' => ['view' => '*', 'add' => ['R03', 'R04', 'R09'], 'edit' => ['R03', 'R09'], 'print' => '*'],
         'meeting_readiness' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
         'meeting_live' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
         'decisions' => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R03'], 'print' => '*'],

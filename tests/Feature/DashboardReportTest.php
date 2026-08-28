@@ -278,7 +278,7 @@ class DashboardReportTest extends TestCase
             'department_id' => Department::where('code', $departmentCode)->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
             'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', 3)->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'reviewer_review')->value('id'),
             'created_by_user_id' => $this->admin()->id,
             'submitted_at' => $submittedAt ?? now(),
             'due_date' => now()->subDay()->toDateString(),

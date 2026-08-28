@@ -63,6 +63,13 @@ class UserResource extends JsonResource
                 'name_en' => $this->department->name_en,
             ] : null),
 
+            // Direct-manager workflow redesign — who reviews this user's own
+            // transaction submissions. Same whenLoaded()/null shape as department.
+            'manager' => $this->whenLoaded('manager', fn () => $this->manager ? [
+                'id' => $this->manager->id,
+                'name' => $this->manager->name,
+            ] : null),
+
             // The SPA uses these codes to decide what to show — role badges
             // now, and menu/route decisions later.
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->map(fn ($role) => [

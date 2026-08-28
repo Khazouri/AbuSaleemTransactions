@@ -110,16 +110,17 @@ class TransactionController extends Controller
         TransactionReferenceGenerator $references,
         TransactionDeadlineService $deadlines,
         NotificationDispatcher $notifications,
+        WorkflowService $workflow,
     ): JsonResponse {
         $data = $request->validated();
         $storedPaths = [];
 
         try {
-            $transaction = DB::transaction(function () use ($data, $request, $references, $deadlines, &$storedPaths) {
+            $transaction = DB::transaction(function () use ($data, $request, $references, $deadlines, $workflow, &$storedPaths) {
                 $department = Department::query()->findOrFail($data['department_id']);
                 $type = TransactionType::query()->findOrFail($data['transaction_type_id']);
                 $newStatus = TransactionStatus::query()->where('code', 'new')->firstOrFail();
-                $firstStage = WorkflowStage::query()->where('order_no', 1)->firstOrFail();
+                $firstStage = WorkflowStage::query()->where('code', 'receive_from_municipality')->firstOrFail();
                 $submittedAt = now();
 
                 $transaction = Transaction::create([
@@ -168,6 +169,21 @@ class TransactionController extends Controller
                     'changed_by_user_id' => $request->user()->id,
                     'changed_at' => now(),
                 ]);
+
+                // Diagram-alignment redesign (see AGENT_NOTES.md): intake no
+                // longer leaves the request sitting at receive_from_municipality
+                // — it hands off into direct_manager_review in the same beat.
+                // This is a system hop, not the intake clerk's own workflow
+                // action (intake may be performed by any of R01-R06, but the
+                // seeded `submit` row is R01-gated), so it goes through
+                // applySystemTransition() rather than transition()'s
+                // actor-checked path.
+                $transaction = $workflow->applySystemTransition(
+                    $transaction,
+                    'receive_from_municipality',
+                    'submit',
+                    $request->user(),
+                );
 
                 return $transaction->load([
                     'department:id,name_ar,name_en,code',
@@ -293,15 +309,15 @@ class TransactionController extends Controller
     private function actorCanApproveCurrentLevel(Transaction $transaction, User $actor): bool
     {
         $screenByStage = [
-            2 => 'reviewer_approval',
-            7 => 'committee_head_approval',
-            8 => 'admin_manager_approval',
-            9 => 'ministry_approval',
-            10 => 'authority_approval',
-            11 => 'final_approval',
+            'requirements_check' => 'reviewer_approval',
+            'receive_from_committee' => 'committee_head_approval',
+            'approval_by_authority' => 'admin_manager_approval',
+            'local_governance_ministry' => 'ministry_approval',
+            'competent_authority' => 'authority_approval',
+            'final_approval_archiving' => 'final_approval',
         ];
-        $stageOrder = $transaction->currentStage()->value('order_no');
-        $screenCode = $screenByStage[$stageOrder] ?? null;
+        $stageCode = $transaction->currentStage()->value('code');
+        $screenCode = $screenByStage[$stageCode] ?? null;
 
         return $screenCode === null || $actor->hasScreenPermission($screenCode, 'can_approve');
     }

@@ -75,6 +75,8 @@
     "passwordHint": "Leave blank to keep the current password",
     "department": "Department",
     "noDepartment": "No department",
+    "manager": "Direct manager",
+    "noManager": "No direct manager",
     "roles": "Roles",
     "empty": "No users yet.",
     "selfActionBlocked": "You can't do that to your own account."
@@ -728,6 +730,7 @@
   "workflow": {
     "actions": {
       "intake": "Transaction intake",
+      "submit": "Submit request",
       "forward": "Forward",
       "approve": "Approve",
       "reject": "Reject",
@@ -740,7 +743,12 @@
       "conditional_approve": "Conditional approval",
       "request_legal_opinion": "Request legal opinion",
       "refer_to_another_body": "Refer to another body",
-      "deadline_expired": "Escalate overdue transaction"
+      "deadline_expired": "Escalate overdue transaction",
+      "route_to_hr": "Route to HR",
+      "route_to_diwan": "Route to Diwan Deputy",
+      "route_to_committee_secretary": "Route to Committee Secretary",
+      "register": "Register receipt",
+      "return_to_employee": "Return to employee"
     }
   },
   "auditLog": {

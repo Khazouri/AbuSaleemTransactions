@@ -36,6 +36,10 @@ class StoreUserRequest extends FormRequest
             // a department.
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
 
+            // Direct-manager workflow redesign — resolves who reviews this
+            // user's own transaction submissions.
+            'manager_id' => ['nullable', 'integer', 'exists:users,id'],
+
             'role_ids' => ['sometimes', 'array'],
             'role_ids.*' => ['integer', 'exists:roles,id'],
 
@@ -56,6 +60,7 @@ class StoreUserRequest extends FormRequest
             'password.required' => 'كلمة المرور مطلوبة.',
             'password.min' => 'كلمة المرور يجب ألا تقل عن 8 أحرف.',
             'department_id.exists' => 'الإدارة المحددة غير موجودة.',
+            'manager_id.exists' => 'المدير المباشر المحدد غير موجود.',
             'role_ids.*.exists' => 'أحد الأدوار المحددة غير موجود.',
         ];
     }

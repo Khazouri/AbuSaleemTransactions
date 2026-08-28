@@ -36,6 +36,7 @@ const blankForm = () => ({
   email: '',
   password: '',
   department_id: null,
+  manager_id: null,
   role_ids: [],
   is_active: true,
 })
@@ -59,6 +60,19 @@ function roleLabel(role) {
  *  already-assigned user doesn't lose their department out from under them. */
 const departmentOptions = computed(() =>
   departments.value.slice().sort((a, b) => deptLabel(a).localeCompare(deptLabel(b), 'ar')),
+)
+
+/**
+ * Manager picker options: active users only, excluding whoever is currently
+ * being edited — a user can't be their own manager, and offering themselves
+ * in the list would let someone create that loop from the UI even though
+ * nothing downstream (WorkflowService's actor check) can safely resolve it.
+ */
+const managerOptions = computed(() =>
+  users.value
+    .filter((user) => user.is_active && user.id !== editingId.value)
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, 'ar')),
 )
 
 async function load() {
@@ -97,6 +111,7 @@ function startEdit(user) {
     email: user.email ?? '',
     password: '',
     department_id: user.department?.id ?? null,
+    manager_id: user.manager?.id ?? null,
     role_ids: (user.roles ?? []).map((role) => role.id),
     is_active: user.is_active,
   }
@@ -121,6 +136,7 @@ async function save() {
     name: form.value.name,
     email: form.value.email,
     department_id: form.value.department_id,
+    manager_id: form.value.manager_id,
     role_ids: form.value.role_ids,
     is_active: form.value.is_active,
   }
@@ -223,6 +239,17 @@ onMounted(() => {
             </option>
           </select>
           <small v-if="errors.department_id" class="field-error">{{ errors.department_id[0] }}</small>
+        </label>
+
+        <label>
+          {{ t('users.manager') }}
+          <select v-model="form.manager_id">
+            <option :value="null">{{ t('users.noManager') }}</option>
+            <option v-for="manager in managerOptions" :key="manager.id" :value="manager.id">
+              {{ manager.name }}
+            </option>
+          </select>
+          <small v-if="errors.manager_id" class="field-error">{{ errors.manager_id[0] }}</small>
         </label>
       </div>
 

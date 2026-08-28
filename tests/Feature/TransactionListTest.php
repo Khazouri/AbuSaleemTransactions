@@ -24,7 +24,7 @@ class TransactionListTest extends TestCase
         $type = TransactionType::where('code', 'PROM')->firstOrFail();
         $new = TransactionStatus::where('code', 'new')->firstOrFail();
         $inReview = TransactionStatus::where('code', 'in_review')->firstOrFail();
-        $stage = WorkflowStage::where('order_no', 1)->firstOrFail();
+        $stage = WorkflowStage::where('code', 'receive_from_municipality')->firstOrFail();
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
 
         $matching = Transaction::create([

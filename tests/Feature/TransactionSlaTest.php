@@ -30,8 +30,8 @@ class TransactionSlaTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         Carbon::setTestNow('2026-01-20 08:00:00');
 
-        $open = $this->transaction(3, 'in_review', '2026-01-01 10:00:00');
-        $closed = $this->transaction(11, 'archived', '2026-01-01 10:00:00');
+        $open = $this->transaction('reviewer_review', 'in_review', '2026-01-01 10:00:00');
+        $closed = $this->transaction('final_approval_archiving', 'archived', '2026-01-01 10:00:00');
 
         $this->artisan('transactions:flag-overdue')
             ->expectsOutput('Backfilled 2 deadline(s); flagged 1 overdue transaction(s).')
@@ -51,7 +51,7 @@ class TransactionSlaTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         Carbon::setTestNow('2026-01-20 08:00:00');
-        $transaction = $this->transaction(3, 'in_review', '2026-01-01 10:00:00');
+        $transaction = $this->transaction('reviewer_review', 'in_review', '2026-01-01 10:00:00');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
         $service = app(WorkflowService::class);
 
@@ -68,17 +68,17 @@ class TransactionSlaTest extends TestCase
             'انتهت المهلة النظامية للمعاملة.',
         );
 
-        $this->assertSame(9, $transaction->currentStage->order_no);
+        $this->assertSame('local_governance_ministry', $transaction->currentStage->code);
         $this->assertSame('in_review', $transaction->status->code);
         $this->assertDatabaseHas('transaction_stage_logs', [
             'transaction_id' => $transaction->id,
             'action' => 'deadline_expired',
             'comment' => 'انتهت المهلة النظامية للمعاملة.',
-            'to_stage_id' => WorkflowStage::where('order_no', 9)->value('id'),
+            'to_stage_id' => WorkflowStage::where('code', 'local_governance_ministry')->value('id'),
         ]);
     }
 
-    private function transaction(int $stage, string $status, string $submittedAt): Transaction
+    private function transaction(string $stageCode, string $status, string $submittedAt): Transaction
     {
         return Transaction::create([
             'reference_number' => '2026-ADM-'.fake()->unique()->numerify('######'),
@@ -86,7 +86,7 @@ class TransactionSlaTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
             'status_id' => TransactionStatus::where('code', $status)->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', $stage)->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => Carbon::parse($submittedAt),
         ]);
     }

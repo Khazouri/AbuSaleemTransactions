@@ -125,7 +125,7 @@ class CommitteeStatusServiceTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
             'status_id' => TransactionStatus::where('code', 'in_review')->value('id'),
-            'current_stage_id' => WorkflowStage::where('order_no', 2)->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'requirements_check')->value('id'),
             'submitted_at' => now(),
         ]);
 
@@ -139,7 +139,7 @@ class CommitteeStatusServiceTest extends TestCase
             );
         }
 
-        $this->assertSame(2, $transaction->refresh()->currentStage->order_no);
+        $this->assertSame('requirements_check', $transaction->refresh()->currentStage->code);
     }
 
     public function test_move_rejects_an_inactive_actor(): void
