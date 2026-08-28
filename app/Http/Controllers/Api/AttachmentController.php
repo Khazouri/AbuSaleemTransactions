@@ -6,31 +6,31 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Attachment\StoreAttachmentRequest;
 use App\Http\Resources\AttachmentResource;
 use App\Models\Attachment;
-use App\Models\Transaction;
-use App\Services\TransactionVisibility;
+use App\Models\Request;
+use App\Services\RequestVisibility;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
-/** Stage 12 private-file upload endpoint for an existing transaction. */
+/** Stage 12 private-file upload endpoint for an existing request. */
 class AttachmentController extends Controller
 {
-    public function store(StoreAttachmentRequest $request, Transaction $transaction, TransactionVisibility $visibility): JsonResponse
+    public function store(StoreAttachmentRequest $request, Request $requestRecord, RequestVisibility $visibility): JsonResponse
     {
-        abort_unless($visibility->canView($request->user(), $transaction), 404);
+        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
 
         $file = $request->file('file');
         $disk = 'local';
 
         // Hash-based names prevent a user-supplied filename from becoming a
-        // path, while a transaction directory keeps private storage inspectable.
-        $path = $file->store("attachments/{$transaction->id}", $disk);
+        // path, while a request directory keeps private storage inspectable.
+        $path = $file->store("attachments/{$requestRecord->id}", $disk);
 
         try {
             $attachment = Attachment::create([
-                'transaction_id' => $transaction->id,
+                'request_id' => $requestRecord->id,
                 'disk' => $disk,
                 'path' => $path,
                 'original_name' => $file->getClientOriginalName(),
@@ -52,10 +52,10 @@ class AttachmentController extends Controller
     }
 
     /** Stream a private attachment only after both parent and child are verified. */
-    public function preview(Request $request, Transaction $transaction, Attachment $attachment, TransactionVisibility $visibility): StreamedResponse
+    public function preview(HttpRequest $request, Request $requestRecord, Attachment $attachment, RequestVisibility $visibility): StreamedResponse
     {
-        abort_unless($attachment->transaction_id === $transaction->id, 404);
-        abort_unless($visibility->canView($request->user(), $transaction), 404);
+        abort_unless($attachment->request_id === $requestRecord->id, 404);
+        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
         abort_unless(Storage::disk($attachment->disk)->exists($attachment->path), 404);
 
         return Storage::disk($attachment->disk)->response(

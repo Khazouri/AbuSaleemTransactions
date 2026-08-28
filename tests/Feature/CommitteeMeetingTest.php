@@ -5,10 +5,10 @@ namespace Tests\Feature;
 use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -69,23 +69,23 @@ class CommitteeMeetingTest extends TestCase
         ]);
         $attendee = $meeting->attendees()->create(['user_id' => $head->id]);
 
-        $transactionOne = $this->transaction('AAA');
-        $transactionTwo = $this->transaction('BBB');
+        $requestOne = $this->request('AAA');
+        $requestTwo = $this->request('BBB');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", ['transaction_id' => $transactionOne->id])
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestOne->id])
             ->assertCreated()
             ->assertJsonPath('data.agenda_order', 1);
 
         $itemTwo = $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", ['transaction_id' => $transactionTwo->id])
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestTwo->id])
             ->assertCreated()
             ->assertJsonPath('data.agenda_order', 2)
             ->json('data.id');
 
-        // Adding the same transaction twice is rejected.
+        // Adding the same request twice is rejected.
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", ['transaction_id' => $transactionOne->id])
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestOne->id])
             ->assertStatus(422);
 
         // Reorder: put the second item first.
@@ -97,13 +97,13 @@ class CommitteeMeetingTest extends TestCase
             ->assertJsonPath('data.0.agenda_order', 1);
 
         // Remove the (now second) item.
-        $remainingItemId = $meeting->agendaItems()->where('transaction_id', $transactionOne->id)->value('id');
+        $remainingItemId = $meeting->agendaItems()->where('request_id', $requestOne->id)->value('id');
         $this->actingAs($head, 'sanctum')
             ->deleteJson("/api/meetings/{$meeting->id}/agenda/{$remainingItemId}")
             ->assertNoContent();
 
-        $this->assertDatabaseMissing('meeting_transactions', ['id' => $remainingItemId]);
-        $this->assertDatabaseHas('meeting_transactions', ['id' => $itemTwo]);
+        $this->assertDatabaseMissing('meeting_requests', ['id' => $remainingItemId]);
+        $this->assertDatabaseHas('meeting_requests', ['id' => $itemTwo]);
 
         // Mark attendance.
         $this->actingAs($head, 'sanctum')
@@ -131,14 +131,14 @@ class CommitteeMeetingTest extends TestCase
         $this->assertDatabaseHas('committees', ['id' => $committee->id]);
     }
 
-    private function transaction(string $suffix): Transaction
+    private function request(string $suffix): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => now()->format('Y')."-ADM-{$suffix}".fake()->unique()->numberBetween(1000, 9999),
-            'title' => "معاملة {$suffix}",
+            'title' => "طلب {$suffix}",
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'new')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'new')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
             'submitted_at' => now(),
         ]);

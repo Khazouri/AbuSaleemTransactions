@@ -6,11 +6,11 @@ use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
 use App\Models\Meeting;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -32,9 +32,9 @@ class CommitteeCandidatesDashboardTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $head = $this->userWithRole('R03');
-        $candidate = $this->committeeTransaction('in_meeting');
-        $earlierStage = $this->transactionAt('requirements_check', 'in_review');
-        $alreadyApproved = $this->transactionAt('approval_by_authority', 'approved');
+        $candidate = $this->committeeRequest('in_meeting');
+        $earlierStage = $this->requestAt('requirements_check', 'in_review');
+        $alreadyApproved = $this->requestAt('approval_by_authority', 'approved');
 
         $response = $this->actingAs($head, 'sanctum')
             ->getJson('/api/committee-candidates')
@@ -51,10 +51,10 @@ class CommitteeCandidatesDashboardTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $head = $this->userWithRole('R03');
-        $transaction = $this->committeeTransaction('in_meeting');
+        $requestRecord = $this->committeeRequest('in_meeting');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/committee-candidates/{$transaction->id}/nominate")
+            ->postJson("/api/committee-candidates/{$requestRecord->id}/nominate")
             ->assertOk()
             ->assertJsonPath('data.status.code', 'nominated_for_committee');
     }
@@ -64,58 +64,58 @@ class CommitteeCandidatesDashboardTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $member = $this->userWithRole('R04');
-        $transaction = $this->committeeTransaction('in_meeting');
+        $requestRecord = $this->committeeRequest('in_meeting');
 
         $this->actingAs($member, 'sanctum')
-            ->postJson("/api/committee-candidates/{$transaction->id}/nominate")
+            ->postJson("/api/committee-candidates/{$requestRecord->id}/nominate")
             ->assertOk();
 
         $this->actingAs($member, 'sanctum')
-            ->postJson("/api/committee-candidates/{$transaction->id}/defer", ['comment' => 'سبب'])
+            ->postJson("/api/committee-candidates/{$requestRecord->id}/defer", ['comment' => 'سبب'])
             ->assertStatus(403);
     }
 
-    public function test_defer_requires_a_comment_and_keeps_the_transaction_at_the_committee_stage(): void
+    public function test_defer_requires_a_comment_and_keeps_the_request_at_the_committee_stage(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $head = $this->userWithRole('R03');
-        $transaction = $this->committeeTransaction('in_meeting');
-        $committeeStageId = $transaction->current_stage_id;
+        $requestRecord = $this->committeeRequest('in_meeting');
+        $committeeStageId = $requestRecord->current_stage_id;
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/committee-candidates/{$transaction->id}/defer")
+            ->postJson("/api/committee-candidates/{$requestRecord->id}/defer")
             ->assertStatus(422)
             ->assertJsonValidationErrors('action');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/committee-candidates/{$transaction->id}/defer", ['comment' => 'تعارض في المواعيد'])
+            ->postJson("/api/committee-candidates/{$requestRecord->id}/defer", ['comment' => 'تعارض في المواعيد'])
             ->assertOk()
             ->assertJsonPath('data.status.code', 'deferred');
 
-        $this->assertSame($committeeStageId, $transaction->refresh()->current_stage_id);
+        $this->assertSame($committeeStageId, $requestRecord->refresh()->current_stage_id);
     }
 
-    public function test_return_to_study_sends_the_transaction_back_to_the_observations_stage(): void
+    public function test_return_to_study_sends_the_request_back_to_the_observations_stage(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $head = $this->userWithRole('R03');
-        $transaction = $this->committeeTransaction('in_meeting');
+        $requestRecord = $this->committeeRequest('in_meeting');
         $observationsStageId = WorkflowStage::where('code', 'observations')->value('id');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/committee-candidates/{$transaction->id}/return-to-study")
+            ->postJson("/api/committee-candidates/{$requestRecord->id}/return-to-study")
             ->assertStatus(422)
             ->assertJsonValidationErrors('action');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/committee-candidates/{$transaction->id}/return-to-study", ['comment' => 'ينقص مرفق مالي'])
+            ->postJson("/api/committee-candidates/{$requestRecord->id}/return-to-study", ['comment' => 'ينقص مرفق مالي'])
             ->assertOk()
             ->assertJsonPath('data.status.code', 'returned')
             ->assertJsonPath('data.current_stage.code', 'observations');
 
-        $this->assertSame($observationsStageId, $transaction->refresh()->current_stage_id);
+        $this->assertSame($observationsStageId, $requestRecord->refresh()->current_stage_id);
     }
 
     public function test_request_completion_requires_a_comment_and_works_before_nomination(): void
@@ -123,15 +123,15 @@ class CommitteeCandidatesDashboardTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $head = $this->userWithRole('R03');
-        $transaction = $this->committeeTransaction('ready');
+        $requestRecord = $this->committeeRequest('ready');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/committee-candidates/{$transaction->id}/request-completion")
+            ->postJson("/api/committee-candidates/{$requestRecord->id}/request-completion")
             ->assertStatus(422)
             ->assertJsonValidationErrors('action');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/committee-candidates/{$transaction->id}/request-completion", ['comment' => 'ينقص محضر لجنة فرعية'])
+            ->postJson("/api/committee-candidates/{$requestRecord->id}/request-completion", ['comment' => 'ينقص محضر لجنة فرعية'])
             ->assertOk()
             ->assertJsonPath('data.status.code', 'completion_required');
     }
@@ -142,15 +142,15 @@ class CommitteeCandidatesDashboardTest extends TestCase
 
         $head = $this->userWithRole('R03');
 
-        $this->committeeTransaction('in_meeting');
-        $this->committeeTransaction('nominated_for_committee');
-        $onAgenda = $this->transactionAt('receive_from_committee', 'on_agenda');
-        $decided = $this->transactionAt('receive_from_committee', 'decided');
-        $this->transactionAt('local_governance_ministry', 'approved');
+        $this->committeeRequest('in_meeting');
+        $this->committeeRequest('nominated_for_committee');
+        $onAgenda = $this->requestAt('receive_from_committee', 'on_agenda');
+        $decided = $this->requestAt('receive_from_committee', 'decided');
+        $this->requestAt('local_governance_ministry', 'approved');
 
         // overdue_at isn't mass-assignable (only the SLA sweep sets it in
         // production), so it's set directly here rather than via update().
-        $overdue = $this->committeeTransaction('in_meeting');
+        $overdue = $this->committeeRequest('in_meeting');
         $overdue->overdue_at = now()->subDay();
         $overdue->save();
 
@@ -177,21 +177,21 @@ class CommitteeCandidatesDashboardTest extends TestCase
             'scheduled_at' => now()->addDay(),
             'created_by_user_id' => $head->id,
         ]);
-        MeetingTransaction::create([
+        MeetingRequest::create([
             'meeting_id' => $meeting->id,
-            'transaction_id' => $onAgenda->id,
+            'request_id' => $onAgenda->id,
             'agenda_order' => 1,
             'item_type' => 'employee_request',
         ]);
 
-        $decidedItem = MeetingTransaction::create([
+        $decidedItem = MeetingRequest::create([
             'meeting_id' => $meeting->id,
-            'transaction_id' => $decided->id,
+            'request_id' => $decided->id,
             'agenda_order' => 2,
             'item_type' => 'employee_request',
         ]);
         Decision::create([
-            'meeting_transaction_id' => $decidedItem->id,
+            'meeting_request_id' => $decidedItem->id,
             'outcome' => 'approve',
             'votes_approve_count' => 2,
             'votes_reject_count' => 0,
@@ -235,19 +235,19 @@ class CommitteeCandidatesDashboardTest extends TestCase
             ->assertJsonPath('data.next_meeting', null);
     }
 
-    private function committeeTransaction(string $statusCode): Transaction
+    private function committeeRequest(string $statusCode): Request
     {
-        return $this->transactionAt('receive_from_committee', $statusCode);
+        return $this->requestAt('receive_from_committee', $statusCode);
     }
 
-    private function transactionAt(string $stageCode, string $statusCode): Transaction
+    private function requestAt(string $stageCode, string $statusCode): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
             'title' => 'اختبار الطلبات المرشحة',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => now(),
         ]);

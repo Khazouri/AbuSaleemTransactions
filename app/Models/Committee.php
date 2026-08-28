@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Committee (اللجنة) — a standing body that reviews transactions in meetings.
+ * Committee (اللجنة) — a standing body that reviews requests in meetings.
  *
  * @property string $name_ar
  * @property string|null $name_en

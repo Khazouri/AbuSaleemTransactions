@@ -27,9 +27,9 @@ import AppLayout from '../layouts/AppLayout.vue'
  */
 
 /*
- * Note the two screens absent from that list: transaction_details
- * ("/transactions/:id") and notes_attachments. They need a specific
- * transaction id, so they can't be linked from a static menu — the sidebar
+ * Note the two screens absent from that list: request_details
+ * ("/requests/:id") and notes_attachments. They need a specific
+ * request id, so they can't be linked from a static menu — the sidebar
  * filters them out and they get real routes in Stage 15.
  */
 
@@ -56,25 +56,25 @@ const routes = [
         meta: { screenCode: 'dashboard' },
       },
       {
-        // Stage 11 — searchable, paginated transaction work queue.
-        path: 'transactions',
-        name: 'transactions',
-        component: () => import('../views/TransactionsView.vue'),
-        meta: { screenCode: 'transactions' },
+        // Stage 11 — searchable, paginated request work queue.
+        path: 'requests',
+        name: 'requests',
+        component: () => import('../views/RequestsView.vue'),
+        meta: { screenCode: 'requests' },
       },
       {
-        // Stage 13 — full transaction intake and reference allocation.
-        path: 'transactions/create',
-        name: 'transaction_intake',
-        component: () => import('../views/TransactionIntakeView.vue'),
-        meta: { screenCode: 'transaction_intake' },
+        // Stage 13 — full request intake and reference allocation.
+        path: 'requests/create',
+        name: 'request_intake',
+        component: () => import('../views/RequestIntakeView.vue'),
+        meta: { screenCode: 'request_intake' },
       },
       {
-        // Stage 15 — transaction workspace with workflow actions and timeline.
-        path: 'transactions/:id',
-        name: 'transaction_details',
-        component: () => import('../views/TransactionDetailView.vue'),
-        meta: { screenCode: 'transaction_details' },
+        // Stage 15 — request workspace with workflow actions and timeline.
+        path: 'requests/:id',
+        name: 'request_details',
+        component: () => import('../views/RequestDetailView.vue'),
+        meta: { screenCode: 'request_details' },
       },
       {
         // Stage 6 — department tree management.
@@ -126,7 +126,7 @@ const routes = [
         meta: { screenCode: 'meetings_dashboard' },
       },
       {
-        // Stage 28 — meetings-unit navigation shell: candidate transactions.
+        // Stage 28 — meetings-unit navigation shell: candidate requests.
         path: 'meetings/candidates',
         name: 'committee_candidates',
         component: () => import('../views/CommitteeCandidatesView.vue'),
@@ -155,7 +155,7 @@ const routes = [
       },
       {
         // Stage 20 — single meeting workspace: agenda builder + attendance.
-        // Needs a specific meeting id, so (like transaction_details) it isn't
+        // Needs a specific meeting id, so (like request_details) it isn't
         // in placeholderScreens and has no separate sidebar entry. vue-router
         // ranks static segments (meetings/agenda etc. above) over this :id
         // route regardless of declaration order, so they aren't shadowed.
@@ -172,7 +172,7 @@ const routes = [
         meta: { screenCode: 'audit_log' },
       },
       {
-        // Stage 24 — filtered transaction reporting with Excel/PDF export.
+        // Stage 24 — filtered request reporting with Excel/PDF export.
         path: 'reports',
         name: 'reports',
         component: () => import('../views/ReportsView.vue'),

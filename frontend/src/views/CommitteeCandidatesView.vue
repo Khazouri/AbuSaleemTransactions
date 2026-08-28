@@ -1,7 +1,7 @@
 <script setup>
-// Stage 32 — the candidate-requests worklist: transactions sitting with the
+// Stage 32 — the candidate-requests worklist: requests sitting with the
 // committee, not yet placed on a meeting's agenda. Replaces the ad-hoc
-// transaction search inside MeetingAgendaBuilderView as the way a request
+// request search inside MeetingAgendaBuilderView as the way a request
 // first becomes linked to the meetings unit.
 import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -27,7 +27,7 @@ const departmentFilter = ref('')
 const search = ref('')
 const departments = ref([])
 
-// Mirrors TransactionStatusSeeder's Arabic/English names for the three
+// Mirrors RequestStatusSeeder's Arabic/English names for the three
 // CommitteeStatusService::CANDIDATE_STATUSES codes — the filter only ever
 // needs to offer these three, so a static label map here avoids an extra
 // lookup endpoint for three fixed rows.
@@ -39,7 +39,7 @@ const STATUS_OPTIONS = [
 
 async function loadFilters() {
   try {
-    const { data } = await api.get('/transactions/filters')
+    const { data } = await api.get('/requests/filters')
     departments.value = data.data?.departments ?? []
   } catch {
     departments.value = []

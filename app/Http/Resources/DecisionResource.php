@@ -2,7 +2,7 @@
 
 namespace App\Http\Resources;
 
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -36,32 +36,32 @@ class DecisionResource extends JsonResource
             // Stage 25 — the register lists decisions away from the meeting
             // that produced them, so it needs enough context to link back.
             // Loaded only there: the in-meeting UI already knows which meeting
-            // and transaction it is looking at, and omitting the key keeps that
+            // and request it is looking at, and omitting the key keeps that
             // payload the shape Stage 21 built.
             'context' => $this->whenLoaded(
-                'meetingTransaction',
-                fn () => $this->contextFor($this->meetingTransaction),
+                'meetingRequest',
+                fn () => $this->contextFor($this->meetingRequest),
             ),
         ];
     }
 
     /** @return array<string, mixed>|null */
-    private function contextFor(?MeetingTransaction $agendaItem): ?array
+    private function contextFor(?MeetingRequest $agendaItem): ?array
     {
         if ($agendaItem === null) {
             return null;
         }
 
         $meeting = $agendaItem->relationLoaded('meeting') ? $agendaItem->meeting : null;
-        $transaction = $agendaItem->relationLoaded('transaction') ? $agendaItem->transaction : null;
+        $requestRecord = $agendaItem->relationLoaded('request') ? $agendaItem->request : null;
         $committee = $meeting?->relationLoaded('committee') ? $meeting->committee : null;
 
         return [
             'agenda_item_id' => $agendaItem->id,
-            'transaction' => $transaction === null ? null : [
-                'id' => $transaction->id,
-                'reference_number' => $transaction->reference_number,
-                'title' => $transaction->title,
+            'request' => $requestRecord === null ? null : [
+                'id' => $requestRecord->id,
+                'reference_number' => $requestRecord->reference_number,
+                'title' => $requestRecord->title,
             ],
             'meeting' => $meeting === null ? null : [
                 'id' => $meeting->id,

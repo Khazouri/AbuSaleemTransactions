@@ -30,7 +30,7 @@ class NotificationResource extends JsonResource
             'body_en' => $data['body_en'] ?? null,
             // Present only for the events that have one; the bell uses them to
             // link straight to the record being talked about.
-            'transaction_id' => $data['transaction_id'] ?? null,
+            'request_id' => $data['request_id'] ?? null,
             'meeting_id' => $data['meeting_id'] ?? null,
             'reference_number' => $data['reference_number'] ?? null,
             'read_at' => $this->read_at?->toIso8601String(),

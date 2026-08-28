@@ -6,10 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * One agenda slot, with just enough of its transaction to render the agenda
+ * One agenda slot, with just enough of its request to render the agenda
  * list, plus (Stage 21) its votes and, once recorded, its binding decision.
  */
-class MeetingTransactionResource extends JsonResource
+class MeetingRequestResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
@@ -18,7 +18,7 @@ class MeetingTransactionResource extends JsonResource
             'agenda_order' => $this->agenda_order,
             // Stage 31 — item_type/priority/estimated_minutes apply to every
             // item; subject/department are the admin-item's own, since it has
-            // no transaction to read them from.
+            // no request to read them from.
             'item_type' => $this->item_type,
             'priority' => $this->priority,
             'estimated_minutes' => $this->estimated_minutes,
@@ -35,15 +35,15 @@ class MeetingTransactionResource extends JsonResource
                 'name_ar' => $this->department->name_ar,
                 'name_en' => $this->department->name_en,
             ] : null),
-            'transaction' => $this->whenLoaded('transaction', fn () => $this->transaction ? [
-                'id' => $this->transaction->id,
-                'reference_number' => $this->transaction->reference_number,
-                'title' => $this->transaction->title,
-                'status' => $this->transaction->status ? [
-                    'code' => $this->transaction->status->code,
-                    'name_ar' => $this->transaction->status->name_ar,
-                    'name_en' => $this->transaction->status->name_en,
-                    'color' => $this->transaction->status->color,
+            'request' => $this->whenLoaded('request', fn () => $this->request ? [
+                'id' => $this->request->id,
+                'reference_number' => $this->request->reference_number,
+                'title' => $this->request->title,
+                'status' => $this->request->status ? [
+                    'code' => $this->request->status->code,
+                    'name_ar' => $this->request->status->name_ar,
+                    'name_en' => $this->request->status->name_en,
+                    'color' => $this->request->status->color,
                 ] : null,
             ] : null),
             'votes' => $this->whenLoaded('votes', fn () => VoteResource::collection($this->votes)),

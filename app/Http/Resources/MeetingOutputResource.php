@@ -10,24 +10,24 @@ class MeetingOutputResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $transaction = $this->transaction;
-        $statusCode = $transaction?->status?->code;
-        $stage = $transaction?->currentStage;
+        $requestRecord = $this->request;
+        $statusCode = $requestRecord?->status?->code;
+        $stage = $requestRecord?->currentStage;
         $inExecution = $statusCode === 'in_execution';
         $closed = in_array($statusCode, ['completed_closed', 'archived'], true);
 
         return [
             'agenda_item_id' => $this->id,
             'agenda_order' => $this->agenda_order,
-            'transaction' => $transaction ? [
-                'id' => $transaction->id,
-                'reference_number' => $transaction->reference_number,
-                'title' => $transaction->title,
-                'employee' => $transaction->createdBy ? [
-                    'id' => $transaction->createdBy->id,
-                    'name' => $transaction->createdBy->name,
+            'request' => $requestRecord ? [
+                'id' => $requestRecord->id,
+                'reference_number' => $requestRecord->reference_number,
+                'title' => $requestRecord->title,
+                'employee' => $requestRecord->createdBy ? [
+                    'id' => $requestRecord->createdBy->id,
+                    'name' => $requestRecord->createdBy->name,
                 ] : null,
-                'department' => $this->namedEntity($transaction->department),
+                'department' => $this->namedEntity($requestRecord->department),
             ] : null,
             'decision' => $this->decision ? [
                 'id' => $this->decision->id,
@@ -58,13 +58,13 @@ class MeetingOutputResource extends JsonResource
             // department is the body carrying it out; before that, the stage's
             // responsible role is the authority holding the next checkpoint.
             'responsible_body' => $inExecution || $closed
-                ? $this->namedEntity($transaction?->department, 'department')
+                ? $this->namedEntity($requestRecord?->department, 'department')
                 : $this->namedEntity($stage?->responsibleRole, 'role'),
-            'execution_status' => $transaction?->status ? [
-                'code' => $transaction->status->code,
-                'name_ar' => $transaction->status->name_ar,
-                'name_en' => $transaction->status->name_en,
-                'color' => $transaction->status->color,
+            'execution_status' => $requestRecord?->status ? [
+                'code' => $requestRecord->status->code,
+                'name_ar' => $requestRecord->status->name_ar,
+                'name_en' => $requestRecord->status->name_en,
+                'color' => $requestRecord->status->color,
             ] : null,
             'can_complete' => $inExecution && $stage?->code === 'final_approval_archiving',
         ];

@@ -10,9 +10,9 @@ class Attachment extends Model
 {
     protected $guarded = [];
 
-    public function transaction(): BelongsTo
+    public function request(): BelongsTo
     {
-        return $this->belongsTo(Transaction::class);
+        return $this->belongsTo(Request::class);
     }
 
     public function uploadedBy(): BelongsTo

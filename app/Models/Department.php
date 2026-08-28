@@ -15,16 +15,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * at the department above, which is what makes the structure a hierarchy
  * rather than a flat list.
  *
- * @property string      $name_ar
+ * @property string $name_ar
  * @property string|null $name_en
- * @property string|null $code       Short code (ADM, ENG...) used in reference numbers
- * @property int|null    $parent_id
- * @property bool        $is_active
+ * @property string|null $code Short code (ADM, ENG...) used in reference numbers
+ * @property int|null $parent_id
+ * @property bool $is_active
  */
 class Department extends Model
 {
     /** SoftDeletes: a "deleted" department is hidden but still resolvable
-     *  by the transactions and users that reference it. */
+     *  by the requests and users that reference it. */
     use HasFactory, SoftDeletes;
 
     protected $fillable = [

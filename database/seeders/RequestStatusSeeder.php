@@ -2,11 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\TransactionStatus;
+use App\Models\RequestStatus;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds every status a transaction can hold, with the badge colour the UI
+ * Seeds every status a request can hold, with the badge colour the UI
  * uses for each.
  *
  * The first nine are the normal progression. The remaining four
@@ -14,7 +14,7 @@ use Illuminate\Database\Seeder;
  * driven by the exception transitions added in Stage 16 and Stage 21 — they're
  * seeded now so those transitions have something to point at.
  */
-class TransactionStatusSeeder extends Seeder
+class RequestStatusSeeder extends Seeder
 {
     public function run(): void
     {
@@ -73,7 +73,7 @@ class TransactionStatusSeeder extends Seeder
         ];
 
         foreach ($statuses as [$code, $nameAr, $nameEn, $color]) {
-            TransactionStatus::updateOrCreate(
+            RequestStatus::updateOrCreate(
                 ['code' => $code],
                 ['name_ar' => $nameAr, 'name_en' => $nameEn, 'color' => $color],
             );

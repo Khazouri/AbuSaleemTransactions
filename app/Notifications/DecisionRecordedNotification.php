@@ -3,7 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Decision;
-use App\Models\Transaction;
+use App\Models\Request;
 
 /**
  * The committee's binding decision on an agenda item has been recorded.
@@ -19,7 +19,7 @@ class DecisionRecordedNotification extends SystemNotification
         'defer' => ['ar' => 'التأجيل', 'en' => 'deferred'],
     ];
 
-    private readonly int $transactionId;
+    private readonly int $requestId;
 
     private readonly string $reference;
 
@@ -31,10 +31,10 @@ class DecisionRecordedNotification extends SystemNotification
 
     private readonly int $deferCount;
 
-    public function __construct(Transaction $transaction, Decision $decision)
+    public function __construct(Request $requestRecord, Decision $decision)
     {
-        $this->transactionId = $transaction->id;
-        $this->reference = (string) $transaction->reference_number;
+        $this->requestId = $requestRecord->id;
+        $this->reference = (string) $requestRecord->reference_number;
         $this->outcome = (string) $decision->outcome;
         $this->approveCount = (int) $decision->votes_approve_count;
         $this->rejectCount = (int) $decision->votes_reject_count;
@@ -52,13 +52,13 @@ class DecisionRecordedNotification extends SystemNotification
         $tally = "{$this->approveCount}/{$this->rejectCount}/{$this->deferCount}";
 
         return [
-            'transaction_id' => $this->transactionId,
+            'request_id' => $this->requestId,
             'reference_number' => $this->reference,
             'outcome' => $this->outcome,
             'title_ar' => 'قرار لجنة',
             'title_en' => 'Committee decision',
-            'body_ar' => "قررت اللجنة {$labels['ar']} بشأن المعاملة {$this->reference} (موافقة/رفض/تأجيل: {$tally}).",
-            'body_en' => "The committee {$labels['en']} transaction {$this->reference} (approve/reject/defer: {$tally}).",
+            'body_ar' => "قررت اللجنة {$labels['ar']} بشأن الطلب {$this->reference} (موافقة/رفض/تأجيل: {$tally}).",
+            'body_en' => "The committee {$labels['en']} request {$this->reference} (approve/reject/defer: {$tally}).",
         ];
     }
 }

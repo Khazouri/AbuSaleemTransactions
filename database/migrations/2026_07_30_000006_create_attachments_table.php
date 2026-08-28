@@ -11,7 +11,7 @@ return new class extends Migration
     {
         Schema::create('attachments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('transaction_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('request_id')->constrained()->cascadeOnDelete();
             $table->string('disk', 50)->default('local');
             $table->string('path');
             $table->string('original_name');
@@ -22,7 +22,7 @@ return new class extends Migration
                 ->constrained('users')->nullOnDelete();
             $table->timestamps();
 
-            $table->index('transaction_id');
+            $table->index('request_id');
         });
     }
 

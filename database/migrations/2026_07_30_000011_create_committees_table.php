@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * COMMITTEES (اللجان)
  * ---------------------------------------------------------------------------
- * A standing body (e.g. لجنة المشتريات) that reviews transactions in meetings.
+ * A standing body (e.g. لجنة المشتريات) that reviews requests in meetings.
  * Master data like `departments`: created rarely, referenced by `meetings`, so
  * it leans towards preserving records — soft delete plus a controller-level
  * block (see CommitteeController::destroy) rather than a hard delete.

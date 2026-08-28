@@ -33,14 +33,14 @@ class ScreenRolePermissionSeeder extends Seeder
      * Any action not listed for a screen stays false for every role but R08.
      */
     private const DEFAULTS = [
-        // Everyone needs the dashboard and the transaction list.
+        // Everyone needs the dashboard and the request list.
         'dashboard' => ['view' => '*', 'print' => '*'],
-        'transactions' => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],
+        'requests' => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],
 
         // Intake: the roles that actually register incoming paperwork.
         // R07 is absent — the dean approves, they don't do data entry.
-        'transaction_intake' => ['view' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'edit' => ['R01', 'R02', 'R05']],
-        'transaction_details' => ['view' => '*', 'print' => '*', 'export' => '*'],
+        'request_intake' => ['view' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'edit' => ['R01', 'R02', 'R05']],
+        'request_details' => ['view' => '*', 'print' => '*', 'export' => '*'],
 
         // Notes/attachments: broad read, narrower write.
         'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05'], 'edit' => ['R01', 'R02']],

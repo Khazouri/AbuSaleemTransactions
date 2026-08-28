@@ -2,17 +2,17 @@
 
 namespace App\Notifications;
 
-use App\Models\Transaction;
+use App\Models\Request;
 use App\Models\WorkflowStage;
 
 /**
- * A transaction moved. Informational: it goes to the people following the
+ * A request moved. Informational: it goes to the people following the
  * work, not to the person who now has to act on it — that's
  * ActionRequiredNotification, so the two can be muted independently.
  */
-class TransactionStageChangedNotification extends SystemNotification
+class RequestStageChangedNotification extends SystemNotification
 {
-    private readonly int $transactionId;
+    private readonly int $requestId;
 
     private readonly string $reference;
 
@@ -21,14 +21,14 @@ class TransactionStageChangedNotification extends SystemNotification
     private readonly ?string $toStage;
 
     public function __construct(
-        Transaction $transaction,
+        Request $requestRecord,
         ?WorkflowStage $fromStage,
         ?WorkflowStage $toStage,
         private readonly string $action,
         private readonly string $actorName,
     ) {
-        $this->transactionId = $transaction->id;
-        $this->reference = (string) $transaction->reference_number;
+        $this->requestId = $requestRecord->id;
+        $this->reference = (string) $requestRecord->reference_number;
         $this->fromStage = $fromStage?->name_ar;
         $this->toStage = $toStage?->name_ar;
     }
@@ -44,13 +44,13 @@ class TransactionStageChangedNotification extends SystemNotification
         $to = $this->toStage ?? '—';
 
         return [
-            'transaction_id' => $this->transactionId,
+            'request_id' => $this->requestId,
             'reference_number' => $this->reference,
             'action' => $this->action,
-            'title_ar' => 'تحديث على المعاملة',
-            'title_en' => 'Transaction updated',
-            'body_ar' => "انتقلت المعاملة {$this->reference} من «{$from}» إلى «{$to}» بواسطة {$this->actorName}.",
-            'body_en' => "Transaction {$this->reference} moved from \"{$from}\" to \"{$to}\" by {$this->actorName}.",
+            'title_ar' => 'تحديث على الطلب',
+            'title_en' => 'Request updated',
+            'body_ar' => "انتقل الطلب {$this->reference} من «{$from}» إلى «{$to}» بواسطة {$this->actorName}.",
+            'body_en' => "Request {$this->reference} moved from \"{$from}\" to \"{$to}\" by {$this->actorName}.",
         ];
     }
 }

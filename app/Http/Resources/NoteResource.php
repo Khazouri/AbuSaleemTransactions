@@ -12,7 +12,7 @@ class NoteResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'transaction_id' => $this->transaction_id,
+            'request_id' => $this->request_id,
             'body' => $this->body,
             'is_internal' => $this->is_internal,
             'created_by' => $this->createdBy ? [

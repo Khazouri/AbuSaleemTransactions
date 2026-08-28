@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\MeetingDiscussionNote\StoreMeetingDiscussionNoteRequest;
 use App\Http\Resources\MeetingDiscussionNoteResource;
 use App\Models\Meeting;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -18,7 +18,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  */
 class MeetingDiscussionNoteController extends Controller
 {
-    public function index(Meeting $meeting, MeetingTransaction $agendaItem): AnonymousResourceCollection
+    public function index(Meeting $meeting, MeetingRequest $agendaItem): AnonymousResourceCollection
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
@@ -27,7 +27,7 @@ class MeetingDiscussionNoteController extends Controller
         );
     }
 
-    public function store(StoreMeetingDiscussionNoteRequest $request, Meeting $meeting, MeetingTransaction $agendaItem): JsonResponse
+    public function store(StoreMeetingDiscussionNoteRequest $request, Meeting $meeting, MeetingRequest $agendaItem): JsonResponse
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 

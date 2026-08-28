@@ -4,18 +4,18 @@ namespace Tests\Feature;
 
 use App\Models\Attachment;
 use App\Models\Department;
+use App\Models\Request;
+use App\Models\RequestStageLog;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStageLog;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class TransactionDetailTest extends TestCase
+class RequestDetailTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -28,35 +28,35 @@ class TransactionDetailTest extends TestCase
         // at reviewer_review, so this stays a plain role-gated `forward`
         // advance with no signature involved (that's `approve`'s concern,
         // covered by the approval-chain tests).
-        $transaction = $this->newTransaction('reviewer_review', 'in_review');
+        $requestRecord = $this->newRequest('reviewer_review', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
         Attachment::create([
-            'transaction_id' => $transaction->id,
+            'request_id' => $requestRecord->id,
             'disk' => 'local',
-            'path' => "attachments/{$transaction->id}/support.pdf",
+            'path' => "attachments/{$requestRecord->id}/support.pdf",
             'original_name' => 'support.pdf',
             'mime_type' => 'application/pdf',
             'size_bytes' => 1024,
         ]);
-        TransactionStageLog::create([
-            'transaction_id' => $transaction->id,
-            'to_stage_id' => $transaction->current_stage_id,
+        RequestStageLog::create([
+            'request_id' => $requestRecord->id,
+            'to_stage_id' => $requestRecord->current_stage_id,
             'action' => 'intake',
             'acted_by_user_id' => $reviewer->id,
             'acted_at' => now(),
         ]);
 
         $this->actingAs($reviewer, 'sanctum')
-            ->getJson("/api/transactions/{$transaction->id}")
+            ->getJson("/api/requests/{$requestRecord->id}")
             ->assertOk()
-            ->assertJsonPath('data.id', $transaction->id)
+            ->assertJsonPath('data.id', $requestRecord->id)
             ->assertJsonPath('data.attachments.0.original_name', 'support.pdf')
             ->assertJsonPath('data.timeline.0.action', 'intake')
             ->assertJsonPath('data.available_actions.0', 'forward');
 
         $this->actingAs($reviewer, 'sanctum')
-            ->postJson("/api/transactions/{$transaction->id}/transition", [
+            ->postJson("/api/requests/{$requestRecord->id}/transition", [
                 'action' => 'forward',
                 'comment' => 'تمت الإحالة للمراجعة.',
             ])
@@ -65,8 +65,8 @@ class TransactionDetailTest extends TestCase
             ->assertJsonPath('data.status.code', 'in_review')
             ->assertJsonPath('data.available_actions.0', 'forward');
 
-        $this->assertDatabaseHas('transaction_stage_logs', [
-            'transaction_id' => $transaction->id,
+        $this->assertDatabaseHas('request_stage_logs', [
+            'request_id' => $requestRecord->id,
             'action' => 'forward',
             'acted_by_user_id' => $reviewer->id,
         ]);
@@ -75,27 +75,27 @@ class TransactionDetailTest extends TestCase
     public function test_an_actor_without_the_configured_role_cannot_transition_from_the_detail_endpoint(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $transaction = $this->newTransaction();
+        $requestRecord = $this->newRequest();
         $employee = $this->userWithRole('R01');
 
         $this->actingAs($employee, 'sanctum')
-            ->postJson("/api/transactions/{$transaction->id}/transition", ['action' => 'forward'])
+            ->postJson("/api/requests/{$requestRecord->id}/transition", ['action' => 'forward'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('action');
 
-        $transaction->refresh();
-        $this->assertSame('receive_from_municipality', $transaction->currentStage->code);
-        $this->assertDatabaseCount('transaction_stage_logs', 0);
+        $requestRecord->refresh();
+        $this->assertSame('receive_from_municipality', $requestRecord->currentStage->code);
+        $this->assertDatabaseCount('request_stage_logs', 0);
     }
 
     public function test_detail_exposes_exception_metadata_and_endpoint_preserves_the_required_reason(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $transaction = $this->newTransaction('requirements_check', 'in_review');
+        $requestRecord = $this->newRequest('requirements_check', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
         $this->actingAs($reviewer, 'sanctum')
-            ->getJson("/api/transactions/{$transaction->id}")
+            ->getJson("/api/requests/{$requestRecord->id}")
             ->assertOk()
             ->assertJsonFragment([
                 'action' => 'return_missing_docs',
@@ -109,7 +109,7 @@ class TransactionDetailTest extends TestCase
             ]);
 
         $this->actingAs($reviewer, 'sanctum')
-            ->postJson("/api/transactions/{$transaction->id}/transition", [
+            ->postJson("/api/requests/{$requestRecord->id}/transition", [
                 'action' => 'return_missing_docs',
                 'comment' => 'صورة المستند المطلوبة غير مرفقة.',
             ])
@@ -123,31 +123,31 @@ class TransactionDetailTest extends TestCase
     public function test_exception_endpoint_rejects_a_blank_reason(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $transaction = $this->newTransaction('requirements_check', 'in_review');
+        $requestRecord = $this->newRequest('requirements_check', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
         $this->actingAs($reviewer, 'sanctum')
-            ->postJson("/api/transactions/{$transaction->id}/transition", [
+            ->postJson("/api/requests/{$requestRecord->id}/transition", [
                 'action' => 'return_missing_docs',
                 'comment' => '   ',
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('action');
 
-        $transaction->refresh();
-        $this->assertSame('requirements_check', $transaction->currentStage->code);
-        $this->assertDatabaseCount('transaction_stage_logs', 0);
+        $requestRecord->refresh();
+        $this->assertSame('requirements_check', $requestRecord->currentStage->code);
+        $this->assertDatabaseCount('request_stage_logs', 0);
     }
 
-    private function newTransaction(string $stageCode = 'receive_from_municipality', string $statusCode = 'new'): Transaction
+    private function newRequest(string $stageCode = 'receive_from_municipality', string $statusCode = 'new'): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
-            'title' => 'معاملة تفصيلية',
-            'description' => 'تفاصيل المعاملة لاختبار شاشة العمل.',
+            'title' => 'طلب تفصيلية',
+            'description' => 'تفاصيل الطلب لاختبار شاشة العمل.',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => now(),
         ]);

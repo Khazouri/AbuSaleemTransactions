@@ -5,10 +5,10 @@ namespace Tests\Feature;
 use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -16,15 +16,15 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Stage 31 — the agenda outgrows a transaction-only ordered list: admin/
- * emerging items with no transaction, priority, estimated time, and the
+ * Stage 31 — the agenda outgrows a request-only ordered list: admin/
+ * emerging items with no request, priority, estimated time, and the
  * agenda-builder screen's stats/grouping endpoint.
  */
 class MeetingAgendaBuilderTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_an_administrative_item_can_be_added_without_a_transaction(): void
+    public function test_an_administrative_item_can_be_added_without_a_request(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -44,12 +44,12 @@ class MeetingAgendaBuilderTest extends TestCase
             ->assertJsonPath('data.subject', 'مراجعة ميزانية القسم')
             ->assertJsonPath('data.priority', 'high')
             ->assertJsonPath('data.estimated_minutes', 15)
-            ->assertJsonPath('data.transaction', null);
+            ->assertJsonPath('data.request', null);
 
-        $this->assertDatabaseHas('meeting_transactions', [
+        $this->assertDatabaseHas('meeting_requests', [
             'meeting_id' => $meeting->id,
             'item_type' => 'administrative',
-            'transaction_id' => null,
+            'request_id' => null,
             'subject' => 'مراجعة ميزانية القسم',
         ]);
     }
@@ -73,10 +73,10 @@ class MeetingAgendaBuilderTest extends TestCase
         [$head, , $meeting] = $this->committeeAndMeeting();
         $admId = Department::where('code', 'ADM')->value('id');
 
-        $transaction = $this->transaction('AAA', $admId);
+        $requestRecord = $this->request('AAA', $admId);
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", [
-                'transaction_id' => $transaction->id,
+                'request_id' => $requestRecord->id,
                 'priority' => 'medium',
                 'estimated_minutes' => 20,
             ])
@@ -114,8 +114,8 @@ class MeetingAgendaBuilderTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         [$head, , $meeting] = $this->committeeAndMeeting();
-        $transaction = $this->transaction('BBB', Department::where('code', 'ADM')->value('id'));
-        $item = $meeting->agendaItems()->create(['transaction_id' => $transaction->id, 'agenda_order' => 1]);
+        $requestRecord = $this->request('BBB', Department::where('code', 'ADM')->value('id'));
+        $item = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
 
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}", [
@@ -126,7 +126,7 @@ class MeetingAgendaBuilderTest extends TestCase
             ->assertJsonPath('data.priority', 'high')
             ->assertJsonPath('data.estimated_minutes', 45);
 
-        $this->assertDatabaseHas('meeting_transactions', [
+        $this->assertDatabaseHas('meeting_requests', [
             'id' => $item->id,
             'priority' => 'high',
             'estimated_minutes' => 45,
@@ -165,8 +165,8 @@ class MeetingAgendaBuilderTest extends TestCase
         [$head, , $meeting] = $this->committeeAndMeeting();
         $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
 
-        $transaction = $this->transactionAtCommitteeStage();
-        $requestItem = $meeting->agendaItems()->create(['transaction_id' => $transaction->id, 'agenda_order' => 1]);
+        $requestRecord = $this->requestAtCommitteeStage();
+        $requestItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
         $meeting->agendaItems()->create(['item_type' => 'administrative', 'subject' => 'بند إداري', 'agenda_order' => 2]);
 
         $response = $this->actingAs($head, 'sanctum')
@@ -197,27 +197,27 @@ class MeetingAgendaBuilderTest extends TestCase
         return [$head, $member, $meeting];
     }
 
-    private function transaction(string $suffix, ?int $departmentId): Transaction
+    private function request(string $suffix, ?int $departmentId): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => now()->format('Y')."-ADM-{$suffix}".fake()->unique()->numberBetween(1000, 9999),
-            'title' => "معاملة {$suffix}",
+            'title' => "طلب {$suffix}",
             'department_id' => $departmentId,
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'new')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'new')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
             'submitted_at' => now(),
         ]);
     }
 
-    private function transactionAtCommitteeStage(): Transaction
+    private function requestAtCommitteeStage(): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
-            'title' => 'معاملة معروضة على اللجنة',
+            'title' => 'طلب معروض على اللجنة',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'in_meeting')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
         ]);

@@ -4,10 +4,10 @@ namespace Tests\Unit;
 
 use App\Exceptions\WorkflowTransitionException;
 use App\Models\Department;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
@@ -20,7 +20,7 @@ class WorkflowServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_happy_path_moves_a_transaction_from_stage_one_to_fourteen_with_complete_logs(): void
+    public function test_happy_path_moves_a_request_from_stage_one_to_fourteen_with_complete_logs(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -41,7 +41,7 @@ class WorkflowServiceTest extends TestCase
         $actors['R01'] = $employee;
         $actors['MANAGER'] = $manager;
 
-        $transaction = $this->newTransaction(createdByUserId: $employee->id);
+        $requestRecord = $this->newRequest(createdByUserId: $employee->id);
         $service = app(WorkflowService::class);
 
         $steps = [
@@ -62,17 +62,17 @@ class WorkflowServiceTest extends TestCase
         ];
 
         foreach ($steps as [$from, $to, $action, $roleCode, $statusCode]) {
-            $transaction = $service->transition(
-                $transaction,
+            $requestRecord = $service->transition(
+                $requestRecord,
                 $action,
                 $actors[$roleCode],
                 signaturePath: $action === 'approve' ? "signatures/test-{$from}.png" : null,
             );
 
-            $this->assertSame($to, $transaction->currentStage->code);
-            $this->assertSame($statusCode, $transaction->status->code);
-            $this->assertDatabaseHas('transaction_stage_logs', [
-                'transaction_id' => $transaction->id,
+            $this->assertSame($to, $requestRecord->currentStage->code);
+            $this->assertSame($statusCode, $requestRecord->status->code);
+            $this->assertDatabaseHas('request_stage_logs', [
+                'request_id' => $requestRecord->id,
                 'from_stage_id' => WorkflowStage::where('code', $from)->value('id'),
                 'to_stage_id' => WorkflowStage::where('code', $to)->value('id'),
                 'action' => $action,
@@ -80,10 +80,10 @@ class WorkflowServiceTest extends TestCase
             ]);
         }
 
-        $this->assertSame('final_approval_archiving', $transaction->currentStage->code);
-        $this->assertSame('in_execution', $transaction->status->code);
-        $this->assertCount(14, $transaction->stageLogs);
-        $this->assertCount(14, $transaction->statusHistory);
+        $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
+        $this->assertSame('in_execution', $requestRecord->status->code);
+        $this->assertCount(14, $requestRecord->stageLogs);
+        $this->assertCount(14, $requestRecord->statusHistory);
         $this->assertSame(
             [
                 'direct_manager_review', 'administrative_routing', 'receive_and_register',
@@ -92,7 +92,7 @@ class WorkflowServiceTest extends TestCase
                 'local_governance_ministry', 'competent_authority', 'final_approval_archiving',
                 'final_approval_archiving',
             ],
-            $transaction->stageLogs()
+            $requestRecord->stageLogs()
                 ->with('toStage')
                 ->orderBy('id')
                 ->get()
@@ -102,10 +102,10 @@ class WorkflowServiceTest extends TestCase
         // The four new front-half hops (submit/forward/route_to_hr/register)
         // are none of them action `approve`, so they write no Approval ledger
         // row — the level sequence is exactly what it was before this stage.
-        $this->assertSame(range(1, 6), $transaction->approvals()->orderBy('id')->pluck('level')->all());
+        $this->assertSame(range(1, 6), $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
         $this->assertSame(
             ['R02', 'R03', 'R05', 'R06', 'R07', 'R07'],
-            $transaction->approvals()->with('role')->orderBy('id')->get()->pluck('role.code')->all(),
+            $requestRecord->approvals()->with('role')->orderBy('id')->get()->pluck('role.code')->all(),
         );
     }
 
@@ -116,11 +116,11 @@ class WorkflowServiceTest extends TestCase
         // Diagram-alignment redesign: the outbound action from stage one is
         // now `submit` (R01/R08), not `forward` — an R02 actor has the wrong
         // role for it, which is exactly the case this test wants.
-        $transaction = $this->newTransaction();
+        $requestRecord = $this->newRequest();
         $reviewer = $this->userWithRole('R02');
 
         try {
-            app(WorkflowService::class)->transition($transaction, 'submit', $reviewer);
+            app(WorkflowService::class)->transition($requestRecord, 'submit', $reviewer);
             $this->fail('The transition should reject an actor without R01.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame(
@@ -129,12 +129,12 @@ class WorkflowServiceTest extends TestCase
             );
         }
 
-        $transaction->refresh();
+        $requestRecord->refresh();
 
-        $this->assertSame('receive_from_municipality', $transaction->currentStage->code);
-        $this->assertSame('new', $transaction->status->code);
-        $this->assertDatabaseCount('transaction_stage_logs', 0);
-        $this->assertDatabaseCount('transaction_status_history', 0);
+        $this->assertSame('receive_from_municipality', $requestRecord->currentStage->code);
+        $this->assertSame('new', $requestRecord->status->code);
+        $this->assertDatabaseCount('request_stage_logs', 0);
+        $this->assertDatabaseCount('request_status_history', 0);
     }
 
     public function test_seeded_happy_path_contains_one_ordered_rule_for_each_forward_stage(): void
@@ -196,79 +196,79 @@ class WorkflowServiceTest extends TestCase
         $service = app(WorkflowService::class);
         $paths = [
             ['requirements_check', 'return_missing_docs', $reviewer, 'receive_from_municipality', 'incomplete', 'المستند المالي غير مرفق.'],
-            ['reviewer_review', 'reject_review', $reviewer, 'requirements_check', 'rejected', 'المعاملة لا تطابق اللائحة.'],
+            ['reviewer_review', 'reject_review', $reviewer, 'requirements_check', 'rejected', 'الطلب لا تطابق اللائحة.'],
             ['observations', 'request_edit', $reviewer, 'reviewer_review', 'returned', 'يرجى تصحيح بيانات القرار.'],
-            ['forward_to_committee', 'cancel', $adminManager, 'forward_to_committee', 'cancelled', 'ألغيت المعاملة بناءً على كتاب رسمي.'],
+            ['forward_to_committee', 'cancel', $adminManager, 'forward_to_committee', 'cancelled', 'أُلغي الطلب بناءً على كتاب رسمي.'],
         ];
 
         foreach ($paths as [$from, $action, $actor, $to, $status, $reason]) {
-            $transaction = $this->newTransaction($from, 'in_review');
-            $transaction = $service->transition($transaction, $action, $actor, $reason);
+            $requestRecord = $this->newRequest($from, 'in_review');
+            $requestRecord = $service->transition($requestRecord, $action, $actor, $reason);
 
-            $this->assertSame($to, $transaction->currentStage->code);
-            $this->assertSame($status, $transaction->status->code);
-            $this->assertDatabaseHas('transaction_stage_logs', [
-                'transaction_id' => $transaction->id,
+            $this->assertSame($to, $requestRecord->currentStage->code);
+            $this->assertSame($status, $requestRecord->status->code);
+            $this->assertDatabaseHas('request_stage_logs', [
+                'request_id' => $requestRecord->id,
                 'from_stage_id' => WorkflowStage::where('code', $from)->value('id'),
                 'to_stage_id' => WorkflowStage::where('code', $to)->value('id'),
                 'action' => $action,
                 'comment' => $reason,
                 'acted_by_user_id' => $actor->id,
             ]);
-            $this->assertDatabaseHas('transaction_status_history', [
-                'transaction_id' => $transaction->id,
-                'to_status_id' => TransactionStatus::where('code', $status)->value('id'),
+            $this->assertDatabaseHas('request_status_history', [
+                'request_id' => $requestRecord->id,
+                'to_status_id' => RequestStatus::where('code', $status)->value('id'),
                 'reason' => $reason,
                 'changed_by_user_id' => $actor->id,
             ]);
         }
     }
 
-    public function test_exception_requires_a_non_blank_reason_without_mutating_the_transaction(): void
+    public function test_exception_requires_a_non_blank_reason_without_mutating_the_request(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $transaction = $this->newTransaction('requirements_check', 'in_review');
+        $requestRecord = $this->newRequest('requirements_check', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
         try {
-            app(WorkflowService::class)->transition($transaction, 'return_missing_docs', $reviewer, '   ');
+            app(WorkflowService::class)->transition($requestRecord, 'return_missing_docs', $reviewer, '   ');
             $this->fail('The exception transition should require a reason.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame('يجب إدخال سبب لتنفيذ هذا الإجراء.', $exception->getMessage());
         }
 
-        $transaction->refresh();
-        $this->assertSame('requirements_check', $transaction->currentStage->code);
-        $this->assertSame('in_review', $transaction->status->code);
-        $this->assertDatabaseCount('transaction_stage_logs', 0);
-        $this->assertDatabaseCount('transaction_status_history', 0);
+        $requestRecord->refresh();
+        $this->assertSame('requirements_check', $requestRecord->currentStage->code);
+        $this->assertSame('in_review', $requestRecord->status->code);
+        $this->assertDatabaseCount('request_stage_logs', 0);
+        $this->assertDatabaseCount('request_status_history', 0);
     }
 
-    public function test_cancelled_transaction_is_terminal_and_exposes_no_further_actions(): void
+    public function test_cancelled_request_is_terminal_and_exposes_no_further_actions(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
         $service = app(WorkflowService::class);
-        $transaction = $service->transition(
-            $this->newTransaction('requirements_check', 'in_review'),
+        $requestRecord = $service->transition(
+            $this->newRequest('requirements_check', 'in_review'),
             'cancel',
             $reviewer,
             'ألغي الطلب بطلب الجهة.',
         );
 
-        $this->assertTrue($service->availableActions($transaction, $reviewer)->isEmpty());
+        $this->assertTrue($service->availableActions($requestRecord, $reviewer)->isEmpty());
 
         try {
-            $service->transition($transaction, 'approve', $reviewer);
-            $this->fail('A cancelled transaction must not re-enter the workflow.');
+            $service->transition($requestRecord, 'approve', $reviewer);
+            $this->fail('A cancelled request must not re-enter the workflow.');
         } catch (WorkflowTransitionException $exception) {
-            $this->assertSame('لا يمكن تنفيذ إجراء سير عمل على معاملة ملغاة أو خرجت إلى التنفيذ أو أغلقت.', $exception->getMessage());
+            $this->assertSame('لا يمكن تنفيذ إجراء سير عمل على طلب ملغى أو خرج إلى التنفيذ أو أُغلق.', $exception->getMessage());
         }
 
-        $this->assertDatabaseCount('transaction_stage_logs', 1);
-        $this->assertDatabaseCount('transaction_status_history', 1);
+        $this->assertDatabaseCount('request_stage_logs', 1);
+        $this->assertDatabaseCount('request_status_history', 1);
     }
 
     public function test_exception_rules_are_seeded_for_corrections_and_every_open_stage_can_be_cancelled(): void
@@ -315,7 +315,7 @@ class WorkflowServiceTest extends TestCase
         ));
     }
 
-    public function test_low_grade_transaction_skips_ministry_but_preserves_the_other_approval_levels(): void
+    public function test_low_grade_request_skips_ministry_but_preserves_the_other_approval_levels(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -329,7 +329,7 @@ class WorkflowServiceTest extends TestCase
         // front-half hops — start it past those (at requirements_check,
         // matching what used to be the effective starting point after the
         // very first `forward` step below, which is why that step is gone).
-        $transaction = $this->newTransaction(stageCode: 'requirements_check', statusCode: 'in_review', decisionGrade: 9);
+        $requestRecord = $this->newRequest(stageCode: 'requirements_check', statusCode: 'in_review', decisionGrade: 9);
 
         foreach ([
             ['approve', 'R02'],
@@ -339,39 +339,39 @@ class WorkflowServiceTest extends TestCase
             ['forward', 'R05'],
             ['approve', 'R03'],
         ] as [$action, $role]) {
-            $transaction = $service->transition(
-                $transaction,
+            $requestRecord = $service->transition(
+                $requestRecord,
                 $action,
                 $actors[$role],
                 signaturePath: $action === 'approve' ? 'signatures/test.png' : null,
             );
         }
 
-        $transaction = $service->transition(
-            $transaction,
+        $requestRecord = $service->transition(
+            $requestRecord,
             'approve',
             $actors['R05'],
             signaturePath: 'signatures/admin-manager.png',
         );
-        $this->assertSame('competent_authority', $transaction->currentStage->code);
+        $this->assertSame('competent_authority', $requestRecord->currentStage->code);
 
-        $transaction = $service->transition(
-            $transaction,
+        $requestRecord = $service->transition(
+            $requestRecord,
             'approve',
             $actors['R07'],
             signaturePath: 'signatures/authority.png',
         );
-        $transaction = $service->transition(
-            $transaction,
+        $requestRecord = $service->transition(
+            $requestRecord,
             'approve',
             $actors['R07'],
             signaturePath: 'signatures/final.png',
         );
 
-        $this->assertSame('in_execution', $transaction->status->code);
-        $this->assertSame([1, 2, 3, 5, 6], $transaction->approvals()->orderBy('id')->pluck('level')->all());
+        $this->assertSame('in_execution', $requestRecord->status->code);
+        $this->assertSame([1, 2, 3, 5, 6], $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
         $this->assertDatabaseMissing('approvals', [
-            'transaction_id' => $transaction->id,
+            'request_id' => $requestRecord->id,
             'level' => 4,
         ]);
     }
@@ -380,11 +380,11 @@ class WorkflowServiceTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $transaction = $this->newTransaction('requirements_check', 'in_review');
+        $requestRecord = $this->newRequest('requirements_check', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
         try {
-            app(WorkflowService::class)->transition($transaction, 'approve', $reviewer);
+            app(WorkflowService::class)->transition($requestRecord, 'approve', $reviewer);
             $this->fail('An approval must not be recorded without signature evidence.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame(
@@ -393,20 +393,20 @@ class WorkflowServiceTest extends TestCase
             );
         }
 
-        $this->assertSame('requirements_check', $transaction->refresh()->currentStage->code);
+        $this->assertSame('requirements_check', $requestRecord->refresh()->currentStage->code);
         $this->assertDatabaseCount('approvals', 0);
-        $this->assertDatabaseCount('transaction_stage_logs', 0);
+        $this->assertDatabaseCount('request_stage_logs', 0);
     }
 
     public function test_actor_cannot_skip_the_admin_manager_checkpoint(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $transaction = $this->newTransaction('approval_by_authority', 'decided');
+        $requestRecord = $this->newRequest('approval_by_authority', 'decided');
         $ministry = $this->userWithRole('R06');
 
         try {
-            app(WorkflowService::class)->transition($transaction, 'approve', $ministry);
+            app(WorkflowService::class)->transition($requestRecord, 'approve', $ministry);
             $this->fail('Ministry must not be able to approve before the admin manager.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame(
@@ -416,21 +416,21 @@ class WorkflowServiceTest extends TestCase
         }
 
         $this->assertDatabaseCount('approvals', 0);
-        $this->assertSame('approval_by_authority', $transaction->refresh()->currentStage->code);
+        $this->assertSame('approval_by_authority', $requestRecord->refresh()->currentStage->code);
     }
 
-    private function newTransaction(
+    private function newRequest(
         string $stageCode = 'receive_from_municipality',
         string $statusCode = 'new',
         int $decisionGrade = 10,
         ?int $createdByUserId = null,
-    ): Transaction {
-        return Transaction::create([
+    ): Request {
+        return Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
             'title' => 'اختبار المسار الأساسي',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => now(),
             'decision_grade' => $decisionGrade,

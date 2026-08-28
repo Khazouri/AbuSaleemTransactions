@@ -33,7 +33,7 @@ class StoreDepartmentRequest extends FormRequest
 
             'code' => [
                 'nullable', 'string', 'max:50',
-                // Codes appear in transaction reference numbers, so they must
+                // Codes appear in request reference numbers, so they must
                 // be unique among LIVE departments. Ignoring soft-deleted rows
                 // lets a retired department's code be reused.
                 Rule::unique('departments', 'code')->whereNull('deleted_at'),

@@ -276,13 +276,13 @@ onMounted(async () => {
               <tr v-for="row in rows" :key="row.id">
                 <td>
                   <RouterLink
-                    v-if="row.context?.transaction"
+                    v-if="row.context?.request"
                     class="reference ltr"
-                    :to="{ name: 'transaction_details', params: { id: row.context.transaction.id } }"
-                  >{{ row.context.transaction.reference_number ?? `#${row.context.transaction.id}` }}</RouterLink>
+                    :to="{ name: 'request_details', params: { id: row.context.request.id } }"
+                  >{{ row.context.request.reference_number ?? `#${row.context.request.id}` }}</RouterLink>
                   <span v-else>{{ t('common.none') }}</span>
                 </td>
-                <td class="subject">{{ row.context?.transaction?.title ?? t('common.none') }}</td>
+                <td class="subject">{{ row.context?.request?.title ?? t('common.none') }}</td>
                 <td>{{ localName(row.context?.committee) }}</td>
                 <td>
                   <RouterLink
@@ -311,11 +311,11 @@ onMounted(async () => {
 
       <nav v-if="!loading && !loadError && page.last_page > 1" class="pagination no-print" :aria-label="t('decisions.title')">
         <button class="ghost" :disabled="page.current_page <= 1" @click="load(page.current_page - 1)">
-          {{ t('transactions.previous') }}
+          {{ t('requests.previous') }}
         </button>
-        <span>{{ t('transactions.page', { current: page.current_page, last: page.last_page }) }}</span>
+        <span>{{ t('requests.page', { current: page.current_page, last: page.last_page }) }}</span>
         <button class="ghost" :disabled="page.current_page >= page.last_page" @click="load(page.current_page + 1)">
-          {{ t('transactions.next') }}
+          {{ t('requests.next') }}
         </button>
       </nav>
     </template>
@@ -335,11 +335,11 @@ onMounted(async () => {
           <div class="pending-head">
             <div>
               <RouterLink
-                v-if="item.transaction"
+                v-if="item.request"
                 class="reference ltr"
-                :to="{ name: 'transaction_details', params: { id: item.transaction.id } }"
-              >{{ item.transaction.reference_number ?? `#${item.transaction.id}` }}</RouterLink>
-              <strong class="pending-title">{{ item.transaction?.title ?? t('common.none') }}</strong>
+                :to="{ name: 'request_details', params: { id: item.request.id } }"
+              >{{ item.request.reference_number ?? `#${item.request.id}` }}</RouterLink>
+              <strong class="pending-title">{{ item.request?.title ?? t('common.none') }}</strong>
             </div>
             <div class="pending-meta">
               <RouterLink :to="{ name: 'meeting_details', params: { id: item.meeting.id } }">

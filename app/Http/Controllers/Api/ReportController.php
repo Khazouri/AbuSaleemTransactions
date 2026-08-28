@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Report\ExportReportRequest;
 use App\Http\Requests\Report\IndexReportRequest;
-use App\Http\Resources\TransactionResource;
+use App\Http\Resources\RequestResource;
 use App\Models\Department;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Services\ReportMetricsService;
 use App\Services\Reports\ReportDocument;
 use App\Services\Reports\ReportExporter;
@@ -18,7 +18,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Stage 24 — the reports screen: a filtered transaction listing, the KPI
+ * Stage 24 — the reports screen: a filtered request listing, the KPI
  * summary that describes it, and the same thing as a downloadable file.
  *
  * The listing and the export share ReportMetricsService, so a manager who
@@ -35,16 +35,16 @@ class ReportController extends Controller
      */
     private const LABELS = [
         'ar' => [
-            'title' => 'تقرير المعاملات',
+            'title' => 'تقرير الطلبات',
             'generated' => 'تاريخ الإصدار',
             'filters' => 'عوامل التصفية',
-            'no_filters' => 'بدون تصفية — كل المعاملات',
+            'no_filters' => 'بدون تصفية — كل الطلبات',
             'department' => 'الإدارة',
-            'type' => 'نوع المعاملة',
+            'type' => 'نوع الطلب',
             'status' => 'الحالة',
             'date_from' => 'من تاريخ',
             'date_to' => 'إلى تاريخ',
-            'total' => 'إجمالي المعاملات',
+            'total' => 'إجمالي الطلبات',
             'pending' => 'قيد الإنجاز',
             'completed' => 'منجزة',
             'completion_rate' => 'نسبة الإنجاز',
@@ -60,16 +60,16 @@ class ReportController extends Controller
             'none' => '—',
         ],
         'en' => [
-            'title' => 'Transactions Report',
+            'title' => 'Requests Report',
             'generated' => 'Generated',
             'filters' => 'Filters',
-            'no_filters' => 'No filters — all transactions',
+            'no_filters' => 'No filters — all requests',
             'department' => 'Department',
             'type' => 'Type',
             'status' => 'Status',
             'date_from' => 'From',
             'date_to' => 'To',
-            'total' => 'Total transactions',
+            'total' => 'Total requests',
             'pending' => 'Pending',
             'completed' => 'Completed',
             'completion_rate' => 'Completion rate',
@@ -100,7 +100,7 @@ class ReportController extends Controller
 
         // additional() rather than a wrapper array so the payload keeps the
         // standard paginated shape the SPA's other list screens already read.
-        return TransactionResource::collection($rows)
+        return RequestResource::collection($rows)
             ->additional(['summary' => $this->metrics->kpis($filters)]);
     }
 
@@ -109,13 +109,13 @@ class ReportController extends Controller
     {
         return response()->json([
             'data' => [
-                'statuses' => TransactionStatus::query()
+                'statuses' => RequestStatus::query()
                     ->orderBy('id')
                     ->get(['code', 'name_ar', 'name_en', 'color']),
                 'departments' => Department::query()
                     ->orderBy('name_ar')
                     ->get(['id', 'name_ar', 'name_en', 'code']),
-                'types' => TransactionType::query()
+                'types' => RequestType::query()
                     ->orderBy('name_ar')
                     ->get(['id', 'code', 'name_ar', 'name_en']),
                 'formats' => ReportExporter::FORMATS,
@@ -123,7 +123,7 @@ class ReportController extends Controller
         ]);
     }
 
-    /** Stage 24 — filtered transaction report as .xlsx or PDF. */
+    /** Stage 24 — filtered request report as .xlsx or PDF. */
     public function export(ExportReportRequest $request, ReportExporter $exporter): Response
     {
         $filters = $request->filters();
@@ -135,10 +135,10 @@ class ReportController extends Controller
         $rows = $this->metrics->rowsQuery($filters)->get();
 
         $document = new ReportDocument(
-            slug: 'transactions-report',
+            slug: 'requests-report',
             title: $labels['title'],
             columns: $labels['columns'],
-            rows: $rows->map(fn (Transaction $transaction) => $this->exportRow($transaction, $locale, $labels))->all(),
+            rows: $rows->map(fn (Request $requestRecord) => $this->exportRow($requestRecord, $locale, $labels))->all(),
             meta: $this->metaLines($filters, $labels, $locale),
             summary: $this->summaryPairs($filters, $labels),
             rtl: $locale === 'ar',
@@ -151,21 +151,21 @@ class ReportController extends Controller
      * @param  array<string, mixed>  $labels
      * @return array<int, string|int|null>
      */
-    private function exportRow(Transaction $transaction, string $locale, array $labels): array
+    private function exportRow(Request $requestRecord, string $locale, array $labels): array
     {
         return [
-            $transaction->reference_number ?? $labels['none'],
-            $transaction->title,
-            $this->localName($transaction->department, $locale, $labels),
-            $this->localName($transaction->transactionType, $locale, $labels),
-            $this->localName($transaction->status, $locale, $labels),
-            $this->localName($transaction->currentStage, $locale, $labels),
-            $transaction->decision_grade,
-            $transaction->submitted_at?->format('Y-m-d') ?? $labels['none'],
-            $transaction->due_date?->format('Y-m-d') ?? $labels['none'],
-            $transaction->isOverdue() ? $labels['yes'] : $labels['no'],
-            $transaction->createdBy?->name ?? $labels['none'],
-            $transaction->created_at?->format('Y-m-d H:i') ?? $labels['none'],
+            $requestRecord->reference_number ?? $labels['none'],
+            $requestRecord->title,
+            $this->localName($requestRecord->department, $locale, $labels),
+            $this->localName($requestRecord->requestType, $locale, $labels),
+            $this->localName($requestRecord->status, $locale, $labels),
+            $this->localName($requestRecord->currentStage, $locale, $labels),
+            $requestRecord->decision_grade,
+            $requestRecord->submitted_at?->format('Y-m-d') ?? $labels['none'],
+            $requestRecord->due_date?->format('Y-m-d') ?? $labels['none'],
+            $requestRecord->isOverdue() ? $labels['yes'] : $labels['no'],
+            $requestRecord->createdBy?->name ?? $labels['none'],
+            $requestRecord->created_at?->format('Y-m-d H:i') ?? $labels['none'],
         ];
     }
 
@@ -185,10 +185,10 @@ class ReportController extends Controller
             $applied[] = $labels['department'].': '.$this->localName(Department::find($id), $locale, $labels);
         }
         if ($id = $filters['type_id'] ?? null) {
-            $applied[] = $labels['type'].': '.$this->localName(TransactionType::find($id), $locale, $labels);
+            $applied[] = $labels['type'].': '.$this->localName(RequestType::find($id), $locale, $labels);
         }
         if ($code = $filters['status'] ?? null) {
-            $status = TransactionStatus::where('code', $code)->first();
+            $status = RequestStatus::where('code', $code)->first();
             $applied[] = $labels['status'].': '.$this->localName($status, $locale, $labels);
         }
         if ($from = $filters['date_from'] ?? null) {

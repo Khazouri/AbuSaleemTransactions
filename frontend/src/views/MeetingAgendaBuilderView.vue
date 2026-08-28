@@ -96,8 +96,8 @@ const requestResults = ref([])
 const requestSearching = ref(false)
 let searchTimer = null
 
-const agendaTransactionIds = computed(() => new Set(
-  (meeting.value?.agenda_items ?? []).filter((i) => i.transaction).map((i) => i.transaction.id),
+const agendaRequestIds = computed(() => new Set(
+  (meeting.value?.agenda_items ?? []).filter((i) => i.request).map((i) => i.request.id),
 ))
 
 watch(requestSearch, (value) => {
@@ -109,7 +109,7 @@ watch(requestSearch, (value) => {
   searchTimer = setTimeout(async () => {
     requestSearching.value = true
     try {
-      const { data } = await api.get('/transactions', { params: { search: value.trim(), per_page: 5 } })
+      const { data } = await api.get('/requests', { params: { search: value.trim(), per_page: 5 } })
       requestResults.value = data.data ?? []
     } catch {
       requestResults.value = []
@@ -128,13 +128,13 @@ function resetAddForm() {
   requestResults.value = []
 }
 
-async function addRequestItem(transaction) {
+async function addRequestItem(request) {
   addError.value = ''
   adding.value = true
   try {
     await api.post(`/meetings/${meeting.value.id}/agenda`, {
       item_type: 'employee_request',
-      transaction_id: transaction.id,
+      request_id: request.id,
       priority: newPriority.value || null,
       estimated_minutes: newEstimatedMinutes.value || null,
     })
@@ -142,7 +142,7 @@ async function addRequestItem(transaction) {
     await loadMeeting()
   } catch (requestError) {
     addError.value = requestError.response?.data?.message
-      ?? requestError.response?.data?.errors?.transaction_id?.[0]
+      ?? requestError.response?.data?.errors?.request_id?.[0]
       ?? t('common.none')
   } finally {
     adding.value = false
@@ -326,7 +326,7 @@ onMounted(async () => {
                 <button
                   class="ghost"
                   type="button"
-                  :disabled="adding || agendaTransactionIds.has(result.id)"
+                  :disabled="adding || agendaRequestIds.has(result.id)"
                   @click="addRequestItem(result)"
                 >
                   {{ t('meetings.agenda.add') }}
@@ -365,9 +365,9 @@ onMounted(async () => {
           <li v-for="(item, index) in meeting.agenda_items" :key="item.id">
             <div class="row">
               <div>
-                <template v-if="item.transaction">
-                  <span class="ref ltr">{{ item.transaction.reference_number || `#${item.transaction.id}` }}</span>
-                  <strong>{{ item.transaction.title }}</strong>
+                <template v-if="item.request">
+                  <span class="ref ltr">{{ item.request.reference_number || `#${item.request.id}` }}</span>
+                  <strong>{{ item.request.title }}</strong>
                 </template>
                 <template v-else>
                   <strong>{{ item.subject }}</strong>

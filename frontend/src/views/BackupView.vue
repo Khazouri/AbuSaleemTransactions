@@ -196,11 +196,11 @@ onMounted(() => load())
 
     <nav v-if="!loading && !loadError && page.last_page > 1" class="pagination" :aria-label="t('backup.title')">
       <button class="ghost" :disabled="page.current_page <= 1" @click="load(page.current_page - 1)">
-        {{ t('transactions.previous') }}
+        {{ t('requests.previous') }}
       </button>
-      <span>{{ t('transactions.page', { current: page.current_page, last: page.last_page }) }}</span>
+      <span>{{ t('requests.page', { current: page.current_page, last: page.last_page }) }}</span>
       <button class="ghost" :disabled="page.current_page >= page.last_page" @click="load(page.current_page + 1)">
-        {{ t('transactions.next') }}
+        {{ t('requests.next') }}
       </button>
     </nav>
 

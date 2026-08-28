@@ -9,25 +9,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('transaction_status_history', function (Blueprint $table) {
+        Schema::create('request_status_history', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('transaction_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('request_id')->constrained()->cascadeOnDelete();
             $table->foreignId('from_status_id')->nullable()
-                ->constrained('transaction_statuses')->nullOnDelete();
+                ->constrained('request_statuses')->nullOnDelete();
             $table->foreignId('to_status_id')->nullable()
-                ->constrained('transaction_statuses')->nullOnDelete();
+                ->constrained('request_statuses')->nullOnDelete();
             $table->text('reason')->nullable();
             $table->foreignId('changed_by_user_id')->nullable()
                 ->constrained('users')->nullOnDelete();
             $table->timestamp('changed_at');
             $table->timestamps();
 
-            $table->index(['transaction_id', 'changed_at']);
+            $table->index(['request_id', 'changed_at']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('transaction_status_history');
+        Schema::dropIfExists('request_status_history');
     }
 };

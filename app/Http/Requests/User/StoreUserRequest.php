@@ -37,7 +37,7 @@ class StoreUserRequest extends FormRequest
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
 
             // Direct-manager workflow redesign — resolves who reviews this
-            // user's own transaction submissions.
+            // user's own request submissions.
             'manager_id' => ['nullable', 'integer', 'exists:users,id'],
 
             'role_ids' => ['sometimes', 'array'],

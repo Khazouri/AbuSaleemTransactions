@@ -8,11 +8,11 @@ use App\Models\CommitteeMember;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\MeetingAttendee;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -306,21 +306,21 @@ class MeetingReadinessTest extends TestCase
         ]);
     }
 
-    private function addRequestItem(Meeting $meeting, bool $withFile, bool $withPriorityAndTime): MeetingTransaction
+    private function addRequestItem(Meeting $meeting, bool $withFile, bool $withPriorityAndTime): MeetingRequest
     {
-        $transaction = Transaction::create([
+        $requestRecord = Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
             'title' => 'طلب اختبار الجاهزية',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'in_meeting')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
         ]);
 
         if ($withFile) {
             Attachment::create([
-                'transaction_id' => $transaction->id,
+                'request_id' => $requestRecord->id,
                 'path' => 'attachments/test.pdf',
                 'original_name' => 'test.pdf',
                 'mime_type' => 'application/pdf',
@@ -328,9 +328,9 @@ class MeetingReadinessTest extends TestCase
             ]);
         }
 
-        return MeetingTransaction::create([
+        return MeetingRequest::create([
             'meeting_id' => $meeting->id,
-            'transaction_id' => $transaction->id,
+            'request_id' => $requestRecord->id,
             'agenda_order' => 1,
             'item_type' => 'employee_request',
             'priority' => $withPriorityAndTime ? 'high' : null,

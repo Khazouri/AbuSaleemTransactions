@@ -1,19 +1,19 @@
 <script setup>
-/** Searchable transaction work queue — Stage 11. */
+/** Searchable request work queue — Stage 11. */
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FileUpload from '../components/FileUpload.vue'
 import api from '../lib/api'
 
 const { t, locale } = useI18n()
-const transactions = ref([])
+const requests = ref([])
 const options = ref({ statuses: [], departments: [], types: [] })
 const loading = ref(false)
 const loadingOptions = ref(false)
 const loadError = ref(null)
 const page = ref({ current_page: 1, last_page: 1, total: 0 })
 const filters = ref(blankFilters())
-const uploadTransaction = ref(null)
+const uploadRequest = ref(null)
 
 function blankFilters() {
   return { status: '', department_id: '', type_id: '', date_from: '', date_to: '' }
@@ -46,8 +46,8 @@ async function load(requestedPage = 1) {
   loading.value = true
   loadError.value = null
   try {
-    const { data } = await api.get('/transactions', { params: queryFor(requestedPage) })
-    transactions.value = data.data ?? []
+    const { data } = await api.get('/requests', { params: queryFor(requestedPage) })
+    requests.value = data.data ?? []
     page.value = data.meta ?? page.value
   } catch (error) {
     loadError.value = error
@@ -59,7 +59,7 @@ async function load(requestedPage = 1) {
 async function loadOptions() {
   loadingOptions.value = true
   try {
-    const { data } = await api.get('/transactions/filters')
+    const { data } = await api.get('/requests/filters')
     options.value = data.data ?? options.value
   } catch (error) {
     // The list remains useful if labels cannot be loaded; its own request
@@ -72,8 +72,8 @@ async function loadOptions() {
 
 function applyFilters() { load(1) }
 function clearFilters() { filters.value = blankFilters(); load(1) }
-function openUpload(transaction) { uploadTransaction.value = transaction }
-function closeUpload() { uploadTransaction.value = null }
+function openUpload(request) { uploadRequest.value = request }
+function closeUpload() { uploadRequest.value = null }
 
 onMounted(async () => {
   await Promise.all([load(), loadOptions()])
@@ -81,51 +81,51 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="transactions">
+  <section class="requests">
     <div class="heading">
       <div>
-        <h2>{{ t('transactions.title') }}</h2>
+        <h2>{{ t('requests.title') }}</h2>
         <p v-if="!loading && !loadError" class="count">{{ page.total }}</p>
       </div>
-      <RouterLink v-can="'transaction_intake.add'" class="primary new-intake" :to="{ name: 'transaction_intake' }">{{ t('intake.open') }}</RouterLink>
+      <RouterLink v-can="'request_intake.add'" class="primary new-intake" :to="{ name: 'request_intake' }">{{ t('intake.open') }}</RouterLink>
     </div>
 
     <form class="card filters" @submit.prevent="applyFilters">
-      <h3>{{ t('transactions.filters') }}</h3>
+      <h3>{{ t('requests.filters') }}</h3>
       <div class="filter-grid">
         <label>
-          {{ t('transactions.status') }}
+          {{ t('requests.status') }}
           <select v-model="filters.status" :disabled="loadingOptions">
-            <option value="">{{ t('transactions.allStatuses') }}</option>
+            <option value="">{{ t('requests.allStatuses') }}</option>
             <option v-for="status in options.statuses" :key="status.code" :value="status.code">{{ name(status) }}</option>
           </select>
         </label>
         <label>
-          {{ t('transactions.department') }}
+          {{ t('requests.department') }}
           <select v-model="filters.department_id" :disabled="loadingOptions">
-            <option value="">{{ t('transactions.allDepartments') }}</option>
+            <option value="">{{ t('requests.allDepartments') }}</option>
             <option v-for="department in options.departments" :key="department.id" :value="department.id">{{ name(department) }}</option>
           </select>
         </label>
         <label>
-          {{ t('transactions.type') }}
+          {{ t('requests.type') }}
           <select v-model="filters.type_id" :disabled="loadingOptions">
-            <option value="">{{ t('transactions.allTypes') }}</option>
+            <option value="">{{ t('requests.allTypes') }}</option>
             <option v-for="type in options.types" :key="type.id" :value="type.id">{{ name(type) }}</option>
           </select>
         </label>
         <label>
-          {{ t('transactions.dateFrom') }}
+          {{ t('requests.dateFrom') }}
           <input v-model="filters.date_from" type="date" />
         </label>
         <label>
-          {{ t('transactions.dateTo') }}
+          {{ t('requests.dateTo') }}
           <input v-model="filters.date_to" type="date" />
         </label>
       </div>
       <div class="actions">
-        <button class="primary" type="submit" :disabled="isBusy">{{ t('transactions.applyFilters') }}</button>
-        <button class="ghost" type="button" :disabled="isBusy" @click="clearFilters">{{ t('transactions.clearFilters') }}</button>
+        <button class="primary" type="submit" :disabled="isBusy">{{ t('requests.applyFilters') }}</button>
+        <button class="ghost" type="button" :disabled="isBusy" @click="clearFilters">{{ t('requests.clearFilters') }}</button>
       </div>
     </form>
 
@@ -136,43 +136,43 @@ onMounted(async () => {
 
     <div class="card list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
-      <p v-else-if="!loadError && transactions.length === 0" class="state">{{ t('transactions.empty') }}</p>
+      <p v-else-if="!loadError && requests.length === 0" class="state">{{ t('requests.empty') }}</p>
       <div v-else-if="!loadError" class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>{{ t('transactions.reference') }}</th>
-              <th>{{ t('transactions.subject') }}</th>
-              <th>{{ t('transactions.department') }}</th>
-              <th>{{ t('transactions.type') }}</th>
-              <th>{{ t('transactions.status') }}</th>
-              <th>{{ t('transactions.stage') }}</th>
-              <th>{{ t('transactions.createdAt') }}</th>
-              <th>{{ t('transactions.details') }}</th>
+              <th>{{ t('requests.reference') }}</th>
+              <th>{{ t('requests.subject') }}</th>
+              <th>{{ t('requests.department') }}</th>
+              <th>{{ t('requests.type') }}</th>
+              <th>{{ t('requests.status') }}</th>
+              <th>{{ t('requests.stage') }}</th>
+              <th>{{ t('requests.createdAt') }}</th>
+              <th>{{ t('requests.details') }}</th>
               <th>{{ t('attachments.title') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="transaction in transactions" :key="transaction.id">
-              <td><span class="reference ltr">{{ transaction.reference_number || t('transactions.noReference') }}</span></td>
-              <td class="title">{{ transaction.title }}</td>
-              <td>{{ name(transaction.department) }}</td>
-              <td>{{ name(transaction.transaction_type) }}</td>
+            <tr v-for="request in requests" :key="request.id">
+              <td><span class="reference ltr">{{ request.reference_number || t('requests.noReference') }}</span></td>
+              <td class="title">{{ request.title }}</td>
+              <td>{{ name(request.department) }}</td>
+              <td>{{ name(request.request_type) }}</td>
               <td>
-                <span v-if="transaction.status" class="status" :style="{ '--status-color': transaction.status.color || 'var(--color-muted)' }">
-                  {{ name(transaction.status) }}
+                <span v-if="request.status" class="status" :style="{ '--status-color': request.status.color || 'var(--color-muted)' }">
+                  {{ name(request.status) }}
                 </span>
                 <span v-else>{{ t('common.none') }}</span>
               </td>
-              <td>{{ name(transaction.current_stage) }}</td>
-              <td>{{ date(transaction.created_at) }}</td>
+              <td>{{ name(request.current_stage) }}</td>
+              <td>{{ date(request.created_at) }}</td>
               <td>
-                <RouterLink class="ghost details-link" :to="{ name: 'transaction_details', params: { id: transaction.id } }">
-                  {{ t('transactions.viewDetails') }}
+                <RouterLink class="ghost details-link" :to="{ name: 'request_details', params: { id: request.id } }">
+                  {{ t('requests.viewDetails') }}
                 </RouterLink>
               </td>
               <td>
-                <button v-can="'notes_attachments.add'" class="ghost upload-action" type="button" @click="openUpload(transaction)">
+                <button v-can="'notes_attachments.add'" class="ghost upload-action" type="button" @click="openUpload(request)">
                   {{ t('attachments.upload') }}
                 </button>
               </td>
@@ -182,22 +182,22 @@ onMounted(async () => {
       </div>
     </div>
 
-    <nav v-if="!loading && !loadError && page.last_page > 1" class="pagination" :aria-label="t('transactions.title')">
-      <button class="ghost" :disabled="page.current_page <= 1" @click="load(page.current_page - 1)">{{ t('transactions.previous') }}</button>
-      <span>{{ t('transactions.page', { current: page.current_page, last: page.last_page }) }}</span>
-      <button class="ghost" :disabled="page.current_page >= page.last_page" @click="load(page.current_page + 1)">{{ t('transactions.next') }}</button>
+    <nav v-if="!loading && !loadError && page.last_page > 1" class="pagination" :aria-label="t('requests.title')">
+      <button class="ghost" :disabled="page.current_page <= 1" @click="load(page.current_page - 1)">{{ t('requests.previous') }}</button>
+      <span>{{ t('requests.page', { current: page.current_page, last: page.last_page }) }}</span>
+      <button class="ghost" :disabled="page.current_page >= page.last_page" @click="load(page.current_page + 1)">{{ t('requests.next') }}</button>
     </nav>
 
-    <div v-if="uploadTransaction" class="modal-backdrop" role="presentation" @click.self="closeUpload">
+    <div v-if="uploadRequest" class="modal-backdrop" role="presentation" @click.self="closeUpload">
       <section class="card upload-modal" role="dialog" aria-modal="true" :aria-label="t('attachments.title')">
         <div class="modal-heading">
           <div>
             <h3>{{ t('attachments.title') }}</h3>
-            <p class="reference ltr">{{ uploadTransaction.reference_number || `#${uploadTransaction.id}` }}</p>
+            <p class="reference ltr">{{ uploadRequest.reference_number || `#${uploadRequest.id}` }}</p>
           </div>
           <button class="ghost" type="button" :aria-label="t('common.cancel')" @click="closeUpload">×</button>
         </div>
-        <FileUpload :transaction-id="uploadTransaction.id" @uploaded="closeUpload" />
+        <FileUpload :request-id="uploadRequest.id" @uploaded="closeUpload" />
       </section>
     </div>
   </section>

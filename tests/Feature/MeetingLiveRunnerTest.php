@@ -5,11 +5,11 @@ namespace Tests\Feature;
 use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -229,7 +229,7 @@ class MeetingLiveRunnerTest extends TestCase
             ->assertCreated();
     }
 
-    /** @return array{0: User, 1: User, 2: Committee, 3: Meeting, 4: MeetingTransaction, 5: ?MeetingTransaction} */
+    /** @return array{0: User, 1: User, 2: Committee, 3: Meeting, 4: MeetingRequest, 5: ?MeetingRequest} */
     private function committeeMeetingWithRequestItem(bool $withAdminItem = false): array
     {
         $head = $this->userWithRole('R03');
@@ -248,8 +248,8 @@ class MeetingLiveRunnerTest extends TestCase
         $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
         $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
 
-        $transaction = $this->transactionAtCommitteeStage();
-        $agendaItem = $meeting->agendaItems()->create(['transaction_id' => $transaction->id, 'agenda_order' => 1]);
+        $requestRecord = $this->requestAtCommitteeStage();
+        $agendaItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
 
         $adminItem = null;
         if ($withAdminItem) {
@@ -263,14 +263,14 @@ class MeetingLiveRunnerTest extends TestCase
         return [$head, $member, $committee, $meeting, $agendaItem, $adminItem];
     }
 
-    private function transactionAtCommitteeStage(): Transaction
+    private function requestAtCommitteeStage(): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
-            'title' => 'معاملة معروضة على اللجنة',
+            'title' => 'طلب معروض على اللجنة',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'in_meeting')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
         ]);

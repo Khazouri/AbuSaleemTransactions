@@ -1,11 +1,11 @@
 <script setup>
-/** Reusable transaction attachment picker and uploader — Stage 12. */
+/** Reusable request attachment picker and uploader — Stage 12. */
 import { onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 
 const props = defineProps({
-  transactionId: { type: [Number, String], required: true },
+  requestId: { type: [Number, String], required: true },
 })
 
 const emit = defineEmits(['uploaded'])
@@ -74,7 +74,7 @@ async function upload() {
   if (label.value.trim()) form.append('label', label.value.trim())
 
   try {
-    const { data } = await api.post(`/transactions/${props.transactionId}/attachments`, form, {
+    const { data } = await api.post(`/requests/${props.requestId}/attachments`, form, {
       onUploadProgress: (event) => {
         if (event.total) progress.value = Math.round((event.loaded / event.total) * 100)
       },

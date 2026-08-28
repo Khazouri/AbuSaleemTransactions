@@ -31,10 +31,10 @@ class NotificationSetting extends Model
      * @var array<string, array<string, bool>>
      */
     public const EVENT_TYPES = [
-        'transaction_created' => ['in_app' => true, 'email' => false, 'sms' => false],
+        'request_created' => ['in_app' => true, 'email' => false, 'sms' => false],
         'stage_changed' => ['in_app' => true, 'email' => false, 'sms' => false],
         'action_required' => ['in_app' => true, 'email' => true, 'sms' => false],
-        'transaction_overdue' => ['in_app' => true, 'email' => true, 'sms' => false],
+        'request_overdue' => ['in_app' => true, 'email' => true, 'sms' => false],
         'meeting_scheduled' => ['in_app' => true, 'email' => true, 'sms' => false],
         'decision_recorded' => ['in_app' => true, 'email' => true, 'sms' => false],
         'minutes_approved' => ['in_app' => true, 'email' => true, 'sms' => false],

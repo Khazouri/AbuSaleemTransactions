@@ -21,8 +21,8 @@ class IndexReportRequest extends FormRequest
     {
         return [
             'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
-            'type_id' => ['nullable', 'integer', Rule::exists('transaction_types', 'id')],
-            'status' => ['nullable', 'string', Rule::exists('transaction_statuses', 'code')],
+            'type_id' => ['nullable', 'integer', Rule::exists('request_types', 'id')],
+            'status' => ['nullable', 'string', Rule::exists('request_statuses', 'code')],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
@@ -33,7 +33,7 @@ class IndexReportRequest extends FormRequest
     {
         return [
             'department_id.exists' => 'الإدارة المحددة غير صالحة.',
-            'type_id.exists' => 'نوع المعاملة المحدد غير صالح.',
+            'type_id.exists' => 'نوع الطلب المحدد غير صالح.',
             'status.exists' => 'الحالة المحددة غير صالحة.',
             'date_from.date_format' => 'صيغة تاريخ البداية غير صحيحة.',
             'date_to.date_format' => 'صيغة تاريخ النهاية غير صحيحة.',

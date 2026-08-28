@@ -9,9 +9,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('transaction_stage_logs', function (Blueprint $table) {
+        Schema::create('request_stage_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('transaction_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('request_id')->constrained()->cascadeOnDelete();
             $table->foreignId('from_stage_id')->nullable()
                 ->constrained('workflow_stages')->nullOnDelete();
             $table->foreignId('to_stage_id')->nullable()
@@ -23,12 +23,12 @@ return new class extends Migration
             $table->timestamp('acted_at');
             $table->timestamps();
 
-            $table->index(['transaction_id', 'acted_at']);
+            $table->index(['request_id', 'acted_at']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('transaction_stage_logs');
+        Schema::dropIfExists('request_stage_logs');
     }
 };

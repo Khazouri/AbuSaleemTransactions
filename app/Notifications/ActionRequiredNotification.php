@@ -2,11 +2,11 @@
 
 namespace App\Notifications;
 
-use App\Models\Transaction;
+use App\Models\Request;
 use App\Models\WorkflowStage;
 
 /**
- * A transaction has arrived at a stage this recipient's role can act on.
+ * A request has arrived at a stage this recipient's role can act on.
  *
  * Recipients come from the same workflow_transitions rows that decide which
  * buttons the detail screen renders (see NotificationDispatcher), so nobody is
@@ -14,7 +14,7 @@ use App\Models\WorkflowStage;
  */
 class ActionRequiredNotification extends SystemNotification
 {
-    private readonly int $transactionId;
+    private readonly int $requestId;
 
     private readonly string $reference;
 
@@ -22,11 +22,11 @@ class ActionRequiredNotification extends SystemNotification
 
     private readonly ?string $stage;
 
-    public function __construct(Transaction $transaction, ?WorkflowStage $stage)
+    public function __construct(Request $requestRecord, ?WorkflowStage $stage)
     {
-        $this->transactionId = $transaction->id;
-        $this->reference = (string) $transaction->reference_number;
-        $this->title = (string) $transaction->title;
+        $this->requestId = $requestRecord->id;
+        $this->reference = (string) $requestRecord->reference_number;
+        $this->title = (string) $requestRecord->title;
         $this->stage = $stage?->name_ar;
     }
 
@@ -40,12 +40,12 @@ class ActionRequiredNotification extends SystemNotification
         $stage = $this->stage ?? '—';
 
         return [
-            'transaction_id' => $this->transactionId,
+            'request_id' => $this->requestId,
             'reference_number' => $this->reference,
-            'title_ar' => 'معاملة بانتظار إجراءك',
-            'title_en' => 'A transaction is waiting for you',
-            'body_ar' => "وصلت المعاملة {$this->reference} — {$this->title} إلى مرحلة «{$stage}» وتنتظر إجراءك.",
-            'body_en' => "Transaction {$this->reference} — {$this->title} reached the \"{$stage}\" stage and is waiting for your action.",
+            'title_ar' => 'طلب بانتظار إجراءك',
+            'title_en' => 'A request is waiting for you',
+            'body_ar' => "وصل الطلب {$this->reference} — {$this->title} إلى مرحلة «{$stage}» وينتظر إجراءك.",
+            'body_en' => "Request {$this->reference} — {$this->title} reached the \"{$stage}\" stage and is waiting for your action.",
         ];
     }
 }

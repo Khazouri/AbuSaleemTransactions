@@ -3,11 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Department;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\ScreenRolePermission;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -26,8 +26,8 @@ class ApprovalChainTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $pending = $this->transactionAt('requirements_check', 'in_review');
-        $this->transactionAt('approval_by_authority', 'decided');
+        $pending = $this->requestAt('requirements_check', 'in_review');
+        $this->requestAt('approval_by_authority', 'decided');
 
         $this->actingAs($reviewer, 'sanctum')
             ->getJson('/api/approvals/reviewer')
@@ -47,7 +47,7 @@ class ApprovalChainTest extends TestCase
             ->assertJsonPath('data.current_stage.code', 'reviewer_review');
 
         $this->assertDatabaseHas('approvals', [
-            'transaction_id' => $pending->id,
+            'request_id' => $pending->id,
             'level' => 1,
             'role_id' => Role::where('code', 'R02')->value('id'),
             'approved_by_user_id' => $reviewer->id,
@@ -59,14 +59,14 @@ class ApprovalChainTest extends TestCase
         Storage::disk('local')->assertExists($approval->signature_path);
 
         $detail = $this->actingAs($reviewer, 'sanctum')
-            ->getJson("/api/transactions/{$pending->id}")
+            ->getJson("/api/requests/{$pending->id}")
             ->assertOk()
             ->assertJsonPath('data.approvals.0.level', 1)
             ->assertJsonPath('data.approvals.0.role.code', 'R02')
             ->assertJsonPath('data.approvals.0.approved_by.id', $reviewer->id)
             ->assertJsonPath('data.approvals.0.signature_url', route(
-                'transactions.approvals.signature',
-                ['transaction' => $pending, 'approval' => $approval],
+                'requests.approvals.signature',
+                ['requestRecord' => $pending, 'approval' => $approval],
             ));
 
         $this->actingAs($reviewer, 'sanctum')
@@ -75,13 +75,13 @@ class ApprovalChainTest extends TestCase
             ->assertHeader('content-type', 'image/png');
     }
 
-    public function test_approval_requires_a_png_signature_without_mutating_the_transaction(): void
+    public function test_approval_requires_a_png_signature_without_mutating_the_request(): void
     {
         Storage::fake('local');
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $pending = $this->transactionAt('requirements_check', 'in_review');
+        $pending = $this->requestAt('requirements_check', 'in_review');
 
         $this->actingAs($reviewer, 'sanctum')
             ->postJson("/api/approvals/reviewer/{$pending->id}", [
@@ -100,7 +100,7 @@ class ApprovalChainTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $adminPending = $this->transactionAt('approval_by_authority', 'decided');
+        $adminPending = $this->requestAt('approval_by_authority', 'decided');
 
         $this->actingAs($reviewer, 'sanctum')
             ->getJson('/api/approvals/admin-manager')
@@ -112,7 +112,7 @@ class ApprovalChainTest extends TestCase
                 'signature' => $this->signature(),
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('transaction');
+            ->assertJsonValidationErrors('request');
 
         $this->assertDatabaseCount('approvals', 0);
         $this->assertSame('approval_by_authority', $adminPending->refresh()->currentStage->code);
@@ -123,7 +123,7 @@ class ApprovalChainTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $pending = $this->transactionAt('requirements_check', 'in_review');
+        $pending = $this->requestAt('requirements_check', 'in_review');
         ScreenRolePermission::query()
             ->where('role_id', Role::where('code', 'R02')->value('id'))
             ->whereHas('screen', fn ($query) => $query->where('code', 'reviewer_approval'))
@@ -131,7 +131,7 @@ class ApprovalChainTest extends TestCase
 
         $this->actingAs($reviewer, 'sanctum')
             ->withHeader('Accept', 'application/json')
-            ->post("/api/transactions/{$pending->id}/transition", [
+            ->post("/api/requests/{$pending->id}/transition", [
                 'action' => 'approve',
                 'signature' => $this->signature(),
             ])
@@ -148,11 +148,11 @@ class ApprovalChainTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $pending = $this->transactionAt('requirements_check', 'in_review');
+        $pending = $this->requestAt('requirements_check', 'in_review');
 
         $this->actingAs($reviewer, 'sanctum')
             ->withHeader('Accept', 'application/json')
-            ->post("/api/transactions/{$pending->id}/transition", [
+            ->post("/api/requests/{$pending->id}/transition", [
                 'action' => 'approve',
                 'signature' => $this->signature(),
             ])
@@ -165,13 +165,13 @@ class ApprovalChainTest extends TestCase
         Storage::disk('local')->assertExists($approval->signature_path);
     }
 
-    public function test_a_user_cannot_approve_a_transaction_they_created(): void
+    public function test_a_user_cannot_approve_a_request_they_created(): void
     {
         Storage::fake('local');
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $pending = $this->transactionAt('requirements_check', 'in_review', $reviewer);
+        $pending = $this->requestAt('requirements_check', 'in_review', $reviewer);
 
         $this->actingAs($reviewer, 'sanctum')
             ->getJson('/api/approvals/reviewer')
@@ -179,7 +179,7 @@ class ApprovalChainTest extends TestCase
             ->assertJsonPath('meta.total', 0);
 
         $this->actingAs($reviewer, 'sanctum')
-            ->getJson("/api/transactions/{$pending->id}")
+            ->getJson("/api/requests/{$pending->id}")
             ->assertOk()
             ->assertJsonMissing(['action' => 'approve']);
 
@@ -189,11 +189,11 @@ class ApprovalChainTest extends TestCase
                 'signature' => $this->signature(),
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('transaction');
+            ->assertJsonValidationErrors('request');
 
         $this->actingAs($reviewer, 'sanctum')
             ->withHeader('Accept', 'application/json')
-            ->post("/api/transactions/{$pending->id}/transition", [
+            ->post("/api/requests/{$pending->id}/transition", [
                 'action' => 'approve',
                 'signature' => $this->signature(),
             ])
@@ -204,14 +204,14 @@ class ApprovalChainTest extends TestCase
         $this->assertSame('requirements_check', $pending->refresh()->currentStage->code);
     }
 
-    private function transactionAt(string $stageCode, string $statusCode, ?User $creator = null): Transaction
+    private function requestAt(string $stageCode, string $statusCode, ?User $creator = null): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
-            'title' => 'معاملة في سلسلة الاعتماد',
+            'title' => 'طلب في سلسلة الاعتماد',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'created_by_user_id' => $creator?->id,
             'submitted_at' => now(),

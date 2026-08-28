@@ -3,11 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Department;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestStatusHistory;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionStatusHistory;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -36,7 +36,7 @@ class DashboardReportTest extends TestCase
      *
      * The fixture is deliberately hand-built rather than factory-random, so
      * every number below is arithmetic anyone can check by reading it: six
-     * transactions, two of them finished (in four and five days), one
+     * requests, two of them finished (in four and five days), one
      * cancelled, one overdue and still open.
      */
     public function test_the_dashboard_reports_real_kpis(): void
@@ -110,9 +110,9 @@ class DashboardReportTest extends TestCase
 
     /**
      * Aggregates are cached, so the risk worth testing is staleness: a new
-     * transaction must appear immediately, not five minutes later.
+     * request must appear immediately, not five minutes later.
      */
-    public function test_a_new_transaction_invalidates_the_cached_kpis(): void
+    public function test_a_new_request_invalidates_the_cached_kpis(): void
     {
         $this->buildFixture();
         $admin = $this->admin();
@@ -121,7 +121,7 @@ class DashboardReportTest extends TestCase
             ->getJson('/api/dashboard')
             ->assertJsonPath('data.kpis.total', 6);
 
-        $this->transaction('new', overdue: false);
+        $this->request('new', overdue: false);
 
         $this->actingAs($admin, 'sanctum')
             ->getJson('/api/dashboard')
@@ -135,7 +135,7 @@ class DashboardReportTest extends TestCase
         $admin = $this->admin();
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/reports/transactions')
+            ->getJson('/api/reports/requests')
             ->assertOk()
             ->assertJsonPath('meta.total', 6)
             ->assertJsonPath('summary.total', 6)
@@ -144,14 +144,14 @@ class DashboardReportTest extends TestCase
         $finance = Department::where('code', 'FIN')->firstOrFail();
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson("/api/reports/transactions?department_id={$finance->id}")
+            ->getJson("/api/reports/requests?department_id={$finance->id}")
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('summary.total', 1)
             ->assertJsonCount(1, 'data');
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/reports/transactions?date_from=not-a-date')
+            ->getJson('/api/reports/requests?date_from=not-a-date')
             ->assertStatus(422)
             ->assertJsonValidationErrors('date_from');
     }
@@ -171,19 +171,19 @@ class DashboardReportTest extends TestCase
         $finance = Department::where('code', 'FIN')->firstOrFail();
 
         $xlsx = $this->actingAs($admin, 'sanctum')
-            ->get("/api/reports/transactions/export?format=xlsx&department_id={$finance->id}")
+            ->get("/api/reports/requests/export?format=xlsx&department_id={$finance->id}")
             ->assertOk()
             ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
         $this->assertStringContainsString('attachment;', $xlsx->headers->get('Content-Disposition'));
-        $this->assertStringContainsString('transactions-report-', $xlsx->headers->get('Content-Disposition'));
+        $this->assertStringContainsString('requests-report-', $xlsx->headers->get('Content-Disposition'));
         $this->assertStringStartsWith('PK', $xlsx->getContent());
 
         // Arabic explicitly: it is the default and the harder path — the PDF
         // writer has to subset an Arabic-capable font and shape the glyphs, and
         // a misconfigured mPDF throws rather than degrading quietly.
         $arabicPdf = $this->actingAs($admin, 'sanctum')
-            ->get('/api/reports/transactions/export?format=pdf&locale=ar')
+            ->get('/api/reports/requests/export?format=pdf&locale=ar')
             ->assertOk()
             ->assertHeader('Content-Type', 'application/pdf');
 
@@ -192,13 +192,13 @@ class DashboardReportTest extends TestCase
         $this->assertStringStartsWith(
             '%PDF',
             $this->actingAs($admin, 'sanctum')
-                ->get('/api/reports/transactions/export?format=pdf&locale=en')
+                ->get('/api/reports/requests/export?format=pdf&locale=en')
                 ->assertOk()
                 ->getContent(),
         );
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/reports/transactions/export?format=docx')
+            ->getJson('/api/reports/requests/export?format=docx')
             ->assertStatus(422)
             ->assertJsonValidationErrors('format');
     }
@@ -213,15 +213,15 @@ class DashboardReportTest extends TestCase
         $reviewer = $this->userWithRole('R02');
 
         $this->actingAs($reviewer, 'sanctum')
-            ->getJson('/api/reports/transactions')
+            ->getJson('/api/reports/requests')
             ->assertOk();
 
         $this->actingAs($reviewer, 'sanctum')
-            ->getJson('/api/reports/transactions/export')
+            ->getJson('/api/reports/requests/export')
             ->assertForbidden();
 
         $this->actingAs($this->userWithRole('R06'), 'sanctum')
-            ->get('/api/reports/transactions/export')
+            ->get('/api/reports/requests/export')
             ->assertOk();
     }
 
@@ -252,32 +252,32 @@ class DashboardReportTest extends TestCase
     }
 
     /**
-     * Six transactions in the admin department plus one in finance:
+     * Six requests in the admin department plus one in finance:
      *   2 completed (cycle times of 4 and 5 days → average 4.5)
      *   1 cancelled, 1 overdue-and-open, 1 open, 1 in finance
      */
     private function buildFixture(): void
     {
-        $this->completedTransaction('final_approved', cycleDays: 4);
-        $this->completedTransaction('archived', cycleDays: 5, overdue: true);
-        $this->transaction('cancelled', overdue: false);
-        $this->transaction('in_review', overdue: true);
-        $this->transaction('new', overdue: false);
-        $this->transaction('new', overdue: false, departmentCode: 'FIN');
+        $this->completedRequest('final_approved', cycleDays: 4);
+        $this->completedRequest('archived', cycleDays: 5, overdue: true);
+        $this->request('cancelled', overdue: false);
+        $this->request('in_review', overdue: true);
+        $this->request('new', overdue: false);
+        $this->request('new', overdue: false, departmentCode: 'FIN');
     }
 
-    private function transaction(
+    private function request(
         string $statusCode,
         bool $overdue,
         string $departmentCode = 'ADM',
         ?\DateTimeInterface $submittedAt = null,
-    ): Transaction {
-        $transaction = Transaction::create([
+    ): Request {
+        $requestRecord = Request::create([
             'reference_number' => '2026-'.$departmentCode.'-'.fake()->unique()->numerify('######'),
-            'title' => 'معاملة اختبار التقارير',
+            'title' => 'طلب اختبار التقارير',
             'department_id' => Department::where('code', $departmentCode)->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'reviewer_review')->value('id'),
             'created_by_user_id' => $this->admin()->id,
             'submitted_at' => $submittedAt ?? now(),
@@ -288,27 +288,27 @@ class DashboardReportTest extends TestCase
         if ($overdue) {
             // Not mass-assignable — the Stage 17 sweep is the only thing meant
             // to declare a breach, so it is set deliberately here too.
-            $transaction->overdue_at = now()->subDay();
-            $transaction->save();
+            $requestRecord->overdue_at = now()->subDay();
+            $requestRecord->save();
         }
 
-        return $transaction;
+        return $requestRecord;
     }
 
     /** Cycle time is measured from submission to the first completing status. */
-    private function completedTransaction(string $statusCode, int $cycleDays, bool $overdue = false): Transaction
+    private function completedRequest(string $statusCode, int $cycleDays, bool $overdue = false): Request
     {
         $submittedAt = now()->subDays($cycleDays);
-        $transaction = $this->transaction($statusCode, $overdue, submittedAt: $submittedAt);
+        $requestRecord = $this->request($statusCode, $overdue, submittedAt: $submittedAt);
 
-        TransactionStatusHistory::create([
-            'transaction_id' => $transaction->id,
-            'to_status_id' => $transaction->status_id,
+        RequestStatusHistory::create([
+            'request_id' => $requestRecord->id,
+            'to_status_id' => $requestRecord->status_id,
             'changed_by_user_id' => $this->admin()->id,
             'changed_at' => now(),
         ]);
 
-        return $transaction;
+        return $requestRecord;
     }
 
     private function admin(): User

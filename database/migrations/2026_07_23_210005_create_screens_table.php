@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * SCREENS (شاشات النظام) — the 22 pages of the application
  * ---------------------------------------------------------------------------
- * A registry of every screen the SPA can show: dashboard, transactions,
+ * A registry of every screen the SPA can show: dashboard, requests,
  * meetings, the various approval screens, users, settings, and so on.
  *
  * Two jobs:
@@ -31,7 +31,7 @@ return new class extends Migration
             $table->string('name_ar');
             $table->string('name_en')->nullable();
 
-            // The Vue router path this screen maps to, e.g. /transactions.
+            // The Vue router path this screen maps to, e.g. /requests.
             // Keeping it here is what lets the sidebar and the route guard
             // agree on which screen the user is looking at.
             $table->string('route', 150)->nullable();

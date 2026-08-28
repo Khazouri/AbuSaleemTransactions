@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\RequestStatus;
 use App\Models\Role;
-use App\Models\TransactionStatus;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use Illuminate\Database\Seeder;
@@ -11,7 +11,7 @@ use Illuminate\Database\Seeder;
 /**
  * Seeds the normal path and its corrective/terminal exception branches.
  *
- * These rows apply to every transaction type. A later type-specific row for
+ * These rows apply to every request type. A later type-specific row for
  * the same stage/action takes precedence in WorkflowService, so a specialized
  * flow can override one step without copying the entire map.
  */
@@ -21,13 +21,13 @@ class WorkflowTransitionSeeder extends Seeder
     {
         $stages = WorkflowStage::query()->get()->keyBy('code');
         $roles = Role::query()->get()->keyBy('code');
-        $statuses = TransactionStatus::query()->get()->keyBy('code');
+        $statuses = RequestStatus::query()->get()->keyBy('code');
 
         // Stage 18 changes several checkpoint verbs/roles. Remove only the
         // seeded generic happy path first so old rows cannot survive a re-seed
         // beside their replacement and create an ambiguous route.
         WorkflowTransition::query()
-            ->whereNull('transaction_type_id')
+            ->whereNull('request_type_id')
             ->where('is_exception', false)
             ->delete();
 
@@ -61,7 +61,7 @@ class WorkflowTransitionSeeder extends Seeder
         foreach ($transitions as $order => [$from, $to, $action, $role, $status]) {
             WorkflowTransition::updateOrCreate(
                 [
-                    'transaction_type_id' => null,
+                    'request_type_id' => null,
                     'from_stage_id' => $stages[$from]->id,
                     'action' => $action,
                     // Widened so a same-stage/same-action sibling seeded
@@ -114,7 +114,7 @@ class WorkflowTransitionSeeder extends Seeder
         // requires_submitter_manager row automatically.
         WorkflowTransition::updateOrCreate(
             [
-                'transaction_type_id' => null,
+                'request_type_id' => null,
                 'from_stage_id' => $stages['direct_manager_review']->id,
                 'action' => 'forward',
             ],
@@ -186,7 +186,7 @@ class WorkflowTransitionSeeder extends Seeder
         foreach ($registrations as $index => [$role, $routedStatusCode]) {
             WorkflowTransition::updateOrCreate(
                 [
-                    'transaction_type_id' => null,
+                    'request_type_id' => null,
                     'from_stage_id' => $stages['receive_and_register']->id,
                     'action' => 'register',
                     'required_role_id' => $roles[$role]->id,
@@ -300,7 +300,7 @@ class WorkflowTransitionSeeder extends Seeder
             );
         }
 
-        // Stage 21 — a committee vote to defer keeps the transaction at the
+        // Stage 21 — a committee vote to defer keeps the request at the
         // committee stage, status `deferred`, ready to be placed on a future
         // meeting's agenda instead of advancing to stage 8. See
         // DecisionController::record for the vote tally that triggers this.
@@ -400,7 +400,7 @@ class WorkflowTransitionSeeder extends Seeder
     /**
      * $requiredRoleId is nullable because a manager-gated row (Phase 3 of the
      * direct-manager redesign, AGENT_NOTES.md) has no single fixed role — the
-     * actor is resolved dynamically against the transaction creator's
+     * actor is resolved dynamically against the request creator's
      * manager, with R08 as the fallback (see WorkflowService::actorMayUse).
      *
      * The upsert key includes required_role_id and required_status_id (not
@@ -428,7 +428,7 @@ class WorkflowTransitionSeeder extends Seeder
     ): void {
         WorkflowTransition::updateOrCreate(
             [
-                'transaction_type_id' => null,
+                'request_type_id' => null,
                 'from_stage_id' => $fromStageId,
                 'action' => $action,
                 'required_role_id' => $requiredRoleId,

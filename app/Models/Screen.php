@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * this table (Stage 5), and each screen forms one axis of the permission
  * matrix, the other being Role.
  *
- * @property string $code Stable key, e.g. 'transaction_details'
+ * @property string $code Stable key, e.g. 'request_details'
  * @property string $name_ar
  * @property string|null $route Matching Vue router path
  * @property string|null $group Stage 28: sidebar cluster slug, e.g. 'meetings_management'

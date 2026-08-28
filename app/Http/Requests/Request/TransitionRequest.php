@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Requests\Transaction;
+namespace App\Http\Requests\Request;
 
 use Illuminate\Foundation\Http\FormRequest;
 
 /** Validates the small, explicit command that asks the workflow to move. */
-class TransitionTransactionRequest extends FormRequest
+class TransitionRequest extends FormRequest
 {
     public function authorize(): bool
     {

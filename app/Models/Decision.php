@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Decision extends Model
 {
     protected $fillable = [
-        'meeting_transaction_id',
+        'meeting_request_id',
         'template_id',
         'outcome',
         'votes_approve_count',
@@ -30,9 +30,9 @@ class Decision extends Model
         ];
     }
 
-    public function meetingTransaction(): BelongsTo
+    public function meetingRequest(): BelongsTo
     {
-        return $this->belongsTo(MeetingTransaction::class);
+        return $this->belongsTo(MeetingRequest::class);
     }
 
     public function decidedBy(): BelongsTo

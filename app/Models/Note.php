@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** Internal discussion attached to a transaction; populated in Stage 13. */
+/** Internal discussion attached to a request; populated in Stage 13. */
 class Note extends Model
 {
     protected $guarded = [];
@@ -15,9 +15,9 @@ class Note extends Model
         return ['is_internal' => 'boolean'];
     }
 
-    public function transaction(): BelongsTo
+    public function request(): BelongsTo
     {
-        return $this->belongsTo(Transaction::class);
+        return $this->belongsTo(Request::class);
     }
 
     public function createdBy(): BelongsTo

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
  * AppServiceProvider::AUDITED_MODELS; nothing in the app updates or deletes a
  * row here, which is the whole point — the trail has to outlive the record it
  * describes. That is also why the morph columns are plain columns with no
- * foreign key: a deleted transaction must not take its audit history with it.
+ * foreign key: a deleted request must not take its audit history with it.
  *
  * `user_id` is nullable because not every change has a signed-in actor behind
  * it (console commands, future queued jobs), and nullOnDelete keeps the entry

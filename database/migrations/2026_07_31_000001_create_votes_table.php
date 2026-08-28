@@ -20,14 +20,14 @@ return new class extends Migration
     {
         Schema::create('votes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('meeting_transaction_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('meeting_request_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('vote', 20);
             $table->text('comment')->nullable();
             $table->timestamp('voted_at');
             $table->timestamps();
 
-            $table->unique(['meeting_transaction_id', 'user_id']);
+            $table->unique(['meeting_request_id', 'user_id']);
         });
     }
 

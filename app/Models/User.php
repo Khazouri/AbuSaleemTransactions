@@ -30,7 +30,7 @@ class User extends Authenticatable
     /**
      * HasApiTokens  — issues Sanctum bearer tokens for the Vue SPA
      * Notifiable    — receives the notifications built in Stage 23
-     * SoftDeletes   — keeps the record alive for historical transactions
+     * SoftDeletes   — keeps the record alive for historical requests
      *
      * @use HasFactory<UserFactory>
      */

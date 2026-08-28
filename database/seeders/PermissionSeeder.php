@@ -12,7 +12,7 @@ use Illuminate\Database\Seeder;
  *
  * Reading the table below: each row is one capability, and the last column
  * lists every role allowed to use it. A role NOT listed simply doesn't get it
- * (least privilege) — e.g. only R08 may delete a transaction, and only
+ * (least privilege) — e.g. only R08 may delete a request, and only
  * R06/R07/R08 may give final approval.
  *
  * Note the matrix sheet distinguishes "full" from "limited" permission
@@ -27,7 +27,7 @@ class PermissionSeeder extends Seeder
     {
         // key => [name_ar, name_en, UI group, roles that hold it]
         $catalogue = [
-            // --- Working with transactions -----------------------------------
+            // --- Working with requests -----------------------------------
             // Diagram-alignment redesign (see AGENT_NOTES.md): R09/R10 are
             // added everywhere R05 already appears, since they receive and
             // register requests at the new front-half stages exactly like
@@ -35,18 +35,18 @@ class PermissionSeeder extends Seeder
             // read by any enforcement code any more (screen_role_permissions
             // has been the real source of truth since Stage 9) — kept in step
             // anyway so it stays an accurate reference rather than stale data.
-            'transactions.add' => ['إضافة معاملة جديدة',          'Add transaction',          'transactions', ['R01', 'R08']],
-            'transactions.view' => ['عرض المعاملات',               'View transactions',        'transactions', ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08', 'R09', 'R10']],
-            'transactions.edit' => ['تعديل المعاملة',              'Edit transaction',         'transactions', ['R01', 'R02', 'R05', 'R08', 'R09', 'R10']],
-            'transactions.delete' => ['حذف المعاملة',                'Delete transaction',       'transactions', ['R08']],
-            'transactions.notes' => ['إضافة ملاحظات',               'Add notes',                'transactions', ['R01', 'R02', 'R03', 'R04', 'R05', 'R08', 'R09', 'R10']],
-            'transactions.attachments' => ['رفع / تنزيل المرفقات',        'Manage attachments',       'transactions', ['R01', 'R02', 'R03', 'R04', 'R05', 'R08', 'R09', 'R10']],
+            'requests.add' => ['إضافة طلب جديد',          'Add request',          'requests', ['R01', 'R08']],
+            'requests.view' => ['عرض الطلبات',               'View requests',        'requests', ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R08', 'R09', 'R10']],
+            'requests.edit' => ['تعديل الطلب',              'Edit request',         'requests', ['R01', 'R02', 'R05', 'R08', 'R09', 'R10']],
+            'requests.delete' => ['حذف الطلب',                'Delete request',       'requests', ['R08']],
+            'requests.notes' => ['إضافة ملاحظات',               'Add notes',                'requests', ['R01', 'R02', 'R03', 'R04', 'R05', 'R08', 'R09', 'R10']],
+            'requests.attachments' => ['رفع / تنزيل المرفقات',        'Manage attachments',       'requests', ['R01', 'R02', 'R03', 'R04', 'R05', 'R08', 'R09', 'R10']],
 
             // --- Moving them through the workflow ----------------------------
             // R01 is absent: an employee submits a request but never advances it.
-            'transactions.forward' => ['اعتماد / إرسال للمعالجة',      'Forward for processing',   'workflow',     ['R02', 'R03', 'R05', 'R06', 'R07', 'R08', 'R09', 'R10']],
+            'requests.forward' => ['اعتماد / إرسال للمعالجة',      'Forward for processing',   'workflow',     ['R02', 'R03', 'R05', 'R06', 'R07', 'R08', 'R09', 'R10']],
             'decisions.approve' => ['اعتماد القرار',               'Approve decision',         'workflow',     ['R03', 'R04', 'R05', 'R06', 'R07', 'R08']],
-            // The last word on a transaction — ministry, dean, or sysadmin only.
+            // The last word on a request — ministry, dean, or sysadmin only.
             'decisions.final_approve' => ['الاعتماد النهائي',            'Final approval',           'workflow',     ['R06', 'R07', 'R08']],
 
             // --- Administration (System Admin only) --------------------------

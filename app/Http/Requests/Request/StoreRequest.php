@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Http\Requests\Transaction;
+namespace App\Http\Requests\Request;
 
-use App\Models\TransactionType;
+use App\Models\RequestType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-/** Validates an incoming request before it becomes a workflow transaction. */
-class StoreTransactionRequest extends FormRequest
+/** Validates an incoming request before it becomes a workflow request. */
+class StoreRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -23,12 +23,12 @@ class StoreTransactionRequest extends FormRequest
             'department_id' => ['required', 'integer', Rule::exists('departments', 'id')->where(
                 fn ($query) => $query->where('is_active', true)->whereNotNull('code'),
             )],
-            'transaction_type_id' => ['required', 'integer', Rule::exists('transaction_types', 'id')->where('is_active', true)],
+            'request_type_id' => ['required', 'integer', Rule::exists('request_types', 'id')->where('is_active', true)],
             // Types with a threshold need a grade now; otherwise the ministry
-            // branch could only guess after the transaction reached approval.
+            // branch could only guess after the request reached approval.
             'decision_grade' => [
-                Rule::requiredIf(fn () => TransactionType::query()
-                    ->whereKey($this->integer('transaction_type_id'))
+                Rule::requiredIf(fn () => RequestType::query()
+                    ->whereKey($this->integer('request_type_id'))
                     ->whereNotNull('decision_grade_threshold')
                     ->exists()),
                 'nullable',
@@ -44,12 +44,12 @@ class StoreTransactionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'title.required' => 'عنوان المعاملة مطلوب.',
+            'title.required' => 'عنوان الطلب مطلوب.',
             'department_id.required' => 'يرجى اختيار الإدارة.',
             'department_id.exists' => 'الإدارة المحددة غير صالحة أو غير مفعّلة.',
-            'transaction_type_id.required' => 'يرجى اختيار نوع المعاملة.',
-            'transaction_type_id.exists' => 'نوع المعاملة المحدد غير صالح أو غير مفعّل.',
-            'decision_grade.required' => 'درجة القرار مطلوبة لهذا النوع من المعاملات.',
+            'request_type_id.required' => 'يرجى اختيار نوع الطلب.',
+            'request_type_id.exists' => 'نوع الطلب المحدد غير صالح أو غير مفعّل.',
+            'decision_grade.required' => 'درجة القرار مطلوبة لهذا النوع من الطلبات.',
             'decision_grade.integer' => 'يجب أن تكون درجة القرار رقماً صحيحاً.',
             'decision_grade.between' => 'يجب أن تكون درجة القرار بين 1 و100.',
             'attachments.max' => 'لا يمكن إرفاق أكثر من 10 ملفات.',

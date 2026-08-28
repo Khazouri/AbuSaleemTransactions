@@ -7,9 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * WorkflowStage (مرحلة) — one of the 14 steps a transaction passes through.
+ * WorkflowStage (مرحلة) — one of the 14 steps a request passes through.
  *
- * Order runs 1 (استلام المعاملة من البلدية) to 14 (الاعتماد النهائي والأرشفة);
+ * Order runs 1 (استلام الطلب من البلدية) to 14 (الاعتماد النهائي والأرشفة);
  * see the migration for the full list. Stages 2–4 (direct manager review,
  * administrative routing, receive & register) were added by the
  * diagram-alignment redesign — see AGENT_NOTES.md.
@@ -44,7 +44,7 @@ class WorkflowStage extends Model
 
     /**
      * Moves that can be made FROM this stage — i.e. the buttons a user may see
-     * on a transaction sitting here.
+     * on a request sitting here.
      */
     public function outgoingTransitions(): HasMany
     {

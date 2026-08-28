@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Approval\StoreApprovalRequest;
-use App\Http\Resources\TransactionResource;
-use App\Models\Transaction;
+use App\Http\Resources\RequestResource;
+use App\Models\Request;
 use App\Services\ApprovalSignatureStorage;
 use App\Services\WorkflowService;
-use Illuminate\Http\Request;
+use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -33,14 +33,14 @@ class ApprovalController extends Controller
     ];
 
     // Stage 18 — role-specific pending approval queues.
-    public function index(Request $request, string $level): AnonymousResourceCollection
+    public function index(HttpRequest $request, string $level): AnonymousResourceCollection
     {
         $configuration = $this->configuration($level);
 
-        $transactions = Transaction::query()
+        $requests = Request::query()
             ->with([
                 'department:id,name_ar,name_en,code',
-                'transactionType:id,code,name_ar,name_en,decision_grade_threshold',
+                'requestType:id,code,name_ar,name_en,decision_grade_threshold',
                 'status:id,code,name_ar,name_en,color',
                 'currentStage:id,order_no,code,name_ar,name_en',
             ])
@@ -62,37 +62,37 @@ class ApprovalController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return TransactionResource::collection($transactions);
+        return RequestResource::collection($requests);
     }
 
     // Stage 18 — approve only the checkpoint named by the current queue.
     public function store(
         StoreApprovalRequest $request,
-        Transaction $transaction,
+        Request $requestRecord,
         string $level,
         WorkflowService $workflow,
         ApprovalSignatureStorage $signatureStorage,
-    ): TransactionResource {
+    ): RequestResource {
         $configuration = $this->configuration($level);
-        $currentStageCode = $transaction->currentStage()->value('code');
+        $currentStageCode = $requestRecord->currentStage()->value('code');
 
         if ($currentStageCode !== $configuration['stage']) {
             throw ValidationException::withMessages([
-                'transaction' => ['لا توجد المعاملة في مستوى الاعتماد المطلوب.'],
+                'request' => ['لا توجد الطلب في مستوى الاعتماد المطلوب.'],
             ]);
         }
 
         if (! $request->user()->roles()->where('code', $configuration['role'])->exists()) {
             throw ValidationException::withMessages([
-                'transaction' => ['لا يملك المستخدم الدور المطلوب لهذا المستوى من الاعتماد.'],
+                'request' => ['لا يملك المستخدم الدور المطلوب لهذا المستوى من الاعتماد.'],
             ]);
         }
 
-        $signaturePath = $signatureStorage->store($request->file('signature'), $transaction);
+        $signaturePath = $signatureStorage->store($request->file('signature'), $requestRecord);
 
         try {
-            $transaction = $workflow->transition(
-                $transaction,
+            $requestRecord = $workflow->transition(
+                $requestRecord,
                 'approve',
                 $request->user(),
                 $request->validated('comment'),
@@ -102,7 +102,7 @@ class ApprovalController extends Controller
             $signatureStorage->delete($signaturePath);
 
             throw ValidationException::withMessages([
-                'transaction' => [$exception->getMessage()],
+                'request' => [$exception->getMessage()],
             ]);
         } catch (Throwable $exception) {
             $signatureStorage->delete($signaturePath);
@@ -110,9 +110,9 @@ class ApprovalController extends Controller
             throw $exception;
         }
 
-        return new TransactionResource($transaction->load([
+        return new RequestResource($requestRecord->load([
             'department:id,name_ar,name_en,code',
-            'transactionType:id,code,name_ar,name_en,decision_grade_threshold',
+            'requestType:id,code,name_ar,name_en,decision_grade_threshold',
             'status:id,code,name_ar,name_en,color',
             'currentStage:id,order_no,code,name_ar,name_en',
         ]));

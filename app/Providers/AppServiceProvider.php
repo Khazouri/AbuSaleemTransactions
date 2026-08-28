@@ -5,7 +5,7 @@ namespace App\Providers;
 use App\Contracts\DatabaseDumper;
 use App\Contracts\SmsSender;
 use App\Models\AuditLog;
-use App\Models\Transaction;
+use App\Models\Request;
 use App\Observers\AuditObserver;
 use App\Observers\ReportCacheObserver;
 use App\Services\Backup\MysqlDumper;
@@ -79,8 +79,8 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // Stage 24 — invalidate the cached dashboard aggregates on any
-        // transaction write. See ReportCacheObserver for why this one model
+        // request write. See ReportCacheObserver for why this one model
         // covers every KPI.
-        Transaction::observe(ReportCacheObserver::class);
+        Request::observe(ReportCacheObserver::class);
     }
 }

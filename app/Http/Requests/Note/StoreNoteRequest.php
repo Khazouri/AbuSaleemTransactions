@@ -4,7 +4,7 @@ namespace App\Http\Requests\Note;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-/** Keeps transaction discussions concise and safe to render later in the detail view. */
+/** Keeps request discussions concise and safe to render later in the detail view. */
 class StoreNoteRequest extends FormRequest
 {
     public function authorize(): bool

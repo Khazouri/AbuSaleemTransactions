@@ -2,31 +2,31 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Transaction;
+use App\Models\Request;
 use App\Services\NotificationDispatcher;
-use App\Services\TransactionDeadlineService;
+use App\Services\RequestDeadlineService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Marks open transactions that have passed their type-derived SLA deadline.
+ * Marks open requests that have passed their type-derived SLA deadline.
  *
  * The command is idempotent: overdue_at is written once, which makes the
  * resulting flag stable for reporting and prevents a nightly sweep from
  * continually changing the breach timestamp.
  */
-class FlagOverdueTransactions extends Command
+class FlagOverdueRequests extends Command
 {
-    protected $signature = 'transactions:flag-overdue';
+    protected $signature = 'requests:flag-overdue';
 
-    protected $description = 'Flag open transactions whose SLA due date has passed.';
+    protected $description = 'Flag open requests whose SLA due date has passed.';
 
-    public function handle(TransactionDeadlineService $deadlines, NotificationDispatcher $notifications): int
+    public function handle(RequestDeadlineService $deadlines, NotificationDispatcher $notifications): int
     {
         $backfilled = $this->backfillMissingDueDates($deadlines);
         $flagged = 0;
 
-        Transaction::query()
+        Request::query()
             ->whereNull('overdue_at')
             ->whereNotNull('due_date')
             // A date SLA remains valid for the whole due date; it breaches
@@ -37,12 +37,12 @@ class FlagOverdueTransactions extends Command
                 ['cancelled', 'archived', 'completed_closed'],
             ))
             ->orderBy('id')
-            ->chunkById(100, function ($transactions) use (&$flagged, $notifications) {
-                foreach ($transactions as $transaction) {
+            ->chunkById(100, function ($requests) use (&$flagged, $notifications) {
+                foreach ($requests as $requestRecord) {
                     // The nullable predicate makes concurrent manual runs
                     // harmless: only the worker that reaches it first flags it.
-                    $justFlagged = Transaction::query()
-                        ->whereKey($transaction->id)
+                    $justFlagged = Request::query()
+                        ->whereKey($requestRecord->id)
                         ->whereNull('overdue_at')
                         ->update(['overdue_at' => now()]);
 
@@ -52,39 +52,39 @@ class FlagOverdueTransactions extends Command
                     // breach is announced exactly once no matter how often
                     // the sweep runs or how many workers race it.
                     if ($justFlagged > 0) {
-                        $notifications->transactionOverdue($transaction);
+                        $notifications->requestOverdue($requestRecord);
                     }
                 }
             });
 
-        $this->info("Backfilled {$backfilled} deadline(s); flagged {$flagged} overdue transaction(s).");
+        $this->info("Backfilled {$backfilled} deadline(s); flagged {$flagged} overdue request(s).");
 
         return self::SUCCESS;
     }
 
-    private function backfillMissingDueDates(TransactionDeadlineService $deadlines): int
+    private function backfillMissingDueDates(RequestDeadlineService $deadlines): int
     {
         $updated = 0;
 
-        Transaction::query()
+        Request::query()
             ->whereNull('due_date')
-            ->whereNotNull('transaction_type_id')
-            ->with('transactionType:id,default_sla_days')
+            ->whereNotNull('request_type_id')
+            ->with('requestType:id,default_sla_days')
             ->orderBy('id')
-            ->chunkById(100, function ($transactions) use ($deadlines, &$updated) {
-                foreach ($transactions as $transaction) {
-                    if ($transaction->transactionType?->default_sla_days === null) {
+            ->chunkById(100, function ($requests) use ($deadlines, &$updated) {
+                foreach ($requests as $requestRecord) {
+                    if ($requestRecord->requestType?->default_sla_days === null) {
                         continue;
                     }
 
-                    $submittedAt = $transaction->submitted_at ?? $transaction->created_at;
+                    $submittedAt = $requestRecord->submitted_at ?? $requestRecord->created_at;
                     if ($submittedAt === null) {
                         continue;
                     }
 
-                    $dueDate = $deadlines->dueDateFor($transaction->transactionType, $submittedAt);
-                    $updated += Transaction::query()
-                        ->whereKey($transaction->id)
+                    $dueDate = $deadlines->dueDateFor($requestRecord->requestType, $submittedAt);
+                    $updated += Request::query()
+                        ->whereKey($requestRecord->id)
                         ->whereNull('due_date')
                         ->update(['due_date' => $dueDate]);
                 }

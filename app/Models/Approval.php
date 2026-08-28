@@ -5,11 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** One completed, role-bound checkpoint in a transaction's approval chain. */
+/** One completed, role-bound checkpoint in a request's approval chain. */
 class Approval extends Model
 {
     protected $fillable = [
-        'transaction_id',
+        'request_id',
         'level',
         'role_id',
         'approved_by_user_id',
@@ -26,9 +26,9 @@ class Approval extends Model
         ];
     }
 
-    public function transaction(): BelongsTo
+    public function request(): BelongsTo
     {
-        return $this->belongsTo(Transaction::class);
+        return $this->belongsTo(Request::class);
     }
 
     public function role(): BelongsTo

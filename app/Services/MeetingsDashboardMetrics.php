@@ -4,14 +4,14 @@ namespace App\Services;
 
 use App\Models\Decision;
 use App\Models\Meeting;
-use App\Models\MeetingTransaction;
-use App\Models\Transaction;
+use App\Models\MeetingRequest;
+use App\Models\Request;
 
 /**
  * Stage 32 — the numbers behind the meetings-unit command dashboard.
  *
  * Deliberately separate from Stage 24's ReportMetricsService: that class
- * answers "how is the whole transaction pipeline doing" against an arbitrary
+ * answers "how is the whole request pipeline doing" against an arbitrary
  * filter set; this one answers "how is the committee/meetings pipeline doing"
  * — a fixed, narrower slice scoped to committee-stage statuses and meetings.
  */
@@ -31,7 +31,7 @@ class MeetingsDashboardMetrics
                 ->where('scheduled_at', '>=', now())
                 ->count(),
             'meetings_held' => Meeting::query()->where('status', 'completed')->count(),
-            'pending_decisions' => MeetingTransaction::query()
+            'pending_decisions' => MeetingRequest::query()
                 ->where('item_type', 'employee_request')
                 ->whereDoesntHave('decision')
                 ->count(),
@@ -102,7 +102,7 @@ class MeetingsDashboardMetrics
 
     private function statusCount(array $codes): int
     {
-        return Transaction::query()
+        return Request::query()
             ->whereHas('status', fn ($query) => $query->whereIn('code', $codes))
             ->count();
     }

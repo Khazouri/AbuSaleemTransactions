@@ -1,10 +1,10 @@
 <script setup>
-/** Stage 13 notes panel; Stage 15 mounts it in the transaction detail screen. */
+/** Stage 13 notes panel; Stage 15 mounts it in the request detail screen. */
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 
-const props = defineProps({ transactionId: { type: [Number, String], required: true } })
+const props = defineProps({ requestId: { type: [Number, String], required: true } })
 const { t, locale } = useI18n()
 const notes = ref([])
 const body = ref('')
@@ -20,7 +20,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const { data } = await api.get(`/transactions/${props.transactionId}/notes`)
+    const { data } = await api.get(`/requests/${props.requestId}/notes`)
     notes.value = data.data ?? []
   } catch (requestError) {
     error.value = requestError.response?.data?.message ?? t('notes.loadFailed')
@@ -34,7 +34,7 @@ async function add() {
   posting.value = true
   error.value = ''
   try {
-    const { data } = await api.post(`/transactions/${props.transactionId}/notes`, { body: body.value.trim(), is_internal: true })
+    const { data } = await api.post(`/requests/${props.requestId}/notes`, { body: body.value.trim(), is_internal: true })
     notes.value.push(data.data)
     body.value = ''
   } catch (requestError) {

@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Meeting;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
 use Illuminate\Support\Collection;
 
 /**
@@ -23,7 +23,7 @@ class MeetingMinutesCompiler
             'chairman:id,name',
             'rapporteur:id,name',
             'attendees.user:id,name',
-            'agendaItems.transaction:id,reference_number,title',
+            'agendaItems.request:id,reference_number,title',
             'agendaItems.decision.decidedBy:id,name',
             'agendaItems.votes',
             'agendaItems.notes.createdBy:id,name',
@@ -40,7 +40,7 @@ class MeetingMinutesCompiler
                 'rapporteur' => $meeting->rapporteur ? ['id' => $meeting->rapporteur->id, 'name' => $meeting->rapporteur->name] : null,
             ],
             'attendance' => $this->attendance($meeting),
-            'agenda_items' => $meeting->agendaItems->map(fn (MeetingTransaction $item) => $this->agendaItem($item))->all(),
+            'agenda_items' => $meeting->agendaItems->map(fn (MeetingRequest $item) => $this->agendaItem($item))->all(),
         ];
     }
 
@@ -65,14 +65,14 @@ class MeetingMinutesCompiler
     }
 
     /** @return array<string, mixed> */
-    private function agendaItem(MeetingTransaction $item): array
+    private function agendaItem(MeetingRequest $item): array
     {
         return [
             'id' => $item->id,
             'agenda_order' => $item->agenda_order,
             'item_type' => $item->item_type,
-            'subject' => $item->transaction?->title ?? $item->subject,
-            'reference_number' => $item->transaction?->reference_number,
+            'subject' => $item->request?->title ?? $item->subject,
+            'reference_number' => $item->request?->reference_number,
             'votes' => $this->voteTally($item),
             'decision' => $item->decision ? [
                 'outcome' => $item->decision->outcome,
@@ -95,7 +95,7 @@ class MeetingMinutesCompiler
      *
      * @return array<string, int>
      */
-    private function voteTally(MeetingTransaction $item): array
+    private function voteTally(MeetingRequest $item): array
     {
         if ($item->decision) {
             return [

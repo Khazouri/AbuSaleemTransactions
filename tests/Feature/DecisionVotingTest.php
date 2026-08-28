@@ -5,11 +5,11 @@ namespace Tests\Feature;
 use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -22,7 +22,7 @@ class DecisionVotingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_a_majority_approve_vote_and_recorded_decision_advances_the_transaction(): void
+    public function test_a_majority_approve_vote_and_recorded_decision_advances_the_request(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -47,18 +47,18 @@ class DecisionVotingTest extends TestCase
             ->assertJsonPath('data.outcome', 'approve')
             ->assertJsonPath('data.votes_approve_count', 2);
 
-        $transaction = $agendaItem->transaction()->first()->fresh();
+        $requestRecord = $agendaItem->request()->first()->fresh();
         $stageEight = WorkflowStage::where('code', 'approval_by_authority')->firstOrFail();
 
-        $this->assertSame($stageEight->id, $transaction->current_stage_id);
-        $this->assertSame('decided', $transaction->status->code);
+        $this->assertSame($stageEight->id, $requestRecord->current_stage_id);
+        $this->assertSame('decided', $requestRecord->status->code);
         $this->assertDatabaseHas('approvals', [
-            'transaction_id' => $transaction->id,
+            'request_id' => $requestRecord->id,
             'level' => 2,
             'action' => 'approve',
         ]);
         $this->assertDatabaseHas('decisions', [
-            'meeting_transaction_id' => $agendaItem->id,
+            'meeting_request_id' => $agendaItem->id,
             'outcome' => 'approve',
             'decided_by_user_id' => $head->id,
         ]);
@@ -69,7 +69,7 @@ class DecisionVotingTest extends TestCase
             ->assertStatus(422);
     }
 
-    public function test_a_majority_defer_vote_keeps_the_transaction_at_the_committee_stage(): void
+    public function test_a_majority_defer_vote_keeps_the_request_at_the_committee_stage(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -90,18 +90,18 @@ class DecisionVotingTest extends TestCase
             ->assertJsonPath('data.outcome', 'defer');
 
         $stageSeven = WorkflowStage::where('code', 'receive_from_committee')->firstOrFail();
-        $transaction = $agendaItem->transaction()->first()->fresh();
+        $requestRecord = $agendaItem->request()->first()->fresh();
 
-        $this->assertSame($stageSeven->id, $transaction->current_stage_id);
-        $this->assertSame('deferred', $transaction->status->code);
+        $this->assertSame($stageSeven->id, $requestRecord->current_stage_id);
+        $this->assertSame('deferred', $requestRecord->status->code);
     }
 
-    public function test_committee_head_cannot_record_an_approval_for_their_own_transaction(): void
+    public function test_committee_head_cannot_record_an_approval_for_their_own_request(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         [$head, $member, , $meeting, $agendaItem] = $this->committeeMeetingWithAgendaItem();
-        $agendaItem->transaction()->update(['created_by_user_id' => $head->id]);
+        $agendaItem->request()->update(['created_by_user_id' => $head->id]);
 
         $this->actingAs($member, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
@@ -115,11 +115,11 @@ class DecisionVotingTest extends TestCase
                 'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
             ])
             ->assertStatus(422)
-            ->assertJsonPath('message', 'لا يجوز للمستخدم اعتماد معاملته الخاصة.');
+            ->assertJsonPath('message', 'لا يجوز للمستخدم اعتماد طلبه الخاص.');
 
-        $transaction = $agendaItem->transaction()->firstOrFail()->fresh();
-        $this->assertSame(WorkflowStage::where('code', 'receive_from_committee')->value('id'), $transaction->current_stage_id);
-        $this->assertDatabaseMissing('decisions', ['meeting_transaction_id' => $agendaItem->id]);
+        $requestRecord = $agendaItem->request()->firstOrFail()->fresh();
+        $this->assertSame(WorkflowStage::where('code', 'receive_from_committee')->value('id'), $requestRecord->current_stage_id);
+        $this->assertDatabaseMissing('decisions', ['meeting_request_id' => $agendaItem->id]);
     }
 
     public function test_a_tied_vote_cannot_be_recorded_automatically(): void
@@ -139,7 +139,7 @@ class DecisionVotingTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'تعادل'])
             ->assertStatus(422);
 
-        $this->assertDatabaseMissing('decisions', ['meeting_transaction_id' => $agendaItem->id]);
+        $this->assertDatabaseMissing('decisions', ['meeting_request_id' => $agendaItem->id]);
     }
 
     public function test_voting_is_restricted_to_committee_members_who_attended(): void
@@ -186,7 +186,7 @@ class DecisionVotingTest extends TestCase
         $this->assertDatabaseHas('meetings', ['id' => $meeting->id]);
     }
 
-    /** @return array{0: User, 1: User, 2: Committee, 3: Meeting, 4: MeetingTransaction} */
+    /** @return array{0: User, 1: User, 2: Committee, 3: Meeting, 4: MeetingRequest} */
     private function committeeMeetingWithAgendaItem(): array
     {
         $head = $this->userWithRole('R03');
@@ -205,20 +205,20 @@ class DecisionVotingTest extends TestCase
         $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
         $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
 
-        $transaction = $this->transactionAtCommitteeStage();
-        $agendaItem = $meeting->agendaItems()->create(['transaction_id' => $transaction->id, 'agenda_order' => 1]);
+        $requestRecord = $this->requestAtCommitteeStage();
+        $agendaItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
 
         return [$head, $member, $committee, $meeting, $agendaItem];
     }
 
-    private function transactionAtCommitteeStage(): Transaction
+    private function requestAtCommitteeStage(): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
-            'title' => 'معاملة معروضة على اللجنة',
+            'title' => 'طلب معروض على اللجنة',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'in_meeting')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
         ]);

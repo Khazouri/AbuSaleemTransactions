@@ -2,17 +2,17 @@
 
 namespace App\Notifications;
 
-use App\Models\Transaction;
+use App\Models\Request;
 
 /**
  * The Stage 17 nightly sweep has flagged an SLA breach.
  *
- * Raised only when overdue_at is first written, so a transaction that stays
+ * Raised only when overdue_at is first written, so a request that stays
  * late for a month is announced once rather than every night.
  */
-class TransactionOverdueNotification extends SystemNotification
+class RequestOverdueNotification extends SystemNotification
 {
-    private readonly int $transactionId;
+    private readonly int $requestId;
 
     private readonly string $reference;
 
@@ -20,17 +20,17 @@ class TransactionOverdueNotification extends SystemNotification
 
     private readonly ?string $dueDate;
 
-    public function __construct(Transaction $transaction)
+    public function __construct(Request $requestRecord)
     {
-        $this->transactionId = $transaction->id;
-        $this->reference = (string) $transaction->reference_number;
-        $this->title = (string) $transaction->title;
-        $this->dueDate = $transaction->due_date?->toDateString();
+        $this->requestId = $requestRecord->id;
+        $this->reference = (string) $requestRecord->reference_number;
+        $this->title = (string) $requestRecord->title;
+        $this->dueDate = $requestRecord->due_date?->toDateString();
     }
 
     public function eventType(): string
     {
-        return 'transaction_overdue';
+        return 'request_overdue';
     }
 
     protected function payload(): array
@@ -38,13 +38,13 @@ class TransactionOverdueNotification extends SystemNotification
         $due = $this->dueDate ?? '—';
 
         return [
-            'transaction_id' => $this->transactionId,
+            'request_id' => $this->requestId,
             'reference_number' => $this->reference,
             'due_date' => $this->dueDate,
             'title_ar' => 'تجاوز الموعد النهائي',
             'title_en' => 'Deadline exceeded',
-            'body_ar' => "تجاوزت المعاملة {$this->reference} — {$this->title} موعدها النهائي ({$due}).",
-            'body_en' => "Transaction {$this->reference} — {$this->title} has passed its due date ({$due}).",
+            'body_ar' => "تجاوز الطلب {$this->reference} — {$this->title} موعده النهائي ({$due}).",
+            'body_en' => "Request {$this->reference} — {$this->title} has passed its due date ({$due}).",
         ];
     }
 }

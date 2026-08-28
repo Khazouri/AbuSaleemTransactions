@@ -6,11 +6,11 @@ use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
 use App\Models\Meeting;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -52,7 +52,7 @@ class MeetingOutputsTest extends TestCase
             ->assertJsonPath('data.summary.awaiting_action', 0)
             ->assertJsonCount(1, 'data.outputs')
             ->assertJsonPath('data.outputs.0.agenda_item_id', $agendaItem->id)
-            ->assertJsonPath('data.outputs.0.transaction.employee.name', $employee->name)
+            ->assertJsonPath('data.outputs.0.request.employee.name', $employee->name)
             ->assertJsonPath('data.outputs.0.decision.outcome', 'approve')
             ->assertJsonPath('data.outputs.0.next_action.code', 'approval_by_authority')
             ->assertJsonPath('data.outputs.0.responsible_body.code', 'R05')
@@ -64,19 +64,19 @@ class MeetingOutputsTest extends TestCase
 
     public function test_final_approval_enters_execution_then_the_head_closes_it_without_moving_stage(): void
     {
-        [$head, $member, , $meeting, $agendaItem, $transaction] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
+        [$head, $member, , $meeting, $agendaItem, $requestRecord] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
         $finalApprover = $this->userWithRole('R07');
 
         $this->actingAs($finalApprover, 'sanctum')
-            ->post("/api/approvals/final/{$transaction->id}", [
+            ->post("/api/approvals/final/{$requestRecord->id}", [
                 'signature' => UploadedFile::fake()->image('final.png', 10, 10),
             ])
             ->assertOk()
             ->assertJsonPath('data.status.code', 'in_execution');
 
-        $this->assertSame('final_approval_archiving', $transaction->fresh()->currentStage->code);
+        $this->assertSame('final_approval_archiving', $requestRecord->fresh()->currentStage->code);
         $this->assertDatabaseHas('approvals', [
-            'transaction_id' => $transaction->id,
+            'request_id' => $requestRecord->id,
             'level' => 6,
             'approved_by_user_id' => $finalApprover->id,
         ]);
@@ -85,7 +85,7 @@ class MeetingOutputsTest extends TestCase
         $this->actingAs($finalApprover, 'sanctum')
             ->getJson('/api/approvals/final')
             ->assertOk()
-            ->assertJsonMissing(['id' => $transaction->id]);
+            ->assertJsonMissing(['id' => $requestRecord->id]);
 
         $this->actingAs($head, 'sanctum')
             ->getJson("/api/meetings/{$meeting->id}/outputs")
@@ -109,13 +109,13 @@ class MeetingOutputsTest extends TestCase
             ->assertJsonPath('data.outputs.0.next_action', null)
             ->assertJsonPath('data.outputs.0.can_complete', false);
 
-        $closed = $transaction->fresh();
+        $closed = $requestRecord->fresh();
         $this->assertSame('final_approval_archiving', $closed->currentStage->code);
         $this->assertSame('completed_closed', $closed->status->code);
-        $this->assertDatabaseHas('transaction_status_history', [
-            'transaction_id' => $transaction->id,
-            'from_status_id' => TransactionStatus::where('code', 'in_execution')->value('id'),
-            'to_status_id' => TransactionStatus::where('code', 'completed_closed')->value('id'),
+        $this->assertDatabaseHas('request_status_history', [
+            'request_id' => $requestRecord->id,
+            'from_status_id' => RequestStatus::where('code', 'in_execution')->value('id'),
+            'to_status_id' => RequestStatus::where('code', 'completed_closed')->value('id'),
             'changed_by_user_id' => $head->id,
         ]);
 
@@ -139,23 +139,23 @@ class MeetingOutputsTest extends TestCase
             ->postJson("/api/meetings/{$otherMeeting->id}/outputs/{$agendaItem->id}/complete")
             ->assertNotFound();
 
-        $this->assertSame('in_execution', $agendaItem->transaction->fresh()->status->code);
+        $this->assertSame('in_execution', $agendaItem->request->fresh()->status->code);
     }
 
     public function test_completion_rejects_a_request_that_has_not_entered_execution(): void
     {
-        [$head, , , $meeting, $agendaItem, $transaction] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
+        [$head, , , $meeting, $agendaItem, $requestRecord] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
 
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
             ->assertStatus(422)
             ->assertJsonValidationErrors('action');
 
-        $this->assertSame('final_approved', $transaction->fresh()->status->code);
-        $this->assertDatabaseCount('transaction_status_history', 0);
+        $this->assertSame('final_approved', $requestRecord->fresh()->status->code);
+        $this->assertDatabaseCount('request_status_history', 0);
     }
 
-    /** @return array{0: User, 1: User, 2: User, 3: Meeting, 4: MeetingTransaction, 5: Transaction} */
+    /** @return array{0: User, 1: User, 2: User, 3: Meeting, 4: MeetingRequest, 5: Request} */
     private function decidedMeetingOutput(string $stageCode, string $statusCode): array
     {
         $head = $this->userWithRole('R03');
@@ -173,23 +173,23 @@ class MeetingOutputsTest extends TestCase
             'created_by_user_id' => $head->id,
         ]);
 
-        $transaction = Transaction::create([
+        $requestRecord = Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
             'title' => 'طلب موظف للمتابعة',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'created_by_user_id' => $employee->id,
             'submitted_at' => now(),
         ]);
         $agendaItem = $meeting->agendaItems()->create([
-            'transaction_id' => $transaction->id,
+            'request_id' => $requestRecord->id,
             'agenda_order' => 1,
             'item_state' => 'complete',
         ]);
         Decision::create([
-            'meeting_transaction_id' => $agendaItem->id,
+            'meeting_request_id' => $agendaItem->id,
             'outcome' => 'approve',
             'votes_approve_count' => 2,
             'comment' => 'اعتمدت اللجنة الطلب.',
@@ -197,7 +197,7 @@ class MeetingOutputsTest extends TestCase
             'decided_at' => now(),
         ]);
 
-        return [$head, $member, $employee, $meeting, $agendaItem, $transaction];
+        return [$head, $member, $employee, $meeting, $agendaItem, $requestRecord];
     }
 
     private function userWithRole(string $roleCode): User

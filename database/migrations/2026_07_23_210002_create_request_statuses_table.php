@@ -5,15 +5,15 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * TRANSACTION_STATUSES (حالات المعاملة)
+ * REQUEST_STATUSES (حالات الطلب)
  * ---------------------------------------------------------------------------
- * Status answers "what condition is this transaction in?", which is a
+ * Status answers "what condition is this request in?", which is a
  * different question from STAGE ("where in the pipeline is it?").
  *
- * A transaction at stage 3 (reviewer review) might be `in_review` normally, or
+ * A request at stage 3 (reviewer review) might be `in_review` normally, or
  * `incomplete` if documents are missing — same stage, different status. The
  * two move together but independently, which is why they're separate columns
- * on `transactions` with separate history tables.
+ * on `requests` with separate history tables.
  *
  * Happy path:  new -> in_review -> ready -> in_meeting -> decided
  *                  -> approved -> final_approved -> archived
@@ -23,7 +23,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('transaction_statuses', function (Blueprint $table) {
+        Schema::create('request_statuses', function (Blueprint $table) {
             $table->id();
 
             // Machine key: new, in_review, approved... Code and seeders match
@@ -43,6 +43,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('transaction_statuses');
+        Schema::dropIfExists('request_statuses');
     }
 };

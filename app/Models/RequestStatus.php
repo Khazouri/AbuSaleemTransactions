@@ -5,17 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * TransactionStatus (حالة المعاملة) — the condition a transaction is in.
+ * RequestStatus (حالة الطلب) — the condition a request is in.
  *
  * Distinct from STAGE: stage is *where* it is in the pipeline, status is *how*
- * it is doing there. A transaction can stay at stage 3 while moving from
+ * it is doing there. A request can stay at stage 3 while moving from
  * `in_review` to `incomplete` because documents were found missing.
  *
- * @property string      $code   new, in_review, approved, archived...
- * @property string      $name_ar
- * @property string|null $color  Hex colour for the UI status badge
+ * @property string $code new, in_review, approved, archived...
+ * @property string $name_ar
+ * @property string|null $color Hex colour for the UI status badge
  */
-class TransactionStatus extends Model
+class RequestStatus extends Model
 {
     protected $fillable = [
         'code',

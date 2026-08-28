@@ -17,10 +17,10 @@ class MeetingOutputsResource extends JsonResource
             ->where('code', 'receive_from_committee')
             ->value('order_no') ?? 0;
 
-        $requestItems = $this->agendaItems->whereNotNull('transaction_id')->values();
+        $requestItems = $this->agendaItems->whereNotNull('request_id')->values();
         $decidedItems = $requestItems->filter(fn ($item) => $item->decision !== null);
         $advancedItems = $decidedItems->filter(
-            fn ($item) => ($item->transaction?->currentStage?->order_no ?? 0) > $committeeStageOrder,
+            fn ($item) => ($item->request?->currentStage?->order_no ?? 0) > $committeeStageOrder,
         );
 
         return [
@@ -41,10 +41,10 @@ class MeetingOutputsResource extends JsonResource
                 'decisions' => $decidedItems->count(),
                 'advanced' => $advancedItems->count(),
                 'awaiting_action' => $decidedItems->count() - $advancedItems->count(),
-                'in_execution' => $requestItems->where('transaction.status.code', 'in_execution')->count(),
+                'in_execution' => $requestItems->where('request.status.code', 'in_execution')->count(),
                 'completed_closed' => $requestItems
                     ->filter(fn ($item) => in_array(
-                        $item->transaction?->status?->code,
+                        $item->request?->status?->code,
                         ['completed_closed', 'archived'],
                         true,
                     ))

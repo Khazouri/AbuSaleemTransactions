@@ -9,14 +9,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * One agenda slot, in order — either an `employee_request` item riding an
- * existing transaction, or (Stage 31) a standalone `administrative`/
+ * existing request, or (Stage 31) a standalone `administrative`/
  * `emerging` item with its own subject/department.
  *
  * @property string $item_type employee_request|administrative|emerging
  * @property string|null $priority high|medium|low
  * @property string $item_state presented|discussion|voting|deciding|complete
  */
-class MeetingTransaction extends Model
+class MeetingRequest extends Model
 {
     // Mirrors the DB column default: create() only sends the attributes it's
     // given, so without this a freshly created request item's in-memory
@@ -28,7 +28,7 @@ class MeetingTransaction extends Model
 
     protected $fillable = [
         'meeting_id',
-        'transaction_id',
+        'request_id',
         'agenda_order',
         'item_type',
         'priority',
@@ -69,12 +69,12 @@ class MeetingTransaction extends Model
         return $this->belongsTo(Meeting::class);
     }
 
-    public function transaction(): BelongsTo
+    public function request(): BelongsTo
     {
-        return $this->belongsTo(Transaction::class);
+        return $this->belongsTo(Request::class);
     }
 
-    /** Stage 31 — only set on an admin item; a request item's department is its transaction's. */
+    /** Stage 31 — only set on an admin item; a request item's department is its request's. */
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);

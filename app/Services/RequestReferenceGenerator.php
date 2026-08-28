@@ -3,23 +3,23 @@
 namespace App\Services;
 
 use App\Models\Department;
-use App\Models\Transaction;
+use App\Models\Request;
 
 /**
- * Allocates the next yearly, department-scoped transaction reference.
+ * Allocates the next yearly, department-scoped request reference.
  *
  * Call this only inside the same database transaction that writes the new
- * Transaction. `lockForUpdate` locks both existing prefix rows and the index
+ * Request. `lockForUpdate` locks both existing prefix rows and the index
  * gap after them on MySQL, so two simultaneous intakes cannot claim a number.
  */
-class TransactionReferenceGenerator
+class RequestReferenceGenerator
 {
     public function nextFor(Department $department): string
     {
         $year = now()->format('Y');
         $prefix = sprintf('%s-%s-', $year, $department->code);
 
-        $latest = Transaction::query()
+        $latest = Request::query()
             ->where('reference_number', 'like', $prefix.'%')
             ->lockForUpdate()
             ->orderByDesc('reference_number')

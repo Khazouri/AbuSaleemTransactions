@@ -32,28 +32,28 @@ class GuideArticleTest extends TestCase
 
         $created = $this->actingAs($admin, 'sanctum')
             ->postJson('/api/guide-articles', [
-                'code' => 'intake.creating-a-transaction',
-                'category' => 'المعاملات',
-                'title_ar' => 'كيفية إنشاء معاملة',
-                'title_en' => 'Creating a transaction',
-                'body_ar' => "افتح شاشة استلام المعاملة.\n\nأدخل البيانات ثم أرفق المستندات.",
+                'code' => 'intake.creating-a-request',
+                'category' => 'الطلبات',
+                'title_ar' => 'كيفية إنشاء طلب',
+                'title_en' => 'Creating a request',
+                'body_ar' => "افتح شاشة استلام الطلب.\n\nأدخل البيانات ثم أرفق المستندات.",
                 'body_en' => 'Open the intake screen.',
                 'sort_order' => 1,
             ])
             ->assertCreated()
-            ->assertJsonPath('data.code', 'intake.creating-a-transaction')
+            ->assertJsonPath('data.code', 'intake.creating-a-request')
             ->assertJsonPath('data.is_active', true);
 
         $id = $created->json('data.id');
 
         $this->actingAs($admin, 'sanctum')
             ->putJson("/api/guide-articles/{$id}", [
-                'code' => 'intake.creating-a-transaction',
-                'title_ar' => 'كيفية إنشاء معاملة جديدة',
+                'code' => 'intake.creating-a-request',
+                'title_ar' => 'كيفية إنشاء طلب جديد',
                 'body_ar' => 'نص محدّث.',
             ])
             ->assertOk()
-            ->assertJsonPath('data.title_ar', 'كيفية إنشاء معاملة جديدة');
+            ->assertJsonPath('data.title_ar', 'كيفية إنشاء طلب جديد');
 
         $this->actingAs($admin, 'sanctum')
             ->deleteJson("/api/guide-articles/{$id}")
@@ -65,8 +65,8 @@ class GuideArticleTest extends TestCase
     public function test_articles_are_ordered_by_category_then_sort_order(): void
     {
         $this->article(['code' => 'b', 'category' => 'الاعتمادات', 'sort_order' => 1]);
-        $this->article(['code' => 'c', 'category' => 'المعاملات', 'sort_order' => 2]);
-        $this->article(['code' => 'a', 'category' => 'المعاملات', 'sort_order' => 1]);
+        $this->article(['code' => 'c', 'category' => 'الطلبات', 'sort_order' => 2]);
+        $this->article(['code' => 'a', 'category' => 'الطلبات', 'sort_order' => 1]);
 
         $this->actingAs($this->userWithRole('R01'), 'sanctum')
             ->getJson('/api/guide-articles')

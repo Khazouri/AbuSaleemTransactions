@@ -3,9 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Department;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\WorkflowService;
@@ -14,7 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
-class TransactionSlaTest extends TestCase
+class RequestSlaTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -30,11 +30,11 @@ class TransactionSlaTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         Carbon::setTestNow('2026-01-20 08:00:00');
 
-        $open = $this->transaction('reviewer_review', 'in_review', '2026-01-01 10:00:00');
-        $closed = $this->transaction('final_approval_archiving', 'archived', '2026-01-01 10:00:00');
+        $open = $this->request('reviewer_review', 'in_review', '2026-01-01 10:00:00');
+        $closed = $this->request('final_approval_archiving', 'archived', '2026-01-01 10:00:00');
 
-        $this->artisan('transactions:flag-overdue')
-            ->expectsOutput('Backfilled 2 deadline(s); flagged 1 overdue transaction(s).')
+        $this->artisan('requests:flag-overdue')
+            ->expectsOutput('Backfilled 2 deadline(s); flagged 1 overdue request(s).')
             ->assertExitCode(0);
 
         $open->refresh();
@@ -51,41 +51,41 @@ class TransactionSlaTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         Carbon::setTestNow('2026-01-20 08:00:00');
-        $transaction = $this->transaction('reviewer_review', 'in_review', '2026-01-01 10:00:00');
+        $requestRecord = $this->request('reviewer_review', 'in_review', '2026-01-01 10:00:00');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
         $service = app(WorkflowService::class);
 
-        $this->assertNotContains('deadline_expired', $service->availableActions($transaction, $admin));
+        $this->assertNotContains('deadline_expired', $service->availableActions($requestRecord, $admin));
 
-        $this->artisan('transactions:flag-overdue')->assertExitCode(0);
+        $this->artisan('requests:flag-overdue')->assertExitCode(0);
 
-        $this->assertContains('deadline_expired', $service->availableActions($transaction->refresh(), $admin));
+        $this->assertContains('deadline_expired', $service->availableActions($requestRecord->refresh(), $admin));
 
-        $transaction = $service->transition(
-            $transaction,
+        $requestRecord = $service->transition(
+            $requestRecord,
             'deadline_expired',
             $admin,
-            'انتهت المهلة النظامية للمعاملة.',
+            'انتهت المهلة النظامية للطلب.',
         );
 
-        $this->assertSame('local_governance_ministry', $transaction->currentStage->code);
-        $this->assertSame('in_review', $transaction->status->code);
-        $this->assertDatabaseHas('transaction_stage_logs', [
-            'transaction_id' => $transaction->id,
+        $this->assertSame('local_governance_ministry', $requestRecord->currentStage->code);
+        $this->assertSame('in_review', $requestRecord->status->code);
+        $this->assertDatabaseHas('request_stage_logs', [
+            'request_id' => $requestRecord->id,
             'action' => 'deadline_expired',
-            'comment' => 'انتهت المهلة النظامية للمعاملة.',
+            'comment' => 'انتهت المهلة النظامية للطلب.',
             'to_stage_id' => WorkflowStage::where('code', 'local_governance_ministry')->value('id'),
         ]);
     }
 
-    private function transaction(string $stageCode, string $status, string $submittedAt): Transaction
+    private function request(string $stageCode, string $status, string $submittedAt): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => '2026-ADM-'.fake()->unique()->numerify('######'),
             'title' => 'اختبار مهلة الإنجاز',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', $status)->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', $status)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => Carbon::parse($submittedAt),
         ]);

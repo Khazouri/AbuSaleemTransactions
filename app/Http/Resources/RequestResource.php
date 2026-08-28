@@ -5,8 +5,8 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** Compact transaction payload for the Stage 11 searchable list. */
-class TransactionResource extends JsonResource
+/** Compact request payload for the Stage 11 searchable list. */
+class RequestResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
@@ -20,12 +20,12 @@ class TransactionResource extends JsonResource
                 'name_en' => $this->department->name_en,
                 'code' => $this->department->code,
             ] : null,
-            'transaction_type' => $this->transactionType ? [
-                'id' => $this->transactionType->id,
-                'code' => $this->transactionType->code,
-                'name_ar' => $this->transactionType->name_ar,
-                'name_en' => $this->transactionType->name_en,
-                'decision_grade_threshold' => $this->transactionType->decision_grade_threshold,
+            'request_type' => $this->requestType ? [
+                'id' => $this->requestType->id,
+                'code' => $this->requestType->code,
+                'name_ar' => $this->requestType->name_ar,
+                'name_en' => $this->requestType->name_en,
+                'decision_grade_threshold' => $this->requestType->decision_grade_threshold,
             ] : null,
             'decision_grade' => $this->decision_grade,
             'requires_ministry_approval' => $this->requiresMinistryApproval(),

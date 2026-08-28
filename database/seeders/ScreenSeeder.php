@@ -32,10 +32,10 @@ class ScreenSeeder extends Seeder
         $screens = [
             // --- Day-to-day work ---------------------------------------------
             ['dashboard',                'لوحة التحكم الرئيسية',       'Dashboard',                    '/dashboard',                'gauge',        null],
-            ['transactions',             'طلبات المعاملات',            'Transaction Requests',         '/transactions',             'list',         null],
-            ['transaction_intake',       'استلام المعاملة',            'Transaction Intake',           '/transactions/create',      'inbox',        null],
-            ['transaction_details',      'تفاصيل المعاملة',            'Transaction Details',          '/transactions/:id',         'file-text',    null],
-            ['notes_attachments',        'الملاحظات والمرفقات',        'Notes & Attachments',          '/transactions/:id/notes',   'paperclip',    null],
+            ['requests',             'الطلبات',                  'Requests',                 '/requests',             'list',         null],
+            ['request_intake',       'استلام الطلب',            'Request Intake',           '/requests/create',      'inbox',        null],
+            ['request_details',      'تفاصيل الطلب',            'Request Details',          '/requests/:id',         'file-text',    null],
+            ['notes_attachments',        'الملاحظات والمرفقات',        'Notes & Attachments',          '/requests/:id/notes',   'paperclip',    null],
 
             // --- Committee (Stage 28: "إدارة الاجتماعات" / meetings_management) --
             // 9 slots for Track H (stages 28-37). `meetings` and `decisions`

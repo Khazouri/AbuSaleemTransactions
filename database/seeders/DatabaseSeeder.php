@@ -15,8 +15,8 @@ use Illuminate\Database\Seeder;
  *   DepartmentSeeder    the org tree
  *   AdminUserSeeder     needs both the ADM department and the R08 role
  *   WorkflowStageSeeder the 11 stages (looks up responsible roles)
- *   TransactionStatus.. the statuses a transaction can hold
- *   TransactionType..   the request types
+ *   RequestStatus.. the statuses a request can hold
+ *   RequestType..   the request types
  *   WorkflowTransition. the Stage 14/16 normal and exception state machine
  *   ScreenSeeder        the 22 screens
  *   ScreenRolePerm..    the 22 x 8 matrix — needs screens AND roles
@@ -37,8 +37,8 @@ class DatabaseSeeder extends Seeder
 
             // Stage 3 — workflow definition and lookup data
             WorkflowStageSeeder::class,
-            TransactionStatusSeeder::class,
-            TransactionTypeSeeder::class,
+            RequestStatusSeeder::class,
+            RequestTypeSeeder::class,
             // Stages 14/16 — data-driven normal and exception transition map.
             WorkflowTransitionSeeder::class,
             ScreenSeeder::class,

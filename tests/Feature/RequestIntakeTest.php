@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Attachment;
 use App\Models\Department;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -15,36 +15,36 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-class TransactionIntakeTest extends TestCase
+class RequestIntakeTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_an_authorized_user_can_load_intake_options_before_the_transaction_wildcard_route(): void
+    public function test_an_authorized_user_can_load_intake_options_before_the_request_wildcard_route(): void
     {
         $this->seed(DatabaseSeeder::class);
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/transactions/intake-options')
+            ->getJson('/api/requests/intake-options')
             ->assertOk()
             ->assertJsonPath('data.departments.0.code', 'ADM')
             ->assertJsonFragment(['code' => 'PROM']);
     }
 
-    public function test_an_authorized_user_can_intake_a_transaction_with_attachments(): void
+    public function test_an_authorized_user_can_intake_a_request_with_attachments(): void
     {
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
         $department = Department::where('code', 'ADM')->firstOrFail();
-        $type = TransactionType::where('code', 'PROM')->firstOrFail();
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
 
         $response = $this->actingAs($admin, 'sanctum')
-            ->post('/api/transactions', [
+            ->post('/api/requests', [
                 'title' => 'طلب ترقية جديد',
                 'description' => 'وصف طلب الترقية.',
                 'department_id' => $department->id,
-                'transaction_type_id' => $type->id,
+                'request_type_id' => $type->id,
                 'decision_grade' => 11,
                 'attachments' => [[
                     'file' => UploadedFile::fake()->create('promotion.pdf', 120, 'application/pdf'),
@@ -54,44 +54,44 @@ class TransactionIntakeTest extends TestCase
 
         // Diagram-alignment redesign (see AGENT_NOTES.md): intake now performs
         // one additional system hop into direct_manager_review in the same
-        // request, so the transaction created here is never actually left
+        // request, so the request created here is never actually left
         // sitting at receive_from_municipality.
         $response->assertCreated()
             ->assertJsonPath('data.reference_number', now()->format('Y').'-ADM-000001')
             ->assertJsonPath('data.status.code', 'in_review')
             ->assertJsonPath('data.current_stage.code', 'direct_manager_review');
 
-        $transaction = Transaction::firstOrFail();
-        $this->assertSame($admin->id, $transaction->created_by_user_id);
-        $this->assertSame(11, $transaction->decision_grade);
-        $this->assertNotNull($transaction->submitted_at);
+        $requestRecord = Request::firstOrFail();
+        $this->assertSame($admin->id, $requestRecord->created_by_user_id);
+        $this->assertSame(11, $requestRecord->decision_grade);
+        $this->assertNotNull($requestRecord->submitted_at);
         $this->assertSame(
-            $transaction->submitted_at->copy()->startOfDay()->addDays($type->default_sla_days)->toDateString(),
-            $transaction->due_date?->toDateString(),
+            $requestRecord->submitted_at->copy()->startOfDay()->addDays($type->default_sla_days)->toDateString(),
+            $requestRecord->due_date?->toDateString(),
         );
         // The intake stage log at receive_from_municipality is still written
         // first — this proves the truthful origin point is preserved even
-        // though the transaction has already moved on by the time this
+        // though the request has already moved on by the time this
         // response is read.
-        $this->assertDatabaseHas('transaction_stage_logs', [
-            'transaction_id' => $transaction->id,
+        $this->assertDatabaseHas('request_stage_logs', [
+            'request_id' => $requestRecord->id,
             'to_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
             'action' => 'intake',
         ]);
-        $this->assertDatabaseHas('transaction_stage_logs', [
-            'transaction_id' => $transaction->id,
+        $this->assertDatabaseHas('request_stage_logs', [
+            'request_id' => $requestRecord->id,
             'from_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
             'to_stage_id' => WorkflowStage::where('code', 'direct_manager_review')->value('id'),
             'action' => 'submit',
             'acted_by_user_id' => $admin->id,
         ]);
-        $this->assertDatabaseHas('transaction_status_history', [
-            'transaction_id' => $transaction->id,
-            'to_status_id' => TransactionStatus::where('code', 'new')->value('id'),
+        $this->assertDatabaseHas('request_status_history', [
+            'request_id' => $requestRecord->id,
+            'to_status_id' => RequestStatus::where('code', 'new')->value('id'),
         ]);
-        $this->assertDatabaseHas('transaction_status_history', [
-            'transaction_id' => $transaction->id,
-            'to_status_id' => TransactionStatus::where('code', 'in_review')->value('id'),
+        $this->assertDatabaseHas('request_status_history', [
+            'request_id' => $requestRecord->id,
+            'to_status_id' => RequestStatus::where('code', 'in_review')->value('id'),
         ]);
 
         $attachment = Attachment::firstOrFail();
@@ -104,14 +104,14 @@ class TransactionIntakeTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
         $department = Department::where('code', 'ADM')->firstOrFail();
-        $type = TransactionType::where('code', 'PROM')->firstOrFail();
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
 
         foreach ([1, 2] as $sequence) {
             $this->actingAs($admin, 'sanctum')
-                ->postJson('/api/transactions', [
-                    'title' => "معاملة {$sequence}",
+                ->postJson('/api/requests', [
+                    'title' => "طلب {$sequence}",
                     'department_id' => $department->id,
-                    'transaction_type_id' => $type->id,
+                    'request_type_id' => $type->id,
                     'decision_grade' => 9,
                 ])
                 ->assertCreated()
@@ -126,14 +126,14 @@ class TransactionIntakeTest extends TestCase
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
 
         $this->actingAs($admin, 'sanctum')
-            ->postJson('/api/transactions', [
-                'title' => 'معاملة بلا درجة',
+            ->postJson('/api/requests', [
+                'title' => 'طلب بلا درجة',
                 'department_id' => Department::where('code', 'ADM')->value('id'),
-                'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
+                'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('decision_grade');
 
-        $this->assertDatabaseCount('transactions', 0);
+        $this->assertDatabaseCount('requests', 0);
     }
 }

@@ -7,7 +7,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * Stage 31 — updates an existing agenda item's priority/time/subject/
- * department. `item_type` and `transaction_id` are deliberately not
+ * department. `item_type` and `request_id` are deliberately not
  * editable here: switching a request item into an admin item (or back)
  * would need the same required-field dance StoreMeetingAgendaRequest does,
  * and nothing in the agenda builder's scope needs that — remove and re-add

@@ -22,12 +22,12 @@ use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\RequestController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\TemplateController;
-use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -178,47 +178,47 @@ Route::middleware('auth:sanctum')->group(function () {
         ->delete('templates/{template}', [TemplateController::class, 'destroy']);
 
     /*
-     * Stage 11 — transaction work queue. Static transaction paths must precede
-     * /transactions/{transaction}, otherwise the model wildcard would consume
+     * Stage 11 — request work queue. Static request paths must precede
+     * /requests/{requestRecord}, otherwise the model wildcard would consume
      * their literal path and make their lookup data unreachable.
      */
-    Route::middleware('screen.permission:transactions,view')
-        ->get('transactions/filters', [TransactionController::class, 'filters']);
-    Route::middleware('screen.permission:transactions,view')
-        ->get('transactions', [TransactionController::class, 'index']);
+    Route::middleware('screen.permission:requests,view')
+        ->get('requests/filters', [RequestController::class, 'filters']);
+    Route::middleware('screen.permission:requests,view')
+        ->get('requests', [RequestController::class, 'index']);
 
-    // Stage 13 — controlled transaction intake with locked reference allocation.
-    Route::middleware('screen.permission:transaction_intake,view')
-        ->get('transactions/intake-options', [TransactionController::class, 'intakeOptions']);
-    Route::middleware('screen.permission:transaction_intake,add')
-        ->post('transactions', [TransactionController::class, 'store']);
+    // Stage 13 — controlled request intake with locked reference allocation.
+    Route::middleware('screen.permission:request_intake,view')
+        ->get('requests/intake-options', [RequestController::class, 'intakeOptions']);
+    Route::middleware('screen.permission:request_intake,add')
+        ->post('requests', [RequestController::class, 'store']);
 
-    // Stage 19 — private signature images use the same transaction-detail
+    // Stage 19 — private signature images use the same request-detail
     // visibility gate as the approval trail that renders them.
-    Route::middleware('screen.permission:transaction_details,view')
+    Route::middleware('screen.permission:request_details,view')
         ->get(
-            'transactions/{transaction}/approvals/{approval}/signature',
+            'requests/{requestRecord}/approvals/{approval}/signature',
             [ApprovalSignatureController::class, 'show'],
         )
-        ->name('transactions.approvals.signature');
+        ->name('requests.approvals.signature');
 
     // Private attachment previews travel through the API so a bearer token,
-    // transaction visibility, and attachment-parent relationship are all
+    // request visibility, and attachment-parent relationship are all
     // checked before a browser receives a byte of the stored file.
-    Route::middleware('screen.permission:transaction_details,view')
+    Route::middleware('screen.permission:request_details,view')
         ->get(
-            'transactions/{transaction}/attachments/{attachment}/preview',
+            'requests/{requestRecord}/attachments/{attachment}/preview',
             [AttachmentController::class, 'preview'],
         )
-        ->name('transactions.attachments.preview');
+        ->name('requests.attachments.preview');
 
     // Stage 15 — the detail screen is read by its own capability. The action
     // endpoint uses that same view gate, then WorkflowService enforces the
     // transition's configured role under lock (not one broad screen flag).
-    Route::middleware('screen.permission:transaction_details,view')
-        ->get('transactions/{transaction}', [TransactionController::class, 'show']);
-    Route::middleware('screen.permission:transaction_details,view')
-        ->post('transactions/{transaction}/transition', [TransactionController::class, 'transition']);
+    Route::middleware('screen.permission:request_details,view')
+        ->get('requests/{requestRecord}', [RequestController::class, 'show']);
+    Route::middleware('screen.permission:request_details,view')
+        ->post('requests/{requestRecord}/transition', [RequestController::class, 'transition']);
 
     /*
      * Stage 18 — one queue and write gate per approval authority. Literal
@@ -239,20 +239,20 @@ Route::middleware('auth:sanctum')->group(function () {
             ->get("approvals/{$level}", [ApprovalController::class, 'index'])
             ->defaults('level', $level);
         Route::middleware("screen.permission:{$screenCode},approve")
-            ->post("approvals/{$level}/{transaction}", [ApprovalController::class, 'store'])
+            ->post("approvals/{$level}/{requestRecord}", [ApprovalController::class, 'store'])
             ->defaults('level', $level);
     }
 
     // Stage 12 — private attachments are written through the dedicated
-    // Notes & Attachments capability, not a broad transaction-list privilege.
+    // Notes & Attachments capability, not a broad request-list privilege.
     Route::middleware('screen.permission:notes_attachments,add')
-        ->post('transactions/{transaction}/attachments', [AttachmentController::class, 'store']);
+        ->post('requests/{requestRecord}/attachments', [AttachmentController::class, 'store']);
 
     // Stage 13 — conversation notes are independent from changing workflow state.
     Route::middleware('screen.permission:notes_attachments,view')
-        ->get('transactions/{transaction}/notes', [NoteController::class, 'index']);
+        ->get('requests/{requestRecord}/notes', [NoteController::class, 'index']);
     Route::middleware('screen.permission:notes_attachments,add')
-        ->post('transactions/{transaction}/notes', [NoteController::class, 'store']);
+        ->post('requests/{requestRecord}/notes', [NoteController::class, 'store']);
 
     /*
      * Stage 20 — committees & meetings. Neither has a screen of its own on the
@@ -287,11 +287,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:committee_candidates,view')
         ->get('committee-candidates', [CommitteeCandidateController::class, 'index']);
     Route::middleware('screen.permission:committee_candidates,add')
-        ->post('committee-candidates/{transaction}/nominate', [CommitteeCandidateController::class, 'nominate']);
+        ->post('committee-candidates/{requestRecord}/nominate', [CommitteeCandidateController::class, 'nominate']);
     Route::middleware('screen.permission:committee_candidates,edit')->group(function () {
-        Route::post('committee-candidates/{transaction}/defer', [CommitteeCandidateController::class, 'defer']);
-        Route::post('committee-candidates/{transaction}/return-to-study', [CommitteeCandidateController::class, 'returnToStudy']);
-        Route::post('committee-candidates/{transaction}/request-completion', [CommitteeCandidateController::class, 'requestCompletion']);
+        Route::post('committee-candidates/{requestRecord}/defer', [CommitteeCandidateController::class, 'defer']);
+        Route::post('committee-candidates/{requestRecord}/return-to-study', [CommitteeCandidateController::class, 'returnToStudy']);
+        Route::post('committee-candidates/{requestRecord}/request-completion', [CommitteeCandidateController::class, 'requestCompletion']);
     });
 
     // Stage 32 — the meetings-unit command dashboard. A literal path declared
@@ -475,10 +475,10 @@ Route::middleware('auth:sanctum')->group(function () {
      * Stage 24 — dashboard KPIs and the reports screen.
      *
      * Both read one service, so the tiles and the exported file always agree.
-     * `reports/transactions/export` is the only endpoint here behind `export`
+     * `reports/requests/export` is the only endpoint here behind `export`
      * (R06/R07 by default): everyone may look at the numbers, far fewer may
      * carry them out of the system as a file. The literal `filters` and
-     * `transactions/export` paths sit above nothing that could shadow them, but
+     * `requests/export` paths sit above nothing that could shadow them, but
      * are declared first to match the ordering convention elsewhere in here.
      */
     Route::middleware('screen.permission:dashboard,view')
@@ -486,10 +486,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('screen.permission:reports,view')->group(function () {
         Route::get('reports/filters', [ReportController::class, 'filters']);
-        Route::get('reports/transactions', [ReportController::class, 'index']);
+        Route::get('reports/requests', [ReportController::class, 'index']);
     });
     Route::middleware('screen.permission:reports,export')
-        ->get('reports/transactions/export', [ReportController::class, 'export']);
+        ->get('reports/requests/export', [ReportController::class, 'export']);
 
     /*
      * Stage 23 — notifications. Reads sit behind `notifications,view`, and the

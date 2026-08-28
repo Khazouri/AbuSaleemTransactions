@@ -14,7 +14,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  * CRUD for the department tree (الإدارات).
  *
  * Departments are master data: created rarely, referenced everywhere
- * (users, transactions, reference numbers). So this leans towards preserving
+ * (users, requests, reference numbers). So this leans towards preserving
  * records — deactivate rather than delete, and refuse deletes that would
  * strand children or staff.
  */

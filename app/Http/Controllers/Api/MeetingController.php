@@ -13,14 +13,14 @@ use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemStateRequest;
 use App\Http\Requests\MeetingAttendee\StoreMeetingAttendeeRequest;
 use App\Http\Requests\MeetingAttendee\UpdateMeetingAttendeeRequest;
 use App\Http\Resources\MeetingAttendeeResource;
+use App\Http\Resources\MeetingRequestResource;
 use App\Http\Resources\MeetingResource;
-use App\Http\Resources\MeetingTransactionResource;
 use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\MeetingAttendee;
 use App\Models\MeetingMinutes;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
 use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,7 +102,7 @@ class MeetingController extends Controller
      * here), so the gate protects that dropdown and the live runner from one
      * code path rather than adding a second "close" action either could
      * still bypass. Blocked (422) while any agenda item is unresolved —
-     * see MeetingTransaction::isResolved().
+     * see MeetingRequest::isResolved().
      *
      * Stage 36 adds a second, independent gate right after: closing also
      * requires the meeting's minutes to have completed their own
@@ -117,7 +117,7 @@ class MeetingController extends Controller
 
         if (($data['status'] ?? null) === 'completed') {
             $unresolved = $meeting->agendaItems()->with('decision')->get()
-                ->reject(fn (MeetingTransaction $item) => $item->isResolved());
+                ->reject(fn (MeetingRequest $item) => $item->isResolved());
 
             if ($unresolved->isNotEmpty()) {
                 return response()->json([
@@ -146,7 +146,7 @@ class MeetingController extends Controller
      */
     public function destroy(Meeting $meeting): JsonResponse
     {
-        $hasDecisions = MeetingTransaction::query()
+        $hasDecisions = MeetingRequest::query()
             ->where('meeting_id', $meeting->id)
             ->whereHas('decision')
             ->exists();
@@ -163,10 +163,10 @@ class MeetingController extends Controller
     }
 
     /**
-     * Stage 31 — an item is either an `employee_request` riding a transaction
+     * Stage 31 — an item is either an `employee_request` riding a request
      * (the only kind before this stage) or a standalone `administrative`/
      * `emerging` item; the FormRequest's conditional rules already picked
-     * which of transaction_id/subject is present, so this just stores
+     * which of request_id/subject is present, so this just stores
      * whichever validated shape arrived.
      */
     public function addAgendaItem(StoreMeetingAgendaRequest $request, Meeting $meeting): JsonResponse
@@ -179,23 +179,23 @@ class MeetingController extends Controller
             'agenda_order' => $nextOrder,
         ]);
 
-        return (new MeetingTransactionResource($item->load([
-            'transaction:id,reference_number,title,status_id',
-            'transaction.status:id,code,name_ar,name_en,color',
+        return (new MeetingRequestResource($item->load([
+            'request:id,reference_number,title,status_id',
+            'request.status:id,code,name_ar,name_en,color',
             'department:id,name_ar,name_en',
         ])))->response()->setStatusCode(201);
     }
 
-    /** Stage 31 — priority/time/subject/department only; see the FormRequest for why item_type/transaction_id stay fixed. */
-    public function updateAgendaItem(UpdateMeetingAgendaItemRequest $request, Meeting $meeting, MeetingTransaction $agendaItem): MeetingTransactionResource
+    /** Stage 31 — priority/time/subject/department only; see the FormRequest for why item_type/request_id stay fixed. */
+    public function updateAgendaItem(UpdateMeetingAgendaItemRequest $request, Meeting $meeting, MeetingRequest $agendaItem): MeetingRequestResource
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
         $agendaItem->update($request->validated());
 
-        return new MeetingTransactionResource($agendaItem->load([
-            'transaction:id,reference_number,title,status_id',
-            'transaction.status:id,code,name_ar,name_en,color',
+        return new MeetingRequestResource($agendaItem->load([
+            'request:id,reference_number,title,status_id',
+            'request.status:id,code,name_ar,name_en,color',
             'department:id,name_ar,name_en',
         ]));
     }
@@ -208,7 +208,7 @@ class MeetingController extends Controller
      * is only ever reached as a side effect of DecisionController::record(),
      * so a `complete` request item always means a real recorded decision.
      */
-    public function updateItemState(UpdateMeetingAgendaItemStateRequest $request, Meeting $meeting, MeetingTransaction $agendaItem): MeetingTransactionResource|JsonResponse
+    public function updateItemState(UpdateMeetingAgendaItemStateRequest $request, Meeting $meeting, MeetingRequest $agendaItem): MeetingRequestResource|JsonResponse
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
@@ -230,14 +230,14 @@ class MeetingController extends Controller
             $agendaItem->update(['item_state' => $newState, 'state_changed_at' => now()]);
         }
 
-        return new MeetingTransactionResource($agendaItem->load([
-            'transaction:id,reference_number,title,status_id',
-            'transaction.status:id,code,name_ar,name_en,color',
+        return new MeetingRequestResource($agendaItem->load([
+            'request:id,reference_number,title,status_id',
+            'request.status:id,code,name_ar,name_en,color',
             'department:id,name_ar,name_en',
         ]));
     }
 
-    public function removeAgendaItem(Meeting $meeting, MeetingTransaction $agendaItem): JsonResponse
+    public function removeAgendaItem(Meeting $meeting, MeetingRequest $agendaItem): JsonResponse
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
@@ -251,14 +251,14 @@ class MeetingController extends Controller
     {
         DB::transaction(function () use ($request) {
             foreach ($request->validated('order') as $index => $id) {
-                MeetingTransaction::query()->where('id', $id)->update(['agenda_order' => $index + 1]);
+                MeetingRequest::query()->where('id', $id)->update(['agenda_order' => $index + 1]);
             }
         });
 
-        return MeetingTransactionResource::collection(
+        return MeetingRequestResource::collection(
             $meeting->agendaItems()->with([
-                'transaction:id,reference_number,title,status_id',
-                'transaction.status:id,code,name_ar,name_en,color',
+                'request:id,reference_number,title,status_id',
+                'request.status:id,code,name_ar,name_en,color',
                 'department:id,name_ar,name_en',
             ])->get(),
         );
@@ -268,14 +268,14 @@ class MeetingController extends Controller
      * Stage 31 — totals and a "group similar" view over the agenda, so the
      * builder screen can show a computed total time and cluster items by
      * effective department (the item's own for an admin item, its
-     * transaction's for a request — there's no free-text similarity match
+     * request's for a request — there's no free-text similarity match
      * here, department is the one dimension both item shapes share).
      */
     public function agendaStats(Meeting $meeting): JsonResponse
     {
         $items = $meeting->agendaItems()->with([
-            'transaction:id,reference_number,title,department_id',
-            'transaction.department:id,name_ar,name_en',
+            'request:id,reference_number,title,department_id',
+            'request.department:id,name_ar,name_en',
             'department:id,name_ar,name_en',
         ])->get();
 
@@ -287,7 +287,7 @@ class MeetingController extends Controller
             $byPriority[$item->priority ?? 'none']++;
             $byType[$item->item_type]++;
 
-            $department = $item->department ?? $item->transaction?->department;
+            $department = $item->department ?? $item->request?->department;
             $key = $department?->id ?? 0;
 
             $groups[$key]['department'] ??= $department ? [
@@ -297,7 +297,7 @@ class MeetingController extends Controller
             ] : null;
             $groups[$key]['items'][] = [
                 'id' => $item->id,
-                'label' => $item->transaction?->title ?? $item->subject,
+                'label' => $item->request?->title ?? $item->subject,
             ];
         }
 
@@ -385,8 +385,8 @@ class MeetingController extends Controller
             'convenedBy:id,name',
             'meetingMinutes',
             'attendees.user:id,name',
-            'agendaItems.transaction:id,reference_number,title,status_id',
-            'agendaItems.transaction.status:id,code,name_ar,name_en,color',
+            'agendaItems.request:id,reference_number,title,status_id',
+            'agendaItems.request.status:id,code,name_ar,name_en,color',
             'agendaItems.department:id,name_ar,name_en',
             'agendaItems.votes.user:id,name',
             'agendaItems.decision.decidedBy:id,name',

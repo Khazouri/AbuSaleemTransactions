@@ -9,12 +9,12 @@ use App\Http\Requests\Decision\IndexDecisionRequest;
 use App\Http\Requests\Decision\StoreDecisionRequest;
 use App\Http\Requests\Vote\StoreVoteRequest;
 use App\Http\Resources\DecisionResource;
-use App\Http\Resources\MeetingTransactionResource;
+use App\Http\Resources\MeetingRequestResource;
 use App\Http\Resources\VoteResource;
 use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Meeting;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
 use App\Models\Template;
 use App\Models\Vote;
 use App\Services\ApprovalSignatureStorage;
@@ -129,7 +129,7 @@ class DecisionController extends Controller
     public function vote(
         StoreVoteRequest $request,
         Meeting $meeting,
-        MeetingTransaction $agendaItem,
+        MeetingRequest $agendaItem,
         DecisionEligibility $eligibility,
     ): JsonResponse {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
@@ -145,7 +145,7 @@ class DecisionController extends Controller
         }
 
         $vote = Vote::updateOrCreate(
-            ['meeting_transaction_id' => $agendaItem->id, 'user_id' => $actor->id],
+            ['meeting_request_id' => $agendaItem->id, 'user_id' => $actor->id],
             [
                 'vote' => $request->validated('vote'),
                 'comment' => $request->validated('comment'),
@@ -171,18 +171,18 @@ class DecisionController extends Controller
     public function record(
         StoreDecisionRequest $request,
         Meeting $meeting,
-        MeetingTransaction $agendaItem,
+        MeetingRequest $agendaItem,
         WorkflowService $workflow,
         ApprovalSignatureStorage $signatureStorage,
         NotificationDispatcher $notifications,
     ): JsonResponse {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
-        // Stage 31 — an admin/emerging item has no transaction for
+        // Stage 31 — an admin/emerging item has no request for
         // WorkflowService::transition() to move.
         if ($agendaItem->item_type !== 'employee_request') {
             return response()->json([
-                'message' => 'لا يمكن تسجيل قرار على بند غير مرتبط بمعاملة.',
+                'message' => 'لا يمكن تسجيل قرار على بند غير مرتبط بطلب.',
             ], 422);
         }
 
@@ -193,7 +193,7 @@ class DecisionController extends Controller
         }
 
         $counts = Vote::query()
-            ->where('meeting_transaction_id', $agendaItem->id)
+            ->where('meeting_request_id', $agendaItem->id)
             ->selectRaw('vote, count(*) as total')
             ->groupBy('vote')
             ->pluck('total', 'vote');
@@ -222,14 +222,14 @@ class DecisionController extends Controller
         $actor = $request->user();
 
         $signaturePath = $action === 'approve' && $request->hasFile('signature')
-            ? $signatureStorage->store($request->file('signature'), $agendaItem->transaction)
+            ? $signatureStorage->store($request->file('signature'), $agendaItem->request)
             : null;
 
         try {
             $decision = DB::transaction(function () use (
                 $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally,
             ) {
-                $workflow->transition($agendaItem->transaction, $action, $actor, $comment, $signaturePath);
+                $workflow->transition($agendaItem->request, $action, $actor, $comment, $signaturePath);
 
                 // Stage 34 — the live runner's own progress state follows a
                 // recorded decision automatically; the runner's manual state
@@ -238,7 +238,7 @@ class DecisionController extends Controller
                 $agendaItem->update(['item_state' => 'complete', 'state_changed_at' => now()]);
 
                 return Decision::create([
-                    'meeting_transaction_id' => $agendaItem->id,
+                    'meeting_request_id' => $agendaItem->id,
                     'template_id' => $templateId,
                     'outcome' => $outcome,
                     'votes_approve_count' => $tally['approve'],
@@ -261,7 +261,7 @@ class DecisionController extends Controller
         // Stage 23 — separate from the stage-change notification the same
         // transition raises: this one names the outcome and the tally, which
         // is the part the requester and the committee actually ask about.
-        $notifications->decisionRecorded($agendaItem->transaction, $decision, $meeting, $actor);
+        $notifications->decisionRecorded($agendaItem->request, $decision, $meeting, $actor);
 
         return (new DecisionResource($decision->load('decidedBy:id,name', 'template:id,code,name_ar,name_en')))
             ->response()
@@ -293,15 +293,15 @@ class DecisionController extends Controller
     {
         $items = $eligibility->pendingVotesQuery($request->user())
             ->with([
-                'transaction:id,reference_number,title,status_id',
-                'transaction.status:id,code,name_ar,name_en,color',
+                'request:id,reference_number,title,status_id',
+                'request.status:id,code,name_ar,name_en,color',
                 'meeting:id,title,scheduled_at,committee_id',
                 'meeting.committee:id,name_ar,name_en',
                 'votes.user:id,name',
             ])
             ->get();
 
-        return MeetingTransactionResource::collection($items);
+        return MeetingRequestResource::collection($items);
     }
 
     /**
@@ -372,10 +372,10 @@ class DecisionController extends Controller
             ->with([
                 'decidedBy:id,name',
                 'template:id,code,name_ar,name_en',
-                'meetingTransaction:id,meeting_id,transaction_id',
-                'meetingTransaction.transaction:id,reference_number,title',
-                'meetingTransaction.meeting:id,title,scheduled_at,committee_id',
-                'meetingTransaction.meeting.committee:id,name_ar,name_en',
+                'meetingRequest:id,meeting_id,request_id',
+                'meetingRequest.request:id,reference_number,title',
+                'meetingRequest.meeting:id,title,scheduled_at,committee_id',
+                'meetingRequest.meeting.committee:id,name_ar,name_en',
             ])
             ->when(
                 $filters['outcome'] ?? null,
@@ -384,7 +384,7 @@ class DecisionController extends Controller
             ->when(
                 $filters['committee_id'] ?? null,
                 fn (Builder $query, $committeeId) => $query->whereHas(
-                    'meetingTransaction.meeting',
+                    'meetingRequest.meeting',
                     fn (Builder $meeting) => $meeting->where('committee_id', $committeeId),
                 ),
             )
@@ -399,8 +399,8 @@ class DecisionController extends Controller
             ->when(
                 $filters['search'] ?? null,
                 fn (Builder $query, string $term) => $query->whereHas(
-                    'meetingTransaction.transaction',
-                    fn (Builder $transaction) => $transaction
+                    'meetingRequest.request',
+                    fn (Builder $requestRecord) => $requestRecord
                         ->where('reference_number', 'like', "%{$term}%")
                         ->orWhere('title', 'like', "%{$term}%"),
                 ),
@@ -414,13 +414,13 @@ class DecisionController extends Controller
      */
     private function exportRow(Decision $decision, string $locale, array $labels): array
     {
-        $agendaItem = $decision->meetingTransaction;
+        $agendaItem = $decision->meetingRequest;
         $meeting = $agendaItem?->meeting;
         $committee = $meeting?->committee;
 
         return [
-            $agendaItem?->transaction?->reference_number ?? $labels['none'],
-            $agendaItem?->transaction?->title ?? $labels['none'],
+            $agendaItem?->request?->reference_number ?? $labels['none'],
+            $agendaItem?->request?->title ?? $labels['none'],
             $this->localName($committee, $locale, $labels),
             $meeting?->title ?? $labels['none'],
             $meeting?->scheduled_at?->format('Y-m-d') ?? $labels['none'],

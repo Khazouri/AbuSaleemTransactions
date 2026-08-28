@@ -17,7 +17,7 @@ return new class extends Migration
     {
         Schema::create('approvals', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('transaction_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('request_id')->constrained()->cascadeOnDelete();
             $table->unsignedSmallInteger('level');
             $table->foreignId('role_id')->constrained()->restrictOnDelete();
             $table->foreignId('approved_by_user_id')->nullable()
@@ -27,7 +27,7 @@ return new class extends Migration
             $table->timestamp('approved_at');
             $table->timestamps();
 
-            $table->index(['transaction_id', 'level']);
+            $table->index(['request_id', 'level']);
             $table->index(['role_id', 'approved_at']);
         });
     }

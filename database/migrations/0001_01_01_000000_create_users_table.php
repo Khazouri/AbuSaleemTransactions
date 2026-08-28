@@ -32,7 +32,7 @@ return new class extends Migration
 
             $table->rememberToken();
 
-            // Soft delete: staff records stay referenced by transactions,
+            // Soft delete: staff records stay referenced by requests,
             // approvals and audit logs long after the person leaves.
             $table->softDeletes();
             $table->timestamps();

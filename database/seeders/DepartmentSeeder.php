@@ -17,7 +17,7 @@ use Illuminate\Database\Seeder;
  *
  * These are a usable starting point, not a fixed structure — departments are
  * fully editable from the UI in Stage 6. The codes matter because they appear
- * in transaction reference numbers (YYYY-DEPT-000123).
+ * in request reference numbers (YYYY-DEPT-000123).
  */
 class DepartmentSeeder extends Seeder
 {

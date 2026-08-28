@@ -61,6 +61,7 @@ class UpdateDepartmentRequest extends FormRequest
 
                     if ((int) $value === $department->id) {
                         $fail('لا يمكن جعل الإدارة تابعة لنفسها.');
+
                         return;
                     }
 

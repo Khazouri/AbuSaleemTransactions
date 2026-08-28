@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * is. Their histories are separate because exception handling can change one
  * without necessarily changing the other.
  */
-class Transaction extends Model
+class Request extends Model
 {
     use HasFactory;
 
@@ -23,7 +23,7 @@ class Transaction extends Model
         'title',
         'description',
         'department_id',
-        'transaction_type_id',
+        'request_type_id',
         'status_id',
         'current_stage_id',
         'created_by_user_id',
@@ -46,14 +46,14 @@ class Transaction extends Model
         return $this->belongsTo(Department::class);
     }
 
-    public function transactionType(): BelongsTo
+    public function requestType(): BelongsTo
     {
-        return $this->belongsTo(TransactionType::class);
+        return $this->belongsTo(RequestType::class);
     }
 
     public function status(): BelongsTo
     {
-        return $this->belongsTo(TransactionStatus::class);
+        return $this->belongsTo(RequestStatus::class);
     }
 
     public function currentStage(): BelongsTo
@@ -68,12 +68,12 @@ class Transaction extends Model
 
     public function stageLogs(): HasMany
     {
-        return $this->hasMany(TransactionStageLog::class);
+        return $this->hasMany(RequestStageLog::class);
     }
 
     public function statusHistory(): HasMany
     {
-        return $this->hasMany(TransactionStatusHistory::class);
+        return $this->hasMany(RequestStatusHistory::class);
     }
 
     public function attachments(): HasMany
@@ -97,7 +97,7 @@ class Transaction extends Model
      */
     public function requiresMinistryApproval(): bool
     {
-        $threshold = $this->transactionType?->decision_grade_threshold;
+        $threshold = $this->requestType?->decision_grade_threshold;
 
         return $threshold !== null
             && ($this->decision_grade === null || $this->decision_grade >= $threshold);

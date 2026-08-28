@@ -5,11 +5,11 @@ namespace Tests\Feature;
 use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\DecisionEligibility;
@@ -49,7 +49,7 @@ class DecisionRegisterTest extends TestCase
         $context = $response->json('data.0.context');
         $this->assertSame($meeting->id, $context['meeting']['id']);
         $this->assertSame('لجنة المشتريات', $context['committee']['name_ar']);
-        $this->assertSame($agendaItem->transaction_id, $context['transaction']['id']);
+        $this->assertSame($agendaItem->request_id, $context['request']['id']);
     }
 
     public function test_register_filters_narrow_the_population(): void
@@ -57,7 +57,7 @@ class DecisionRegisterTest extends TestCase
         [$head, $member, , $meeting, $agendaItem] = $this->committeeMeetingWithAgendaItem();
         $this->recordDeferDecision($head, $member, $meeting, $agendaItem);
 
-        $reference = $agendaItem->transaction()->value('reference_number');
+        $reference = $agendaItem->request()->value('reference_number');
 
         $this->actingAs($member, 'sanctum')
             ->getJson('/api/decisions?outcome=defer')
@@ -199,7 +199,7 @@ class DecisionRegisterTest extends TestCase
 
     // --- fixtures -----------------------------------------------------------
 
-    /** Two members who both attended, one transaction on the agenda. */
+    /** Two members who both attended, one request on the agenda. */
     private function committeeMeetingWithAgendaItem(): array
     {
         $head = $this->userWithRole('R03');
@@ -219,7 +219,7 @@ class DecisionRegisterTest extends TestCase
         $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
 
         $agendaItem = $meeting->agendaItems()->create([
-            'transaction_id' => $this->transactionAtCommitteeStage()->id,
+            'request_id' => $this->requestAtCommitteeStage()->id,
             'agenda_order' => 1,
         ]);
 
@@ -230,7 +230,7 @@ class DecisionRegisterTest extends TestCase
      * Defer rather than approve: it needs no signature file, and the register
      * does not care which outcome produced the row.
      */
-    private function recordDeferDecision(User $head, User $member, Meeting $meeting, MeetingTransaction $agendaItem): void
+    private function recordDeferDecision(User $head, User $member, Meeting $meeting, MeetingRequest $agendaItem): void
     {
         foreach ([$member, $head] as $voter) {
             $this->actingAs($voter, 'sanctum')
@@ -245,14 +245,14 @@ class DecisionRegisterTest extends TestCase
             ->assertCreated();
     }
 
-    private function transactionAtCommitteeStage(): Transaction
+    private function requestAtCommitteeStage(): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
-            'title' => 'معاملة معروضة على اللجنة',
+            'title' => 'طلب معروض على اللجنة',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'in_meeting')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
         ]);

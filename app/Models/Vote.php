@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Vote extends Model
 {
     protected $fillable = [
-        'meeting_transaction_id',
+        'meeting_request_id',
         'user_id',
         'vote',
         'comment',
@@ -23,9 +23,9 @@ class Vote extends Model
         ];
     }
 
-    public function meetingTransaction(): BelongsTo
+    public function meetingRequest(): BelongsTo
     {
-        return $this->belongsTo(MeetingTransaction::class);
+        return $this->belongsTo(MeetingRequest::class);
     }
 
     public function user(): BelongsTo

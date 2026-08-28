@@ -16,7 +16,7 @@ use ZipArchive;
  *
  * A snapshot is one .zip holding `database.sql` plus, by default, the private
  * attachment and signature trees. The two travel together deliberately: a
- * restored database whose transactions point at files that no longer exist is
+ * restored database whose requests point at files that no longer exist is
  * not a restored system.
  *
  * There is no restore counterpart here, on purpose. Reloading a database is a

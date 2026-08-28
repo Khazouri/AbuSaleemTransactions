@@ -9,14 +9,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class MeetingDiscussionNote extends Model
 {
     protected $fillable = [
-        'meeting_transaction_id',
+        'meeting_request_id',
         'note',
         'created_by_user_id',
     ];
 
-    public function meetingTransaction(): BelongsTo
+    public function meetingRequest(): BelongsTo
     {
-        return $this->belongsTo(MeetingTransaction::class);
+        return $this->belongsTo(MeetingRequest::class);
     }
 
     public function createdBy(): BelongsTo

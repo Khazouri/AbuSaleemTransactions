@@ -41,7 +41,7 @@ async function load() {
     const { data } = await api.get(`/meetings/${route.params.id}`)
     meeting.value = data.data
   } catch (requestError) {
-    error.value = requestError.response?.data?.message ?? t('transactionDetail.loadFailed')
+    error.value = requestError.response?.data?.message ?? t('requestDetail.loadFailed')
   } finally {
     loading.value = false
   }
@@ -111,8 +111,8 @@ const agendaSearching = ref(false)
 const agendaError = ref('')
 let searchTimer = null
 
-const agendaTransactionIds = computed(() => new Set(
-  (meeting.value?.agenda_items ?? []).filter((i) => i.transaction).map((i) => i.transaction.id),
+const agendaRequestIds = computed(() => new Set(
+  (meeting.value?.agenda_items ?? []).filter((i) => i.request).map((i) => i.request.id),
 ))
 
 watch(agendaSearch, (value) => {
@@ -124,7 +124,7 @@ watch(agendaSearch, (value) => {
   searchTimer = setTimeout(async () => {
     agendaSearching.value = true
     try {
-      const { data } = await api.get('/transactions', { params: { search: value.trim(), per_page: 5 } })
+      const { data } = await api.get('/requests', { params: { search: value.trim(), per_page: 5 } })
       agendaResults.value = data.data ?? []
     } catch {
       agendaResults.value = []
@@ -134,16 +134,16 @@ watch(agendaSearch, (value) => {
   }, 300)
 })
 
-async function addToAgenda(transaction) {
+async function addToAgenda(request) {
   agendaError.value = ''
   try {
-    await api.post(`/meetings/${meeting.value.id}/agenda`, { transaction_id: transaction.id })
+    await api.post(`/meetings/${meeting.value.id}/agenda`, { request_id: request.id })
     agendaSearch.value = ''
     agendaResults.value = []
     await load()
   } catch (requestError) {
     agendaError.value = requestError.response?.data?.message
-      ?? requestError.response?.data?.errors?.transaction_id?.[0]
+      ?? requestError.response?.data?.errors?.request_id?.[0]
       ?? t('common.none')
   }
 }
@@ -386,10 +386,10 @@ onMounted(async () => {
             <li v-for="(item, index) in meeting.agenda_items" :key="item.id">
               <div class="row">
                 <div>
-                  <template v-if="item.transaction">
-                    <span class="ref ltr">{{ item.transaction.reference_number || `#${item.transaction.id}` }}</span>
-                    <strong>{{ item.transaction.title }}</strong>
-                    <span v-if="item.transaction.status" class="pill">{{ name(item.transaction.status) }}</span>
+                  <template v-if="item.request">
+                    <span class="ref ltr">{{ item.request.reference_number || `#${item.request.id}` }}</span>
+                    <strong>{{ item.request.title }}</strong>
+                    <span v-if="item.request.status" class="pill">{{ name(item.request.status) }}</span>
                   </template>
                   <template v-else>
                     <strong>{{ item.subject }}</strong>
@@ -433,7 +433,7 @@ onMounted(async () => {
                   <button
                     class="ghost"
                     type="button"
-                    :disabled="agendaTransactionIds.has(result.id)"
+                    :disabled="agendaRequestIds.has(result.id)"
                     @click="addToAgenda(result)"
                   >
                     {{ t('meetings.agenda.add') }}

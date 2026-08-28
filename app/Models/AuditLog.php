@@ -28,10 +28,10 @@ class AuditLog extends Model
      * @var list<class-string<Model>>
      */
     public const AUDITED_MODELS = [
-        // Transactions and everything that moves them through the workflow
-        Transaction::class,
-        TransactionStageLog::class,
-        TransactionStatusHistory::class,
+        // Requests and everything that moves them through the workflow
+        Request::class,
+        RequestStageLog::class,
+        RequestStatusHistory::class,
         Approval::class,
         Attachment::class,
         Note::class,
@@ -41,14 +41,14 @@ class AuditLog extends Model
         CommitteeMember::class,
         Meeting::class,
         MeetingAttendee::class,
-        MeetingTransaction::class,
+        MeetingRequest::class,
         Vote::class,
         Decision::class,
 
         // Master data and access control — low volume, high consequence
         Department::class,
         User::class,
-        TransactionType::class,
+        RequestType::class,
         ScreenRolePermission::class,
         Setting::class,
         Template::class,
@@ -111,7 +111,7 @@ class AuditLog extends Model
 
     /**
      * Short, stable keys the API speaks instead of PHP class names
-     * (`transaction_stage_log` => App\Models\TransactionStageLog).
+     * (`request_stage_log` => App\Models\RequestStageLog).
      *
      * The client filters by key and never sends a class string, so no request
      * can aim the query at a class the audit registry doesn't cover.

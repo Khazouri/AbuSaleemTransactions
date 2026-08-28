@@ -6,7 +6,7 @@ use App\Exceptions\MeetingOutputTransitionException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MeetingOutputsResource;
 use App\Models\Meeting;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
 use App\Services\MeetingOutputService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -22,7 +22,7 @@ class MeetingOutputsController extends Controller
     public function complete(
         Request $request,
         Meeting $meeting,
-        MeetingTransaction $agendaItem,
+        MeetingRequest $agendaItem,
         MeetingOutputService $outputs,
     ): MeetingOutputsResource {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
@@ -43,11 +43,11 @@ class MeetingOutputsController extends Controller
         return $meeting->load([
             'committee:id,name_ar,name_en',
             'agendaItems.decision.decidedBy:id,name',
-            'agendaItems.transaction.createdBy:id,name',
-            'agendaItems.transaction.department:id,code,name_ar,name_en',
-            'agendaItems.transaction.status:id,code,name_ar,name_en,color',
-            'agendaItems.transaction.currentStage:id,order_no,code,name_ar,name_en,responsible_role_id',
-            'agendaItems.transaction.currentStage.responsibleRole:id,code,name_ar,name_en',
+            'agendaItems.request.createdBy:id,name',
+            'agendaItems.request.department:id,code,name_ar,name_en',
+            'agendaItems.request.status:id,code,name_ar,name_en,color',
+            'agendaItems.request.currentStage:id,order_no,code,name_ar,name_en,responsible_role_id',
+            'agendaItems.request.currentStage.responsibleRole:id,code,name_ar,name_en',
         ]);
     }
 }

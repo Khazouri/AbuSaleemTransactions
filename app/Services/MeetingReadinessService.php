@@ -22,7 +22,7 @@ class MeetingReadinessService
         $meeting->loadMissing([
             'committee.activeMembers.user:id,name',
             'attendees.user:id,name',
-            'agendaItems.transaction.attachments:id,transaction_id',
+            'agendaItems.request.attachments:id,request_id',
         ]);
 
         $activeMemberUserIds = $meeting->committee->activeMembers->pluck('user_id');
@@ -33,7 +33,7 @@ class MeetingReadinessService
 
         // --- file % --------------------------------------------------------
         $itemsMissingFiles = $requestItems->reject(
-            fn ($item) => $item->transaction && $item->transaction->attachments->isNotEmpty(),
+            fn ($item) => $item->request && $item->request->attachments->isNotEmpty(),
         );
         $filePercentage = $requestItems->isEmpty()
             ? 100

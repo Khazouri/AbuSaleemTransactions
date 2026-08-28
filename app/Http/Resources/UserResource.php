@@ -64,7 +64,7 @@ class UserResource extends JsonResource
             ] : null),
 
             // Direct-manager workflow redesign — who reviews this user's own
-            // transaction submissions. Same whenLoaded()/null shape as department.
+            // request submissions. Same whenLoaded()/null shape as department.
             'manager' => $this->whenLoaded('manager', fn () => $this->manager ? [
                 'id' => $this->manager->id,
                 'name' => $this->manager->name,

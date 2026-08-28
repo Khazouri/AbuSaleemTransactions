@@ -57,7 +57,7 @@ class MeetingResource extends JsonResource
             'minutes_status' => $this->whenLoaded('meetingMinutes', fn () => $this->meetingMinutes?->status),
 
             'attendees' => MeetingAttendeeResource::collection($this->whenLoaded('attendees')),
-            'agenda_items' => MeetingTransactionResource::collection($this->whenLoaded('agendaItems')),
+            'agenda_items' => MeetingRequestResource::collection($this->whenLoaded('agendaItems')),
 
             'created_at' => $this->created_at?->toIso8601String(),
         ];

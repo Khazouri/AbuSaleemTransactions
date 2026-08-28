@@ -82,8 +82,8 @@ async function open(notification) {
     }
   }
 
-  if (notification.transaction_id) {
-    router.push({ name: 'transaction_details', params: { id: notification.transaction_id } })
+  if (notification.request_id) {
+    router.push({ name: 'request_details', params: { id: notification.request_id } })
   } else if (notification.meeting_id) {
     router.push({ name: 'meeting_details', params: { id: notification.meeting_id } })
   }
@@ -182,11 +182,11 @@ onMounted(async () => {
 
     <nav v-if="!store.loading && store.page.last_page > 1" class="pagination" :aria-label="t('notifications.title')">
       <button class="ghost" :disabled="store.page.current_page <= 1" @click="load(store.page.current_page - 1)">
-        {{ t('transactions.previous') }}
+        {{ t('requests.previous') }}
       </button>
-      <span>{{ t('transactions.page', { current: store.page.current_page, last: store.page.last_page }) }}</span>
+      <span>{{ t('requests.page', { current: store.page.current_page, last: store.page.last_page }) }}</span>
       <button class="ghost" :disabled="store.page.current_page >= store.page.last_page" @click="load(store.page.current_page + 1)">
-        {{ t('transactions.next') }}
+        {{ t('requests.next') }}
       </button>
     </nav>
 

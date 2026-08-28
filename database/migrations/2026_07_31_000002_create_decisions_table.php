@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 /**
  * DECISIONS — the committee's binding, tallied outcome for one agenda item.
  *
- * `meeting_transaction_id` is unique: once a decision exists for an agenda
+ * `meeting_request_id` is unique: once a decision exists for an agenda
  * item, DecisionController closes voting on it (see DecisionController::vote
  * and ::record). The vote counts are a snapshot taken at the moment of
  * decision, kept alongside the individual `votes` rows as a stable record of
@@ -19,7 +19,7 @@ return new class extends Migration
     {
         Schema::create('decisions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('meeting_transaction_id')->unique()->constrained()->cascadeOnDelete();
+            $table->foreignId('meeting_request_id')->unique()->constrained()->cascadeOnDelete();
             $table->string('outcome', 20);
             $table->unsignedInteger('votes_approve_count')->default(0);
             $table->unsignedInteger('votes_reject_count')->default(0);

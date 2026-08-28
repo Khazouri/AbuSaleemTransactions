@@ -5,8 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** One immutable workflow action on a transaction, written by Stage 14. */
-class TransactionStageLog extends Model
+/** One immutable workflow action on a request, written by Stage 14. */
+class RequestStageLog extends Model
 {
     protected $guarded = [];
 
@@ -15,9 +15,9 @@ class TransactionStageLog extends Model
         return ['acted_at' => 'datetime'];
     }
 
-    public function transaction(): BelongsTo
+    public function request(): BelongsTo
     {
-        return $this->belongsTo(Transaction::class);
+        return $this->belongsTo(Request::class);
     }
 
     public function fromStage(): BelongsTo

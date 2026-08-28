@@ -4,28 +4,28 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Transaction\IndexTransactionRequest;
-use App\Http\Requests\Transaction\StoreTransactionRequest;
-use App\Http\Requests\Transaction\TransitionTransactionRequest;
-use App\Http\Resources\TransactionDetailResource;
-use App\Http\Resources\TransactionResource;
+use App\Http\Requests\Request\IndexRequest;
+use App\Http\Requests\Request\StoreRequest;
+use App\Http\Requests\Request\TransitionRequest;
+use App\Http\Resources\RequestDetailResource;
+use App\Http\Resources\RequestResource;
 use App\Models\Attachment;
 use App\Models\Department;
-use App\Models\Transaction;
-use App\Models\TransactionStageLog;
-use App\Models\TransactionStatus;
-use App\Models\TransactionStatusHistory;
-use App\Models\TransactionType;
+use App\Models\Request;
+use App\Models\RequestStageLog;
+use App\Models\RequestStatus;
+use App\Models\RequestStatusHistory;
+use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\ApprovalSignatureStorage;
 use App\Services\NotificationDispatcher;
-use App\Services\TransactionDeadlineService;
-use App\Services\TransactionReferenceGenerator;
-use App\Services\TransactionVisibility;
+use App\Services\RequestDeadlineService;
+use App\Services\RequestReferenceGenerator;
+use App\Services\RequestVisibility;
 use App\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -33,21 +33,21 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Stage 11 read model for transaction work queues.
+ * Stage 11 read model for request work queues.
  *
  * Stage 13 adds the controlled intake write path; workflow actions remain a
  * later concern, leaving this controller responsible only for entering work.
  */
-class TransactionController extends Controller
+class RequestController extends Controller
 {
-    public function index(IndexTransactionRequest $request, TransactionVisibility $visibility): AnonymousResourceCollection
+    public function index(IndexRequest $request, RequestVisibility $visibility): AnonymousResourceCollection
     {
         $filters = $request->validated();
 
-        $transactions = $visibility->apply(Transaction::query(), $request->user())
+        $requests = $visibility->apply(Request::query(), $request->user())
             ->with([
                 'department:id,name_ar,name_en,code',
-                'transactionType:id,code,name_ar,name_en,decision_grade_threshold',
+                'requestType:id,code,name_ar,name_en,decision_grade_threshold',
                 'status:id,code,name_ar,name_en,color',
                 'currentStage:id,order_no,code,name_ar,name_en',
             ])
@@ -55,7 +55,7 @@ class TransactionController extends Controller
                 $query->whereHas('status', fn ($statusQuery) => $statusQuery->where('code', $status));
             })
             ->when($filters['department_id'] ?? null, fn ($query, int $departmentId) => $query->where('department_id', $departmentId))
-            ->when($filters['type_id'] ?? null, fn ($query, int $typeId) => $query->where('transaction_type_id', $typeId))
+            ->when($filters['type_id'] ?? null, fn ($query, int $typeId) => $query->where('request_type_id', $typeId))
             ->when($filters['date_from'] ?? null, fn ($query, string $dateFrom) => $query->whereDate('created_at', '>=', $dateFrom))
             ->when($filters['date_to'] ?? null, fn ($query, string $dateTo) => $query->whereDate('created_at', '<=', $dateTo))
             ->when($filters['search'] ?? null, fn ($query, string $search) => $query->where(
@@ -67,7 +67,7 @@ class TransactionController extends Controller
             ->paginate($filters['per_page'] ?? 20)
             ->withQueryString();
 
-        return TransactionResource::collection($transactions);
+        return RequestResource::collection($requests);
     }
 
     /** Lookup values travel separately so filters are useful even with no rows. */
@@ -75,13 +75,13 @@ class TransactionController extends Controller
     {
         return response()->json([
             'data' => [
-                'statuses' => TransactionStatus::query()
+                'statuses' => RequestStatus::query()
                     ->orderBy('name_ar')
                     ->get(['code', 'name_ar', 'name_en', 'color']),
                 'departments' => Department::query()
                     ->orderBy('name_ar')
                     ->get(['id', 'name_ar', 'name_en', 'code']),
-                'types' => TransactionType::query()
+                'types' => RequestType::query()
                     ->orderBy('name_ar')
                     ->get(['id', 'code', 'name_ar', 'name_en']),
             ],
@@ -98,7 +98,7 @@ class TransactionController extends Controller
                     ->whereNotNull('code')
                     ->orderBy('name_ar')
                     ->get(['id', 'name_ar', 'name_en', 'code']),
-                'types' => TransactionType::query()
+                'types' => RequestType::query()
                     ->where('is_active', true)
                     ->orderBy('name_ar')
                     ->get(['id', 'code', 'name_ar', 'name_en', 'decision_grade_threshold']),
@@ -107,9 +107,9 @@ class TransactionController extends Controller
     }
 
     public function store(
-        StoreTransactionRequest $request,
-        TransactionReferenceGenerator $references,
-        TransactionDeadlineService $deadlines,
+        StoreRequest $request,
+        RequestReferenceGenerator $references,
+        RequestDeadlineService $deadlines,
         NotificationDispatcher $notifications,
         WorkflowService $workflow,
     ): JsonResponse {
@@ -117,19 +117,19 @@ class TransactionController extends Controller
         $storedPaths = [];
 
         try {
-            $transaction = DB::transaction(function () use ($data, $request, $references, $deadlines, $workflow, &$storedPaths) {
+            $requestRecord = DB::transaction(function () use ($data, $request, $references, $deadlines, $workflow, &$storedPaths) {
                 $department = Department::query()->findOrFail($data['department_id']);
-                $type = TransactionType::query()->findOrFail($data['transaction_type_id']);
-                $newStatus = TransactionStatus::query()->where('code', 'new')->firstOrFail();
+                $type = RequestType::query()->findOrFail($data['request_type_id']);
+                $newStatus = RequestStatus::query()->where('code', 'new')->firstOrFail();
                 $firstStage = WorkflowStage::query()->where('code', 'receive_from_municipality')->firstOrFail();
                 $submittedAt = now();
 
-                $transaction = Transaction::create([
+                $requestRecord = Request::create([
                     'reference_number' => $references->nextFor($department),
                     'title' => $data['title'],
                     'description' => $data['description'] ?? null,
                     'department_id' => $department->id,
-                    'transaction_type_id' => $data['transaction_type_id'],
+                    'request_type_id' => $data['request_type_id'],
                     'status_id' => $newStatus->id,
                     'current_stage_id' => $firstStage->id,
                     'created_by_user_id' => $request->user()->id,
@@ -140,11 +140,11 @@ class TransactionController extends Controller
 
                 foreach ($request->file('attachments', []) as $index => $attachmentInput) {
                     $file = $attachmentInput['file'];
-                    $path = $file->store("attachments/{$transaction->id}", 'local');
+                    $path = $file->store("attachments/{$requestRecord->id}", 'local');
                     $storedPaths[] = $path;
 
                     Attachment::create([
-                        'transaction_id' => $transaction->id,
+                        'request_id' => $requestRecord->id,
                         'disk' => 'local',
                         'path' => $path,
                         'original_name' => $file->getClientOriginalName(),
@@ -157,15 +157,15 @@ class TransactionController extends Controller
 
                 // Intake is the first observable state, so later timelines
                 // have a truthful origin rather than starting at stage two.
-                TransactionStageLog::create([
-                    'transaction_id' => $transaction->id,
+                RequestStageLog::create([
+                    'request_id' => $requestRecord->id,
                     'to_stage_id' => $firstStage->id,
                     'action' => 'intake',
                     'acted_by_user_id' => $request->user()->id,
                     'acted_at' => now(),
                 ]);
-                TransactionStatusHistory::create([
-                    'transaction_id' => $transaction->id,
+                RequestStatusHistory::create([
+                    'request_id' => $requestRecord->id,
                     'to_status_id' => $newStatus->id,
                     'changed_by_user_id' => $request->user()->id,
                     'changed_at' => now(),
@@ -179,16 +179,16 @@ class TransactionController extends Controller
                 // seeded `submit` row is R01-gated), so it goes through
                 // applySystemTransition() rather than transition()'s
                 // actor-checked path.
-                $transaction = $workflow->applySystemTransition(
-                    $transaction,
+                $requestRecord = $workflow->applySystemTransition(
+                    $requestRecord,
                     'receive_from_municipality',
                     'submit',
                     $request->user(),
                 );
 
-                return $transaction->load([
+                return $requestRecord->load([
                     'department:id,name_ar,name_en,code',
-                    'transactionType:id,code,name_ar,name_en,decision_grade_threshold',
+                    'requestType:id,code,name_ar,name_en,decision_grade_threshold',
                     'status:id,code,name_ar,name_en,color',
                     'currentStage:id,order_no,code,name_ar,name_en',
                 ]);
@@ -201,38 +201,38 @@ class TransactionController extends Controller
             throw $exception;
         }
 
-        // Stage 23 — announced only once the intake transaction has committed,
+        // Stage 23 — announced only once the intake request has committed,
         // so nobody is told about a reference number that was rolled back.
-        $notifications->transactionCreated($transaction, $request->user());
+        $notifications->requestCreated($requestRecord, $request->user());
 
-        return (new TransactionResource($transaction))
+        return (new RequestResource($requestRecord))
             ->response()
             ->setStatusCode(201);
     }
 
-    /** Stage 15 — one complete transaction workspace, including its audit timeline. */
-    public function show(Request $request, Transaction $transaction, WorkflowService $workflow, TransactionVisibility $visibility): TransactionDetailResource
+    /** Stage 15 — one complete request workspace, including its audit timeline. */
+    public function show(HttpRequest $request, Request $requestRecord, WorkflowService $workflow, RequestVisibility $visibility): RequestDetailResource
     {
-        abort_unless($visibility->canView($request->user(), $transaction), 404);
+        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
 
-        return $this->detailResource($transaction, $workflow, $request->user());
+        return $this->detailResource($requestRecord, $workflow, $request->user());
     }
 
     /** Stage 15 — adapt the state-machine failure into the SPA's normal 422 shape. */
     public function transition(
-        TransitionTransactionRequest $request,
-        Transaction $transaction,
+        TransitionRequest $request,
+        Request $requestRecord,
         WorkflowService $workflow,
         ApprovalSignatureStorage $signatureStorage,
-        TransactionVisibility $visibility,
-    ): TransactionDetailResource {
-        abort_unless($visibility->canView($request->user(), $transaction), 404);
+        RequestVisibility $visibility,
+    ): RequestDetailResource {
+        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
 
         $action = $request->validated('action');
 
         // Stage 18 — the older generic workspace endpoint must not become a
         // back door around a revoked approval-screen capability.
-        if ($action === 'approve' && ! $this->actorCanApproveCurrentLevel($transaction, $request->user())) {
+        if ($action === 'approve' && ! $this->actorCanApproveCurrentLevel($requestRecord, $request->user())) {
             throw ValidationException::withMessages([
                 'action' => ['لا تملك صلاحية الاعتماد في هذه المرحلة.'],
             ]);
@@ -241,12 +241,12 @@ class TransactionController extends Controller
         // Stage 19 — only an approval writes signature evidence; ordinary
         // forwards and exception commands remain compact JSON/form commands.
         $signaturePath = $action === 'approve'
-            ? $signatureStorage->store($request->file('signature'), $transaction)
+            ? $signatureStorage->store($request->file('signature'), $requestRecord)
             : null;
 
         try {
-            $transaction = $workflow->transition(
-                $transaction,
+            $requestRecord = $workflow->transition(
+                $requestRecord,
                 $action,
                 $request->user(),
                 $request->validated('comment'),
@@ -264,18 +264,18 @@ class TransactionController extends Controller
             throw $exception;
         }
 
-        return $this->detailResource($transaction, $workflow, $request->user());
+        return $this->detailResource($requestRecord, $workflow, $request->user());
     }
 
-    private function detailResource(Transaction $transaction, WorkflowService $workflow, $actor): TransactionDetailResource
+    private function detailResource(Request $requestRecord, WorkflowService $workflow, $actor): RequestDetailResource
     {
-        $transaction->load([
+        $requestRecord->load([
             'department:id,name_ar,name_en,code',
-            'transactionType:id,code,name_ar,name_en,decision_grade_threshold',
+            'requestType:id,code,name_ar,name_en,decision_grade_threshold',
             'status:id,code,name_ar,name_en,color',
             'currentStage:id,order_no,code,name_ar,name_en',
             'createdBy:id,name',
-            'attachments:id,transaction_id,original_name,mime_type,size_bytes,label,uploaded_by_user_id,created_at',
+            'attachments:id,request_id,original_name,mime_type,size_bytes,label,uploaded_by_user_id,created_at',
             'stageLogs' => fn ($query) => $query->orderBy('acted_at')->orderBy('id'),
             'stageLogs.fromStage:id,order_no,code,name_ar,name_en',
             'stageLogs.toStage:id,order_no,code,name_ar,name_en',
@@ -283,7 +283,7 @@ class TransactionController extends Controller
             'approvals' => fn ($query) => $query
                 ->select([
                     'id',
-                    'transaction_id',
+                    'request_id',
                     'level',
                     'role_id',
                     'approved_by_user_id',
@@ -297,22 +297,22 @@ class TransactionController extends Controller
             'approvals.role:id,code,name_ar,name_en',
             'approvals.approvedBy:id,name',
         ]);
-        $availableTransitions = $workflow->availableTransitions($transaction, $actor)
+        $availableTransitions = $workflow->availableTransitions($requestRecord, $actor)
             ->filter(fn ($rule) => $rule->action !== 'approve'
-                || $this->actorCanApproveCurrentLevel($transaction, $actor))
+                || $this->actorCanApproveCurrentLevel($requestRecord, $actor))
             ->values();
-        $transaction->setAttribute('available_actions', $availableTransitions->pluck('action')->all());
-        $transaction->setAttribute('available_transitions', $availableTransitions->map(fn ($rule) => [
+        $requestRecord->setAttribute('available_actions', $availableTransitions->pluck('action')->all());
+        $requestRecord->setAttribute('available_transitions', $availableTransitions->map(fn ($rule) => [
             'action' => $rule->action,
             'is_exception' => $rule->is_exception,
             'requires_comment' => $rule->requires_comment,
         ])->values()->all());
 
-        return new TransactionDetailResource($transaction);
+        return new RequestDetailResource($requestRecord);
     }
 
     /** Approval screen paired with each of Stage 18's six checkpoints. */
-    private function actorCanApproveCurrentLevel(Transaction $transaction, User $actor): bool
+    private function actorCanApproveCurrentLevel(Request $requestRecord, User $actor): bool
     {
         $screenByStage = [
             'requirements_check' => 'reviewer_approval',
@@ -322,7 +322,7 @@ class TransactionController extends Controller
             'competent_authority' => 'authority_approval',
             'final_approval_archiving' => 'final_approval',
         ];
-        $stageCode = $transaction->currentStage()->value('code');
+        $stageCode = $requestRecord->currentStage()->value('code');
         $screenCode = $screenByStage[$stageCode] ?? null;
 
         return $screenCode === null || $actor->hasScreenPermission($screenCode, 'can_approve');

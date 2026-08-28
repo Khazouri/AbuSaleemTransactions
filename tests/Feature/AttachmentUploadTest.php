@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Attachment;
 use App\Models\Department;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -24,16 +24,16 @@ class AttachmentUploadTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
-        $transaction = $this->transaction();
+        $requestRecord = $this->request();
 
         $response = $this->actingAs($admin, 'sanctum')
-            ->post("/api/transactions/{$transaction->id}/attachments", [
+            ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('supporting-document.pdf', 120, 'application/pdf'),
                 'label' => 'المستند الداعم',
             ], ['Accept' => 'application/json']);
 
         $response->assertCreated()
-            ->assertJsonPath('data.transaction_id', $transaction->id)
+            ->assertJsonPath('data.request_id', $requestRecord->id)
             ->assertJsonPath('data.original_name', 'supporting-document.pdf')
             ->assertJsonPath('data.size_bytes', 122880)
             ->assertJsonPath('data.label', 'المستند الداعم');
@@ -46,10 +46,10 @@ class AttachmentUploadTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
-        $transaction = $this->transaction();
+        $requestRecord = $this->request();
 
         $this->actingAs($admin, 'sanctum')
-            ->post("/api/transactions/{$transaction->id}/attachments", [
+            ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('not-allowed.txt', 5, 'text/plain'),
             ], ['Accept' => 'application/json'])
             ->assertUnprocessable()
@@ -62,10 +62,10 @@ class AttachmentUploadTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
-        $transaction = $this->transaction();
+        $requestRecord = $this->request();
 
         $this->actingAs($admin, 'sanctum')
-            ->post("/api/transactions/{$transaction->id}/attachments", [
+            ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('too-large.pdf', 20481, 'application/pdf'),
             ], ['Accept' => 'application/json'])
             ->assertUnprocessable()
@@ -79,11 +79,11 @@ class AttachmentUploadTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
-        $transaction = $this->transaction();
+        $requestRecord = $this->request();
         $attachment = Attachment::create([
-            'transaction_id' => $transaction->id,
+            'request_id' => $requestRecord->id,
             'disk' => 'local',
-            'path' => "attachments/{$transaction->id}/preview.pdf",
+            'path' => "attachments/{$requestRecord->id}/preview.pdf",
             'original_name' => 'preview.pdf',
             'mime_type' => 'application/pdf',
             'size_bytes' => 12,
@@ -91,8 +91,8 @@ class AttachmentUploadTest extends TestCase
         Storage::disk('local')->put($attachment->path, 'pdf-preview');
 
         $this->actingAs($admin, 'sanctum')
-            ->get(route('transactions.attachments.preview', [
-                'transaction' => $transaction,
+            ->get(route('requests.attachments.preview', [
+                'requestRecord' => $requestRecord,
                 'attachment' => $attachment,
             ]))
             ->assertOk()
@@ -100,17 +100,17 @@ class AttachmentUploadTest extends TestCase
             ->assertHeader('content-disposition', 'inline; filename=preview.pdf');
     }
 
-    public function test_preview_rejects_an_attachment_from_a_different_transaction(): void
+    public function test_preview_rejects_an_attachment_from_a_different_request(): void
     {
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
-        $transaction = $this->transaction();
-        $otherTransaction = $this->transaction();
+        $requestRecord = $this->request();
+        $otherRequest = $this->request();
         $attachment = Attachment::create([
-            'transaction_id' => $otherTransaction->id,
+            'request_id' => $otherRequest->id,
             'disk' => 'local',
-            'path' => "attachments/{$otherTransaction->id}/other.pdf",
+            'path' => "attachments/{$otherRequest->id}/other.pdf",
             'original_name' => 'other.pdf',
             'mime_type' => 'application/pdf',
             'size_bytes' => 12,
@@ -118,20 +118,20 @@ class AttachmentUploadTest extends TestCase
         Storage::disk('local')->put($attachment->path, 'pdf-preview');
 
         $this->actingAs($admin, 'sanctum')
-            ->get(route('transactions.attachments.preview', [
-                'transaction' => $transaction,
+            ->get(route('requests.attachments.preview', [
+                'requestRecord' => $requestRecord,
                 'attachment' => $attachment,
             ]))
             ->assertNotFound();
     }
 
-    private function transaction(): Transaction
+    private function request(): Request
     {
-        return Transaction::create([
-            'title' => 'معاملة اختبار المرفقات',
+        return Request::create([
+            'title' => 'طلب اختبار المرفقات',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'new')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'new')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
         ]);
     }

@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
+use App\Models\Request;
+use App\Models\RequestStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  *
  * The dashboard tiles and the exported report read the same methods with the
  * same filter array, which is the point: a KPI card and the spreadsheet a
- * manager forwards upstairs must never disagree about how many transactions
+ * manager forwards upstairs must never disagree about how many requests
  * are pending.
  */
 class ReportMetricsService
@@ -32,14 +32,14 @@ class ReportMetricsService
     /**
      * Aggregates are recomputed at most once every five minutes per filter
      * combination. Dashboards get reloaded constantly and these are the only
-     * queries in the app that scan the whole transactions table.
+     * queries in the app that scan the whole requests table.
      */
     private const CACHE_TTL_SECONDS = 300;
 
     /**
-     * Bumped by ReportCacheObserver whenever a transaction changes.
+     * Bumped by ReportCacheObserver whenever a request changes.
      *
-     * A plain TTL would leave a freshly created transaction missing from the
+     * A plain TTL would leave a freshly created request missing from the
      * dashboard for up to five minutes, which reads as a bug rather than as
      * caching. Folding a generation counter into the cache key means writes
      * invalidate everything instantly while repeated reads still stay cheap.
@@ -66,7 +66,7 @@ class ReportMetricsService
             )->count();
 
             // Pending is the remainder rather than its own query: it keeps the
-            // three buckets adding up to the total even for a transaction whose
+            // three buckets adding up to the total even for a request whose
             // status row was deleted and is therefore in none of the lists.
             $pending = $total - $completed - $abandoned;
 
@@ -105,14 +105,14 @@ class ReportMetricsService
      * the screen and streaming all of it into an export.
      *
      * @param  array<string, mixed>  $filters
-     * @return Builder<Transaction>
+     * @return Builder<Request>
      */
     public function rowsQuery(array $filters): Builder
     {
         return $this->query($filters)
             ->with([
                 'department:id,name_ar,name_en,code',
-                'transactionType:id,code,name_ar,name_en',
+                'requestType:id,code,name_ar,name_en',
                 'status:id,code,name_ar,name_en,color',
                 'currentStage:id,order_no,code,name_ar,name_en',
                 'createdBy:id,name',
@@ -133,31 +133,31 @@ class ReportMetricsService
      * Apply the filter set shared by the dashboard, the report and the export.
      *
      * @param  array<string, mixed>  $filters
-     * @return Builder<Transaction>
+     * @return Builder<Request>
      */
     private function query(array $filters): Builder
     {
         // Every column is table-qualified: the breakdowns join this query onto
         // workflow_stages and departments, which carry their own created_at.
-        return Transaction::query()
-            ->when($filters['department_id'] ?? null, fn (Builder $query, int $id) => $query->where('transactions.department_id', $id))
-            ->when($filters['type_id'] ?? null, fn (Builder $query, int $id) => $query->where('transactions.transaction_type_id', $id))
+        return Request::query()
+            ->when($filters['department_id'] ?? null, fn (Builder $query, int $id) => $query->where('requests.department_id', $id))
+            ->when($filters['type_id'] ?? null, fn (Builder $query, int $id) => $query->where('requests.request_type_id', $id))
             ->when($filters['status'] ?? null, fn (Builder $query, string $code) => $query->whereHas(
                 'status',
                 fn (Builder $statusQuery) => $statusQuery->where('code', $code),
             ))
-            ->when($filters['date_from'] ?? null, fn (Builder $query, string $from) => $query->whereDate('transactions.created_at', '>=', $from))
-            ->when($filters['date_to'] ?? null, fn (Builder $query, string $to) => $query->whereDate('transactions.created_at', '<=', $to));
+            ->when($filters['date_from'] ?? null, fn (Builder $query, string $from) => $query->whereDate('requests.created_at', '>=', $from))
+            ->when($filters['date_to'] ?? null, fn (Builder $query, string $to) => $query->whereDate('requests.created_at', '<=', $to));
     }
 
     /**
      * SLA breaches: flagged by the Stage 17 sweep AND still open.
      *
-     * A transaction that blew its deadline but has since been completed or
+     * A request that blew its deadline but has since been completed or
      * cancelled is history, not an outstanding breach someone must act on.
      *
      * @param  array<string, mixed>  $filters
-     * @return Builder<Transaction>
+     * @return Builder<Request>
      */
     private function overdueQuery(array $filters): Builder
     {
@@ -176,13 +176,13 @@ class ReportMetricsService
      * suite runs on spell date arithmetic differently (DATEDIFF vs julianday),
      * and a KPI that changes value depending on the driver is worse than a
      * slightly less elegant query. The population is bounded by the filters and
-     * only ever holds completed transactions, so it stays small.
+     * only ever holds completed requests, so it stays small.
      *
      * @param  array<string, mixed>  $filters
      */
     private function averageCycleDays(array $filters): ?float
     {
-        $completedStatusIds = TransactionStatus::query()
+        $completedStatusIds = RequestStatus::query()
             ->whereIn('code', self::COMPLETED_STATUSES)
             ->pluck('id');
 
@@ -191,13 +191,13 @@ class ReportMetricsService
         }
 
         // The first arrival at a completed status is the finish line — a later
-        // archive of an already-approved transaction must not stretch the
+        // archive of an already-approved request must not stretch the
         // measured cycle.
-        $completions = DB::table('transaction_status_history')
-            ->select('transaction_id', DB::raw('MIN(changed_at) as completed_at'))
+        $completions = DB::table('request_status_history')
+            ->select('request_id', DB::raw('MIN(changed_at) as completed_at'))
             ->whereIn('to_status_id', $completedStatusIds)
-            ->groupBy('transaction_id')
-            ->pluck('completed_at', 'transaction_id');
+            ->groupBy('request_id')
+            ->pluck('completed_at', 'request_id');
 
         if ($completions->isEmpty()) {
             return null;
@@ -207,10 +207,10 @@ class ReportMetricsService
         // predate Stage 13 stamping it. Coalesced here rather than in SQL so
         // Eloquent's datetime casts still apply.
         $starts = $this->query($filters)
-            ->whereIn('transactions.id', $completions->keys())
-            ->get(['transactions.id', 'transactions.submitted_at', 'transactions.created_at'])
-            ->mapWithKeys(fn (Transaction $transaction) => [
-                $transaction->id => $transaction->submitted_at ?? $transaction->created_at,
+            ->whereIn('requests.id', $completions->keys())
+            ->get(['requests.id', 'requests.submitted_at', 'requests.created_at'])
+            ->mapWithKeys(fn (Request $requestRecord) => [
+                $requestRecord->id => $requestRecord->submitted_at ?? $requestRecord->created_at,
             ]);
 
         $durations = $starts
@@ -239,16 +239,16 @@ class ReportMetricsService
     private function byStatus(array $filters): array
     {
         $counts = $this->query($filters)
-            ->select('transactions.status_id', DB::raw('COUNT(*) as total'))
-            ->groupBy('transactions.status_id')
+            ->select('requests.status_id', DB::raw('COUNT(*) as total'))
+            ->groupBy('requests.status_id')
             ->pluck('total', 'status_id');
 
         // Driven by the status table rather than by DISTINCT over the results,
-        // so a status with no transactions still shows as an explicit zero.
-        return TransactionStatus::query()
+        // so a status with no requests still shows as an explicit zero.
+        return RequestStatus::query()
             ->orderBy('id')
             ->get(['id', 'code', 'name_ar', 'name_en', 'color'])
-            ->map(fn (TransactionStatus $status) => [
+            ->map(fn (RequestStatus $status) => [
                 'code' => $status->code,
                 'name_ar' => $status->name_ar,
                 'name_en' => $status->name_en,
@@ -265,7 +265,7 @@ class ReportMetricsService
     private function byStage(array $filters): array
     {
         return $this->query($filters)
-            ->join('workflow_stages', 'workflow_stages.id', '=', 'transactions.current_stage_id')
+            ->join('workflow_stages', 'workflow_stages.id', '=', 'requests.current_stage_id')
             ->select([
                 'workflow_stages.order_no',
                 'workflow_stages.code',
@@ -293,7 +293,7 @@ class ReportMetricsService
     private function byDepartment(array $filters): array
     {
         return $this->query($filters)
-            ->join('departments', 'departments.id', '=', 'transactions.department_id')
+            ->join('departments', 'departments.id', '=', 'requests.department_id')
             ->select([
                 'departments.id',
                 'departments.code',
@@ -329,22 +329,22 @@ class ReportMetricsService
         $since = CarbonImmutable::now()->startOfMonth()->subMonths(11);
 
         $created = $this->query($filters)
-            ->where('transactions.created_at', '>=', $since)
+            ->where('requests.created_at', '>=', $since)
             ->pluck('created_at')
             ->countBy(fn ($date) => CarbonImmutable::parse($date)->format('Y-m'));
 
-        $completedStatusIds = TransactionStatus::query()
+        $completedStatusIds = RequestStatus::query()
             ->whereIn('code', self::COMPLETED_STATUSES)
             ->pluck('id');
 
         $completed = collect();
         if ($completedStatusIds->isNotEmpty()) {
-            $completed = DB::table('transaction_status_history')
+            $completed = DB::table('request_status_history')
                 ->whereIn('to_status_id', $completedStatusIds)
                 ->where('changed_at', '>=', $since)
                 // Restricted to the filtered population so the two series on
-                // the chart always describe the same set of transactions.
-                ->whereIn('transaction_id', $this->query($filters)->select('transactions.id'))
+                // the chart always describe the same set of requests.
+                ->whereIn('request_id', $this->query($filters)->select('requests.id'))
                 ->pluck('changed_at')
                 ->countBy(fn ($date) => CarbonImmutable::parse($date)->format('Y-m'));
         }

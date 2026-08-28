@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\TransactionType;
+use App\Models\RequestType;
 use Illuminate\Database\Seeder;
 
 /**
@@ -18,7 +18,7 @@ use Illuminate\Database\Seeder;
  * per-type column so a category could later be given a different bar without
  * touching code. Stage 18 enforces it.
  */
-class TransactionTypeSeeder extends Seeder
+class RequestTypeSeeder extends Seeder
 {
     public function run(): void
     {
@@ -34,7 +34,7 @@ class TransactionTypeSeeder extends Seeder
         ];
 
         foreach ($types as [$code, $nameAr, $nameEn, $sla]) {
-            TransactionType::updateOrCreate(
+            RequestType::updateOrCreate(
                 ['code' => $code],
                 [
                     'name_ar' => $nameAr,

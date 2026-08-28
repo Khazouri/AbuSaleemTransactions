@@ -226,9 +226,9 @@ onMounted(async () => {
                 <td>
                   <span class="model">{{ modelLabel(log.model) }}</span>
                   <RouterLink
-                    v-if="log.model === 'transaction'"
+                    v-if="log.model === 'request'"
                     class="record-link ltr"
-                    :to="{ name: 'transaction_details', params: { id: log.record_id } }"
+                    :to="{ name: 'request_details', params: { id: log.record_id } }"
                   >#{{ log.record_id }}</RouterLink>
                   <span v-else class="record-id ltr">#{{ log.record_id }}</span>
                 </td>
@@ -274,9 +274,9 @@ onMounted(async () => {
     </div>
 
     <nav v-if="!loading && !loadError && page.last_page > 1" class="pagination" :aria-label="t('auditLog.title')">
-      <button class="ghost" :disabled="page.current_page <= 1" @click="load(page.current_page - 1)">{{ t('transactions.previous') }}</button>
-      <span>{{ t('transactions.page', { current: page.current_page, last: page.last_page }) }}</span>
-      <button class="ghost" :disabled="page.current_page >= page.last_page" @click="load(page.current_page + 1)">{{ t('transactions.next') }}</button>
+      <button class="ghost" :disabled="page.current_page <= 1" @click="load(page.current_page - 1)">{{ t('requests.previous') }}</button>
+      <span>{{ t('requests.page', { current: page.current_page, last: page.last_page }) }}</span>
+      <button class="ghost" :disabled="page.current_page >= page.last_page" @click="load(page.current_page + 1)">{{ t('requests.next') }}</button>
     </nav>
   </section>
 </template>

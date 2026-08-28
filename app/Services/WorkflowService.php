@@ -4,10 +4,10 @@ namespace App\Services;
 
 use App\Exceptions\WorkflowTransitionException;
 use App\Models\Approval;
+use App\Models\Request;
+use App\Models\RequestStageLog;
+use App\Models\RequestStatusHistory;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStageLog;
-use App\Models\TransactionStatusHistory;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
@@ -18,12 +18,12 @@ use Illuminate\Support\Facades\DB;
  * Executes the transition map stored in workflow_transitions.
  *
  * This service is the single write boundary for moving an existing
- * transaction. The database row is locked before the rule is resolved so two
+ * request. The database row is locked before the rule is resolved so two
  * actors cannot both advance the same stage and leave contradictory histories.
  */
 class WorkflowService
 {
-    // Stage 23 — every path that moves a transaction comes through this
+    // Stage 23 — every path that moves a request comes through this
     // service, so notifying from here means the detail screen, the approval
     // queues and the committee decision all announce a move exactly once.
     public function __construct(private readonly NotificationDispatcher $notifications) {}
@@ -56,9 +56,9 @@ class WorkflowService
      *
      * @return Collection<int, string>
      */
-    public function availableActions(Transaction $transaction, User $actor): Collection
+    public function availableActions(Request $requestRecord, User $actor): Collection
     {
-        return $this->availableTransitions($transaction, $actor)
+        return $this->availableTransitions($requestRecord, $actor)
             ->pluck('action')
             ->values();
     }
@@ -69,25 +69,25 @@ class WorkflowService
      * @return Collection<int, WorkflowTransition>
      */
     // Stage 16 — expose exception/comment metadata without weakening execution checks.
-    public function availableTransitions(Transaction $transaction, User $actor): Collection
+    public function availableTransitions(Request $requestRecord, User $actor): Collection
     {
-        if (! $transaction->exists
+        if (! $requestRecord->exists
             || ! $actor->exists
             || ! $actor->is_active
-            || $transaction->current_stage_id === null
-            || $this->hasTerminalStatus($transaction)) {
+            || $requestRecord->current_stage_id === null
+            || $this->hasTerminalStatus($requestRecord)) {
             return collect();
         }
 
         $roleIds = $actor->roles()->pluck('roles.id');
 
         return WorkflowTransition::query()
-            ->where('from_stage_id', $transaction->current_stage_id)
-            ->where(function ($query) use ($transaction) {
-                $query->whereNull('transaction_type_id');
+            ->where('from_stage_id', $requestRecord->current_stage_id)
+            ->where(function ($query) use ($requestRecord) {
+                $query->whereNull('request_type_id');
 
-                if ($transaction->transaction_type_id !== null) {
-                    $query->orWhere('transaction_type_id', $transaction->transaction_type_id);
+                if ($requestRecord->request_type_id !== null) {
+                    $query->orWhere('request_type_id', $requestRecord->request_type_id);
                 }
             })
             ->orderByRaw('order_no is null')
@@ -95,11 +95,11 @@ class WorkflowService
             ->orderBy('id')
             ->get()
             ->groupBy('action')
-            ->map(function (Collection $rules) use ($roleIds, $actor, $transaction) {
-                $specific = $rules->whereNotNull('transaction_type_id');
-                $applicable = $specific->isNotEmpty() ? $specific : $rules->whereNull('transaction_type_id');
+            ->map(function (Collection $rules) use ($roleIds, $actor, $requestRecord) {
+                $specific = $rules->whereNotNull('request_type_id');
+                $applicable = $specific->isNotEmpty() ? $specific : $rules->whereNull('request_type_id');
                 $allowed = $applicable
-                    ->filter(fn (WorkflowTransition $rule) => $this->actorMayUse($rule, $transaction, $actor, $roleIds))
+                    ->filter(fn (WorkflowTransition $rule) => $this->actorMayUse($rule, $requestRecord, $actor, $roleIds))
                     ->values();
 
                 // An ambiguous rule is not genuinely available: execution
@@ -107,13 +107,13 @@ class WorkflowService
                 return $allowed->count() === 1 ? $allowed->first() : null;
             })
             ->filter()
-            ->filter(fn (WorkflowTransition $rule) => $rule->action !== 'deadline_expired' || $transaction->isOverdue())
+            ->filter(fn (WorkflowTransition $rule) => $rule->action !== 'deadline_expired' || $requestRecord->isOverdue())
             ->sortBy(fn (WorkflowTransition $rule) => [$rule->order_no === null, $rule->order_no, $rule->id])
             ->values();
     }
 
     /**
-     * Move a transaction through one configured workflow transition.
+     * Move a request through one configured workflow transition.
      *
      * The optional comment is unused by the Stage 14 happy path, but belongs at
      * this boundary because Stage 16 exception rules can require it. Approval
@@ -124,14 +124,14 @@ class WorkflowService
      */
     // Stage 14 — atomic, role-aware workflow state transitions.
     public function transition(
-        Transaction $transaction,
+        Request $requestRecord,
         string $action,
         User $actor,
         ?string $comment = null,
         ?string $signaturePath = null,
-    ): Transaction {
-        if (! $transaction->exists) {
-            throw WorkflowTransitionException::transactionNotPersisted();
+    ): Request {
+        if (! $requestRecord->exists) {
+            throw WorkflowTransitionException::requestNotPersisted();
         }
 
         if (! $actor->exists || ! $actor->is_active) {
@@ -150,25 +150,25 @@ class WorkflowService
         // conflict-of-interest rule still applies when one person holds both
         // the submitter and approver roles.
         if ($action === 'approve'
-            && $transaction->created_by_user_id !== null
-            && $transaction->created_by_user_id === $actor->id) {
-            throw WorkflowTransitionException::cannotApproveOwnTransaction();
+            && $requestRecord->created_by_user_id !== null
+            && $requestRecord->created_by_user_id === $actor->id) {
+            throw WorkflowTransitionException::cannotApproveOwnRequest();
         }
 
-        [$movedTransaction, $fromStage, $toStage] = DB::transaction(function () use ($transaction, $action, $actor, $comment, $signaturePath) {
-            $lockedTransaction = Transaction::query()
+        [$movedRequest, $fromStage, $toStage] = DB::transaction(function () use ($requestRecord, $action, $actor, $comment, $signaturePath) {
+            $lockedRequest = Request::query()
                 ->lockForUpdate()
-                ->findOrFail($transaction->getKey());
+                ->findOrFail($requestRecord->getKey());
 
-            if ($lockedTransaction->current_stage_id === null) {
+            if ($lockedRequest->current_stage_id === null) {
                 throw WorkflowTransitionException::currentStageRequired();
             }
 
-            if ($this->hasTerminalStatus($lockedTransaction)) {
-                throw WorkflowTransitionException::transactionClosed();
+            if ($this->hasTerminalStatus($lockedRequest)) {
+                throw WorkflowTransitionException::requestClosed();
             }
 
-            $candidates = $this->transitionCandidates($lockedTransaction, $action);
+            $candidates = $this->transitionCandidates($lockedRequest, $action);
 
             if ($candidates->isEmpty()) {
                 throw WorkflowTransitionException::transitionNotConfigured();
@@ -176,7 +176,7 @@ class WorkflowService
 
             $roleIds = $actor->roles()->pluck('roles.id');
             $allowed = $candidates
-                ->filter(fn (WorkflowTransition $rule) => $this->actorMayUse($rule, $lockedTransaction, $actor, $roleIds))
+                ->filter(fn (WorkflowTransition $rule) => $this->actorMayUse($rule, $lockedRequest, $actor, $roleIds))
                 ->values();
 
             if ($allowed->isEmpty()) {
@@ -192,17 +192,17 @@ class WorkflowService
             /** @var WorkflowTransition $rule */
             $rule = $allowed->first();
 
-            return $this->applyRule($lockedTransaction, $rule, $action, $actor, $comment, $signaturePath);
+            return $this->applyRule($lockedRequest, $rule, $action, $actor, $comment, $signaturePath);
         });
 
-        // Outside the transaction: the notifications describe a move that has
+        // Outside the request: the notifications describe a move that has
         // already happened. The dispatcher queues them after-commit as well
-        // (see its send()), so a caller that wraps this in a transaction of
+        // (see its send()), so a caller that wraps this in a request of
         // its own — DecisionController does — still can't announce a decision
         // that later rolls back.
-        $this->notifications->stageChanged($movedTransaction, $actor, $action, $fromStage, $toStage);
+        $this->notifications->stageChanged($movedRequest, $actor, $action, $fromStage, $toStage);
 
-        return $movedTransaction;
+        return $movedRequest;
     }
 
     /**
@@ -210,10 +210,10 @@ class WorkflowService
      * NO actor/role/manager check — for hand-offs the code itself decides on,
      * not a human choosing among available actions.
      *
-     * Diagram-alignment redesign: `TransactionController::store()` uses this
-     * to move a freshly created transaction straight from intake into
+     * Diagram-alignment redesign: `RequestController::store()` uses this
+     * to move a freshly created request straight from intake into
      * `direct_manager_review`. Intake itself may be performed by any of
-     * R01-R06 (see ScreenRolePermissionSeeder's `transaction_intake` grant),
+     * R01-R06 (see ScreenRolePermissionSeeder's `request_intake` grant),
      * but the seeded `submit` row is R01-gated — routing that hop through
      * transition()'s normal actor check would 403 an R02+ clerk filing on
      * someone else's behalf, even though the hop is not that clerk's action
@@ -223,34 +223,34 @@ class WorkflowService
      *
      * Must be called from within an existing DB transaction. It does not open
      * its own and does not lock the row — the caller just created the
-     * transaction in that same transaction, so nothing else can be racing it.
+     * request in that same transaction, so nothing else can be racing it.
      *
      * @throws WorkflowTransitionException
      */
     public function applySystemTransition(
-        Transaction $transaction,
+        Request $requestRecord,
         string $fromStageCode,
         string $action,
         User $actor,
         ?string $comment = null,
-    ): Transaction {
+    ): Request {
         $fromStage = WorkflowStage::query()->where('code', $fromStageCode)->firstOrFail();
 
         $candidates = WorkflowTransition::query()
             ->where('from_stage_id', $fromStage->id)
             ->where('action', $action)
             ->where('is_exception', false)
-            ->where(function ($query) use ($transaction) {
-                $query->whereNull('transaction_type_id');
+            ->where(function ($query) use ($requestRecord) {
+                $query->whereNull('request_type_id');
 
-                if ($transaction->transaction_type_id !== null) {
-                    $query->orWhere('transaction_type_id', $transaction->transaction_type_id);
+                if ($requestRecord->request_type_id !== null) {
+                    $query->orWhere('request_type_id', $requestRecord->request_type_id);
                 }
             })
             ->get();
 
-        $specific = $candidates->whereNotNull('transaction_type_id');
-        $applicable = $specific->isNotEmpty() ? $specific : $candidates->whereNull('transaction_type_id');
+        $specific = $candidates->whereNotNull('request_type_id');
+        $applicable = $specific->isNotEmpty() ? $specific : $candidates->whereNull('request_type_id');
 
         if ($applicable->isEmpty()) {
             throw WorkflowTransitionException::transitionNotConfigured();
@@ -266,8 +266,8 @@ class WorkflowService
         /** @var WorkflowTransition $rule */
         $rule = $applicable->first();
 
-        [$movedTransaction, $fromStageModel, $toStageModel] = $this->applyRule(
-            $transaction,
+        [$movedRequest, $fromStageModel, $toStageModel] = $this->applyRule(
+            $requestRecord,
             $rule,
             $action,
             $actor,
@@ -275,35 +275,35 @@ class WorkflowService
             null,
         );
 
-        $this->notifications->stageChanged($movedTransaction, $actor, $action, $fromStageModel, $toStageModel);
+        $this->notifications->stageChanged($movedRequest, $actor, $action, $fromStageModel, $toStageModel);
 
-        return $movedTransaction;
+        return $movedRequest;
     }
 
     /**
      * Apply an already-resolved rule: validate its own constraints (comment,
      * signature, overdue-only), write the stage/status move and its two
-     * history rows, and hand back the moved transaction plus both stage
+     * history rows, and hand back the moved request plus both stage
      * models. This is the single write shape both transition() (after its
      * actor check picks a rule) and applySystemTransition() (which skips the
      * actor check entirely) share — see AGENT_NOTES.md: WorkflowService is
      * the single write boundary, so this shape must not be duplicated.
      *
-     * $lockedTransaction is trusted to already reflect the current row (row
-     * lock held by transition(), or a same-transaction fresh row for a system
+     * $lockedRequest is trusted to already reflect the current row (row
+     * lock held by transition(), or a same-request fresh row for a system
      * hop) — this method does not re-fetch or re-lock it.
      *
-     * @return array{0: Transaction, 1: ?WorkflowStage, 2: ?WorkflowStage}
+     * @return array{0: Request, 1: ?WorkflowStage, 2: ?WorkflowStage}
      */
     private function applyRule(
-        Transaction $lockedTransaction,
+        Request $lockedRequest,
         WorkflowTransition $rule,
         string $action,
         User $actor,
         ?string $comment,
         ?string $signaturePath,
     ): array {
-        if ($rule->action === 'deadline_expired' && ! $lockedTransaction->isOverdue()) {
+        if ($rule->action === 'deadline_expired' && ! $lockedRequest->isOverdue()) {
             throw WorkflowTransitionException::deadlineNotExpired();
         }
 
@@ -316,20 +316,20 @@ class WorkflowService
             throw WorkflowTransitionException::signatureRequired();
         }
 
-        $fromStageId = $lockedTransaction->current_stage_id;
-        $fromStatusId = $lockedTransaction->status_id;
-        $toStageId = $this->destinationStageId($lockedTransaction, $rule);
+        $fromStageId = $lockedRequest->current_stage_id;
+        $fromStatusId = $lockedRequest->status_id;
+        $toStageId = $this->destinationStageId($lockedRequest, $rule);
 
-        $lockedTransaction->current_stage_id = $toStageId;
+        $lockedRequest->current_stage_id = $toStageId;
         if ($rule->set_status_id !== null) {
-            $lockedTransaction->status_id = $rule->set_status_id;
+            $lockedRequest->status_id = $rule->set_status_id;
         }
-        $lockedTransaction->save();
+        $lockedRequest->save();
 
         $occurredAt = now();
 
-        TransactionStageLog::create([
-            'transaction_id' => $lockedTransaction->id,
+        RequestStageLog::create([
+            'request_id' => $lockedRequest->id,
             'from_stage_id' => $fromStageId,
             'to_stage_id' => $toStageId,
             'action' => $action,
@@ -340,7 +340,7 @@ class WorkflowService
 
         if ($approvalLevel !== null) {
             Approval::create([
-                'transaction_id' => $lockedTransaction->id,
+                'request_id' => $lockedRequest->id,
                 'level' => $approvalLevel,
                 'role_id' => $rule->required_role_id,
                 'approved_by_user_id' => $actor->id,
@@ -355,8 +355,8 @@ class WorkflowService
         // when adjacent stages share a broad status such as `in_review`.
         // That preserves the exact rule outcome alongside the stage log.
         if ($rule->set_status_id !== null) {
-            TransactionStatusHistory::create([
-                'transaction_id' => $lockedTransaction->id,
+            RequestStatusHistory::create([
+                'request_id' => $lockedRequest->id,
                 'from_status_id' => $fromStatusId,
                 'to_status_id' => $rule->set_status_id,
                 'reason' => $comment,
@@ -368,7 +368,7 @@ class WorkflowService
         // The stage rows travel out so the notification can name where the
         // work came from without a second lookup.
         return [
-            $lockedTransaction->refresh(),
+            $lockedRequest->refresh(),
             WorkflowStage::find($fromStageId),
             WorkflowStage::find($toStageId),
         ];
@@ -384,19 +384,19 @@ class WorkflowService
      *
      * All three gates must hold:
      *   - the existing role check, preserved exactly;
-     *   - if the row is manager-gated, the actor must be the transaction
+     *   - if the row is manager-gated, the actor must be the request
      *     creator's active, non-deleted manager, OR hold R08 as a fallback so
      *     a submitter with no manager assigned (or whose manager has left or
      *     been deactivated) is never permanently stranded;
-     *   - if the row is status-gated, the transaction's CURRENT status must
+     *   - if the row is status-gated, the request's CURRENT status must
      *     match — this is what makes three-way administrative routing
      *     enforceable rather than decorative.
      */
-    private function actorMayUse(WorkflowTransition $rule, Transaction $transaction, User $actor, Collection $actorRoleIds): bool
+    private function actorMayUse(WorkflowTransition $rule, Request $requestRecord, User $actor, Collection $actorRoleIds): bool
     {
         if ($rule->action === 'approve'
-            && $transaction->created_by_user_id !== null
-            && $transaction->created_by_user_id === $actor->id) {
+            && $requestRecord->created_by_user_id !== null
+            && $requestRecord->created_by_user_id === $actor->id) {
             return false;
         }
 
@@ -405,12 +405,12 @@ class WorkflowService
         }
 
         if ($rule->requires_submitter_manager
-            && ! $this->actorIsCreatorsActiveManager($transaction, $actor)
+            && ! $this->actorIsCreatorsActiveManager($requestRecord, $actor)
             && ! $this->actorHoldsR08($actorRoleIds)) {
             return false;
         }
 
-        if ($rule->required_status_id !== null && $rule->required_status_id !== $transaction->status_id) {
+        if ($rule->required_status_id !== null && $rule->required_status_id !== $requestRecord->status_id) {
             return false;
         }
 
@@ -418,15 +418,15 @@ class WorkflowService
     }
 
     /**
-     * Is $actor the transaction creator's manager, and is that manager link
+     * Is $actor the request creator's manager, and is that manager link
      * actually live — not soft-deleted (the default Eloquent scope already
      * excludes trashed rows) and not deactivated? A dangling manager_id
      * (the manager left, or was never set) must fall through to the R08
      * override in actorMayUse() rather than matching here.
      */
-    private function actorIsCreatorsActiveManager(Transaction $transaction, User $actor): bool
+    private function actorIsCreatorsActiveManager(Request $requestRecord, User $actor): bool
     {
-        $creatorId = $transaction->created_by_user_id;
+        $creatorId = $requestRecord->created_by_user_id;
 
         if ($creatorId === null) {
             return false;
@@ -455,38 +455,38 @@ class WorkflowService
      *
      * @return Collection<int, WorkflowTransition>
      */
-    private function transitionCandidates(Transaction $transaction, string $action): Collection
+    private function transitionCandidates(Request $requestRecord, string $action): Collection
     {
         $candidates = WorkflowTransition::query()
-            ->where('from_stage_id', $transaction->current_stage_id)
+            ->where('from_stage_id', $requestRecord->current_stage_id)
             ->where('action', $action)
-            ->where(function ($query) use ($transaction) {
-                $query->whereNull('transaction_type_id');
+            ->where(function ($query) use ($requestRecord) {
+                $query->whereNull('request_type_id');
 
-                if ($transaction->transaction_type_id !== null) {
-                    $query->orWhere('transaction_type_id', $transaction->transaction_type_id);
+                if ($requestRecord->request_type_id !== null) {
+                    $query->orWhere('request_type_id', $requestRecord->request_type_id);
                 }
             })
             ->get();
 
-        $specific = $candidates->whereNotNull('transaction_type_id')->values();
+        $specific = $candidates->whereNotNull('request_type_id')->values();
 
         return $specific->isNotEmpty()
             ? $specific
-            : $candidates->whereNull('transaction_type_id')->values();
+            : $candidates->whereNull('request_type_id')->values();
     }
 
     /**
      * Stage 18 conditional branch: after the admin manager approves, low-grade
      * work bypasses ministry and lands directly with the competent authority.
      */
-    private function destinationStageId(Transaction $transaction, WorkflowTransition $rule): int
+    private function destinationStageId(Request $requestRecord, WorkflowTransition $rule): int
     {
         $fromStageCode = $rule->fromStage()->value('code');
 
         if ($rule->action !== 'approve'
             || $fromStageCode !== 'approval_by_authority'
-            || $transaction->requiresMinistryApproval()) {
+            || $requestRecord->requiresMinistryApproval()) {
             return $rule->to_stage_id;
         }
 
@@ -511,9 +511,9 @@ class WorkflowService
      * stage still has configured rules. `in_execution` is deliberately here:
      * Stage 37's status-only output service owns its eventual close.
      */
-    private function hasTerminalStatus(Transaction $transaction): bool
+    private function hasTerminalStatus(Request $requestRecord): bool
     {
-        return $transaction->status()
+        return $requestRecord->status()
             ->whereIn('code', ['cancelled', 'archived', 'in_execution', 'completed_closed'])
             ->exists();
     }

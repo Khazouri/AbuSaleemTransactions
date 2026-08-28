@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Decision;
 use App\Models\Meeting;
-use App\Models\Transaction;
+use App\Models\Request;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
@@ -12,10 +12,10 @@ use App\Notifications\ActionRequiredNotification;
 use App\Notifications\DecisionRecordedNotification;
 use App\Notifications\MeetingMinutesApprovedNotification;
 use App\Notifications\MeetingScheduledNotification;
+use App\Notifications\RequestCreatedNotification;
+use App\Notifications\RequestOverdueNotification;
+use App\Notifications\RequestStageChangedNotification;
 use App\Notifications\SystemNotification;
-use App\Notifications\TransactionCreatedNotification;
-use App\Notifications\TransactionOverdueNotification;
-use App\Notifications\TransactionStageChangedNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
 
@@ -36,11 +36,11 @@ use Illuminate\Support\Facades\Notification;
 class NotificationDispatcher
 {
     /** Stage 13 intake — tell the people who can pick the work up. */
-    public function transactionCreated(Transaction $transaction, User $actor): void
+    public function requestCreated(Request $requestRecord, User $actor): void
     {
         $this->send(
-            $this->actorsForStage($transaction, $transaction->current_stage_id, [$actor->id]),
-            new TransactionCreatedNotification($transaction, $actor->name),
+            $this->actorsForStage($requestRecord, $requestRecord->current_stage_id, [$actor->id]),
+            new RequestCreatedNotification($requestRecord, $actor->name),
         );
     }
 
@@ -49,21 +49,21 @@ class NotificationDispatcher
      *
      * The creator is told their request advanced; the next actors are told
      * they have something to do. These are separate event types on purpose —
-     * a department head following twenty transactions can mute the running
+     * a department head following twenty requests can mute the running
      * commentary without losing the queue that is actually theirs.
      */
     public function stageChanged(
-        Transaction $transaction,
+        Request $requestRecord,
         User $actor,
         string $action,
         ?WorkflowStage $fromStage,
         ?WorkflowStage $toStage,
     ): void {
-        $creator = $this->creatorOf($transaction, [$actor->id]);
+        $creator = $this->creatorOf($requestRecord, [$actor->id]);
 
         $this->send(
             $creator,
-            new TransactionStageChangedNotification($transaction, $fromStage, $toStage, $action, $actor->name),
+            new RequestStageChangedNotification($requestRecord, $fromStage, $toStage, $action, $actor->name),
         );
 
         // The creator already heard about this move; sending them the
@@ -71,19 +71,19 @@ class NotificationDispatcher
         $excluded = $creator->pluck('id')->push($actor->id)->all();
 
         $this->send(
-            $this->actorsForStage($transaction, $transaction->current_stage_id, $excluded),
-            new ActionRequiredNotification($transaction, $toStage),
+            $this->actorsForStage($requestRecord, $requestRecord->current_stage_id, $excluded),
+            new ActionRequiredNotification($requestRecord, $toStage),
         );
     }
 
     /** Stage 17 sweep — a breach concerns both the owner and whoever can unblock it. */
-    public function transactionOverdue(Transaction $transaction): void
+    public function requestOverdue(Request $requestRecord): void
     {
-        $recipients = $this->creatorOf($transaction)
-            ->concat($this->actorsForStage($transaction, $transaction->current_stage_id))
+        $recipients = $this->creatorOf($requestRecord)
+            ->concat($this->actorsForStage($requestRecord, $requestRecord->current_stage_id))
             ->unique('id');
 
-        $this->send($recipients, new TransactionOverdueNotification($transaction));
+        $this->send($recipients, new RequestOverdueNotification($requestRecord));
     }
 
     /**
@@ -105,11 +105,11 @@ class NotificationDispatcher
     }
 
     /** Stage 21 — the outcome matters to the requester and to the committee that voted. */
-    public function decisionRecorded(Transaction $transaction, Decision $decision, Meeting $meeting, User $actor): void
+    public function decisionRecorded(Request $requestRecord, Decision $decision, Meeting $meeting, User $actor): void
     {
         $memberIds = $meeting->committee?->members()->pluck('user_id') ?? collect();
 
-        $recipients = $this->creatorOf($transaction, [$actor->id])
+        $recipients = $this->creatorOf($requestRecord, [$actor->id])
             ->concat(
                 User::query()
                     ->whereIn('id', $memberIds->all())
@@ -119,7 +119,7 @@ class NotificationDispatcher
             )
             ->unique('id');
 
-        $this->send($recipients, new DecisionRecordedNotification($transaction, $decision));
+        $this->send($recipients, new DecisionRecordedNotification($requestRecord, $decision));
     }
 
     /**
@@ -142,28 +142,28 @@ class NotificationDispatcher
     }
 
     /**
-     * The transaction's creator, as a collection so callers can concat and
+     * The request's creator, as a collection so callers can concat and
      * unique() without null checks. Empty when the creator is the actor, is
      * inactive, or the account has since been removed.
      *
      * @param  array<int, int>  $excludeUserIds
      * @return Collection<int, User>
      */
-    private function creatorOf(Transaction $transaction, array $excludeUserIds = []): Collection
+    private function creatorOf(Request $requestRecord, array $excludeUserIds = []): Collection
     {
-        if ($transaction->created_by_user_id === null
-            || in_array($transaction->created_by_user_id, $excludeUserIds, true)) {
+        if ($requestRecord->created_by_user_id === null
+            || in_array($requestRecord->created_by_user_id, $excludeUserIds, true)) {
             return collect();
         }
 
         return User::query()
-            ->whereKey($transaction->created_by_user_id)
+            ->whereKey($requestRecord->created_by_user_id)
             ->where('is_active', true)
             ->get();
     }
 
     /**
-     * Active users who could move this transaction out of $stageId.
+     * Active users who could move this request out of $stageId.
      *
      * Read from workflow_transitions rather than from a hard-coded stage =>
      * role map: the roles that may act are configuration, and this is the same
@@ -188,7 +188,7 @@ class NotificationDispatcher
      * @param  array<int, int>  $excludeUserIds
      * @return Collection<int, User>
      */
-    private function actorsForStage(Transaction $transaction, ?int $stageId, array $excludeUserIds = []): Collection
+    private function actorsForStage(Request $requestRecord, ?int $stageId, array $excludeUserIds = []): Collection
     {
         if ($stageId === null) {
             return collect();
@@ -197,11 +197,11 @@ class NotificationDispatcher
         $outboundRules = WorkflowTransition::query()
             ->where('from_stage_id', $stageId)
             ->where('is_exception', false)
-            ->where(function ($query) use ($transaction) {
-                $query->whereNull('transaction_type_id');
+            ->where(function ($query) use ($requestRecord) {
+                $query->whereNull('request_type_id');
 
-                if ($transaction->transaction_type_id !== null) {
-                    $query->orWhere('transaction_type_id', $transaction->transaction_type_id);
+                if ($requestRecord->request_type_id !== null) {
+                    $query->orWhere('request_type_id', $requestRecord->request_type_id);
                 }
             })
             ->get(['required_role_id', 'requires_submitter_manager']);
@@ -217,7 +217,7 @@ class NotificationDispatcher
                 ->get();
 
         if ($outboundRules->contains(fn (WorkflowTransition $rule) => $rule->requires_submitter_manager)) {
-            $manager = $this->creatorsActiveManager($transaction);
+            $manager = $this->creatorsActiveManager($requestRecord);
 
             if ($manager !== null && ! in_array($manager->id, $excludeUserIds, true)) {
                 $recipients->push($manager);
@@ -228,19 +228,19 @@ class NotificationDispatcher
     }
 
     /**
-     * The transaction creator's manager, resolved the same way
+     * The request creator's manager, resolved the same way
      * WorkflowService::actorIsCreatorsActiveManager() resolves it: a dangling
      * manager_id (never set, or pointing at a since-deactivated/deleted
      * account) must not name anyone, rather than notifying a manager who
      * could no longer act on this anyway.
      */
-    private function creatorsActiveManager(Transaction $transaction): ?User
+    private function creatorsActiveManager(Request $requestRecord): ?User
     {
-        if ($transaction->created_by_user_id === null) {
+        if ($requestRecord->created_by_user_id === null) {
             return null;
         }
 
-        $managerId = User::query()->whereKey($transaction->created_by_user_id)->value('manager_id');
+        $managerId = User::query()->whereKey($requestRecord->created_by_user_id)->value('manager_id');
 
         if ($managerId === null) {
             return null;

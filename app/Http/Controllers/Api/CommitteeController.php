@@ -80,7 +80,7 @@ class CommitteeController extends Controller
 
     /**
      * Add one member. Marking them as head (is_head) demotes any existing
-     * head of this committee in the same transaction — a committee has at
+     * head of this committee in the same request — a committee has at
      * most one head at a time, and the alternative (two "the" heads) would be
      * ambiguous everywhere the UI shows one.
      */

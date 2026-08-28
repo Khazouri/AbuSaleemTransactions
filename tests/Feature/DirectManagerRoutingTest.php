@@ -4,10 +4,10 @@ namespace Tests\Feature;
 
 use App\Exceptions\WorkflowTransitionException;
 use App\Models\Department;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\WorkflowService;
@@ -40,22 +40,22 @@ class DirectManagerRoutingTest extends TestCase
         $service = app(WorkflowService::class);
 
         // A non-manager (not even a random role holder) is refused.
-        $transaction = $this->newTransaction('direct_manager_review', 'in_review', $employee->id);
+        $requestRecord = $this->newRequest('direct_manager_review', 'in_review', $employee->id);
         try {
-            $service->transition($transaction, 'forward', $stranger);
+            $service->transition($requestRecord, 'forward', $stranger);
             $this->fail('An unrelated user must not be able to act as the manager.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
         }
 
         // The assigned manager may act.
-        $transaction = $service->transition($transaction->refresh(), 'forward', $manager);
-        $this->assertSame('administrative_routing', $transaction->currentStage->code);
+        $requestRecord = $service->transition($requestRecord->refresh(), 'forward', $manager);
+        $this->assertSame('administrative_routing', $requestRecord->currentStage->code);
 
         // R08 may act even though this employee has no manager assigned at all.
         $unmanagedEmployee = $this->userWithRole('R01');
-        $orphanTransaction = $this->newTransaction('direct_manager_review', 'in_review', $unmanagedEmployee->id);
-        $moved = $service->transition($orphanTransaction, 'forward', $admin);
+        $orphanRequest = $this->newRequest('direct_manager_review', 'in_review', $unmanagedEmployee->id);
+        $moved = $service->transition($orphanRequest, 'forward', $admin);
         $this->assertSame('administrative_routing', $moved->currentStage->code);
     }
 
@@ -70,7 +70,7 @@ class DirectManagerRoutingTest extends TestCase
 
         $admin = $this->userWithRole('R08');
         $service = app(WorkflowService::class);
-        $transaction = $this->newTransaction('direct_manager_review', 'in_review', $employee->id);
+        $requestRecord = $this->newRequest('direct_manager_review', 'in_review', $employee->id);
 
         // The deactivated manager can no longer act at all (WorkflowService
         // refuses any inactive actor outright, before rule matching even
@@ -79,14 +79,14 @@ class DirectManagerRoutingTest extends TestCase
         // still-live manager link; both guard the same "no 500, no silent
         // stranding" property from two angles.
         try {
-            $service->transition($transaction, 'forward', $inactiveManager);
+            $service->transition($requestRecord, 'forward', $inactiveManager);
             $this->fail('A deactivated manager must not be able to act.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame('لا يمكن لمستخدم غير نشط تنفيذ إجراء سير العمل.', $exception->getMessage());
         }
 
         // ...but R08 can, with no 500 and no special-casing needed.
-        $moved = $service->transition($transaction->refresh(), 'forward', $admin);
+        $moved = $service->transition($requestRecord->refresh(), 'forward', $admin);
         $this->assertSame('administrative_routing', $moved->currentStage->code);
     }
 
@@ -106,8 +106,8 @@ class DirectManagerRoutingTest extends TestCase
             $employee->manager_id = $manager->id;
             $employee->save();
 
-            $transaction = $this->newTransaction('administrative_routing', 'in_review', $employee->id);
-            $moved = $service->transition($transaction, $action, $manager);
+            $requestRecord = $this->newRequest('administrative_routing', 'in_review', $employee->id);
+            $moved = $service->transition($requestRecord, $action, $manager);
 
             $this->assertSame('receive_and_register', $moved->currentStage->code);
             $this->assertSame($statusCode, $moved->status->code);
@@ -120,13 +120,13 @@ class DirectManagerRoutingTest extends TestCase
 
         $service = app(WorkflowService::class);
         $registrar = $this->userWithRole('R10'); // Diwan deputy
-        $transaction = $this->newTransaction('receive_and_register', 'routed_to_hr'); // routed to HR, not Diwan
+        $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr'); // routed to HR, not Diwan
 
         // R10 holds the right ROLE for a Diwan-routed file, but this file was
         // routed to HR — the status gate must refuse it. This is the
         // assertion that proves routing is enforced, not merely advisory.
         try {
-            $service->transition($transaction, 'register', $registrar);
+            $service->transition($requestRecord, 'register', $registrar);
             $this->fail('R10 must not be able to register an HR-routed file.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
@@ -134,15 +134,15 @@ class DirectManagerRoutingTest extends TestCase
 
         // The matching registrar (R05/HR) succeeds on the same file.
         $hrRegistrar = $this->userWithRole('R05');
-        $moved = $service->transition($transaction->refresh(), 'register', $hrRegistrar);
+        $moved = $service->transition($requestRecord->refresh(), 'register', $hrRegistrar);
         $this->assertSame('requirements_check', $moved->currentStage->code);
         $this->assertSame('registered', $moved->status->code);
 
         // And the reverse pairing (R05 attempting a Diwan-routed file) is
         // equally refused, confirming this isn't a one-way accident.
-        $diwanTransaction = $this->newTransaction('receive_and_register', 'routed_to_diwan');
+        $diwanRequest = $this->newRequest('receive_and_register', 'routed_to_diwan');
         try {
-            $service->transition($diwanTransaction, 'register', $hrRegistrar);
+            $service->transition($diwanRequest, 'register', $hrRegistrar);
             $this->fail('R05 must not be able to register a Diwan-routed file.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
@@ -159,16 +159,16 @@ class DirectManagerRoutingTest extends TestCase
         $employee->save();
 
         $service = app(WorkflowService::class);
-        $transaction = $this->newTransaction('direct_manager_review', 'in_review', $employee->id);
+        $requestRecord = $this->newRequest('direct_manager_review', 'in_review', $employee->id);
 
         try {
-            $service->transition($transaction, 'return_to_employee', $manager);
+            $service->transition($requestRecord, 'return_to_employee', $manager);
             $this->fail('return_to_employee should require a comment.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame('يجب إدخال سبب لتنفيذ هذا الإجراء.', $exception->getMessage());
         }
 
-        $moved = $service->transition($transaction->refresh(), 'return_to_employee', $manager, 'بيانات ناقصة.');
+        $moved = $service->transition($requestRecord->refresh(), 'return_to_employee', $manager, 'بيانات ناقصة.');
         $this->assertSame('receive_from_municipality', $moved->currentStage->code);
         $this->assertSame('returned', $moved->status->code);
     }
@@ -185,16 +185,16 @@ class DirectManagerRoutingTest extends TestCase
             $employee->manager_id = $manager->id;
             $employee->save();
 
-            $transaction = $this->newTransaction($managerGatedStage, 'in_review', $employee->id);
-            $moved = $service->transition($transaction, 'cancel', $manager, 'ألغيت بناء على طلب الموظف.');
+            $requestRecord = $this->newRequest($managerGatedStage, 'in_review', $employee->id);
+            $moved = $service->transition($requestRecord, 'cancel', $manager, 'ألغيت بناء على طلب الموظف.');
             $this->assertSame($managerGatedStage, $moved->currentStage->code);
             $this->assertSame('cancelled', $moved->status->code);
         }
 
         foreach (['R05', 'R09', 'R10'] as $registrarRole) {
             $registrar = $this->userWithRole($registrarRole);
-            $transaction = $this->newTransaction('receive_and_register', 'routed_to_hr');
-            $moved = $service->transition($transaction, 'cancel', $registrar, 'ألغيت.');
+            $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr');
+            $moved = $service->transition($requestRecord, 'cancel', $registrar, 'ألغيت.');
             $this->assertSame('receive_and_register', $moved->currentStage->code);
             $this->assertSame('cancelled', $moved->status->code);
         }
@@ -211,26 +211,26 @@ class DirectManagerRoutingTest extends TestCase
 
         $stranger = User::factory()->create(['is_active' => true]);
         $service = app(WorkflowService::class);
-        $transaction = $this->newTransaction('direct_manager_review', 'in_review', $employee->id);
+        $requestRecord = $this->newRequest('direct_manager_review', 'in_review', $employee->id);
 
         // The UI must not offer a button execution would refuse...
-        $this->assertFalse($service->availableActions($transaction, $stranger)->contains('forward'));
+        $this->assertFalse($service->availableActions($requestRecord, $stranger)->contains('forward'));
 
         // ...and must not hide one execution would accept.
-        $this->assertTrue($service->availableActions($transaction, $manager)->contains('forward'));
+        $this->assertTrue($service->availableActions($requestRecord, $manager)->contains('forward'));
     }
 
-    private function newTransaction(
+    private function newRequest(
         string $stageCode = 'receive_from_municipality',
         string $statusCode = 'new',
         ?int $createdByUserId = null,
-    ): Transaction {
-        return Transaction::create([
+    ): Request {
+        return Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
             'title' => 'اختبار المسار الإداري الجديد',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', $statusCode)->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => now(),
             'created_by_user_id' => $createdByUserId,

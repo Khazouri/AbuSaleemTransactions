@@ -19,7 +19,7 @@ class MeetingOutputTransitionException extends DomainException
 
     public static function requestRequired(): self
     {
-        return new self('لا يرتبط بند جدول الأعمال بمعاملة قابلة للمتابعة.');
+        return new self('لا يرتبط بند جدول الأعمال بطلب قابل للمتابعة.');
     }
 
     public static function decisionRequired(): self
@@ -34,6 +34,6 @@ class MeetingOutputTransitionException extends DomainException
 
     public static function transitionNotAllowed(): self
     {
-        return new self('يجب أن تكون المعاملة قيد التنفيذ قبل إغلاقها.');
+        return new self('يجب أن يكون الطلب قيد التنفيذ قبل إغلاقه.');
     }
 }

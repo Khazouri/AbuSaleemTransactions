@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * The "direct manager" concept the workflow-alignment redesign adds — see
- * AGENT_NOTES.md ("Align transaction workflow with the ... infographic").
+ * AGENT_NOTES.md ("Align request workflow with the ... infographic").
  * Self-referencing FK: the row that identifies an employee's manager is
  * another row in the same table.
  *

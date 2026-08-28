@@ -16,8 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * Always identify a role by its `code` ('R08'), not its database id — ids
  * differ between a fresh seed and production, codes don't.
  *
- * @property string      $code   R01..R08
- * @property string      $name_ar
+ * @property string $code R01..R08
+ * @property string $name_ar
  * @property string|null $name_en
  */
 class Role extends Model
@@ -45,7 +45,7 @@ class Role extends Model
     }
 
     /**
-     * Does this role carry the given capability key, e.g. 'transactions.delete'?
+     * Does this role carry the given capability key, e.g. 'requests.delete'?
      *
      * Queries the pivot directly instead of loading the whole permission list,
      * which keeps it cheap when checking a single key.

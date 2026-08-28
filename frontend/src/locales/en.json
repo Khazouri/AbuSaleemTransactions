@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Abu Saleem Municipality",
-    "subtitle": "Transaction Management System"
+    "subtitle": "Request Management System"
   },
   "nav": {
     "menu": "Menu",
@@ -63,7 +63,7 @@
     "users": "users",
     "children": "sub-departments",
     "empty": "No departments yet.",
-    "codeHint": "Used in transaction reference numbers"
+    "codeHint": "Used in request reference numbers"
   },
   "users": {
     "title": "Users",
@@ -135,7 +135,7 @@
     "draft": "Draft",
     "published": "Published (visible to everyone)",
     "code": "Article code",
-    "codeHint": "A stable identifier, e.g. intake.creating-a-transaction",
+    "codeHint": "A stable identifier, e.g. intake.creating-a-request",
     "category": "Section",
     "sortOrder": "Order",
     "titleAr": "Title (Arabic)",
@@ -175,12 +175,12 @@
       "actions": "Actions"
     }
   },
-  "transactions": {
-    "title": "Transaction Requests",
-    "filters": "Filter transactions",
+  "requests": {
+    "title": "Requests",
+    "filters": "Filter requests",
     "status": "Status",
     "department": "Department",
-    "type": "Transaction type",
+    "type": "Request type",
     "dateFrom": "From date",
     "dateTo": "To date",
     "allStatuses": "All statuses",
@@ -197,39 +197,39 @@
     "next": "Next",
     "details": "Details",
     "viewDetails": "View details",
-    "empty": "No transactions match the current filters.",
+    "empty": "No requests match the current filters.",
     "noReference": "Not generated yet"
   },
   "intake": {
-    "title": "New transaction intake",
-    "subtitle": "Enter the transaction details and supporting documents before sending it to stage one.",
-    "open": "New transaction",
+    "title": "New request intake",
+    "subtitle": "Enter the request details and supporting documents before sending it to stage one.",
+    "open": "New request",
     "basicData": "Basic details",
-    "subject": "Transaction subject",
+    "subject": "Request subject",
     "description": "Description",
     "chooseDepartment": "— Choose a department —",
-    "chooseType": "— Choose a transaction type —",
+    "chooseType": "— Choose a request type —",
     "decisionGrade": "Decision grade",
     "decisionGradeHint": "Grades at or above {threshold} require ministry approval.",
     "removeFile": "Remove",
     "tooManyFiles": "No more than 10 files may be attached.",
-    "submit": "Submit transaction",
+    "submit": "Submit request",
     "submitting": "Submitting…",
-    "submitFailed": "The transaction could not be submitted. Please try again.",
+    "submitFailed": "The request could not be submitted. Please try again.",
     "loadFailed": "The intake form options could not be loaded.",
-    "successTitle": "Transaction created",
-    "successBody": "The transaction has entered stage one with New status. Its reference number is:",
-    "createAnother": "Enter another transaction",
-    "viewQueue": "View transaction queue"
+    "successTitle": "Request created",
+    "successBody": "The request has entered stage one with New status. Its reference number is:",
+    "createAnother": "Enter another request",
+    "viewQueue": "View request queue"
   },
   "approvals": {
-    "subtitle": "Only transactions currently waiting at this checkpoint appear here.",
+    "subtitle": "Only requests currently waiting at this checkpoint appear here.",
     "decisionGrade": "Decision grade",
     "comment": "Approval comment (optional)",
     "approve": "Approve",
     "approving": "Approving…",
-    "overdue": "This transaction has exceeded its SLA.",
-    "empty": "No transactions are waiting for this approval.",
+    "overdue": "This request has exceeded its SLA.",
+    "empty": "No requests are waiting for this approval.",
     "loadFailed": "The approval queue could not be loaded.",
     "actionFailed": "The approval could not be completed.",
     "levels": {
@@ -278,12 +278,12 @@
     "loadFailed": "The notes could not be loaded.",
     "submitFailed": "The note could not be posted. Please try again."
   },
-  "transactionDetail": {
-    "back": "Back to transaction list",
+  "requestDetail": {
+    "back": "Back to request list",
     "currentStage": "Current stage",
     "submittedAt": "Submitted",
     "dueDate": "Due date",
-    "overdue": "The SLA deadline passed on {date}. This transaction can be escalated to the Local Governance Ministry.",
+    "overdue": "The SLA deadline passed on {date}. This request can be escalated to the Local Governance Ministry.",
     "actions": "Stage actions",
     "actionHint": "Available actions are determined by the current stage and your workflow role.",
     "comment": "Comment (optional)",
@@ -294,12 +294,12 @@
     "reason": "Reason",
     "reasonRequired": "Enter a reason before performing this action.",
     "confirmException": "Confirm action",
-    "description": "Transaction description",
-    "noDescription": "No description was supplied for this transaction.",
+    "description": "Request description",
+    "noDescription": "No description was supplied for this request.",
     "timeline": "Workflow timeline",
     "noTimeline": "There are no workflow movements yet.",
     "noAttachments": "There are no attachments yet.",
-    "loadFailed": "The transaction details could not be loaded.",
+    "loadFailed": "The request details could not be loaded.",
     "actionFailed": "The workflow action could not be completed. Please try again."
   },
   "committees": {
@@ -355,13 +355,13 @@
     "sendingInvitations": "Sending invitations…",
     "agenda": {
       "title": "Agenda",
-      "empty": "No transactions on the agenda yet.",
+      "empty": "No requests on the agenda yet.",
       "searchPlaceholder": "Search by reference number or title…",
       "add": "Add",
       "remove": "Remove",
       "moveUp": "Move up",
       "moveDown": "Move down",
-      "noResults": "No matching transactions.",
+      "noResults": "No matching requests.",
       "openBuilder": "Open agenda builder",
       "subject": "Subject",
       "department": "Department",
@@ -405,7 +405,7 @@
       "back": "Back",
       "cancel": "Cancel",
       "searchRequests": "Search by reference number or title to add…",
-      "noResults": "No matching transactions.",
+      "noResults": "No matching requests.",
       "addRequest": "Add",
       "selectedRequests": "Selected requests",
       "noRequestsSelected": "No requests selected yet. They can be added later from the meeting page.",
@@ -706,7 +706,7 @@
       "meeting": "Meeting",
       "error": "The meeting outputs could not be loaded.",
       "tableTitle": "Request follow-up",
-      "liveHint": "Statuses follow the live transaction workflow and refresh automatically.",
+      "liveHint": "Statuses follow the live request workflow and refresh automatically.",
       "empty": "This meeting has no request items to follow.",
       "awaitingDecision": "Awaiting committee decision",
       "complete": "Complete and close",
@@ -734,7 +734,7 @@
   },
   "workflow": {
     "actions": {
-      "intake": "Transaction intake",
+      "intake": "Request intake",
       "submit": "Submit request",
       "forward": "Forward",
       "approve": "Approve",
@@ -742,13 +742,13 @@
       "return_missing_docs": "Return for missing documents",
       "reject_review": "Reject review",
       "request_edit": "Request changes",
-      "cancel": "Cancel transaction",
+      "cancel": "Cancel request",
       "defer": "Defer decision",
       "return_to_study": "Return to study",
       "conditional_approve": "Conditional approval",
       "request_legal_opinion": "Request legal opinion",
       "refer_to_another_body": "Refer to another body",
-      "deadline_expired": "Escalate overdue transaction",
+      "deadline_expired": "Escalate overdue request",
       "route_to_hr": "Route to HR",
       "route_to_diwan": "Route to Diwan Deputy",
       "route_to_committee_secretary": "Route to Committee Secretary",
@@ -791,9 +791,9 @@
       "restored": "Restored"
     },
     "models": {
-      "transaction": "Transaction",
-      "transaction_stage_log": "Stage log",
-      "transaction_status_history": "Status history",
+      "request": "Request",
+      "request_stage_log": "Stage log",
+      "request_status_history": "Status history",
       "approval": "Approval",
       "attachment": "Attachment",
       "note": "Note",
@@ -801,12 +801,12 @@
       "committee_member": "Committee member",
       "meeting": "Meeting",
       "meeting_attendee": "Meeting attendee",
-      "meeting_transaction": "Agenda item",
+      "meeting_request": "Agenda item",
       "vote": "Vote",
       "decision": "Decision",
       "department": "Department",
       "user": "User",
-      "transaction_type": "Transaction type",
+      "request_type": "Request type",
       "screen_role_permission": "Screen permission",
       "setting": "Setting",
       "template": "Template",
@@ -819,7 +819,7 @@
       "status_id": "Status",
       "current_stage_id": "Current stage",
       "department_id": "Department",
-      "transaction_type_id": "Transaction type",
+      "request_type_id": "Request type",
       "decision_grade": "Decision grade",
       "due_date": "Due date",
       "overdue_at": "Flagged overdue at",
@@ -856,10 +856,10 @@
       "sms": "SMS"
     },
     "events": {
-      "transaction_created": "New transaction",
-      "stage_changed": "Transaction stage changed",
-      "action_required": "Transaction waiting for you",
-      "transaction_overdue": "Deadline exceeded",
+      "request_created": "New request",
+      "stage_changed": "Request stage changed",
+      "action_required": "Request waiting for you",
+      "request_overdue": "Deadline exceeded",
       "meeting_scheduled": "Meeting invitation",
       "decision_recorded": "Committee decision recorded"
     }
@@ -876,7 +876,7 @@
     "days": "days",
     "empty": "No data yet.",
     "tiles": {
-      "total": "Total transactions",
+      "total": "Total requests",
       "pending": "Pending",
       "completed": "Completed",
       "completionRate": "Completion rate",
@@ -886,7 +886,7 @@
   },
   "reports": {
     "title": "Reports & Statistics",
-    "subtitle": "Filterable transaction report with Excel and PDF export.",
+    "subtitle": "Filterable request report with Excel and PDF export.",
     "filters": "Filters",
     "department": "Department",
     "allDepartments": "All departments",
@@ -898,7 +898,7 @@
     "dateTo": "To",
     "apply": "Apply",
     "clear": "Clear",
-    "empty": "No matching transactions.",
+    "empty": "No matching requests.",
     "reference": "Reference",
     "subject": "Subject",
     "stage": "Current stage",

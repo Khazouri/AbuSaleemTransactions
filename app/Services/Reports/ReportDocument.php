@@ -7,7 +7,7 @@ namespace App\Services\Reports;
  *
  * Both writers take this and nothing else, which is what lets the same report
  * come out as a spreadsheet or a PDF without either writer knowing anything
- * about transactions, audit logs, or whatever is exported next.
+ * about requests, audit logs, or whatever is exported next.
  *
  * `rtl` travels with the document rather than being read from the app locale:
  * the export is generated for the language the user was looking at, which the

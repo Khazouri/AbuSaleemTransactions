@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
  * The seeded test accounts, for the login screen's one-click sign-in panel.
  *
  * WHY IT EXISTS: TEST_PLAN.md's happy path needs four different people
- * (R02 -> R05 -> R03 -> R05 -> R06 -> R07) before a transaction reaches
+ * (R02 -> R05 -> R03 -> R05 -> R06 -> R07) before a request reaches
  * `archived`, so a manual QA pass means signing in and out a dozen times.
  *
  * WHY IT IS SAFE: it answers 404 anywhere that is not APP_ENV=local. A 404

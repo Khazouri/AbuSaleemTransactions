@@ -4,7 +4,7 @@ Guidance for coding agents working in this repository.
 
 ## What this is
 
-Abu Saleem Transactions — an internal workflow/transaction-approval system for
+Abu Saleem Transactions — an internal workflow/request-approval system for
 a government-style organization (departments, roles, multi-stage approvals,
 committees, decisions). Arabic-first (RTL), with English as a secondary
 locale.
@@ -62,11 +62,11 @@ Key architectural facts worth knowing before changing things:
   place — `TestUserSeeder::TEST_USERS`, which the controller reads — so nothing
   needs keeping in step, and no known-password address is ever compiled into
   the bundle.
-- **Departments** are master data (referenced by users/transactions), so
+- **Departments** are master data (referenced by users/requests), so
   deletion is blocked whenever children or users still reference a row —
   deactivate (`toggle-active`) instead of delete. This "preserve, don't erase"
   pattern is likely to recur for other master-data resources (roles,
-  transaction types, workflow stages) — check for it before assuming a plain
+  request types, workflow stages) — check for it before assuming a plain
   `destroy()` is safe.
 - **Screens/permissions**: `screens`, `roles`, `permissions`,
   `screen_role_permissions` model a menu-and-permission matrix, and it is
@@ -105,7 +105,23 @@ Key architectural facts worth knowing before changing things:
 - **Backend namespacing**: `App\Http\Requests\<Resource>\Store<Resource>Request`
   / `Update<Resource>Request`, one Form Request per write operation.
   `authorize()` returns `true` — access control is via route middleware, not
-  request-level checks.
+  request-level checks. The one resource this pattern doesn't apply to
+  verbatim is `App\Models\Request` (the core domain entity, renamed from
+  `Transaction`) — see the next bullet.
+- **`App\Models\Request` vs. `Illuminate\Http\Request`**: the domain model is
+  named plain `Request`, which collides with Laravel's own HTTP request
+  class. Any file that needs both imports the framework one aliased —
+  `use Illuminate\Http\Request as HttpRequest;` — and leaves
+  `use App\Models\Request;` bare, so the domain model's name stays
+  consistent everywhere. A route-bound `Request` instance is never assigned
+  to a variable named `$request` (it would collide with the conventional
+  Form Request parameter of the same name); use `$requestRecord` instead,
+  and make sure the route's own wildcard segment matches
+  (`{requestRecord}`, not `{request}`) — Laravel's implicit route-model
+  binding matches by parameter name, not by type. Form Request classes for
+  this one resource drop the doubled word rather than becoming
+  `StoreRequestRequest`: `app/Http/Requests/Request/StoreRequest.php`,
+  `IndexRequest.php`, `TransitionRequest.php`.
 - **Validation error messages are Arabic**, matching the resource's primary
   audience (see `UpdateDepartmentRequest::messages()`). Follow that pattern for
   new resources unless told otherwise.

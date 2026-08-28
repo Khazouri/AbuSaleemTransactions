@@ -182,16 +182,16 @@ onUnmounted(() => window.clearInterval(refreshTimer))
               <tr v-for="output in tracker.outputs" :key="output.agenda_item_id">
                 <td>
                   <RouterLink
-                    v-if="output.transaction"
+                    v-if="output.request"
                     class="request-link"
-                    :to="{ name: 'transaction_details', params: { id: output.transaction.id } }"
+                    :to="{ name: 'request_details', params: { id: output.request.id } }"
                   >
-                    <span class="ref ltr">{{ output.transaction.reference_number }}</span>
-                    <strong>{{ output.transaction.title }}</strong>
+                    <span class="ref ltr">{{ output.request.reference_number }}</span>
+                    <strong>{{ output.request.title }}</strong>
                   </RouterLink>
                   <span v-else>{{ t('common.none') }}</span>
                 </td>
-                <td>{{ output.transaction?.employee?.name ?? t('common.none') }}</td>
+                <td>{{ output.request?.employee?.name ?? t('common.none') }}</td>
                 <td>
                   <template v-if="output.decision">
                     <strong>{{ t(`decisions.outcome.${output.decision.outcome}`) }}</strong>

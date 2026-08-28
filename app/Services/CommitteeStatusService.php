@@ -3,23 +3,23 @@
 namespace App\Services;
 
 use App\Exceptions\CommitteeStatusTransitionException;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionStatusHistory;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestStatusHistory;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Guarded, status-only moves for a transaction sitting with the committee.
+ * Guarded, status-only moves for a request sitting with the committee.
  *
  * WorkflowService stays the sole authority for stage changes (workflow_transitions
  * is admin-configurable and drives current_stage_id). The moves here are a fixed,
  * hardcoded state machine on purpose — nomination, agenda placement, discussion
  * and recommendation-approval are internal committee bookkeeping, not workflow
  * stages, so they must never appear in workflow_transitions or touch
- * current_stage_id / transaction_stage_logs. Every move is confined to a
- * transaction currently at the `receive_from_committee` stage, which is the
+ * current_stage_id / request_stage_logs. Every move is confined to a
+ * request currently at the `receive_from_committee` stage, which is the
  * only stage these sub-statuses are meaningful at.
  */
 class CommitteeStatusService
@@ -91,13 +91,13 @@ class CommitteeStatusService
      * @throws CommitteeStatusTransitionException
      */
     public function move(
-        Transaction $transaction,
+        Request $requestRecord,
         string $action,
         User $actor,
         ?string $comment = null,
-    ): Transaction {
-        if (! $transaction->exists) {
-            throw CommitteeStatusTransitionException::transactionNotPersisted();
+    ): Request {
+        if (! $requestRecord->exists) {
+            throw CommitteeStatusTransitionException::requestNotPersisted();
         }
 
         if (! $actor->exists || ! $actor->is_active) {
@@ -116,13 +116,13 @@ class CommitteeStatusService
             throw CommitteeStatusTransitionException::commentRequired();
         }
 
-        return DB::transaction(function () use ($transaction, $rule, $actor, $comment) {
-            $locked = Transaction::query()
+        return DB::transaction(function () use ($requestRecord, $rule, $actor, $comment) {
+            $locked = Request::query()
                 ->lockForUpdate()
-                ->findOrFail($transaction->getKey());
+                ->findOrFail($requestRecord->getKey());
 
             if ($this->hasTerminalStatus($locked)) {
-                throw CommitteeStatusTransitionException::transactionClosed();
+                throw CommitteeStatusTransitionException::requestClosed();
             }
 
             if ($locked->currentStage?->code !== self::COMMITTEE_STAGE_CODE) {
@@ -134,14 +134,14 @@ class CommitteeStatusService
                 throw CommitteeStatusTransitionException::transitionNotAllowedFromCurrentStatus();
             }
 
-            $toStatus = TransactionStatus::where('code', $rule['to'])->firstOrFail();
+            $toStatus = RequestStatus::where('code', $rule['to'])->firstOrFail();
             $fromStatusId = $locked->status_id;
 
             $locked->status_id = $toStatus->id;
             $locked->save();
 
-            TransactionStatusHistory::create([
-                'transaction_id' => $locked->id,
+            RequestStatusHistory::create([
+                'request_id' => $locked->id,
                 'from_status_id' => $fromStatusId,
                 'to_status_id' => $toStatus->id,
                 'reason' => $comment,
@@ -154,18 +154,18 @@ class CommitteeStatusService
     }
 
     /**
-     * @return Builder<Transaction>
+     * @return Builder<Request>
      */
     public function candidatesQuery(): Builder
     {
-        return Transaction::query()
+        return Request::query()
             ->whereHas('currentStage', fn ($query) => $query->where('code', self::COMMITTEE_STAGE_CODE))
             ->whereHas('status', fn ($query) => $query->whereIn('code', self::CANDIDATE_STATUSES));
     }
 
-    private function hasTerminalStatus(Transaction $transaction): bool
+    private function hasTerminalStatus(Request $requestRecord): bool
     {
-        return $transaction->status()
+        return $requestRecord->status()
             ->whereIn('code', ['cancelled', 'archived', 'completed_closed'])
             ->exists();
     }

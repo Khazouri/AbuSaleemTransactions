@@ -39,7 +39,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Attachments and signatures are included by default: a restored database
-    | full of transactions pointing at files that no longer exist is not a
+    | full of requests pointing at files that no longer exist is not a
     | restored system. Retention is enforced by `backup:run` after it writes a
     | new snapshot, so the oldest is only dropped once a newer one exists.
     |

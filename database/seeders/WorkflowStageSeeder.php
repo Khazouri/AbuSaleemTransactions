@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\DB;
  * Seeds the 14 lifecycle stages, in order, from intake to archiving.
  *
  * The `responsible_role_id` column set here is INDICATIVE — it tells the UI
- * who a transaction is normally sitting with at each stage. It is NOT used for
- * authorisation. Permission to actually move a transaction is decided by
+ * who a request is normally sitting with at each stage. It is NOT used for
+ * authorisation. Permission to actually move a request is decided by
  * workflow_transitions.required_role_id, seeded in Stage 14.
  *
  * Diagram-alignment redesign (see AGENT_NOTES.md, "Employee Affairs Committee
@@ -43,7 +43,7 @@ class WorkflowStageSeeder extends Seeder
 
         // [order, code, Arabic name, English name, role usually holding it (or null — see docblock)]
         $stages = [
-            [1,  'receive_from_municipality', 'استلام المعاملة من البلدية',        'Receive from municipality',     'R01'],
+            [1,  'receive_from_municipality', 'استلام الطلب من البلدية',        'Receive from municipality',     'R01'],
             [2,  'direct_manager_review',     'مراجعة الطلب من المدير المباشر',    'Direct manager review',         null],
             [3,  'administrative_routing',    'إحالة الطلب لأحد المسارات الإدارية', 'Administrative routing',        null],
             [4,  'receive_and_register',      'الاستلام والتسجيل',                'Receive and register',          null],
@@ -51,12 +51,12 @@ class WorkflowStageSeeder extends Seeder
             [6,  'reviewer_review',           'مراجعة المقرر وفق اللوائح',        'Reviewer review',              'R02'],
             [7,  'observations',              'إبداء الملاحظات (إن وجدت)',        'Observations (if any)',        'R02'],
             [8,  'ministry_endorsement',      'اعتماد الوزارة',                  'Ministry endorsement',         'R05'],
-            [9,  'forward_to_committee',      'تحويل المعاملة للجنة القائمة',     'Forward to committee',         'R05'],
+            [9,  'forward_to_committee',      'تحويل الطلب للجنة القائمة',     'Forward to committee',         'R05'],
             // Display role only (see docblock): R03 -> R09. The R03
             // decision-action `required_role_id` on vote/decision transitions
             // is seeded separately in WorkflowTransitionSeeder and is
             // unaffected by this indicative field.
-            [10, 'receive_from_committee',    'استلام المعاملة من اللجنة',        'Receive from committee',       'R09'],
+            [10, 'receive_from_committee',    'استلام الطلب من اللجنة',        'Receive from committee',       'R09'],
             [11, 'approval_by_authority',     'اعتماد (حسب الصلاحيات)',          'Approval (per permissions)',   'R05'],
             [12, 'local_governance_ministry', 'وزارة الحكم المحلي',              'Local Governance Ministry',    'R06'],
             [13, 'competent_authority',       'اعتماد الجهة المختصة',            'Competent authority approval', 'R07'],
@@ -65,7 +65,7 @@ class WorkflowStageSeeder extends Seeder
 
         foreach ($stages as [$order, $code, $nameAr, $nameEn, $roleCode]) {
             // Keyed on `code` so stage ids stay stable across re-seeds —
-            // transactions and transitions both point at them.
+            // requests and transitions both point at them.
             WorkflowStage::updateOrCreate(
                 ['code' => $code],
                 [

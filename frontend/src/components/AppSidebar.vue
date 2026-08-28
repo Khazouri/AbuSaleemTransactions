@@ -45,9 +45,9 @@ onMounted(() => {
 const ICON_BY_CODE = {
   dashboard: 'grid',
   departments: 'git-branch',
-  transactions: 'file-text',
-  transaction_intake: 'file-plus',
-  transaction_details: 'file-text',
+  requests: 'file-text',
+  request_intake: 'file-plus',
+  request_details: 'file-text',
   meetings: 'calendar',
   decisions: 'check-circle',
   // Stage 28 — meetings management group.

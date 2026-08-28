@@ -1,5 +1,5 @@
 <script setup>
-/** Stage 13 — single-submit transaction intake, including private attachments. */
+/** Stage 13 — single-submit request intake, including private attachments. */
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
@@ -18,11 +18,11 @@ const acceptedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png']
 const maxBytes = 20 * 1024 * 1024
 const isBusy = computed(() => loadingOptions.value || submitting.value)
 const selectedType = computed(() => options.value.types.find(
-  (type) => String(type.id) === String(form.value.transaction_type_id),
+  (type) => String(type.id) === String(form.value.request_type_id),
 ))
 
 function blankForm() {
-  return { title: '', description: '', department_id: '', transaction_type_id: '', decision_grade: '' }
+  return { title: '', description: '', department_id: '', request_type_id: '', decision_grade: '' }
 }
 
 function name(item) {
@@ -62,7 +62,7 @@ async function loadOptions() {
   loadingOptions.value = true
   error.value = ''
   try {
-    const { data } = await api.get('/transactions/intake-options')
+    const { data } = await api.get('/requests/intake-options')
     options.value = data.data ?? options.value
   } catch (requestError) {
     error.value = requestError.response?.data?.message ?? t('intake.loadFailed')
@@ -79,7 +79,7 @@ async function submit() {
   payload.append('title', form.value.title)
   payload.append('description', form.value.description)
   payload.append('department_id', form.value.department_id)
-  payload.append('transaction_type_id', form.value.transaction_type_id)
+  payload.append('request_type_id', form.value.request_type_id)
   if (form.value.decision_grade !== '') payload.append('decision_grade', form.value.decision_grade)
   files.value.forEach(({ file, label }, index) => {
     payload.append(`attachments[${index}][file]`, file)
@@ -87,7 +87,7 @@ async function submit() {
   })
 
   try {
-    const { data } = await api.post('/transactions', payload)
+    const { data } = await api.post('/requests', payload)
     created.value = data.data
   } catch (requestError) {
     errors.value = requestError.response?.data?.errors ?? {}
@@ -123,7 +123,7 @@ onMounted(loadOptions)
       <strong class="reference ltr">{{ created.reference_number }}</strong>
       <div class="actions">
         <button class="primary" type="button" @click="startAnother">{{ t('intake.createAnother') }}</button>
-        <RouterLink class="ghost link-button" :to="{ name: 'transactions' }">{{ t('intake.viewQueue') }}</RouterLink>
+        <RouterLink class="ghost link-button" :to="{ name: 'requests' }">{{ t('intake.viewQueue') }}</RouterLink>
       </div>
     </section>
 
@@ -140,7 +140,7 @@ onMounted(loadOptions)
             <small v-if="errors.title">{{ errors.title[0] }}</small>
           </label>
           <label>
-            {{ t('transactions.department') }}
+            {{ t('requests.department') }}
             <select v-model="form.department_id" required>
               <option disabled value="">{{ t('intake.chooseDepartment') }}</option>
               <option v-for="department in options.departments" :key="department.id" :value="department.id">{{ name(department) }}</option>
@@ -148,12 +148,12 @@ onMounted(loadOptions)
             <small v-if="errors.department_id">{{ errors.department_id[0] }}</small>
           </label>
           <label>
-            {{ t('transactions.type') }}
-            <select v-model="form.transaction_type_id" required>
+            {{ t('requests.type') }}
+            <select v-model="form.request_type_id" required>
               <option disabled value="">{{ t('intake.chooseType') }}</option>
               <option v-for="type in options.types" :key="type.id" :value="type.id">{{ name(type) }}</option>
             </select>
-            <small v-if="errors.transaction_type_id">{{ errors.transaction_type_id[0] }}</small>
+            <small v-if="errors.request_type_id">{{ errors.request_type_id[0] }}</small>
           </label>
           <label>
             {{ t('intake.decisionGrade') }}
@@ -193,7 +193,7 @@ onMounted(loadOptions)
       </fieldset>
 
       <div class="actions">
-        <button v-can="'transaction_intake.add'" class="primary" type="submit" :disabled="isBusy">{{ submitting ? t('intake.submitting') : t('intake.submit') }}</button>
+        <button v-can="'request_intake.add'" class="primary" type="submit" :disabled="isBusy">{{ submitting ? t('intake.submitting') : t('intake.submit') }}</button>
       </div>
     </form>
   </section>

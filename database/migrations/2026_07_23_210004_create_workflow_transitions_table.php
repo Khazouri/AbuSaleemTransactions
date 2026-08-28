@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Schema;
  * THE most important table in the system. Each row is one legal move:
  *
  *   "from stage X, action `approve`, performed by role R02,
- *    moves the transaction to stage Y and sets its status to `ready`"
+ *    moves the request to stage Y and sets its status to `ready`"
  *
  * Because the rules live in rows rather than in PHP `if` statements, the
  * municipality can reshape the workflow without a code change, and there is
@@ -31,13 +31,13 @@ return new class extends Migration
         Schema::create('workflow_transitions', function (Blueprint $table) {
             $table->id();
 
-            // Restrict this rule to one transaction type, or leave NULL to
+            // Restrict this rule to one request type, or leave NULL to
             // mean "applies to every type". Lets a specific type override the
             // general path without duplicating the whole map.
-            $table->foreignId('transaction_type_id')->nullable()
-                ->constrained('transaction_types')->cascadeOnDelete();
+            $table->foreignId('request_type_id')->nullable()
+                ->constrained('request_types')->cascadeOnDelete();
 
-            // Where the transaction must currently be for this rule to apply.
+            // Where the request must currently be for this rule to apply.
             $table->foreignId('from_stage_id')->constrained('workflow_stages')->cascadeOnDelete();
 
             // Where it lands afterwards. For a "return to previous stage"
@@ -51,14 +51,14 @@ return new class extends Migration
 
             // Who is allowed to do it. NULL = any authenticated user, which
             // should be rare — most rows name a role. This is the authoritative
-            // permission check for moving a transaction.
+            // permission check for moving a request.
             $table->foreignId('required_role_id')->nullable()
                 ->constrained('roles')->nullOnDelete();
 
-            // Status to stamp on the transaction when this move succeeds.
+            // Status to stamp on the request when this move succeeds.
             // Keeps stage and status changes atomic and consistent.
             $table->foreignId('set_status_id')->nullable()
-                ->constrained('transaction_statuses')->nullOnDelete();
+                ->constrained('request_statuses')->nullOnDelete();
 
             // Marks the row as an exception path (رفض / نقص مستندات / إلغاء)
             // rather than normal forward progress. The UI renders these as

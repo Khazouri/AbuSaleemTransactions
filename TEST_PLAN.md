@@ -48,9 +48,9 @@ idempotent, so re-running it is safe and will *reset* any role you changed by ha
 ### 1.2 Resetting between passes
 
 A full reset is `php artisan migrate:fresh --seed && php artisan db:seed --class=TestUserSeeder`.
-Note this destroys all transactions, meetings, decisions, audit rows and backups. For a
+Note this destroys all requests, meetings, decisions, audit rows and backups. For a
 partial reset, re-running `TestUserSeeder` alone restores the accounts and their roles
-without touching transactional data.
+without touching requestal data.
 
 ### 1.3 Test accounts
 
@@ -59,7 +59,7 @@ note the phone **cannot** be set through the Users screen, only by this seeder).
 
 | # | Email | Role(s) | Dept | Purpose |
 |---|---|---|---|---|
-| 1 | `r01.employee@abusaleem.test` | R01 Employee | ENG | Files transactions. **Moves none of them** — R01 appears nowhere in `workflow_transitions.required_role_id` |
+| 1 | `r01.employee@abusaleem.test` | R01 Employee | ENG | Files requests. **Moves none of them** — R01 appears nowhere in `workflow_transitions.required_role_id` |
 | 2 | `r02.reviewer@abusaleem.test` | R02 Reviewer | REP | Stages 1→5; owns every backward exception |
 | 3 | `r03.head@abusaleem.test` | R03 Committee Head | CMT | Stage 7; records binding decisions |
 | 4 | `r04.member1@abusaleem.test` | R04 Committee Member | CMT | Voter |
@@ -85,9 +85,9 @@ The whole point of this section is proving the two always agree.
 
 ### 2.1 Sidebar per role
 
-Sign in as each account and compare the sidebar against this table. `transaction_details`
+Sign in as each account and compare the sidebar against this table. `request_details`
 and `notes_attachments` are returned by `GET /api/screens` but filtered out of the sidebar
-by `AppSidebar.vue` (they need a transaction id), so the **visible** count is two fewer
+by `AppSidebar.vue` (they need a request id), so the **visible** count is two fewer
 than the API count shown here.
 
 | Account | API screen count | Approval screens visible |
@@ -103,7 +103,7 @@ than the API count shown here.
 | multi.role (R03+R04) | 12 | `committee_head_approval` only |
 
 - [ ] Each role sees exactly one approval screen (R07 two, R01/R04 none, R08 all six).
-- [ ] **R07 has no "استلام المعاملة" (transaction intake) entry.** Deliberate — the dean
+- [ ] **R07 has no "استلام الطلب" (request intake) entry.** Deliberate — the dean
       approves, they do not do data entry.
 - [ ] R01–R07 see no `users`, `departments`, `roles_permissions`, `settings`, `templates`
       or `backup` entry. Those six screens are R08-only.
@@ -128,7 +128,7 @@ For each denied screen, do both halves:
 Five screens split these deliberately. A user who can read the screen must still be refused
 the file.
 
-- [ ] R01 `GET /api/reports/transactions` → 200; `GET /api/reports/transactions/export?format=xlsx` → **403**.
+- [ ] R01 `GET /api/reports/requests` → 200; `GET /api/reports/requests/export?format=xlsx` → **403**.
 - [ ] R01 `GET /api/audit-logs` → 200; `GET /api/audit-logs/export?format=xlsx` → **403**.
 - [ ] R06 and R07 succeed on both of the above (they hold `export`).
 - [ ] R06 `GET /api/decisions` → 200; `GET /api/decisions/export` → **403**. Decisions
@@ -168,10 +168,10 @@ the file.
 
 ## 4. The golden path — stage 1 to archived
 
-The core test. One transaction, six different people, eleven moves. Actor and expected
+The core test. One request, six different people, eleven moves. Actor and expected
 status come straight from `WorkflowTransitionSeeder`.
 
-**Setup:** as **R01**, create a transaction (§8.1). Type **GRIV تظلم** (20-day SLA), and
+**Setup:** as **R01**, create a request (§8.1). Type **GRIV تظلم** (20-day SLA), and
 set **`decision_grade` = 15** — at or above every type's threshold of 10, so it takes the
 full route *through* ministry. Note the reference number.
 
@@ -197,15 +197,15 @@ full route *through* ministry. Note the reference number.
 - [ ] The stage timeline grows by one row per move, with actor and timestamp.
 - [ ] The approval trail shows **six** signed approvals at levels 1–6 with visible
       signature images.
-- [ ] After step 11 the transaction is `archived` and **terminal** — no further action is
-      offered, and a raw `POST /api/transactions/{id}/transition` returns 422.
+- [ ] After step 11 the request is `archived` and **terminal** — no further action is
+      offered, and a raw `POST /api/requests/{id}/transition` returns 422.
 
 ### 4.1 Skipping a level is impossible
 
-- [ ] With the transaction at stage 2, sign in as R05 and `POST /api/approvals/admin-manager/{id}`
-      → 422 `لا توجد المعاملة في مستوى الاعتماد المطلوب.`
-- [ ] With the transaction at stage 8, sign in as R06 and try the ministry queue → same 422
-      (the transaction has not reached stage 9 yet).
+- [ ] With the request at stage 2, sign in as R05 and `POST /api/approvals/admin-manager/{id}`
+      → 422 `لا توجد الطلب في مستوى الاعتماد المطلوب.`
+- [ ] With the request at stage 8, sign in as R06 and try the ministry queue → same 422
+      (the request has not reached stage 9 yet).
 
 ---
 
@@ -214,22 +214,22 @@ full route *through* ministry. Note the reference number.
 The one destination that is **not** visible in the seeded transition map — it is computed
 at runtime by `WorkflowService::destinationStageId()`.
 
-Rule: on `approve` out of stage 8, if `Transaction::requiresMinistryApproval()` is false,
-the transaction jumps straight to stage **10**, skipping ministry. That method is false
+Rule: on `approve` out of stage 8, if `Request::requiresMinistryApproval()` is false,
+the request jumps straight to stage **10**, skipping ministry. That method is false
 only when the type has a threshold and `decision_grade` is **below** it. Every seeded type
 has a threshold of **10**.
 
-Create three transactions and walk each to stage 8:
+Create three requests and walk each to stage 8:
 
 - [ ] `decision_grade = 5` (below 10) → R05 approves at stage 8 → lands at **stage 10
       اعتماد الجهة المختصة**, skipping stage 9. Status still `approved`.
 - [ ] `decision_grade = 10` (at the threshold) → goes to **stage 9** (ministry). The
       threshold is inclusive.
 - [ ] `decision_grade = 15` (above) → goes to **stage 9**.
-- [ ] For the bypassed transaction, the approval trail keeps levels 1, 2, 3 then jumps to
+- [ ] For the bypassed request, the approval trail keeps levels 1, 2, 3 then jumps to
       **5** — level 4 (ministry) is legitimately absent. Levels are business constants, not
       a sequence counter, so a gap here is correct.
-- [ ] R06 never sees the bypassed transaction in the ministry queue.
+- [ ] R06 never sees the bypassed request in the ministry queue.
 
 ---
 
@@ -254,7 +254,7 @@ All five exception transitions are `requires_comment = true`.
 - [ ] Cancel from stage 6 as R05 → status `cancelled`, stage stays **6**. The self-loop is
       deliberate: it records where work stopped rather than pretending cancellation was
       progress toward approval.
-- [ ] A `cancelled` transaction is terminal — no further actions offered, API returns 422,
+- [ ] A `cancelled` request is terminal — no further actions offered, API returns 422,
       and it disappears from every approval queue.
 - [ ] Cancel from stage 6 as **R02** → refused (stage 6's cancel role is R05).
 
@@ -265,19 +265,19 @@ All five exception transitions are `requires_comment = true`.
 `due_date = submitted_at.startOfDay() + type.default_sla_days`. Seeded SLAs: LEAV 7,
 ALLW 10, PROM/SECD/TRNS 15, GRIV/EOSV 20.
 
-- [ ] Create a LEAV transaction; `due_date` is 7 days out. Create a GRIV; it is 20.
+- [ ] Create a LEAV request; `due_date` is 7 days out. Create a GRIV; it is 20.
 - [ ] Back-date one in the database so `due_date` is in the past, then run
-      `php artisan transactions:flag-overdue`.
-- [ ] Command prints `Backfilled N deadline(s); flagged N overdue transaction(s).`
+      `php artisan requests:flag-overdue`.
+- [ ] Command prints `Backfilled N deadline(s); flagged N overdue request(s).`
 - [ ] `overdue_at` is now set, and the SPA shows the breach on the detail screen.
-- [ ] **Run the command a second time** — the same transaction is *not* re-flagged and no
+- [ ] **Run the command a second time** — the same request is *not* re-flagged and no
       second notification fires. The `whereNull('overdue_at')` guard makes this exactly-once.
-- [ ] A transaction due **today** is not flagged. It breaches only the following day.
-- [ ] A `cancelled` or `archived` transaction is never flagged.
+- [ ] A request due **today** is not flagged. It breaches only the following day.
+- [ ] A `cancelled` or `archived` request is never flagged.
 - [ ] The **`deadline_expired`** action (R08 → ministry oversight, mandatory reason) appears
-      **only** on a flagged transaction, and only for R08. Verify it is absent before the
+      **only** on a flagged request, and only for R08. Verify it is absent before the
       sweep runs and present after.
-- [ ] Executing it moves the transaction to stage 9 with status `in_review`.
+- [ ] Executing it moves the request to stage 9 with status `in_review`.
 
 ---
 
@@ -285,21 +285,21 @@ ALLW 10, PROM/SECD/TRNS 15, GRIV/EOSV 20.
 
 ### 8.1 Intake
 
-`POST /api/transactions`, gated `transaction_intake,add` (R01–R06; **not R07**).
+`POST /api/requests`, gated `request_intake,add` (R01–R06; **not R07**).
 
-- [ ] R01 can open `/transactions/create`; **R07 cannot** (redirect + 403 on
-      `GET /api/transactions/intake-options`).
-- [ ] Required fields: `title`, `department_id`, `transaction_type_id`. Missing any → 422
+- [ ] R01 can open `/requests/create`; **R07 cannot** (redirect + 403 on
+      `GET /api/requests/intake-options`).
+- [ ] Required fields: `title`, `department_id`, `request_type_id`. Missing any → 422
       with an Arabic message.
 - [ ] `decision_grade` is **required** whenever the chosen type has a threshold (all seven
       seeded types do) and must be an integer 1–100. Omit it → 422
-      `درجة القرار مطلوبة لهذا النوع من المعاملات.`
+      `درجة القرار مطلوبة لهذا النوع من الطلبات.`
 - [ ] The department dropdown offers only **active** departments **with a code** —
       deactivate one in the admin screen and confirm it disappears.
 - [ ] Reference number format is `YYYY-DEPT-000001`. Create two in ENG and one in FIN:
       ENG increments to `-000002` while FIN starts its own `-000001`. Counters are
       **per department, per year**.
-- [ ] New transaction is status `new`, stage 1, `submitted_at` set.
+- [ ] New request is status `new`, stage 1, `submitted_at` set.
 - [ ] The timeline already has one row (action `intake`) before anyone touches it.
 
 ### 8.2 Attachments
@@ -337,9 +337,9 @@ Six queues, each bound to one stage and one role.
 | `/approvals/authority` | `authority_approval` | 10 | R07 |
 | `/approvals/final` | `final_approval` | 11 | R07 |
 
-- [ ] Each queue lists **only** transactions at its own stage. Park transactions at several
+- [ ] Each queue lists **only** requests at its own stage. Park requests at several
       stages at once and confirm no queue shows another's work.
-- [ ] `cancelled` and `archived` transactions appear in **no** queue.
+- [ ] `cancelled` and `archived` requests appear in **no** queue.
 - [ ] Approving without drawing a signature → refused. The signature is **required** on
       every one of the six levels, including the final archive step.
 - [ ] Signature validation: PNG only, max 2 MB, between 2×2 and 2400×1200 px. Post a JPEG
@@ -350,7 +350,7 @@ Six queues, each bound to one stage and one role.
 - [ ] **Signature cleanup on failure:** approve with a valid PNG but an invalid state
       (wrong stage, or a role you do not hold) → 422, and **no orphan file** is left in
       `storage/app/private/signatures`. Count the directory before and after.
-- [ ] Fetching another transaction's approval signature by id → 404, not someone else's
+- [ ] Fetching another request's approval signature by id → 404, not someone else's
       image.
 
 ---
@@ -373,9 +373,9 @@ Committees and meetings both ride the `meetings` screen: view `*`, add R03/R04,
 
 - [ ] R03 schedules a meeting. **All four active members are auto-invited** as attendees —
       check the attendee list without adding anyone by hand.
-- [ ] Add a transaction sitting at stage 7 to the agenda (use the search box — it matches
+- [ ] Add a request sitting at stage 7 to the agenda (use the search box — it matches
       reference number or title).
-- [ ] Adding the same transaction twice is rejected.
+- [ ] Adding the same request twice is rejected.
 - [ ] Reorder agenda items with the up/down buttons; the order persists after reload.
 - [ ] Remove an agenda item.
 - [ ] Mark attendance: set `member1`, `member2`, `member3` **attended**, and deliberately
@@ -406,10 +406,10 @@ the section most worth doing carefully.
 
 - [ ] **Zero votes** → 422 `لا توجد أصوات مسجلة على هذا البند بعد.`
 - [ ] **Tie** (1 approve / 1 reject) → 422 `التصويت متعادل، لا يمكن حسم القرار تلقائياً.`
-      No `Decision` row is written and the transaction does not move.
-- [ ] **2 approve / 1 reject** → R03 records it → transaction moves **stage 7 → 8**, status
+      No `Decision` row is written and the request does not move.
+- [ ] **2 approve / 1 reject** → R03 records it → request moves **stage 7 → 8**, status
       `decided`, and a level-2 `Approval` row is written with the signature.
-- [ ] **Majority `defer`** → transaction **stays at stage 7**, status `deferred`, ready to
+- [ ] **Majority `defer`** → request **stays at stage 7**, status `deferred`, ready to
       be put on a later agenda.
 - [ ] **Majority `reject`** → maps to the `cancel` action → status `cancelled`, stage stays 7.
 - [ ] Once a decision exists, voting closes:
@@ -437,14 +437,14 @@ Six event types. Defaults: in-app on for all; email on for the four "do somethin
 
 | Event | in_app | email | sms | Recipients |
 |---|---|---|---|---|
-| `transaction_created` | ✅ | ❌ | ❌ | next-stage actors (not the creator) |
+| `request_created` | ✅ | ❌ | ❌ | next-stage actors (not the creator) |
 | `stage_changed` | ✅ | ❌ | ❌ | the creator only |
 | `action_required` | ✅ | ✅ | ❌ | next-stage actors (not creator, not actor) |
-| `transaction_overdue` | ✅ | ✅ | ❌ | creator + current-stage actors |
+| `request_overdue` | ✅ | ✅ | ❌ | creator + current-stage actors |
 | `meeting_scheduled` | ✅ | ✅ | ❌ | the attendee rows just written |
 | `decision_recorded` | ✅ | ✅ | ❌ | creator + committee members |
 
-- [ ] R01 creates a transaction → **R02** gets `action_required` (R02 owns stage 1→2);
+- [ ] R01 creates a request → **R02** gets `action_required` (R02 owns stage 1→2);
       R01 does **not** get told about their own action.
 - [ ] R02 forwards it → **R01 (the creator)** gets `stage_changed`; the next actor gets
       `action_required`.
@@ -470,7 +470,7 @@ Six event types. Defaults: in-app on for all; email on for the four "do somethin
 ## 12. Audit log
 
 - [ ] Seeding writes **no** audit rows. After `migrate:fresh --seed`, the viewer is empty.
-- [ ] Creating and updating a transaction, approving, voting and deciding all appear.
+- [ ] Creating and updating a request, approving, voting and deciding all appear.
 - [ ] Expanding a row shows an old/new diff of **only the changed fields**.
 - [ ] A **no-op save** (submit the edit form without changing anything) records nothing.
 - [ ] Update a user's password via the Users screen → the audit row shows `********`, not
@@ -495,12 +495,12 @@ Both read one service, so a tile and an exported file can never disagree.
 - [ ] Total = completed + abandoned + pending. Pending is computed as the remainder, so
       the three always add up.
 - [ ] `overdue` counts only work that is flagged **and still open** — archive an overdue
-      transaction and watch the breach count drop.
-- [ ] **Cache invalidation:** note the total, create a transaction, reload the dashboard.
-      The new transaction appears **immediately** (a 5-minute TTL alone would look like a bug).
+      request and watch the breach count drop.
+- [ ] **Cache invalidation:** note the total, create a request, reload the dashboard.
+      The new request appears **immediately** (a 5-minute TTL alone would look like a bug).
 - [ ] Breakdown bars by status, stage, department (top 10) and a 12-month created-vs-completed
       trend all render without a charting library.
-- [ ] A status with zero transactions still shows an explicit 0 rather than vanishing.
+- [ ] A status with zero requests still shows an explicit 0 rather than vanishing.
 - [ ] Reports filters (department, type, status, date range) narrow both the table and the
       summary, and the summary matches the rows.
 - [ ] Export as **xlsx** — opens in Excel, sheet is RTL when the locale is `ar`.
@@ -547,7 +547,7 @@ Both read one service, so a tile and an exported file can never disagree.
       log. Restore the correct path afterwards.
 - [ ] `php artisan backup:run` prints `Created <file> (<N> KB); pruned <N> expired snapshot(s).`
 - [ ] `php artisan schedule:list` shows `backup:run` at 01:30 and
-      `transactions:flag-overdue` at 00:05.
+      `requests:flag-overdue` at 00:05.
 - [ ] **There is no restore button, deliberately** — the screen says so. Restoring is a
       server-side operation performed with the system stopped.
 
@@ -572,7 +572,7 @@ Both read one service, so a tile and an exported file can never disagree.
 - [ ] No untranslated keys (raw `some.key.name` strings) on any screen in either locale.
 - [ ] **Print preview every screen.** The global `@media print` block releases `.shell`'s
       `height:100vh`/`overflow:hidden`; without it you get page one and nothing else.
-      Confirm multi-page content actually paginates — the transaction detail, the decisions
+      Confirm multi-page content actually paginates — the request detail, the decisions
       register and the audit log are the ones worth checking.
 
 ---
@@ -608,7 +608,7 @@ R08 مدير النظام System Admin
 
 **Departments:** ABS (root) › ADM, ENG, FIN, REP, CMT
 
-**Transaction types** (all with `decision_grade_threshold` = 10):
+**Request types** (all with `decision_grade_threshold` = 10):
 PROM ترقية 15d · LEAV إجازة 7d · ALLW علاوة 10d · SECD انتداب 15d · GRIV تظلم 20d ·
 TRNS نقل 15d · EOSV إنهاء خدمة 20d
 

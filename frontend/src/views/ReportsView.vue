@@ -2,7 +2,7 @@
 /**
  * Reports & statistics (التقارير والإحصائيات) — Stage 24.
  *
- * A filtered transaction listing with the KPI summary that describes exactly
+ * A filtered request listing with the KPI summary that describes exactly
  * the rows below it, plus .xlsx / PDF export of the same filtered set. The
  * export buttons carry v-can="'reports.export'": viewing the numbers and
  * carrying them out of the system as a file are separate grants.
@@ -79,7 +79,7 @@ async function load(requestedPage = 1) {
   loading.value = true
   loadError.value = null
   try {
-    const { data } = await api.get('/reports/transactions', {
+    const { data } = await api.get('/reports/requests', {
       params: { page: requestedPage, ...activeFilters() },
     })
     rows.value = data.data ?? []
@@ -114,9 +114,9 @@ async function exportAs(format) {
   exportError.value = null
   try {
     await downloadExport(
-      '/reports/transactions/export',
+      '/reports/requests/export',
       { ...activeFilters(), format, locale: locale.value },
-      `transactions-report.${format}`,
+      `requests-report.${format}`,
     )
   } catch (error) {
     exportError.value = error?.response?.data?.message ?? t('reports.exportFailed')
@@ -230,12 +230,12 @@ onMounted(async () => {
               <td>
                 <RouterLink
                   class="reference ltr"
-                  :to="{ name: 'transaction_details', params: { id: row.id } }"
+                  :to="{ name: 'request_details', params: { id: row.id } }"
                 >{{ row.reference_number ?? `#${row.id}` }}</RouterLink>
               </td>
               <td class="subject">{{ row.title }}</td>
               <td>{{ localName(row.department) }}</td>
-              <td>{{ localName(row.transaction_type) }}</td>
+              <td>{{ localName(row.request_type) }}</td>
               <td>
                 <span
                   v-if="row.status"
@@ -258,11 +258,11 @@ onMounted(async () => {
 
     <nav v-if="!loading && !loadError && page.last_page > 1" class="pagination" :aria-label="t('reports.title')">
       <button class="ghost" :disabled="page.current_page <= 1" @click="load(page.current_page - 1)">
-        {{ t('transactions.previous') }}
+        {{ t('requests.previous') }}
       </button>
-      <span>{{ t('transactions.page', { current: page.current_page, last: page.last_page }) }}</span>
+      <span>{{ t('requests.page', { current: page.current_page, last: page.last_page }) }}</span>
       <button class="ghost" :disabled="page.current_page >= page.last_page" @click="load(page.current_page + 1)">
-        {{ t('transactions.next') }}
+        {{ t('requests.next') }}
       </button>
     </nav>
   </section>

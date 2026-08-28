@@ -19,7 +19,7 @@ class IndexCommitteeCandidateRequest extends FormRequest
         return [
             'status' => ['nullable', 'string', Rule::in(CommitteeStatusService::CANDIDATE_STATUSES)],
             'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')],
-            'type_id' => ['nullable', 'integer', Rule::exists('transaction_types', 'id')],
+            'type_id' => ['nullable', 'integer', Rule::exists('request_types', 'id')],
             'search' => ['nullable', 'string', 'max:255'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
@@ -30,7 +30,7 @@ class IndexCommitteeCandidateRequest extends FormRequest
         return [
             'status.in' => 'حالة المرشح المحددة غير صالحة.',
             'department_id.exists' => 'الإدارة المحددة غير صالحة.',
-            'type_id.exists' => 'نوع المعاملة المحدد غير صالح.',
+            'type_id.exists' => 'نوع الطلب المحدد غير صالح.',
         ];
     }
 }

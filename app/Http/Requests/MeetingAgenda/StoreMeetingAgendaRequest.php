@@ -8,10 +8,10 @@ use Illuminate\Validation\Rule;
 /**
  * Adds one agenda item to the {meeting} route-bound meeting.
  *
- * `item_type` decides which of `transaction_id`/`subject` is required:
+ * `item_type` decides which of `request_id`/`subject` is required:
  * `employee_request` (the default, and the only type that existed before
- * Stage 31) rides an existing transaction; `administrative`/`emerging` are
- * standalone items with their own subject and no transaction at all.
+ * Stage 31) rides an existing request; `administrative`/`emerging` are
+ * standalone items with their own subject and no request at all.
  */
 class StoreMeetingAgendaRequest extends FormRequest
 {
@@ -27,10 +27,10 @@ class StoreMeetingAgendaRequest extends FormRequest
 
         return [
             'item_type' => ['sometimes', Rule::in(['employee_request', 'administrative', 'emerging'])],
-            'transaction_id' => [
+            'request_id' => [
                 Rule::requiredIf($itemType === 'employee_request'),
-                'nullable', 'integer', 'exists:transactions,id',
-                Rule::unique('meeting_transactions', 'transaction_id')
+                'nullable', 'integer', 'exists:requests,id',
+                Rule::unique('meeting_requests', 'request_id')
                     ->where('meeting_id', $meeting->id),
             ],
             'subject' => [Rule::requiredIf($itemType !== 'employee_request'), 'nullable', 'string', 'max:255'],
@@ -44,10 +44,10 @@ class StoreMeetingAgendaRequest extends FormRequest
     {
         return [
             'item_type.in' => 'نوع البند غير صالح.',
-            'transaction_id.required' => 'يجب اختيار معاملة.',
-            'transaction_id.exists' => 'المعاملة المحددة غير موجودة.',
-            'transaction_id.unique' => 'هذه المعاملة مدرجة بالفعل في جدول أعمال الاجتماع.',
-            'subject.required' => 'موضوع البند مطلوب للبنود غير المرتبطة بمعاملة.',
+            'request_id.required' => 'يجب اختيار طلب.',
+            'request_id.exists' => 'الطلب المحدد غير موجود.',
+            'request_id.unique' => 'هذا الطلب مدرج بالفعل في جدول أعمال الاجتماع.',
+            'subject.required' => 'موضوع البند مطلوب للبنود غير المرتبطة بطلب.',
             'department_id.exists' => 'الإدارة المحددة غير موجودة.',
             'priority.in' => 'الأولوية غير صالحة.',
             'estimated_minutes.integer' => 'الزمن المتوقع يجب أن يكون رقماً.',

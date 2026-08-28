@@ -2,38 +2,38 @@
 
 namespace App\Notifications;
 
-use App\Models\Transaction;
+use App\Models\Request;
 
-/** A new transaction has been registered and is waiting at the first stage. */
-class TransactionCreatedNotification extends SystemNotification
+/** A new request has been registered and is waiting at the first stage. */
+class RequestCreatedNotification extends SystemNotification
 {
-    private readonly int $transactionId;
+    private readonly int $requestId;
 
     private readonly string $reference;
 
     private readonly string $title;
 
-    public function __construct(Transaction $transaction, private readonly string $actorName)
+    public function __construct(Request $requestRecord, private readonly string $actorName)
     {
-        $this->transactionId = $transaction->id;
-        $this->reference = (string) $transaction->reference_number;
-        $this->title = (string) $transaction->title;
+        $this->requestId = $requestRecord->id;
+        $this->reference = (string) $requestRecord->reference_number;
+        $this->title = (string) $requestRecord->title;
     }
 
     public function eventType(): string
     {
-        return 'transaction_created';
+        return 'request_created';
     }
 
     protected function payload(): array
     {
         return [
-            'transaction_id' => $this->transactionId,
+            'request_id' => $this->requestId,
             'reference_number' => $this->reference,
-            'title_ar' => 'معاملة جديدة',
-            'title_en' => 'New transaction',
-            'body_ar' => "سجّل {$this->actorName} المعاملة {$this->reference} — {$this->title}.",
-            'body_en' => "{$this->actorName} registered transaction {$this->reference} — {$this->title}.",
+            'title_ar' => 'طلب جديد',
+            'title_en' => 'New request',
+            'body_ar' => "سجّل {$this->actorName} الطلب {$this->reference} — {$this->title}.",
+            'body_en' => "{$this->actorName} registered request {$this->reference} — {$this->title}.",
         ];
     }
 }

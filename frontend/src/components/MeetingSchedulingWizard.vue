@@ -45,7 +45,7 @@ function onRequestSearchInput() {
   searchTimer = setTimeout(async () => {
     requestSearching.value = true
     try {
-      const { data } = await api.get('/transactions', { params: { search: requestSearch.value.trim(), per_page: 5 } })
+      const { data } = await api.get('/requests', { params: { search: requestSearch.value.trim(), per_page: 5 } })
       requestResults.value = data.data ?? []
     } catch {
       requestResults.value = []
@@ -55,13 +55,13 @@ function onRequestSearchInput() {
   }, 300)
 }
 
-function addRequest(transaction) {
-  if (selectedRequestIds.value.has(transaction.id)) return
-  selectedRequests.value.push(transaction)
+function addRequest(request) {
+  if (selectedRequestIds.value.has(request.id)) return
+  selectedRequests.value.push(request)
 }
 
-function removeRequest(transaction) {
-  selectedRequests.value = selectedRequests.value.filter((r) => r.id !== transaction.id)
+function removeRequest(request) {
+  selectedRequests.value = selectedRequests.value.filter((r) => r.id !== request.id)
 }
 
 // --- Step 2: meeting details -------------------------------------------------
@@ -151,8 +151,8 @@ async function submit() {
 
     if (selectedRequests.value.length) {
       submitPhase.value = t('meetings.wizard.addingAgenda')
-      for (const transaction of selectedRequests.value) {
-        await api.post(`/meetings/${meetingId}/agenda`, { transaction_id: transaction.id })
+      for (const request of selectedRequests.value) {
+        await api.post(`/meetings/${meetingId}/agenda`, { request_id: request.id })
       }
     }
 

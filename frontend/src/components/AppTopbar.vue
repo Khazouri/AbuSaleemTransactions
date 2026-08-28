@@ -114,8 +114,8 @@ async function openNotification(notification) {
     }
   }
 
-  if (notification.transaction_id) {
-    router.push({ name: 'transaction_details', params: { id: notification.transaction_id } })
+  if (notification.request_id) {
+    router.push({ name: 'request_details', params: { id: notification.request_id } })
   } else if (notification.meeting_id) {
     router.push({ name: 'meeting_details', params: { id: notification.meeting_id } })
   } else {

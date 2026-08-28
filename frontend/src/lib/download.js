@@ -34,7 +34,7 @@ async function decodeErrorBody(error) {
 }
 
 /**
- * @param {string} url      API path, e.g. '/reports/transactions/export'
+ * @param {string} url      API path, e.g. '/reports/requests/export'
  * @param {object} params   Query parameters (filters, format, locale)
  * @param {string} fallback Filename to use if the server didn't name the file
  */

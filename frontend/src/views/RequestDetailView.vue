@@ -1,17 +1,17 @@
 <script setup>
-/** Stage 15 — the workflow workspace for a single transaction. */
+/** Stage 15 — the workflow workspace for a single request. */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import ApprovalTrail from '../components/ApprovalTrail.vue'
 import FileUpload from '../components/FileUpload.vue'
 import SignaturePad from '../components/SignaturePad.vue'
-import TransactionNotes from '../components/TransactionNotes.vue'
+import RequestNotes from '../components/RequestNotes.vue'
 import api from '../lib/api'
 
 const route = useRoute()
 const { t, locale } = useI18n()
-const transaction = ref(null)
+const request = ref(null)
 const loading = ref(false)
 const error = ref('')
 const actionError = ref('')
@@ -43,8 +43,8 @@ const timelineMovement = (entry) => entry.from_stage
   ? `${name(entry.from_stage)} ${locale.value === 'ar' ? '←' : '→'} ${name(entry.to_stage)}`
   : name(entry.to_stage)
 const transitions = computed(() => {
-  if (transaction.value?.available_transitions?.length) return transaction.value.available_transitions
-  return (transaction.value?.available_actions ?? []).map((action) => ({
+  if (request.value?.available_transitions?.length) return request.value.available_transitions
+  return (request.value?.available_actions ?? []).map((action) => ({
     action,
     is_exception: false,
     requires_comment: false,
@@ -118,10 +118,10 @@ async function load() {
   error.value = ''
   actionError.value = ''
   try {
-    const { data } = await api.get(`/transactions/${route.params.id}`)
-    transaction.value = data.data
+    const { data } = await api.get(`/requests/${route.params.id}`)
+    request.value = data.data
   } catch (requestError) {
-    error.value = requestError.response?.data?.message ?? t('transactionDetail.loadFailed')
+    error.value = requestError.response?.data?.message ?? t('requestDetail.loadFailed')
   } finally {
     loading.value = false
   }
@@ -143,9 +143,9 @@ async function transition(action, suppliedComment = comment.value) {
     form.append('action', action)
     if (suppliedComment.trim()) form.append('comment', suppliedComment.trim())
     if (signature) form.append('signature', signature)
-    const { data } = await api.post(`/transactions/${transaction.value.id}/transition`, form)
+    const { data } = await api.post(`/requests/${request.value.id}/transition`, form)
     if (signature) signaturePad.value?.clear()
-    transaction.value = data.data
+    request.value = data.data
     comment.value = ''
     selectedException.value = null
     exceptionReason.value = ''
@@ -155,7 +155,7 @@ async function transition(action, suppliedComment = comment.value) {
     const message = requestError.response?.data?.errors?.action?.[0]
       ?? requestError.response?.data?.errors?.signature?.[0]
       ?? requestError.response?.data?.message
-      ?? t('transactionDetail.actionFailed')
+      ?? t('requestDetail.actionFailed')
     if (selectedException.value) exceptionError.value = message
     else actionError.value = message
     return false
@@ -182,7 +182,7 @@ function closeException() {
 async function submitException() {
   exceptionError.value = ''
   if (!exceptionReason.value.trim()) {
-    exceptionError.value = t('transactionDetail.reasonRequired')
+    exceptionError.value = t('requestDetail.reasonRequired')
     return
   }
   await transition(selectedException.value.action, exceptionReason.value)
@@ -195,57 +195,57 @@ onBeforeUnmount(clearAttachmentPreview)
 
 <template>
   <section class="detail">
-    <RouterLink class="back" :to="{ name: 'transactions' }">{{ t('transactionDetail.back') }}</RouterLink>
+    <RouterLink class="back" :to="{ name: 'requests' }">{{ t('requestDetail.back') }}</RouterLink>
 
     <p v-if="loading" class="state">{{ t('common.loading') }}</p>
     <div v-else-if="error" class="alert" role="alert">
       {{ error }} <button class="ghost" type="button" @click="load">{{ t('common.retry') }}</button>
     </div>
 
-    <template v-else-if="transaction">
+    <template v-else-if="request">
       <header class="heading">
         <div>
-          <p class="reference ltr">{{ transaction.reference_number || `#${transaction.id}` }}</p>
-          <h2>{{ transaction.title }}</h2>
+          <p class="reference ltr">{{ request.reference_number || `#${request.id}` }}</p>
+          <h2>{{ request.title }}</h2>
         </div>
-        <span v-if="transaction.status" class="status" :style="{ '--status-color': transaction.status.color || 'var(--color-muted)' }">
-          {{ name(transaction.status) }}
+        <span v-if="request.status" class="status" :style="{ '--status-color': request.status.color || 'var(--color-muted)' }">
+          {{ name(request.status) }}
         </span>
       </header>
 
       <!-- Stage 17 — a breach remains visible without replacing workflow status. -->
-      <p v-if="transaction.is_overdue" class="sla-alert" role="status">
-        {{ t('transactionDetail.overdue', { date: date(transaction.due_date) }) }}
+      <p v-if="request.is_overdue" class="sla-alert" role="status">
+        {{ t('requestDetail.overdue', { date: date(request.due_date) }) }}
       </p>
 
       <section class="card summary">
         <div>
-          <span>{{ t('transactionDetail.currentStage') }}</span>
-          <strong>{{ name(transaction.current_stage) }}</strong>
+          <span>{{ t('requestDetail.currentStage') }}</span>
+          <strong>{{ name(request.current_stage) }}</strong>
         </div>
         <div>
-          <span>{{ t('transactions.department') }}</span>
-          <strong>{{ name(transaction.department) }}</strong>
+          <span>{{ t('requests.department') }}</span>
+          <strong>{{ name(request.department) }}</strong>
         </div>
         <div>
-          <span>{{ t('transactions.type') }}</span>
-          <strong>{{ name(transaction.transaction_type) }}</strong>
+          <span>{{ t('requests.type') }}</span>
+          <strong>{{ name(request.request_type) }}</strong>
         </div>
         <div>
-          <span>{{ t('transactionDetail.submittedAt') }}</span>
-          <strong>{{ dateTime(transaction.submitted_at || transaction.created_at) }}</strong>
+          <span>{{ t('requestDetail.submittedAt') }}</span>
+          <strong>{{ dateTime(request.submitted_at || request.created_at) }}</strong>
         </div>
-        <div v-if="transaction.due_date">
-          <span>{{ t('transactionDetail.dueDate') }}</span>
-          <strong>{{ date(transaction.due_date) }}</strong>
+        <div v-if="request.due_date">
+          <span>{{ t('requestDetail.dueDate') }}</span>
+          <strong>{{ date(request.due_date) }}</strong>
         </div>
       </section>
 
       <section v-if="canAct" class="card action-panel">
-        <h3>{{ t('transactionDetail.actions') }}</h3>
-        <p>{{ t('transactionDetail.actionHint') }}</p>
+        <h3>{{ t('requestDetail.actions') }}</h3>
+        <p>{{ t('requestDetail.actionHint') }}</p>
         <label v-if="normalActions.length">
-          {{ t('transactionDetail.comment') }}
+          {{ t('requestDetail.comment') }}
           <textarea v-model="comment" rows="2" maxlength="5000" :disabled="acting" />
         </label>
         <SignaturePad
@@ -264,11 +264,11 @@ onBeforeUnmount(clearAttachmentPreview)
             :disabled="acting || (item.action === 'approve' && !signatureReady)"
             @click="transition(item.action)"
           >
-            {{ acting && activeAction === item.action ? t('transactionDetail.processing') : actionLabel(item.action) }}
+            {{ acting && activeAction === item.action ? t('requestDetail.processing') : actionLabel(item.action) }}
           </button>
         </div>
         <div v-if="exceptionActions.length" class="exception-actions">
-          <p>{{ t('transactionDetail.exceptionActions') }}</p>
+          <p>{{ t('requestDetail.exceptionActions') }}</p>
           <div class="action-buttons">
             <button
               v-for="item in exceptionActions"
@@ -288,15 +288,15 @@ onBeforeUnmount(clearAttachmentPreview)
       <div class="columns">
         <div class="main-column">
           <section class="card description">
-            <h3>{{ t('transactionDetail.description') }}</h3>
-            <p>{{ transaction.description || t('transactionDetail.noDescription') }}</p>
+            <h3>{{ t('requestDetail.description') }}</h3>
+            <p>{{ request.description || t('requestDetail.noDescription') }}</p>
           </section>
 
           <section class="card timeline">
-            <h3>{{ t('transactionDetail.timeline') }}</h3>
-            <p v-if="!transaction.timeline?.length" class="state">{{ t('transactionDetail.noTimeline') }}</p>
+            <h3>{{ t('requestDetail.timeline') }}</h3>
+            <p v-if="!request.timeline?.length" class="state">{{ t('requestDetail.noTimeline') }}</p>
             <ol v-else>
-              <li v-for="entry in transaction.timeline" :key="entry.id">
+              <li v-for="entry in request.timeline" :key="entry.id">
                 <span class="dot" />
                 <div>
                   <strong>{{ actionLabel(entry.action) }}</strong>
@@ -308,15 +308,15 @@ onBeforeUnmount(clearAttachmentPreview)
             </ol>
           </section>
 
-          <ApprovalTrail :approvals="transaction.approvals ?? []" />
+          <ApprovalTrail :approvals="request.approvals ?? []" />
         </div>
 
         <aside class="side-column">
           <section class="card attachments">
             <h3>{{ t('attachments.title') }}</h3>
-            <p v-if="!transaction.attachments?.length" class="state">{{ t('transactionDetail.noAttachments') }}</p>
+            <p v-if="!request.attachments?.length" class="state">{{ t('requestDetail.noAttachments') }}</p>
             <ul v-else>
-              <li v-for="attachment in transaction.attachments" :key="attachment.id">
+              <li v-for="attachment in request.attachments" :key="attachment.id">
                 <strong class="file-name ltr">{{ attachment.original_name }}</strong>
                 <small>{{ attachment.label || attachment.mime_type }} · {{ fileSize(attachment.size_bytes) }}</small>
                 <div class="attachment-actions">
@@ -330,10 +330,10 @@ onBeforeUnmount(clearAttachmentPreview)
                 </div>
               </li>
             </ul>
-            <FileUpload v-can="'notes_attachments.add'" :transaction-id="transaction.id" @uploaded="load" />
+            <FileUpload v-can="'notes_attachments.add'" :request-id="request.id" @uploaded="load" />
           </section>
 
-          <section class="card"><TransactionNotes :transaction-id="transaction.id" /></section>
+          <section class="card"><RequestNotes :request-id="request.id" /></section>
         </aside>
       </div>
 
@@ -359,12 +359,12 @@ onBeforeUnmount(clearAttachmentPreview)
             aria-labelledby="exception-title"
           >
             <h3 id="exception-title">
-              {{ t('transactionDetail.exceptionReasonTitle', { action: actionLabel(selectedException.action) }) }}
+              {{ t('requestDetail.exceptionReasonTitle', { action: actionLabel(selectedException.action) }) }}
             </h3>
-            <p>{{ t('transactionDetail.exceptionReasonHint') }}</p>
+            <p>{{ t('requestDetail.exceptionReasonHint') }}</p>
             <form @submit.prevent="submitException">
               <label>
-                {{ t('transactionDetail.reason') }}
+                {{ t('requestDetail.reason') }}
                 <textarea
                   v-model="exceptionReason"
                   rows="4"
@@ -385,7 +385,7 @@ onBeforeUnmount(clearAttachmentPreview)
                   type="submit"
                   :disabled="acting || !exceptionReason.trim()"
                 >
-                  {{ acting ? t('transactionDetail.processing') : t('transactionDetail.confirmException') }}
+                  {{ acting ? t('requestDetail.processing') : t('requestDetail.confirmException') }}
                 </button>
               </div>
             </form>

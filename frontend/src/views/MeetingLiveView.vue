@@ -276,7 +276,7 @@ onMounted(async () => {
               :class="{ active: currentItem && currentItem.id === item.id, resolved: item.is_resolved }"
               @click="selectedItemId = item.id"
             >
-              <span class="agenda-label">{{ item.transaction ? item.transaction.title : item.subject }}</span>
+              <span class="agenda-label">{{ item.request ? item.request.title : item.subject }}</span>
               <span class="pill small">{{ t(`meetingsUnit.live.states.${item.item_state}`) }}</span>
             </li>
           </ol>
@@ -285,9 +285,9 @@ onMounted(async () => {
         <section v-if="currentItem" class="card current-item">
           <div class="item-heading">
             <div>
-              <template v-if="currentItem.transaction">
-                <span class="ref ltr">{{ currentItem.transaction.reference_number || `#${currentItem.transaction.id}` }}</span>
-                <strong>{{ currentItem.transaction.title }}</strong>
+              <template v-if="currentItem.request">
+                <span class="ref ltr">{{ currentItem.request.reference_number || `#${currentItem.request.id}` }}</span>
+                <strong>{{ currentItem.request.title }}</strong>
               </template>
               <template v-else>
                 <strong>{{ currentItem.subject }}</strong>

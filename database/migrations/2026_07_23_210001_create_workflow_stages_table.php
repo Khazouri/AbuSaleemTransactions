@@ -5,12 +5,12 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * WORKFLOW_STAGES (مراحل المعاملة) — the 14 steps of a transaction's life
+ * WORKFLOW_STAGES (مراحل الطلب) — the 14 steps of a request's life
  * ---------------------------------------------------------------------------
- * Every transaction sits at exactly one stage at any moment
- * (transactions.current_stage_id). The stages, in order:
+ * Every request sits at exactly one stage at any moment
+ * (requests.current_stage_id). The stages, in order:
  *
- *    1  استلام المعاملة من البلدية          Receive from municipality
+ *    1  استلام الطلب من البلدية          Receive from municipality
  *    2  مراجعة الطلب من المدير المباشر       Direct manager review
  *    3  إحالة الطلب لأحد المسارات الإدارية   Administrative routing (HR / Diwan / committee secretary)
  *    4  الاستلام والتسجيل                   Receive and register
@@ -18,8 +18,8 @@ use Illuminate\Support\Facades\Schema;
  *    6  مراجعة المقرر وفق اللوائح            Reviewer checks it against regulations
  *    7  إبداء الملاحظات (إن وجدت)           Raise observations, if any
  *    8  اعتماد الوزارة                      Ministry endorsement
- *    9  تحويل المعاملة للجنة القائمة         Forward to the standing committee
- *   10  استلام المعاملة من اللجنة            Committee receives it
+ *    9  تحويل الطلب للجنة القائمة         Forward to the standing committee
+ *   10  استلام الطلب من اللجنة            Committee receives it
  *   11  اعتماد (حسب الصلاحيات)              Approval, per the approver's authority
  *   12  وزارة الحكم المحلي                  Ministry of Local Governance
  *   13  اعتماد الجهة المختصة                Competent authority approval
@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\Schema;
  * AGENT_NOTES.md, "Employee Affairs Committee request" infographic); stages
  * 5–14 are the original stages 2–11, renumbered but otherwise unchanged.
  *
- * NOTE this table only names the stages. What may move a transaction BETWEEN
+ * NOTE this table only names the stages. What may move a request BETWEEN
  * them — which action, performed by which role — lives in workflow_transitions.
  */
 return new class extends Migration

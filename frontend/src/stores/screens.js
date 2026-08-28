@@ -19,8 +19,8 @@ export const useScreensStore = defineStore('screens', () => {
   /**
    * Screens that can actually be used as menu links.
    *
-   * Some rows describe screens reached only in context — transaction_details
-   * is "/transactions/:id", which needs a specific transaction. A link to a
+   * Some rows describe screens reached only in context — request_details
+   * is "/requests/:id", which needs a specific request. A link to a
    * path containing ":" would navigate to a literal ":id" URL, so those are
    * filtered out of the menu while remaining in the table for permissions.
    */

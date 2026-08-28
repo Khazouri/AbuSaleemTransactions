@@ -15,9 +15,9 @@ use DomainException;
  */
 class CommitteeStatusTransitionException extends DomainException
 {
-    public static function transactionNotPersisted(): self
+    public static function requestNotPersisted(): self
     {
-        return new self('يجب حفظ المعاملة قبل تنفيذ إجراء حالة اللجنة.');
+        return new self('يجب حفظ الطلب قبل تنفيذ إجراء حالة اللجنة.');
     }
 
     public static function actorNotActive(): self
@@ -32,12 +32,12 @@ class CommitteeStatusTransitionException extends DomainException
 
     public static function wrongStage(): self
     {
-        return new self('لا يمكن تنفيذ إجراءات اللجنة إلا على معاملة قيد الاستلام من اللجنة.');
+        return new self('لا يمكن تنفيذ إجراءات اللجنة إلا على طلب قيد الاستلام من اللجنة.');
     }
 
     public static function transitionNotAllowedFromCurrentStatus(): self
     {
-        return new self('هذا الإجراء غير متاح في الحالة الراهنة للمعاملة.');
+        return new self('هذا الإجراء غير متاح في الحالة الراهنة للطلب.');
     }
 
     public static function commentRequired(): self
@@ -45,8 +45,8 @@ class CommitteeStatusTransitionException extends DomainException
         return new self('يجب إدخال سبب لتنفيذ هذا الإجراء.');
     }
 
-    public static function transactionClosed(): self
+    public static function requestClosed(): self
     {
-        return new self('لا يمكن تنفيذ إجراء على معاملة ملغاة أو مؤرشفة.');
+        return new self('لا يمكن تنفيذ إجراء على طلب ملغى أو مؤرشف.');
     }
 }

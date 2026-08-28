@@ -4,15 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\Department;
 use App\Models\NotificationSetting;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
-use App\Models\Transaction;
-use App\Models\TransactionStatus;
-use App\Models\TransactionType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Notifications\ActionRequiredNotification;
 use App\Notifications\Channels\SmsChannel;
-use App\Notifications\TransactionStageChangedNotification;
+use App\Notifications\RequestStageChangedNotification;
 use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -48,13 +48,13 @@ class NotificationTest extends TestCase
         $actor = $this->userWithRole('R02');
         $nextActor = $this->userWithRole('R05');
         $bystander = $this->userWithRole('R04');
-        $transaction = $this->transactionAtStage('observations', $creator);
+        $requestRecord = $this->requestAtStage('observations', $creator);
 
-        app(WorkflowService::class)->transition($transaction, 'forward', $actor);
+        app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
 
         Notification::assertSentTo(
             $creator,
-            TransactionStageChangedNotification::class,
+            RequestStageChangedNotification::class,
             fn ($notification, array $channels) => $channels === ['database'],
         );
         Notification::assertSentTo(
@@ -65,7 +65,7 @@ class NotificationTest extends TestCase
 
         // The actor already knows what they just did, and R04 has no rule out
         // of stage 5, so neither is on the list.
-        Notification::assertNotSentTo($actor, TransactionStageChangedNotification::class);
+        Notification::assertNotSentTo($actor, RequestStageChangedNotification::class);
         Notification::assertNotSentTo($actor, ActionRequiredNotification::class);
         Notification::assertNotSentTo($bystander, ActionRequiredNotification::class);
     }
@@ -87,10 +87,10 @@ class NotificationTest extends TestCase
         $employee->manager_id = $manager->id;
         $employee->save();
 
-        $transaction = $this->transactionAtStage('receive_from_municipality', $employee);
+        $requestRecord = $this->requestAtStage('receive_from_municipality', $employee);
 
         app(WorkflowService::class)->applySystemTransition(
-            $transaction,
+            $requestRecord,
             'receive_from_municipality',
             'submit',
             $employee,
@@ -102,7 +102,7 @@ class NotificationTest extends TestCase
         // creator and the actor — stageChanged() must not notify them of
         // their own action under either event type.
         Notification::assertNotSentTo($employee, ActionRequiredNotification::class);
-        Notification::assertNotSentTo($employee, TransactionStageChangedNotification::class);
+        Notification::assertNotSentTo($employee, RequestStageChangedNotification::class);
     }
 
     /** A stored preference overrides the default, and clearing every channel silences the event. */
@@ -113,7 +113,7 @@ class NotificationTest extends TestCase
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
         $nextActor = $this->userWithRole('R05');
-        $transaction = $this->transactionAtStage('observations', $creator);
+        $requestRecord = $this->requestAtStage('observations', $creator);
 
         // The next actor drops email but keeps the bell...
         NotificationSetting::create([
@@ -132,14 +132,14 @@ class NotificationTest extends TestCase
             'sms' => false,
         ]);
 
-        app(WorkflowService::class)->transition($transaction, 'forward', $actor);
+        app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
 
         Notification::assertSentTo(
             $nextActor,
             ActionRequiredNotification::class,
             fn ($notification, array $channels) => $channels === ['database'],
         );
-        Notification::assertNotSentTo($creator, TransactionStageChangedNotification::class);
+        Notification::assertNotSentTo($creator, RequestStageChangedNotification::class);
     }
 
     /**
@@ -179,9 +179,9 @@ class NotificationTest extends TestCase
     {
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
-        $transaction = $this->transactionAtStage('observations', $creator);
+        $requestRecord = $this->requestAtStage('observations', $creator);
 
-        app(WorkflowService::class)->transition($transaction, 'forward', $actor);
+        app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
 
         $this->assertSame(1, $creator->unreadNotifications()->count());
 
@@ -192,7 +192,7 @@ class NotificationTest extends TestCase
 
         $listed = $this->actingAs($creator)->getJson('/api/notifications')->assertOk();
         $listed->assertJsonPath('data.0.event_type', 'stage_changed');
-        $listed->assertJsonPath('data.0.transaction_id', $transaction->id);
+        $listed->assertJsonPath('data.0.request_id', $requestRecord->id);
 
         $this->actingAs($creator)
             ->postJson("/api/notifications/{$listed->json('data.0.id')}/read")
@@ -208,7 +208,7 @@ class NotificationTest extends TestCase
         $actor = $this->userWithRole('R02');
         $stranger = $this->userWithRole('R01');
 
-        app(WorkflowService::class)->transition($this->transactionAtStage('observations', $creator), 'forward', $actor);
+        app(WorkflowService::class)->transition($this->requestAtStage('observations', $creator), 'forward', $actor);
 
         $this->actingAs($stranger)
             ->getJson('/api/notifications')
@@ -268,14 +268,14 @@ class NotificationTest extends TestCase
             ->assertJsonValidationErrors('settings.0.event_type');
     }
 
-    private function transactionAtStage(string $stageCode, User $creator): Transaction
+    private function requestAtStage(string $stageCode, User $creator): Request
     {
-        return Transaction::create([
+        return Request::create([
             'reference_number' => '2026-ADM-'.fake()->unique()->numerify('######'),
             'title' => 'اختبار الإشعارات',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'transaction_type_id' => TransactionType::where('code', 'PROM')->value('id'),
-            'status_id' => TransactionStatus::where('code', 'in_review')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'in_review')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'created_by_user_id' => $creator->id,
             'submitted_at' => now(),

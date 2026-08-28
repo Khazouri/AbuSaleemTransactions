@@ -1,4 +1,4 @@
-# Abu Saleem Transaction System — Staged Local Build Plan
+# Abu Saleem Request System — Staged Local Build Plan
 
 **How this works:** 24 stages, each small enough to build, run locally, and verify in one sitting.
 You tell me which stage to work on; I produce the code for that stage only.
@@ -31,7 +31,7 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 ### Stage 3 — Base schema (part 2: workflow + lookup tables)
 **Goal:** The lookup/reference tables the whole system reads from.
 **Build:**
-- Migrations: `workflow_stages`, `workflow_transitions`, `transaction_statuses`, `transaction_types`, `screens`, `screen_role_permissions`
+- Migrations: `workflow_stages`, `workflow_transitions`, `request_statuses`, `request_types`, `screens`, `screen_role_permissions`
 - Seeders: the 11 stages, all statuses, the 22 screens
 - `workflow_transitions` left **empty** for now (filled in Stage 14)
 **Done when:** migrate:fresh --seed runs clean, all 11 stages and 22 screens are in the DB.
@@ -85,13 +85,13 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 
 ---
 
-## TRACK C — Transactions Core
+## TRACK C — Requests Core
 
-### Stage 11 — Transactions schema + list view
+### Stage 11 — Requests schema + list view
 **Build:**
-- Migrations: `transactions`, `transaction_stage_logs`, `transaction_status_history`, `attachments`, `notes`
+- Migrations: `requests`, `request_stage_logs`, `request_status_history`, `attachments`, `notes`
 - API: list endpoint with filters (status, department, type, date range) + pagination
-- Vue: transactions list screen
+- Vue: requests list screen
 **Done when:** Manually-inserted test rows appear in the list and filters work.
 
 ### Stage 12 — File upload component
@@ -100,13 +100,13 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 **Independent:** can be built any time after Stage 5.
 
 ### Stage 13 — Request intake flow
-**Goal:** The full "create a transaction" journey (Image 6).
+**Goal:** The full "create a request" journey (Image 6).
 **Build:**
-- Reference number generator (`YYYY-DEPT-000123`), race-safe inside a DB transaction
+- Reference number generator (`YYYY-DEPT-000123`), race-safe inside a DB request
 - Intake form: basic data → attachments → validation → submit
-- On submit: create transaction, assign reference number, set status `new` / stage 1
-- Notes component on the transaction detail page
-**Done when:** You complete the form and get a transaction with a unique reference number at stage 1.
+- On submit: create request, assign reference number, set status `new` / stage 1
+- Notes component on the request detail page
+**Done when:** You complete the form and get a request with a unique reference number at stage 1.
 
 ---
 
@@ -116,26 +116,26 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 **Goal:** The state machine, data-driven.
 **Build:**
 - Seed all happy-path rows in `workflow_transitions` (stage 1→2→3…→11, with action + required role)
-- `WorkflowService::transition(transaction, action, actor)`: validates role, validates prerequisites, updates stage/status, writes `transaction_stage_logs` + `transaction_status_history`
+- `WorkflowService::transition(request, action, actor)`: validates role, validates prerequisites, updates stage/status, writes `request_stage_logs` + `request_status_history`
 - Unit tests for the happy path
-**Done when:** A test walks a transaction from stage 1 to stage 11 in code, with correct log rows.
+**Done when:** A test walks a request from stage 1 to stage 11 in code, with correct log rows.
 
-### Stage 15 — Transaction detail page + stage actions
+### Stage 15 — Request detail page + stage actions
 **Build:**
-- Vue: transaction detail view showing current stage, status, timeline, attachments, notes
+- Vue: request detail view showing current stage, status, timeline, attachments, notes
 - Approve / reject / forward buttons wired to the transition API, gated by role
-**Done when:** You can move a transaction through several stages from the UI, logging in as the right role each time.
+**Done when:** You can move a request through several stages from the UI, logging in as the right role each time.
 
 ### Stage 16 — Exception flows
 **Build:**
-- Seed exception transitions: نقص مستندات (return for missing docs), رفض المراجعة, طلب تعديل, إلغاء المعاملة
+- Seed exception transitions: نقص مستندات (return for missing docs), رفض المراجعة, طلب تعديل, إلغاء الطلب
 - Return-to-previous-stage logic with mandatory comment/reason
 - Vue: exception action buttons + reason modals
 **Done when:** Each exception path works and is correctly recorded in the stage log.
 
 ### Stage 17 — SLA / deadlines
-**Build:** `due_date` handling per transaction type, a scheduled command flagging overdue transactions, and the انتهاء المهلة escalation path.
-**Done when:** An artificially back-dated transaction gets flagged as overdue by the scheduled command.
+**Build:** `due_date` handling per request type, a scheduled command flagging overdue requests, and the انتهاء المهلة escalation path.
+**Done when:** An artificially back-dated request gets flagged as overdue by the scheduled command.
 
 ---
 
@@ -149,21 +149,21 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 **Done when:** The full chain (reviewer → committee → admin manager → ministry/dean → final) runs correctly, and skipping a level is blocked.
 
 ### Stage 19 — E-signature
-**Build:** Signature-pad Vue component → saved image → `signature_path` on the approval record; approval trail visual on the transaction detail page.
+**Build:** Signature-pad Vue component → saved image → `signature_path` on the approval record; approval trail visual on the request detail page.
 **Done when:** An approval captures a signature and it renders in the trail.
 
 ### Stage 20 — Committees & meetings
 **Build:**
-- Migrations + CRUD: `committees`, `committee_members`, `meetings`, `meeting_attendees`, `meeting_transactions`
-- Agenda builder (add/remove/reorder transactions on a meeting), attendee management, minutes field
-**Done when:** You can schedule a meeting, add transactions to its agenda, and mark attendance.
+- Migrations + CRUD: `committees`, `committee_members`, `meetings`, `meeting_attendees`, `meeting_requests`
+- Agenda builder (add/remove/reorder requests on a meeting), attendee management, minutes field
+**Done when:** You can schedule a meeting, add requests to its agenda, and mark attendance.
 
 ### Stage 21 — Decisions & voting → workflow integration
 **Build:**
 - `decisions` + `votes` tables, voting UI in the meeting screen, tally logic
 - A recorded decision automatically triggers the right `WorkflowService::transition()` call
 - Handle "defer" (stays in committee for the next meeting)
-**Done when:** A committee vote moves the transaction to the next stage with no manual intervention.
+**Done when:** A committee vote moves the request to the next stage with no manual intervention.
 
 ---
 
@@ -287,7 +287,7 @@ concerns across sibling screens.
 ### Stage 29 — Request lifecycle status expansion + workflow wiring
 **Goal:** The committee sub-states exist without corrupting the stage machine.
 **Build:**
-- Add 7 statuses to `TransactionStatusSeeder`: `nominated_for_committee`,
+- Add 7 statuses to `RequestStatusSeeder`: `nominated_for_committee`,
   `on_agenda`, `under_discussion`, `awaiting_recommendation_approval`,
   `completion_required`, `in_execution`, `completed_closed`
 - `App\Services\CommitteeStatusService` — a guarded **status-only** write path
@@ -297,7 +297,7 @@ concerns across sibling screens.
   `final_approved`/`archived` rather than duplicating them
 **Mechanism:** 13 → 20 statuses; agenda placement and the live runner set status
 without moving stages.
-**Done when:** a transaction passes
+**Done when:** a request passes
 ready→nominated→on_agenda→under_discussion→awaiting_recommendation_approval and a
 feature test proves the stage number is untouched by the status-only moves.
 **Source:** [Lifecycle PDF] p2 "حالات الطلب خلال الدورة" + the 12-stage table
@@ -322,12 +322,12 @@ attendance status tracked.
 
 ### Stage 31 — Agenda builder enhancements
 **Build:**
-- Migrate `meeting_transactions` (+`priority`, `estimated_minutes`, `item_type`
+- Migrate `meeting_requests` (+`priority`, `estimated_minutes`, `item_type`
   {employee_request|administrative|emerging}, nullable `subject`/`department_id`
-  so **non-transaction admin items** are allowed)
+  so **non-request admin items** are allowed)
 - Agenda-stats + grouping endpoints; dedicated agenda-builder screen (priority,
   time totals, group-similar)
-**Mechanism:** transaction-only ordered list → typed, prioritized, timed agenda
+**Mechanism:** request-only ordered list → typed, prioritized, timed agenda
 with admin items.
 **Done when:** an agenda mixes employee requests and admin items with priorities
 and a computed total time.
@@ -337,7 +337,7 @@ and a computed total time.
 
 ### Stage 32 — Candidate-requests screen + command dashboard
 **Build:**
-- `GET /committee-candidates` (transactions in `ready`/`nominated_for_committee`)
+- `GET /committee-candidates` (requests in `ready`/`nominated_for_committee`)
   with actions add-to-meeting / defer / return-to-study / request-completion,
   each writing status via `CommitteeStatusService`
 - `GET /meetings/dashboard` aggregating KPIs + next-meeting readiness + the
@@ -363,7 +363,7 @@ mockups] the الطلبات المرشحة للعرض table + the مركز قي�
 
 ### Stage 34 — Live meeting runner
 **Build:**
-- Migrate `meeting_transactions` (+`item_state`
+- Migrate `meeting_requests` (+`item_state`
   {presented|discussion|voting|deciding|complete}) and a discussion-notes store
 - Runner screen: current-item panel, per-item timer, discussion feed, live vote
   panel (polling), progress, present-attendees, video **placeholder**; reuse the
@@ -421,7 +421,7 @@ infographics] stages 8–11.
 ```
 1 → 2 → 3 → 4 → 5        (foundation — do these in order)
 6 → 7 → 8 → 9 → 10       (admin; 9 depends on 8)
-11 → 12 → 13             (transactions core)
+11 → 12 → 13             (requests core)
 14 → 15 → 16 → 17        (workflow engine — the critical path)
 18 → 19 → 20 → 21        (approvals & committees)
 22 → 23 → 24             (cross-cutting)

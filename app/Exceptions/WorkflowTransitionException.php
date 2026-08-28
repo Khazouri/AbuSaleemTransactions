@@ -15,12 +15,12 @@ class WorkflowTransitionException extends DomainException
 {
     public static function deadlineNotExpired(): self
     {
-        return new self('لا يمكن تصعيد المعاملة قبل انتهاء مهلة الإنجاز.');
+        return new self('لا يمكن تصعيد الطلب قبل انتهاء مهلة الإنجاز.');
     }
 
-    public static function transactionNotPersisted(): self
+    public static function requestNotPersisted(): self
     {
-        return new self('يجب حفظ المعاملة قبل تنفيذ إجراء سير العمل.');
+        return new self('يجب حفظ الطلب قبل تنفيذ إجراء سير العمل.');
     }
 
     public static function actorNotActive(): self
@@ -35,12 +35,12 @@ class WorkflowTransitionException extends DomainException
 
     public static function currentStageRequired(): self
     {
-        return new self('المعاملة غير مرتبطة بمرحلة سير عمل حالية.');
+        return new self('الطلب غير مرتبط بمرحلة سير عمل حالية.');
     }
 
     public static function transitionNotConfigured(): self
     {
-        return new self('هذا الإجراء غير متاح في المرحلة الحالية للمعاملة.');
+        return new self('هذا الإجراء غير متاح في المرحلة الحالية للطلب.');
     }
 
     public static function roleNotAllowed(): self
@@ -48,9 +48,9 @@ class WorkflowTransitionException extends DomainException
         return new self('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.');
     }
 
-    public static function cannotApproveOwnTransaction(): self
+    public static function cannotApproveOwnRequest(): self
     {
-        return new self('لا يجوز للمستخدم اعتماد معاملته الخاصة.');
+        return new self('لا يجوز للمستخدم اعتماد طلبه الخاص.');
     }
 
     public static function commentRequired(): self
@@ -63,9 +63,9 @@ class WorkflowTransitionException extends DomainException
         return new self('يجب إرفاق التوقيع الإلكتروني لإتمام الاعتماد.');
     }
 
-    public static function transactionClosed(): self
+    public static function requestClosed(): self
     {
-        return new self('لا يمكن تنفيذ إجراء سير عمل على معاملة ملغاة أو خرجت إلى التنفيذ أو أغلقت.');
+        return new self('لا يمكن تنفيذ إجراء سير عمل على طلب ملغى أو خرج إلى التنفيذ أو أُغلق.');
     }
 
     public static function ambiguousConfiguration(): self

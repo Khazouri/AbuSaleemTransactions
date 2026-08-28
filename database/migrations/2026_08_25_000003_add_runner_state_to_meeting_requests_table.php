@@ -14,7 +14,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('meeting_transactions', function (Blueprint $table) {
+        Schema::table('meeting_requests', function (Blueprint $table) {
             $table->string('item_state', 20)->default('presented')->after('estimated_minutes');
             $table->timestamp('state_changed_at')->nullable()->after('item_state');
         });
@@ -22,7 +22,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('meeting_transactions', function (Blueprint $table) {
+        Schema::table('meeting_requests', function (Blueprint $table) {
             $table->dropColumn(['item_state', 'state_changed_at']);
         });
     }

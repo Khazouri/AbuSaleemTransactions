@@ -88,7 +88,7 @@ class Meeting extends Model
     /** The agenda, in display/vote order. */
     public function agendaItems(): HasMany
     {
-        return $this->hasMany(MeetingTransaction::class)->orderBy('agenda_order');
+        return $this->hasMany(MeetingRequest::class)->orderBy('agenda_order');
     }
 
     /** Stage 36 — the compiled/reviewed/signed minutes document, one per meeting. */

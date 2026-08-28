@@ -24,7 +24,7 @@ return new class extends Migration
 
         Schema::table('decisions', function (Blueprint $table) {
             $table->string('outcome', 30)->change();
-            $table->foreignId('template_id')->nullable()->after('meeting_transaction_id')
+            $table->foreignId('template_id')->nullable()->after('meeting_request_id')
                 ->constrained('templates')->nullOnDelete();
             $table->unsignedInteger('votes_conditional_approval_count')->default(0)->after('votes_defer_count');
             $table->unsignedInteger('votes_legal_opinion_count')->default(0)->after('votes_conditional_approval_count');

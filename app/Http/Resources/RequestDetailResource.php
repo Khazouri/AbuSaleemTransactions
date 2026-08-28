@@ -4,8 +4,8 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 
-/** Full read model for one transaction's Stage 15 workspace. */
-class TransactionDetailResource extends TransactionResource
+/** Full read model for one request's Stage 15 workspace. */
+class RequestDetailResource extends RequestResource
 {
     public function toArray(Request $request): array
     {

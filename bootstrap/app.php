@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckScreenPermission;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,7 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // screen_role_permissions. Applied per-route as
         // 'screen.permission:<screen_code>,<action>'.
         $middleware->alias([
-            'screen.permission' => \App\Http\Middleware\CheckScreenPermission::class,
+            'screen.permission' => CheckScreenPermission::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

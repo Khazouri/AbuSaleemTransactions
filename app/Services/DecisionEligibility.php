@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\CommitteeMember;
 use App\Models\MeetingAttendee;
-use App\Models\MeetingTransaction;
+use App\Models\MeetingRequest;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -35,12 +35,12 @@ class DecisionEligibility
      * Arabic explanation, and "you can't vote" without the reason reads as a
      * broken button.
      */
-    public function reasonBlockingVote(MeetingTransaction $agendaItem, User $user): ?string
+    public function reasonBlockingVote(MeetingRequest $agendaItem, User $user): ?string
     {
-        // Stage 31 — an admin/emerging item has no transaction to run through
+        // Stage 31 — an admin/emerging item has no request to run through
         // WorkflowService::transition(), so it can never go to a vote.
         if ($agendaItem->item_type !== 'employee_request') {
-            return 'التصويت مقصور على بنود الطلبات المرتبطة بمعاملة.';
+            return 'التصويت مقصور على بنود الطلبات المرتبطة بطلب.';
         }
 
         if ($agendaItem->decision()->exists()) {
@@ -73,13 +73,13 @@ class DecisionEligibility
      * Agenda items this user is entitled to vote on and no one has decided yet.
      *
      * Ordered oldest meeting first: the sitting that already happened is the
-     * one holding up a transaction, so it is the one to clear.
+     * one holding up a request, so it is the one to clear.
      *
-     * @return Builder<MeetingTransaction>
+     * @return Builder<MeetingRequest>
      */
     public function pendingVotesQuery(User $user): Builder
     {
-        return MeetingTransaction::query()
+        return MeetingRequest::query()
             ->where('item_type', 'employee_request')
             ->whereDoesntHave('decision')
             ->whereHas('meeting', function (Builder $meeting) use ($user) {
@@ -89,9 +89,9 @@ class DecisionEligibility
                         ->where('user_id', $user->id)
                         ->where('attended', true));
             })
-            ->join('meetings', 'meetings.id', '=', 'meeting_transactions.meeting_id')
+            ->join('meetings', 'meetings.id', '=', 'meeting_requests.meeting_id')
             ->orderBy('meetings.scheduled_at')
-            ->orderBy('meeting_transactions.agenda_order')
-            ->select('meeting_transactions.*');
+            ->orderBy('meeting_requests.agenda_order')
+            ->select('meeting_requests.*');
     }
 }
