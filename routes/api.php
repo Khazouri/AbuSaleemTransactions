@@ -202,6 +202,16 @@ Route::middleware('auth:sanctum')->group(function () {
         )
         ->name('transactions.approvals.signature');
 
+    // Private attachment previews travel through the API so a bearer token,
+    // transaction visibility, and attachment-parent relationship are all
+    // checked before a browser receives a byte of the stored file.
+    Route::middleware('screen.permission:transaction_details,view')
+        ->get(
+            'transactions/{transaction}/attachments/{attachment}/preview',
+            [AttachmentController::class, 'preview'],
+        )
+        ->name('transactions.attachments.preview');
+
     // Stage 15 — the detail screen is read by its own capability. The action
     // endpoint uses that same view gate, then WorkflowService enforces the
     // transition's configured role under lock (not one broad screen flag).

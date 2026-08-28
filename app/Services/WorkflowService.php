@@ -146,6 +146,15 @@ class WorkflowService
             throw WorkflowTransitionException::actionRequired();
         }
 
+        // Screen permissions decide who may approve at a level; this separate
+        // conflict-of-interest rule still applies when one person holds both
+        // the submitter and approver roles.
+        if ($action === 'approve'
+            && $transaction->created_by_user_id !== null
+            && $transaction->created_by_user_id === $actor->id) {
+            throw WorkflowTransitionException::cannotApproveOwnTransaction();
+        }
+
         [$movedTransaction, $fromStage, $toStage] = DB::transaction(function () use ($transaction, $action, $actor, $comment, $signaturePath) {
             $lockedTransaction = Transaction::query()
                 ->lockForUpdate()
@@ -385,6 +394,12 @@ class WorkflowService
      */
     private function actorMayUse(WorkflowTransition $rule, Transaction $transaction, User $actor, Collection $actorRoleIds): bool
     {
+        if ($rule->action === 'approve'
+            && $transaction->created_by_user_id !== null
+            && $transaction->created_by_user_id === $actor->id) {
+            return false;
+        }
+
         if ($rule->required_role_id !== null && ! $actorRoleIds->contains($rule->required_role_id)) {
             return false;
         }

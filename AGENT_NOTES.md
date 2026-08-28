@@ -14,6 +14,18 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-08-28 20:05 EET — Codex — Transaction workspace safeguards complete
+
+The direct transaction workspace now limits access to a creator's submissions or their current actionable assignments, returning 404 for unrelated records and attachments. Private PNG/JPG/PDF attachments have authenticated previews in the detail view and local pre-upload previews; DOC/DOCX remain downloads. WorkflowService blocks a creator from approving their own transaction across the generic, queue, and committee-decision paths, and the timeline arrow now mirrors correctly in Arabic. Full PHPUnit passed (162 tests, 994 assertions), changed-PHP Pint passed, and the frontend production build passed; no migration was added.
+
+---
+
+### 2026-08-28 19:49 EET — Codex — Transaction privacy and attachment-preview implementation plan
+
+Implement direct-workspace privacy as creator-owned submissions plus work currently actionable by the signed-in user, with no broad R08 reporting bypass. A shared visibility service will protect the paginated transaction list, detail, transitions, notes, uploads, and the new private attachment-preview stream; reports and committee/register screens remain outside this scope. The same pass adds authenticated PNG/JPG/PDF previews, locale-aware timeline arrows, and a WorkflowService-level self-approval block so every approval entry point fails closed.
+
+---
+
 ### 2026-08-28 — Claude — `manager_id` gap closed — the diagram-alignment redesign is fully wired end-to-end
 
 Fixes the one flagged gap from the Phase 8 entry below: `StoreUserRequest`/`UpdateUserRequest` didn't validate `manager_id`, and `UserResource` didn't expose it, so the new manager picker in `UsersView.vue` was decorative — saving it was a no-op and editing a user always showed "no manager". Added `manager_id` to both requests' `rules()` (nullable, `exists:users,id`; `UpdateUserRequest` additionally rejects `manager_id === $user->id` via `Rule::notIn` — a user cannot be their own manager, which would make the `direct_manager_review` stage permanently unreachable for them), added a `manager` block to `UserResource` mirroring the existing `department` block, and eager-loaded `manager` alongside `department`/`roles` in every `UserController` action that returns one. Verified via tinker against the real database that the seeded `r01.employee@`'s `manager_id` (wired to `r02.reviewer@` in an earlier phase) now round-trips through `UserResource`. Full suite still 156 tests / 961 assertions green, Pint clean, no pending migrations.

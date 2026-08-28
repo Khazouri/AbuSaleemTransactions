@@ -1,6 +1,6 @@
 <script setup>
 /** Stage 15 — the workflow workspace for a single transaction. */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import ApprovalTrail from '../components/ApprovalTrail.vue'
@@ -23,6 +23,10 @@ const exceptionReason = ref('')
 const exceptionError = ref('')
 const signaturePad = ref(null)
 const signatureReady = ref(false)
+const selectedAttachment = ref(null)
+const attachmentPreviewUrl = ref('')
+const attachmentPreviewing = ref(false)
+const attachmentPreviewError = ref('')
 
 const name = (item) => {
   if (!item) return t('common.none')
@@ -35,6 +39,9 @@ const date = (value) => value
   ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
   : t('common.none')
 const actionLabel = (action) => t(`workflow.actions.${action}`)
+const timelineMovement = (entry) => entry.from_stage
+  ? `${name(entry.from_stage)} ${locale.value === 'ar' ? '←' : '→'} ${name(entry.to_stage)}`
+  : name(entry.to_stage)
 const transitions = computed(() => {
   if (transaction.value?.available_transitions?.length) return transaction.value.available_transitions
   return (transaction.value?.available_actions ?? []).map((action) => ({
@@ -53,6 +60,57 @@ function fileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+}
+
+function isPreviewable(attachment) {
+  return attachment?.mime_type === 'application/pdf' || attachment?.mime_type?.startsWith('image/')
+}
+
+function isImage(attachment) {
+  return attachment?.mime_type?.startsWith('image/')
+}
+
+function clearAttachmentPreview() {
+  if (attachmentPreviewUrl.value) URL.revokeObjectURL(attachmentPreviewUrl.value)
+  attachmentPreviewUrl.value = ''
+}
+
+function closeAttachmentPreview() {
+  if (attachmentPreviewing.value) return
+  clearAttachmentPreview()
+  selectedAttachment.value = null
+  attachmentPreviewError.value = ''
+}
+
+async function openAttachmentPreview(attachment) {
+  clearAttachmentPreview()
+  selectedAttachment.value = attachment
+  attachmentPreviewing.value = true
+  attachmentPreviewError.value = ''
+  try {
+    const { data } = await api.get(attachment.preview_url, { responseType: 'blob' })
+    attachmentPreviewUrl.value = URL.createObjectURL(data)
+  } catch (requestError) {
+    attachmentPreviewError.value = requestError.response?.data?.message ?? t('attachments.previewFailed')
+  } finally {
+    attachmentPreviewing.value = false
+  }
+}
+
+async function downloadAttachment(attachment) {
+  try {
+    const { data } = await api.get(attachment.preview_url, { responseType: 'blob' })
+    const url = URL.createObjectURL(data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = attachment.original_name
+    document.body.append(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  } catch {
+    actionError.value = t('attachments.downloadFailed')
+  }
 }
 
 async function load() {
@@ -132,6 +190,7 @@ async function submitException() {
 
 watch(() => route.params.id, load)
 onMounted(load)
+onBeforeUnmount(clearAttachmentPreview)
 </script>
 
 <template>
@@ -241,7 +300,7 @@ onMounted(load)
                 <span class="dot" />
                 <div>
                   <strong>{{ actionLabel(entry.action) }}</strong>
-                  <p v-if="entry.to_stage">{{ entry.from_stage ? `${name(entry.from_stage)} → ${name(entry.to_stage)}` : name(entry.to_stage) }}</p>
+                  <p v-if="entry.to_stage">{{ timelineMovement(entry) }}</p>
                   <p v-if="entry.comment" class="entry-comment">{{ entry.comment }}</p>
                   <small>{{ entry.acted_by?.name || t('common.none') }} · {{ dateTime(entry.acted_at) }}</small>
                 </div>
@@ -260,6 +319,15 @@ onMounted(load)
               <li v-for="attachment in transaction.attachments" :key="attachment.id">
                 <strong class="file-name ltr">{{ attachment.original_name }}</strong>
                 <small>{{ attachment.label || attachment.mime_type }} · {{ fileSize(attachment.size_bytes) }}</small>
+                <div class="attachment-actions">
+                  <button
+                    v-if="isPreviewable(attachment)"
+                    class="ghost"
+                    type="button"
+                    @click="openAttachmentPreview(attachment)"
+                  >{{ t('attachments.preview') }}</button>
+                  <button v-else class="ghost" type="button" @click="downloadAttachment(attachment)">{{ t('attachments.download') }}</button>
+                </div>
               </li>
             </ul>
             <FileUpload v-can="'notes_attachments.add'" :transaction-id="transaction.id" @uploaded="load" />
@@ -270,6 +338,19 @@ onMounted(load)
       </div>
 
       <Teleport to="body">
+        <div v-if="selectedAttachment" class="modal-backdrop" @click.self="closeAttachmentPreview">
+          <section class="attachment-modal" role="dialog" aria-modal="true" :aria-label="t('attachments.preview')">
+            <div class="modal-actions">
+              <strong class="file-name ltr">{{ selectedAttachment.original_name }}</strong>
+              <button class="ghost" type="button" :disabled="attachmentPreviewing" @click="closeAttachmentPreview">×</button>
+            </div>
+            <p v-if="attachmentPreviewing" class="state">{{ t('common.loading') }}</p>
+            <p v-else-if="attachmentPreviewError" class="action-error" role="alert">{{ attachmentPreviewError }}</p>
+            <img v-else-if="attachmentPreviewUrl && isImage(selectedAttachment)" class="attachment-image" :src="attachmentPreviewUrl" :alt="selectedAttachment.original_name" />
+            <iframe v-else-if="attachmentPreviewUrl" class="attachment-pdf" :src="attachmentPreviewUrl" :title="selectedAttachment.original_name" />
+          </section>
+        </div>
+
         <div v-if="selectedException" class="modal-backdrop" @click.self="closeException">
           <section
             class="reason-modal"
@@ -316,5 +397,5 @@ onMounted(load)
 </template>
 
 <style scoped>
-.detail { max-inline-size: 82rem; }.back { display: inline-block; margin-bottom: .85rem; color: var(--color-brand-text); font-size: .85rem; text-decoration: none; }.back:hover { text-decoration: underline; }.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.heading h2 { margin: .15rem 0 0; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }.reference { margin: 0; color: var(--color-muted); font-family: var(--font-mono); font-size: .8rem; }.status { display: inline-flex; align-items: center; gap: .4rem; flex: none; padding: .35rem .55rem; border-radius: var(--radius-full); color: var(--color-black-700); background: var(--color-surface-hover); font-size: .82rem; }.status::before { content: ''; inline-size: .55rem; block-size: .55rem; border-radius: 50%; background: var(--status-color); }.sla-alert { padding: .75rem .9rem; margin: 0 0 1rem; border: 1px solid var(--color-warning-border); border-radius: var(--radius-lg); color: var(--color-warning-fg); background: var(--color-warning-bg); font-size: .86rem; }.card { padding: 1.1rem; }.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }.summary div { display: grid; gap: .2rem; }.summary span { color: var(--color-muted); font-size: .76rem; }.summary strong { color: var(--color-black-700); font-size: .88rem; }.action-panel { margin-bottom: 1rem; }.action-panel h3, .description h3, .timeline h3, .attachments h3 { margin: 0 0 .45rem; color: var(--color-brand-text); font-size: 1rem; }.action-panel > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.action-panel label, .reason-modal label { display: grid; gap: .3rem; max-inline-size: 40rem; font-size: .85rem; }.action-panel textarea, .reason-modal textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }.action-buttons { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }.primary, .exception-button { padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; }.primary:disabled, .exception-button:disabled, .ghost:disabled { cursor: not-allowed; opacity: .6; }.exception-actions { padding-top: .85rem; margin-top: .9rem; border-top: 1px solid var(--color-border); }.exception-actions > p { margin: 0; color: var(--color-muted); font-size: .8rem; }.exception-button { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }.exception-button.destructive { color: var(--color-danger-fg); background: var(--color-danger-bg); border-color: var(--color-danger-border); }.action-error, .alert { color: var(--color-danger-fg); }.action-error { margin: .6rem 0 0; font-size: .84rem; }.alert { padding: .75rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); background: var(--color-danger-bg); }.ghost { margin-inline-start: .5rem; padding: .35rem .55rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); cursor: pointer; }.columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, .85fr); gap: 1rem; align-items: start; }.main-column, .side-column { display: grid; gap: 1rem; }.description p { margin: 0; color: var(--color-black-700); line-height: 1.75; white-space: pre-wrap; }.timeline ol { display: grid; gap: 0; padding: 0; margin: .9rem 0 0; list-style: none; }.timeline li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: .6rem; padding-bottom: 1rem; }.timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .45rem; inset-block-start: .85rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }.dot { position: relative; z-index: 1; inline-size: .9rem; block-size: .9rem; margin-top: .15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }.timeline p { margin: .2rem 0; color: var(--color-black-700); font-size: .85rem; }.timeline small, .attachments small, .state { color: var(--color-muted); font-size: .78rem; }.entry-comment { white-space: pre-wrap; }.attachments ul { display: grid; gap: .65rem; padding: 0; margin: .85rem 0; list-style: none; }.attachments li { display: grid; gap: .15rem; padding-bottom: .65rem; border-bottom: 1px solid var(--color-border); }.file-name { overflow-wrap: anywhere; color: var(--color-black-700); font-size: .83rem; }.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }.reason-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }.reason-modal h3 { margin: 0; color: var(--color-brand-text); }.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }.reason-modal label { max-inline-size: none; }.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }.modal-actions .ghost { margin: 0; }@media (max-width: 720px) { .columns { grid-template-columns: 1fr; }.heading { flex-direction: column; }.summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.detail { max-inline-size: 82rem; }.back { display: inline-block; margin-bottom: .85rem; color: var(--color-brand-text); font-size: .85rem; text-decoration: none; }.back:hover { text-decoration: underline; }.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.heading h2 { margin: .15rem 0 0; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }.reference { margin: 0; color: var(--color-muted); font-family: var(--font-mono); font-size: .8rem; }.status { display: inline-flex; align-items: center; gap: .4rem; flex: none; padding: .35rem .55rem; border-radius: var(--radius-full); color: var(--color-black-700); background: var(--color-surface-hover); font-size: .82rem; }.status::before { content: ''; inline-size: .55rem; block-size: .55rem; border-radius: 50%; background: var(--status-color); }.sla-alert { padding: .75rem .9rem; margin: 0 0 1rem; border: 1px solid var(--color-warning-border); border-radius: var(--radius-lg); color: var(--color-warning-fg); background: var(--color-warning-bg); font-size: .86rem; }.card { padding: 1.1rem; }.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }.summary div { display: grid; gap: .2rem; }.summary span { color: var(--color-muted); font-size: .76rem; }.summary strong { color: var(--color-black-700); font-size: .88rem; }.action-panel { margin-bottom: 1rem; }.action-panel h3, .description h3, .timeline h3, .attachments h3 { margin: 0 0 .45rem; color: var(--color-brand-text); font-size: 1rem; }.action-panel > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.action-panel label, .reason-modal label { display: grid; gap: .3rem; max-inline-size: 40rem; font-size: .85rem; }.action-panel textarea, .reason-modal textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }.action-buttons, .attachment-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }.primary, .exception-button { padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; }.primary:disabled, .exception-button:disabled, .ghost:disabled { cursor: not-allowed; opacity: .6; }.exception-actions { padding-top: .85rem; margin-top: .9rem; border-top: 1px solid var(--color-border); }.exception-actions > p { margin: 0; color: var(--color-muted); font-size: .8rem; }.exception-button { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }.exception-button.destructive { color: var(--color-danger-fg); background: var(--color-danger-bg); border-color: var(--color-danger-border); }.action-error, .alert { color: var(--color-danger-fg); }.action-error { margin: .6rem 0 0; font-size: .84rem; }.alert { padding: .75rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.ghost { margin-inline-start: .5rem; padding: .35rem .55rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); cursor: pointer; }.columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, .85fr); gap: 1rem; align-items: start; }.main-column, .side-column { display: grid; gap: 1rem; }.description p { margin: 0; color: var(--color-black-700); line-height: 1.75; white-space: pre-wrap; }.timeline ol { display: grid; gap: 0; padding: 0; margin: .9rem 0 0; list-style: none; }.timeline li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: .6rem; padding-bottom: 1rem; }.timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .45rem; inset-block-start: .85rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }.dot { position: relative; z-index: 1; inline-size: .9rem; block-size: .9rem; margin-top: .15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }.timeline p { margin: .2rem 0; color: var(--color-black-700); font-size: .85rem; }.timeline small, .attachments small, .state { color: var(--color-muted); font-size: .78rem; }.entry-comment { white-space: pre-wrap; }.attachments ul { display: grid; gap: .65rem; padding: 0; margin: .85rem 0; list-style: none; }.attachments li { display: grid; gap: .15rem; padding-bottom: .65rem; border-bottom: 1px solid var(--color-border); }.file-name { overflow-wrap: anywhere; color: var(--color-black-700); font-size: .83rem; }.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }.reason-modal, .attachment-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }.attachment-modal { inline-size: min(64rem, 100%); max-block-size: calc(100vh - 2rem); overflow: auto; }.attachment-image, .attachment-pdf { display: block; inline-size: 100%; max-block-size: 72vh; border: 0; object-fit: contain; }.attachment-pdf { block-size: 72vh; }.reason-modal h3 { margin: 0; color: var(--color-brand-text); }.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }.reason-modal label { max-inline-size: none; }.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }.modal-actions .ghost { margin: 0; }@media (max-width: 720px) { .columns { grid-template-columns: 1fr; }.heading { flex-direction: column; }.summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

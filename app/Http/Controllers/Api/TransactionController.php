@@ -22,6 +22,7 @@ use App\Services\ApprovalSignatureStorage;
 use App\Services\NotificationDispatcher;
 use App\Services\TransactionDeadlineService;
 use App\Services\TransactionReferenceGenerator;
+use App\Services\TransactionVisibility;
 use App\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,11 +40,11 @@ use Throwable;
  */
 class TransactionController extends Controller
 {
-    public function index(IndexTransactionRequest $request): AnonymousResourceCollection
+    public function index(IndexTransactionRequest $request, TransactionVisibility $visibility): AnonymousResourceCollection
     {
         $filters = $request->validated();
 
-        $transactions = Transaction::query()
+        $transactions = $visibility->apply(Transaction::query(), $request->user())
             ->with([
                 'department:id,name_ar,name_en,code',
                 'transactionType:id,code,name_ar,name_en,decision_grade_threshold',
@@ -210,8 +211,10 @@ class TransactionController extends Controller
     }
 
     /** Stage 15 — one complete transaction workspace, including its audit timeline. */
-    public function show(Request $request, Transaction $transaction, WorkflowService $workflow): TransactionDetailResource
+    public function show(Request $request, Transaction $transaction, WorkflowService $workflow, TransactionVisibility $visibility): TransactionDetailResource
     {
+        abort_unless($visibility->canView($request->user(), $transaction), 404);
+
         return $this->detailResource($transaction, $workflow, $request->user());
     }
 
@@ -221,7 +224,10 @@ class TransactionController extends Controller
         Transaction $transaction,
         WorkflowService $workflow,
         ApprovalSignatureStorage $signatureStorage,
+        TransactionVisibility $visibility,
     ): TransactionDetailResource {
+        abort_unless($visibility->canView($request->user(), $transaction), 404);
+
         $action = $request->validated('action');
 
         // Stage 18 — the older generic workspace endpoint must not become a

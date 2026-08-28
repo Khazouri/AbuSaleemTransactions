@@ -17,6 +17,12 @@ class AttachmentResource extends JsonResource
             'mime_type' => $this->mime_type,
             'size_bytes' => $this->size_bytes,
             'label' => $this->label,
+            // The client fetches this private stream through its bearer-aware
+            // API instance; storage paths themselves never leave the server.
+            'preview_url' => route('transactions.attachments.preview', [
+                'transaction' => $this->transaction_id,
+                'attachment' => $this->id,
+            ]),
             'uploaded_by_user_id' => $this->uploaded_by_user_id,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

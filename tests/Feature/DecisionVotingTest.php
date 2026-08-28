@@ -96,6 +96,32 @@ class DecisionVotingTest extends TestCase
         $this->assertSame('deferred', $transaction->status->code);
     }
 
+    public function test_committee_head_cannot_record_an_approval_for_their_own_transaction(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, $member, , $meeting, $agendaItem] = $this->committeeMeetingWithAgendaItem();
+        $agendaItem->transaction()->update(['created_by_user_id' => $head->id]);
+
+        $this->actingAs($member, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
+            ->assertCreated();
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
+            ->assertCreated();
+
+        $this->actingAs($head, 'sanctum')
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'لا يجوز للمستخدم اعتماد معاملته الخاصة.');
+
+        $transaction = $agendaItem->transaction()->firstOrFail()->fresh();
+        $this->assertSame(WorkflowStage::where('code', 'receive_from_committee')->value('id'), $transaction->current_stage_id);
+        $this->assertDatabaseMissing('decisions', ['meeting_transaction_id' => $agendaItem->id]);
+    }
+
     public function test_a_tied_vote_cannot_be_recorded_automatically(): void
     {
         $this->seed(DatabaseSeeder::class);

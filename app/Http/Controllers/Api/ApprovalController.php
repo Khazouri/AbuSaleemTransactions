@@ -45,6 +45,13 @@ class ApprovalController extends Controller
                 'currentStage:id,order_no,code,name_ar,name_en',
             ])
             ->whereHas('currentStage', fn ($query) => $query->where('code', $configuration['stage']))
+            // Do not advertise a record in an approval queue when the only
+            // available actor is also its creator; WorkflowService repeats
+            // this prohibition at the write boundary.
+            ->where(function ($query) use ($request) {
+                $query->whereNull('created_by_user_id')
+                    ->orWhere('created_by_user_id', '!=', $request->user()->id);
+            })
             // Stage 37: final approval moves to in_execution; keeping that
             // status out prevents the stage-11 self-loop being approved twice.
             ->whereDoesntHave('status', fn ($query) => $query->whereIn(

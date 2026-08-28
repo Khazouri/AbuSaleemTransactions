@@ -262,7 +262,12 @@
     "acceptedHint": "PDF, DOC, DOCX, JPG, or PNG, up to 20 MB.",
     "upload": "Upload file",
     "uploading": "Uploading…",
-    "uploadFailed": "The file could not be uploaded. Please try again."
+    "uploadFailed": "The file could not be uploaded. Please try again.",
+    "selectedPreview": "Selected file preview",
+    "preview": "Preview",
+    "download": "Download",
+    "previewFailed": "The file could not be previewed. Please try again.",
+    "downloadFailed": "The file could not be downloaded. Please try again."
   },
   "notes": {
     "title": "Notes",

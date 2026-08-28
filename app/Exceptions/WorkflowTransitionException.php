@@ -48,6 +48,11 @@ class WorkflowTransitionException extends DomainException
         return new self('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.');
     }
 
+    public static function cannotApproveOwnTransaction(): self
+    {
+        return new self('لا يجوز للمستخدم اعتماد معاملته الخاصة.');
+    }
+
     public static function commentRequired(): self
     {
         return new self('يجب إدخال سبب لتنفيذ هذا الإجراء.');

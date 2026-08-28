@@ -74,6 +74,57 @@ class AttachmentUploadTest extends TestCase
         $this->assertDatabaseCount('attachments', 0);
     }
 
+    public function test_an_authorized_user_can_preview_a_private_attachment_inline(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Storage::fake('local');
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $transaction = $this->transaction();
+        $attachment = Attachment::create([
+            'transaction_id' => $transaction->id,
+            'disk' => 'local',
+            'path' => "attachments/{$transaction->id}/preview.pdf",
+            'original_name' => 'preview.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 12,
+        ]);
+        Storage::disk('local')->put($attachment->path, 'pdf-preview');
+
+        $this->actingAs($admin, 'sanctum')
+            ->get(route('transactions.attachments.preview', [
+                'transaction' => $transaction,
+                'attachment' => $attachment,
+            ]))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf')
+            ->assertHeader('content-disposition', 'inline; filename=preview.pdf');
+    }
+
+    public function test_preview_rejects_an_attachment_from_a_different_transaction(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Storage::fake('local');
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $transaction = $this->transaction();
+        $otherTransaction = $this->transaction();
+        $attachment = Attachment::create([
+            'transaction_id' => $otherTransaction->id,
+            'disk' => 'local',
+            'path' => "attachments/{$otherTransaction->id}/other.pdf",
+            'original_name' => 'other.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 12,
+        ]);
+        Storage::disk('local')->put($attachment->path, 'pdf-preview');
+
+        $this->actingAs($admin, 'sanctum')
+            ->get(route('transactions.attachments.preview', [
+                'transaction' => $transaction,
+                'attachment' => $attachment,
+            ]))
+            ->assertNotFound();
+    }
+
     private function transaction(): Transaction
     {
         return Transaction::create([

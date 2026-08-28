@@ -262,7 +262,12 @@
     "acceptedHint": "PDF أو DOC أو DOCX أو JPG أو PNG، حتى 20 ميجابايت.",
     "upload": "رفع ملف",
     "uploading": "جارٍ الرفع…",
-    "uploadFailed": "تعذّر رفع الملف. حاول مرة أخرى."
+    "uploadFailed": "تعذّر رفع الملف. حاول مرة أخرى.",
+    "selectedPreview": "معاينة الملف المحدد",
+    "preview": "معاينة",
+    "download": "تنزيل",
+    "previewFailed": "تعذّرت معاينة الملف. حاول مرة أخرى.",
+    "downloadFailed": "تعذّر تنزيل الملف. حاول مرة أخرى."
   },
   "notes": {
     "title": "الملاحظات",
