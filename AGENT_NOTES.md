@@ -14,6 +14,128 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-08-31 15:10 EET — Claude — Stage 44 complete (verify remaining [C] fidelity gaps)
+
+Built per the plan below. Both flagged items were real, unbuilt gaps — closed rather than dismissed.
+
+**`committee_candidates` (§2)**: `RequestResource` gained three `whenLoaded`/`when`-guarded fields —
+`created_by` (id+name), `attachments_count` (via `->withCount('attachments')`, standing in for §2's
+اكتمال الملف — derived, not fabricated, same signal `MeetingReadinessService` already uses for
+file-readiness), and `proposed_meeting` (the latest `MeetingRequest` row's meeting, `{id, title,
+scheduled_at, status, priority}` — the agenda item's own `priority` doubles as §2's الأولوية column,
+which has no meaning for a candidate not yet on any agenda). All three are inert everywhere else that
+reuses this shared resource — nothing eager-loads `createdBy`/`meetingRequests`/`withCount` outside
+`CommitteeCandidateController::index()`, which now does. New `Request::meetingRequests()` HasMany.
+Frontend: `CommitteeCandidatesView.vue`'s table gained نوع الطلب, الموظف, مدة الانتظار (computed
+client-side from `submitted_at`, no backend field — it's just elapsed time), اكتمال الملف, الأولوية,
+الاجتماع المقترح columns, plus a standalone فتح الملف action (`RouterLink` to `request_details`,
+separate from the four comment-prompted committee actions). **Deliberately not added**: نتيجة الدراسة
+— no backing field exists, and interpreting arbitrary stage-log comment text as a "result" isn't the
+same semantic as a real study-outcome field; fabricating one would be worse than leaving the gap
+flagged. Documented as a conscious skip in `docs/employee-committee-lifecycle/gap-analysis.md`.
+
+**`MeetingLiveView` (§6)**: the runner had *zero* of [C]'s six quick-tabs before this stage — not an
+inverted-order or partial-match case like Stage 36's minutes gap, a genuine absence. New read-only
+`GET meetings/{meeting}/agenda/{agendaItem}/context` (`MeetingController::agendaItemContext()`,
+`meeting_live,view`) returns request/employee/study/attachments/previous-requests in one payload;
+422s for a non-`employee_request` item, matching `DecisionController::record()`'s own guard shape.
+**الدراسة is the actual `request_stage_logs` rows recorded at the `observations` stage** (comment +
+actor + date) — same "no field exists, so read the honest equivalent" reasoning as the candidates-
+table skip above, just resolved differently since stage-log history genuinely is what "study" means
+here. New `GET meetings/{meeting}/agenda/{agendaItem}/attachments/{attachment}`
+(`meetings.agenda-item.attachment`, same gate) streams the file.
+
+**The one real design decision this stage made, worth flagging explicitly**: neither new endpoint
+reuses `RequestVisibility` (the gate `AttachmentController`/`RequestController` use for the direct
+workspace — creator or current actionable assignee only). An R04 committee member reading an agenda
+item mid-meeting is neither: only R03 (the decision-recording role) has a `workflow_transitions` row
+at `receive_from_committee` that `RequestVisibility` would match, so gating the context/attachment
+endpoints on it would 404 for every R04 member trying to read the very panel meant to inform their
+vote. Both ride `meeting_live,view` instead — the same broad, committee-wide trust model the existing
+discussion-notes/vote endpoints already use for this stage, not a new precedent.
+
+Frontend: `MeetingLiveView.vue`'s current-item card gained a 6-tab strip (only for `employee_request`
+items) — 5 real tabs fetching `context` (re-fetched only when `currentItem.value?.id` changes, not on
+every 5s poll tick — watching the computed object itself would refire needlessly since `meeting.value`
+is replaced wholesale each poll) plus a "notes" tab that folds in the pre-existing Stage 34 discussion
+feed verbatim (moved, not duplicated in spirit — it now renders once, inside the tab, for request
+items; non-request admin/emerging items keep the old always-visible `.discussion` section unchanged,
+since they have no other tabs to share space with).
+
+Verification: new `tests/Feature/MeetingAgendaItemContextTest.php` (4 tests — full context payload
+incl. an R04 member successfully reading a request they didn't create; 422 on an admin item; the
+attachment stream working for that same non-creator R04 member, proving the RequestVisibility-bypass
+decision above is real; 404 for an attachment/request mismatch), plus one new test in
+`CommitteeCandidatesDashboardTest.php` asserting `created_by`/`attachments_count`/`proposed_meeting`
+round-trip correctly. Full suite **175 tests / 1042 assertions** green (was 170/1027), Pint clean on
+every touched file, `npm run build` passes with both views' chunks (then reverted `frontend/dist`,
+tracked in git, per every prior stage's note). Locale key-parity verified programmatically: 799 keys
+each side, zero on-one-side-only. No migration — every new field/endpoint rides existing columns and
+relations. **Not verified: no browser this session** — the tab strip's layout and the candidates
+table's new columns are calculated from `MeetingLiveView`/`CommitteeCandidatesView`'s existing
+patterns, not observed, consistent with every prior UI-touching note.
+
+Next per STAGE_PLAN's suggested order: **Stage 45** (fixed 5-seat committee roster).
+
+---
+
+### 2026-08-31 14:20 EET — Claude — Stage 44 implementation plan (verify remaining [C] fidelity gaps)
+
+Building Stage 44 per STAGE_PLAN.md Track I: confirm-or-close the two items the 2026-08-30 gap-analysis
+flagged as "unconfirmed" rather than confirmed-missing — `committee_candidates`'s columns against [C]
+§2, and `MeetingLiveView`'s tabs against [C] §6. Read both source sections
+(`docs/employee-committee-lifecycle/meeting-screens-design.md` §2/§6) and the actual current code
+first, rather than assuming either direction.
+
+**Verdict for both: real, unbuilt gaps**, not false alarms — confirming this stage's own premise
+("check before treating these as gaps") the honest way, by actually reading the code before writing
+anything.
+
+**`committee_candidates`**: [C] §2's columns are رقم الطلب|الموظف|نوع الطلب|الإدارة|تاريخ التقديم|
+مدة الانتظار|نتيجة الدراسة|اكتمال الملف|الأولوية|الاجتماع المقترح|الإجراء, with a standalone فتح
+الملف action. `CommitteeCandidatesView.vue` today has reference|title|department|status|submitted|
+actions — missing الموظف, نوع الطلب, مدة الانتظار, نتيجة الدراسة, اكتمال الملف, الأولوية, الاجتماع
+المقترح, and فتح الملف as its own action (only the four committee-status actions exist). Scoping
+decision: add what's honestly derivable from existing data (الموظف via a new `createdBy` whenLoaded
+field on the shared `RequestResource`; نوع الطلب — already returned by that resource, just not
+rendered; مدة الانتظار computed client-side from the already-returned `submitted_at`, no backend
+change; اكتمال الملف via `->withCount('attachments')`; الاجتماع المقترح + الأولوية via a new
+`Request::meetingRequests()` relation reading the latest `MeetingRequest` row's meeting+priority — a
+candidate can already ride a meeting's agenda without CommitteeStatusService's `place_on_agenda`
+action ever firing, since `addAgendaItem()` doesn't call it, so this is a real, currently-invisible
+state, not a hypothetical). **Not adding نتيجة الدراسة** — no field represents "study result" anywhere
+in the schema, and interpreting arbitrary stage-log comment text as a structured "result" would be
+fabricating data, not surfacing it; flagging as a conscious skip instead.
+
+**`MeetingLiveView`**: [C] §6 names six quick-tabs (ملخص الطلب|بيانات الموظف|الدراسة|المرفقات|الطلبات
+السابقة|مالحظات اللجنة) shown beside the current agenda item. The live runner today has *no* tabs at
+all — heading, state controls, the Stage 35 decision panel, and an always-visible discussion feed.
+Five of the six need real new data the runner doesn't fetch today (only `MeetingRequestResource`'s
+thin `request` block — id/reference/title/status — is loaded); the sixth (مالحظات اللجنة) is already
+served by the existing Stage 34 discussion feed and doesn't need rebuilding, just folding into the tab
+strip. Mechanism: one new read-only endpoint, `GET meetings/{meeting}/agenda/{agendaItem}/context`
+(`meeting_live,view`), returning request/employee/study/attachments/previous-requests in one payload —
+**deliberately not gated by `RequestVisibility`** (the direct-workspace gate), since an R04 committee
+member reading an item mid-meeting is neither the request's creator nor (unlike R03, whose
+decision-recording action IS a `workflow_transitions` row at this stage) someone `RequestVisibility`
+would recognize as a current actionable assignee; gating on it would 404 for exactly the audience this
+panel is for. Attachments need their own new stream route for the same reason —
+`AttachmentController::preview` is RequestVisibility-gated and would also 404 for R04. الدراسة reads
+the request's own `request_stage_logs` rows recorded at the `observations` stage (comment/actor/date)
+— the same "no dedicated field, so read the honest underlying history" call as نتيجة الدراسة above,
+just resolved as buildable here since stage-log history genuinely *is* what "study" means, unlike a
+free-text "result" summary.
+
+**Verification plan**: new `tests/Feature/MeetingAgendaItemContextTest.php` covering the full context
+payload (incl. an R04 non-creator member successfully reading it — the point of the RequestVisibility
+bypass), the 422 on a non-request item, the attachment stream working for that same non-creator
+member, and a 404 for a mismatched attachment/request pair; plus a new assertion in
+`CommitteeCandidatesDashboardTest.php` for the three new `RequestResource` fields — then the full
+PHPUnit suite, Pint, `npm run build` (reverting tracked `frontend/dist` afterward), and a locale
+key-parity check. No migration — every addition rides existing columns/relations.
+
+---
+
 ### 2026-08-31 12:50 EET — Claude — Stage 43 complete (move `decisions` out of the meetings sidebar group)
 
 Built exactly per the plan below — one-line seeder change, no Vue/permission/migration change needed.

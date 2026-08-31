@@ -551,14 +551,23 @@
       "table": {
         "reference": "المرجع",
         "title": "العنوان",
+        "employee": "الموظف",
+        "requestType": "نوع الطلب",
         "department": "الإدارة",
         "status": "الحالة",
         "submitted": "تاريخ التقديم",
         "overdue": "متأخرة",
+        "waiting": "مدة الانتظار",
+        "waitingDays": "{count} يوم",
+        "fileCompleteness": "اكتمال الملف",
+        "priority": "الأولوية",
+        "proposedMeeting": "الاجتماع المقترح",
+        "noProposedMeeting": "—",
         "actions": "إجراءات"
       },
       "empty": "لا توجد طلبات مرشحة حالياً.",
       "actions": {
+        "openFile": "فتح الملف",
         "nominate": "إضافة لقائمة اللجنة",
         "defer": "تأجيل",
         "returnToStudy": "إعادة للدراسة",
@@ -663,6 +672,45 @@
         "empty": "لا توجد ملاحظات بعد.",
         "placeholder": "أضف ملاحظة على النقاش…",
         "post": "إضافة"
+      },
+      "tabs": {
+        "summary": "ملخص الطلب",
+        "employee": "بيانات الموظف",
+        "study": "الدراسة",
+        "attachments": "المرفقات",
+        "previous": "الطلبات السابقة",
+        "notes": "ملاحظات اللجنة"
+      },
+      "context": {
+        "loadError": "تعذر تحميل بيانات الطلب.",
+        "summary": {
+          "reference": "الرقم المرجعي",
+          "department": "الإدارة",
+          "requestType": "نوع الطلب",
+          "status": "الحالة",
+          "submitted": "تاريخ التقديم",
+          "dueDate": "الموعد النهائي",
+          "decisionGrade": "درجة القرار",
+          "description": "التفاصيل",
+          "noDescription": "لا توجد تفاصيل إضافية."
+        },
+        "employee": {
+          "name": "الاسم",
+          "email": "البريد الإلكتروني",
+          "phone": "الهاتف",
+          "department": "الإدارة",
+          "manager": "المدير المباشر",
+          "unavailable": "لا تتوفر بيانات الموظف."
+        },
+        "study": {
+          "empty": "لا توجد ملاحظات دراسة مسجَّلة على هذا الطلب."
+        },
+        "attachments": {
+          "empty": "لا توجد مرفقات على هذا الطلب."
+        },
+        "previous": {
+          "empty": "لا توجد طلبات سابقة لهذا الموظف."
+        }
       }
     },
     "minutes": {

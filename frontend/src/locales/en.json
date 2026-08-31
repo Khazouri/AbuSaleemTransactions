@@ -551,14 +551,23 @@
       "table": {
         "reference": "Reference",
         "title": "Title",
+        "employee": "Employee",
+        "requestType": "Request type",
         "department": "Department",
         "status": "Status",
         "submitted": "Submitted",
         "overdue": "Overdue",
+        "waiting": "Waiting time",
+        "waitingDays": "{count} day(s)",
+        "fileCompleteness": "File completeness",
+        "priority": "Priority",
+        "proposedMeeting": "Proposed meeting",
+        "noProposedMeeting": "—",
         "actions": "Actions"
       },
       "empty": "No candidate requests right now.",
       "actions": {
+        "openFile": "Open file",
         "nominate": "Add to committee list",
         "defer": "Defer",
         "returnToStudy": "Return to study",
@@ -663,6 +672,45 @@
         "empty": "No notes yet.",
         "placeholder": "Add a discussion note…",
         "post": "Post"
+      },
+      "tabs": {
+        "summary": "Request Summary",
+        "employee": "Employee Data",
+        "study": "Study",
+        "attachments": "Attachments",
+        "previous": "Previous Requests",
+        "notes": "Committee Notes"
+      },
+      "context": {
+        "loadError": "Could not load request data.",
+        "summary": {
+          "reference": "Reference number",
+          "department": "Department",
+          "requestType": "Request type",
+          "status": "Status",
+          "submitted": "Submitted",
+          "dueDate": "Due date",
+          "decisionGrade": "Decision grade",
+          "description": "Details",
+          "noDescription": "No additional details."
+        },
+        "employee": {
+          "name": "Name",
+          "email": "Email",
+          "phone": "Phone",
+          "department": "Department",
+          "manager": "Direct manager",
+          "unavailable": "Employee data is not available."
+        },
+        "study": {
+          "empty": "No study notes recorded for this request."
+        },
+        "attachments": {
+          "empty": "No attachments on this request."
+        },
+        "previous": {
+          "empty": "No previous requests for this employee."
+        }
       }
     },
     "minutes": {

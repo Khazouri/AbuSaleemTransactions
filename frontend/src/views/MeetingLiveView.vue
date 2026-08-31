@@ -143,6 +143,69 @@ async function setItemState(item, state) {
   }
 }
 
+// --- Quick-info tabs (Stage 44) --------------------------------------------
+// [C] §6's six tabs: ملخص الطلب | بيانات الموظف | الدراسة | المرفقات |
+// الطلبات السابقة | مالحظات اللجنة. The sixth is the discussion feed below,
+// folded into the tab strip; the other five come from a dedicated read-only
+// endpoint fetched whenever the current item changes.
+
+const INFO_TABS = ['summary', 'employee', 'study', 'attachments', 'previous', 'notes']
+const activeTab = ref('summary')
+const context = ref(null)
+const contextLoading = ref(false)
+const contextError = ref('')
+
+async function loadContext(item) {
+  context.value = null
+  contextError.value = ''
+  if (!meeting.value || !item || item.item_type !== 'employee_request') return
+  contextLoading.value = true
+  try {
+    const { data } = await api.get(`/meetings/${meeting.value.id}/agenda/${item.id}/context`)
+    context.value = data.data
+  } catch (requestError) {
+    contextError.value = requestError.response?.data?.message ?? t('meetingsUnit.live.context.loadError')
+  } finally {
+    contextLoading.value = false
+  }
+}
+
+// Watches the id only — currentItem is a computed that recomputes on every
+// 5s poll tick, and re-fetching context on every tick would be wasteful.
+watch(() => currentItem.value?.id, (id) => {
+  activeTab.value = 'summary'
+  if (id) loadContext(currentItem.value)
+  else context.value = null
+})
+
+function fullDate(value) {
+  if (!value) return t('common.none')
+  return new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
+}
+
+function fileSize(bytes) {
+  if (!bytes && bytes !== 0) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+}
+
+async function downloadAttachment(attachment) {
+  try {
+    const { data } = await api.get(attachment.preview_url, { responseType: 'blob' })
+    const url = URL.createObjectURL(data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = attachment.original_name
+    document.body.append(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  } catch {
+    contextError.value = t('attachments.downloadFailed')
+  }
+}
+
 // --- Discussion feed -----------------------------------------------------------
 
 const noteDraft = ref('')
@@ -322,7 +385,131 @@ onMounted(async () => {
             @refresh="load"
           />
 
-          <div class="discussion">
+          <div v-if="currentItem.item_type === 'employee_request'" class="info-tabs">
+            <div class="tab-bar">
+              <button
+                v-for="tab in INFO_TABS"
+                :key="tab"
+                type="button"
+                class="ghost"
+                :class="{ active: activeTab === tab }"
+                @click="activeTab = tab"
+              >
+                {{ t(`meetingsUnit.live.tabs.${tab}`) }}
+              </button>
+            </div>
+
+            <p v-if="contextLoading" class="state">{{ t('common.loading') }}</p>
+            <p v-else-if="contextError && activeTab !== 'notes'" class="alert">{{ contextError }}</p>
+
+            <div v-else-if="context || activeTab === 'notes'" class="tab-panel">
+              <dl v-if="activeTab === 'summary'" class="info-grid">
+                <dt>{{ t('meetingsUnit.live.context.summary.reference') }}</dt>
+                <dd class="ltr">{{ context.request.reference_number || `#${context.request.id}` }}</dd>
+                <dt>{{ t('meetingsUnit.live.context.summary.requestType') }}</dt>
+                <dd>{{ context.request.request_type ? name(context.request.request_type) : t('common.none') }}</dd>
+                <dt>{{ t('meetingsUnit.live.context.summary.department') }}</dt>
+                <dd>{{ context.request.department ? name(context.request.department) : t('common.none') }}</dd>
+                <dt>{{ t('meetingsUnit.live.context.summary.status') }}</dt>
+                <dd>
+                  <span class="pill" :style="{ background: context.request.status?.color }">
+                    {{ locale === 'ar' ? context.request.status?.name_ar : context.request.status?.name_en }}
+                  </span>
+                </dd>
+                <dt>{{ t('meetingsUnit.live.context.summary.submitted') }}</dt>
+                <dd>{{ fullDate(context.request.submitted_at) }}</dd>
+                <dt>{{ t('meetingsUnit.live.context.summary.dueDate') }}</dt>
+                <dd>{{ fullDate(context.request.due_date) }}</dd>
+                <dt v-if="context.request.decision_grade">{{ t('meetingsUnit.live.context.summary.decisionGrade') }}</dt>
+                <dd v-if="context.request.decision_grade">{{ context.request.decision_grade }}</dd>
+                <dt>{{ t('meetingsUnit.live.context.summary.description') }}</dt>
+                <dd>{{ context.request.description || t('meetingsUnit.live.context.summary.noDescription') }}</dd>
+              </dl>
+
+              <dl v-else-if="activeTab === 'employee'" class="info-grid">
+                <template v-if="context.employee">
+                  <dt>{{ t('meetingsUnit.live.context.employee.name') }}</dt>
+                  <dd>{{ context.employee.name }}</dd>
+                  <dt>{{ t('meetingsUnit.live.context.employee.email') }}</dt>
+                  <dd class="ltr">{{ context.employee.email || t('common.none') }}</dd>
+                  <dt>{{ t('meetingsUnit.live.context.employee.phone') }}</dt>
+                  <dd class="ltr">{{ context.employee.phone || t('common.none') }}</dd>
+                  <dt>{{ t('meetingsUnit.live.context.employee.department') }}</dt>
+                  <dd>{{ context.employee.department ? name(context.employee.department) : t('common.none') }}</dd>
+                  <dt>{{ t('meetingsUnit.live.context.employee.manager') }}</dt>
+                  <dd>{{ context.employee.manager?.name ?? t('common.none') }}</dd>
+                </template>
+                <p v-else class="state">{{ t('meetingsUnit.live.context.employee.unavailable') }}</p>
+              </dl>
+
+              <div v-else-if="activeTab === 'study'">
+                <p v-if="!context.study?.length" class="state">{{ t('meetingsUnit.live.context.study.empty') }}</p>
+                <ul v-else class="notes">
+                  <li v-for="log in context.study" :key="log.id">
+                    <div class="note-meta">
+                      <strong>{{ log.acted_by?.name ?? t('common.none') }}</strong>
+                      <span class="note-time">{{ fullDate(log.acted_at) }}</span>
+                    </div>
+                    <p>{{ log.comment || t('common.none') }}</p>
+                  </li>
+                </ul>
+              </div>
+
+              <div v-else-if="activeTab === 'attachments'">
+                <p v-if="!context.attachments?.length" class="state">{{ t('meetingsUnit.live.context.attachments.empty') }}</p>
+                <ul v-else class="attachment-list">
+                  <li v-for="attachment in context.attachments" :key="attachment.id">
+                    <span>{{ attachment.original_name }}</span>
+                    <span class="muted">{{ fileSize(attachment.size_bytes) }}</span>
+                    <button class="ghost" type="button" @click="downloadAttachment(attachment)">
+                      {{ t('attachments.download') }}
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              <div v-else-if="activeTab === 'previous'">
+                <p v-if="!context.previous_requests?.length" class="state">{{ t('meetingsUnit.live.context.previous.empty') }}</p>
+                <ul v-else class="attachment-list">
+                  <li v-for="previous in context.previous_requests" :key="previous.id">
+                    <span class="ltr">{{ previous.reference_number || `#${previous.id}` }}</span>
+                    <span>{{ previous.title }}</span>
+                    <span class="pill" :style="{ background: previous.status?.color }">
+                      {{ locale === 'ar' ? previous.status?.name_ar : previous.status?.name_en }}
+                    </span>
+                  </li>
+                </ul>
+              </div>
+
+              <div v-else-if="activeTab === 'notes'" class="discussion">
+                <ul v-if="currentItem.notes?.length" class="notes">
+                  <li v-for="note in currentItem.notes" :key="note.id">
+                    <div class="note-meta">
+                      <strong>{{ note.created_by?.name ?? t('common.none') }}</strong>
+                      <span class="note-time">{{ dateTime(note.created_at) }}</span>
+                    </div>
+                    <p>{{ note.note }}</p>
+                  </li>
+                </ul>
+                <p v-else class="state">{{ t('meetingsUnit.live.discussion.empty') }}</p>
+
+                <div v-can="'meeting_live.add'" class="note-form">
+                  <textarea
+                    v-model="noteDraft"
+                    rows="2"
+                    :placeholder="t('meetingsUnit.live.discussion.placeholder')"
+                    :aria-label="t('meetingsUnit.live.discussion.placeholder')"
+                  />
+                  <button class="ghost" type="button" :disabled="notesBusy || !noteDraft.trim()" @click="postNote(currentItem)">
+                    {{ notesBusy ? t('common.saving') : t('meetingsUnit.live.discussion.post') }}
+                  </button>
+                </div>
+                <p v-if="notesError" class="alert">{{ notesError }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="discussion">
             <h4>{{ t('meetingsUnit.live.discussion.title') }}</h4>
             <ul v-if="currentItem.notes?.length" class="notes">
               <li v-for="note in currentItem.notes" :key="note.id">
@@ -414,6 +601,17 @@ select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-ho
 
 .state-controls { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }
 .state-controls button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
+
+.info-tabs { margin-bottom: .75rem; padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
+.tab-bar { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .75rem; }
+.tab-bar button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
+.tab-panel { font-size: .85rem; }
+.info-grid { display: grid; grid-template-columns: max-content 1fr; gap: .35rem .75rem; margin: 0; }
+.info-grid dt { color: var(--color-muted); font-size: .78rem; }
+.info-grid dd { margin: 0; color: var(--color-black-700); }
+.attachment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.attachment-list li { display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem; background: var(--color-surface-hover); border-radius: 8px; flex-wrap: wrap; }
+.attachment-list .muted { color: var(--color-muted); font-size: .78rem; }
 
 .discussion { padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
 .discussion h4 { margin: 0 0 .5rem; font-size: .88rem; color: var(--color-black-800); }

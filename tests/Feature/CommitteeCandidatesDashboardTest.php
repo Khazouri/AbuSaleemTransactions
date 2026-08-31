@@ -59,6 +59,50 @@ class CommitteeCandidatesDashboardTest extends TestCase
             ->assertJsonPath('data.status.code', 'nominated_for_committee');
     }
 
+    public function test_index_includes_employee_attachment_count_and_proposed_meeting(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $head = $this->userWithRole('R03');
+        $employee = $this->userWithRole('R01');
+        $requestRecord = $this->requestAt('receive_from_committee', 'nominated_for_committee', $employee);
+
+        $requestRecord->attachments()->create([
+            'disk' => 'local',
+            'path' => 'attachments/test.pdf',
+            'original_name' => 'ملف.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 10,
+            'uploaded_by_user_id' => $head->id,
+        ]);
+
+        $committee = Committee::create(['name_ar' => 'لجنة اختبار الأعمدة']);
+        $meeting = Meeting::create([
+            'committee_id' => $committee->id,
+            'title' => 'اجتماع مقترح',
+            'status' => 'scheduled',
+            'scheduled_at' => now()->addDays(2),
+            'created_by_user_id' => $head->id,
+        ]);
+        MeetingRequest::create([
+            'meeting_id' => $meeting->id,
+            'request_id' => $requestRecord->id,
+            'agenda_order' => 1,
+            'item_type' => 'employee_request',
+            'priority' => 'high',
+        ]);
+
+        $response = $this->actingAs($head, 'sanctum')
+            ->getJson('/api/committee-candidates')
+            ->assertOk();
+
+        $row = collect($response->json('data'))->firstWhere('id', $requestRecord->id);
+        $this->assertSame($employee->id, $row['created_by']['id']);
+        $this->assertSame(1, $row['attachments_count']);
+        $this->assertSame($meeting->id, $row['proposed_meeting']['id']);
+        $this->assertSame('high', $row['proposed_meeting']['priority']);
+    }
+
     public function test_a_member_can_nominate_but_not_defer(): void
     {
         $this->seed(DatabaseSeeder::class);
@@ -240,7 +284,7 @@ class CommitteeCandidatesDashboardTest extends TestCase
         return $this->requestAt('receive_from_committee', $statusCode);
     }
 
-    private function requestAt(string $stageCode, string $statusCode): Request
+    private function requestAt(string $stageCode, string $statusCode, ?User $employee = null): Request
     {
         return Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
@@ -249,6 +293,7 @@ class CommitteeCandidatesDashboardTest extends TestCase
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
             'status_id' => RequestStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
+            'created_by_user_id' => $employee?->id,
             'submitted_at' => now(),
         ]);
     }

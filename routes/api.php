@@ -359,6 +359,21 @@ Route::middleware('auth:sanctum')->group(function () {
         ->post('meetings/{meeting}/agenda/{agendaItem}/notes', [MeetingDiscussionNoteController::class, 'store']);
 
     /*
+     * Stage 44 — the runner's quick-info panel ([C] §6's five non-notes
+     * tabs) plus the private attachment stream it needs. Both ride
+     * `meeting_live,view`, deliberately not the request-detail visibility
+     * gate — see MeetingController::agendaItemContext()'s docblock.
+     */
+    Route::middleware('screen.permission:meeting_live,view')
+        ->get('meetings/{meeting}/agenda/{agendaItem}/context', [MeetingController::class, 'agendaItemContext']);
+    Route::middleware('screen.permission:meeting_live,view')
+        ->get(
+            'meetings/{meeting}/agenda/{agendaItem}/attachments/{attachment}',
+            [MeetingController::class, 'agendaItemAttachment'],
+        )
+        ->name('meetings.agenda-item.attachment');
+
+    /*
      * Stage 36 — minutes: generate/regenerate a draft, the head's review
      * decision, and each attendee's own signature. `add` covers both
      * generating and signing (mirrors `decisions,add` covering vote-casting);

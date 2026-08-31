@@ -20,6 +20,15 @@ function date(value) {
     .format(new Date(value))
 }
 
+// Stage 44 — [C] §2's "مدة الانتظار" column: no stored field for this, just
+// the elapsed time since submission, computed client-side from a value the
+// row already carries.
+function waitingDays(row) {
+  if (!row.submitted_at) return t('common.none')
+  const days = Math.max(0, Math.floor((Date.now() - new Date(row.submitted_at).getTime()) / 86400000))
+  return t('meetingsUnit.candidates.table.waitingDays', { count: days })
+}
+
 // --- Filters + lookups -----------------------------------------------------
 
 const statusFilter = ref('')
@@ -178,9 +187,15 @@ onMounted(async () => {
           <tr>
             <th>{{ t('meetingsUnit.candidates.table.reference') }}</th>
             <th>{{ t('meetingsUnit.candidates.table.title') }}</th>
+            <th>{{ t('meetingsUnit.candidates.table.employee') }}</th>
+            <th>{{ t('meetingsUnit.candidates.table.requestType') }}</th>
             <th>{{ t('meetingsUnit.candidates.table.department') }}</th>
             <th>{{ t('meetingsUnit.candidates.table.status') }}</th>
             <th>{{ t('meetingsUnit.candidates.table.submitted') }}</th>
+            <th>{{ t('meetingsUnit.candidates.table.waiting') }}</th>
+            <th>{{ t('meetingsUnit.candidates.table.fileCompleteness') }}</th>
+            <th>{{ t('meetingsUnit.candidates.table.priority') }}</th>
+            <th>{{ t('meetingsUnit.candidates.table.proposedMeeting') }}</th>
             <th>{{ t('meetingsUnit.candidates.table.actions') }}</th>
           </tr>
         </thead>
@@ -188,6 +203,8 @@ onMounted(async () => {
           <tr v-for="row in rows" :key="row.id">
             <td class="ltr">{{ row.reference_number || `#${row.id}` }}</td>
             <td>{{ row.title }}</td>
+            <td>{{ row.created_by?.name ?? t('common.none') }}</td>
+            <td>{{ row.request_type ? name(row.request_type) : t('common.none') }}</td>
             <td>{{ row.department ? name(row.department) : t('common.none') }}</td>
             <td>
               <span class="pill" :style="{ background: row.status?.color }">
@@ -196,7 +213,28 @@ onMounted(async () => {
               <span v-if="row.is_overdue" class="pill danger">{{ t('meetingsUnit.candidates.table.overdue') }}</span>
             </td>
             <td>{{ date(row.submitted_at) }}</td>
+            <td>{{ waitingDays(row) }}</td>
+            <td>
+              <span class="pill" :class="row.attachments_count ? 'good' : 'bad'">
+                {{ row.attachments_count ?? 0 }}
+              </span>
+            </td>
+            <td>
+              <span v-if="row.proposed_meeting?.priority" class="pill">
+                {{ t(`meetings.agenda.priority.${row.proposed_meeting.priority}`) }}
+              </span>
+              <span v-else>{{ t('common.none') }}</span>
+            </td>
+            <td>
+              <template v-if="row.proposed_meeting">
+                {{ row.proposed_meeting.title }} — {{ date(row.proposed_meeting.scheduled_at) }}
+              </template>
+              <template v-else>{{ t('meetingsUnit.candidates.table.noProposedMeeting') }}</template>
+            </td>
             <td class="actions">
+              <RouterLink class="ghost" :to="{ name: 'request_details', params: { id: row.id } }">
+                {{ t('meetingsUnit.candidates.actions.openFile') }}
+              </RouterLink>
               <button v-can="'committee_candidates.add'" class="ghost" type="button" @click="openPrompt('nominate', row)">
                 {{ t('meetingsUnit.candidates.actions.nominate') }}
               </button>
@@ -271,11 +309,13 @@ th { color: var(--color-muted); font-weight: 600; font-size: .76rem; }
 
 .pill { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .74rem; color: #fff; }
 .pill.danger { background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); margin-inline-start: .35rem; }
+.pill.good { background: var(--color-success-bg); color: var(--color-success-fg); border: 1px solid var(--color-success-border); }
+.pill.bad { background: var(--color-warning-bg); color: var(--color-warning-fg); border: 1px solid var(--color-warning-border); }
 
 .actions { white-space: normal; display: flex; flex-wrap: wrap; gap: .35rem; }
-button { cursor: pointer; border-radius: 8px; font-size: .8rem; }
+button, a.ghost { cursor: pointer; border-radius: 8px; font-size: .8rem; }
 button:disabled { cursor: not-allowed; opacity: .6; }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); }
+.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); text-decoration: none; display: inline-block; }
 .ghost:hover { background: var(--color-surface-hover); }
 .primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
 

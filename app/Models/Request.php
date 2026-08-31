@@ -86,6 +86,12 @@ class Request extends Model
         return $this->hasMany(Note::class);
     }
 
+    /** Stage 44 — every agenda slot this request has ridden, across meetings. */
+    public function meetingRequests(): HasMany
+    {
+        return $this->hasMany(MeetingRequest::class);
+    }
+
     public function approvals(): HasMany
     {
         return $this->hasMany(Approval::class);

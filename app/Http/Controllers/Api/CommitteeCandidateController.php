@@ -42,7 +42,14 @@ class CommitteeCandidateController extends Controller
                 'requestType:id,code,name_ar,name_en,decision_grade_threshold',
                 'status:id,code,name_ar,name_en,color',
                 'currentStage:id,order_no,code,name_ar,name_en',
+                // Stage 44 — closes the [C] §2 fidelity gap: الموظف, اكتمال
+                // الملف, الاجتماع المقترح (and its priority, standing in for
+                // §2's own الأولوية column, which otherwise has no meaning
+                // before a candidate is placed on any agenda).
+                'createdBy:id,name',
+                'meetingRequests.meeting:id,title,scheduled_at,status',
             ])
+            ->withCount('attachments')
             ->when($filters['status'] ?? null, fn ($query, string $status) => $query
                 ->whereHas('status', fn ($statusQuery) => $statusQuery->where('code', $status)))
             ->when($filters['department_id'] ?? null, fn ($query, int $departmentId) => $query->where('department_id', $departmentId))

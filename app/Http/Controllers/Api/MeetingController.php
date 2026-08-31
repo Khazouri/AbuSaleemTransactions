@@ -15,17 +15,21 @@ use App\Http\Requests\MeetingAttendee\UpdateMeetingAttendeeRequest;
 use App\Http\Resources\MeetingAttendeeResource;
 use App\Http\Resources\MeetingRequestResource;
 use App\Http\Resources\MeetingResource;
+use App\Models\Attachment;
 use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\MeetingAttendee;
 use App\Models\MeetingMinutes;
 use App\Models\MeetingRequest;
+use App\Models\RequestStageLog;
 use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Stage 20 — scheduling meetings and building their agenda/attendance.
@@ -235,6 +239,162 @@ class MeetingController extends Controller
             'request.status:id,code,name_ar,name_en,color',
             'department:id,name_ar,name_en',
         ]));
+    }
+
+    /**
+     * Stage 44 — the live runner's quick-info panel: [C] §6's six tabs
+     * (ملخص الطلب | بيانات الموظف | الدراسة | المرفقات | الطلبات السابقة |
+     * مالحظات اللجنة — the sixth, committee notes, is already served by the
+     * existing discussion feed, so this endpoint covers the other five).
+     * Deliberately not gated by RequestVisibility (the direct-workspace
+     * gate `AttachmentController`/`RequestController` use) — a committee
+     * member reading an item during a live meeting isn't necessarily the
+     * request's creator or its current actionable assignee (only the R03
+     * head's decide-action role passes that gate; R04 members would 404).
+     * `meeting_live,view` is the right gate here, same as the discussion
+     * feed and the notes list already use.
+     */
+    public function agendaItemContext(Meeting $meeting, MeetingRequest $agendaItem): JsonResponse
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        if ($agendaItem->item_type !== 'employee_request') {
+            return response()->json([
+                'message' => 'لا تتوفر بيانات طلب لبند غير مرتبط بطلب.',
+            ], 422);
+        }
+
+        $agendaItem->loadMissing([
+            'request.department:id,name_ar,name_en',
+            'request.requestType:id,name_ar,name_en',
+            'request.status:id,code,name_ar,name_en,color',
+            'request.createdBy:id,name,email,phone,department_id,manager_id',
+            'request.createdBy.department:id,name_ar,name_en',
+            'request.createdBy.manager:id,name',
+            'request.attachments',
+        ]);
+
+        $requestRecord = $agendaItem->request;
+        $creator = $requestRecord->createdBy;
+
+        // "الدراسة" — [C]'s study stage has no free-standing result field to
+        // read; the honest equivalent is the actual stage-log entries
+        // recorded while this request sat at the `observations` stage.
+        $study = RequestStageLog::query()
+            ->where('request_id', $requestRecord->id)
+            ->where(function ($query) {
+                $query->whereHas('fromStage', fn ($stage) => $stage->where('code', 'observations'))
+                    ->orWhereHas('toStage', fn ($stage) => $stage->where('code', 'observations'));
+            })
+            ->with('actedBy:id,name')
+            ->orderBy('acted_at')
+            ->get();
+
+        $previousRequests = \App\Models\Request::query()
+            ->where('created_by_user_id', $requestRecord->created_by_user_id)
+            ->where('id', '!=', $requestRecord->id)
+            ->with('status:id,code,name_ar,name_en,color')
+            ->orderByDesc('submitted_at')
+            ->limit(10)
+            ->get();
+
+        return response()->json(['data' => [
+            'request' => [
+                'id' => $requestRecord->id,
+                'reference_number' => $requestRecord->reference_number,
+                'title' => $requestRecord->title,
+                'description' => $requestRecord->description,
+                'department' => $requestRecord->department ? [
+                    'id' => $requestRecord->department->id,
+                    'name_ar' => $requestRecord->department->name_ar,
+                    'name_en' => $requestRecord->department->name_en,
+                ] : null,
+                'request_type' => $requestRecord->requestType ? [
+                    'id' => $requestRecord->requestType->id,
+                    'name_ar' => $requestRecord->requestType->name_ar,
+                    'name_en' => $requestRecord->requestType->name_en,
+                ] : null,
+                'status' => $requestRecord->status ? [
+                    'code' => $requestRecord->status->code,
+                    'name_ar' => $requestRecord->status->name_ar,
+                    'name_en' => $requestRecord->status->name_en,
+                    'color' => $requestRecord->status->color,
+                ] : null,
+                'decision_grade' => $requestRecord->decision_grade,
+                'submitted_at' => $requestRecord->submitted_at?->toIso8601String(),
+                'due_date' => $requestRecord->due_date?->toDateString(),
+            ],
+            'employee' => $creator ? [
+                'id' => $creator->id,
+                'name' => $creator->name,
+                'email' => $creator->email,
+                'phone' => $creator->phone,
+                'department' => $creator->department ? [
+                    'id' => $creator->department->id,
+                    'name_ar' => $creator->department->name_ar,
+                    'name_en' => $creator->department->name_en,
+                ] : null,
+                'manager' => $creator->manager ? [
+                    'id' => $creator->manager->id,
+                    'name' => $creator->manager->name,
+                ] : null,
+            ] : null,
+            'study' => $study->map(fn (RequestStageLog $log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'comment' => $log->comment,
+                'acted_by' => $log->actedBy ? ['id' => $log->actedBy->id, 'name' => $log->actedBy->name] : null,
+                'acted_at' => $log->acted_at?->toIso8601String(),
+            ])->values(),
+            'attachments' => $requestRecord->attachments->map(fn (Attachment $attachment) => [
+                'id' => $attachment->id,
+                'original_name' => $attachment->original_name,
+                'mime_type' => $attachment->mime_type,
+                'size_bytes' => $attachment->size_bytes,
+                'label' => $attachment->label,
+                'preview_url' => route('meetings.agenda-item.attachment', [
+                    'meeting' => $meeting->id,
+                    'agendaItem' => $agendaItem->id,
+                    'attachment' => $attachment->id,
+                ]),
+            ])->values(),
+            'previous_requests' => $previousRequests->map(fn ($previous) => [
+                'id' => $previous->id,
+                'reference_number' => $previous->reference_number,
+                'title' => $previous->title,
+                'status' => $previous->status ? [
+                    'code' => $previous->status->code,
+                    'name_ar' => $previous->status->name_ar,
+                    'name_en' => $previous->status->name_en,
+                    'color' => $previous->status->color,
+                ] : null,
+                'submitted_at' => $previous->submitted_at?->toIso8601String(),
+            ])->values(),
+        ]]);
+    }
+
+    /**
+     * Stage 44 — streams a request's attachment for the live-runner context
+     * panel above. A sibling of AttachmentController::preview, deliberately
+     * not reusing it: that route is gated by RequestVisibility (creator or
+     * current actionable assignee only), which a non-head committee member
+     * reading an agenda item during a meeting would fail. Trust here comes
+     * from the meeting_live screen grant plus the attachment/agenda-item/
+     * meeting chain actually matching, not from RequestVisibility.
+     */
+    public function agendaItemAttachment(Meeting $meeting, MeetingRequest $agendaItem, Attachment $attachment): StreamedResponse
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+        abort_unless($agendaItem->item_type === 'employee_request', 404);
+        abort_unless($attachment->request_id === $agendaItem->request_id, 404);
+        abort_unless(Storage::disk($attachment->disk)->exists($attachment->path), 404);
+
+        return Storage::disk($attachment->disk)->response(
+            $attachment->path,
+            $attachment->original_name,
+            ['Content-Type' => $attachment->mime_type],
+            'inline',
+        );
     }
 
     public function removeAgendaItem(Meeting $meeting, MeetingRequest $agendaItem): JsonResponse
