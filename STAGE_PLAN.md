@@ -416,6 +416,264 @@ infographics] stages 8–11.
 
 ---
 
+## TRACK I — Employee Affairs Committee Official Process Alignment
+
+Five documents describe this committee's process (see
+[docs/employee-committee-lifecycle/README.md](docs/employee-committee-lifecycle/README.md)
+for the full lineage — that folder is git-ignored but persists locally).
+**[D]** (`دليل إجراءات لجنة شؤون الموظفين`, 142-page/114-Article procedures
+manual) and **[E]** (`المسار التفصيلي المعتمد`, a 21-stage detailed flow) are
+the **standard** — same July-2026 edition as the shorter **[A]** (`مسار تقديم
+طلب وعمل لجنة`), which stays a useful summary but loses to [D]/[E] on
+specifics. **[B]**/**[C]** (`1.pdf` / `اجتماع لجنة.pdf`) are the *different*,
+informal documents Track H above was actually built from — kept for UI/UX
+reference only, never authoritative on process shape. Full comparison:
+[docs/employee-committee-lifecycle/gap-analysis.md](docs/employee-committee-lifecycle/gap-analysis.md).
+
+**Two corrections already folded in below, not re-litigated per stage:**
+current system's R10 "وكيل الديوان" role and its 3-way `administrative_routing`
+(HR/Diwan/Committee-secretary) looked invented against the informal
+infographics an earlier redesign session used, but [D] Art. 10/11 and [E]
+stage 03 show the standard routes to exactly the same three parties — so
+Stage 56 below is a verification task, not a rebuild. Same for the
+`direct_manager_review` gate against Stage 55.
+
+### Stage 38 — Source reconciliation
+**Goal:** [D]/[E] formally recorded as the standard process reference.
+**Build:**
+- `docs/employee-committee-lifecycle/` committed to memory (git-ignored, so
+  it stays local — durable pointer lives in AGENTS.md/AGENT_NOTES.md instead)
+- No code change — this stage is the housekeeping the other 20 depend on.
+**Done when:** anyone opening AGENTS.md or this file knows where to look
+before touching committee/workflow code.
+
+### Stage 39 — Agenda drag-and-drop reorder
+**Goal:** `meeting_agenda`'s reorder matches [C]'s design (drag & drop), not
+the up/down buttons Stage 20/31 shipped.
+**Build:** replace `MeetingAgendaBuilderView.vue`'s up/down controls with a
+drag-and-drop list, same `agenda_order` write path underneath.
+**Source:** [C] §4.
+
+### Stage 40 — Group-similar-by-request-type in the agenda builder
+**Goal:** `agendaStats()`'s grouping matches [C]'s example (by request type),
+not the current department-only axis.
+**Build:** add a request-type grouping option to `MeetingController::agendaStats()`
+and the agenda builder UI, alongside the existing department grouping.
+**Source:** [C] §4 ("جميع طلبات الترقية... في مجموعة واحدة").
+
+### Stage 41 — Abstain vote option
+**Goal:** a committee member who attended but didn't vote either way can be
+represented.
+**Build:** add `abstain` (or `ممتنع`) to `votes.vote`'s value set, a
+`votes_abstain_count` column on `decisions`, and the vote UI's tally display.
+**Source:** [C] §7 ("الحاضرون 7 | صوّت 7 | موافق 5 | غير موافق 1 | ممتنع 1").
+
+### Stage 42 — Decision-draft auto-generation
+**Goal:** picking a decision template merges the record's own data into the
+draft text, not just a static body the user edits by hand.
+**Build:** extend `DecisionController::record()`'s template-fill step to
+interpolate request/employee/date fields into the chosen `Template`'s body.
+**Source:** [C] §7 ("توليد مسودة القرار من بيانات المعاملة"); [D]'s
+decision-phrasing bank (`official-procedures-manual-index.md` §11) for the
+canonical phrasing set to draw from.
+
+### Stage 43 — Move `decisions` out of the meetings sidebar group
+**Goal:** `decisions` is a shared/common screen again, per [C]'s explicit
+instruction, not nested inside `meetings_management`.
+**Build:** change `decisions`' `group` in `ScreenSeeder` back to null/shared;
+update `AppSidebar.vue` placement accordingly. No permission change needed.
+**Source:** [C] ("القرارات... وحدات مشتركة في النظام ولا نكررها داخل قسم
+الاجتماعات").
+
+### Stage 44 — Verify remaining [C] fidelity gaps
+**Goal:** confirm or close two unverified items from the gap analysis rather
+than leave them as open questions.
+**Build:**
+- Check `committee_candidates`'s columns against [C] §2 (مدة االنتظار,
+  االجتماع المقترح, a standalone فتح الملف action) — add whichever are
+  actually missing
+- Check `MeetingLiveView`'s tabs against [C] §6's six (ملخص الطلب|بيانات
+  الموظف|الدراسة|المرفقات|الطلبات السابقة|مالحظات اللجنة)
+**Source:** [C] §2, §6.
+
+### Stage 45 — Fixed 5-seat committee roster
+**Goal:** `committees`/`committee_members` can represent [D] Art. 10's
+institutional composition, not just an open R03/R04 headcount.
+**Build:**
+- Add a `seat` enum to `committee_members` (chair/legal/hr_director/
+  ministry_delegate/rapporteur) alongside the existing `is_head`, or replace
+  `is_head` with it
+- Seed/UI: a committee's membership screen enforces exactly these 5 seats
+  filled, one occupant each
+- `مندوب الخدمة المدنية` seat is display/voting per [D] Art. 14 but never
+  substitutes for a separate central-approval referral — don't let filling
+  this seat silently skip Stage 57's ministry-approval logic
+**Mechanism:** open membership pool → fixed institutional roster.
+**Done when:** a committee's 5 seats are individually identifiable and a
+feature test proves the ministry-delegate seat's vote doesn't skip central
+approval on its own.
+**Source:** [D] Art. 10, 14 (`official-procedures-manual-index.md` §3).
+
+### Stage 46 — Presentation memo (مذكرة العرض) compiler
+**Goal:** each committee item has a compiled pre-meeting memo, not just the
+raw file.
+**Build:** new `PresentationMemoCompiler` service mirroring
+`MeetingMinutesCompiler`'s shape, producing [D] Art. 22's exact field list
+(reference number, employee, work unit, subject, submission date, referring
+body, facts summary, employment status, key documents, legal opinion, prior
+decisions, the specific question the committee is asked to decide); attach
+to the agenda item, viewable before/during the meeting.
+**Mechanism:** nothing today → a pre-meeting compiled artifact, symmetric
+with the post-meeting minutes compiler.
+**Source:** [D] Art. 22; [A] §4 stage 7.
+
+### Stage 47 — Salaries & Benefits Dept participation trigger
+**Goal:** requests with a financial effect (promotion, settlement, allowance,
+back-pay, grade change) trigger a قسم المرتبات والمزايا review step.
+**Build:** a `has_financial_impact` flag (derived from request type or set
+manually) triggering a parallel review/opinion + notification during the
+study stage. [D] doesn't name this seat on the committee itself (only [A]
+does, as a participating party outside the fixed 5-seat roster) — confirm
+during Stage 45's roster work whether [D] treats this as deliberate scope
+narrowing before building it as a full parallel-review step.
+**Source:** [A] §3 party 5.
+
+### Stage 48 — Rapporteur/voting-member separation + conflict of interest
+**Goal:** a meeting's rapporteur can't also vote unless the tashkil decision
+grants it, and a member with a stake in an item must formally recuse.
+**Build:**
+- Enforce in `DecisionEligibility`/vote-casting: block a vote from the
+  meeting's `rapporteur_user_id` unless a flag on the tashkil/committee
+  record grants dual status
+- New conflict-of-interest declare/recuse action per agenda item: disclose
+  before discussion → recorded in the compiled minutes → blocked from
+  deliberation/voting once recused
+**Source:** [D] Art. 11, 15, 18; [A] §11 controls #4–5; [C]'s rapporteur/
+voting-member distinction.
+
+### Stage 49 — Richer committee decision outcomes
+**Goal:** the decision-outcome set matches the standard's shape rather than
+current system's 6-outcome list built ad hoc across Stages 21/35.
+**Build:**
+- Add an explicit "عدم اختصاص" outcome (distinct from `refer_to_another_body`)
+  matching [D] status 14 — a new workflow_transitions exception row + status
+- Reconsider whether "إعادة الملف الستكمال بيانات" should be reachable as an
+  *in-meeting decision outcome* (per [A]/[E]) rather than only as
+  `CommitteeStatusService::require_completion`'s pre-meeting, status-only
+  action — these are two different moments in the standard's own model
+**Source:** [A] §4 stage 9 (7 outcomes); [D] Art. 26 (4 outcomes, deferral
+covering 6 named reasons); [E] stage 12.
+
+### Stage 50 — Minutes content completeness
+**Goal:** close every gap the exploration found against [D] Art. 28's minute-
+content list.
+**Build:** extend `MeetingMinutesCompiler`'s content schema with: attendee
+roles/titles (not just id+name), a per-item facts summary, a
+documents-reviewed list, per-member dissenting opinion + reason (surface
+`votes.comment`, currently captured but never compiled in), a legal-basis
+field distinct from the free-text decision comment, a referral-authority
+field, and embedded signature references.
+**Source:** [D] Art. 28; [A] §4 stage 10.
+
+### Stage 51 — Employee-facing visibility
+**Goal:** an employee viewing their own request sees what [A] §7 requires.
+**Build:** extend `RequestDetailResource` with a `documents_complete` flag
+and a `committee_summary` block (meeting number/date, agenda item number,
+committee result, decision number/date) when applicable; audit notification/
+UI copy against [D] Art. 32's rule that a result is never described as
+final/approved before every required approval tier is actually complete.
+**Source:** [A] §7; [D] Art. 32, 101.
+
+### Stage 52 — Per-stage operational timeframes (soft SLA)
+**Goal:** a soft, non-binding per-stage duration target exists alongside the
+existing hard per-type SLA — not a replacement for it.
+**Build:** a target-duration lookup per `workflow_stages` row (or a small
+lookup table), sourced from [D]'s appendix figures; surfaced as an
+escalation-coloring indicator (green/yellow/red/critical per [D]'s scheme),
+never blocking.
+**Source:** [D] appendix "المدد التشغيلية المستهدفة"; [A] §12.
+
+### Stage 53 — RequestType catalogue + per-type document checklists
+**Goal:** `RequestType` matches [D] Art. 46's six primary families plus
+secondary categories, each with its own required-attachment list.
+**Build:**
+- Add missing types, notably **"تثبيت بعد الاختبار"** (confirmation after
+  probation — [A]'s jurisdiction item #1, [D]'s first type-specific chapter)
+  plus plain التعيين/التعاقد, تسوية وضع وظيفي as first-class, and تظلم من
+  تقييم أداء distinct from generic Grievance
+- A `required_documents` list per type (soft checklist at intake), sourced
+  from [D]'s per-type chapters (Arts. 48–79) and checklist appendices
+**Source:** [D] Art. 46–79 + appendices; [A] §10.
+
+### Stage 54 — Committee jurisdiction validation at initial review
+**Goal:** initial review runs [D] Art. 45's 6-question jurisdiction test
+before anything reaches the agenda, with a matching outcome set.
+**Build:** extend `requirements_check`'s outcomes beyond today's
+approve/return_missing_docs/cancel to cover [A] §4 stage 3's 4 results
+(accepted/suspended-for-docs/referred-elsewhere/rejected-with-reason),
+gated on the 6-question test.
+**Source:** [D] Art. 45; [A] §4 stage 3.
+
+### Stage 54b — Status-vocabulary reconciliation
+**Goal:** a deliberate mapping exists between the current 25-status enum and
+[D] Art. 38's canonical 20-code dictionary, so nothing on either side is
+silently unrepresented.
+**Build:** a reconciliation table (not necessarily a 1:1 replacement — the
+current vocabulary carries committee-substate and 3-way-routing information
+[D]'s list doesn't split out); document the mapping in
+`docs/employee-committee-lifecycle/gap-analysis.md` §4 and decide, per
+divergent status, whether to rename/merge/keep.
+**Source:** [D] Art. 38 (`official-procedures-manual-index.md` §5).
+
+### Stage 55 — ⚠ Verify `direct_manager_review` gate wording
+**Goal:** confirm whether the current mandatory gate (forward /
+`return_to_employee`-with-required-comment / cancel) already complies with
+[D] Art. 10 ("no withholding without a written reason") — likely close, per
+the gap analysis — before assuming a rebuild is needed.
+**Build:** re-read [D] Art. 10 against `WorkflowTransitionSeeder`'s
+`direct_manager_review` rows; adjust copy/validation messages only if an
+actual gap is found, not the gate mechanism itself.
+**Source:** [D] Art. 10; gap-analysis.md §13.
+
+### Stage 56 — ⚠ Verify 3-way routing selection rule
+**Goal:** confirm the 3-way `administrative_routing` (route_to_hr/
+route_to_diwan/route_to_committee_secretary) selects among وكيل الديوان/مدير
+الموارد البشرية/رئيس قسم شؤون الموظفين "بحسب الموضوع" (by subject matter,
+per [D] Art. 11/[E] stage 03), not as a free choice.
+**Build:** if the current selection is effectively manual/arbitrary, design a
+subject-matter-based routing rule (per request type or category) rather than
+leaving it to whoever's acting; this is additive to the existing 3 paths, not
+a replacement of them.
+**Source:** [D] Art. 11; [E] stage 03; gap-analysis.md §13.
+
+### Stage 57 — ⚠ Pre-committee ministry stage + approval-tail restructure
+**Goal:** replace `ministry_endorsement` (currently pre-committee, workflow
+stage 8) and the 4-level `decision_grade`-gated approval tail with the
+standard's two-path model (mayor-only under delegated authority, or
+mayor→ministry when required), matching [D] Art. 31's "بانتظار االعتماد
+المركزي" status and [E] stages 15–17.
+**Build:** this is the one item in this track that changes already-shipped,
+tested behavior with real blast radius (in-flight requests currently sitting
+at `ministry_endorsement`/`approval_by_authority`/`local_governance_ministry`
+need a defined migration path) — needs its own design pass before touching
+code, not a quick fix alongside another stage.
+**Source:** [A] §5; [D] Art. 31, 92–97; [E] stages 15–17; gap-analysis.md
+§14.
+
+### Stage 58 — Appeal (تظلم) lifecycle
+**Goal:** an employee can formally contest an already-decided matter, per
+[D] Arts. 75–79's full specification — not just submit a Grievance-type
+intake request through the ordinary pipeline.
+**Build:** new `appeals` entity referencing a decided request/decision, its
+own status machine, intake fields, a jurisdiction test that explicitly
+excludes disciplinary-board matters ([D] Art. 77), legal review, a 5-outcome
+result set, and non-reopening rules ([D] Art. 79). Comparable in size to all
+of Track H — will need its own sub-staging when scheduled, not a single
+stage.
+**Source:** [D] Art. 75–79; [A] §9; [E]'s إعادة العرض/التظلم handling.
+
+---
+
 ## Suggested order
 
 ```
@@ -427,10 +685,16 @@ infographics] stages 8–11.
 22 → 23 → 24             (cross-cutting)
 25 → 26 → 27             (the remaining seeded screens; 25 depends on 21 and 24)
 28 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 36 → 37   (Track H — meetings unit; 28 & 29 first, all depend on 20–21)
+38 → 39 → 40 → 41 → 42 → 43 → 44                  (Track I group 1–2 — housekeeping + design-fidelity; cheap, do first)
+45 → 46 → 47 → 48 → 49 → 50 → 51 → 52 → 53 → 54 → 54b   (Track I group 3 — additive standard-alignment work)
+55 → 56                                           (Track I group 4a — verification only, may need no code change)
+57                                                (Track I group 4b — real conflict; needs its own migration design)
+58                                                (Track I group 5 — appeal lifecycle; its own future sub-track)
 ```
 
 **Stages you can pull forward if you want a break from the hard parts:** 10, 12, 22.
-**Stages not to rush:** 9, 14, 16, 18 — these are where correctness bugs hide.
+**Stages not to rush:** 9, 14, 16, 18, 57 — these are where correctness bugs hide (57 also carries real
+migration risk for in-flight requests, per its own note in Track I).
 
 ---
 

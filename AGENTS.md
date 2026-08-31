@@ -89,6 +89,17 @@ Key architectural facts worth knowing before changing things:
   what's built vs. stubbed. A screen not yet implemented renders
   `PlaceholderView`; as each stage lands, move its entry out of that list into
   a real route + view, matching the `departments` entry as the template.
+- **Employee Affairs Committee process standard**: for anything touching the
+  committee/workflow subsystem (`WorkflowService`, `CommitteeStatusService`,
+  the `meetings_management` screen group, STAGE_PLAN.md Track I), the
+  authoritative process reference is the pair of documents indexed at
+  `docs/employee-committee-lifecycle/README.md` (git-ignored, local-only) —
+  `دليل إجراءات لجنة شؤون الموظفين` (114-Article procedures manual) and its
+  companion 21-stage detailed flow, both dated "الإصدار الأول يوليو 2026".
+  Two older, informal design documents drove the meetings/committee UI
+  actually built in Track H and remain useful for screen layout, but are
+  **not** authoritative on process shape, roles, or stage sequencing where
+  they disagree with the pair above.
 
 ## Conventions
 
