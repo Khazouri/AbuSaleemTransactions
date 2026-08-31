@@ -581,7 +581,8 @@
         "hideGroups": "إخفاء التجميع",
         "groupsTitle": "البنود المتشابهة حسب الإدارة",
         "noDepartment": "بدون إدارة"
-      }
+      },
+      "dragToReorder": "اسحب لإعادة الترتيب"
     },
     "readiness": {
       "title": "جاهزية الاجتماع",

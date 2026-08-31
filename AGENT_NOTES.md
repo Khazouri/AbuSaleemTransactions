@@ -14,6 +14,30 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-08-31 09:50 EET — Claude — Stage 39 complete (agenda drag-and-drop reorder)
+
+Built exactly per the plan below. `MeetingAgendaBuilderView.vue`'s `moveItem(index, direction)` (adjacent-swap up/down buttons) is replaced by native HTML5 drag-and-drop: `draggedIndex`/`dragOverIndex` refs, `onDragStart`/`onDragOver`/`onDrop`/`onDragEnd` handlers, and a `canEditAgenda` computed (`auth.can('meeting_agenda', 'edit')`) driving the `draggable` attribute and the new drag-handle glyph — script-side because `draggable` can't be set by the existing `v-can` directive (it only toggles `display`). `onDrop` splices the dragged item to its new index, optimistically applies the reordered array so the drop feels instant, then PUTs the full id order to the **same, unchanged** `PUT /meetings/{meeting}/agenda/reorder` endpoint and calls `loadMeeting()` to reconcile — no backend change at all, confirming the plan's read that the endpoint already accepted an arbitrary full ordering, not just adjacent swaps.
+
+Added a `grip-vertical` glyph to `AppIcon.vue`'s icon map (lucide-style, matching its documented "drop inner SVG markup under a new key" convention) as the drag handle — needed so dragging doesn't fight with clicking the priority/time inputs living in the same `<li>`. One new locale key each in `ar.json`/`en.json` (`meetingsUnit.agenda.dragToReorder`, used as both `title` and `aria-label` on the handle); verified programmatically that the two locale files still have zero keys present on only one side. `MeetingDetailView.vue`'s separate up/down agenda list was **not touched**, per the stage's explicit single-file scope.
+
+Verification: `npm run build` passes clean with `MeetingAgendaBuilderView`'s own lazy chunk; `frontend/dist` (tracked in git) was reverted afterward via `git checkout -- frontend/dist && git clean -fd frontend/dist`, per every prior stage's note — rebuilding it wasn't in scope. No PHP touched, no migration, no seeder change, no Pint run needed. **Not verified: no browser this session** — the drag interaction itself (visual drag-over feedback, actual pointer-driven reorder) is calculated from the handler logic, not observed, consistent with every prior UI-touching note in this file.
+
+Next per STAGE_PLAN's suggested order: **Stage 40** (group-similar-by-request-type in the agenda builder).
+
+---
+
+### 2026-08-31 09:35 EET — Claude — Stage 39 implementation plan (agenda drag-and-drop reorder)
+
+Building Stage 39 per STAGE_PLAN.md Track I: replace `MeetingAgendaBuilderView.vue`'s up/down (`moveItem`) buttons with a drag-and-drop list, per [C] §4's design — same `PUT /meetings/{meeting}/agenda/reorder` write path underneath (`{ order: [ids in new order] }`), which needs no backend change at all since it already accepts an arbitrary full ordering, not just adjacent swaps.
+
+**Scope is exactly one file**, per the stage's own Build bullet — `MeetingDetailView.vue`'s separate inline agenda list (its own up/down `moveItem`, a different component entirely) is explicitly *not* touched; its own docblock says it's deliberately kept as "the quick add/remove/reorder view," and Stage 39 only names the dedicated builder screen.
+
+**Mechanism**: no new dependency — matches house precedent (no chart lib for the dashboard, no drag library anywhere in `package.json` today) — native HTML5 drag-and-drop (`draggable`, `dragstart`/`dragover`/`drop`/`dragend`) on each `<li>`, gated behind the same `v-can="'meeting_agenda.edit'"` the up/down buttons were already behind. A new `grip-vertical` glyph is added to `AppIcon.vue`'s icon map (matching its lucide-style-inline convention) as the drag handle, since dragging the whole row by any point of it would conflict with clicking priority/time inputs in the same `<li>`. On drop, the local `agenda_items` array order is spliced into its new position, the full id order array is PUTted to the existing endpoint, then `loadMeeting()` refetches — same round-trip `moveItem` already did, just computing an arbitrary target index instead of `index ± 1`. Two new locale keys (`meetingsUnit.agenda.dragToReorder`, an aria-label on the handle) in both `ar.json`/`en.json`.
+
+**Verification**: `npm run build` (frontend has no test runner/linter, per AGENTS.md) plus manual code review of the drag handlers' index math — no browser available this session, consistent with every prior UI-touching note, so the actual drag interaction is calculated, not observed.
+
+---
+
 ### 2026-08-31 09:15 EET — Claude — Stage 38 complete (source reconciliation — housekeeping only, no code)
 
 Per STAGE_PLAN.md's Track I, Stage 38 is pure housekeeping ("[D]/[E] formally recorded as the standard process reference... no code change — this stage is the housekeeping the other 20 depend on"). Verified everything it asks for was already in place from the 2026-08-30 entry below: `docs/employee-committee-lifecycle/` exists locally with all 7 files (`README.md`, `gap-analysis.md`, `official-procedures-manual-index.md`, `official-detailed-flow.md`, `official-process-summary.md`, `lifecycle-proposal.md`, `meeting-screens-design.md`), confirmed git-ignored (`git check-ignore` matches it via the `/docs` rule in `.gitignore`), and AGENTS.md already carries the durable pointer (the "Employee Affairs Committee process standard" bullet in its Conventions section, added in the same prior session).

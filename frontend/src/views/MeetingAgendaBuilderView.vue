@@ -8,9 +8,17 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import api from '../lib/api'
+import AppIcon from '../components/AppIcon.vue'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const { t, locale } = useI18n()
+const auth = useAuthStore()
+
+// Drives the drag handle/`draggable` attribute — mirrors the same
+// v-can="'meeting_agenda.edit'" gate used elsewhere on this screen, needed
+// here as a script-side boolean since `draggable` can't be set by a directive.
+const canEditAgenda = computed(() => auth.can('meeting_agenda', 'edit'))
 
 const name = (item) => {
   if (!item) return t('common.none')
@@ -200,13 +208,41 @@ async function removeItem(item) {
   }
 }
 
-async function moveItem(index, direction) {
-  const items = meeting.value.agenda_items
-  const target = index + direction
-  if (target < 0 || target >= items.length) return
+// --- Drag-and-drop reorder ([C] §4 — native HTML5 DnD, no new dependency,
+// matching the rest of this SPA's no-chart-library precedent) -----------------
 
+const draggedIndex = ref(null)
+const dragOverIndex = ref(null)
+
+function onDragStart(index, event) {
+  draggedIndex.value = index
+  event.dataTransfer.effectAllowed = 'move'
+  // Firefox requires data to be set for a drag to start at all.
+  event.dataTransfer.setData('text/plain', String(index))
+}
+
+function onDragOver(index, event) {
+  if (draggedIndex.value === null) return
+  event.preventDefault()
+  event.dataTransfer.dropEffect = 'move'
+  dragOverIndex.value = index
+}
+
+async function onDrop(index, event) {
+  event.preventDefault()
+  const from = draggedIndex.value
+  dragOverIndex.value = null
+  draggedIndex.value = null
+  if (from === null || from === index) return
+
+  const items = meeting.value.agenda_items.slice()
+  const [moved] = items.splice(from, 1)
+  items.splice(index, 0, moved)
   const order = items.map((i) => i.id)
-  ;[order[index], order[target]] = [order[target], order[index]]
+
+  // Optimistic reorder so the drop feels instant; loadMeeting() below
+  // reconciles with the server's own ordering once it responds.
+  meeting.value.agenda_items = items
 
   actionError.value = ''
   try {
@@ -214,7 +250,13 @@ async function moveItem(index, direction) {
     await loadMeeting()
   } catch (requestError) {
     actionError.value = requestError.response?.data?.message ?? t('common.none')
+    await loadMeeting()
   }
+}
+
+function onDragEnd() {
+  draggedIndex.value = null
+  dragOverIndex.value = null
 }
 
 onMounted(async () => {
@@ -362,9 +404,25 @@ onMounted(async () => {
         <h3>{{ t('meetings.agenda.title') }}</h3>
         <p v-if="!meeting.agenda_items?.length" class="state">{{ t('meetings.agenda.empty') }}</p>
         <ol v-else>
-          <li v-for="(item, index) in meeting.agenda_items" :key="item.id">
+          <li
+            v-for="(item, index) in meeting.agenda_items"
+            :key="item.id"
+            :draggable="canEditAgenda"
+            class="agenda-item"
+            :class="{ dragging: draggedIndex === index, 'drag-over': dragOverIndex === index && draggedIndex !== index }"
+            @dragstart="canEditAgenda && onDragStart(index, $event)"
+            @dragover="canEditAgenda && onDragOver(index, $event)"
+            @drop="canEditAgenda && onDrop(index, $event)"
+            @dragend="onDragEnd"
+          >
             <div class="row">
-              <div>
+              <div class="row-main">
+                <span
+                  v-if="canEditAgenda"
+                  class="drag-handle"
+                  :title="t('meetingsUnit.agenda.dragToReorder')"
+                  :aria-label="t('meetingsUnit.agenda.dragToReorder')"
+                ><AppIcon name="grip-vertical" :size="16" /></span>
                 <template v-if="item.request">
                   <span class="ref ltr">{{ item.request.reference_number || `#${item.request.id}` }}</span>
                   <strong>{{ item.request.title }}</strong>
@@ -376,8 +434,6 @@ onMounted(async () => {
                 <span class="pill">{{ t(`meetings.agenda.itemType.${item.item_type}`) }}</span>
               </div>
               <div v-can="'meeting_agenda.edit'" class="item-actions">
-                <button class="ghost" type="button" :disabled="index === 0" @click="moveItem(index, -1)">↑</button>
-                <button class="ghost" type="button" :disabled="index === meeting.agenda_items.length - 1" @click="moveItem(index, 1)">↓</button>
                 <button class="ghost danger" type="button" @click="removeItem(item)">{{ t('meetings.agenda.remove') }}</button>
               </div>
             </div>
@@ -457,6 +513,12 @@ label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; c
 .items ol { display: grid; gap: .6rem; padding: 0; margin: 0; list-style: none; }
 .items li { display: grid; gap: .5rem; padding-bottom: .75rem; border-bottom: 1px solid var(--color-border); font-size: .86rem; }
 .items li .row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.items li .row-main { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.agenda-item[draggable='true'] { transition: opacity .15s, border-color .15s; }
+.agenda-item.dragging { opacity: .45; }
+.agenda-item.drag-over { border-top: 2px solid var(--color-brand); }
+.drag-handle { display: inline-flex; align-items: center; color: var(--color-muted); cursor: grab; }
+.agenda-item.dragging .drag-handle { cursor: grabbing; }
 .pill { margin-inline-start: .5rem; padding: .1rem .5rem; background: var(--color-surface-hover); color: var(--color-black-600); border-radius: 999px; font-size: .72rem; }
 .item-actions { white-space: nowrap; }
 .edit-row { display: flex; gap: 1rem; flex-wrap: wrap; }

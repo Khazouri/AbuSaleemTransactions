@@ -581,7 +581,8 @@
         "hideGroups": "Hide grouping",
         "groupsTitle": "Similar items by department",
         "noDepartment": "No department"
-      }
+      },
+      "dragToReorder": "Drag to reorder"
     },
     "readiness": {
       "title": "Meeting Readiness",
