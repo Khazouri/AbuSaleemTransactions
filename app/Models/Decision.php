@@ -18,6 +18,7 @@ class Decision extends Model
         'votes_conditional_approval_count',
         'votes_legal_opinion_count',
         'votes_refer_other_body_count',
+        'votes_abstain_count',
         'comment',
         'decided_by_user_id',
         'decided_at',

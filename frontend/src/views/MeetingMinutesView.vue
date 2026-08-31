@@ -9,7 +9,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import { DECISION_OUTCOMES } from '../lib/decisionOutcomes'
+import { VOTE_OPTIONS } from '../lib/decisionOutcomes'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import SignaturePad from '../components/SignaturePad.vue'
@@ -156,7 +156,7 @@ watch(() => (minutes.value?.signatures ?? []).map((s) => `${s.id}:${s.signature_
 onUnmounted(() => Object.values(signatureImages.value).forEach((url) => URL.revokeObjectURL(url)))
 
 function tallyFor(item) {
-  return DECISION_OUTCOMES.map((outcome) => ({ outcome, count: item.votes?.[outcome] ?? 0 })).filter((v) => v.count > 0)
+  return VOTE_OPTIONS.map((outcome) => ({ outcome, count: item.votes?.[outcome] ?? 0 })).filter((v) => v.count > 0)
 }
 
 onMounted(loadMeetings)

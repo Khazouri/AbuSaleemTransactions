@@ -21,6 +21,10 @@ class DecisionResource extends JsonResource
             'votes_conditional_approval_count' => $this->votes_conditional_approval_count,
             'votes_legal_opinion_count' => $this->votes_legal_opinion_count,
             'votes_refer_other_body_count' => $this->votes_refer_other_body_count,
+            // Stage 41 — counted like any other vote, but never a plurality
+            // leader: DecisionController::record never lets it drive a
+            // workflow transition, so it stays outside the six-outcome list.
+            'votes_abstain_count' => $this->votes_abstain_count,
             'comment' => $this->comment,
             'decided_at' => $this->decided_at,
             'decided_by' => $this->whenLoaded('decidedBy', fn () => $this->decidedBy ? [

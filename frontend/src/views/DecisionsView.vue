@@ -14,7 +14,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
-import { DECISION_OUTCOMES } from '../lib/decisionOutcomes'
+import { VOTE_OPTIONS } from '../lib/decisionOutcomes'
 import { downloadExport } from '../lib/download'
 import { useAuthStore } from '../stores/auth'
 
@@ -132,7 +132,7 @@ async function exportAs(format) {
 // the votes already in the payload so the counts move the moment you vote.
 
 function tally(item) {
-  const counts = Object.fromEntries(DECISION_OUTCOMES.map((outcome) => [outcome, 0]))
+  const counts = Object.fromEntries(VOTE_OPTIONS.map((outcome) => [outcome, 0]))
   for (const vote of item.votes ?? []) counts[vote.vote] = (counts[vote.vote] ?? 0) + 1
   return counts
 }
@@ -298,7 +298,7 @@ onMounted(async () => {
                 <td class="ltr nowrap">
                   {{ row.votes_approve_count }} / {{ row.votes_reject_count }} / {{ row.votes_defer_count }}
                   / {{ row.votes_conditional_approval_count }} / {{ row.votes_legal_opinion_count }}
-                  / {{ row.votes_refer_other_body_count }}
+                  / {{ row.votes_refer_other_body_count }} / {{ row.votes_abstain_count }}
                 </td>
                 <td>{{ row.template ? localName(row.template) : t('common.none') }}</td>
                 <td>{{ row.decided_by?.name ?? t('common.none') }}</td>
@@ -352,14 +352,14 @@ onMounted(async () => {
           </div>
 
           <div class="tally">
-            <span v-for="outcome in DECISION_OUTCOMES" :key="outcome">
+            <span v-for="outcome in VOTE_OPTIONS" :key="outcome">
               {{ t(`decisions.tally.${outcome}`) }}: {{ tally(item)[outcome] }}
             </span>
           </div>
 
           <div v-can="'decisions.add'" class="vote-actions no-print">
             <button
-              v-for="option in DECISION_OUTCOMES"
+              v-for="option in VOTE_OPTIONS"
               :key="option"
               class="ghost"
               :class="{ active: myVote(item) === option }"

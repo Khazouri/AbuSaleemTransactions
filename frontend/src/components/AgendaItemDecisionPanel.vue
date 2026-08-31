@@ -13,7 +13,7 @@
  */
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { DECISION_OUTCOMES, SIGNATURE_OUTCOMES } from '../lib/decisionOutcomes'
+import { DECISION_OUTCOMES, SIGNATURE_OUTCOMES, VOTE_OPTIONS } from '../lib/decisionOutcomes'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import SignaturePad from './SignaturePad.vue'
@@ -52,18 +52,22 @@ function useTemplate() {
 }
 
 function tally(item) {
-  const counts = Object.fromEntries(DECISION_OUTCOMES.map((outcome) => [outcome, 0]))
+  const counts = Object.fromEntries(VOTE_OPTIONS.map((outcome) => [outcome, 0]))
   for (const vote of item.votes ?? []) counts[vote.vote] = (counts[vote.vote] ?? 0) + 1
   return counts
 }
 
 // Same plurality rule DecisionController::record applies server-side — used
 // here only to decide whether to show the signature pad before submitting.
+// Stage 41 — counted from DECISION_OUTCOMES only, same as the server's
+// $tally: an abstain-heavy vote must never read as "leading" here either.
 function predictedOutcome(item) {
   const counts = tally(item)
-  const max = Math.max(...Object.values(counts))
+  const max = Math.max(...DECISION_OUTCOMES.map((outcome) => counts[outcome]))
   if (max === 0) return null
-  const leaders = Object.entries(counts).filter(([, count]) => count === max)
+  const leaders = DECISION_OUTCOMES
+    .map((outcome) => [outcome, counts[outcome]])
+    .filter(([, count]) => count === max)
   return leaders.length === 1 ? leaders[0][0] : null
 }
 
@@ -122,14 +126,14 @@ async function recordDecision() {
     </template>
     <template v-else>
       <div class="tally">
-        <span v-for="outcome in DECISION_OUTCOMES" :key="outcome">
+        <span v-for="outcome in VOTE_OPTIONS" :key="outcome">
           {{ t(`decisions.tally.${outcome}`) }}: {{ tally(item)[outcome] }}
         </span>
       </div>
 
       <div v-can="'decisions.add'" class="vote-actions">
         <button
-          v-for="option in DECISION_OUTCOMES"
+          v-for="option in VOTE_OPTIONS"
           :key="option"
           class="ghost"
           :class="{ active: myVote(item) === option }"

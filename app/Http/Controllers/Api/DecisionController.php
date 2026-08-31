@@ -74,7 +74,7 @@ class DecisionController extends Controller
             ],
             'columns' => [
                 'الرقم المرجعي', 'الموضوع', 'اللجنة', 'الاجتماع', 'تاريخ الاجتماع',
-                'النتيجة', 'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة',
+                'النتيجة', 'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة', 'ممتنع',
                 'القالب', 'صاحب القرار', 'تاريخ القرار', 'الملاحظات',
             ],
             'none' => '—',
@@ -100,7 +100,7 @@ class DecisionController extends Controller
             ],
             'columns' => [
                 'Reference', 'Subject', 'Committee', 'Meeting', 'Meeting date',
-                'Outcome', 'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred',
+                'Outcome', 'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred', 'Abstain',
                 'Template', 'Decided by', 'Decided at', 'Comment',
             ],
             'none' => '—',
@@ -201,6 +201,11 @@ class DecisionController extends Controller
         $tally = collect(array_keys(self::ACTIONS))
             ->mapWithKeys(fn (string $outcome) => [$outcome => (int) ($counts[$outcome] ?? 0)]);
 
+        // Stage 41 — tallied like any other vote, but never a candidate for
+        // the plurality below: it has no ACTIONS entry, so it stays out of
+        // $tally entirely and can never drive a workflow transition.
+        $abstainCount = (int) ($counts['abstain'] ?? 0);
+
         $max = $tally->max();
         if ($max === 0) {
             return response()->json([
@@ -227,7 +232,7 @@ class DecisionController extends Controller
 
         try {
             $decision = DB::transaction(function () use (
-                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally,
+                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally, $abstainCount,
             ) {
                 $workflow->transition($agendaItem->request, $action, $actor, $comment, $signaturePath);
 
@@ -247,6 +252,7 @@ class DecisionController extends Controller
                     'votes_conditional_approval_count' => $tally['conditional_approval'],
                     'votes_legal_opinion_count' => $tally['legal_opinion'],
                     'votes_refer_other_body_count' => $tally['refer_other_body'],
+                    'votes_abstain_count' => $abstainCount,
                     'comment' => $comment,
                     'decided_by_user_id' => $actor->id,
                     'decided_at' => now(),
@@ -431,6 +437,7 @@ class DecisionController extends Controller
             $decision->votes_conditional_approval_count,
             $decision->votes_legal_opinion_count,
             $decision->votes_refer_other_body_count,
+            $decision->votes_abstain_count,
             $this->localName($decision->template, $locale, $labels),
             $decision->decidedBy?->name ?? $labels['none'],
             $decision->decided_at?->format('Y-m-d H:i') ?? $labels['none'],

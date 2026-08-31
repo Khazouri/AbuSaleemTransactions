@@ -69,6 +69,43 @@ class DecisionVotingTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_an_abstain_vote_is_tallied_but_never_leads_the_plurality(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, $member, $committee, $meeting, $agendaItem] = $this->committeeMeetingWithAgendaItem();
+
+        $third = $this->userWithRole('R04');
+        $committee->members()->create(['user_id' => $third->id]);
+        $meeting->attendees()->create(['user_id' => $third->id, 'attended' => true]);
+
+        $this->actingAs($member, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
+            ->assertCreated();
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
+            ->assertCreated();
+        $this->actingAs($third, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'abstain'])
+            ->assertCreated()
+            ->assertJsonPath('data.vote', 'abstain');
+
+        $this->actingAs($head, 'sanctum')
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.outcome', 'approve')
+            ->assertJsonPath('data.votes_approve_count', 2)
+            ->assertJsonPath('data.votes_abstain_count', 1);
+
+        $this->assertDatabaseHas('decisions', [
+            'meeting_request_id' => $agendaItem->id,
+            'outcome' => 'approve',
+            'votes_abstain_count' => 1,
+        ]);
+    }
+
     public function test_a_majority_defer_vote_keeps_the_request_at_the_committee_stage(): void
     {
         $this->seed(DatabaseSeeder::class);

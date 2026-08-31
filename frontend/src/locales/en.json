@@ -436,7 +436,8 @@
       "defer": "Defer",
       "conditional_approval": "Conditional",
       "legal_opinion": "Legal opinion",
-      "refer_other_body": "Referred"
+      "refer_other_body": "Referred",
+      "abstain": "Abstain"
     },
     "vote": {
       "approve": "Approve",
@@ -444,7 +445,8 @@
       "defer": "Defer",
       "conditional_approval": "Conditional approval",
       "legal_opinion": "Request legal opinion",
-      "refer_other_body": "Refer to another body"
+      "refer_other_body": "Refer to another body",
+      "abstain": "Abstain"
     },
     "outcome": {
       "approve": "Approved",
@@ -495,7 +497,7 @@
       "committee": "Committee",
       "meeting": "Meeting",
       "outcome": "Outcome",
-      "tally": "Approve / Reject / Defer / Conditional / Legal / Referred",
+      "tally": "Approve / Reject / Defer / Conditional / Legal / Referred / Abstain",
       "template": "Template",
       "decidedBy": "Decided by",
       "decidedAt": "Decided at"

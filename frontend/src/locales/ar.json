@@ -436,7 +436,8 @@
       "defer": "تأجيل",
       "conditional_approval": "اعتماد مشروط",
       "legal_opinion": "رأي قانوني",
-      "refer_other_body": "إحالة"
+      "refer_other_body": "إحالة",
+      "abstain": "ممتنع"
     },
     "vote": {
       "approve": "موافقة",
@@ -444,7 +445,8 @@
       "defer": "تأجيل",
       "conditional_approval": "اعتماد مشروط",
       "legal_opinion": "طلب رأي قانوني",
-      "refer_other_body": "إحالة لجهة أخرى"
+      "refer_other_body": "إحالة لجهة أخرى",
+      "abstain": "امتناع"
     },
     "outcome": {
       "approve": "تمت الموافقة",
@@ -495,7 +497,7 @@
       "committee": "اللجنة",
       "meeting": "الاجتماع",
       "outcome": "النتيجة",
-      "tally": "موافق / رافض / مؤجل / مشروط / رأي قانوني / إحالة",
+      "tally": "موافق / رافض / مؤجل / مشروط / رأي قانوني / إحالة / ممتنع",
       "template": "القالب",
       "decidedBy": "صاحب القرار",
       "decidedAt": "تاريخ القرار"
