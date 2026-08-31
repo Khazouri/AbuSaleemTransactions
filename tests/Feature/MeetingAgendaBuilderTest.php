@@ -104,9 +104,72 @@ class MeetingAgendaBuilderTest extends TestCase
         $this->assertSame(1, $response->json('data.by_type.administrative'));
 
         $groups = $response->json('data.groups');
+        $this->assertSame('department', $response->json('data.group_by'));
         $this->assertCount(1, $groups);
         $this->assertSame($admId, $groups[0]['department']['id']);
         $this->assertCount(2, $groups[0]['items']);
+    }
+
+    public function test_agenda_stats_can_group_by_request_type_instead(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , $meeting] = $this->committeeAndMeeting();
+        $admId = Department::where('code', 'ADM')->value('id');
+
+        // A promotion request (the helper's default type)...
+        $promotionRequest = $this->request('AAA', $admId);
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $promotionRequest->id])
+            ->assertCreated();
+
+        // ...a leave request, a different type...
+        $leaveRequest = Request::create([
+            'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
+            'title' => 'طلب إجازة',
+            'department_id' => $admId,
+            'request_type_id' => RequestType::where('code', 'LEAV')->value('id'),
+            'status_id' => RequestStatus::where('code', 'new')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
+            'submitted_at' => now(),
+        ]);
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $leaveRequest->id])
+            ->assertCreated();
+
+        // ...and an admin item, which has no request and therefore no type.
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", [
+                'item_type' => 'administrative',
+                'subject' => 'بند إداري',
+            ])
+            ->assertCreated();
+
+        $response = $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/stats?group_by=request_type")
+            ->assertOk();
+
+        $this->assertSame('request_type', $response->json('data.group_by'));
+        $groups = collect($response->json('data.groups'));
+        $this->assertCount(3, $groups);
+
+        $promotionTypeId = RequestType::where('code', 'PROM')->value('id');
+        $leaveTypeId = RequestType::where('code', 'LEAV')->value('id');
+
+        $this->assertCount(1, $groups->firstWhere('type.id', $promotionTypeId)['items']);
+        $this->assertCount(1, $groups->firstWhere('type.id', $leaveTypeId)['items']);
+        $this->assertCount(1, $groups->firstWhere('type', null)['items']);
+    }
+
+    public function test_agenda_stats_rejects_an_unknown_group_by(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , $meeting] = $this->committeeAndMeeting();
+
+        $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/stats?group_by=nonsense")
+            ->assertStatus(422);
     }
 
     public function test_updating_priority_and_estimated_minutes_on_an_existing_item(): void

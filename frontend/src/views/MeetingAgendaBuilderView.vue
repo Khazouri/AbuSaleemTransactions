@@ -51,6 +51,25 @@ const loading = ref(false)
 const error = ref('')
 const actionError = ref('')
 const showGroups = ref(false)
+// Stage 40 — [C] §4's example groups the agenda by request type, not just
+// department (Stage 31); split into its own toggleable axis rather than a
+// replacement, so switching it only needs to refetch stats, not the meeting.
+const groupBy = ref('department')
+
+async function loadStats() {
+  if (!meetingId.value) {
+    stats.value = null
+    return
+  }
+  try {
+    const { data } = await api.get(`/meetings/${meetingId.value}/agenda/stats`, {
+      params: { group_by: groupBy.value },
+    })
+    stats.value = data.data
+  } catch {
+    stats.value = null
+  }
+}
 
 async function loadMeeting() {
   if (!meetingId.value) {
@@ -61,12 +80,11 @@ async function loadMeeting() {
   loading.value = true
   error.value = ''
   try {
-    const [{ data: meetingData }, { data: statsData }] = await Promise.all([
+    const [{ data: meetingData }] = await Promise.all([
       api.get(`/meetings/${meetingId.value}`),
-      api.get(`/meetings/${meetingId.value}/agenda/stats`),
+      loadStats(),
     ])
     meeting.value = meetingData.data
-    stats.value = statsData.data
   } catch (requestError) {
     error.value = requestError.response?.data?.message ?? t('common.none')
   } finally {
@@ -75,6 +93,7 @@ async function loadMeeting() {
 }
 
 watch(meetingId, loadMeeting)
+watch(groupBy, loadStats)
 
 // --- Department options (for admin items) ---------------------------------------
 
@@ -313,9 +332,34 @@ onMounted(async () => {
       </section>
 
       <section v-if="showGroups && stats" class="card groups">
-        <h3>{{ t('meetingsUnit.agenda.stats.groupsTitle') }}</h3>
-        <div v-for="group in stats.groups" :key="group.department?.id ?? 'none'" class="group">
-          <h4>{{ group.department ? name(group.department) : t('meetingsUnit.agenda.stats.noDepartment') }}</h4>
+        <div class="groups-header">
+          <h3>{{ t('meetingsUnit.agenda.stats.groupsTitle') }}</h3>
+          <div class="group-by-toggle">
+            <button
+              type="button"
+              class="ghost"
+              :class="{ active: groupBy === 'department' }"
+              @click="groupBy = 'department'"
+            >
+              {{ t('meetingsUnit.agenda.stats.groupByDepartment') }}
+            </button>
+            <button
+              type="button"
+              class="ghost"
+              :class="{ active: groupBy === 'request_type' }"
+              @click="groupBy = 'request_type'"
+            >
+              {{ t('meetingsUnit.agenda.stats.groupByRequestType') }}
+            </button>
+          </div>
+        </div>
+        <div v-for="group in stats.groups" :key="(group.department ?? group.type)?.id ?? 'none'" class="group">
+          <h4 v-if="stats.group_by === 'request_type'">
+            {{ group.type ? name(group.type) : t('meetingsUnit.agenda.stats.noRequestType') }}
+          </h4>
+          <h4 v-else>
+            {{ group.department ? name(group.department) : t('meetingsUnit.agenda.stats.noDepartment') }}
+          </h4>
           <ul>
             <li v-for="row in group.items" :key="row.id">{{ row.label }}</li>
           </ul>
@@ -496,6 +540,10 @@ select, input[type='text'], input[type='number'] {
 .stat span { color: var(--color-muted); font-size: .76rem; }
 .stat strong { color: var(--color-black-700); font-size: .88rem; }
 
+.groups-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.groups-header h3 { margin: 0; }
+.group-by-toggle { display: flex; gap: .4rem; }
+.group-by-toggle button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
 .groups .group { padding: .5rem 0; border-bottom: 1px solid var(--color-border); }
 .groups .group:last-child { border-bottom: 0; }
 .groups ul { margin: 0; padding-inline-start: 1.2rem; font-size: .84rem; color: var(--color-black-700); }

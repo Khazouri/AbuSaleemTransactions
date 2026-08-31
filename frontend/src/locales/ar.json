@@ -577,10 +577,13 @@
         "totalMinutes": "إجمالي الوقت المتوقع (دقيقة)",
         "byPriority": "حسب الأولوية",
         "byType": "حسب النوع",
-        "showGroups": "عرض التجميع حسب الإدارة",
+        "showGroups": "عرض البنود المتشابهة",
         "hideGroups": "إخفاء التجميع",
-        "groupsTitle": "البنود المتشابهة حسب الإدارة",
-        "noDepartment": "بدون إدارة"
+        "groupsTitle": "البنود المتشابهة",
+        "groupByDepartment": "حسب الإدارة",
+        "groupByRequestType": "حسب نوع الطلب",
+        "noDepartment": "بدون إدارة",
+        "noRequestType": "بدون نوع طلب"
       },
       "dragToReorder": "اسحب لإعادة الترتيب"
     },

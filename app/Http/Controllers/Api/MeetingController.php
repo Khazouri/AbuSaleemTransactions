@@ -266,16 +266,24 @@ class MeetingController extends Controller
 
     /**
      * Stage 31 — totals and a "group similar" view over the agenda, so the
-     * builder screen can show a computed total time and cluster items by
-     * effective department (the item's own for an admin item, its
-     * request's for a request — there's no free-text similarity match
-     * here, department is the one dimension both item shapes share).
+     * builder screen can show a computed total time and cluster items either
+     * by effective department (the item's own for an admin item, its
+     * request's for a request) or, Stage 40, by the request's type — [C]
+     * §4's own example groups by request type ("جميع طلبات الترقية...
+     * في مجموعة واحدة"), not department. An admin/emerging item has no
+     * request and therefore no type, so under request_type grouping it
+     * always lands in the null-type bucket, mirroring how a department-less
+     * item already lands in the null-department bucket today.
      */
-    public function agendaStats(Meeting $meeting): JsonResponse
+    public function agendaStats(Request $request, Meeting $meeting): JsonResponse
     {
+        $groupBy = $request->query('group_by', 'department');
+        abort_unless(in_array($groupBy, ['department', 'request_type'], true), 422);
+
         $items = $meeting->agendaItems()->with([
-            'request:id,reference_number,title,department_id',
+            'request:id,reference_number,title,department_id,request_type_id',
             'request.department:id,name_ar,name_en',
+            'request.requestType:id,name_ar,name_en',
             'department:id,name_ar,name_en',
         ])->get();
 
@@ -287,14 +295,24 @@ class MeetingController extends Controller
             $byPriority[$item->priority ?? 'none']++;
             $byType[$item->item_type]++;
 
-            $department = $item->department ?? $item->request?->department;
-            $key = $department?->id ?? 0;
+            if ($groupBy === 'request_type') {
+                $type = $item->request?->requestType;
+                $key = $type?->id ?? 0;
+                $groups[$key]['type'] ??= $type ? [
+                    'id' => $type->id,
+                    'name_ar' => $type->name_ar,
+                    'name_en' => $type->name_en,
+                ] : null;
+            } else {
+                $department = $item->department ?? $item->request?->department;
+                $key = $department?->id ?? 0;
+                $groups[$key]['department'] ??= $department ? [
+                    'id' => $department->id,
+                    'name_ar' => $department->name_ar,
+                    'name_en' => $department->name_en,
+                ] : null;
+            }
 
-            $groups[$key]['department'] ??= $department ? [
-                'id' => $department->id,
-                'name_ar' => $department->name_ar,
-                'name_en' => $department->name_en,
-            ] : null;
             $groups[$key]['items'][] = [
                 'id' => $item->id,
                 'label' => $item->request?->title ?? $item->subject,
@@ -306,6 +324,7 @@ class MeetingController extends Controller
             'total_estimated_minutes' => (int) $items->sum('estimated_minutes'),
             'by_priority' => $byPriority,
             'by_type' => $byType,
+            'group_by' => $groupBy,
             'groups' => array_values($groups),
         ]]);
     }

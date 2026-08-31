@@ -577,10 +577,13 @@
         "totalMinutes": "Total estimated time (minutes)",
         "byPriority": "By priority",
         "byType": "By type",
-        "showGroups": "Show grouping by department",
+        "showGroups": "Show similar items",
         "hideGroups": "Hide grouping",
-        "groupsTitle": "Similar items by department",
-        "noDepartment": "No department"
+        "groupsTitle": "Similar items",
+        "groupByDepartment": "By department",
+        "groupByRequestType": "By request type",
+        "noDepartment": "No department",
+        "noRequestType": "No request type"
       },
       "dragToReorder": "Drag to reorder"
     },
