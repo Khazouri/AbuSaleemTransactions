@@ -8,8 +8,11 @@
  * a shared component) — see that stage's AGENT_NOTES entry, which flagged
  * exactly this as the next thing to factor out rather than copy a third
  * time. Both endpoints (`.../votes`, `.../decision`) and their semantics are
- * unchanged from Stage 21/25; this stage only adds three more outcomes and
- * an optional template to draft the comment from.
+ * unchanged from Stage 21/25; Stage 35 added three more outcomes and an
+ * optional template to draft the comment from. Stage 42 made that draft
+ * real: `useTemplate()` now fetches the template merged with this agenda
+ * item's own data from `.../decision-draft` instead of copying the
+ * template's static body verbatim.
  */
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -35,6 +38,8 @@ const decisionError = ref('')
 const decidingBusy = ref(false)
 const signatureReady = ref(false)
 const selectedTemplateId = ref('')
+const templateDraftBusy = ref(false)
+const templateDraftError = ref('')
 let signaturePad = null
 
 function setSignaturePad(instance) { signaturePad = instance }
@@ -43,12 +48,24 @@ function templateLabel(template) {
   return locale.value === 'ar' ? (template.name_ar || template.name_en) : (template.name_en || template.name_ar)
 }
 
-/** Fills the comment from the chosen template's localized body — a starting
- *  point the user can still edit, nothing beyond this is enforced. */
-function useTemplate() {
-  const template = props.templates.find((candidate) => candidate.id === Number(selectedTemplateId.value))
-  if (!template) return
-  decisionComment.value = (locale.value === 'ar' ? template.body_ar : template.body_en) || template.body_ar || ''
+/** Stage 42 — fetches the chosen template's draft merged with this agenda
+ *  item's own request/employee/date data, into the comment box — still a
+ *  starting point the user can edit before recording, nothing beyond this
+ *  is enforced server-side. */
+async function useTemplate() {
+  if (!selectedTemplateId.value) return
+  templateDraftError.value = ''
+  templateDraftBusy.value = true
+  try {
+    const { data } = await api.get(`/meetings/${props.meetingId}/agenda/${props.item.id}/decision-draft`, {
+      params: { template_id: selectedTemplateId.value, locale: locale.value },
+    })
+    decisionComment.value = data.data.body
+  } catch (requestError) {
+    templateDraftError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    templateDraftBusy.value = false
+  }
 }
 
 function tally(item) {
@@ -154,10 +171,11 @@ async function recordDecision() {
               {{ templateLabel(template) }}
             </option>
           </select>
-          <button class="ghost" type="button" :disabled="!selectedTemplateId" @click="useTemplate">
-            {{ t('decisions.template.use') }}
+          <button class="ghost" type="button" :disabled="!selectedTemplateId || templateDraftBusy" @click="useTemplate">
+            {{ templateDraftBusy ? t('decisions.template.drafting') : t('decisions.template.use') }}
           </button>
         </div>
+        <p v-if="templateDraftError" class="alert">{{ templateDraftError }}</p>
         <textarea
           v-model="decisionComment"
           :placeholder="t('decisions.commentPlaceholder')"

@@ -15,6 +15,14 @@ const editingId = ref(null)
 const showForm = ref(false)
 const blankForm = () => ({ code: '', category: '', name_ar: '', name_en: '', subject_ar: '', subject_en: '', body_ar: '', body_en: '', is_active: true })
 const form = ref(blankForm())
+// Stage 42 — the tokens DecisionDraftComposer interpolates. Kept as plain
+// data (not passed through t()) since vue-i18n's own message syntax uses
+// single braces for interpolation and would choke on a literal "{{...}}".
+const decisionPlaceholders = ['reference_number', 'request_title', 'employee_name', 'department', 'request_type', 'committee_name', 'meeting_date', 'decision_date']
+// A plain function, not an inline template literal: writing the literal
+// "{{"/"}}" delimiters directly inside a `{{ }}` interpolation expression
+// confuses Vue's compiler, which scans for the first "}}" to close it.
+function braced(token) { return '{{' + token + '}}' }
 const activeName = computed(() => locale.value === 'ar' ? 'name_ar' : 'name_en')
 
 function label(template) { return template[activeName.value] || template.name_ar || template.name_en }
@@ -60,6 +68,10 @@ onMounted(load)
         <label>{{ t('templates.bodyAr') }} *<textarea v-model="form.body_ar" rows="7" required /><small v-if="errors.body_ar" class="field-error">{{ errors.body_ar[0] }}</small></label>
         <label>{{ t('templates.bodyEn') }}<textarea v-model="form.body_en" class="ltr" rows="7" /><small v-if="errors.body_en" class="field-error">{{ errors.body_en[0] }}</small></label>
       </div>
+      <p v-if="form.category === 'decision'" class="hint placeholders-hint">
+        {{ t('templates.placeholdersHint') }}
+        <code v-for="token in decisionPlaceholders" :key="token" class="ltr">{{ braced(token) }}</code>
+      </p>
       <label class="checkbox"><input v-model="form.is_active" type="checkbox" />{{ t('common.active') }}</label>
       <div class="actions"><button class="primary" type="submit" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button><button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button></div>
     </form>
@@ -68,5 +80,7 @@ onMounted(load)
 </template>
 
 <style scoped>
-.toolbar { margin-bottom: 1rem; }.card { padding: 1.25rem; margin-bottom: 1rem; }.form h3 { margin: 0 0 1rem; font-size: 1rem; }.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }.bodies { margin-top: 1rem; }label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; }label.checkbox { flex-direction: row; align-items: center; gap: .5rem; margin-top: 1rem; }input, select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); }textarea { resize: vertical; }.hint, .state { color: var(--color-muted); font-size: .8rem; }.field-error, .state.error { color: var(--color-red); }.actions { display: flex; gap: .5rem; margin-top: 1.25rem; }.alert { padding: .65rem .8rem; color: var(--color-red); border: 1px solid var(--color-red); border-radius: var(--radius-lg); margin: 0 0 1rem; }.list { overflow-x: auto; }table { width: 100%; border-collapse: collapse; }th { text-align: start; color: var(--color-muted); font-size: .78rem; }th, td { padding: .6rem .5rem; border-bottom: 1px solid var(--color-border); }tr:last-child td { border-bottom: 0; }tr.dimmed { opacity: .55; }.pill { margin-inline-start: .5rem; padding: .1rem .5rem; background: var(--color-black-100); color: var(--color-muted); border-radius: var(--radius-full); font-size: .72rem; }.row-actions { text-align: end; white-space: nowrap; }button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }.primary { padding: .5rem .9rem; border: 0; background: var(--color-primary); color: var(--color-on-primary); }.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-foreground); margin-inline-start: .3rem; }.ghost.danger { color: var(--color-red); border-color: var(--color-red); }
+.toolbar { margin-bottom: 1rem; }.card { padding: 1.25rem; margin-bottom: 1rem; }.form h3 { margin: 0 0 1rem; font-size: 1rem; }.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }.bodies { margin-top: 1rem; }label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; }label.checkbox { flex-direction: row; align-items: center; gap: .5rem; margin-top: 1rem; }input, select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); }textarea { resize: vertical; }.hint, .state { color: var(--color-muted); font-size: .8rem; }
+.placeholders-hint { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .35rem; }
+.placeholders-hint code { padding: .1rem .4rem; background: var(--color-black-100); border-radius: var(--radius-full); font-size: .74rem; }.field-error, .state.error { color: var(--color-red); }.actions { display: flex; gap: .5rem; margin-top: 1.25rem; }.alert { padding: .65rem .8rem; color: var(--color-red); border: 1px solid var(--color-red); border-radius: var(--radius-lg); margin: 0 0 1rem; }.list { overflow-x: auto; }table { width: 100%; border-collapse: collapse; }th { text-align: start; color: var(--color-muted); font-size: .78rem; }th, td { padding: .6rem .5rem; border-bottom: 1px solid var(--color-border); }tr:last-child td { border-bottom: 0; }tr.dimmed { opacity: .55; }.pill { margin-inline-start: .5rem; padding: .1rem .5rem; background: var(--color-black-100); color: var(--color-muted); border-radius: var(--radius-full); font-size: .72rem; }.row-actions { text-align: end; white-space: nowrap; }button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }.primary { padding: .5rem .9rem; border: 0; background: var(--color-primary); color: var(--color-on-primary); }.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-foreground); margin-inline-start: .3rem; }.ghost.danger { color: var(--color-red); border-color: var(--color-red); }
 </style>

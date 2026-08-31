@@ -6,6 +6,7 @@ use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Decision\ExportDecisionRequest;
 use App\Http\Requests\Decision\IndexDecisionRequest;
+use App\Http\Requests\Decision\ShowDecisionDraftRequest;
 use App\Http\Requests\Decision\StoreDecisionRequest;
 use App\Http\Requests\Vote\StoreVoteRequest;
 use App\Http\Resources\DecisionResource;
@@ -18,6 +19,7 @@ use App\Models\MeetingRequest;
 use App\Models\Template;
 use App\Models\Vote;
 use App\Services\ApprovalSignatureStorage;
+use App\Services\DecisionDraftComposer;
 use App\Services\DecisionEligibility;
 use App\Services\NotificationDispatcher;
 use App\Services\Reports\ReportDocument;
@@ -272,6 +274,45 @@ class DecisionController extends Controller
         return (new DecisionResource($decision->load('decidedBy:id,name', 'template:id,code,name_ar,name_en')))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * Stage 42 — the interpolated draft for a chosen template, computed from
+     * this agenda item's own request/employee/date data rather than the
+     * template's static body. The record-decision panel calls this when a
+     * template is picked and drops the result into the editable comment box;
+     * record() above still just stores whatever comment text is submitted,
+     * so nothing here is enforced beyond this preview.
+     */
+    public function draft(
+        ShowDecisionDraftRequest $request,
+        Meeting $meeting,
+        MeetingRequest $agendaItem,
+        DecisionDraftComposer $composer,
+    ): JsonResponse {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        if ($agendaItem->item_type !== 'employee_request') {
+            return response()->json([
+                'message' => 'لا يمكن صياغة قرار على بند غير مرتبط بطلب.',
+            ], 422);
+        }
+
+        $template = Template::query()
+            ->where('is_active', true)
+            ->findOrFail($request->validated('template_id'));
+
+        $meeting->loadMissing('committee:id,name_ar,name_en');
+        $agendaItem->setRelation('meeting', $meeting);
+        $agendaItem->loadMissing([
+            'request.createdBy:id,name',
+            'request.department:id,name_ar,name_en',
+            'request.requestType:id,name_ar,name_en',
+        ]);
+
+        return response()->json([
+            'data' => $composer->compose($template, $agendaItem, $request->draftLocale()),
+        ]);
     }
 
     /**

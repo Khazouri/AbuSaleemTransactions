@@ -218,6 +218,115 @@ class DecisionOutcomeTemplateTest extends TestCase
         $this->assertCount(1, $templateIds);
     }
 
+    /**
+     * Stage 42 — the draft endpoint merges the agenda item's own request,
+     * requester, department and committee data into the template body,
+     * rather than returning the template's static text verbatim.
+     */
+    public function test_decision_draft_interpolates_the_agenda_items_own_data_into_the_template(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , $committee, $meeting, $agendaItem] = $this->committeeMeetingWithAgendaItem();
+        $employee = User::factory()->create(['name' => 'محمد الشريف']);
+        $requestRecord = $agendaItem->request()->first();
+        $requestRecord->update(['created_by_user_id' => $employee->id]);
+
+        $template = Template::create([
+            'code' => 'decision_draft_source',
+            'category' => Template::CATEGORY_DECISION,
+            'name_ar' => 'اعتماد مشروط',
+            'body_ar' => 'بخصوص الطلب {{reference_number}} ({{request_title}}) المقدم من {{employee_name}} '
+                .'في {{department}}، وبناءً على قرار {{committee_name}} بتاريخ {{decision_date}}.',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision-draft?template_id={$template->id}")
+            ->assertOk();
+
+        $body = $response->json('data.body');
+
+        $this->assertStringContainsString($requestRecord->reference_number, $body);
+        $this->assertStringContainsString($requestRecord->title, $body);
+        $this->assertStringContainsString('محمد الشريف', $body);
+        $this->assertStringContainsString('إدارة الشؤون الإدارية', $body);
+        $this->assertStringContainsString($committee->name_ar, $body);
+        $this->assertStringNotContainsString('{{', $body);
+    }
+
+    public function test_decision_draft_honours_the_requested_locale(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , , $meeting, $agendaItem] = $this->committeeMeetingWithAgendaItem();
+        $employee = User::factory()->create(['name' => 'John Employee']);
+        $agendaItem->request()->first()->update(['created_by_user_id' => $employee->id]);
+
+        $template = Template::create([
+            'code' => 'decision_draft_source_en',
+            'category' => Template::CATEGORY_DECISION,
+            'name_ar' => 'قالب ثنائي اللغة',
+            'body_ar' => 'نص عربي بلا أهمية هنا.',
+            'body_en' => 'Regarding the request filed by {{employee_name}} in {{department}}.',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision-draft?template_id={$template->id}&locale=en")
+            ->assertOk();
+
+        $body = $response->json('data.body');
+
+        $this->assertStringContainsString('John Employee', $body);
+        $this->assertStringContainsString('Administrative Affairs', $body);
+    }
+
+    public function test_decision_draft_is_refused_for_a_non_employee_request_item(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , , $meeting] = $this->committeeMeetingWithAgendaItem();
+        $adminItem = $meeting->agendaItems()->create([
+            'agenda_order' => 2,
+            'item_type' => 'administrative',
+            'subject' => 'بند إداري',
+        ]);
+        $template = Template::create([
+            'code' => 'decision_draft_source_admin',
+            'category' => Template::CATEGORY_DECISION,
+            'name_ar' => 'قالب',
+            'body_ar' => 'نص',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/{$adminItem->id}/decision-draft?template_id={$template->id}")
+            ->assertStatus(422);
+    }
+
+    public function test_decision_draft_requires_an_active_template(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , , $meeting, $agendaItem] = $this->committeeMeetingWithAgendaItem();
+        $inactive = Template::create([
+            'code' => 'decision_draft_source_inactive',
+            'category' => Template::CATEGORY_DECISION,
+            'name_ar' => 'قالب غير مفعّل',
+            'body_ar' => 'نص',
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision-draft?template_id={$inactive->id}")
+            ->assertStatus(422);
+
+        $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision-draft")
+            ->assertStatus(422);
+    }
+
     /** @return array{0: User, 1: User, 2: Committee, 3: Meeting, 4: MeetingRequest} */
     private function committeeMeetingWithAgendaItem(): array
     {

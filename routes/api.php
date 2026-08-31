@@ -398,6 +398,11 @@ Route::middleware('auth:sanctum')->group(function () {
         ->post('meetings/{meeting}/agenda/{agendaItem}/votes', [DecisionController::class, 'vote']);
     Route::middleware('screen.permission:decisions,approve')
         ->post('meetings/{meeting}/agenda/{agendaItem}/decision', [DecisionController::class, 'record']);
+    // Stage 42 — a read-only preview of a template merged with this agenda
+    // item's own data, sitting behind `view` like the rest of the register
+    // reads below (it discloses nothing not already visible on the screen).
+    Route::middleware('screen.permission:decisions,view')
+        ->get('meetings/{meeting}/agenda/{agendaItem}/decision-draft', [DecisionController::class, 'draft']);
 
     /*
      * Stage 25 — the `decisions` screen itself, which Stage 21 left a

@@ -14,6 +14,91 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-08-31 12:10 EET — Claude — Stage 42 complete (decision-draft auto-generation)
+
+Built per the plan below. New `App\Services\DecisionDraftComposer::compose()` interpolates 8 fixed
+`{{token}}` placeholders (`reference_number`, `request_title`, `employee_name`, `department`,
+`request_type`, `committee_name`, `meeting_date`, `decision_date`) into a `Template`'s bilingual
+subject/body using `strtr()`, reading the agenda item's `request`/`createdBy`/`department`/
+`requestType` and the meeting's `committee` — falling back cross-locale exactly like
+`DecisionController::localName()` already does for export labels. New read-only endpoint
+`GET meetings/{meeting}/agenda/{agendaItem}/decision-draft?template_id=&locale=`
+(`DecisionController::draft()`, new `ShowDecisionDraftRequest`), gated `decisions,view` (same
+grant as `filters()`/`pending()` — the draft discloses nothing not already visible on screen) rather
+than `decisions,approve`, since it's a preview, not a write. `record()` itself is untouched — it
+still just stores whatever `comment` text the client submits; the interpolation happens earlier, at
+template-pick time, so the user can see and further edit the merged draft before recording.
+
+Frontend: `AgendaItemDecisionPanel.vue`'s `useTemplate()` is now async and calls the new endpoint
+instead of copying `template.body_ar`/`body_en` verbatim into the comment box — same edit-before-
+submit UX, just with real data merged in. New `decisions.template.drafting`/`draftError` locale
+keys. `TemplatesView.vue` gained a placeholder-tokens hint under the body textareas when
+`category === 'decision'`, so an R08 admin knows what to type. **One frontend gotcha worth
+flagging**: writing the literal `{{token}}` example strings directly inside a Vue template
+interpolation (`{{ '{{' + token + '}}' }}`) breaks Vite's build — Vue's compiler scans for the
+first `}}` to close the mustache and finds one inside the string literal first, producing an
+"Unterminated string constant" parse error. Fixed by moving the concatenation into a plain script
+function (`braced(token)`) and calling `{{ braced(token) }}` instead, so the template source itself
+never contains a literal `{{`/`}}` pair inside an interpolation expression. The same problem existed
+in the locale-file hint text I originally wrote (vue-i18n's own message syntax uses single-brace
+`{name}` interpolation and chokes on embedded `{{...}}`); fixed by keeping the i18n string
+description-only and rendering the actual token examples as separate `<code>` chips via `braced()`,
+outside of `t()` entirely.
+
+Verification: 4 new tests appended to `tests/Feature/DecisionOutcomeTemplateTest.php` (interpolation
+pulls in the request's own reference/title/requester/department/committee and leaves no `{{` in the
+output; the `locale=en` variant reads `body_en` and resolves department to its English name; a
+non-`employee_request` agenda item is refused; a missing or inactive `template_id` 422s). Full suite
+**169 tests / 1027 assertions** green (was 165/1014), Pint clean on every touched file, `npm run
+build` passes with `AgendaItemDecisionPanel`/`TemplatesView` as their own chunks (then reverted
+`frontend/dist`, tracked in git, per every prior stage's note — `git checkout -- frontend/dist &&
+git clean -fd frontend/dist`). Locale key-parity verified programmatically: 765 keys each side, zero
+on-one-side-only. No migration — this stage is pure service/controller/route/frontend, no schema
+change. **Not verified: no browser this session** — the template-pick-fetches-a-draft interaction is
+calculated from the existing `useTemplate()`/textarea pattern, not observed, consistent with every
+prior UI-touching note.
+
+Next per STAGE_PLAN's suggested order: **Stage 43** (move `decisions` out of the meetings sidebar
+group).
+
+---
+
+### 2026-08-31 11:45 EET — Claude — Stage 42 implementation plan (decision-draft auto-generation)
+
+Building Stage 42 per STAGE_PLAN.md Track I: picking a decision template currently just copies its
+static `body_ar`/`body_en` verbatim into the comment textarea (`AgendaItemDecisionPanel.vue`'s
+`useTemplate()`, Stage 35) — this stage makes that a real merge of the record's own data, per [C]
+§7's "توليد مسودة القرار من بيانات المعاملة".
+
+**Mechanism is a read-only preview endpoint, not a change to `record()`'s write path.** The user
+needs to see (and still edit) the merged draft *before* submitting, so interpolation has to happen
+at template-pick time, not at record time — `DecisionController::record()` stays exactly as-is,
+storing whatever `comment` the client sends. New `App\Services\DecisionDraftComposer::compose()`
+does `strtr()` over 8 fixed `{{token}}` placeholders against the agenda item's own
+`request`/`createdBy`/`department`/`requestType` and the meeting's `committee`, reusing the
+preferred/fallback bilingual-field rule `DecisionController::localName()` already has for export
+labels. New `GET meetings/{meeting}/agenda/{agendaItem}/decision-draft` (`ShowDecisionDraftRequest`,
+`template_id` required + active, `locale` optional) sits behind `decisions,view` — the same grant
+`filters()`/`pending()` already use, since a draft built from data already visible on screen doesn't
+need the head-only `approve` grant `record()` itself requires. Refuses (422) a non-`employee_request`
+agenda item, matching `record()`'s own guard.
+
+Frontend: `AgendaItemDecisionPanel.vue`'s `useTemplate()` becomes async, fetching the composed draft
+and setting `decisionComment` from its `body` instead of the raw template field — same edit-before-
+submit UX. `TemplatesView.vue` gets a placeholder-tokens hint under the body textareas (shown only
+for `category === 'decision'`) so an R08 author knows what to type; the 8 tokens are static, not
+server-driven — no endpoint exists to enumerate them and one row of constants isn't worth adding one
+for.
+
+**Verification plan**: extend `tests/Feature/DecisionOutcomeTemplateTest.php` (already covers
+template recording from Stage 35) with cases proving the draft actually merges real data (reference
+number, title, requester name, department, committee name all present, no `{{` left in the output),
+an `locale=en` variant, a 422 for a non-request agenda item, and a 422 for a missing/inactive
+`template_id` — plus the full PHPUnit suite, Pint, `npm run build`, and a locale key-parity check.
+No migration — no schema change this stage.
+
+---
+
 ### 2026-08-31 11:20 EET — Claude — Stage 41 complete (abstain vote option)
 
 Built exactly per the plan below. One migration (`decisions.votes_abstain_count`, applied to the real MySQL/Homestead database), `abstain` added to `StoreVoteRequest`'s allowed vote values, and `DecisionController::record()` reads `$counts['abstain'] ?? 0` into a new `$abstainCount` local — no change to the tally/leader logic itself, since `$tally` was already scoped to `array_keys(self::ACTIONS)` and never saw `abstain` in the first place. `Decision`/`DecisionResource`/export `LABELS`/`exportRow()` all carry the new column through; `MeetingMinutesCompiler::voteTally()` gained the same key in both its decided-snapshot and live-count branches, since the compiled-minutes tally is a third place this six-key list was duplicated.
