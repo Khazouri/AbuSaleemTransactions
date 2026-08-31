@@ -38,17 +38,23 @@ class ScreenSeeder extends Seeder
             ['notes_attachments',        'الملاحظات والمرفقات',        'Notes & Attachments',          '/requests/:id/notes',   'paperclip',    null],
 
             // --- Committee (Stage 28: "إدارة الاجتماعات" / meetings_management) --
-            // 9 slots for Track H (stages 28-37). `meetings` and `decisions`
-            // already existed (Stage 20/25) and are unchanged apart from
-            // gaining a `group`; the other 7 are empty navigation shells
-            // until later stages give them real content.
+            // 8 grouped slots for Track H (stages 28-37). `meetings` already
+            // existed (Stage 20) and is unchanged apart from gaining a
+            // `group`; 6 more are empty navigation shells until later stages
+            // give them real content. `decisions` (Stage 25) was grouped here
+            // too until Stage 43 pulled it back out — [C] is explicit that
+            // decisions is a shared system-wide unit, not a meetings-only one
+            // ("وحدات مشتركة في النظام ولا نكررها داخل قسم الاجتماعات") — so it
+            // stays in this array position for a stable diff but carries no
+            // `group`, same as every other shared screen.
             ['meetings_dashboard',       'لوحة قيادة الاجتماعات',      'Meetings Dashboard',           '/meetings/dashboard',       'grid',         'meetings_management'],
             ['committee_candidates',     'الطلبات المرشحة',            'Committee Candidates',         '/meetings/candidates',      'file-plus',    'meetings_management'],
             ['meetings',                 'الاجتماعات',                'Meetings',                     '/meetings',                 'users',        'meetings_management'],
             ['meeting_agenda',           'جدول الأعمال',               'Meeting Agenda',               '/meetings/agenda',          'file-text',    'meetings_management'],
             ['meeting_readiness',        'جاهزية الاجتماع',            'Meeting Readiness',            '/meetings/readiness',       'check-square', 'meetings_management'],
             ['meeting_live',             'مباشرة الاجتماع',            'Live Meeting',                 '/meetings/live',            'video',        'meetings_management'],
-            ['decisions',                'القرارات والتوصيات',         'Decisions & Recommendations',  '/decisions',                'check-square', 'meetings_management'],
+            // Stage 43 — decisions is shared, not part of meetings_management.
+            ['decisions',                'القرارات والتوصيات',         'Decisions & Recommendations',  '/decisions',                'check-square', null],
             ['meeting_minutes',          'المحاضر',                    'Minutes',                      '/meetings/minutes',         'book',         'meetings_management'],
             ['meeting_outputs',          'المخرجات',                   'Outputs',                      '/meetings/outputs',         'bar-chart',    'meetings_management'],
 

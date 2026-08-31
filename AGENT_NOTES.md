@@ -14,6 +14,60 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-08-31 12:50 EET — Claude — Stage 43 complete (move `decisions` out of the meetings sidebar group)
+
+Built exactly per the plan below — one-line seeder change, no Vue/permission/migration change needed.
+`ScreenSeeder.php`'s `decisions` row now has `group => null` instead of `'meetings_management'`
+(kept at its original array position for a stable diff, per the plan). Confirmed by reading
+`AppSidebar.vue`'s `entries` computed and `stores/screens.js`'s `navGroups`/`navItems` that both
+already treat a null-group screen as a flat top-level item — no frontend code was touched, and no
+`npm run build` was needed since nothing in `frontend/src` changed.
+
+`tests/Feature/ScreenTest.php`: `test_the_meetings_management_group_seeds_all_nine_codes` renamed to
+`..._eight_codes` with `decisions` dropped from its list (9→8), plus a new
+`test_decisions_is_shared_not_grouped` asserting its group is null. The second test
+(`test_a_committee_head_sees_the_group_in_their_screen_menu`) needed no change — its `newCodes` list
+never included `decisions` in the first place.
+
+Verification: full suite **170 tests / 1027 assertions** green (was 169/1027 — one test added, net
+assertion count unchanged since the shrunk 9-code loop lost exactly the one assertion the new test
+gained), Pint clean on both touched files, and `php artisan db:seed --class=ScreenSeeder --force` ran
+clean against the real MySQL/Homestead database — confirmed via tinker that `decisions`' group is now
+`NULL` and `meetings_management` has exactly 8 remaining screens.
+
+Next per STAGE_PLAN's suggested order: **Stage 44** (verify remaining [C] fidelity gaps —
+`committee_candidates`'s columns against [C] §2, and `MeetingLiveView`'s tabs against [C] §6).
+
+---
+
+### 2026-08-31 12:35 EET — Claude — Stage 43 implementation plan (move `decisions` out of the meetings sidebar group)
+
+Building Stage 43 per STAGE_PLAN.md Track I: [C] is explicit that القرارات (decisions) is a shared
+system-wide unit, not something to duplicate inside the meetings section
+("وحدات مشتركة في النظام ولا نكررها داخل قسم الاجتماعات") — Stage 28 nested it under
+`meetings_management` alongside the other 8 Track H screens, which this stage reverses.
+
+**Mechanism is a one-line seeder change, not a sidebar rewrite.** `ScreenSeeder.php`'s `decisions`
+row changes its `group` column from `'meetings_management'` to `null`; every other field (route,
+icon, permissions) is untouched. `AppSidebar.vue`'s render-entries computed already treats a
+null-group screen as a flat top-level item interleaved at its array position (confirmed by reading
+`entries computed()` — a non-group screen just pushes `{type:'item'}` wherever it falls in
+`navItems`, and the grouped block renders once at the position of its first surviving member), so no
+Vue change is needed; `ICON_BY_CODE` in that same file already lists `decisions: 'check-circle'`
+*outside* the "Stage 28 — meetings management group" comment block, i.e. it was already keyed as if
+ungrouped — one more sign this is purely a data change. `ScreenRolePermissionSeeder` needs no change
+(the plan's own "no permission change needed" line) since permissions are keyed by `code`, not
+`group`. `tests/Feature/ScreenTest.php`'s two group tests need updating: the "seeds all nine codes"
+test drops to 8 codes plus a new assertion that `decisions`' group is null, and the second test
+(committee-head's screen menu) already excludes `decisions` from its `newCodes` list so needs no
+change there.
+
+**Verification plan**: update `ScreenTest.php` as above, run the full PHPUnit suite, Pint on the
+touched seeder file, and re-seed screens against the real MySQL/Homestead database. No migration —
+`screens.group` already exists and is nullable (added in Stage 28).
+
+---
+
 ### 2026-08-31 12:10 EET — Claude — Stage 42 complete (decision-draft auto-generation)
 
 Built per the plan below. New `App\Services\DecisionDraftComposer::compose()` interpolates 8 fixed

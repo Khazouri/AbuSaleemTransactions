@@ -10,10 +10,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Stage 28 — the grouped "إدارة الاجتماعات" sidebar section and its 9 screen
+ * Stage 28 — the grouped "إدارة الاجتماعات" sidebar section and its screen
  * slots. Everything here is scaffolding (empty routes, seeded permissions),
  * so this only holds the seeding and the API contract the frontend's
  * `navGroups` grouping depends on — not the (nonexistent yet) screen content.
+ *
+ * Stage 43 pulled `decisions` back out of the group (per [C]: it's a shared
+ * system-wide screen, not meetings-only) — `test_decisions_is_shared_not_grouped`
+ * covers that.
  */
 class ScreenTest extends TestCase
 {
@@ -25,23 +29,28 @@ class ScreenTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
-    public function test_the_meetings_management_group_seeds_all_nine_codes(): void
+    public function test_the_meetings_management_group_seeds_all_eight_codes(): void
     {
         $codes = [
             'meetings_dashboard', 'committee_candidates', 'meetings',
             'meeting_agenda', 'meeting_readiness', 'meeting_live',
-            'decisions', 'meeting_minutes', 'meeting_outputs',
+            'meeting_minutes', 'meeting_outputs',
         ];
 
         $screens = Screen::whereIn('code', $codes)->get()->keyBy('code');
 
-        $this->assertCount(9, $screens);
+        $this->assertCount(8, $screens);
         foreach ($codes as $code) {
             $this->assertSame('meetings_management', $screens[$code]->group, "code={$code}");
         }
 
         // A screen outside the group stays ungrouped.
         $this->assertNull(Screen::where('code', 'dashboard')->value('group'));
+    }
+
+    public function test_decisions_is_shared_not_grouped(): void
+    {
+        $this->assertNull(Screen::where('code', 'decisions')->value('group'));
     }
 
     public function test_a_committee_head_sees_the_group_in_their_screen_menu(): void
