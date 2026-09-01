@@ -20,9 +20,10 @@ class StoreVoteRequest extends FormRequest
             // see DecisionController::ACTIONS for what each drives. Stage 41
             // adds `abstain` — a vote value with no matching ACTIONS entry,
             // so it can never drive a workflow transition, only be tallied.
+            // Stage 49 adds `no_jurisdiction`, a fourth self-loop outcome.
             'vote' => ['required', 'string', Rule::in([
                 'approve', 'reject', 'defer',
-                'conditional_approval', 'legal_opinion', 'refer_other_body',
+                'conditional_approval', 'legal_opinion', 'refer_other_body', 'no_jurisdiction',
                 'abstain',
             ])],
             'comment' => ['nullable', 'string', 'max:2000'],

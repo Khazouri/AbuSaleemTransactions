@@ -344,6 +344,24 @@ class WorkflowTransitionSeeder extends Seeder
             53,
         );
 
+        // Stage 49 — a fourth self-loop outcome distinct from the three
+        // above: the committee declares the matter outside its jurisdiction
+        // entirely ([D] status 14 "عدم اختصاص"), rather than asking another
+        // body for input (`refer_to_another_body`) or requesting a legal
+        // opinion. Self-loop, not an automated destination stage: [D]'s own
+        // detailed flow (path 13D) describes identifying the correct body
+        // and referring/returning as a manual follow-up this system has no
+        // "correct body" registry to drive — the required comment is where
+        // that correct body, if determinable, gets recorded.
+        $this->seedException(
+            $stages['receive_from_committee']->id,
+            $stages['receive_from_committee']->id,
+            'declare_no_jurisdiction',
+            $roles['R03']->id,
+            $statuses['outside_jurisdiction']->id,
+            54,
+        );
+
         // Stage 32 — the candidate-requests worklist's "return to study": the
         // committee sends a request back to the observations checkpoint for
         // more work before it can be nominated again. Unlike CommitteeStatusService's

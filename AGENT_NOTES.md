@@ -14,6 +14,120 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-01 15:30 EET — Claude — Stage 49 complete (richer committee decision outcomes)
+
+Built exactly per the plan below. Bullet 2 (whether "إعادة الملف لاستكمال بيانات" should be an
+in-meeting decision outcome) needed no code — [D] Art. 27's explicit "غير مستوفٍ and مؤجل must never
+be used interchangeably" already matches the current split between `CommitteeStatusService::
+require_completion` (pre-meeting) and the existing `defer` decision outcome (in-meeting), and Art. 26
+already folds "needs more documents/data" into التأجيل's 6 reasons rather than a separate outcome. That
+finding is recorded here, not implemented as new code.
+
+Bullet 1 (an explicit "عدم اختصاص" outcome) is a new seventh entry alongside Stage 35/41's existing six,
+built as a mechanical extension of that established pattern: new self-loop `WorkflowTransitionSeeder`
+exception at `receive_from_committee` (`declare_no_jurisdiction`, R03, `is_exception=true`,
+`requires_comment=true`, order 54, no signature — same shape as `refer_to_another_body`/
+`request_legal_opinion`), a new `outside_jurisdiction` `RequestStatus` row, a new
+`votes_no_jurisdiction_count` column on `decisions` (migration), and the outcome key `no_jurisdiction`
+threaded through every place the existing six were: `DecisionController::ACTIONS`/`LABELS`
+(ar+en outcomes/columns)/`exportRow()`/`record()`'s `Decision::create()`, `Decision::$fillable`,
+`DecisionResource`, `IndexDecisionRequest::OUTCOMES`, `StoreVoteRequest`'s `Rule::in` list,
+`MeetingMinutesCompiler::voteTally()` (both branches), frontend `decisionOutcomes.js`'s
+`DECISION_OUTCOMES` array (which drives `AgendaItemDecisionPanel.vue`'s vote buttons/tally and
+`DecisionsView.vue`'s pending-tab buttons/outcome filter generically — no further change needed in
+either component), `DecisionsView.vue`'s one hardcoded register-table tally cell + a new
+`.outcome.no_jurisdiction` CSS class (muted/warning tokens, deliberately not reusing `reject`'s danger
+tokens — a jurisdiction declaration isn't a merits rejection and shouldn't read as one), and new
+`decisions.tally/vote/outcome.no_jurisdiction` + `workflow.actions.declare_no_jurisdiction` locale keys
+plus an appended "عدم اختصاص"/"No jurisdiction" segment on `decisions.columns.tally`'s header string, in
+both `ar.json`/`en.json`.
+
+One pre-existing test needed a legitimate update, not a regression fix: `DecisionRegisterTest::
+test_filters_endpoint_offers_the_committees_and_outcomes` hardcoded the old six-outcome array from
+`/decisions/filters`, the same category of update Stage 41's note already flagged for this exact test.
+
+Verification: new `DecisionOutcomeTemplateTest::test_no_jurisdiction_self_loops_at_the_committee_stage_
+and_requires_a_comment` (mirrors the existing `refer_to_another_body` test's shape — a plurality vote
+stays at `receive_from_committee`, sets status `outside_jurisdiction`, 422s without a comment, writes no
+`Approval` ledger row), full suite **198 tests / 1154 assertions** green (was 197/1144 — one new test,
+plus the updated pre-existing assertion), Pint clean on every touched/new file, `npm run build` passes
+with `DecisionsView`/`decisionOutcomes`/`AgendaItemDecisionPanel` picking up the new outcome in their
+existing chunks (then reverted `frontend/dist`, tracked in git, per every prior stage's note), locale
+key-parity verified programmatically (838 keys each side, zero on-one-side-only), and both the migration
+and the two reseeds ran clean against the real MySQL/Homestead database — confirmed via tinker that
+`outside_jurisdiction` exists (28 statuses total, was 27) and the new `declare_no_jurisdiction` row is a
+7→7 self-loop, R03, exception, comment-required (58 transitions total, was 57). **Not verified: no
+browser this session** — the register table's new tally column and the outcome badge's styling are
+calculated from the existing six-outcome pattern, not observed, consistent with every prior UI-touching
+note.
+
+Next per STAGE_PLAN's suggested order: **Stage 50** (minutes content completeness).
+
+---
+
+### 2026-09-01 15:00 EET — Claude — Stage 49 implementation plan (richer committee decision outcomes)
+
+Building Stage 49 per STAGE_PLAN.md Track I. Two Build bullets, one needing code, one needing a
+documented judgment call after re-reading the standard.
+
+**Bullet 2 resolved with no code change, backed directly by [D]'s own text, not just inferred.**
+`docs/employee-committee-lifecycle/official-procedures-manual-index.md` Art. 27 (read for this plan)
+draws the exact line STAGE_PLAN's own text gestures at: **غير مستوفٍ** (a completeness gap caught
+*before* the item is even added to the agenda) and **مؤجل** (a deferral decided *after* the committee
+has already added, studied, and started deliberating the item) are two different moments and "must
+never be used interchangeably." That is a direct, unambiguous verdict on the "reconsider" question —
+the current architecture already gets this right: `CommitteeStatusService::require_completion`
+(pre-meeting, status-only, → `completion_required`) is غير مستوفٍ; the existing in-meeting `defer`
+decision outcome (Stage 21, → status `deferred`) is مؤجل. Art. 26 additionally lists "needs more
+documents/data" as one of التأجيل's 6 named reasons, not a separate outcome — so when a completion
+need surfaces *during* deliberation, the existing `defer` outcome is already the correct in-meeting
+path for it; there is no missing "استكمال" outcome to build. Nothing to change here beyond recording
+this finding — building a redundant second in-meeting "request completion" outcome would blur exactly
+the distinction Art. 27 insists on keeping sharp.
+
+**Bullet 1: a new "عدم اختصاص" outcome, distinct from the existing `refer_to_another_body`.**
+[D]'s Art. 38 status dictionary (already indexed in this file) has status 14 "عدم اختصاص — Matter
+outside committee jurisdiction" as its own entry, separate from status 15/16 (referred to local/
+central *approval* authority) and separate from Stage 35's `refer_to_another_body` (an "ask another
+body's input" self-loop — [D] Art. 26 lists "another body's input" as one of التأجيل's 6 reasons, a
+sub-case of deferral, not "we have no jurisdiction over this at all"). Mechanism mirrors
+`request_legal_opinion`/`refer_to_another_body`'s exact existing shape: a new self-loop exception at
+`receive_from_committee` (`is_exception=true`, R03, `requires_comment=true`, no signature — matches
+`WorkflowService::approvalLevel()`'s `action==='approve'`-only gate) rather than an automated
+destination stage, since [D]'s own detailed-flow path 13D ("عدم اختصاص → تحديد الجهة المختصة →
+إحالة/إعادة") describes identifying-then-manually-routing as a human follow-up step this system has
+no automated "correct body" registry to drive. New outcome key `no_jurisdiction` (`DecisionController
+::ACTIONS`), new workflow action `declare_no_jurisdiction`, new status `outside_jurisdiction`.
+
+**Files to touch, all mechanical extensions of Stage 35's already-established 6-key pattern (soon to
+be 7) — the same set of places Stage 35/41 each had to touch when adding a key to this list, per
+their own AGENT_NOTES entries:**
+- Backend: one migration (`decisions.votes_no_jurisdiction_count`, matching the shape of the existing
+  `votes_refer_other_body_count` column — `votes.vote`/`decisions.outcome` already widened to
+  `string(30)` in Stage 35, `no_jurisdiction` fits without a further width change); `RequestStatusSeeder`
+  (new `outside_jurisdiction` status row); `WorkflowTransitionSeeder` (new `seedException()` call,
+  order 54, right after `refer_to_another_body`'s 53); `DecisionController::ACTIONS` +
+  `LABELS['ar'/'en']['outcomes'/'columns']` + `exportRow()` + `record()`'s `Decision::create()` call;
+  `Decision` model `$fillable`; `DecisionResource`; `IndexDecisionRequest::OUTCOMES`; `StoreVoteRequest`'s
+  `Rule::in` list; `MeetingMinutesCompiler::voteTally()` (both the decided-snapshot and live-count
+  branches — a third place this same list is duplicated, per Stage 41's own note).
+- Frontend: `decisionOutcomes.js`'s `DECISION_OUTCOMES` array (drives `AgendaItemDecisionPanel.vue`'s
+  vote buttons/tally and `DecisionsView.vue`'s pending-tab vote buttons and outcome filter generically
+  — no further change needed in either component beyond that one array); `DecisionsView.vue`'s
+  register-table tally cell (hardcoded field list, like Stage 41's) and its `.outcome.no_jurisdiction`
+  CSS class; new `decisions.tally/vote/outcome.no_jurisdiction` + `workflow.actions.declare_no_jurisdiction`
+  locale keys and an appended "عدم اختصاص"/"No jurisdiction" segment on `decisions.columns.tally`'s
+  header string, in both `ar.json`/`en.json`.
+
+**Verification plan**: extend `tests/Feature/DecisionOutcomeTemplateTest.php` (or a new test) with a
+`no_jurisdiction`-plurality vote asserting it stays at `receive_from_committee` (self-loop, matching
+`refer_to_another_body`'s existing test shape), sets status `outside_jurisdiction`, requires a comment,
+and writes no `Approval` ledger row — plus the full PHPUnit suite, Pint on touched/new files, `npm run
+build`, `php artisan migrate` and the two reseeds against the real MySQL/Homestead database, and a
+locale key-parity check.
+
+---
+
 ### 2026-09-01 14:45 EET — Claude — Stage 48 complete (rapporteur/voting-member separation + conflict of interest)
 
 Built exactly per the plan below. Two migrations applied to the real MySQL/Homestead database:

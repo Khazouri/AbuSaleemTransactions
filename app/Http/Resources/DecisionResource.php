@@ -21,9 +21,13 @@ class DecisionResource extends JsonResource
             'votes_conditional_approval_count' => $this->votes_conditional_approval_count,
             'votes_legal_opinion_count' => $this->votes_legal_opinion_count,
             'votes_refer_other_body_count' => $this->votes_refer_other_body_count,
+            // Stage 49 — a seventh outcome: the matter is outside the
+            // committee's jurisdiction entirely, distinct from asking another
+            // body for input (refer_other_body above).
+            'votes_no_jurisdiction_count' => $this->votes_no_jurisdiction_count,
             // Stage 41 — counted like any other vote, but never a plurality
             // leader: DecisionController::record never lets it drive a
-            // workflow transition, so it stays outside the six-outcome list.
+            // workflow transition, so it stays outside the outcome list.
             'votes_abstain_count' => $this->votes_abstain_count,
             'comment' => $this->comment,
             'decided_at' => $this->decided_at,

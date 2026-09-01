@@ -142,7 +142,7 @@ class DecisionRegisterTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.outcomes', [
                 'approve', 'reject', 'defer',
-                'conditional_approval', 'legal_opinion', 'refer_other_body',
+                'conditional_approval', 'legal_opinion', 'refer_other_body', 'no_jurisdiction',
             ])
             ->assertJsonPath('data.formats', ['xlsx', 'pdf'])
             ->assertJsonPath('data.committees.0.name_ar', 'لجنة المشتريات');

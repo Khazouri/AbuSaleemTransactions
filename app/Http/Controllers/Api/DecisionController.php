@@ -73,10 +73,11 @@ class DecisionController extends Controller
                 'conditional_approval' => 'اعتماد مشروط',
                 'legal_opinion' => 'طلب رأي قانوني',
                 'refer_other_body' => 'إحالة لجهة أخرى',
+                'no_jurisdiction' => 'عدم اختصاص',
             ],
             'columns' => [
                 'الرقم المرجعي', 'الموضوع', 'اللجنة', 'الاجتماع', 'تاريخ الاجتماع',
-                'النتيجة', 'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة', 'ممتنع',
+                'النتيجة', 'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة', 'عدم اختصاص', 'ممتنع',
                 'القالب', 'صاحب القرار', 'تاريخ القرار', 'الملاحظات',
             ],
             'none' => '—',
@@ -99,10 +100,11 @@ class DecisionController extends Controller
                 'conditional_approval' => 'Conditionally Approved',
                 'legal_opinion' => 'Legal Opinion Requested',
                 'refer_other_body' => 'Referred to Another Body',
+                'no_jurisdiction' => 'Outside Jurisdiction',
             ],
             'columns' => [
                 'Reference', 'Subject', 'Committee', 'Meeting', 'Meeting date',
-                'Outcome', 'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred', 'Abstain',
+                'Outcome', 'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred', 'No jurisdiction', 'Abstain',
                 'Template', 'Decided by', 'Decided at', 'Comment',
             ],
             'none' => '—',
@@ -119,6 +121,7 @@ class DecisionController extends Controller
     // still mapping onto one workflow_transitions row at stage 7. See
     // WorkflowTransitionSeeder and this stage's AGENT_NOTES entry for why
     // none of the three new ones need a signature.
+    // Stage 49 — a seventh outcome, `no_jurisdiction`, on the same terms.
     private const ACTIONS = [
         'approve' => 'approve',
         'reject' => 'cancel',
@@ -126,6 +129,7 @@ class DecisionController extends Controller
         'conditional_approval' => 'conditional_approve',
         'legal_opinion' => 'request_legal_opinion',
         'refer_other_body' => 'refer_to_another_body',
+        'no_jurisdiction' => 'declare_no_jurisdiction',
     ];
 
     public function vote(
@@ -254,6 +258,7 @@ class DecisionController extends Controller
                     'votes_conditional_approval_count' => $tally['conditional_approval'],
                     'votes_legal_opinion_count' => $tally['legal_opinion'],
                     'votes_refer_other_body_count' => $tally['refer_other_body'],
+                    'votes_no_jurisdiction_count' => $tally['no_jurisdiction'],
                     'votes_abstain_count' => $abstainCount,
                     'comment' => $comment,
                     'decided_by_user_id' => $actor->id,
@@ -479,6 +484,7 @@ class DecisionController extends Controller
             $decision->votes_conditional_approval_count,
             $decision->votes_legal_opinion_count,
             $decision->votes_refer_other_body_count,
+            $decision->votes_no_jurisdiction_count,
             $decision->votes_abstain_count,
             $this->localName($decision->template, $locale, $labels),
             $decision->decidedBy?->name ?? $labels['none'],

@@ -456,6 +456,7 @@
       "conditional_approval": "Conditional",
       "legal_opinion": "Legal opinion",
       "refer_other_body": "Referred",
+      "no_jurisdiction": "No jurisdiction",
       "abstain": "Abstain"
     },
     "vote": {
@@ -465,6 +466,7 @@
       "conditional_approval": "Conditional approval",
       "legal_opinion": "Request legal opinion",
       "refer_other_body": "Refer to another body",
+      "no_jurisdiction": "Outside jurisdiction",
       "abstain": "Abstain"
     },
     "outcome": {
@@ -473,7 +475,8 @@
       "defer": "Deferred",
       "conditional_approval": "Conditionally approved",
       "legal_opinion": "Legal opinion requested",
-      "refer_other_body": "Referred to another body"
+      "refer_other_body": "Referred to another body",
+      "no_jurisdiction": "Outside jurisdiction"
     },
     "conflict": {
       "listTitle": "Declared conflicts of interest",
@@ -526,7 +529,7 @@
       "committee": "Committee",
       "meeting": "Meeting",
       "outcome": "Outcome",
-      "tally": "Approve / Reject / Defer / Conditional / Legal / Referred / Abstain",
+      "tally": "Approve / Reject / Defer / Conditional / Legal / Referred / No jurisdiction / Abstain",
       "template": "Template",
       "decidedBy": "Decided by",
       "decidedAt": "Decided at"
@@ -848,6 +851,7 @@
       "conditional_approve": "Conditional approval",
       "request_legal_opinion": "Request legal opinion",
       "refer_to_another_body": "Refer to another body",
+      "declare_no_jurisdiction": "Outside jurisdiction",
       "deadline_expired": "Escalate overdue request",
       "route_to_hr": "Route to HR",
       "route_to_diwan": "Route to Diwan Deputy",

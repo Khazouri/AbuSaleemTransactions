@@ -44,6 +44,13 @@ class RequestStatusSeeder extends Seeder
             ['legal_opinion_requested',  'طلب رأي قانوني',   'Legal Opinion Requested',  '#a21caf'], // self-loop at stage 7, pending legal review
             ['referred_to_other_body',   'أحيلت لجهة أخرى',  'Referred to Other Body',  '#57534e'], // self-loop at stage 7, outside this committee's remit
 
+            // --- Richer committee decision outcomes (Stage 49) ---------------
+            // Distinct from `referred_to_other_body` above: that one asks
+            // another body for input ([D] Art. 26's deferral reason), this
+            // one declares the matter outside the committee's jurisdiction
+            // entirely ([D] status 14 "عدم اختصاص").
+            ['outside_jurisdiction',     'عدم اختصاص',       'Outside Jurisdiction',    '#78350f'],
+
             // --- Committee sub-states (Stage 29) ------------------------------
             // Status-only granularity inside the `receive_from_committee` stage,
             // written by App\Services\CommitteeStatusService — never by

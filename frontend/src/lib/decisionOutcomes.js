@@ -1,5 +1,6 @@
 /**
- * Stage 35 — the six outcomes a committee vote/decision can carry.
+ * Stage 35 — the outcomes a committee vote/decision can carry (Stage 49 adds
+ * a seventh, `no_jurisdiction`).
  *
  * Shared by DecisionsView.vue (register filters, pending-tab vote buttons)
  * and AgendaItemDecisionPanel.vue (the vote/tally/record-decision block) so
@@ -12,6 +13,7 @@ export const DECISION_OUTCOMES = [
   'conditional_approval',
   'legal_opinion',
   'refer_other_body',
+  'no_jurisdiction',
 ]
 
 /**

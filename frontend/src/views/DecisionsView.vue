@@ -298,7 +298,8 @@ onMounted(async () => {
                 <td class="ltr nowrap">
                   {{ row.votes_approve_count }} / {{ row.votes_reject_count }} / {{ row.votes_defer_count }}
                   / {{ row.votes_conditional_approval_count }} / {{ row.votes_legal_opinion_count }}
-                  / {{ row.votes_refer_other_body_count }} / {{ row.votes_abstain_count }}
+                  / {{ row.votes_refer_other_body_count }} / {{ row.votes_no_jurisdiction_count }}
+                  / {{ row.votes_abstain_count }}
                 </td>
                 <td>{{ row.template ? localName(row.template) : t('common.none') }}</td>
                 <td>{{ row.decided_by?.name ?? t('common.none') }}</td>
@@ -422,6 +423,7 @@ td { font-size: .84rem; }
 .outcome.conditional_approval { color: var(--color-info-fg); border-color: var(--color-info-border); background: var(--color-info-bg); }
 .outcome.legal_opinion { color: var(--color-warning-fg); border-color: var(--color-warning-border); background: var(--color-warning-bg); }
 .outcome.refer_other_body { color: var(--color-muted); border-color: var(--color-border-hover); background: var(--color-surface-hover); }
+.outcome.no_jurisdiction { color: var(--color-warning-fg); border-color: var(--color-border-hover); background: var(--color-surface-hover); }
 
 .pending-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
 .pending-item { padding: 1rem 1.15rem; }

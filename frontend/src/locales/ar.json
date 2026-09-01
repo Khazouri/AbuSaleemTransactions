@@ -456,6 +456,7 @@
       "conditional_approval": "اعتماد مشروط",
       "legal_opinion": "رأي قانوني",
       "refer_other_body": "إحالة",
+      "no_jurisdiction": "عدم اختصاص",
       "abstain": "ممتنع"
     },
     "vote": {
@@ -465,6 +466,7 @@
       "conditional_approval": "اعتماد مشروط",
       "legal_opinion": "طلب رأي قانوني",
       "refer_other_body": "إحالة لجهة أخرى",
+      "no_jurisdiction": "عدم اختصاص",
       "abstain": "امتناع"
     },
     "outcome": {
@@ -473,7 +475,8 @@
       "defer": "تم التأجيل",
       "conditional_approval": "اعتماد مشروط",
       "legal_opinion": "طلب رأي قانوني",
-      "refer_other_body": "إحالة لجهة أخرى"
+      "refer_other_body": "إحالة لجهة أخرى",
+      "no_jurisdiction": "عدم اختصاص"
     },
     "conflict": {
       "listTitle": "تعارض المصالح المعلن",
@@ -526,7 +529,7 @@
       "committee": "اللجنة",
       "meeting": "الاجتماع",
       "outcome": "النتيجة",
-      "tally": "موافق / رافض / مؤجل / مشروط / رأي قانوني / إحالة / ممتنع",
+      "tally": "موافق / رافض / مؤجل / مشروط / رأي قانوني / إحالة / عدم اختصاص / ممتنع",
       "template": "القالب",
       "decidedBy": "صاحب القرار",
       "decidedAt": "تاريخ القرار"
@@ -848,6 +851,7 @@
       "conditional_approve": "اعتماد مشروط",
       "request_legal_opinion": "طلب رأي قانوني",
       "refer_to_another_body": "إحالة لجهة أخرى",
+      "declare_no_jurisdiction": "عدم اختصاص",
       "deadline_expired": "تصعيد لانتهاء المهلة",
       "route_to_hr": "إحالة إلى الموارد البشرية",
       "route_to_diwan": "إحالة إلى وكيل الديوان",

@@ -113,6 +113,8 @@ class MeetingMinutesCompiler
                 'conditional_approval' => $item->decision->votes_conditional_approval_count,
                 'legal_opinion' => $item->decision->votes_legal_opinion_count,
                 'refer_other_body' => $item->decision->votes_refer_other_body_count,
+                // Stage 49 — a seventh outcome.
+                'no_jurisdiction' => $item->decision->votes_no_jurisdiction_count,
                 // Stage 41 — tallied like any other vote, never an outcome.
                 'abstain' => $item->decision->votes_abstain_count,
             ];
@@ -128,6 +130,7 @@ class MeetingMinutesCompiler
             'conditional_approval' => $counts->get('conditional_approval', 0),
             'legal_opinion' => $counts->get('legal_opinion', 0),
             'refer_other_body' => $counts->get('refer_other_body', 0),
+            'no_jurisdiction' => $counts->get('no_jurisdiction', 0),
             'abstain' => $counts->get('abstain', 0),
         ];
     }

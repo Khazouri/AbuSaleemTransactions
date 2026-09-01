@@ -115,6 +115,48 @@ class DecisionOutcomeTemplateTest extends TestCase
         $this->assertSame('referred_to_other_body', $requestRecord->status->code);
     }
 
+    /**
+     * Stage 49 — a fourth self-loop outcome, distinct from
+     * `refer_other_body`: the committee declares the matter outside its
+     * jurisdiction entirely ([D] status 14 "عدم اختصاص"), rather than asking
+     * another body for input.
+     */
+    public function test_no_jurisdiction_self_loops_at_the_committee_stage_and_requires_a_comment(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, $member, , $meeting, $agendaItem] = $this->committeeMeetingWithAgendaItem();
+
+        $this->actingAs($member, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'no_jurisdiction'])
+            ->assertCreated();
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'no_jurisdiction'])
+            ->assertCreated();
+
+        // No comment supplied: the underlying `declare_no_jurisdiction`
+        // exception requires one, same as `defer`/`refer_other_body`.
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [])
+            ->assertStatus(422);
+        $this->assertDatabaseMissing('decisions', ['meeting_request_id' => $agendaItem->id]);
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+                'comment' => 'الموضوع من اختصاص قسم المرتبات والمزايا',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.outcome', 'no_jurisdiction')
+            ->assertJsonPath('data.votes_no_jurisdiction_count', 2);
+
+        $stageSeven = WorkflowStage::where('code', 'receive_from_committee')->firstOrFail();
+        $requestRecord = $agendaItem->request()->first()->fresh();
+
+        $this->assertSame($stageSeven->id, $requestRecord->current_stage_id);
+        $this->assertSame('outside_jurisdiction', $requestRecord->status->code);
+        $this->assertDatabaseMissing('approvals', ['request_id' => $requestRecord->id]);
+    }
+
     public function test_a_decision_records_and_returns_the_template_it_was_drafted_from(): void
     {
         $this->seed(DatabaseSeeder::class);
