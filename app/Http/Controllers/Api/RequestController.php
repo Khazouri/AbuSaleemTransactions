@@ -319,6 +319,9 @@ class RequestController extends Controller
                 ->orderBy('id'),
             'approvals.role:id,code,name_ar,name_en',
             'approvals.approvedBy:id,name',
+            // Stage 51 — the latest agenda appearance drives committee_summary.
+            'meetingRequests.meeting:id,meeting_number,scheduled_at',
+            'meetingRequests.decision:id,meeting_request_id,outcome,decided_at',
         ]);
         $availableTransitions = $workflow->availableTransitions($requestRecord, $actor)
             ->filter(fn ($rule) => $rule->action !== 'approve'

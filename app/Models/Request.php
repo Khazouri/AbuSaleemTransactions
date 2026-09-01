@@ -116,4 +116,15 @@ class Request extends Model
     {
         return $this->overdue_at !== null;
     }
+
+    /**
+     * Stage 51 — [A] §7's "المستندات الناقصة" flag, derived from status
+     * rather than a separate structured checklist: `incomplete` (Stage 16's
+     * return_missing_docs) and `completion_required` (Stage 29's committee
+     * sub-state) are the two statuses that mean "the file is not ready".
+     */
+    public function documentsComplete(): bool
+    {
+        return ! in_array($this->status?->code, ['incomplete', 'completion_required'], true);
+    }
 }

@@ -308,6 +308,20 @@
       "no": "لا يوجد أثر مالي",
       "toggle": "تصحيح",
       "updateFailed": "تعذّر تحديث الأثر المالي."
+    },
+    "documentsComplete": {
+      "label": "اكتمال الملف",
+      "yes": "الملف مكتمل",
+      "no": "بانتظار استكمال المستندات"
+    },
+    "committeeSummary": {
+      "title": "عرض اللجنة",
+      "meetingNumber": "رقم الاجتماع",
+      "meetingDate": "تاريخ الاجتماع",
+      "agendaItemNumber": "رقم بند جدول الأعمال",
+      "committeeResult": "نتيجة اللجنة",
+      "resultPending": "لم تصدر نتيجة بعد",
+      "decisionDate": "تاريخ القرار"
     }
   },
   "committees": {

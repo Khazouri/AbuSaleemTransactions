@@ -308,6 +308,20 @@
       "no": "No financial impact",
       "toggle": "Correct",
       "updateFailed": "The financial-impact flag could not be updated."
+    },
+    "documentsComplete": {
+      "label": "File completeness",
+      "yes": "File complete",
+      "no": "Awaiting missing documents"
+    },
+    "committeeSummary": {
+      "title": "Committee presentation",
+      "meetingNumber": "Meeting number",
+      "meetingDate": "Meeting date",
+      "agendaItemNumber": "Agenda item number",
+      "committeeResult": "Committee result",
+      "resultPending": "No result yet",
+      "decisionDate": "Decision date"
     }
   },
   "committees": {

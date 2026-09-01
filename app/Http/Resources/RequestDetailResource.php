@@ -17,6 +17,23 @@ class RequestDetailResource extends RequestResource
                 'name' => $this->createdBy->name,
             ] : null,
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
+            // Stage 51 — [A] §7's employee-facing visibility list.
+            'documents_complete' => $this->documentsComplete(),
+            'committee_summary' => $this->whenLoaded('meetingRequests', function () {
+                $agendaItem = $this->meetingRequests->sortByDesc('id')->first();
+
+                if ($agendaItem === null) {
+                    return null;
+                }
+
+                return [
+                    'meeting_number' => $agendaItem->meeting?->meeting_number,
+                    'meeting_date' => $agendaItem->meeting?->scheduled_at?->toDateString(),
+                    'agenda_item_number' => $agendaItem->agenda_order,
+                    'committee_result' => $agendaItem->decision?->outcome,
+                    'decision_date' => $agendaItem->decision?->decided_at?->toDateString(),
+                ];
+            }),
             // Stage 18 — the authoritative approval chain, separate from the
             // broader timeline that also contains forwards and exceptions.
             'approvals' => ApprovalResource::collection($this->whenLoaded('approvals')),

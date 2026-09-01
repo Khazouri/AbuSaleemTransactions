@@ -14,6 +14,114 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-01 17:20 EET — Claude — Stage 51 complete (employee-facing visibility)
+
+Built exactly per the plan below. No migration — every field is derived from existing columns/
+relations. `Request::documentsComplete()` (a plain status-code check, mirroring `isOverdue()`/
+`requiresMinistryApproval()`), `RequestDetailResource` gained `documents_complete` and
+`committee_summary` (meeting_number/meeting_date/agenda_item_number/committee_result/decision_date,
+sourced from the request's latest `MeetingRequest` — same "latest by id" selection
+`RequestResource::proposed_meeting` already uses — null when the request has never ridden an agenda),
+and `RequestController::detailResource()`'s eager-loads grew `meetingRequests.meeting`/
+`meetingRequests.decision` to back it.
+
+The Art. 32 audit (read every `App\Notifications\*` class, grepped both locale files for "نهائي"/
+"final" near an approval/decision context) came back clean, as recorded in the plan below — nothing
+in this codebase currently describes a partial result as final. That is a verified finding, not a
+skipped step.
+
+Frontend: `RequestDetailView.vue`'s `.summary` card gained a documents-complete row next to the
+financial-impact one, and a new `.committee-summary` card (shown only when `committee_summary` is
+non-null) renders the five fields, reusing the existing `decisions.outcome.*` locale keys for the
+result label rather than a second outcome-label map. New `requestDetail.documentsComplete.*` +
+`requestDetail.committeeSummary.*` keys in both `ar.json`/`en.json`.
+
+Verification: new `tests/Feature/EmployeeRequestVisibilityTest.php` (5 tests — no committee summary
+before any agenda appearance; `incomplete` and `completion_required` statuses both report
+`documents_complete: false`; an undecided agenda item reports the meeting/item number with a null
+result; a decided agenda item reports the full block), full suite **204 tests / 1194 assertions**
+green (was 199/1176), Pint clean on every touched/new file, `npm run build` passes with
+`RequestDetailView` picking up the new markup in its existing chunk (then reverted `frontend/dist`,
+tracked in git, per every prior stage's note), and locale key-parity verified programmatically (856
+keys each side, zero on-one-side-only). **Not verified: no browser this session** — the new summary
+rows' layout is calculated from the existing `.summary`/`.card` pattern, not observed, consistent with
+every prior UI-touching note.
+
+Next per STAGE_PLAN's suggested order: **Stage 52** (per-stage operational timeframes / soft SLA).
+
+---
+
+### 2026-09-01 17:00 EET — Claude — Stage 51 implementation plan (employee-facing visibility)
+
+Building Stage 51 per STAGE_PLAN.md Track I: "[A] §7 requires an employee viewing their own request
+to see" a specific field list, plus [D] Art. 32's rule that a result is never described as final
+before every required approval tier is complete. `RequestDetailResource` is the one detail workspace
+every role (including the requesting employee themselves, via `RequestVisibility::apply()`'s
+unconditional `created_by_user_id = actor.id` clause — confirmed by re-reading that service) already
+uses, so this stage extends that shared resource rather than building a separate employee-only screen.
+
+**Cross-checked [A] §7's full field list against what's already exposed, rather than assuming the
+Build bullet's two named additions are the only gaps.** Most of §7's 13 fields already exist on the
+shared resource today: رقم الطلب (`reference_number`), تاريخ التقديم (`submitted_at`), نوع الطلب
+(`request_type`), الحالة الحالية (`status`), حالة الاعتماد (implicit in `status.code`, and the
+`approved`/`final_approved` split already keeps "committee approved" and "every tier approved"
+distinct — see the Art. 32 audit below). "نسخة من الرد أو القرار الذي يجوز تسليمه قانونًا" has no
+dedicated decision-letter artifact type anywhere in this schema — attachments are the only document
+channel that exists, so this stays an honest gap, not fabricated. The Build bullet's own two named
+additions are the two genuinely missing pieces: **`documents_complete`** and **`committee_summary`**.
+
+**`documents_complete`**: a derived boolean, not a new column — `RequestStatusSeeder` already has two
+status codes that literally mean "the file is incomplete right now": `incomplete` (Stage 16's
+`return_missing_docs` exception) and `completion_required` (Stage 29's `CommitteeStatusService`
+sub-state). New `Request::documentsComplete(): bool` = the current status code is neither of those —
+mirrors the existing `isOverdue()`/`requiresMinistryApproval()` pattern of small derived-fact methods
+living on the model.
+
+**`committee_summary`**: [A] §7's رقم اجتماع اللجنة / تاريخ الاجتماع / رقم بند جدول الأعمال / نتيجة
+اللجنة / رقم القرار وتاريخه, sourced from the request's latest `MeetingRequest` (Stage 44's
+`Request::meetingRequests()`, same "latest by id" selection `RequestResource::proposed_meeting`
+already uses) — `meeting.meeting_number`, `meeting.scheduled_at`, the agenda item's own 1-indexed
+`agenda_order` (exactly "رقم بند جدول الأعمال" — confirmed by reading `MeetingController`'s
+add/reorder code), and, once a `Decision` exists, its `outcome` and `decided_at`. Null when the
+request has never ridden an agenda (the common case before the committee stage). **"رقم القرار"
+(decision number) is a genuine, currently-nonexistent field** — `decisions` has no dedicated
+sequential numbering column, only an autoincrement PK never meant to be shown as a legal document
+number, and [D] Art. 99–100's own numbering philosophy (one reference number per transaction for its
+whole lifecycle, no separate per-artifact numbering scheme) argues against inventing one here. This
+stage exposes `decided_at` (the decision date) only and does not fabricate a `decision_number` field
+— the same honest-gap treatment Stage 44 gave "نتيجة الدراسة" and Stage 50 gave "referral_authority"
+before it existed.
+
+**Art. 32 audit — done, no code change needed.** Read every `App\Notifications\*` class and grepped
+`frontend/src/locales/ar.json`/`en.json` for "نهائي"/"final" combined with an approval/decision
+context. Found nothing describing a partial result as final: `DecisionRecordedNotification` says
+"قررت اللجنة الموافقة" (the *committee* approved), never "اعتماد نهائي"; the `approved` vs.
+`final_approved` status pair already keeps "committee-level approval" and "every required tier
+complete" as two distinct, correctly-labeled states (Stage 18's approval-chain design already got
+this right); every other "نهائي" hit in the codebase is "الموعد النهائي" (a deadline) or the literal
+`final_approval_archiving` stage name, unrelated to Art. 32's concern. Recording this as a verified
+finding, not a silent skip.
+
+**Frontend**: `RequestDetailView.vue`'s existing `.summary` card gains a documents-complete
+indicator next to the other derived badges (financial impact's neighbor), and a new card — shown only
+`v-if="request.committee_summary"` — rendering the five committee_summary fields, styled after the
+existing `.summary`/`.card` pattern already used throughout that view. New
+`requestDetail.committeeSummary.*` + `requestDetail.documentsComplete.*` locale keys in both
+`ar.json`/`en.json`.
+
+**Verification plan**: extend `RequestController::detailResource()`'s eager-loads with
+`meetingRequests.meeting:id,meeting_number,scheduled_at` and
+`meetingRequests.decision:id,meeting_request_id,outcome,decided_at`; new
+`tests/Feature/EmployeeRequestVisibilityTest.php` — a request never presented to any committee gets
+`committee_summary: null` and `documents_complete: true`; a request with an `incomplete`/
+`completion_required` status gets `documents_complete: false`; a request that has ridden an agenda but
+has no decision yet gets a `committee_summary` with `committee_result: null`; one with a recorded
+decision gets the full block matching the meeting/agenda-item/decision fixture — plus the full
+PHPUnit suite, Pint on touched files, `npm run build`, and a locale key-parity check. No migration —
+every field is derived from existing columns/relations.
+
+---
+
 ### 2026-09-01 16:40 EET — Claude — Stage 50 complete (minutes content completeness)
 
 Built exactly per the plan below. One migration (`decisions.referral_authority`, nullable string,
