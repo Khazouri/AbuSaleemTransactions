@@ -345,6 +345,7 @@ class DecisionController extends Controller
                 'meeting:id,title,scheduled_at,committee_id',
                 'meeting.committee:id,name_ar,name_en',
                 'votes.user:id,name',
+                'conflictDeclarations.user:id,name',
             ])
             ->get();
 

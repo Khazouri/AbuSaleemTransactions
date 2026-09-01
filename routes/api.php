@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\CommitteeCandidateController;
 use App\Http\Controllers\Api\CommitteeController;
+use App\Http\Controllers\Api\ConflictOfInterestController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\DepartmentController;
@@ -440,6 +441,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // reads below (it discloses nothing not already visible on the screen).
     Route::middleware('screen.permission:decisions,view')
         ->get('meetings/{meeting}/agenda/{agendaItem}/decision-draft', [DecisionController::class, 'draft']);
+
+    /*
+     * Stage 48 — [D] Art. 11/15/18: a member with a stake in an item formally
+     * discloses it before deliberation. Rides `decisions` the same way voting
+     * does — `add` to declare (the declaration IS the recusal, checked by
+     * DecisionEligibility::isRecused against both the vote and the
+     * discussion-feed endpoints), `view` to read who has declared.
+     */
+    Route::middleware('screen.permission:decisions,add')
+        ->post('meetings/{meeting}/agenda/{agendaItem}/conflict-of-interest', [ConflictOfInterestController::class, 'store']);
+    Route::middleware('screen.permission:decisions,view')
+        ->get('meetings/{meeting}/agenda/{agendaItem}/conflict-of-interest', [ConflictOfInterestController::class, 'index']);
 
     /*
      * Stage 25 — the `decisions` screen itself, which Stage 21 left a

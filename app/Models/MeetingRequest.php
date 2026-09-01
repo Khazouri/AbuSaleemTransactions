@@ -103,4 +103,10 @@ class MeetingRequest extends Model
     {
         return $this->hasOne(PresentationMemo::class);
     }
+
+    /** Stage 48 — every member who has disclosed a stake in this item. */
+    public function conflictDeclarations(): HasMany
+    {
+        return $this->hasMany(ConflictOfInterestDeclaration::class);
+    }
 }

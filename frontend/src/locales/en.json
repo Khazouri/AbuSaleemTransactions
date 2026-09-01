@@ -328,6 +328,7 @@
     "removeMember": "Remove",
     "noMembers": "No members yet.",
     "cannotDeleteHasMeetings": "A committee that has held meetings cannot be deleted.",
+    "rapporteurVotes": "The rapporteur votes too (per the committee's formation decision)",
     "seats": {
       "label": "Seat",
       "none": "— No fixed seat —",
@@ -473,6 +474,14 @@
       "conditional_approval": "Conditionally approved",
       "legal_opinion": "Legal opinion requested",
       "refer_other_body": "Referred to another body"
+    },
+    "conflict": {
+      "listTitle": "Declared conflicts of interest",
+      "declare": "Declare a conflict of interest",
+      "declaring": "Declaring…",
+      "reasonPlaceholder": "Nature of the conflict (optional)",
+      "declared": "You have declared a conflict of interest on this item and may not vote or take part in its deliberation.",
+      "rapporteurNoVote": "You are this meeting's rapporteur and do not vote unless the committee's formation decision grants it."
     },
     "template": {
       "usedLabel": "Template used",

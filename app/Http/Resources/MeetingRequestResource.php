@@ -48,6 +48,12 @@ class MeetingRequestResource extends JsonResource
             ] : null),
             'votes' => $this->whenLoaded('votes', fn () => VoteResource::collection($this->votes)),
             'decision' => $this->whenLoaded('decision', fn () => $this->decision ? new DecisionResource($this->decision) : null),
+            // Stage 48 — who has disclosed a conflict of interest on this item;
+            // each entry's presence is itself the recusal (DecisionEligibility).
+            'conflict_declarations' => $this->whenLoaded(
+                'conflictDeclarations',
+                fn () => ConflictOfInterestDeclarationResource::collection($this->conflictDeclarations),
+            ),
             // Stage 25 — the pending-votes worklist shows items from several
             // meetings at once, so each one has to name its own. Omitted inside
             // the meeting screen, which already knows.

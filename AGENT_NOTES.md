@@ -14,6 +14,130 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-01 14:45 EET — Claude — Stage 48 complete (rapporteur/voting-member separation + conflict of interest)
+
+Built exactly per the plan below. Two migrations applied to the real MySQL/Homestead database:
+`committees.rapporteur_votes` (boolean, default false — the tashkil-decision flag, since no dedicated
+tashkil table exists in this schema) and a new `conflict_of_interest_declarations` table (shaped like
+`votes`: `meeting_request_id`/`user_id` FKs, both cascadeOnDelete, unique per item+user). **One real
+gotcha hit applying the second migration to MySQL, not caught by the sqlite test suite**: the default
+derived unique-index name (`conflict_of_interest_declarations_meeting_request_id_user_id_unique`)
+exceeds MySQL's 64-character identifier limit — sqlite has no such limit, so PHPUnit's suite passed
+clean while `php artisan migrate --force` failed outright against the real database with a 1059 syntax
+error. Fixed by naming the index explicitly (`coi_declarations_item_user_unique`) after dropping the
+partially-created table (MySQL's `CREATE TABLE` and the failed `ALTER TABLE ... ADD UNIQUE` are two
+separate statements, so the bare table existed without its constraint) and re-migrating clean. Worth
+remembering for any future long-named join/pivot table: MySQL's identifier limit is a real constraint
+sqlite-backed tests cannot catch.
+
+`DecisionEligibility::reasonBlockingVote()` gained two more checks (after the existing membership/
+attendance pair): `isRecused()` (a public method, also called directly by
+`MeetingDiscussionNoteController::store()` to block the *discussion feed* for the same user — recusal
+blocks both, per [D] Art. 11/15/18's "blocked from deliberation/voting once recused") and a private
+`isNonVotingRapporteur()` reading `$agendaItem->meeting->rapporteur_user_id` against
+`$meeting->committee->rapporteur_votes` — literally the two fields STAGE_PLAN's own Build bullet named,
+not the standing `CommitteeMember.seat === 'rapporteur'` roster seat Stage 45 built. Those two rapporteur
+concepts are deliberately different and not reconciled here: `seat='rapporteur'` is the institutional
+5-seat roster ([D] Art. 10); `Meeting.rapporteur_user_id` is the per-meeting assignment Stage 30's
+scheduling wizard already collects. Nothing in this stage links them — a scheduler could assign someone
+as a meeting's rapporteur who doesn't hold the committee's standing rapporteur seat, and the vote-block
+follows the meeting assignment either way, matching the plan's literal text. `pendingVotesQuery()` grew
+the same two exclusions (a `whereDoesntHave('conflictDeclarations', ...)` and a `rapporteur_user_id`/
+`rapporteur_votes` guard on the meeting join) so the "awaiting my vote" worklist can never offer an item
+the vote endpoint would refuse — the same invariant Stage 25's own docblock already promises.
+
+New `ConflictOfInterestController` (`index`/`store`, riding `decisions,add`/`decisions,view` — the same
+grants vote-casting already uses, not a new screen) — `store()` is deliberately the whole recusal
+mechanism: there is no separate "recuse" step and no withdrawal endpoint, since a disclosed conflict is
+a standing fact about an item, not a toggle. Guards mirror `DecisionController::vote()`'s shape
+(`employee_request` only, blocked once a decision exists, actor must hold a committee seat).
+`MeetingMinutesCompiler::agendaItem()` folds declarations into the compiled snapshot
+(`conflict_declarations: [{user, reason, declared_at}]`) — the "recorded in the compiled minutes" half
+of the stage's goal.
+
+Frontend: `AgendaItemDecisionPanel.vue` (the shared vote/tally/record-decision block) gained a new
+`meeting` prop and a conflict-of-interest section ahead of the vote buttons — a declared-conflicts list,
+a declare form (gated `v-can="'decisions.add'"`, hidden once the signed-in user has already declared),
+and the vote-actions block itself is now additionally `v-if`-gated on neither `myConflictDeclaration` nor
+`isNonVotingRapporteur` being true, with an explanatory `<p class="alert">` in either case — proactive UX
+only, the server (`DecisionEligibility`) is the real enforcement. Both `MeetingDetailView.vue` and
+`MeetingLiveView.vue` now pass `:meeting="meeting"` into the panel (previously only `meeting-id`).
+`MeetingsView.vue`'s committee form gained a `rapporteur_votes` checkbox next to the existing `is_active`
+one — this is the only place the tashkil flag is actually set today, since no dedicated tashkil workflow
+exists.
+
+Verification: new `tests/Feature/RapporteurVoteConflictOfInterestTest.php` (5 tests — the rapporteur is
+blocked from voting and from the pending-votes worklist until `rapporteur_votes=true`, then both work;
+declaring a conflict blocks both the vote endpoint and the discussion-notes endpoint with their own
+Arabic messages, and removes the item from the worklist, while an unrelated head member is unaffected;
+only a committee member may declare; a role without `decisions,add` gets 403; a declared conflict shows
+up in the compiled minutes with its reason), full suite **197 tests / 1144 assertions** green (was
+192/1121), Pint clean on every touched/new file, `npm run build` passes with `AgendaItemDecisionPanel`
+picking up the new markup in its existing chunk (then reverted `frontend/dist`, tracked in git, per
+every prior stage's note), locale key-parity verified programmatically (834 keys each side, zero
+on-one-side-only), and both migrations ran clean against the real MySQL/Homestead database after the
+identifier-length fix above. **Not verified: no browser this session** — the panel's new section layout
+is calculated from its existing pattern, not observed, consistent with every prior UI-touching note.
+
+**Open items for whoever builds Stage 49+**: the two "rapporteur" concepts (the standing
+`CommitteeMember.seat` and the per-meeting `Meeting.rapporteur_user_id`) remain unreconciled — if a
+future stage wants the scheduling wizard to default a meeting's rapporteur from the committee's seated
+one, that's new work, not assumed here. There is still no dedicated tashkil (committee formation
+decision) record anywhere in the schema — `rapporteur_votes` is a plain boolean directly on `Committee`,
+editable through the same committee CRUD as `is_active`, not a versioned or documented formation
+decision; if a later stage needs to model the tashkil decision itself (date, signatories, scope) rather
+than just its resulting flag, this column is the thing to migrate off of, not build alongside.
+
+---
+
+### 2026-09-01 14:15 EET — Claude — Stage 48 implementation plan (rapporteur/voting-member separation + conflict of interest)
+
+Building Stage 48 per STAGE_PLAN.md Track I. Two independent halves per the stage's own Build bullets.
+
+**Rapporteur/voting split.** No tashkil (committee formation decision) table exists anywhere in this
+schema (confirmed by grep — the word appears only in STAGE_PLAN.md and AGENT_NOTES.md), so the flag the
+Build bullet asks for ("a flag on the tashkil/committee record") lands on `Committee` itself: new
+`rapporteur_votes` boolean, default false. The Build bullet's own wording names `Meeting.rapporteur_
+user_id` explicitly (Stage 30's per-meeting scheduling field) as what to block — not
+`CommitteeMember.seat === 'rapporteur'` (Stage 45's separate, standing 5-seat roster concept), even
+though Stage 45's own note speculated the seat would be "the natural consumer" here. Taking STAGE_PLAN's
+literal text over that speculation: this stage reads `meeting.rapporteur_user_id` against
+`meeting.committee.rapporteur_votes`, and does not touch or reference `CommitteeMember.seat` at all. The
+two rapporteur concepts stay independent — a documented, not silently glossed-over, decision.
+
+**Mechanism**: `DecisionEligibility::reasonBlockingVote()` (Stage 25's single gate, already shared by the
+vote endpoint and the pending-votes worklist) gains a final check after the existing membership/
+attendance pair. `pendingVotesQuery()` gains the matching SQL exclusion so the worklist and the guard can
+never disagree, per that method's own existing docblock promise.
+
+**Conflict of interest.** New `conflict_of_interest_declarations` table, shaped like `votes` (cascade FKs,
+unique per item+user) — its existence for a given (item, user) pair IS the recusal, no separate
+recuse/withdraw step. New `ConflictOfInterestController@store` (declare, riding `decisions,add` — the
+same grant vote-casting uses) and `@index` (list, `decisions,view`). `DecisionEligibility::isRecused()`
+(public) is read by both `reasonBlockingVote()` and, directly, by
+`MeetingDiscussionNoteController::store()` — recusal blocks the discussion feed too, per the stage's
+"blocked from deliberation/voting" wording, whereas the rapporteur restriction blocks only the vote (a
+rapporteur's whole role is recording discussion, so it would be wrong to also silence them there).
+`MeetingMinutesCompiler::agendaItem()` gains a `conflict_declarations` array in its compiled snapshot —
+the "recorded in the compiled minutes" requirement.
+
+**Frontend**: `AgendaItemDecisionPanel.vue` (Stage 35's shared vote/tally/record-decision block) is the
+one place both halves need UI — a new `meeting` prop (for the rapporteur check) and a conflict-of-
+interest section (declared-conflicts list + a declare form) ahead of the existing vote buttons, which
+become conditionally hidden with an explanatory message for a recused or non-voting-rapporteur viewer.
+Both parent views (`MeetingDetailView.vue`, `MeetingLiveView.vue`) need to start passing `:meeting`
+into the panel, not just `:meeting-id`. `MeetingsView.vue`'s committee form gains the `rapporteur_votes`
+checkbox — the only place this flag can be set, since no tashkil workflow exists to set it otherwise.
+
+**Verification plan**: new `tests/Feature/RapporteurVoteConflictOfInterestTest.php` — rapporteur blocked
+from voting and the worklist until the committee grants it, then both work; a declared conflict blocks
+both the vote and discussion-note endpoints and clears the worklist entry, while other members are
+unaffected; only a committee member may declare; a role without `decisions,add` is refused; declarations
+appear in generated minutes — plus the full PHPUnit suite, Pint, `npm run build`, locale key-parity, and
+`php artisan migrate` against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-01 13:55 EET — Claude — Stage 47 complete (Salaries & Benefits participation trigger)
 
 Built exactly per the plan below, including the confirmation it asked for: re-reading [D] and [A] side

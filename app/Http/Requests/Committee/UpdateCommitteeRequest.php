@@ -18,6 +18,9 @@ class UpdateCommitteeRequest extends FormRequest
             'name_en' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'is_active' => ['sometimes', 'boolean'],
+            // Stage 48 — the committee's tashkil decision on whether its
+            // rapporteur also votes.
+            'rapporteur_votes' => ['sometimes', 'boolean'],
         ];
     }
 

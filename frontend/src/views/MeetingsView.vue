@@ -43,7 +43,7 @@ const editingCommitteeId = ref(null)
 const showCommitteeForm = ref(false)
 const savingCommittee = ref(false)
 
-const blankCommitteeForm = () => ({ name_ar: '', name_en: '', description: '', is_active: true })
+const blankCommitteeForm = () => ({ name_ar: '', name_en: '', description: '', is_active: true, rapporteur_votes: false })
 const committeeForm = ref(blankCommitteeForm())
 
 async function loadCommittees() {
@@ -78,6 +78,7 @@ function startEditCommittee(committee) {
     name_en: committee.name_en ?? '',
     description: committee.description ?? '',
     is_active: committee.is_active,
+    rapporteur_votes: committee.rapporteur_votes ?? false,
   }
   committeeErrors.value = {}
   committeeFormError.value = null
@@ -262,6 +263,10 @@ onMounted(async () => {
       <label class="checkbox">
         <input v-model="committeeForm.is_active" type="checkbox" />
         {{ t('common.active') }}
+      </label>
+      <label class="checkbox">
+        <input v-model="committeeForm.rapporteur_votes" type="checkbox" />
+        {{ t('committees.rapporteurVotes') }}
       </label>
       <div class="actions">
         <button class="primary" type="submit" :disabled="savingCommittee">

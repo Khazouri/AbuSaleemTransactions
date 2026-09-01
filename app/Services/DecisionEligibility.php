@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CommitteeMember;
+use App\Models\ConflictOfInterestDeclaration;
 use App\Models\MeetingAttendee;
 use App\Models\MeetingRequest;
 use App\Models\User;
@@ -16,12 +17,14 @@ use Illuminate\Database\Eloquent\Builder;
  * an ineligible vote, and DecisionController::pending() lists the items a user
  * still owes a vote on. A worklist that offers an item the vote endpoint would
  * refuse is worse than no worklist at all, so the query below is deliberately
- * the same three conditions as the guard, expressed in SQL.
+ * the same conditions as the guard, expressed in SQL.
  *
  * The conditions, in the order the guard reports them:
  *   1. no binding decision recorded yet (voting closes once the head decides),
  *   2. the actor holds a seat on the meeting's committee,
- *   3. the actor is marked as having attended that meeting.
+ *   3. the actor is marked as having attended that meeting,
+ *   4. the actor has not declared a conflict of interest on this item (Stage 48),
+ *   5. the actor is not this meeting's non-voting rapporteur (Stage 48).
  *
  * (2) and (3) are separate on purpose: committee membership is standing, but a
  * member who did not attend the sitting does not get a vote on what it decided.
@@ -66,7 +69,45 @@ class DecisionEligibility
             return 'التصويت مقصور على الأعضاء المسجل حضورهم في هذا الاجتماع.';
         }
 
+        if ($this->isRecused($agendaItem, $user)) {
+            return 'تم إعلان تعارض مصالح على هذا البند، ولا يجوز لك التصويت عليه.';
+        }
+
+        if ($this->isNonVotingRapporteur($agendaItem, $user)) {
+            return 'مقرر الاجتماع لا يشارك في التصويت إلا إذا نص قرار تشكيل اللجنة على خلاف ذلك.';
+        }
+
         return null;
+    }
+
+    /**
+     * Stage 48 — [D] Art. 11/15/18: a disclosed conflict of interest IS the
+     * recusal. Shared with MeetingDiscussionNoteController, which blocks the
+     * same user from the item's deliberation feed, not only its vote.
+     */
+    public function isRecused(MeetingRequest $agendaItem, User $user): bool
+    {
+        return ConflictOfInterestDeclaration::query()
+            ->where('meeting_request_id', $agendaItem->id)
+            ->where('user_id', $user->id)
+            ->exists();
+    }
+
+    /**
+     * Stage 48 — the meeting's own `rapporteur_user_id` (see Meeting) does not
+     * vote unless the committee's tashkil decision granted it
+     * (`committees.rapporteur_votes`). A rapporteur may still deliberate and
+     * record the discussion — only the vote itself is restricted.
+     */
+    private function isNonVotingRapporteur(MeetingRequest $agendaItem, User $user): bool
+    {
+        $meeting = $agendaItem->meeting;
+
+        if ($meeting->rapporteur_user_id !== $user->id) {
+            return false;
+        }
+
+        return ! ($meeting->committee?->rapporteur_votes ?? false);
     }
 
     /**
@@ -82,12 +123,20 @@ class DecisionEligibility
         return MeetingRequest::query()
             ->where('item_type', 'employee_request')
             ->whereDoesntHave('decision')
+            // Stage 48 — the same two exclusions reasonBlockingVote enforces:
+            // a declared conflict of interest, or being this meeting's
+            // rapporteur without a tashkil-granted vote.
+            ->whereDoesntHave('conflictDeclarations', fn (Builder $declaration) => $declaration->where('user_id', $user->id))
             ->whereHas('meeting', function (Builder $meeting) use ($user) {
                 $meeting
                     ->whereHas('committee.members', fn (Builder $member) => $member->where('user_id', $user->id))
                     ->whereHas('attendees', fn (Builder $attendee) => $attendee
                         ->where('user_id', $user->id)
-                        ->where('attended', true));
+                        ->where('attended', true))
+                    ->where(fn (Builder $rapporteur) => $rapporteur
+                        ->where('rapporteur_user_id', '!=', $user->id)
+                        ->orWhereNull('rapporteur_user_id')
+                        ->orWhereHas('committee', fn (Builder $committee) => $committee->where('rapporteur_votes', true)));
             })
             ->join('meetings', 'meetings.id', '=', 'meeting_requests.meeting_id')
             ->orderBy('meetings.scheduled_at')

@@ -36,6 +36,9 @@ class MeetingResource extends JsonResource
                 'id' => $this->committee->id,
                 'name_ar' => $this->committee->name_ar,
                 'name_en' => $this->committee->name_en,
+                // Stage 48 — this committee's own tashkil decision grants (or
+                // withholds) its rapporteur a substantive vote.
+                'rapporteur_votes' => $this->committee->rapporteur_votes,
             ]),
             'created_by' => $this->whenLoaded('createdBy', fn () => $this->createdBy ? [
                 'id' => $this->createdBy->id,

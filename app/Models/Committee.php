@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $name_en
  * @property string|null $description
  * @property bool $is_active
+ * @property bool $rapporteur_votes Stage 48 — this committee's own tashkil
+ *                                  decision grants its rapporteur a substantive vote, not just the seat.
  */
 class Committee extends Model
 {
@@ -24,12 +26,14 @@ class Committee extends Model
         'name_en',
         'description',
         'is_active',
+        'rapporteur_votes',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'rapporteur_votes' => 'boolean',
         ];
     }
 

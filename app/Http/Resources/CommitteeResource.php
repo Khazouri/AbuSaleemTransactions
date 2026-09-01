@@ -17,6 +17,9 @@ class CommitteeResource extends JsonResource
             'name_en' => $this->name_en,
             'description' => $this->description,
             'is_active' => $this->is_active,
+            // Stage 48 — this committee's own tashkil decision: does its
+            // rapporteur get a substantive vote, or only the seat?
+            'rapporteur_votes' => $this->rapporteur_votes,
 
             // Counts explain why a delete might be blocked (meetings held),
             // same reasoning as DepartmentResource's users_count/children_count.

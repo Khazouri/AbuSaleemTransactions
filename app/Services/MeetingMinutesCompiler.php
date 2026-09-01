@@ -27,6 +27,7 @@ class MeetingMinutesCompiler
             'agendaItems.decision.decidedBy:id,name',
             'agendaItems.votes',
             'agendaItems.notes.createdBy:id,name',
+            'agendaItems.conflictDeclarations.user:id,name',
         ]);
 
         return [
@@ -84,6 +85,13 @@ class MeetingMinutesCompiler
                 'user' => $note->createdBy?->name,
                 'note' => $note->note,
                 'created_at' => $note->created_at?->toIso8601String(),
+            ])->all(),
+            // Stage 48 — [D] Art. 11/15/18: a conflict of interest must be
+            // disclosed before discussion and recorded in the minutes.
+            'conflict_declarations' => $item->conflictDeclarations->map(fn ($declaration) => [
+                'user' => $declaration->user?->name,
+                'reason' => $declaration->reason,
+                'declared_at' => $declaration->declared_at?->toIso8601String(),
             ])->all(),
         ];
     }

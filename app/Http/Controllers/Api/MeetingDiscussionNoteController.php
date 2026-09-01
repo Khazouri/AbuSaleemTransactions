@@ -7,6 +7,7 @@ use App\Http\Requests\MeetingDiscussionNote\StoreMeetingDiscussionNoteRequest;
 use App\Http\Resources\MeetingDiscussionNoteResource;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
+use App\Services\DecisionEligibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -27,9 +28,22 @@ class MeetingDiscussionNoteController extends Controller
         );
     }
 
-    public function store(StoreMeetingDiscussionNoteRequest $request, Meeting $meeting, MeetingRequest $agendaItem): JsonResponse
-    {
+    public function store(
+        StoreMeetingDiscussionNoteRequest $request,
+        Meeting $meeting,
+        MeetingRequest $agendaItem,
+        DecisionEligibility $eligibility,
+    ): JsonResponse {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        // Stage 48 — a disclosed conflict of interest blocks deliberation, not
+        // only the vote; the discussion feed is exactly the deliberation this
+        // guards, per [D] Art. 11/15/18.
+        if ($agendaItem->item_type === 'employee_request' && $eligibility->isRecused($agendaItem, $request->user())) {
+            return response()->json([
+                'message' => 'تم إعلان تعارض مصالح على هذا البند، لا يجوز المشاركة في مداولته.',
+            ], 422);
+        }
 
         $note = $agendaItem->notes()->create([
             'note' => $request->validated('note'),

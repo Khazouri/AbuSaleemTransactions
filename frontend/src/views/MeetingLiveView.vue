@@ -458,6 +458,7 @@ onMounted(async () => {
             :meeting-id="meeting.id"
             :item="currentItem"
             :templates="decisionTemplates"
+            :meeting="meeting"
             @refresh="load"
           />
 

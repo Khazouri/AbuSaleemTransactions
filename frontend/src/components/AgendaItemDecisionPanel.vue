@@ -13,8 +13,14 @@
  * real: `useTemplate()` now fetches the template merged with this agenda
  * item's own data from `.../decision-draft` instead of copying the
  * template's static body verbatim.
+ *
+ * Stage 48 — a conflict-of-interest declaration and a non-voting rapporteur
+ * are both surfaced here too, ahead of the vote block: the server (this
+ * panel's two endpoints, `.../votes` and `.../conflict-of-interest`) is the
+ * real enforcement (DecisionEligibility), this is proactive UX so the vote
+ * buttons don't just fail silently for someone who already knows why.
  */
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DECISION_OUTCOMES, SIGNATURE_OUTCOMES, VOTE_OPTIONS } from '../lib/decisionOutcomes'
 import api from '../lib/api'
@@ -25,6 +31,7 @@ const props = defineProps({
   meetingId: { type: [Number, String], required: true },
   item: { type: Object, required: true },
   templates: { type: Array, default: () => [] },
+  meeting: { type: Object, default: null },
 })
 const emit = defineEmits(['refresh'])
 
@@ -40,7 +47,32 @@ const signatureReady = ref(false)
 const selectedTemplateId = ref('')
 const templateDraftBusy = ref(false)
 const templateDraftError = ref('')
+const conflictReason = ref('')
+const conflictBusy = ref(false)
+const conflictError = ref('')
 let signaturePad = null
+
+const myConflictDeclaration = computed(() => (props.item.conflict_declarations ?? [])
+  .find((declaration) => declaration.user.id === auth.user?.id) ?? null)
+
+const isNonVotingRapporteur = computed(() => props.meeting?.rapporteur?.id === auth.user?.id
+  && !props.meeting?.committee?.rapporteur_votes)
+
+async function declareConflict() {
+  conflictError.value = ''
+  conflictBusy.value = true
+  try {
+    await api.post(`/meetings/${props.meetingId}/agenda/${props.item.id}/conflict-of-interest`, {
+      reason: conflictReason.value.trim() || undefined,
+    })
+    conflictReason.value = ''
+    emit('refresh')
+  } catch (requestError) {
+    conflictError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    conflictBusy.value = false
+  }
+}
 
 function setSignaturePad(instance) { signaturePad = instance }
 
@@ -142,13 +174,38 @@ async function recordDecision() {
       <p v-if="item.decision.comment" class="decision-comment">{{ item.decision.comment }}</p>
     </template>
     <template v-else>
+      <div v-if="(item.conflict_declarations ?? []).length" class="conflict-list">
+        <strong>{{ t('decisions.conflict.listTitle') }}</strong>
+        <ul>
+          <li v-for="declaration in item.conflict_declarations" :key="declaration.id">
+            {{ declaration.user.name }}<template v-if="declaration.reason"> — {{ declaration.reason }}</template>
+          </li>
+        </ul>
+      </div>
+
+      <p v-if="myConflictDeclaration" class="alert">{{ t('decisions.conflict.declared') }}</p>
+      <p v-else-if="isNonVotingRapporteur" class="alert">{{ t('decisions.conflict.rapporteurNoVote') }}</p>
+
+      <div v-if="!myConflictDeclaration" v-can="'decisions.add'" class="conflict-declare">
+        <input
+          v-model="conflictReason"
+          type="text"
+          :placeholder="t('decisions.conflict.reasonPlaceholder')"
+          :aria-label="t('decisions.conflict.reasonPlaceholder')"
+        >
+        <button class="ghost" type="button" :disabled="conflictBusy" @click="declareConflict">
+          {{ conflictBusy ? t('decisions.conflict.declaring') : t('decisions.conflict.declare') }}
+        </button>
+      </div>
+      <p v-if="conflictError" class="alert">{{ conflictError }}</p>
+
       <div class="tally">
         <span v-for="outcome in VOTE_OPTIONS" :key="outcome">
           {{ t(`decisions.tally.${outcome}`) }}: {{ tally(item)[outcome] }}
         </span>
       </div>
 
-      <div v-can="'decisions.add'" class="vote-actions">
+      <div v-if="!myConflictDeclaration && !isNonVotingRapporteur" v-can="'decisions.add'" class="vote-actions">
         <button
           v-for="option in VOTE_OPTIONS"
           :key="option"
@@ -209,6 +266,13 @@ async function recordDecision() {
 .decision-result { margin: 0; color: var(--color-brand-text); font-size: .82rem; font-weight: 600; }
 .decision-template { margin: 0; color: var(--color-muted); font-size: .78rem; }
 .decision-comment { margin: 0; color: var(--color-muted); font-size: .8rem; }
+.conflict-list { font-size: .78rem; color: var(--color-muted); }
+.conflict-list ul { margin: .2rem 0 0; padding-inline-start: 1.1rem; }
+.conflict-declare { display: flex; gap: .4rem; }
+.conflict-declare input {
+  flex: 1; min-width: 0; padding: .4rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px;
+  background: var(--color-surface); color: var(--color-foreground); font: inherit; box-sizing: border-box;
+}
 .tally { display: flex; gap: .85rem; flex-wrap: wrap; color: var(--color-muted); font-size: .78rem; }
 .vote-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
 .vote-actions button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }

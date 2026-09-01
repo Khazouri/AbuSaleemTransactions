@@ -557,7 +557,9 @@ class MeetingController extends Controller
     private function loadDetail(Meeting $meeting): Meeting
     {
         return $meeting->load([
-            'committee:id,name_ar,name_en',
+            // Stage 48 — rapporteur_votes travels with the committee so the
+            // panel can tell a non-voting rapporteur apart from a voting one.
+            'committee:id,name_ar,name_en,rapporteur_votes',
             'createdBy:id,name',
             'chairman:id,name',
             'rapporteur:id,name',
@@ -571,6 +573,7 @@ class MeetingController extends Controller
             'agendaItems.decision.decidedBy:id,name',
             'agendaItems.decision.template:id,code,name_ar,name_en',
             'agendaItems.notes.createdBy:id,name',
+            'agendaItems.conflictDeclarations.user:id,name',
         ]);
     }
 }
