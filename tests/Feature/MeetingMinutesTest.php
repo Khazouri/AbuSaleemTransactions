@@ -2,11 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\Models\Attachment;
 use App\Models\Committee;
+use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\MeetingMinutes;
+use App\Models\MeetingRequest;
+use App\Models\PresentationMemo;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -185,6 +193,141 @@ class MeetingMinutesTest extends TestCase
         $this->actingAs($member, 'sanctum')
             ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
             ->assertOk();
+    }
+
+    /**
+     * Stage 50 — [D] Art. 28's minutes-content list: attendee seat/role,
+     * per-item facts summary + legal basis (read from an existing
+     * presentation memo), the documents-reviewed list, a dissenting vote's
+     * reason, a referral-authority field distinct from the free-text
+     * comment, and the required-signatories roster.
+     */
+    public function test_generated_minutes_include_the_stage_50_content_gaps(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        [$head, $approvingMember, $dissentingMember, $meeting, $agendaItem, $requestRecord] =
+            $this->committeeMeetingWithDecidedRequestItem();
+
+        Attachment::create([
+            'request_id' => $requestRecord->id,
+            'disk' => 'local',
+            'path' => 'attachments/study-file.pdf',
+            'original_name' => 'ملف الدراسة.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 2048,
+            'uploaded_by_user_id' => $head->id,
+        ]);
+
+        PresentationMemo::create([
+            'meeting_request_id' => $agendaItem->id,
+            'content' => [
+                'derived' => [],
+                'authored' => [
+                    'facts_summary' => 'ملخص وقائع الموضوع المعروض.',
+                    'legal_opinion' => 'الأساس القانوني: المادة العاشرة من اللائحة.',
+                    'employment_status_notes' => null,
+                    'committee_question' => null,
+                ],
+            ],
+            'generated_by_user_id' => $head->id,
+            'generated_at' => now(),
+        ]);
+
+        $this->actingAs($approvingMember, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
+            ->assertCreated();
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
+            ->assertCreated();
+        $this->actingAs($dissentingMember, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", [
+                'vote' => 'reject',
+                'comment' => 'أتحفظ لعدم استيفاء الملف للمستندات المطلوبة.',
+            ])
+            ->assertCreated();
+
+        $this->actingAs($head, 'sanctum')
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
+                'referral_authority' => 'ديوان البلدية',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.outcome', 'approve')
+            ->assertJsonPath('data.referral_authority', 'ديوان البلدية');
+
+        $this->assertDatabaseHas('decisions', [
+            'meeting_request_id' => $agendaItem->id,
+            'referral_authority' => 'ديوان البلدية',
+        ]);
+
+        $response = $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
+            ->assertOk();
+
+        $presentAttendees = collect($response->json('data.content.attendance.present'));
+        $chairEntry = $presentAttendees->firstWhere('id', $head->id);
+        $this->assertSame('chair', $chairEntry['seat']);
+        $this->assertTrue($chairEntry['is_head']);
+        $unseated = $presentAttendees->firstWhere('id', $approvingMember->id);
+        $this->assertNull($unseated['seat']);
+        $this->assertFalse($unseated['is_head']);
+
+        $signatories = collect($response->json('data.content.required_signatories'))->pluck('id');
+        $this->assertEqualsCanonicalizing(
+            [$head->id, $approvingMember->id, $dissentingMember->id],
+            $signatories->all(),
+        );
+
+        $item = collect($response->json('data.content.agenda_items'))->firstWhere('id', $agendaItem->id);
+        $this->assertSame('ملخص وقائع الموضوع المعروض.', $item['facts_summary']);
+        $this->assertSame('الأساس القانوني: المادة العاشرة من اللائحة.', $item['legal_basis']);
+        $this->assertCount(1, $item['documents_reviewed']);
+        $this->assertSame('ملف الدراسة.pdf', $item['documents_reviewed'][0]['original_name']);
+        $this->assertSame('ديوان البلدية', $item['decision']['referral_authority']);
+
+        $this->assertCount(1, $item['dissenting_opinions']);
+        $this->assertSame($dissentingMember->name, $item['dissenting_opinions'][0]['user']);
+        $this->assertSame('reject', $item['dissenting_opinions'][0]['vote']);
+        $this->assertSame('أتحفظ لعدم استيفاء الملف للمستندات المطلوبة.', $item['dissenting_opinions'][0]['comment']);
+    }
+
+    /**
+     * @return array{0: User, 1: User, 2: User, 3: Meeting, 4: MeetingRequest, 5: Request}
+     */
+    private function committeeMeetingWithDecidedRequestItem(): array
+    {
+        $head = $this->userWithRole('R03');
+        $approvingMember = $this->userWithRole('R04');
+        $dissentingMember = $this->userWithRole('R04');
+
+        $committee = Committee::create(['name_ar' => 'لجنة اختبار محتوى المحضر']);
+        $committee->members()->create(['user_id' => $head->id, 'is_head' => true, 'seat' => 'chair']);
+        $committee->members()->create(['user_id' => $approvingMember->id]);
+        $committee->members()->create(['user_id' => $dissentingMember->id]);
+
+        $meeting = Meeting::create([
+            'committee_id' => $committee->id,
+            'title' => 'اجتماع اختبار محتوى المحضر',
+            'scheduled_at' => now()->addDay(),
+            'created_by_user_id' => $head->id,
+        ]);
+        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
+        $meeting->attendees()->create(['user_id' => $approvingMember->id, 'attended' => true]);
+        $meeting->attendees()->create(['user_id' => $dissentingMember->id, 'attended' => true]);
+
+        $requestRecord = Request::create([
+            'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 999999),
+            'title' => 'طلب معروض لاختبار محتوى المحضر',
+            'department_id' => Department::where('code', 'ADM')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
+            'created_by_user_id' => $this->userWithRole('R01')->id,
+            'submitted_at' => now()->subDays(3),
+        ]);
+        $agendaItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
+
+        return [$head, $approvingMember, $dissentingMember, $meeting, $agendaItem, $requestRecord];
     }
 
     /** @return array{0: User, 1: User, 2: Committee, 3: Meeting} */

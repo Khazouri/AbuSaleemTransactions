@@ -24,6 +24,11 @@ class StoreDecisionRequest extends FormRequest
     {
         return [
             'comment' => ['nullable', 'string', 'max:5000'],
+            // Stage 50 — [D] Art. 28's minutes-content list: which body the
+            // matter was referred to, if any. Optional on every outcome, not
+            // restricted to refer_other_body/no_jurisdiction — the committee
+            // head fills it in when relevant.
+            'referral_authority' => ['nullable', 'string', 'max:255'],
             // Stage 35 — which reusable text the comment was drafted from, if
             // any; must be an active template, but not necessarily a
             // `category=decision` one — the recording UI narrows the picker,
@@ -48,6 +53,7 @@ class StoreDecisionRequest extends FormRequest
     {
         return [
             'comment.max' => 'لا يمكن أن يتجاوز التعليق 5000 حرف.',
+            'referral_authority.max' => 'لا يمكن أن يتجاوز اسم الجهة المحال إليها 255 حرفاً.',
             'template_id.exists' => 'القالب المحدد غير صالح.',
             'signature.image' => 'يجب أن يكون التوقيع صورة صالحة.',
             'signature.mimes' => 'يجب حفظ التوقيع بصيغة PNG.',

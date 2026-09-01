@@ -21,6 +21,10 @@ class Decision extends Model
         'votes_no_jurisdiction_count',
         'votes_abstain_count',
         'comment',
+        // Stage 50 — [D] Art. 28's minutes-content list: which body a
+        // referral (refer_other_body/no_jurisdiction, typically) was made
+        // to, distinct from the free-text comment.
+        'referral_authority',
         'decided_by_user_id',
         'decided_at',
     ];

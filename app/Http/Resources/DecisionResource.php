@@ -30,6 +30,9 @@ class DecisionResource extends JsonResource
             // workflow transition, so it stays outside the outcome list.
             'votes_abstain_count' => $this->votes_abstain_count,
             'comment' => $this->comment,
+            // Stage 50 — [D] Art. 28's minutes-content list: which body a
+            // referral was made to, distinct from the free-text comment.
+            'referral_authority' => $this->referral_authority,
             'decided_at' => $this->decided_at,
             'decided_by' => $this->whenLoaded('decidedBy', fn () => $this->decidedBy ? [
                 'id' => $this->decidedBy->id,

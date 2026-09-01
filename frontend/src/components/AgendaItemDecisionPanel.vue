@@ -41,6 +41,7 @@ const auth = useAuthStore()
 const votingError = ref('')
 const votingBusy = ref(false)
 const decisionComment = ref('')
+const referralAuthority = ref('')
 const decisionError = ref('')
 const decidingBusy = ref(false)
 const signatureReady = ref(false)
@@ -144,6 +145,8 @@ async function recordDecision() {
     const form = new FormData()
     const comment = decisionComment.value.trim()
     if (comment) form.append('comment', comment)
+    const referral = referralAuthority.value.trim()
+    if (referral) form.append('referral_authority', referral)
     if (selectedTemplateId.value) form.append('template_id', selectedTemplateId.value)
     if (SIGNATURE_OUTCOMES.includes(predictedOutcome(props.item))) {
       const signature = await signaturePad?.toFile()
@@ -151,6 +154,7 @@ async function recordDecision() {
     }
     await api.post(`/meetings/${props.meetingId}/agenda/${props.item.id}/decision`, form)
     decisionComment.value = ''
+    referralAuthority.value = ''
     selectedTemplateId.value = ''
     signatureReady.value = false
     emit('refresh')
@@ -172,6 +176,7 @@ async function recordDecision() {
       </p>
       <p v-if="item.decision.template" class="decision-template">{{ t('decisions.template.usedLabel') }}: {{ templateLabel(item.decision.template) }}</p>
       <p v-if="item.decision.comment" class="decision-comment">{{ item.decision.comment }}</p>
+      <p v-if="item.decision.referral_authority" class="decision-comment">{{ t('decisions.referralAuthorityLabel') }}: {{ item.decision.referral_authority }}</p>
     </template>
     <template v-else>
       <div v-if="(item.conflict_declarations ?? []).length" class="conflict-list">
@@ -239,6 +244,12 @@ async function recordDecision() {
           :aria-label="t('decisions.commentPlaceholder')"
           rows="2"
         />
+        <input
+          v-model="referralAuthority"
+          type="text"
+          :placeholder="t('decisions.referralAuthorityPlaceholder')"
+          :aria-label="t('decisions.referralAuthorityPlaceholder')"
+        >
         <SignaturePad
           v-if="SIGNATURE_OUTCOMES.includes(predictedOutcome(item))"
           :ref="setSignaturePad"
@@ -280,6 +291,7 @@ async function recordDecision() {
 .template-picker { display: flex; gap: .4rem; }
 .template-picker select { flex: 1; min-width: 0; }
 .record-decision textarea,
+.record-decision input,
 .record-decision select {
   width: 100%; padding: .45rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px;
   background: var(--color-surface); color: var(--color-foreground); resize: vertical; font: inherit; box-sizing: border-box;

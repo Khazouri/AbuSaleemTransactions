@@ -494,6 +494,8 @@
       "draftError": "تعذّرت صياغة المسودة من القالب."
     },
     "commentPlaceholder": "سبب القرار (اختياري للموافقة، مطلوب لبقية النتائج)",
+    "referralAuthorityLabel": "الجهة المحال إليها",
+    "referralAuthorityPlaceholder": "الجهة المحال إليها الموضوع (اختياري)",
     "record": "تسجيل القرار",
     "recording": "جارٍ تسجيل القرار…",
     "decidedBy": "قرار من",
@@ -780,7 +782,15 @@
         "attendance": "الحضور",
         "present": "الحاضرون",
         "absent": "الغائبون",
-        "agendaItems": "بنود جدول الأعمال"
+        "agendaItems": "بنود جدول الأعمال",
+        "requiredSignatories": "الموقّعون المطلوبون"
+      },
+      "item": {
+        "factsSummary": "ملخص الموضوع",
+        "legalBasis": "الأساس القانوني",
+        "documentsReviewed": "المستندات التي تمت مراجعتها",
+        "dissentingOpinions": "التحفظات",
+        "referralAuthority": "الجهة المحال إليها"
       },
       "review": {
         "title": "مراجعة المحضر",

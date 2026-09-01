@@ -159,6 +159,14 @@ function tallyFor(item) {
   return VOTE_OPTIONS.map((outcome) => ({ outcome, count: item.votes?.[outcome] ?? 0 })).filter((v) => v.count > 0)
 }
 
+// Stage 50 — [D] Art. 28: attendee names are recorded alongside their
+// committee capacity when they hold one (Stage 45's fixed 5-seat roster).
+function attendeeRole(attendee) {
+  if (attendee.seat) return t(`committees.seats.${attendee.seat}`)
+  if (attendee.is_head) return t('committees.head')
+  return ''
+}
+
 onMounted(loadMeetings)
 </script>
 
@@ -227,18 +235,35 @@ onMounted(loadMeetings)
             <div>
               <strong>{{ t('meetingsUnit.minutes.sections.present') }} ({{ minutes.content.attendance.present.length }})</strong>
               <p v-if="!minutes.content.attendance.present.length" class="state">{{ t('common.none') }}</p>
-              <ul v-else><li v-for="u in minutes.content.attendance.present" :key="u.id">{{ u.name }}</li></ul>
+              <ul v-else>
+                <li v-for="u in minutes.content.attendance.present" :key="u.id">
+                  {{ u.name }}<span v-if="attendeeRole(u)" class="role"> — {{ attendeeRole(u) }}</span>
+                </li>
+              </ul>
             </div>
             <div>
               <strong>{{ t('meetingsUnit.minutes.sections.absent') }} ({{ minutes.content.attendance.absent.length }})</strong>
               <p v-if="!minutes.content.attendance.absent.length" class="state">{{ t('common.none') }}</p>
-              <ul v-else><li v-for="u in minutes.content.attendance.absent" :key="u.id">{{ u.name }}</li></ul>
+              <ul v-else>
+                <li v-for="u in minutes.content.attendance.absent" :key="u.id">
+                  {{ u.name }}<span v-if="attendeeRole(u)" class="role"> — {{ attendeeRole(u) }}</span>
+                </li>
+              </ul>
             </div>
           </div>
           <p class="quorum" :class="minutes.content.attendance.quorum_met ? 'good' : 'bad'">
             {{ t('meetingsUnit.readiness.quorum.title') }}: {{ minutes.content.attendance.quorum_present }} / {{ minutes.content.attendance.quorum_required }}
             — {{ t(minutes.content.attendance.quorum_met ? 'meetingsUnit.readiness.quorum.met' : 'meetingsUnit.readiness.quorum.notMet') }}
           </p>
+
+          <template v-if="minutes.content.required_signatories?.length">
+            <h3>{{ t('meetingsUnit.minutes.sections.requiredSignatories') }}</h3>
+            <ul class="signatories">
+              <li v-for="u in minutes.content.required_signatories" :key="u.id">
+                {{ u.name }}<span v-if="attendeeRole(u)" class="role"> — {{ attendeeRole(u) }}</span>
+              </li>
+            </ul>
+          </template>
 
           <h3>{{ t('meetingsUnit.minutes.sections.agendaItems') }}</h3>
           <p v-if="!minutes.content.agenda_items.length" class="state">{{ t('meetings.agenda.empty') }}</p>
@@ -249,6 +274,11 @@ onMounted(loadMeetings)
                 <strong>{{ item.subject }}</strong>
                 <span class="pill small">{{ t(`meetings.agenda.itemType.${item.item_type}`) }}</span>
               </div>
+              <p v-if="item.facts_summary" class="item-field"><strong>{{ t('meetingsUnit.minutes.item.factsSummary') }}:</strong> {{ item.facts_summary }}</p>
+              <ul v-if="item.documents_reviewed?.length" class="item-field">
+                <strong>{{ t('meetingsUnit.minutes.item.documentsReviewed') }}:</strong>
+                <li v-for="doc in item.documents_reviewed" :key="doc.id">{{ doc.label || doc.original_name }}</li>
+              </ul>
               <div v-if="tallyFor(item).length" class="tally">
                 <span v-for="v in tallyFor(item)" :key="v.outcome">{{ t(`decisions.tally.${v.outcome}`) }}: {{ v.count }}</span>
               </div>
@@ -257,6 +287,14 @@ onMounted(loadMeetings)
                 <template v-if="item.decision.decided_by"> — {{ t('decisions.decidedBy') }} {{ item.decision.decided_by }}</template>
                 <template v-if="item.decision.comment">: {{ item.decision.comment }}</template>
               </p>
+              <p v-if="item.legal_basis" class="item-field"><strong>{{ t('meetingsUnit.minutes.item.legalBasis') }}:</strong> {{ item.legal_basis }}</p>
+              <p v-if="item.decision?.referral_authority" class="item-field"><strong>{{ t('meetingsUnit.minutes.item.referralAuthority') }}:</strong> {{ item.decision.referral_authority }}</p>
+              <ul v-if="item.dissenting_opinions?.length" class="notes">
+                <strong>{{ t('meetingsUnit.minutes.item.dissentingOpinions') }}:</strong>
+                <li v-for="(opinion, index) in item.dissenting_opinions" :key="index">
+                  <strong>{{ opinion.user ?? t('common.none') }}</strong> ({{ t(`decisions.vote.${opinion.vote}`) }}): {{ opinion.comment }}
+                </li>
+              </ul>
               <ul v-if="item.discussion_notes.length" class="notes">
                 <li v-for="(note, index) in item.discussion_notes" :key="index">
                   <strong>{{ note.user ?? t('common.none') }}:</strong> {{ note.note }}
@@ -347,9 +385,11 @@ textarea { width: 100%; resize: vertical; }
 
 .attendance { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
 .attendance ul { list-style: none; margin: .25rem 0 0; padding: 0; font-size: .82rem; color: var(--color-black-700); }
+.role { color: var(--color-muted); font-size: .76rem; }
 .quorum { margin: .5rem 0 0; font-size: .82rem; }
 .quorum.good { color: var(--color-success-fg); }
 .quorum.bad { color: var(--color-danger-fg); }
+.signatories { list-style: none; margin: .25rem 0 0; padding: 0; font-size: .82rem; color: var(--color-black-700); display: grid; gap: .2rem; }
 
 .agenda-items { list-style: none; margin: 0; padding: 0; display: grid; gap: .65rem; }
 .agenda-items li { padding-bottom: .65rem; border-bottom: 1px solid var(--color-border); font-size: .85rem; }
@@ -358,6 +398,8 @@ textarea { width: 100%; resize: vertical; }
 .item-heading .ref { font-size: .76rem; color: var(--color-muted); }
 .tally { display: flex; gap: .7rem; flex-wrap: wrap; color: var(--color-muted); font-size: .76rem; margin-bottom: .2rem; }
 .decision { margin: .2rem 0; color: var(--color-brand-text); font-size: .82rem; }
+.item-field { margin: .2rem 0; font-size: .8rem; color: var(--color-black-700); list-style: none; padding: 0; }
+.item-field li { margin-inline-start: 1.1rem; list-style: disc; }
 .notes { list-style: none; margin: .3rem 0 0; padding: 0; display: grid; gap: .2rem; font-size: .78rem; color: var(--color-black-700); }
 
 .review .actions { display: flex; gap: .5rem; margin-bottom: .5rem; }

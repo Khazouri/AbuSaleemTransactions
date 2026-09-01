@@ -230,6 +230,7 @@ class DecisionController extends Controller
         $action = self::ACTIONS[$outcome];
         $comment = $request->validated('comment');
         $templateId = $request->validated('template_id');
+        $referralAuthority = $request->validated('referral_authority');
         $actor = $request->user();
 
         $signaturePath = $action === 'approve' && $request->hasFile('signature')
@@ -238,7 +239,7 @@ class DecisionController extends Controller
 
         try {
             $decision = DB::transaction(function () use (
-                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally, $abstainCount,
+                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally, $abstainCount, $referralAuthority,
             ) {
                 $workflow->transition($agendaItem->request, $action, $actor, $comment, $signaturePath);
 
@@ -261,6 +262,7 @@ class DecisionController extends Controller
                     'votes_no_jurisdiction_count' => $tally['no_jurisdiction'],
                     'votes_abstain_count' => $abstainCount,
                     'comment' => $comment,
+                    'referral_authority' => $referralAuthority,
                     'decided_by_user_id' => $actor->id,
                     'decided_at' => now(),
                 ]);

@@ -494,6 +494,8 @@
       "draftError": "Couldn't draft the decision text from this template."
     },
     "commentPlaceholder": "Reason for the decision (optional for approve, required for the other outcomes)",
+    "referralAuthorityLabel": "Referred to",
+    "referralAuthorityPlaceholder": "Authority the matter was referred to (optional)",
     "record": "Record decision",
     "recording": "Recording decision…",
     "decidedBy": "Decided by",
@@ -780,7 +782,15 @@
         "attendance": "Attendance",
         "present": "Present",
         "absent": "Absent",
-        "agendaItems": "Agenda items"
+        "agendaItems": "Agenda items",
+        "requiredSignatories": "Required signatories"
+      },
+      "item": {
+        "factsSummary": "Facts summary",
+        "legalBasis": "Legal basis",
+        "documentsReviewed": "Documents reviewed",
+        "dissentingOpinions": "Dissenting opinions",
+        "referralAuthority": "Referred to"
       },
       "review": {
         "title": "Review minutes",

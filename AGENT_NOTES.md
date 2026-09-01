@@ -14,6 +14,129 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-01 16:40 EET — Claude — Stage 50 complete (minutes content completeness)
+
+Built exactly per the plan below. One migration (`decisions.referral_authority`, nullable string,
+applied to the real MySQL/Homestead database), threaded through `StoreDecisionRequest` (optional on
+every outcome), `DecisionController::record()`'s `Decision::create()` call, and `DecisionResource`.
+`AgendaItemDecisionPanel.vue`'s record-decision form gained a matching optional text input next to the
+existing comment textarea.
+
+`MeetingMinutesCompiler` gained everything the plan called for: `attendeeInfo()` (shared by
+`attendance.present`/`.absent` and the new top-level `required_signatories`) reads
+`committee.members` keyed by `user_id` to surface each attendee's Stage 45 seat and `is_head` flag;
+`agendaItem()` reads `facts_summary`/`legal_opinion` straight from the item's own
+`presentationMemo.content.authored` when one exists (null otherwise — never fabricated),
+`documents_reviewed` from `request.attachments` (same shape `PresentationMemoCompiler` already uses
+for `key_documents`), and a new `dissentingOpinions()` helper surfaces any vote whose value differs
+from the decided outcome and carries a comment. `required_signatories` is the same present-attendee
+roster `MeetingMinutesController::review()` itself computes when it actually creates signature rows —
+documented in the compiler's docblock as a roster, not a live signed-status embed, since `content`
+freezes at generate() time, which is only ever reachable while `status=draft`, and
+`MeetingMinuteSignature` rows are only created later inside `review()`'s approve branch (which leaves
+draft in the same transaction) — the two can never coexist, so embedding live signed_at/image data
+here would always read "nobody has signed yet." Live signed proof stays exactly where it already
+lives: `MeetingMinutes::signatures` via `MeetingMinutesResource`, unchanged.
+
+Frontend: `MeetingMinutesView.vue`'s attendance lists show a seat/head badge per attendee (reusing the
+existing `committees.seats.*`/`committees.head` locale keys, no new ones needed there), a new
+"required signatories" list under the quorum line, and the agenda-item block gained
+facts-summary/documents-reviewed/legal-basis/referral-authority/dissenting-opinions rows, each only
+rendered when the underlying data exists — most items won't have a presentation memo or a referral,
+and an item with no recorded decision yet has nothing to dissent from.
+
+Verification: extended `MeetingMinutesTest.php` with `test_generated_minutes_include_the_stage_50_
+content_gaps` (a full committee/meeting/request/agenda-item/attachment/presentation-memo/three-vote/
+decision fixture — one seated chair, two unseated members, a 2-1 approve/reject split with the
+dissenting voter's reason, a `referral_authority` on the recorded decision — asserting all six gaps
+round-trip through the compiled minutes: seat/head on the chair vs. plain attendee, the full
+required-signatories roster, facts_summary/legal_basis from the presentation memo, the one attachment
+in documents_reviewed, the referral_authority on the decision block, and exactly the dissenting
+member's vote/comment in dissenting_opinions — not the approving pair's). Full suite **199 tests /
+1176 assertions** green (was 198/1154), Pint clean on every touched/new file, `npm run build` passes
+with `AgendaItemDecisionPanel`/`MeetingMinutesView` picking up the new markup in their existing
+chunks (then reverted `frontend/dist`, tracked in git, per every prior stage's note), locale
+key-parity verified programmatically (846 keys each side, zero on-one-side-only), and the migration
+ran clean against the real MySQL/Homestead database — confirmed via tinker that
+`decisions.referral_authority` exists. **Not verified: no browser this session** — the new
+attendance-badge/signatories/agenda-item rows are calculated from the existing sections' patterns, not
+observed, consistent with every prior UI-touching note.
+
+Next per STAGE_PLAN's suggested order: **Stage 51** (employee-facing visibility).
+
+---
+
+### 2026-09-01 16:00 EET — Claude — Stage 50 implementation plan (minutes content completeness)
+
+Building Stage 50 per STAGE_PLAN.md Track I: closing every gap [D] Art. 28's minutes-content list
+exposes against the current `MeetingMinutesCompiler`. Re-read Art. 28's list (already indexed in
+`docs/employee-committee-lifecycle/official-procedures-manual-index.md`) against the compiler's
+current output field-by-field before deciding sourcing for each of the six named gaps.
+
+**Attendee roles/titles**: `committee_members.seat` (Stage 45's 5-seat roster:
+chair/legal/hr_director/ministry_delegate/rapporteur) and `is_head`, looked up per attendee against
+`meeting.committee.members` keyed by `user_id`. Applies to both `attendance.present` and `.absent`
+entries — a member's seat is a standing fact regardless of whether they showed up.
+
+**Per-item facts summary + legal-basis**: both already exist as *authored* fields on
+`PresentationMemo.content.authored` (Stage 46 — `facts_summary`/`legal_opinion`), the pre-meeting memo
+a agenda item may have. Reading them into the minutes snapshot is honest reuse of already-captured
+data, not fabrication — exactly the compiler's own house style (reuse `PresentationMemoCompiler`'s
+`key_documents` shape for the next bullet, below). Null when no memo was ever generated for the item.
+
+**Documents-reviewed list**: `request.attachments`, same `{id, original_name, mime_type, size_bytes,
+label}` shape `PresentationMemoCompiler::compile()` already uses for `key_documents` — reusing the
+shape, not the method (different eager-load context), since duplicating the mapping inline is cheaper
+than a cross-service dependency for four scalar fields.
+
+**Per-member dissenting opinion + reason**: `votes.comment` is already captured (Stage 21's
+`StoreVoteRequest`) but never read anywhere past the live vote-casting UI. New `dissentingOpinions()`
+helper: every vote whose `vote` differs from the decided `outcome` AND carries a non-null `comment` —
+that is what "أي تحفظات يوجب النظام إثباتها" (reservations the system requires recording) means: a
+member who voted against the outcome and left a reason. A vote matching the outcome isn't a dissent
+regardless of whether it has a comment.
+
+**Referral-authority — a genuine, currently-nonexistent field, not derivable from anything today.**
+No column, form field, or free-text convention anywhere captures *which* other body a `refer_other_body`
+(or `no_jurisdiction`) outcome was referred to — only `decisions.comment`, unstructured. New nullable
+`decisions.referral_authority` string column (migration), optional on `StoreDecisionRequest`, threaded
+through `DecisionController::record()`'s `Decision::create()` call and `DecisionResource`. Not
+restricted to any one outcome server-side (the committee head decides when it's relevant, same as
+`comment` itself is optional) — but the record-decision panel will only bother showing the field, since
+that's the honest low-effort version of "distinct from the free-text comment" the stage asks for; no
+new outcome, no seeded status, no workflow change.
+
+**Embedded signature references — a documented judgment call, not a live-sync mechanism.**
+`MeetingMinutes::content` is frozen at `generate()` time, which is only ever reachable while
+`status=draft` — and `MeetingMinuteSignature` rows are only created later, inside `review()`'s
+`approve` branch, which moves status *out of* draft in the same transaction. So a compiled snapshot can
+never coexist with real signature rows: attempting to embed live signed_at/image data would always
+render as "nobody has signed yet," which is worse than not embedding it at all. Building instead: a
+`required_signatories` list at the top level of `compile()`'s return, the same roster `review()` itself
+computes (present attendees) — this satisfies Art. 28's literal requirement to record *who* is required
+to sign as part of the permanent minutes record. Actual signed proof (image, timestamp) stays exactly
+where it already lives and is already exposed — `MeetingMinutes::signatures` via
+`MeetingMinutesResource`, unchanged. Documenting this split explicitly in the compiler's docblock so a
+future stage doesn't "fix" it into a broken live-embed.
+
+**Frontend**: `MeetingMinutesView.vue`'s attendance lists gain a seat/head badge; the agenda-item block
+gains facts-summary/legal-basis/documents-reviewed/dissenting-opinions/referral-authority rows (each
+only rendered when present — most items won't have a presentation memo or a referral); a new
+"required signatories" list under the attendance section. `AgendaItemDecisionPanel.vue`'s
+record-decision form gains one more optional text input (`referral_authority`) next to the existing
+comment textarea. New `meetingsUnit.minutes.*` + `decisions.referralAuthorityPlaceholder` locale keys
+in both `ar.json`/`en.json`.
+
+**Verification plan**: extend `MeetingMinutesTest.php` (or add assertions to `generate()`'s test) —
+a compiled minutes doc includes seat/head info for a seated attendee, facts_summary/legal_basis pulled
+from an existing presentation memo and null without one, documents_reviewed matching the request's
+attachments, a dissenting vote surfaced with its comment while an outcome-matching vote is excluded
+even with a comment, `referral_authority` round-trips through `record()`/`DecisionResource`, and
+`required_signatories` matches the present-attendee roster — plus the full PHPUnit suite, Pint, `npm
+run build`, and `php artisan migrate` against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-01 15:30 EET — Claude — Stage 49 complete (richer committee decision outcomes)
 
 Built exactly per the plan below. Bullet 2 (whether "إعادة الملف لاستكمال بيانات" should be an
