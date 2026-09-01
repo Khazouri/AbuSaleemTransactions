@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\MeetingReadinessController;
 use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PresentationMemoController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RequestController;
 use App\Http\Controllers\Api\RoleController;
@@ -331,6 +332,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('meetings/{meeting}/agenda/reorder', [MeetingController::class, 'reorderAgenda']);
         Route::patch('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'updateAgendaItem']);
         Route::delete('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'removeAgendaItem']);
+    });
+
+    /*
+     * Stage 46 — [D] Art. 22's compiled pre-meeting memo, one per agenda
+     * item. `view` is the broad `meeting_agenda` grant (readable before/
+     * during the meeting by anyone); `add` is this screen's first real use
+     * of its own `add` tier (R03/R04/R09) rather than `edit` (R03/R09) —
+     * see PresentationMemoController's docblock for why the رئيس/مقرر split
+     * matters here.
+     */
+    Route::middleware('screen.permission:meeting_agenda,view')
+        ->get('meetings/{meeting}/agenda/{agendaItem}/presentation-memo', [PresentationMemoController::class, 'show']);
+    Route::middleware('screen.permission:meeting_agenda,add')->group(function () {
+        Route::post('meetings/{meeting}/agenda/{agendaItem}/presentation-memo/generate', [PresentationMemoController::class, 'generate']);
+        Route::patch('meetings/{meeting}/agenda/{agendaItem}/presentation-memo', [PresentationMemoController::class, 'update']);
     });
 
     /*

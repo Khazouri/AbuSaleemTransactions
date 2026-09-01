@@ -609,7 +609,8 @@
         "noDepartment": "No department",
         "noRequestType": "No request type"
       },
-      "dragToReorder": "Drag to reorder"
+      "dragToReorder": "Drag to reorder",
+      "openMemo": "Open presentation memo"
     },
     "readiness": {
       "title": "Meeting Readiness",
@@ -689,7 +690,23 @@
         "study": "Study",
         "attachments": "Attachments",
         "previous": "Previous Requests",
+        "memo": "Presentation Memo",
         "notes": "Committee Notes"
+      },
+      "memo": {
+        "loadError": "Could not load the presentation memo.",
+        "notGenerated": "No presentation memo has been generated for this item yet.",
+        "generate": "Generate memo",
+        "regenerate": "Regenerate memo",
+        "workUnit": "Work unit",
+        "referringBody": "Referring body",
+        "keyDocuments": "Key documents",
+        "priorDecisions": "Prior decisions on this matter",
+        "noPriorDecisions": "No prior committee decisions on this matter.",
+        "factsSummary": "Summary of facts",
+        "employmentStatus": "Relevant employment status",
+        "legalOpinion": "Legal opinion (if any)",
+        "committeeQuestion": "The specific question for the committee"
       },
       "context": {
         "loadError": "Could not load request data.",

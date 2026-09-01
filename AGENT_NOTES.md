@@ -14,6 +14,168 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-01 10:35 EET — Claude — Stage 46 complete (presentation memo compiler)
+
+Built exactly per the plan below. New `presentation_memos` table (unique `meeting_request_id`,
+cascadeOnDelete — a memo belongs to one agenda item, not one meeting), `PresentationMemo` model
+(`content:array`), a `presentationMemo(): HasOne` added to `MeetingRequest`, `PresentationMemoCompiler
+::compile()` (the 7 honestly-derivable Art. 22 fields only), and `PresentationMemoController`
+(`show`/`generate`/`update`). Rides the `meeting_agenda` screen's `add` grant (`R03, R04, R09`) —
+confirmed by reading the seeder and every existing agenda-building route that this is the **first**
+real use of that tier; `addAgendaItem`/`reorderAgenda`/`updateAgendaItem`/`removeAgendaItem` all ride
+`edit` (`R03, R09` — no R04) instead, which would have shut the رئيس قسم شؤون الموظفين-as-مقرر (R04)
+out of drafting their own memo. `content` is `{derived, authored}`: `generate()` always refreshes
+`derived` and preserves `authored` across regenerates, except seeding `facts_summary` from the
+request's own `description` on the very first generate only (mirrors Stage 42's
+`DecisionDraftComposer` — a computed starting draft, not a fabricated final value).
+
+**One judgment call worth restating outside the plan**: `legal_opinion` is a plain authored field, not
+read from Stage 35's committee-voted `legal_opinion` decision outcome — that outcome is a mid-meeting
+vote asking for a legal opinion later, not [D] Art. 21's pre-meeting legal-member file review, and no
+model for Art. 21's review exists anywhere in this codebase yet (confirmed by grep). Conflating the
+two would have silently misrepresented one process step as another. Building Art. 21's actual review
+workflow is left as an open follow-up, not silently assumed away.
+
+**One incidental fix, needed to make the new deep-link work, not scope creep**: `MeetingLiveView.vue`'s
+`watch(meetingId, ...)` had no `{ immediate: true }`, so a `?meeting=` deep link (already used by
+`MeetingDetailView.vue`'s pre-existing "open live runner" link) never actually loaded the meeting on
+mount — the watcher only fires on a *change* to `meetingId`, and neither `onMounted` hook called
+`load()` either. This was a real, pre-existing latent bug, not something this stage introduced, but
+the new `MeetingAgendaBuilderView.vue` → `meeting_live?meeting=&item=` deep link (per agenda-item "فتح
+مذكرة العرض" link) depends on it working, so fixing it was in scope. Added `{ immediate: true }` to
+that watcher — verified safe for the empty-`meetingId` case too (every branch inside already no-ops on
+a falsy `meetingId`).
+
+Frontend: `MeetingLiveView.vue` gains a 7th quick-info tab (`memo`, between `previous` and `notes`) —
+its own fetch (`memo`/`memoLoading`/`memoError`, independent of `context`'s lifecycle since it can be
+entirely absent until generated), a generate/regenerate button and 4 authored-field textareas both
+gated `v-can="'meeting_agenda.add'"`, reusing the existing `.info-grid`/`.attachment-list`/`.notes`
+styles rather than inventing new ones. `MeetingAgendaBuilderView.vue` gets one deep-link per
+`employee_request` row. New `meetingsUnit.live.tabs.memo` + `meetingsUnit.live.memo.*` +
+`meetingsUnit.agenda.openMemo` locale keys in both files (822 keys each side, zero on-one-side-only,
+verified programmatically).
+
+Verification: 6 new tests in `PresentationMemoTest.php` (derived-field compilation incl. work_unit vs.
+referring_body genuinely differing; regenerate refreshes a changed attachment count while preserving
+an already-edited `legal_opinion`; `prior_decisions` scoped to the same request's own earlier
+committee appearance and excludes a decision on a different request by the same employee; `update()`
+404s before any memo exists then patches only submitted authored keys; 422 on a non-`employee_request`
+item for both `show`/`generate`; R04 can generate, a role without the grant gets 403), full suite
+**186 tests / 1109 assertions** green (was 180/1078), Pint clean on every touched/new file, `npm run
+build` passes with `MeetingLiveView`/`MeetingAgendaBuilderView` picking up the new code in their
+existing chunks (then reverted `frontend/dist`, tracked in git, per every prior stage's note), and the
+migration ran clean against the real MySQL/Homestead database. **Not verified: no browser this
+session** — the memo tab's layout is calculated from the existing tab-panel patterns, not observed,
+consistent with every prior UI-touching note.
+
+**Open item for whoever builds Stage 47+**: [D] Art. 21's pre-meeting legal-member review has no model
+anywhere — if a future stage wants to build it, `legal_opinion` here is the natural field to wire it
+into (populate from the review's outcome instead of staying purely authored), but that's a deliberate,
+separate piece of work, not something this stage silently assumed.
+
+---
+
+### 2026-09-01 09:40 EET — Claude — Stage 46 implementation plan (presentation memo compiler)
+
+Building Stage 46 per STAGE_PLAN.md Track I: a compiled "مذكرة العرض" (presentation memo) per
+committee agenda item, mirroring `MeetingMinutesCompiler`'s shape ([D] Art. 22's 11-field list),
+symmetric with Stage 36's post-meeting minutes compiler but pre-meeting and item-scoped instead of
+meeting-scoped.
+
+**Schema: one new table, `presentation_memos`, keyed on `meeting_request_id` (unique, cascadeOnDelete)**
+— a memo belongs to one agenda item, not one meeting, since [D] Art. 22 has the مقرر draft one per
+matter before it's even inserted into an agenda (Art. 23 is the *next* article). A single `content`
+json column split into two halves: `content.derived` (recomputed fresh on every `generate()`) and
+`content.authored` (free text a human writes, preserved across regenerates once set). No status/
+approval lifecycle — unlike `meeting_minutes`, Art. 22 describes no review/sign step for the memo
+itself, only a caution that it must stay neutral, so this stage doesn't invent one.
+
+**Field-by-field mapping, since roughly half of Art. 22's 11 fields have no existing column and
+would otherwise be fabricated — the honest-gap pattern this codebase already uses (Stage 44's
+`نتيجة الدراسة` skip) — recorded here so the split isn't re-litigated mid-build:**
+- `derived` (always recomputed, reusing `MeetingController::agendaItemContext()`'s exact query
+  shapes — the Stage 44 endpoint already answers most of these): reference_number, employee
+  (creator id+name), **work_unit** = creator's own `department_id` (جهة عمله), subject (request
+  title), submission_date (`submitted_at`), **referring_body** = the *request's own* `department_id`
+  (الجهة المحيلة — deliberately a second, distinct field from work_unit, even though intake usually
+  sets both to the same department today; they're allowed to diverge), key_documents (all of the
+  request's attachments — no "essential vs. not" flag exists anywhere in the schema, so, same as
+  Stage 44's attachments tab, this is the full list, not a fabricated subset), prior_decisions.
+- **`prior_decisions` scoping call**: decisions recorded against *this same request's own* earlier
+  committee appearances only (`Decision::whereHas('meetingRequest', fn ($q) => $q->where('request_id',
+  ...))`) — a request can revisit `receive_from_committee` via the `defer`/`legal_opinion`/
+  `refer_other_body` self-loops (Stage 21/35), so "same topic" (الموضوع) genuinely can have prior
+  committee history. Deliberately **not** widened to the employee's other, unrelated requests —
+  Stage 44's `previous_requests` tab already covers that broader case in the same live-runner screen,
+  and duplicating it here under a different field name would be redundant, not more complete.
+- `authored` (never touched by `generate()` once set — only the PATCH endpoint below writes them):
+  facts_summary, employment_status_notes, legal_opinion, committee_question. None of these four have
+  any backing column: `facts_summary` is seeded once, on the row's *first* `generate()` only, from
+  `Request.description` as an editable starting draft (mirroring Stage 42's `DecisionDraftComposer`
+  pattern — a computed draft a human refines, not a final value); the other three start blank and are
+  written entirely by whoever drafts the memo.
+- **`legal_opinion` is deliberately NOT sourced from `Decision.outcome === 'legal_opinion'`/
+  `Decision.comment`** (Stage 35's committee-voted "ask for a legal opinion" self-loop) even though
+  that's the only "legal opinion"-shaped data that exists in the schema today — it's the wrong point
+  in the process. [D] Art. 21 (المراجعة القانونية السابقة للاجتماع) describes a *pre-meeting* legal-
+  member file review with its own outcome vocabulary (سليم قانونيًا وجاهز للعرض / يحتاج إلى استكمال
+  مستند... / etc.), and **no model for that review exists anywhere in this codebase** (confirmed by
+  grep — this is a genuine, unbuilt gap, not something this stage is scoped to close). Wiring
+  `legal_opinion` to the Stage 35 outcome instead would conflate a mid-meeting committee vote with a
+  pre-meeting file check and silently misrepresent one as the other. So for this stage `legal_opinion`
+  is a plain authored field — the legal-seat committee member (or whoever drafts the memo) writes it
+  in directly when one exists, same as Art. 22's own "عند وجودها" qualifier already allows for blank.
+  Building Art. 21's actual review workflow is left as an explicit follow-up, not silently assumed.
+
+**Backend**: `App\Models\PresentationMemo` (`content:array`, `generated_at:datetime`), a
+`presentationMemo(): HasOne` added to `MeetingRequest`, `App\Services\PresentationMemoCompiler::
+compile(MeetingRequest $agendaItem): array` (derived fields only), `App\Http\Controllers\Api\
+PresentationMemoController` (`show`/`generate`/`update`), `App\Http\Requests\PresentationMemo\
+UpdatePresentationMemoRequest` (the 4 authored fields, `sometimes|nullable|string`, Arabic messages),
+`PresentationMemoResource`. All three actions 422 on a non-`employee_request` agenda item, matching
+`agendaItemContext()`'s own guard. Riding the **`meeting_agenda` screen's existing `add` grant** (`view => '*', add => [R03, R04, R09],
+edit => [R03, R09]`) rather than a new screen or `meeting_live` — drafting a memo sits squarely in
+agenda-prep territory (between Art. 21's legal review and Art. 23's agenda insertion), and `add`
+already covers R04 (a member acting as مقرر), which the agenda-structure routes' `edit` tier (R03
+chair + R09 secretary only, no R04 — confirmed by reading the seeder and the existing
+`addAgendaItem`/`reorderAgenda`/etc. routes, all gated `meeting_agenda,edit`) would wrongly exclude
+the rapporteur from. This also happens to be the first real use of `meeting_agenda`'s `add` grant —
+every existing agenda-building route rides `edit` instead, so `add` was seeded but unused until now.
+No seeder changes needed. `show()` returns `{data: null}`
+when nothing's been generated yet (matching `MeetingMinutesController::show()`'s shape, not a 404);
+`generate()` is an idempotent `updateOrCreate` that always refreshes `content.derived` and preserves
+(or, first time only, seeds) `content.authored`; `update()` 404s if no memo exists yet (must generate
+before editing narrative text) and merges only the submitted authored keys.
+
+**Frontend**: `MeetingLiveView.vue` gains a 7th quick-info tab (`INFO_TABS` grows to include `'memo'`,
+placed after `previous` and before `notes`) — fetched alongside `context` in the existing per-item
+watcher, since the runner screen is already reachable before a meeting is convened (just shows a
+warning banner, per its existing `!meeting.convened_at` check), which is what makes it usable for
+"viewable before/during the meeting" without a second screen. The tab shows the derived fields
+read-only (same `<dl class="info-grid">` shape as the summary tab), the key-documents list (same
+`<ul class="attachment-list">` shape as the attachments tab), prior_decisions, and 4 textareas for
+the authored fields with a save button gated `v-can="'meeting_agenda.add'"` — plus a
+generate/regenerate button, same gate. `MeetingAgendaBuilderView.vue` gets one added deep-link per
+`employee_request` agenda-item row ("فتح مذكرة العرض") to `{ name: 'meeting_live', query: { meeting,
+item } }`, since that screen currently only accepts `?meeting=` — `MeetingLiveView.vue` gains a small
+`route.query.item` read into `selectedItemId` on mount, so the deep link actually lands on the right
+item instead of just the meeting's default. New `meetingsUnit.live.tabs.memo` +
+`meetingsUnit.live.memo.*` locale keys in both `ar.json`/`en.json`.
+
+**Verification plan**: new `tests/Feature/PresentationMemoTest.php` — `generate()` compiles the
+expected derived shape (reference/employee/work_unit/subject/submission_date/referring_body/
+key_documents from the request's attachments); a second `generate()` call refreshes a changed derived
+field (e.g. a newly uploaded attachment) while leaving a previously-edited `authored.facts_summary`
+untouched; `facts_summary` seeds from `Request.description` only on the very first generate;
+`prior_decisions` includes a decision from the same request's earlier committee appearance (via a
+`defer` self-loop) and excludes a decision on a *different* request by the same employee; `update()`
+404s before any memo exists, then patches only the submitted authored keys after one does; 422 on a
+non-`employee_request` item for all three actions; an R04 can generate (the `add` tier) but a role
+without `meeting_agenda,add` gets 403 — plus the full PHPUnit suite, Pint on touched/new files,
+`npm run build`, and `php artisan migrate` against the real MySQL/Homestead database.
+
+---
+
 ### 2026-08-31 16:05 EET — Claude — Stage 45 complete (fixed 5-seat committee roster)
 
 Built additively per STAGE_PLAN.md Track I: a nullable `committee_members.seat` string column

@@ -97,4 +97,10 @@ class MeetingRequest extends Model
     {
         return $this->hasMany(MeetingDiscussionNote::class)->orderBy('created_at');
     }
+
+    /** Stage 46 — the compiled pre-meeting memo, [D] Art. 22. */
+    public function presentationMemo(): HasOne
+    {
+        return $this->hasOne(PresentationMemo::class);
+    }
 }

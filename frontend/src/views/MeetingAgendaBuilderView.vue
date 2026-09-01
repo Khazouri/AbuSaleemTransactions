@@ -476,6 +476,13 @@ onMounted(async () => {
                   <span v-if="item.department" class="pill">{{ name(item.department) }}</span>
                 </template>
                 <span class="pill">{{ t(`meetings.agenda.itemType.${item.item_type}`) }}</span>
+                <RouterLink
+                  v-if="item.item_type === 'employee_request'"
+                  class="ghost memo-link"
+                  :to="{ name: 'meeting_live', query: { meeting: meeting.id, item: item.id } }"
+                >
+                  {{ t('meetingsUnit.agenda.openMemo') }}
+                </RouterLink>
               </div>
               <div v-can="'meeting_agenda.edit'" class="item-actions">
                 <button class="ghost danger" type="button" @click="removeItem(item)">{{ t('meetings.agenda.remove') }}</button>
@@ -568,6 +575,7 @@ label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; c
 .drag-handle { display: inline-flex; align-items: center; color: var(--color-muted); cursor: grab; }
 .agenda-item.dragging .drag-handle { cursor: grabbing; }
 .pill { margin-inline-start: .5rem; padding: .1rem .5rem; background: var(--color-surface-hover); color: var(--color-black-600); border-radius: 999px; font-size: .72rem; }
+.memo-link { margin-inline-start: .5rem; padding: .1rem .5rem; font-size: .72rem; text-decoration: none; }
 .item-actions { white-space: nowrap; }
 .edit-row { display: flex; gap: 1rem; flex-wrap: wrap; }
 .edit-row label { margin-bottom: 0; }

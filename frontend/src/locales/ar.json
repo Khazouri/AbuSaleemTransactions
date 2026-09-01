@@ -609,7 +609,8 @@
         "noDepartment": "بدون إدارة",
         "noRequestType": "بدون نوع طلب"
       },
-      "dragToReorder": "اسحب لإعادة الترتيب"
+      "dragToReorder": "اسحب لإعادة الترتيب",
+      "openMemo": "فتح مذكرة العرض"
     },
     "readiness": {
       "title": "جاهزية الاجتماع",
@@ -689,7 +690,23 @@
         "study": "الدراسة",
         "attachments": "المرفقات",
         "previous": "الطلبات السابقة",
+        "memo": "مذكرة العرض",
         "notes": "ملاحظات اللجنة"
+      },
+      "memo": {
+        "loadError": "تعذر تحميل مذكرة العرض.",
+        "notGenerated": "لم يتم إنشاء مذكرة عرض لهذا البند بعد.",
+        "generate": "إنشاء المذكرة",
+        "regenerate": "إعادة إنشاء المذكرة",
+        "workUnit": "جهة العمل",
+        "referringBody": "الجهة المحيلة",
+        "keyDocuments": "المستندات الأساسية",
+        "priorDecisions": "القرارات السابقة المتعلقة بالموضوع",
+        "noPriorDecisions": "لا توجد قرارات سابقة للجنة بشأن هذا الموضوع.",
+        "factsSummary": "ملخص الوقائع",
+        "employmentStatus": "الوضع الوظيفي ذو العلاقة",
+        "legalOpinion": "الرأي أو الملاحظة القانونية (عند وجودها)",
+        "committeeQuestion": "النقطة المطلوب من اللجنة البت فيها"
       },
       "context": {
         "loadError": "تعذر تحميل بيانات الطلب.",

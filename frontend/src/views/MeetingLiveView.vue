@@ -78,10 +78,16 @@ async function poll() {
 let pollTimer = null
 watch(meetingId, () => {
   clearInterval(pollTimer)
-  selectedItemId.value = null
+  // Deep-linked from the agenda builder's "open presentation memo" action
+  // (?meeting=&item=) — only honoured once, on the meeting that was actually
+  // requested; a plain meeting switch through the picker still defaults to
+  // the first unresolved item.
+  selectedItemId.value = route.query.item && meetingId.value === Number(route.query.meeting)
+    ? Number(route.query.item)
+    : null
   load()
   if (meetingId.value) pollTimer = setInterval(poll, 5000)
-})
+}, { immediate: true })
 
 // --- Ticking clock for the per-item timer -------------------------------------
 
@@ -149,7 +155,7 @@ async function setItemState(item, state) {
 // folded into the tab strip; the other five come from a dedicated read-only
 // endpoint fetched whenever the current item changes.
 
-const INFO_TABS = ['summary', 'employee', 'study', 'attachments', 'previous', 'notes']
+const INFO_TABS = ['summary', 'employee', 'study', 'attachments', 'previous', 'memo', 'notes']
 const activeTab = ref('summary')
 const context = ref(null)
 const contextLoading = ref(false)
@@ -174,8 +180,13 @@ async function loadContext(item) {
 // 5s poll tick, and re-fetching context on every tick would be wasteful.
 watch(() => currentItem.value?.id, (id) => {
   activeTab.value = 'summary'
-  if (id) loadContext(currentItem.value)
-  else context.value = null
+  if (id) {
+    loadContext(currentItem.value)
+    loadMemo(currentItem.value)
+  } else {
+    context.value = null
+    memo.value = null
+  }
 })
 
 function fullDate(value) {
@@ -203,6 +214,71 @@ async function downloadAttachment(attachment) {
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
   } catch {
     contextError.value = t('attachments.downloadFailed')
+  }
+}
+
+// --- Presentation memo (Stage 46, [D] Art. 22) --------------------------------
+// A separate fetch from `context` above (its own endpoint/lifecycle, and it
+// can be missing entirely until someone generates it), but driven by the
+// same item-change watcher.
+
+const memo = ref(null)
+const memoLoading = ref(false)
+const memoError = ref('')
+const memoGenerating = ref(false)
+const memoSaving = ref(false)
+const memoDraft = ref({ facts_summary: '', employment_status_notes: '', legal_opinion: '', committee_question: '' })
+
+function syncMemoDraft() {
+  memoDraft.value = {
+    facts_summary: memo.value?.authored?.facts_summary ?? '',
+    employment_status_notes: memo.value?.authored?.employment_status_notes ?? '',
+    legal_opinion: memo.value?.authored?.legal_opinion ?? '',
+    committee_question: memo.value?.authored?.committee_question ?? '',
+  }
+}
+
+async function loadMemo(item) {
+  memo.value = null
+  memoError.value = ''
+  if (!meeting.value || !item || item.item_type !== 'employee_request') return
+  memoLoading.value = true
+  try {
+    const { data } = await api.get(`/meetings/${meeting.value.id}/agenda/${item.id}/presentation-memo`)
+    memo.value = data.data
+    syncMemoDraft()
+  } catch (requestError) {
+    memoError.value = requestError.response?.data?.message ?? t('meetingsUnit.live.memo.loadError')
+  } finally {
+    memoLoading.value = false
+  }
+}
+
+async function generateMemo(item) {
+  memoError.value = ''
+  memoGenerating.value = true
+  try {
+    const { data } = await api.post(`/meetings/${meeting.value.id}/agenda/${item.id}/presentation-memo/generate`)
+    memo.value = data.data
+    syncMemoDraft()
+  } catch (requestError) {
+    memoError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    memoGenerating.value = false
+  }
+}
+
+async function saveMemo(item) {
+  memoError.value = ''
+  memoSaving.value = true
+  try {
+    const { data } = await api.patch(`/meetings/${meeting.value.id}/agenda/${item.id}/presentation-memo`, memoDraft.value)
+    memo.value = data.data
+    syncMemoDraft()
+  } catch (requestError) {
+    memoError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    memoSaving.value = false
   }
 }
 
@@ -399,10 +475,10 @@ onMounted(async () => {
               </button>
             </div>
 
-            <p v-if="contextLoading" class="state">{{ t('common.loading') }}</p>
-            <p v-else-if="contextError && activeTab !== 'notes'" class="alert">{{ contextError }}</p>
+            <p v-if="contextLoading && activeTab !== 'memo'" class="state">{{ t('common.loading') }}</p>
+            <p v-else-if="contextError && activeTab !== 'notes' && activeTab !== 'memo'" class="alert">{{ contextError }}</p>
 
-            <div v-else-if="context || activeTab === 'notes'" class="tab-panel">
+            <div v-else-if="context || activeTab === 'notes' || activeTab === 'memo'" class="tab-panel">
               <dl v-if="activeTab === 'summary'" class="info-grid">
                 <dt>{{ t('meetingsUnit.live.context.summary.reference') }}</dt>
                 <dd class="ltr">{{ context.request.reference_number || `#${context.request.id}` }}</dd>
@@ -479,6 +555,75 @@ onMounted(async () => {
                     </span>
                   </li>
                 </ul>
+              </div>
+
+              <div v-else-if="activeTab === 'memo'" class="memo-panel">
+                <p v-if="memoLoading" class="state">{{ t('common.loading') }}</p>
+                <template v-else>
+                  <p v-if="memoError" class="alert">{{ memoError }}</p>
+                  <div v-can="'meeting_agenda.add'" class="memo-generate">
+                    <button class="ghost" type="button" :disabled="memoGenerating" @click="generateMemo(currentItem)">
+                      {{ memoGenerating ? t('common.saving') : (memo ? t('meetingsUnit.live.memo.regenerate') : t('meetingsUnit.live.memo.generate')) }}
+                    </button>
+                  </div>
+
+                  <template v-if="memo">
+                    <dl class="info-grid">
+                      <dt>{{ t('meetingsUnit.live.context.summary.reference') }}</dt>
+                      <dd class="ltr">{{ memo.derived.reference_number || `#${memo.derived.employee?.id}` }}</dd>
+                      <dt>{{ t('meetingsUnit.live.memo.workUnit') }}</dt>
+                      <dd>{{ memo.derived.work_unit ? name(memo.derived.work_unit) : t('common.none') }}</dd>
+                      <dt>{{ t('meetingsUnit.live.memo.referringBody') }}</dt>
+                      <dd>{{ memo.derived.referring_body ? name(memo.derived.referring_body) : t('common.none') }}</dd>
+                      <dt>{{ t('meetingsUnit.live.context.summary.submitted') }}</dt>
+                      <dd>{{ fullDate(memo.derived.submission_date) }}</dd>
+                    </dl>
+
+                    <h4>{{ t('meetingsUnit.live.memo.keyDocuments') }}</h4>
+                    <p v-if="!memo.derived.key_documents?.length" class="state">{{ t('meetingsUnit.live.context.attachments.empty') }}</p>
+                    <ul v-else class="attachment-list">
+                      <li v-for="document in memo.derived.key_documents" :key="document.id">
+                        <span>{{ document.original_name }}</span>
+                        <span class="muted">{{ fileSize(document.size_bytes) }}</span>
+                      </li>
+                    </ul>
+
+                    <h4>{{ t('meetingsUnit.live.memo.priorDecisions') }}</h4>
+                    <p v-if="!memo.derived.prior_decisions?.length" class="state">{{ t('meetingsUnit.live.memo.noPriorDecisions') }}</p>
+                    <ul v-else class="notes">
+                      <li v-for="decision in memo.derived.prior_decisions" :key="decision.id">
+                        <div class="note-meta">
+                          <strong>{{ t(`decisions.outcome.${decision.outcome}`) }}</strong>
+                          <span class="note-time">{{ fullDate(decision.decided_at) }}</span>
+                        </div>
+                        <p>{{ decision.comment || t('common.none') }}</p>
+                      </li>
+                    </ul>
+
+                    <div v-can="'meeting_agenda.add'" class="memo-authored">
+                      <label>
+                        {{ t('meetingsUnit.live.memo.factsSummary') }}
+                        <textarea v-model="memoDraft.facts_summary" rows="3" />
+                      </label>
+                      <label>
+                        {{ t('meetingsUnit.live.memo.employmentStatus') }}
+                        <textarea v-model="memoDraft.employment_status_notes" rows="2" />
+                      </label>
+                      <label>
+                        {{ t('meetingsUnit.live.memo.legalOpinion') }}
+                        <textarea v-model="memoDraft.legal_opinion" rows="2" />
+                      </label>
+                      <label>
+                        {{ t('meetingsUnit.live.memo.committeeQuestion') }}
+                        <textarea v-model="memoDraft.committee_question" rows="2" />
+                      </label>
+                      <button class="ghost" type="button" :disabled="memoSaving" @click="saveMemo(currentItem)">
+                        {{ memoSaving ? t('common.saving') : t('common.save') }}
+                      </button>
+                    </div>
+                  </template>
+                  <p v-else class="state">{{ t('meetingsUnit.live.memo.notGenerated') }}</p>
+                </template>
               </div>
 
               <div v-else-if="activeTab === 'notes'" class="discussion">
@@ -615,6 +760,12 @@ select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-ho
 
 .discussion { padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
 .discussion h4 { margin: 0 0 .5rem; font-size: .88rem; color: var(--color-black-800); }
+
+.memo-panel h4 { margin: .9rem 0 .5rem; font-size: .88rem; color: var(--color-black-800); }
+.memo-generate { margin-bottom: .75rem; }
+.memo-authored { display: grid; gap: .6rem; margin-top: .9rem; padding-top: .75rem; border-top: 1px dashed var(--color-border-hover); }
+.memo-authored label { display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; color: var(--color-black-700); }
+.memo-authored textarea { box-sizing: border-box; width: 100%; }
 .notes { list-style: none; margin: 0 0 .6rem; padding: 0; display: grid; gap: .5rem; max-block-size: 14rem; overflow-y: auto; }
 .notes li { padding: .5rem .6rem; background: var(--color-surface-hover); border-radius: 8px; }
 .note-meta { display: flex; justify-content: space-between; gap: .5rem; font-size: .78rem; color: var(--color-muted); }
