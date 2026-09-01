@@ -145,12 +145,18 @@ async function removeCommittee(committee) {
 const expandedCommitteeId = ref(null)
 const memberUserId = ref('')
 const memberIsHead = ref(false)
+const memberSeat = ref('')
 const memberError = ref(null)
+
+// Stage 45 — [D] Art. 10's fixed 5-seat roster; a member with no seat is
+// still a plain, unstructured member (the pre-existing open R03/R04 model).
+const SEAT_CODES = ['chair', 'legal', 'hr_director', 'ministry_delegate', 'rapporteur']
 
 function toggleMembers(committee) {
   expandedCommitteeId.value = expandedCommitteeId.value === committee.id ? null : committee.id
   memberUserId.value = ''
   memberIsHead.value = false
+  memberSeat.value = ''
   memberError.value = null
 }
 
@@ -167,9 +173,11 @@ async function addMember(committee) {
     await api.post(`/committees/${committee.id}/members`, {
       user_id: memberUserId.value,
       is_head: memberIsHead.value,
+      seat: memberSeat.value || null,
     })
     memberUserId.value = ''
     memberIsHead.value = false
+    memberSeat.value = ''
     await loadCommittees()
   } catch (e) {
     memberError.value = e?.response?.data?.message ?? t('common.none')
@@ -295,12 +303,24 @@ onMounted(async () => {
             </tr>
             <tr v-if="expandedCommitteeId === committee.id" class="members-row">
               <td colspan="3">
+                <!-- Stage 45 — Art. 10's 5 named seats, each individually
+                     identifiable regardless of how many other unseated
+                     members this committee also carries. -->
+                <ul class="seat-summary">
+                  <li v-for="seat in SEAT_CODES" :key="seat" :class="{ filled: committee.seats?.[seat] }">
+                    <span class="seat-label">{{ t(`committees.seats.${seat}`) }}</span>
+                    <span class="seat-occupant">
+                      {{ committee.seats?.[seat] ? committee.seats[seat].user.name : t('committees.seats.empty') }}
+                    </span>
+                  </li>
+                </ul>
                 <p v-if="memberError" class="alert">{{ memberError }}</p>
                 <p v-if="!committee.members?.length" class="state">{{ t('committees.noMembers') }}</p>
                 <ul v-else class="members">
                   <li v-for="member in committee.members" :key="member.id">
                     <span>{{ member.user.name }}</span>
-                    <span v-if="member.is_head" class="pill">{{ t('committees.head') }}</span>
+                    <span v-if="member.seat" class="pill">{{ t(`committees.seats.${member.seat}`) }}</span>
+                    <span v-else-if="member.is_head" class="pill">{{ t('committees.head') }}</span>
                     <button v-can="'meetings.edit'" class="ghost danger" type="button" @click="removeMember(committee, member)">
                       {{ t('committees.removeMember') }}
                     </button>
@@ -311,6 +331,12 @@ onMounted(async () => {
                     <option value="">{{ t('committees.chooseUser') }}</option>
                     <option v-for="user in availableUsersFor(committee)" :key="user.id" :value="user.id">
                       {{ user.name }}
+                    </option>
+                  </select>
+                  <select v-model="memberSeat" :aria-label="t('committees.seats.label')">
+                    <option value="">{{ t('committees.seats.none') }}</option>
+                    <option v-for="seat in SEAT_CODES" :key="seat" :value="seat">
+                      {{ t(`committees.seats.${seat}`) }}
                     </option>
                   </select>
                   <label class="checkbox">
@@ -407,6 +433,11 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .ghost.danger { color: var(--color-danger-fg); border-color: var(--color-danger-border); }
 
 .members-row td { background: var(--color-surface-hover); }
+.seat-summary { display: flex; flex-wrap: wrap; gap: .5rem; padding: 0; margin: 0 0 .85rem; list-style: none; }
+.seat-summary li { display: flex; flex-direction: column; gap: .15rem; padding: .35rem .6rem; border: 1px dashed var(--color-border-hover); border-radius: 8px; font-size: .75rem; min-width: 7rem; }
+.seat-summary li.filled { border-style: solid; border-color: var(--color-success-border); background: var(--color-success-bg); }
+.seat-summary .seat-label { color: var(--color-muted); }
+.seat-summary li.filled .seat-occupant { color: var(--color-success-fg); font-weight: 600; }
 .members { display: grid; gap: .4rem; padding: 0; margin: 0 0 .75rem; list-style: none; }
 .members li { display: flex; align-items: center; gap: .5rem; font-size: .85rem; }
 .add-member { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }

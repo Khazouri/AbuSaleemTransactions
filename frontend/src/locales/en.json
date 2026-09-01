@@ -320,7 +320,17 @@
     "head": "Head",
     "removeMember": "Remove",
     "noMembers": "No members yet.",
-    "cannotDeleteHasMeetings": "A committee that has held meetings cannot be deleted."
+    "cannotDeleteHasMeetings": "A committee that has held meetings cannot be deleted.",
+    "seats": {
+      "label": "Seat",
+      "none": "— No fixed seat —",
+      "empty": "Vacant",
+      "chair": "Chair",
+      "legal": "Legal affairs member",
+      "hr_director": "HR director member",
+      "ministry_delegate": "Ministry of Local Governance delegate",
+      "rapporteur": "Committee rapporteur"
+    }
   },
   "meetings": {
     "title": "Meetings",

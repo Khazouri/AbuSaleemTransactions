@@ -13,6 +13,7 @@ class CommitteeMemberResource extends JsonResource
             'id' => $this->id,
             'committee_id' => $this->committee_id,
             'is_head' => $this->is_head,
+            'seat' => $this->seat,
             'user' => $this->whenLoaded('user', fn () => [
                 'id' => $this->user->id,
                 'name' => $this->user->name,

@@ -14,6 +14,73 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-08-31 16:05 EET — Claude — Stage 45 complete (fixed 5-seat committee roster)
+
+Built additively per STAGE_PLAN.md Track I: a nullable `committee_members.seat` string column
+(`chair|legal|hr_director|ministry_delegate|rapporteur`, [D] Art. 10's roster) sitting **alongside**
+the pre-existing `is_head` boolean rather than replacing it — chosen because most committees in this
+system are still generic open R03/R04 rosters (Stage 32's 3-R04-member tie-breaking test committee
+included), and forcing every committee down to exactly 5 members would have broken that established
+model for no requirement STAGE_PLAN actually stated. `seat` is purely additive: a committee can name
+its 5 institutional seats without losing the ability to also carry extra unseated members.
+
+Uniqueness is enforced two ways — a DB-level `unique(['committee_id','seat'])` index (MySQL/SQLite
+both treat every NULL as distinct, so any number of seatless members coexist safely) as the backstop,
+and `StoreCommitteeMemberRequest`'s own `Rule::unique(...)` for the friendly Arabic 422 message,
+**added conditionally only when `seat` is actually filled** — a naive unconditional `nullable|unique`
+combo would have been a real bug: Laravel's unique-rule verifier runs `WHERE seat = NULL`, which
+`Illuminate\Database\Query\Builder::where()` silently rewrites to `WHERE seat IS NULL`, so it would
+have rejected every *second* seatless member against the first one already on the committee. Caught
+by reading Laravel's own `Builder::where()`/`DatabasePresenceVerifier::getCount()` source before
+writing the rule, not by a failing test. `CommitteeController::addMember()` also forces `is_head=true`
+whenever `seat==='chair'` (Art. 10: رئيس اللجنة *is* the head) — the two concepts stay independent for
+every other seat, so a legal/HR/ministry-delegate/rapporteur seat carries no head implication.
+
+`CommitteeResource` gained a `seats` map (`{chair: {member_id, user:{id,name}}|null, ...}` for all 5
+codes) so a committee's roster is individually addressable regardless of how many other unseated
+members it also carries — this is what "5 seats individually identifiable" (STAGE_PLAN's done-when)
+actually means in the API. Frontend: `MeetingsView.vue`'s membership panel gained a 5-seat summary
+strip (filled/vacant per seat) above the existing member list, and the add-member form gained a seat
+`<select>` (5 seats + "no fixed seat") alongside the existing user picker and head checkbox; member
+rows now show their seat label instead of the generic "Head" pill when one is set. New
+`committees.seats.*` locale keys in both `ar.json`/`en.json`.
+
+**The one load-bearing guarantee this stage exists to prove, per STAGE_PLAN's own done-when**:
+filling and voting the مندوب الخدمة المدنية (`ministry_delegate`) seat must never itself decide
+whether a request also needs the *separate* central ministry approval `Request::requiresMinistryApproval()`
+governs (Art. 14 — the delegate's committee membership never substitutes for that referral). Verified
+by a new `tests/Feature/CommitteeSeatRosterTest.php::test_the_ministry_delegate_seats_vote_never_
+substitutes_for_the_separate_ministry_approval` — same committee, same ministry-delegate seat holder,
+same approve vote, run twice with only the request's own `decision_grade` differing (10 = at
+threshold, 5 = below): the grade-10 run lands at `local_governance_ministry` after the admin-manager
+approval step and the grade-5 run lands at `competent_authority`, proving the branch (`WorkflowService
+::destinationStageId()`) is driven only by `decision_grade`/`decision_grade_threshold`, completely
+unaffected by whether a ministry_delegate seat exists or how it voted. `WorkflowService` itself was
+**not touched** — this stage adds no new coupling between committee seats and that logic, which is
+exactly the guarantee being proven.
+
+Verification: 5 new tests in `CommitteeSeatRosterTest.php` (seat identifiability, seat-collision 422,
+unknown-seat-value 422, multiple unseated members coexisting safely, the ministry-delegate guard
+above), full suite **180 tests / 1078 assertions** green (was 175/1042), Pint clean on every touched
+file, `npm run build` passes (then reverted `frontend/dist`, tracked in git, per every prior stage's
+note), and the migration ran clean against the real MySQL/Homestead database — confirmed via
+`Schema::getColumns` that `committee_members.seat` exists, nullable, `varchar(255)`. Locale
+key-parity verified programmatically: 807 keys each side, zero on-one-side-only. **Not verified: no
+browser this session** — the seat-summary strip and seat `<select>`'s layout are calculated from the
+existing add-member form's pattern, not observed, consistent with every prior UI-touching note.
+
+**Open items for whoever builds Stage 46+**: `seat` is immutable after creation (remove + re-add is
+the only way to reassign one), matching the pre-existing `is_head` precedent — no "update member"
+endpoint exists for either. Stage 48's rapporteur/voting-member separation ("مقرر اللجنة does not
+participate in the substantive vote unless the tashkil decision explicitly grants it") is the natural
+consumer of the new `seat==='rapporteur'` value in `DecisionEligibility` — nothing in this stage wires
+that restriction in, since STAGE_PLAN scopes it to Stage 48 explicitly. Stage 47's "confirm during
+Stage 45's roster work whether [D] treats [Salaries & Benefits Dept] as deliberate scope narrowing"
+note is still open — this stage's scope was the 5 named seats themselves, not a review of [D] vs. [A]
+party lists.
+
+---
+
 ### 2026-08-31 15:10 EET — Claude — Stage 44 complete (verify remaining [C] fidelity gaps)
 
 Built per the plan below. Both flagged items were real, unbuilt gaps — closed rather than dismissed.

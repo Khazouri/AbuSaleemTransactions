@@ -320,7 +320,17 @@
     "head": "الرئيس",
     "removeMember": "إزالة",
     "noMembers": "لا يوجد أعضاء بعد.",
-    "cannotDeleteHasMeetings": "لا يمكن حذف لجنة عقدت اجتماعات."
+    "cannotDeleteHasMeetings": "لا يمكن حذف لجنة عقدت اجتماعات.",
+    "seats": {
+      "label": "المقعد",
+      "none": "— بلا مقعد محدد —",
+      "empty": "شاغر",
+      "chair": "رئيس اللجنة",
+      "legal": "عضو الشؤون القانونية",
+      "hr_director": "عضو الموارد البشرية",
+      "ministry_delegate": "مندوب الخدمة المدنية",
+      "rapporteur": "مقرر اللجنة"
+    }
   },
   "meetings": {
     "title": "الاجتماعات",

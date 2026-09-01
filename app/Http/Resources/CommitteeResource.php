@@ -2,8 +2,10 @@
 
 namespace App\Http\Resources;
 
+use App\Models\CommitteeMember;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Collection;
 
 class CommitteeResource extends JsonResource
 {
@@ -22,6 +24,31 @@ class CommitteeResource extends JsonResource
             'meetings_count' => $this->whenCounted('meetings'),
 
             'members' => CommitteeMemberResource::collection($this->whenLoaded('members')),
+
+            // Stage 45 — [D] Art. 10's 5 named seats, individually addressable
+            // regardless of how many other unseated members this committee
+            // also carries.
+            'seats' => $this->when(
+                $this->relationLoaded('members'),
+                fn () => $this->seatMap(),
+            ),
         ];
+    }
+
+    private function seatMap(): Collection
+    {
+        $bySeat = $this->members->keyBy('seat');
+
+        return collect(CommitteeMember::SEATS)->mapWithKeys(function (string $seat) use ($bySeat) {
+            $member = $bySeat->get($seat);
+
+            return [$seat => $member ? [
+                'member_id' => $member->id,
+                'user' => [
+                    'id' => $member->user->id,
+                    'name' => $member->user->name,
+                ],
+            ] : null];
+        });
     }
 }

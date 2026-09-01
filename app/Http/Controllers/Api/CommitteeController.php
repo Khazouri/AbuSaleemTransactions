@@ -83,10 +83,22 @@ class CommitteeController extends Controller
      * head of this committee in the same request — a committee has at
      * most one head at a time, and the alternative (two "the" heads) would be
      * ambiguous everywhere the UI shows one.
+     *
+     * Stage 45 — filling the `chair` seat (Art. 10's رئيس اللجنة = وكيل ديوان
+     * البلدية) is also always the head, so it forces is_head the same way an
+     * explicit is_head=true does, rather than leaving the two concepts able
+     * to disagree about who chairs the committee. The other 4 named seats
+     * carry no such implication — a `seat` is purely an identity slot, and
+     * uniqueness per (committee, seat) is enforced by the request's own
+     * validation plus a DB-level unique index as a second line of defence.
      */
     public function addMember(StoreCommitteeMemberRequest $request, Committee $committee): JsonResponse
     {
         $data = $request->validated();
+
+        if (($data['seat'] ?? null) === 'chair') {
+            $data['is_head'] = true;
+        }
 
         $member = DB::transaction(function () use ($committee, $data) {
             if ($data['is_head'] ?? false) {
