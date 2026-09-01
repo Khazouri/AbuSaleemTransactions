@@ -13,7 +13,8 @@ use Illuminate\Database\Seeder;
  *     ├─ إدارة الهندسة والمشاريع (ENG)
  *     ├─ إدارة الشؤون المالية (FIN)
  *     ├─ مكتب المقرر (REP)
- *     └─ لجنة شؤون الموظفين (CMT)
+ *     ├─ لجنة شؤون الموظفين (CMT)
+ *     └─ قسم المرتبات والمزايا (SAL)
  *
  * These are a usable starting point, not a fixed structure — departments are
  * fully editable from the UI in Stage 6. The codes matter because they appear
@@ -35,6 +36,10 @@ class DepartmentSeeder extends Seeder
             ['code' => 'FIN', 'name_ar' => 'إدارة الشؤون المالية', 'name_en' => 'Financial Affairs'],
             ['code' => 'REP', 'name_ar' => 'مكتب المقرر', 'name_en' => 'Reviewer Office'],
             ['code' => 'CMT', 'name_ar' => 'لجنة شؤون الموظفين', 'name_en' => 'Staff Affairs Committee'],
+            // Stage 47 — a distinct admin unit from FIN (الشؤون المالية):
+            // [A] §1's org chart lists المرتبات والمزايا as its own sibling
+            // unit alongside شؤون الموظفين, not a subset of financial affairs.
+            ['code' => 'SAL', 'name_ar' => 'قسم المرتبات والمزايا', 'name_en' => 'Salaries & Benefits'],
         ];
 
         foreach ($children as $child) {

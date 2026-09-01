@@ -14,6 +14,170 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-01 13:55 EET — Claude — Stage 47 complete (Salaries & Benefits participation trigger)
+
+Built exactly per the plan below, including the confirmation it asked for: re-reading [D] and [A] side
+by side confirmed [D] does treat this as deliberate scope narrowing (no named committee-adjacent party,
+only Art. 33's post-decision financial-effect execution), so this stage built the lighter advisory
+version, not a blocking parallel-review gate or a new committee seat.
+
+Two migrations (`request_types.default_has_financial_impact`, `requests.has_financial_impact`, both
+boolean/not-null/default-false), both applied to the real MySQL/Homestead database. `DepartmentSeeder`
+gained `SAL` (قسم المرتبات والمزايا, a genuine sibling of `CMT`, not a rename of the existing `FIN`
+إدارة الشؤون المالية), reseeded — the real database now has 7 departments. `RequestTypeSeeder` set
+`default_has_financial_impact = true` only for `PROM`/`ALLW` (the two of the current 7 types that
+unambiguously match the stage's own example list); `settlement`/`back-pay`/`grade change` have no
+dedicated `RequestType` row yet, a gap for Stage 53, not guessed at here — reseeded and verified via
+tinker (`ALLW: true, LEAV: false, PROM: true`).
+
+`RequestController::store()` sets `has_financial_impact` from the type's default at intake.
+New `PATCH requests/{requestRecord}/financial-impact` (`UpdateFinancialImpactRequest`,
+`updateFinancialImpact()`) lets R01/R02 correct it afterward — deliberately riding the *existing*
+`notes_attachments,edit` grant rather than adding an `edit` tier to `request_details` (which has none
+today and would imply much broader request-field-editing than this narrow correction needs), gated by
+`RequestVisibility::canView` like `NoteController`. `RequestResource` exposes the flag unconditionally.
+
+**Notification hooked at the one place every stage move already announces itself, no `WorkflowService`
+or `workflow_transitions` change at all**: `NotificationDispatcher::stageChanged()` (already called by
+both `transition()` and `applySystemTransition()`) gained one more check — landing at `observations`
+(Stage 44's established "الدراسة" checkpoint) with `has_financial_impact = true` notifies active `SAL`
+department users via new `FinancialImpactReviewNotification` (new `financial_impact_review` event type,
+in_app+email like `action_required`). This also fires correctly on Stage 32's `receive_from_committee →
+observations` `return_to_study` self-loop, confirmed by a dedicated test.
+
+**The one real correctness gap the plan flagged and this stage had to actually close, not defer**: every
+other notification recipient is, by construction, someone `RequestVisibility::canView()` already admits
+(role-based recipients are pulled from the same `workflow_transitions` roles that gate visibility; the
+creator obviously sees their own request) — a SAL employee has no such role, so without a fix they'd be
+notified into a 404. Fixed with one bounded `orWhere('requests.has_financial_impact', true)` clause in
+`RequestVisibility::apply()`, gated on the actor's own `department_id` matching `SAL`'s — narrower than
+Stage 44's separate RequestVisibility-bypass endpoints (this extends the one existing generic rule
+rather than adding a second read path for the same data) and, like creator visibility, not stage- or
+terminal-status-gated. No write capability changed — `WorkflowService::actorMayUse()` untouched, so a
+SAL employee still cannot transition the workflow themselves, only read the file and its attachments.
+
+Frontend: `RequestDetailView.vue`'s `.card.summary` grid gained a financial-impact badge plus a
+`v-can="'notes_attachments.edit'"`-gated "Correct" toggle button that PATCHes the new endpoint and
+replaces `request.value` with the response, matching the existing `transition()` pattern. New
+`requestDetail.financialImpact.*` locale keys in both `ar.json`/`en.json`.
+
+Verification: new `tests/Feature/FinancialImpactReviewTest.php` (6 tests — the happy-path landing at
+`observations` notifies only active `SAL` users when flagged, notifies nobody when unflagged, the
+`return_to_study` self-loop re-notifies, a `SAL` user can view a flagged request they didn't create but
+gets 404 on an unflagged one, the manual override changes what the *next* `observations` entry
+notifies, and the PATCH endpoint 403s for a role without `notes_attachments,edit`), full suite **192
+tests / 1121 assertions** green (was 186/1109), Pint clean repo-wide (`--test` passes with zero diffs —
+no pre-existing drift left to flag this time), `npm run build` passes with `RequestDetailView` picking
+up the new markup in its existing chunk (then reverted `frontend/dist`, tracked in git, per every prior
+stage's note), locale key-parity verified programmatically (827 keys each side, zero on-one-side-only),
+and both migrations plus the `DepartmentSeeder`/`RequestTypeSeeder` reseed ran clean against the real
+MySQL/Homestead database. **Not verified: no browser this session** — the badge/toggle's layout is
+calculated from the summary grid's existing pattern, not observed, consistent with every prior
+UI-touching note.
+
+**Open item for whoever builds Stage 48+**: `has_financial_impact` is a plain boolean with no audit
+trail of who corrected it or why — if that ever matters, `AuditObserver`'s existing generic `requests`
+coverage (Stage 22) already logs the old/new value on any `update()`, so nothing new is needed there,
+just worth knowing it's not a separate dedicated log. Stage 53's request-type catalogue is the natural
+place to revisit whether `settlement`/`back-pay`/`grade-change` deserve their own `RequestType` rows
+with `default_has_financial_impact = true`, rather than leaving those cases to the manual override.
+
+---
+
+### 2026-09-01 13:15 EET — Claude — Stage 47 implementation plan (Salaries & Benefits participation trigger)
+
+Building Stage 47 per STAGE_PLAN.md Track I. The stage's own text flags an open question first: "[D]
+doesn't name this seat on the committee itself (only [A] does, as a participating party outside the
+fixed 5-seat roster) — confirm during Stage 45's roster work whether [D] treats this as deliberate
+scope narrowing before building it as a full parallel-review step." That confirmation was never done
+during Stage 45 (its note only says the 5-seat roster itself was verified) and is done now, by
+re-reading both sources before writing any code.
+
+**Verdict: [D] does treat this as scope narrowing, confirmed by reading both documents side by
+side.** [D]'s own canonical 5-phase process shape (`official-procedures-manual-index.md`, the "5
+phases" bullet) is الإعداد اإلداري → التنظيم اإلجرائي → المراجعة القانونية → الدراسة والمداولة →
+االعتماد والتنفيذ — no phase or named party for قسم المرتبات والمزايا. The only place [D] mentions a
+financial dimension at all is Art. 33 (execution, *after* a decision, "تنفيذ أي أثر مالي متى استحق")
+— financial *effects are executed* post-decision, not *reviewed pre-decision* by a named party. [A]
+§3 party 5 is the only source that elevates قسم المرتبات والمزايا to a named participating party
+during the study phase ("يشارك فقط عندما يكون للمسألة أثر مالي"), and [A]'s own §5 (الدراسة اإلدارية
+والفنية, owned by قسم شؤون الموظفين) already folds this in as one of several departments قسم شؤون
+الموظفين *may* request a statement from ("الرئيس المباشر / إدارة الموارد البشرية / قسم المرتبات /
+اإلدارة المالية / مكتب الشؤون القانونية / أي جهة أخرى ذات صلة") — i.e. even [A] treats it as one
+optional consultation among several, not a formal gate. So this stage builds the flag + an advisory
+notification, **not** a blocking parallel-review status/gate, a new committee seat, or a new
+workflow_transitions row — building the heavier version would misrepresent [D]'s standard the same
+way Stage 46 flagged for `legal_opinion`.
+
+**Schema**: `request_types.default_has_financial_impact` (boolean, default false) — seeded `true` for
+`PROM` and `ALLW` only. Of the stage's own example list ("promotion, settlement, allowance, back-pay,
+grade change"), only promotion and allowance have an existing matching `RequestType` row today;
+`settlement`/`back-pay`/`grade change` have no dedicated type yet (a gap for Stage 53's request-type
+catalogue work, not fabricated here). `requests.has_financial_impact` (boolean, NOT NULL, default
+false) — set once at intake from the type's default (`RequestController::store()`), then editable
+afterward — the stage's own Build bullet says "derived from request type **or set manually**", so a
+manual override path is real scope, not gold-plating.
+
+**Manual override, gated without a new permission tier**: new `PATCH
+requests/{requestRecord}/financial-impact` (`UpdateFinancialImpactRequest`, `{has_financial_impact:
+bool}`), riding the *existing* `notes_attachments,edit` grant (`[R01, R02]`) rather than adding an
+`edit` tier to `request_details` (which currently has none, and broadening it would imply a much
+wider "can edit core request fields" capability this stage doesn't need). R01/R02 are exactly the
+roles that would need to correct an under/over-derived flag — R01 at intake, R02 during
+requirements_check/reviewer_review/observations. Gated by `RequestVisibility::canView` like
+`NoteController`, not a new bypass.
+
+**New department**: `DepartmentSeeder` gains `SAL` — قسم المرتبات والمزايا / Salaries & Benefits — a
+sibling of `CMT` under the `ABS` root, matching the org chart in `official-process-summary.md` §1
+(المرتبات والمزايا is listed as its own admin unit alongside شؤون الموظفين, distinct from the
+existing `FIN` إدارة الشؤون المالية department, which is a different, broader unit).
+
+**Notification, hooked at the one place every stage move already announces itself**: no new
+`workflow_transitions` row and no change to `WorkflowService` — `NotificationDispatcher::
+stageChanged()` (already called by both `WorkflowService::transition()` and `applySystemTransition()`
+on every move) gets one more check: if `$toStage?->code === 'observations'` (the stage Stage 44 already
+established as this system's "الدراسة" checkpoint — R02's `request_stage_logs` rows there) and
+`$requestRecord->has_financial_impact`, notify active users in the `SAL` department. This also fires
+correctly on the `receive_from_committee → observations` `return_to_study` exception (Stage 32),
+which is the right behaviour — a request bounced back for re-study should re-notify Salaries &
+Benefits too if it's flagged. New `financial_impact_review` event type in
+`NotificationSetting::EVENT_TYPES` (in_app+email, mirroring `action_required` — it asks someone to
+form an opinion, not just FYI) and a new `FinancialImpactReviewNotification`, shaped like
+`ActionRequiredNotification` but without a stage param (always "study").
+
+**The one real correctness gap this stage has to close, not defer**: every existing notification
+recipient is, by construction, someone `RequestVisibility::canView()` already lets in — `actorsForStage()`'s
+role-based recipients are pulled from the same `workflow_transitions` roles `RequestVisibility`
+checks, and the creator obviously can see their own request. A SAL department employee has no role
+tied to any `workflow_transitions` row, so without a change they'd be notified and then hit a 404
+opening the file — a dead-end notification, not simply an unbuilt nice-to-have. Fix: one bounded
+addition to `RequestVisibility::apply()` — `has_financial_impact = true` requests are also visible to
+an actor whose own `department_id` is `SAL`'s. This is deliberately narrower than Stage 44's
+RequestVisibility-bypass endpoints (that gave R04 members a *separate* read endpoint for meeting
+context) — here the existing generic workspace visibility rule is what's extended, since "read the
+file and its attachments to form an opinion" is exactly what the generic detail workspace already
+offers everyone else it lets in, and inventing a second endpoint for identical data would be the kind
+of duplication AGENTS.md's conventions warn against. No write capability changes — `WorkflowService::
+actorMayUse()` is untouched, so a SAL employee still cannot transition the workflow themselves.
+
+**Frontend**: `RequestDetailView.vue`'s `.card.summary` grid gains a "financial impact" badge
+(yes/no), plus a small toggle button next to it gated `v-can="'notes_attachments.edit'"` that PATCHes
+the new endpoint and replaces `request.value` with the response (same pattern `transition()` already
+uses). `RequestResource` exposes `has_financial_impact` unconditionally (a plain column, like
+`decision_grade`). New `requestDetail.financialImpact.*` locale keys in both `ar.json`/`en.json`.
+
+**Verification plan**: new `tests/Feature/FinancialImpactReviewTest.php` — a PROM/ALLW request is
+created with the flag already true and a LEAV request with it false; landing at `observations`
+(happy path AND via `return_to_study`) notifies active SAL-department users only when the flag is
+true; a SAL employee can `GET` a flagged request they didn't create and aren't a workflow actor for,
+and still 404s on an unflagged one; the PATCH endpoint updates the flag for R01/R02 and 403s for a
+role without `notes_attachments,edit`; the manual override changes what the next `observations` entry
+notifies (flip false→true before the request reaches that stage, confirm the notification fires) —
+plus the full PHPUnit suite, Pint on touched/new files, `npm run build`, and `php artisan migrate`
+against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-01 10:35 EET — Claude — Stage 46 complete (presentation memo compiler)
 
 Built exactly per the plan below. New `presentation_memos` table (unique `meeting_request_id`,

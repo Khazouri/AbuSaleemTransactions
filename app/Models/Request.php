@@ -30,6 +30,7 @@ class Request extends Model
         'submitted_at',
         'due_date',
         'decision_grade',
+        'has_financial_impact',
     ];
 
     protected function casts(): array
@@ -38,6 +39,7 @@ class Request extends Model
             'submitted_at' => 'datetime',
             'due_date' => 'date',
             'overdue_at' => 'datetime',
+            'has_financial_impact' => 'boolean',
         ];
     }
 

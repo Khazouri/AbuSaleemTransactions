@@ -38,6 +38,8 @@ class NotificationSetting extends Model
         'meeting_scheduled' => ['in_app' => true, 'email' => true, 'sms' => false],
         'decision_recorded' => ['in_app' => true, 'email' => true, 'sms' => false],
         'minutes_approved' => ['in_app' => true, 'email' => true, 'sms' => false],
+        // Stage 47 — asks Salaries & Benefits to form an opinion, not just FYI.
+        'financial_impact_review' => ['in_app' => true, 'email' => true, 'sms' => false],
     ];
 
     /** The preference columns, in the order the preferences screen shows them. */

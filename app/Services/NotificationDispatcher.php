@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Decision;
+use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\Request;
 use App\Models\User;
@@ -10,6 +11,7 @@ use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use App\Notifications\ActionRequiredNotification;
 use App\Notifications\DecisionRecordedNotification;
+use App\Notifications\FinancialImpactReviewNotification;
 use App\Notifications\MeetingMinutesApprovedNotification;
 use App\Notifications\MeetingScheduledNotification;
 use App\Notifications\RequestCreatedNotification;
@@ -74,6 +76,15 @@ class NotificationDispatcher
             $this->actorsForStage($requestRecord, $requestRecord->current_stage_id, $excluded),
             new ActionRequiredNotification($requestRecord, $toStage),
         );
+
+        // Stage 47 — قسم المرتبات والمزايا holds no seat in workflow_transitions
+        // ([D] doesn't name one; see AGENT_NOTES.md), so it can't be picked up
+        // by actorsForStage() above. `observations` is this system's "study"
+        // checkpoint (Stage 44), reached on the happy path AND via Stage 32's
+        // `return_to_study` self-loop — both should re-notify if flagged.
+        if ($toStage?->code === 'observations' && $requestRecord->has_financial_impact) {
+            $this->send($this->salariesAndBenefitsDepartment($excluded), new FinancialImpactReviewNotification($requestRecord));
+        }
     }
 
     /** Stage 17 sweep — a breach concerns both the owner and whoever can unblock it. */
@@ -247,6 +258,29 @@ class NotificationDispatcher
         }
 
         return User::query()->whereKey($managerId)->where('is_active', true)->first();
+    }
+
+    /**
+     * Active users in قسم المرتبات والمزايا (Stage 47) — resolved by
+     * department code, the same style WorkflowService resolves stages by
+     * code, since this department has no role of its own to key off.
+     *
+     * @param  array<int, int>  $excludeUserIds
+     * @return Collection<int, User>
+     */
+    private function salariesAndBenefitsDepartment(array $excludeUserIds = []): Collection
+    {
+        $departmentId = Department::query()->where('code', 'SAL')->value('id');
+
+        if ($departmentId === null) {
+            return collect();
+        }
+
+        return User::query()
+            ->where('department_id', $departmentId)
+            ->where('is_active', true)
+            ->when($excludeUserIds !== [], fn ($query) => $query->whereKeyNot($excludeUserIds))
+            ->get();
     }
 
     /**

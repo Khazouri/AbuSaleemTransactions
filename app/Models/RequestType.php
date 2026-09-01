@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $default_sla_days
  * @property int|null $decision_grade_threshold Typically 10
  * @property bool $is_active
+ * @property bool $default_has_financial_impact Stage 47 — starting value for a
+ *                                              new request's own has_financial_impact flag; overridable per request.
  */
 class RequestType extends Model
 {
@@ -26,12 +28,14 @@ class RequestType extends Model
         'default_sla_days',
         'decision_grade_threshold',
         'is_active',
+        'default_has_financial_impact',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'default_has_financial_impact' => 'boolean',
         ];
     }
 }

@@ -255,6 +255,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:notes_attachments,add')
         ->post('requests/{requestRecord}/notes', [NoteController::class, 'store']);
 
+    // Stage 47 — correcting the financial-impact flag is an ancillary
+    // correction, not core request editing, so it rides the same narrow
+    // notes_attachments,edit grant (R01/R02) rather than a new permission.
+    Route::middleware('screen.permission:notes_attachments,edit')
+        ->patch('requests/{requestRecord}/financial-impact', [RequestController::class, 'updateFinancialImpact']);
+
     /*
      * Stage 20 — committees & meetings. Neither has a screen of its own on the
      * 22/23-screen sheet, so both ride the `meetings` screen's permissions

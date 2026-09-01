@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Request\IndexRequest;
 use App\Http\Requests\Request\StoreRequest;
 use App\Http\Requests\Request\TransitionRequest;
+use App\Http\Requests\Request\UpdateFinancialImpactRequest;
 use App\Http\Resources\RequestDetailResource;
 use App\Http\Resources\RequestResource;
 use App\Models\Attachment;
@@ -136,6 +137,9 @@ class RequestController extends Controller
                     'submitted_at' => $submittedAt,
                     'due_date' => $deadlines->dueDateFor($type, $submittedAt),
                     'decision_grade' => $data['decision_grade'] ?? null,
+                    // Stage 47 — starting value only; a study-stage reviewer
+                    // can correct it later via updateFinancialImpact().
+                    'has_financial_impact' => $type->default_has_financial_impact,
                 ]);
 
                 foreach ($request->file('attachments', []) as $index => $attachmentInput) {
@@ -263,6 +267,25 @@ class RequestController extends Controller
 
             throw $exception;
         }
+
+        return $this->detailResource($requestRecord, $workflow, $request->user());
+    }
+
+    /**
+     * Stage 47 — correct the auto-derived financial-impact flag. Rides the
+     * existing notes_attachments,edit grant (R01/R02) rather than a new
+     * request_details edit tier: this is a narrow ancillary correction, not
+     * general request-field editing.
+     */
+    public function updateFinancialImpact(
+        UpdateFinancialImpactRequest $request,
+        Request $requestRecord,
+        WorkflowService $workflow,
+        RequestVisibility $visibility,
+    ): RequestDetailResource {
+        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
+
+        $requestRecord->update(['has_financial_impact' => $request->boolean('has_financial_impact')]);
 
         return $this->detailResource($requestRecord, $workflow, $request->user());
     }

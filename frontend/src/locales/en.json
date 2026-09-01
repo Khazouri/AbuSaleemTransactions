@@ -301,7 +301,14 @@
     "noTimeline": "There are no workflow movements yet.",
     "noAttachments": "There are no attachments yet.",
     "loadFailed": "The request details could not be loaded.",
-    "actionFailed": "The workflow action could not be completed. Please try again."
+    "actionFailed": "The workflow action could not be completed. Please try again.",
+    "financialImpact": {
+      "label": "Financial impact",
+      "yes": "Has a financial impact",
+      "no": "No financial impact",
+      "toggle": "Correct",
+      "updateFailed": "The financial-impact flag could not be updated."
+    }
   },
   "committees": {
     "title": "Committees",
