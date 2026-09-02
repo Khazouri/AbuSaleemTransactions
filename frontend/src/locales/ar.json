@@ -176,6 +176,32 @@
       "actions": "الإجراءات"
     }
   },
+  "appeals": {
+    "title": "التظلمات",
+    "subtitle": "تقديم تظلم ضد أحد طلباتك التي صدر بشأنها قرار.",
+    "empty": "لا توجد تظلمات بعد.",
+    "create": {
+      "heading": "تقديم تظلم جديد",
+      "searchLabel": "الطلب موضوع التظلم",
+      "searchPlaceholder": "ابحث بالرقم المرجعي أو الموضوع…",
+      "noResults": "لا توجد طلبات مطابقة.",
+      "change": "تغيير",
+      "decisionReference": "مرجع القرار (اختياري)",
+      "decisionReferencePlaceholder": "مثال: رقم المحضر أو القرار، إن وُجد",
+      "decisionDate": "تاريخ القرار (اختياري)",
+      "submit": "إرسال التظلم",
+      "submitting": "جارٍ الإرسال…",
+      "success": "تم إرسال التظلم.",
+      "failed": "تعذّر إرسال التظلم.",
+      "selectRequestFirst": "اختر الطلب موضوع التظلم أولاً."
+    },
+    "columns": {
+      "request": "الطلب موضوع التظلم",
+      "decision": "مرجع القرار",
+      "status": "الحالة",
+      "filedAt": "تاريخ التقديم"
+    }
+  },
   "requests": {
     "title": "الطلبات",
     "filters": "تصفية الطلبات",
@@ -976,7 +1002,8 @@
       "setting": "إعداد",
       "template": "نموذج",
       "guide_article": "مقال في الدليل",
-      "backup": "نسخة احتياطية"
+      "backup": "نسخة احتياطية",
+      "appeal": "تظلم"
     },
     "fields": {
       "title": "الموضوع",

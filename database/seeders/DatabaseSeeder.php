@@ -18,6 +18,7 @@ use Illuminate\Database\Seeder;
  *   RequestStatus.. the statuses a request can hold
  *   RequestType..   the request types
  *   WorkflowTransition. the Stage 14/16 normal and exception state machine
+ *   AppealStatusSeeder  Stage 58's own small appeal status machine
  *   ScreenSeeder        the 22 screens
  *   ScreenRolePerm..    the 22 x 8 matrix — needs screens AND roles
  */
@@ -41,6 +42,9 @@ class DatabaseSeeder extends Seeder
             RequestTypeSeeder::class,
             // Stages 14/16 — data-driven normal and exception transition map.
             WorkflowTransitionSeeder::class,
+            // Stage 58 — the appeal (تظلم) status machine, independent of the
+            // above (see AppealStatusSeeder's own docblock).
+            AppealStatusSeeder::class,
             ScreenSeeder::class,
             ScreenRolePermissionSeeder::class,
         ]));

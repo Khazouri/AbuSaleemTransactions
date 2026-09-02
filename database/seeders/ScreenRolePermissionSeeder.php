@@ -45,6 +45,17 @@ class ScreenRolePermissionSeeder extends Seeder
         // Notes/attachments: broad read, narrower write.
         'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05'], 'edit' => ['R01', 'R02']],
 
+        // Stage 58 — appeals against an already-decided request. `view` is
+        // broad (like `requests`): the controller scopes the query to the
+        // caller's own appeals unless they're R08, so this permission only
+        // decides whether the screen is reachable at all, not whose rows show
+        // up. `add` is deliberately R01-only for now — per STAGE_PLAN.md
+        // Track J's intro, filing an appeal is an employee-facing action, not
+        // committee administration. Widen this once a later Track J stage
+        // (verification/legal review/committee presentation) needs staff
+        // roles to act on this screen too.
+        'appeals' => ['view' => '*', 'add' => ['R01'], 'print' => '*'],
+
         // Committee work belongs to the committee roles (R03 head, R04 member).
         // Stage 28's 7 new meetings-unit screens start with the same shape
         // as `meetings` itself — they're empty navigation shells with no

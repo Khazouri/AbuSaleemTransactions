@@ -660,17 +660,277 @@ code, not a quick fix alongside another stage.
 **Source:** [A] §5; [D] Art. 31, 92–97; [E] stages 15–17; gap-analysis.md
 §14.
 
-### Stage 58 — Appeal (تظلم) lifecycle
-**Goal:** an employee can formally contest an already-decided matter, per
-[D] Arts. 75–79's full specification — not just submit a Grievance-type
-intake request through the ordinary pipeline.
-**Build:** new `appeals` entity referencing a decided request/decision, its
-own status machine, intake fields, a jurisdiction test that explicitly
-excludes disciplinary-board matters ([D] Art. 77), legal review, a 5-outcome
-result set, and non-reopening rules ([D] Art. 79). Comparable in size to all
-of Track H — will need its own sub-staging when scheduled, not a single
-stage.
-**Source:** [D] Art. 75–79; [A] §9; [E]'s إعادة العرض/التظلم handling.
+## TRACK J — Appeal (تظلم) Lifecycle
+
+Sub-staged out of the single former "Stage 58" placeholder, per [D] Arts.
+75–79's full specification (the primary source — transcribed in
+[docs/employee-committee-lifecycle/official-procedures-manual-index.md](docs/employee-committee-lifecycle/official-procedures-manual-index.md)
+§7's التظلمات الوظيفية entry) and [A] §9's 6-stage summary (تقديم → التحقق
+الشكلي → جمع الملف الأصلي → المراجعة القانونية → العرض على اللجنة أو الجهة
+المختصة → التبليغ واإلغالق) — where they overlap, [D]'s fuller Article text
+wins, matching every other Track I stage's precedence rule.
+
+**Citation caveat, applies to every stage below:**
+`official-procedures-manual-index.md` records Arts. 75–79 as a **single
+block** with six topics (intake fields / jurisdiction check / Art. 77's
+disciplinary separation / legal review / the 5-outcome set / notify+close)
+and attributes specific article numbers to only **Art. 77** and **Arts.
+78–79**. The numbered 1–6 sequence below comes from **[A] §9**, which is
+genuinely numbered. So each stage cites "[D] Arts. 75–79 (<topic>)" plus its
+[A] §9 step — nothing here claims an article-point granularity the index
+doesn't actually have. Per the folder README's own caveat, re-read [D]'s PDF
+before citing an exact article number in code comments.
+
+**Three scope decisions made once here, not re-litigated per stage below:**
+
+**(1) An appeal is a new entity, not a `RequestType`.** `appeals` references
+an already-decided `Request`; it is never a Grievance-type `Request` routed
+through the ordinary intake pipeline. This is already settled in
+gap-analysis.md §12: `GRIV` (and Stage 53's `PEVG`) are ordinary intake types
+"processed through the identical committee pipeline as every other request
+type, **not a way to contest an already-decided matter**." Both concepts
+legitimately coexist — a grievance *about* something is a request; a تظلم
+*against a committee decision* is an appeal. Expect this to be the single
+most likely thing for a future session to conflate.
+
+**(2) Appeals get their own small status machine**, not a detour through the
+14-stage `workflow_stages` table — the appeal cycle is a self-contained 6
+steps ([A] §9), and forcing it through the main request workflow would
+conflate two different state machines the same way Stage 29's
+`CommitteeStatusService` was deliberately kept separate from
+`WorkflowService` for committee sub-statuses.
+
+**(3) ⚠ An open appeal blocks closure of the original request — a
+cross-system rule, not an appeal-local one.** [D] Arts. 34–37's اإلقفال rule
+says a matter is only "مقفلة" once one of 4 terminal paths completes, the
+fourth being "any تظلم or re-presentation path concluded, **with the file
+kept open until it does**." Today `WorkflowService::hasTerminalStatus()`
+(`cancelled|archived|in_execution|completed_closed`) and Stage 37's
+`MeetingOutputService` close action know nothing about appeals, so filing one
+against an already-`completed_closed` request currently has no effect on it.
+Stages 59/65/66 each carry their half of this rule. **Deliberately NOT
+modelled as a new request status**: [A] §8 does name "محل تظلم" / "أعيد
+فتحها بموجب تظلم أو حكم" as request states, but that list is [A]'s looser
+27-state one, which the summary document itself says to reconcile against [D]
+Art. 38's 20-code dictionary — and Art. 38 has **no** under-appeal code.
+Stage 54b already did that reconciliation and kept the current 28 statuses.
+So this is a derived flag / blocked-closure rule computed from the existence
+of an open `Appeal`, which satisfies [D]'s behavioural requirement without
+reopening Stage 54b's decision.
+
+### Stage 58 — Appeal entity, schema & status machine
+**Goal:** the foundational `appeals` table and its own status machine exist,
+independent of `requests`/`workflow_stages`.
+**Build:** `appeals` (appellant `user_id`, `original_request_id` FK →
+`requests`, nullable `original_decision_id` FK → `decisions` — not every
+decided matter rode a committee vote, e.g. Stage 54's `reject_formally` at
+`requirements_check` — plus a free-text fallback decision reference/date for
+that case), a small seeded `appeal_statuses` table (not reusing
+`request_statuses`), `Appeal` model, a new top-level `appeals` screen (not
+nested under `meetings_management` — filing an appeal is an employee-facing
+action, not committee administration) with permissions seeded.
+**Done when:** an `Appeal` row can be created against an existing decided
+`Request` and is visible on its own screen; no workflow logic yet.
+**Source:** [D] Art. 47 (التظلمات classification), Arts. 75–79 (intake
+block); gap-analysis.md §12.
+
+### Stage 59 — Appeal intake
+**Goal:** an employee can submit a written appeal against one of their own
+already-decided matters.
+**Build:** intake form — pick the target decided request (restricted to
+statuses meaning the matter actually reached a result: Art. 38 codes 12
+موافق عليها من اللجنة / 13 غير موافق عليها / 14 عدم اختصاص / 17 معتمدة
+نهائيًا / 19 منفذة / 20 مغلقة ومؤرشفة, mapped onto this system's own status
+codes via Stage 54b's reconciliation table rather than re-derived), القرار
+المتظلم منه (auto-filled from the pick), تاريخ العلم به, أسباب االعتراض,
+الطلب النهائي, supporting documents. Non-duplication check per [A] §9 step 2
+("عدم تكرار نفس التظلم دون وقائع جديدة") — block a second appeal against the
+same decision unless new facts are declared. Also sets the Track J intro's
+scope-decision (3) flag: an open appeal blocks the original request's
+closure.
+**⚠ Attachments are a real design decision, not free reuse:**
+`attachments.request_id` is a hard FK to `requests` with `cascadeOnDelete` —
+**not** polymorphic — so an appeal's own supporting documents have nowhere to
+live today. Three options, pick one deliberately: make `attachments`
+polymorphic (touches every existing attachment consumer), a separate
+`appeal_attachments` table (duplication, but zero blast radius), or hang
+appeal documents off the original request with a label (muddles whose
+document is whose — probably wrong for an adversarial record).
+**Done when:** an appeal can be filed against a decided request the employee
+owns, its documents are stored, and a same-facts duplicate is refused.
+**Source:** [D] Arts. 75–79 (intake fields); [A] §9 steps 1–2.
+
+### Stage 60 — Formal verification gate (التحقق الشكلي)
+**Goal:** قسم شؤون الموظفين's admissibility check before an appeal proceeds
+any further.
+**Build:** a verification action checking, per [A] §9 step 2: صفة المتظلم
+(appellant standing), القرار محل التظلم (the target decision is real and
+appealable), المواعيد القانونية (any statutory deadline, if one is
+configured — no document in this folder states an actual number of days, so
+this is a configurable setting seeded empty, **not** a fabricated deadline),
+عدم التكرار (Stage 59's duplication check, re-verified here by a human rather
+than only the intake-time heuristic). A failing check closes the appeal
+immediately with a recorded reason; passing advances it.
+**Done when:** an appeal can be formally rejected at intake (bad standing, no
+valid target, deadline missed, duplicate) or advanced, each outcome logged
+with who/when/why.
+**Source:** [D] Arts. 75–79 (jurisdiction/formal check); [A] §9 step 2.
+
+### Stage 61 — Original file assembly (جمع الملف األصلي)
+**Goal:** the appeal record shows the complete original-matter dossier
+alongside the new appeal documents.
+**Build:** a read-only `AppealFileCompiler` reusing already-built compilers
+rather than re-deriving their data — Stage 46's `PresentationMemoCompiler`
+for the original مذكرة العرض, Stage 36/50's `MeetingMinutesCompiler` for the
+original محضر, the linked `Decision` (if any) from Stage 21/35/49, plus the
+appeal's own newly-submitted documents.
+**⚠ إثبات التبليغ (proof of notification) is only partially evidenceable
+today:** [A] §9 step 3 lists it as part of the original dossier, but Stage
+23's `notifications` table is Laravel's standard **database-channel** store —
+it persists a row per in-app notification and nothing for email or SMS, which
+have no delivery log at all. So this stage can honestly show in-app notice
+proof and must show *absence of evidence* (not a fabricated "notified") for
+the other two channels. Building a real per-channel delivery log is a
+separate piece of work, not assumed here.
+**Done when:** opening an appeal shows the original request, memo, minutes,
+decision and whatever notification evidence genuinely exists, in one place,
+with no data re-entered by hand.
+**Source:** [D] Arts. 75–79 (original-file assembly); [A] §9 step 3.
+
+### Stage 62 — Jurisdiction test & legal review
+**Goal:** Art. 77's explicit disciplinary-matter exclusion, plus the Art. 75
+point 4 legal-review checklist, both gate whether an appeal can reach
+committee presentation.
+**Build:** a structured jurisdiction-test form (mirroring Stage 54's
+6-question-test UI pattern, not free text) asking whether the committee is
+actually the competent body for this appeal or whether it belongs to
+عميد البلدية / وزارة الحكم المحلي / another org body / **a disciplinary
+board or court** — the last option, per Art. 77, must terminate the appeal
+with a referral outcome rather than let it proceed, since [D] is explicit
+that a disciplinary matter is never routed through لجنة شؤون الموظفين as a
+substitute for a real disciplinary board. A separate structured legal-review
+record: factual error? legal-text violation? new documents? formation/
+quorum/reasoning defect in the original decision? issued by a competent
+body?
+**Done when:** an appeal cannot reach Stage 63 without both records present;
+a disciplinary-flagged appeal is refused/referred instead of proceeding.
+**Source:** [D] Arts. 75–79 (legal review), **Art. 77** (the one
+article-level citation the index is explicit about — "ال يجوز الخلط مع
+المسار التأديبي", per gap-analysis.md §12); [A] §9 step 4.
+
+### Stage 63 — Committee presentation & 5-outcome decision
+**Goal:** an appeal can be placed before اللجنة أو الجهة المختصة and decided
+with Art. 75 point 5's own outcome vocabulary — distinct from the ordinary
+committee-decision outcomes Stages 35/41/49 already built.
+**Build:** extend `MeetingRequest.item_type` (Stage 31: currently
+`employee_request|administrative|emerging`) with a new `appeal` value plus a
+nullable `appeal_id` — `request_id` is already nullable (Stage 31 made it so
+for admin items), so the column shape needs no further change — letting
+appeals ride the existing agenda/vote/signature machinery instead of a
+parallel one. A new, appeal-specific outcome set on the decision record —
+قبول التظلم وسحب أو تعديل القرار / قبول جزئي / رفض مسبب / إحالة لجهة أخرى /
+إعادة اإلجراءات من المرحلة التي وقع فيها العيب — kept separate from
+`DecisionController::ACTIONS` (currently 7 entries after Stages 35/41/49),
+not merged into it, since these five outcomes mean something structurally
+different (see Stage 64) from an ordinary approve/reject/defer.
+**⚠ Scope reality check — this is not a one-line enum widening.** A repo grep
+finds **~14 hardcoded `item_type === 'employee_request'` guards** across
+`DecisionController` (×2), `MeetingController` (×5),
+`PresentationMemoController` (×2), `ConflictOfInterestController`,
+`MeetingDiscussionNoteController`, `StoreMeetingAgendaRequest`, plus
+`DecisionEligibility::pendingVotesQuery()`'s SQL filter (Stage 31/48). Every
+one needs an individual yes/no decision for appeals — voting and
+conflict-of-interest almost certainly yes; the presentation-memo compiler
+reads `$agendaItem->request` directly and would need widening or exclusion;
+`agendaStats()`'s `$byType` map needs a fourth bucket. Inventory them before
+coding, don't fix forward one 500 at a time.
+**Done when:** an appeal can be nominated onto a meeting agenda and decided
+with exactly one of the 5 appeal outcomes, using the same vote-tally/
+signature mechanics every other committee decision already uses, and every
+`employee_request` guard has been deliberately re-decided rather than
+inherited.
+**Source:** [D] Arts. 75–79 (the 5-outcome set); [A] §9 step 5.
+
+### Stage 64 — ⚠ Outcome execution (accept / amend / refer / redo)
+**Goal:** each of the 5 outcomes has a real effect on the *original* decided
+request, not just a label on the appeal.
+**Build:** قبول التظلم / قبول جزئي → writes the withdrawal/amendment back
+onto the original `Request` record itself, never a new one — per [D] Arts.
+34–37's إعادة العرض rule ("keeps the same original reference number… a new
+transaction is never created for re-presenting the same matter merely because
+it's being presented again", **note its own trailing caveat**: "unless
+there's a genuine legal/organizational reason requiring one", so this is a
+strong default, not an absolute); رفض مسبب → closes the appeal with the
+recorded reasoning, no change to the original request; إحالة لجهة أخرى →
+referral bookkeeping, reusing the `refer_to_another_body`-style pattern
+Stage 49 already built; **إعادة اإلجراءات من المرحلة التي وقع فيها العيب is
+the one genuinely novel case** — it must re-enter the *original* request's
+own `WorkflowService` state machine at the specific stage the legal-review
+found the defect, not restart the request from scratch. This is real new
+coupling between two systems that were deliberately kept separate everywhere
+else in this track (see the Track J intro) — needs its own design pass
+before coding, the same caution Stage 57 required.
+**Done when:** each outcome demonstrably mutates the right record (the
+appeal, and/or the original request re-entering its workflow at the correct
+stage) with a full audit trail.
+**Source:** [D] Arts. 75–79 (the 5-outcome set), Arts. 34–37 (إعادة العرض's
+same-reference-number rule); [E]'s المسارات األربعة بعد قرار اللجنة
+diagram (the general re-presentation/return-path shape, applied here to
+appeal outcomes specifically).
+
+### Stage 65 — Notification & closure
+**Goal:** Art. 75 point 6 — the appellant receives written notice of the
+final result and issuing body; the appeal's own closure record is complete.
+**Build:** a new `appeal_decided` event on Stage 23's existing
+`NotificationDispatcher` + `NotificationSetting::EVENT_TYPES` (same
+channel-preference mechanism, no new notification pipeline — this part IS a
+clean reuse). An appeal-closure record carrying [D] Arts. 34–37's own
+closure-field list: closure date, final result, final decision number if any,
+approving body, execution date, executing body, notice status, file storage
+location. Concluding the appeal also releases the Track J intro's scope-
+decision (3) hold on the original request's closure.
+**⚠ There is no existing closure-record precedent to mirror — verified, not
+assumed.** A grep for `closed_at`/`closure`/`closed_by` on `Request` and its
+migrations returns **nothing**: Stage 37 gave requests a `completed_closed`
+*status* and nothing else, and "preserve, don't erase" is the master-data
+deletion pattern (departments/committees), unrelated to closure records. So
+these 8 fields are new work sourced from [D] directly — and the same gap
+exists for ordinary requests, which this stage does **not** close (that would
+be retrofitting Track I's Stage 37, a separate decision).
+**Done when:** the appellant is notified through their configured channels
+when the appeal concludes, a concluded appeal shows a closed state with those
+fields populated, and the original request becomes closable again.
+**Source:** [D] Arts. 75–79 (notify+close), Arts. 34–37 (the closure-field
+list and the "file kept open until the تظلم path concludes" rule); [A] §9
+step 6.
+
+### Stage 66 — Non-reopening rule + the reopen mechanism
+**Goal:** [D] Arts. 78–79 — neither a closed appeal nor a concluded original
+matter may be reopened merely because the affected party is unhappy with the
+result.
+**Build:** a `reopen` action gated behind an explicit, **enumerated** reason
+— new document / external reply arrived / material-error correction /
+legal-status change / the approving body sent it back / a competent authority
+directed a re-study (Arts. 78–79's own list, transcribed in the index) —
+never a free-text-only justification. Wired onto a closed `Appeal` and onto
+the original request's re-presentation path. Note this is the *positive*
+counterpart to Arts. 34–37's عدم الموافقة rule ("a matter is never
+re-presented with the same facts and documents merely because the affected
+party is dissatisfied — only via a legal path, or when new documents/facts
+with real effect surface"), so the two articles agree and the enumerated list
+serves both.
+**Explicit scope note, not a silent gap:** [A] §8 also names "أعيد فتحها
+بموجب … حكم" (reopened by a court judgment) alongside تظلم. No document in
+this folder specifies judgment-driven reopening beyond that one mention, and
+[A] §8 is the looser 27-state list that loses to [D] Art. 38 anyway (see
+scope decision 3 above), so this stage gives a court judgment the same
+enumerated-reason mechanism and no more — a dedicated court-judgment workflow
+is out of scope.
+**Done when:** reopening — of either an appeal or its original matter — is
+only possible through the enumerated-reason gate, is logged, and a plain "I
+disagree with the outcome" attempt is rejected.
+**Source:** [D] Arts. 78–79 (the enumerated reopen reasons), Arts. 34–37
+(the matching عدم الموافقة non-re-presentation rule); [A] §9 step 6.
 
 ---
 
@@ -689,12 +949,12 @@ stage.
 45 → 46 → 47 → 48 → 49 → 50 → 51 → 52 → 53 → 54 → 54b   (Track I group 3 — additive standard-alignment work)
 55 → 56                                           (Track I group 4a — verification only, may need no code change)
 57                                                (Track I group 4b — real conflict; needs its own migration design)
-58                                                (Track I group 5 — appeal lifecycle; its own future sub-track)
+58 → 59 → 60 → 61 → 62 → 63 → 64 → 65 → 66        (Track J — appeal lifecycle; 58 & 59 first, 63 depends on 20–21/31, 64 needs its own design pass)
 ```
 
 **Stages you can pull forward if you want a break from the hard parts:** 10, 12, 22.
-**Stages not to rush:** 9, 14, 16, 18, 57 — these are where correctness bugs hide (57 also carries real
-migration risk for in-flight requests, per its own note in Track I).
+**Stages not to rush:** 9, 14, 16, 18, 57, 64 — these are where correctness bugs hide (57 and 64 also
+carry real coupling/migration risk, per their own notes in Track I/J).
 
 ---
 

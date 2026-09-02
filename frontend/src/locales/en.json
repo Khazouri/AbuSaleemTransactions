@@ -176,6 +176,32 @@
       "actions": "Actions"
     }
   },
+  "appeals": {
+    "title": "Appeals",
+    "subtitle": "File an appeal against one of your own already-decided requests.",
+    "empty": "No appeals yet.",
+    "create": {
+      "heading": "File a new appeal",
+      "searchLabel": "Target request",
+      "searchPlaceholder": "Search by reference number or title…",
+      "noResults": "No matching requests.",
+      "change": "Change",
+      "decisionReference": "Decision reference (optional)",
+      "decisionReferencePlaceholder": "e.g. minutes/decision number, if known",
+      "decisionDate": "Decision date (optional)",
+      "submit": "Submit appeal",
+      "submitting": "Submitting…",
+      "success": "Appeal submitted.",
+      "failed": "The appeal could not be submitted.",
+      "selectRequestFirst": "Pick the target request first."
+    },
+    "columns": {
+      "request": "Target request",
+      "decision": "Decision reference",
+      "status": "Status",
+      "filedAt": "Filed at"
+    }
+  },
   "requests": {
     "title": "Requests",
     "filters": "Filter requests",
@@ -976,7 +1002,8 @@
       "setting": "Setting",
       "template": "Template",
       "guide_article": "Guide article",
-      "backup": "Backup"
+      "backup": "Backup",
+      "appeal": "Appeal"
     },
     "fields": {
       "title": "Subject",

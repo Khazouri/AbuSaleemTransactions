@@ -7,9 +7,10 @@ use Illuminate\Database\Seeder;
 
 /**
  * Seeds the application screens, in the order they appear on the
- * screen-permissions sheet — 29 from that sheet (Stage 28 adds 7 to the
- * original 22 for the meetings-unit redesign), plus `departments` (see the
- * note beside it below) = 30 total.
+ * screen-permissions sheet — originally 29 from that sheet (Stage 28 adds 7
+ * to the original 22 for the meetings-unit redesign; Stage 57 later removes
+ * one, `authority_approval`), plus `departments` (see the note beside it
+ * below) and Stage 58's `appeals` = 30 total.
  *
  * Two consumers:
  *   - the sidebar (Stage 5) renders these rows, filtered by can_view
@@ -42,6 +43,12 @@ class ScreenSeeder extends Seeder
             ['request_intake',       'استلام الطلب',            'Request Intake',           '/requests/create',      'inbox',        null],
             ['request_details',      'تفاصيل الطلب',            'Request Details',          '/requests/:id',         'file-text',    null],
             ['notes_attachments',        'الملاحظات والمرفقات',        'Notes & Attachments',          '/requests/:id/notes',   'paperclip',    null],
+            // Stage 58 — appeals (تظلمات) against an already-decided request.
+            // Top-level and ungrouped on purpose: filing an appeal is an
+            // employee-facing action, not committee administration, so it
+            // does NOT sit inside meetings_management below (see
+            // STAGE_PLAN.md Track J's intro).
+            ['appeals',               'التظلمات',                'Appeals',                  '/appeals',              'flag',         null],
 
             // --- Committee (Stage 28: "إدارة الاجتماعات" / meetings_management) --
             // 8 grouped slots for Track H (stages 28-37). `meetings` already

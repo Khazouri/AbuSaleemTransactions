@@ -236,6 +236,13 @@ const routes = [
         component: () => import('../views/GuideView.vue'),
         meta: { screenCode: 'user_guide' },
       },
+      {
+        // Stage 58, Track J — appeals against an already-decided request.
+        path: 'appeals',
+        name: 'appeals',
+        component: () => import('../views/AppealsView.vue'),
+        meta: { screenCode: 'appeals' },
+      },
     ],
   },
 

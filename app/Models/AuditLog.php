@@ -57,6 +57,10 @@ class AuditLog extends Model
         // Stage 26 — taking or destroying a snapshot of the whole system is
         // exactly the low-volume, high-consequence write this trail is for.
         Backup::class,
+
+        // Stage 58 — a contest against an already-decided request: low
+        // volume, high consequence, same category as the requests block above.
+        Appeal::class,
     ];
 
     /** The actions the observer records, and the only values the filter accepts. */

@@ -50,6 +50,7 @@ const ICON_BY_CODE = {
   request_details: 'file-text',
   meetings: 'calendar',
   decisions: 'check-circle',
+  appeals: 'flag',
   // Stage 28 — meetings management group.
   meetings_dashboard: 'grid',
   committee_candidates: 'file-plus',

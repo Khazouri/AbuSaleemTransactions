@@ -14,6 +14,202 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-02 16:45 EET — Claude — Stage 58 complete (appeal entity, schema & status machine)
+
+Built exactly per the plan below. Two migrations (`appeal_statuses`, `appeals`) applied to the real
+MySQL/Homestead database; `AppealStatusSeeder` (6 rows, [A] §9's own sequence) added to
+`DatabaseSeeder`'s call list right after `WorkflowTransitionSeeder`. `ScreenSeeder` gains the new
+top-level `appeals` screen (ungrouped, positioned right after `notes_attachments`) and
+`ScreenRolePermissionSeeder` gains its grants (`view => '*'`, `add => ['R01']`) — reseeded against the
+real database and confirmed via tinker: 6 `appeal_statuses` rows in order, 30 `screens` rows total (the
+`ScreenSeeder` docblock's stale "30 total" count was actually already wrong going into this stage —
+Stage 57's removal of `authority_approval` had dropped the real total to 29 without the comment being
+updated; fixed both the drift and added `appeals` in the same edit, landing back at 30 — verified by
+counting the live table, not assumed from the array).
+
+`Appeal`/`AppealStatus` models, `AppealController` (`index`/`store` only), `StoreAppealRequest`
+(FK-existence validation only — no ownership/decided-status/duplication check, per the stage's own "no
+workflow logic yet" scope), `AppealResource`. `appellant_user_id` is always `$request->user()->id`,
+confirmed by test that a client-supplied `appellant_user_id` field is silently ignored (it isn't even a
+validated key). `Appeal::class` added to `AuditLog::AUDITED_MODELS` plus a matching
+`auditLog.models.appeal` locale key in both files.
+
+**One index-scoping decision worth restating outside the plan**: `AppealController::index()` scopes to
+`appellant_user_id = actor.id` for everyone except R08 — there is no staff review queue yet, since
+Stage 58's Build bullet only asks for the row to be "visible on its own screen" (i.e., visible to its
+filer), and none of Track J's later stages (verification/legal review/committee presentation) have
+landed yet to justify broader visibility. This is flagged in the `add` grant's own seeder comment as
+something to widen once a later stage needs it, not something silently left too narrow.
+
+Frontend: real `AppealsView.vue` (not a placeholder) — a debounced `/requests?search=` picker mirroring
+`MeetingAgendaBuilderView.vue`'s existing pattern, two optional fallback fields
+(`original_decision_reference`/`original_decision_date`), and a list table scoped by the same rule the
+backend enforces. New `/appeals` route, a new `flag` glyph in `AppIcon.vue`, `appeals: 'flag'` in
+`AppSidebar.vue`'s `ICON_BY_CODE` (top-level, so no `nav.groups.*` key needed), and a full `appeals.*`
+locale block in both `ar.json`/`en.json`.
+
+Verification: new `tests/Feature/AppealTest.php` (6 tests — create+list round-trip; the appellant is
+always the acting user regardless of client input; a non-admin's list is scoped to their own appeals
+while R08 sees all; a role without `appeals,add` gets 403 but can still view; both the
+recorded-Decision path and the free-text-fallback path succeed; a nonexistent
+`original_request_id`/`original_decision_id` 422s), full suite **225 tests / 1298 assertions** green
+(was 219/1267), Pint clean on every touched/new file, `npm run build` passes with `AppealsView` as its
+own lazy chunk (then reverted `frontend/dist`, tracked in git, per every prior stage's note), locale
+key-parity verified programmatically (906 keys each side, zero on-one-side-only), and both migrations
+plus the three reseeds ran clean against the real MySQL/Homestead database. Smoke-tested end-to-end
+over real HTTP against Homestead as `r01.employee@` (login → `permissions.appeals` present with
+`can_add:true` → `POST /api/appeals` → `GET /api/appeals` lists it), using a request row created
+directly via tinker (this dev database has zero real `Request` rows, same as every recent stage's
+note) and deleted afterward — no residue left in the real database. One smoke-test false alarm worth
+recording: Arabic text sent through this Windows Git-Bash session's `curl -d '...'` arrived on the
+server as literal `?` bytes — confirmed via tinker (`bin2hex` showed `3f` repeated) that this is a
+shell/console encoding artifact of this terminal, not an app or database bug; writing the same Arabic
+string from PHP directly round-tripped correctly.
+
+**Open items for whoever builds Stage 59+**: the richer intake fields ([A] §9's تاريخ العلم به / أسباب
+الاعتراض / الطلب النهائي, supporting documents) and every validation STAGE_PLAN names for that stage
+(ownership, decided-status restriction via Stage 54b's reconciliation table, the same-facts
+non-duplication check, Track J intro's scope decision (3) — an open appeal blocking the original
+request's closure) are all still unbuilt, exactly as scoped. The attachments question STAGE_PLAN
+flags as needing its own deliberate pick (`attachments.request_id` is a hard, non-polymorphic FK) is
+untouched here — this stage's `StoreAppealRequest` has no attachment field at all.
+
+---
+
+### 2026-09-02 16:00 EET — Claude — Stage 58 implementation plan + build (appeal entity, schema & status machine)
+
+Building Stage 58 per STAGE_PLAN.md Track J: the foundational `appeals` table and its own 6-step
+status machine, independent of `requests`/`workflow_stages`, per the two scope decisions already
+recorded in Track J's intro (an appeal is a new entity, never a `RequestType`; it gets its own small
+status machine, never a detour through the 14-stage `workflow_stages` table). Re-read [D] Art. 47 and
+Arts. 75–79 (`official-procedures-manual-index.md` §7's التظلمات الوظيفية entry, already transcribed)
+and [A] §9's 6-step summary before building, per the track's own citation caveat.
+
+**Schema**: `appeal_statuses` (id, `order_no` unique, `code` unique, `name_ar`, `name_en`, `color`) —
+same shape as `request_statuses` plus an `order_no` mirroring `workflow_stages`', since this is a
+sequential 6-step machine, not a flat status bag. Seeded verbatim from [A] §9's own numbered sequence
+(`submitted`/`formal_verification`/`file_assembly`/`legal_review`/`committee_presentation`/
+`notified_closed`), each lining up 1:1 with Stages 59/60/61/62/63/65. `appeals` (`appellant_user_id`
+nullable FK→users nullOnDelete, mirroring `requests.created_by_user_id`'s shape; `original_request_id`
+FK→requests, NOT nullable — requests are never deleted in this codebase, confirmed by grep for a
+destroy route, so the default RESTRICT-on-delete needs no explicit nullOnDelete; `original_decision_id`
+nullable FK→decisions nullOnDelete, since not every decided matter rode a committee vote — e.g. Stage
+54's `reject_formally` at `requirements_check` writes no `Decision` row — plus `original_decision_
+reference`/`original_decision_date` as the free-text fallback for exactly that case; `appeal_status_id`
+nullable FK→appeal_statuses nullOnDelete). Deliberately minimal: the richer intake fields ([A] §9's
+تاريخ العلم به / أسباب الاعتراض / الطلب النهائي / attachments, and the non-duplication check) are
+explicitly Stage 59's own Build bullet, not re-derived here — building them now would risk conflicting
+with that stage's own design pass, particularly the attachments question STAGE_PLAN already flags as
+needing its own deliberate pick (`attachments.request_id` is a hard, non-polymorphic FK).
+
+**New top-level `appeals` screen, NOT nested under `meetings_management`** — filing an appeal is an
+employee-facing action, not committee administration, matching STAGE_PLAN's own Build bullet wording
+verbatim. Seeded `view => '*'` (controller scopes the query to the caller's own appeals unless R08,
+same admin-bypass shape used elsewhere) and `add => ['R01']` only — a deliberate, documented narrowing
+per the same "employee-facing" framing; widen once a later Track J stage gives staff roles (R02/R09
+verification, R05/legal review, R03 committee presentation) their own review queue over this screen.
+
+**Backend**: `App\Models\AppealStatus` (plain lookup) and `App\Models\Appeal` (belongsTo appellant/
+originalRequest/originalDecision/status). `AppealController::index()` — scoped list, eager-loading only
+the three thin relations the list needs. `AppealController::store()` — `appellant_user_id` is always
+`$request->user()->id`, never client-supplied, matching `RequestController::store()`'s
+`created_by_user_id` precedent; `appeal_status_id` defaults to `submitted`. New `StoreAppealRequest`
+validates only FK existence (`exists:requests,id` / `exists:decisions,id`) — no ownership, no
+decided-status check, no duplication check, matching the stage's own "no workflow logic yet" scope.
+Routes: `GET/POST /appeals` behind `screen.permission:appeals,view|add`. `Appeal::class` added to
+`AuditLog::AUDITED_MODELS` (low-volume, high-consequence, same category as the `requests` block) and a
+matching `auditLog.models.appeal` locale key in both files.
+
+**Frontend**: real `AppealsView.vue` (not a placeholder — the stage's own done-when requires an
+actually-creatable, actually-visible row) — a debounced request-search picker mirroring
+`MeetingAgendaBuilderView.vue`'s existing `/requests?search=` pattern, two optional fallback fields
+(decision reference/date), and a scoped list table, styled after `BackupView.vue`'s list+create shape.
+New route `/appeals` (screenCode `appeals`), a new `flag` glyph in `AppIcon.vue`, and an `appeals: 'flag'`
+entry in `AppSidebar.vue`'s `ICON_BY_CODE` (top-level, ungrouped, so it needs no `nav.groups.*` key).
+New `appeals.*` locale block in both `ar.json`/`en.json`.
+
+**Verification plan**: new `tests/Feature/AppealTest.php` — an appeal round-trips through create+list;
+`appellant_user_id` is always the acting user regardless of what the client sends; a non-R08 actor's
+list is scoped to their own appeals while R08 sees all; a role without `appeals,add` gets 403; the
+`original_decision_id` fallback (decision reference/date, no Decision row) and the with-Decision path
+both create successfully; a nonexistent `original_request_id`/`original_decision_id` 422s — plus the
+full PHPUnit suite, Pint on touched/new files, `npm run build`, locale key-parity, and
+`php artisan migrate` against the real MySQL/Homestead database.
+
+---
+
+### 2026-09-02 15:15 EET — Claude — Stage 58 sub-staged into TRACK J (planning only, no code)
+
+Per the user's request, broke the former single "Stage 58 — Appeal (تظلم) lifecycle" placeholder in
+STAGE_PLAN.md into its own **Track J** (Stages 58–66, 9 stages) — the same treatment Track I got out
+of the original single "Stage 38+" note. Re-read [D] Arts. 34–37/47/75–79 (transcribed in
+`docs/employee-committee-lifecycle/official-procedures-manual-index.md`) and [A] §8–9 (`official-
+process-summary.md`) before drafting, rather than sub-staging from the one-paragraph summary already
+in STAGE_PLAN.md.
+
+**Two scope decisions recorded once in Track J's intro, not re-litigated per stage**: (1) an appeal is
+a new `appeals` entity referencing an already-decided `Request`, never a Grievance-type `Request`
+routed through the ordinary pipeline — [D] Art. 47 already treats التظلمات as its own classification,
+and [A] §8's exceptional request-states ("محل تظلم" / "أعيد فتحها بموجب تظلم أو حكم") only make sense
+if the تظلم lives outside that request's own workflow. (2) Appeals get their own small 6-step status
+machine ([A] §9), not a detour through the 14-stage `workflow_stages` table — kept separate the same
+way Stage 29's `CommitteeStatusService` was deliberately kept separate from `WorkflowService`.
+
+**The 9 stages**: 58 (entity/schema/status machine), 59 (intake against a decided matter, with Art.
+75 point 2's non-duplication check), 60 (formal verification gate — appellant standing/valid target/
+deadline/duplication), 61 (original-file assembly, a read-only compiler reusing Stage 46's
+presentation-memo compiler and Stage 36/50's minutes compiler rather than re-deriving), 62
+(jurisdiction test + legal review, with Art. 77's explicit disciplinary-board exclusion terminating
+the appeal rather than letting it proceed), 63 (committee presentation with Art. 75 point 5's own
+5-outcome vocabulary, riding the existing Stage 31 agenda/vote/signature machinery via a new
+`item_type=appeal`), **64 — flagged ⚠, the one stage needing its own design pass before coding**
+(outcome execution: 4 of the 5 outcomes are straightforward per-outcome effects, but إعادة اإلجراءات
+من المرحلة التي وقع فيها العيب means genuinely re-entering the *original* request's own
+`WorkflowService` state machine at a specific stage — real new coupling between two systems kept
+apart everywhere else in this track, same caution level as Stage 57), 65 (notification + closure,
+reusing Stage 23's `NotificationDispatcher` and the closure-field precedent from Stage 37/44), 66
+(the Art. 78–79 non-reopening rule — an enumerated-reason-only `reopen` action, with an explicit note
+that [A] §8's "أو حكم" (court-judgment reopening) mention has no fuller spec anywhere in this folder
+and is deliberately given the same generic mechanism rather than a dedicated workflow).
+
+Updated the Suggested-order block and the "stages not to rush" line (added 64 alongside 57) to match.
+**Nothing implemented** — STAGE_PLAN.md is the only file touched; whoever picks up Track J should
+start at Stage 58 per its own dependency note (58 & 59 first; 63 depends on Track H's Stage 20/21/31
+machinery; 64 needs its own design pass, don't rush it alongside another stage).
+
+**Revised the same session after a verification pass — 7 corrections, listed because several were
+real errors in the first draft, not polish.** Re-read [D] Arts. 34–37/47/75–79 and [A] §8/§9 against
+the actual codebase rather than trusting the draft: (1) **fabricated citation precision** — the first
+draft cited "Art. 75 point 1/2/3…", but the index records Arts. 75–79 as one block and gives
+article-level attribution to only Art. 77 and Arts. 78–79; the numbered 1–6 sequence is [A] §9's, so
+every stage's Source line was rewritten to "[D] Arts. 75–79 (<topic>) + [A] §9 step N". (2)
+**A missing [D] requirement the draft never mentioned**: Arts. 34–37's اإلقفال rule makes "any تظلم
+path concluded, with the file kept open until it does" one of only 4 ways a matter may be closed — so
+an open appeal must block the original request's closure, a cross-system rule touching
+`WorkflowService::hasTerminalStatus()` and Stage 37's `MeetingOutputService`; now scope decision (3)
+in the track intro, with its halves in Stages 59/65. (3) **Stage 65's claimed precedent doesn't
+exist** — grepped `closed_at`/`closure`/`closed_by` on `Request` and its migrations: nothing. Stage 37
+gave requests a `completed_closed` *status* and no closure record, and "preserve, don't erase" is the
+master-data deletion pattern, unrelated; the 8 closure fields are new work sourced from [D] Arts.
+34–37 directly, and the same gap exists for ordinary requests (deliberately not closed here). (4)
+**`attachments` is not polymorphic** (`request_id` FK, cascadeOnDelete), so Stage 59's "reuse the
+existing attachment mechanism" was wrong — an appeal's own documents have nowhere to live; three
+options now stated explicitly for a deliberate pick. (5) **Notification proof is only partial** —
+`notifications` is Laravel's database-channel table, so إثبات التبليغ exists for in-app only, with no
+email/SMS delivery log; Stage 61 must show absence-of-evidence rather than a fabricated "notified".
+(6) **Stage 66 was standing on the losing document** — it leaned on [A] §8's "محل تظلم" request state,
+but that's the looser 27-state list [A] itself says to reconcile against [D] Art. 38's 20 codes, which
+have no under-appeal code, and Stage 54b already made that call; reframed as a derived flag from
+Arts. 34–37's closure rule so Stage 54b's reconciliation stays intact. (7) **Stage 63 badly understated
+its own size** — a grep found ~14 hardcoded `item_type === 'employee_request'` guards across 6
+controllers plus `DecisionEligibility::pendingVotesQuery()`'s SQL filter, each needing an individual
+yes/no for appeals; the stage now carries that inventory instead of implying a one-line enum widening.
+Also confirmed correct and left alone: `MeetingRequest.request_id` is already nullable (Stage 31), both
+compilers exist, `DecisionController::ACTIONS` has 7 entries, and gap-analysis.md §12 independently
+settles the GRIV-vs-appeal distinction the intro now cites.
+
+---
+
 ### 2026-09-02 14:35 EET — Claude — Stage 57 complete (⚠ pre-committee ministry stage + approval-tail restructure)
 
 Built exactly per the plan below. No new migration — this is purely a seed-data + service-logic

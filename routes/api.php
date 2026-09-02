@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AppealController;
 use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\ApprovalSignatureController;
 use App\Http\Controllers\Api\AttachmentController;
@@ -574,4 +575,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('notifications/read-all', [NotificationController::class, 'markAllRead']);
         Route::post('notifications/{notification}/read', [NotificationController::class, 'markRead']);
     });
+
+    /*
+     * Stage 58, Track J — appeals (تظلمات) against an already-decided
+     * request. A separate top-level resource, never nested under `requests`
+     * — see STAGE_PLAN.md Track J's intro for why an appeal is never a
+     * RequestType. No workflow logic yet (Stages 59+ add the intake
+     * validation, jurisdiction gate, legal review, etc.).
+     */
+    Route::middleware('screen.permission:appeals,view')
+        ->get('appeals', [AppealController::class, 'index']);
+    Route::middleware('screen.permission:appeals,add')
+        ->post('appeals', [AppealController::class, 'store']);
 });
