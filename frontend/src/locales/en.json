@@ -221,7 +221,11 @@
     "successTitle": "Request created",
     "successBody": "The request has entered stage one with New status. Its reference number is:",
     "createAnother": "Enter another request",
-    "viewQueue": "View request queue"
+    "viewQueue": "View request queue",
+    "requiredDocuments": {
+      "title": "Documents typically required for this type",
+      "hint": "An informational, non-binding list of documents expected for this request type."
+    }
   },
   "approvals": {
     "subtitle": "Only requests currently waiting at this checkpoint appear here.",

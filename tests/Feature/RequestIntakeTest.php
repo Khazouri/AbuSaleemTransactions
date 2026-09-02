@@ -31,6 +31,29 @@ class RequestIntakeTest extends TestCase
             ->assertJsonFragment(['code' => 'PROM']);
     }
 
+    public function test_intake_options_expose_the_stage_53_document_checklist_per_type(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/requests/intake-options')
+            ->assertOk();
+
+        $types = collect($response->json('data.types'));
+        // Stage 53 — the 5 new types plus the 7 pre-existing ones, all active.
+        $this->assertSame(12, $types->count());
+        $this->assertEqualsCanonicalizing(
+            ['PROM', 'LEAV', 'ALLW', 'SECD', 'GRIV', 'TRNS', 'EOSV', 'CONF', 'APPT', 'CTRC', 'SETL', 'PEVG'],
+            $types->pluck('code')->all(),
+        );
+
+        $promotion = $types->firstWhere('code', 'PROM');
+        $this->assertNotEmpty($promotion['required_documents']);
+        $this->assertArrayHasKey('ar', $promotion['required_documents'][0]);
+        $this->assertArrayHasKey('en', $promotion['required_documents'][0]);
+    }
+
     public function test_an_authorized_user_can_intake_a_request_with_attachments(): void
     {
         $this->seed(DatabaseSeeder::class);

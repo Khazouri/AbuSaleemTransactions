@@ -29,6 +29,10 @@ function name(item) {
   return locale.value === 'ar' ? item.name_ar || item.name_en : item.name_en || item.name_ar
 }
 
+function documentLabel(doc) {
+  return locale.value === 'ar' ? doc.ar || doc.en : doc.en || doc.ar
+}
+
 function chooseFiles(event) {
   const selected = Array.from(event.target.files ?? [])
   const invalid = selected.find((file) => {
@@ -177,6 +181,15 @@ onMounted(loadOptions)
         </div>
       </fieldset>
 
+      <!-- Stage 53 — soft, informational document checklist per request type. -->
+      <fieldset v-if="selectedType?.required_documents?.length" class="checklist" :disabled="isBusy">
+        <legend>{{ t('intake.requiredDocuments.title') }}</legend>
+        <p class="hint">{{ t('intake.requiredDocuments.hint') }}</p>
+        <ul>
+          <li v-for="(doc, index) in selectedType.required_documents" :key="index">{{ documentLabel(doc) }}</li>
+        </ul>
+      </fieldset>
+
       <fieldset :disabled="isBusy">
         <legend>{{ t('attachments.title') }}</legend>
         <p class="hint">{{ t('attachments.acceptedHint') }}</p>
@@ -203,6 +216,7 @@ onMounted(loadOptions)
 .heading { margin-bottom: 1rem; }.heading h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }.heading p { margin: .25rem 0 0; color: var(--color-muted); font-size: .88rem; }
 .card { padding: 1.25rem; }.form { max-inline-size: 52rem; }.form fieldset { min-inline-size: 0; padding: 0; margin: 0 0 1.5rem; border: 0; }.form legend { margin-bottom: .85rem; color: var(--color-brand-text); font-weight: 700; }.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.wide { grid-column: 1 / -1; }
 label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .85rem; }input, select, textarea { min-inline-size: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }textarea { resize: vertical; }small { color: var(--color-danger-fg); font-size: .78rem; }.field-hint, .hint, .state { color: var(--color-muted); font-size: .78rem; }.hint, .state { margin: 0 0 .75rem; }.file-input { max-inline-size: 100%; }
+.checklist ul { display: grid; gap: .35rem; padding-inline-start: 1.2rem; margin: 0; color: var(--color-black-700); font-size: .85rem; }
 .files { display: grid; gap: .6rem; margin-top: .85rem; }.file-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(10rem, 1fr) auto; gap: .5rem; align-items: center; padding: .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.actions { display: flex; gap: .5rem; }.primary, .ghost { padding: .5rem .9rem; border-radius: var(--radius-lg); font-size: .85rem; cursor: pointer; }.primary { border: 0; color: var(--color-on-brand); background: var(--color-brand); }.ghost { border: 1px solid var(--color-border-hover); color: var(--color-black-700); background: var(--color-surface); }.link-button { text-decoration: none; }.primary:disabled, fieldset:disabled { cursor: not-allowed; opacity: .65; }.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.success { max-inline-size: 38rem; }.success h3 { margin: 0; color: var(--color-brand-text); }.success p { color: var(--color-black-700); }.reference { display: block; margin: 1rem 0; color: var(--color-primary); font-size: 1.15rem; }
 @media (max-width: 640px) { .grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.file-row { grid-template-columns: 1fr; } }
 </style>

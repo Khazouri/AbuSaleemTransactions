@@ -14,6 +14,122 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-02 09:55 EET — Claude — Stage 53 complete (RequestType catalogue + per-type document checklists)
+
+Built exactly per the plan below. One migration (`request_types.required_documents`, nullable json,
+applied to the real MySQL/Homestead database), `RequestType` cast to `array`, and
+`RequestTypeSeeder` grown from 7 to 12 rows (`CONF`/`APPT`/`CTRC`/`SETL`/`PEVG` added; every existing
+type also gained a seeded checklist, not just the new ones — an empty `required_documents` array on
+`LEAV`/`ALLW`/etc. would have rendered no checklist card at all, a worse gap than a reasonably-derived
+starting list). `SETL` picked up `default_has_financial_impact = true`, closing the exact gap Stage
+47's own note flagged ("settlement" was in that stage's example list with no matching type row yet).
+
+`RequestController::intakeOptions()`'s `types` payload gained `required_documents` — the one endpoint
+the intake screen actually calls — and `RequestIntakeView.vue` renders it as a read-only checklist
+card (bilingual `{ar, en}` pairs) once a type is picked, positioned between the basic-data fieldset
+and the attachments fieldset. No new validation, no enforcement — purely informational, matching the
+stage's own "soft checklist" framing. New `intake.requiredDocuments.*` locale keys in both
+`ar.json`/`en.json` (865 keys each side, zero on-one-side-only, verified programmatically).
+
+No admin CRUD screen was built for `RequestType` — confirmed by grep that none exists today (no
+`request_types` screen in `ScreenSeeder`, every read of the model elsewhere is lookup-only), and the
+stage's Build bullet only asked for the catalogue + checklists to exist, not an edit UI; the data
+stays seeded-only, matching `default_sla_days`/`decision_grade_threshold`'s existing precedent.
+
+Verification: extended `RequestIntakeTest.php` with a new test asserting all 12 codes are present in
+`/requests/intake-options` and that `PROM`'s checklist carries bilingual entries, full suite **211
+tests / 1215 assertions** green (was 210/1209), Pint clean on every touched/new file, `npm run build`
+passes with `RequestIntakeView` picking up the new markup in its existing chunk (then reverted
+`frontend/dist`, tracked in git, per every prior stage's note), and both the migration and the
+`RequestTypeSeeder` reseed ran clean against the real MySQL/Homestead database — confirmed via tinker
+that all 12 types exist with a non-empty `required_documents` array each.
+
+**Sourcing caveat, worth repeating for whoever reads this later**: the seeded checklists are derived
+from what `official-procedures-manual-index.md` §7 (Arts. 48–79) says each type-specific chapter
+requires, not copied from [D]'s literal per-type document appendices (the index is explicitly a
+structured summary, not a verbatim transcription, per its own README caveat) — treat these as a
+reasonable starting point, replace outright rather than layer on top once a future session has the
+actual appendix pages in hand.
+
+Next per STAGE_PLAN's suggested order: **Stage 54** (committee jurisdiction validation at initial
+review) or **Stage 54b** (status-vocabulary reconciliation) — both still open.
+
+---
+
+### 2026-09-02 09:30 EET — Claude — Stage 53 implementation plan (RequestType catalogue + per-type document checklists)
+
+Building Stage 53 per STAGE_PLAN.md Track I: `RequestType` currently has 7 rows (PROM/LEAV/ALLW/
+SECD/GRIV/TRNS/EOSV) against [D] Art. 46's six رئيسية functional groups (التعيين، التعاقد، الترقية،
+الندب، الإعارة، النقل) plus Art. 47's secondary categories — several of Art. 46/47's named categories
+have no matching row today, and none carry a per-type required-document checklist at all.
+
+**New types, exactly the ones the stage's own Build bullet names, no more:** `CONF` (تثبيت بعد
+الاختبار / Confirmation after probation — [A]'s jurisdiction item #1, [D] Arts. 48–51's own first
+type-specific chapter), `APPT` (التعيين / Appointment), `CTRC` (التعاقد / Contracting), `SETL`
+(تسوية وضع وظيفي / Employment status settlement — Arts. 72–74's "the specific thing being settled
+must be named" caution applies to how this type's own request title/description should be filled in,
+not to anything this stage enforces), `PEVG` (تظلم من تقييم أداء / Performance-evaluation grievance —
+Arts. 70–71 + 75–79: a grievance against a performance report is legally distinct from the generic
+`GRIV` grievance, since Art. 70 says the committee never substitutes for the direct manager's
+evaluation itself, only for a grievance *against* one with legal effect). Not adding a separate
+`الإعارة` (loan-to-another-body, Arts. 65–66) row this stage — Art. 46/47's own text treats الندب
+and الإعارة as two distinct legal mechanisms, but the stage's Build bullet doesn't name it explicitly
+and `SECD` ("Secondment"/انتداب) already occupies that conceptual space closely enough that adding a
+second, near-synonymous row without being asked would be scope creep, not a named gap.
+
+**`default_has_financial_impact` for the new types**: `SETL` gets `true` — Stage 47's own note
+explicitly named "settlement" as one of its five financial-impact examples
+("promotion, settlement, allowance, back-pay, grade change") that had no matching `RequestType` row
+yet and flagged Stage 53 as the place to close that gap; this stage closes it. The other four new
+types (`CONF`, `APPT`, `CTRC`, `PEVG`) default `false`, matching every other type outside Stage 47's
+named list.
+
+**`required_documents` — new nullable JSON column, seeded as a soft, informational checklist only,
+not enforced anywhere.** Migration `add_required_documents_to_request_types_table` adds
+`required_documents` (json, nullable, `after('default_has_financial_impact')`), cast to `array` on
+the model. Each entry is a bilingual `{ar, en}` pair, matching the app's house convention of
+name_ar/name_en pairs rather than a single-locale string list.
+
+**Honest sourcing caveat, stated up front rather than glossed over**: `official-procedures-manual-
+index.md` §7 (Arts. 48–79) is, per its own README, a **structured index of [D]'s 142 pages, not a
+verbatim transcription** — it names each type-specific chapter's legal principles and what the
+committee verifies, but does not reproduce the literal per-type document-list appendices article by
+article. So the checklist seeded here is built from what the index *does* say each chapter requires
+(e.g. Art. 75–79's grievance intake fields are described almost verbatim: "the grievance vs. the
+original decision, date of knowledge, reasons, the specific ask, supporting documents" — used
+directly for `GRIV`/`PEVG`; Arts. 52–57's "HR must first build a ملف استحقاق الترقية confirming legal/
+employment/financial conditions" — used for `PROM`'s checklist entries) rather than copied from an
+appendix this session cannot read verbatim. This is a judgment-call starting checklist, not a sourced
+appendix transcription — flagged here the same way Stage 52's ratio thresholds were flagged, so a
+future session with the actual PDF's appendix pages in hand replaces these seeded arrays outright
+rather than layering a second interpretation on top. Every existing type (`LEAV`, `ALLW`, `SECD`,
+`TRNS`, `EOSV`) also gets a first checklist for the same reason — a type with an empty
+`required_documents` array renders no checklist card on the intake screen, which is a worse UX gap
+than a reasonably-derived starting list.
+
+**No new admin CRUD screen for `RequestType`.** Confirmed by grep: no `request_types` screen exists
+in `ScreenSeeder`, and `RequestType` is read-only lookup data everywhere it's used
+(`RequestController::filters()/intakeOptions()`, `ReportController`, `StoreRequest`). Building a
+management UI is out of this stage's scope — the Build bullet only asks for the catalogue and its
+checklists to exist, not an edit screen; `required_documents` stays seeded, matching how
+`default_sla_days`/`decision_grade_threshold` are already seeded-only today with no edit UI.
+
+**Wiring**: `RequestController::intakeOptions()`'s `types` payload gains `required_documents`
+alongside its existing fields — that's the one endpoint the intake screen actually calls.
+`RequestIntakeView.vue` gets a new read-only checklist card shown once a type is selected
+(`selectedType.required_documents`, bilingual via the existing `name()`-style locale helper),
+positioned between the basic-data fieldset and the attachments fieldset — informational only, no
+new validation, matching the stage's own "soft checklist" framing. New `intake.requiredDocuments.*`
+locale keys in both `ar.json`/`en.json`.
+
+**Verification plan**: extend `RequestIntakeTest.php` (or add a new test) asserting
+`GET /requests/intake-options` returns `required_documents` for a seeded type and `[]`/`null`-safe for
+one with none; a quick seeder assertion that all 12 types now exist with the expected codes; the full
+PHPUnit suite, Pint on touched/new files, `npm run build`, and `php artisan migrate` +
+`db:seed --class=RequestTypeSeeder` against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-01 23:40 EET — Claude — Stage 52 complete (per-stage operational timeframes / soft SLA)
 
 Built exactly per the plan below. One migration (`workflow_stages.target_days_min`/`target_days_max`, both nullable),

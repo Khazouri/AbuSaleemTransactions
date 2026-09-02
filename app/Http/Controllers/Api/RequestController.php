@@ -108,7 +108,7 @@ class RequestController extends Controller
                 'types' => RequestType::query()
                     ->where('is_active', true)
                     ->orderBy('name_ar')
-                    ->get(['id', 'code', 'name_ar', 'name_en', 'decision_grade_threshold']),
+                    ->get(['id', 'code', 'name_ar', 'name_en', 'decision_grade_threshold', 'required_documents']),
             ],
         ]);
     }
