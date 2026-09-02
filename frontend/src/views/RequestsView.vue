@@ -164,7 +164,17 @@ onMounted(async () => {
                 </span>
                 <span v-else>{{ t('common.none') }}</span>
               </td>
-              <td>{{ name(request.current_stage) }}</td>
+              <td>
+                {{ name(request.current_stage) }}
+                <!-- Stage 52 — a non-blocking, per-stage soft-SLA dot; absent
+                     when the current stage has no sourced target. -->
+                <span
+                  v-if="request.stage_timeliness"
+                  class="timeliness-dot"
+                  :class="`level-${request.stage_timeliness.level}`"
+                  :title="t(`requestDetail.stageTimeliness.level.${request.stage_timeliness.level}`)"
+                />
+              </td>
               <td>{{ date(request.created_at) }}</td>
               <td>
                 <RouterLink class="ghost details-link" :to="{ name: 'request_details', params: { id: request.id } }">
@@ -213,6 +223,6 @@ select, input { min-width: 0; padding: .5rem .6rem; border: 1px solid var(--colo
 select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }.actions { display: flex; gap: .5rem; margin-top: 1rem; }
 button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }.ghost { padding: .4rem .65rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }button:disabled { cursor: not-allowed; opacity: .55; }
 .alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.alert .ghost { margin-inline-start: .5rem; }
-.state { padding: .5rem; margin: 0; color: var(--color-muted); }.table-wrap { overflow-x: auto; }table { width: 100%; min-width: 780px; border-collapse: collapse; }th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }tr:last-child td { border-bottom: 0; }td { font-size: .84rem; }.title { min-width: 12rem; font-weight: 600; }.reference { display: inline-block; font-family: var(--font-mono); font-size: .75rem; white-space: nowrap; }.status { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; }.status::before { content: ''; width: .5rem; height: .5rem; border-radius: 50%; background: var(--status-color); }
+.state { padding: .5rem; margin: 0; color: var(--color-muted); }.table-wrap { overflow-x: auto; }table { width: 100%; min-width: 780px; border-collapse: collapse; }th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }tr:last-child td { border-bottom: 0; }td { font-size: .84rem; }.title { min-width: 12rem; font-weight: 600; }.reference { display: inline-block; font-family: var(--font-mono); font-size: .75rem; white-space: nowrap; }.status { display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap; }.status::before { content: ''; width: .5rem; height: .5rem; border-radius: 50%; background: var(--status-color); }.timeliness-dot { display: inline-block; width: .55rem; height: .55rem; margin-inline-start: .35rem; border-radius: 50%; vertical-align: middle; }.timeliness-dot.level-green { background: var(--color-success-fg); }.timeliness-dot.level-yellow { background: var(--color-warning-fg); }.timeliness-dot.level-red { background: var(--color-danger-fg); }.timeliness-dot.level-critical { background: var(--color-danger-fg); box-shadow: 0 0 0 2px var(--color-danger-border); }
 .pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }.new-intake { text-decoration: none; white-space: nowrap; }.upload-action, .details-link { white-space: nowrap; }.details-link { display: inline-block; text-decoration: none; }.modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }.upload-modal { inline-size: min(100%, 31rem); padding: 1.25rem; }.modal-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.modal-heading h3 { margin: 0; color: var(--color-brand-text); font-size: 1rem; }.modal-heading .reference { margin: .15rem 0 0; color: var(--color-muted); }
 </style>

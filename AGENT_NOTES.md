@@ -14,6 +14,124 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-01 23:40 EET — Claude — Stage 52 complete (per-stage operational timeframes / soft SLA)
+
+Built exactly per the plan below. One migration (`workflow_stages.target_days_min`/`target_days_max`, both nullable),
+applied to the real MySQL/Homestead database, plus a `WorkflowStageSeeder` reseed carrying the [A] §12 → stage
+mapping recorded in the plan — verified via tinker: 7 of the 14 stages got a target (`receive_and_register`=1,
+`requirements_check`=3, `reviewer_review`=5, `observations`=5–10, `receive_from_committee`=3,
+`approval_by_authority`=5, `final_approval_archiving`=5), the other 7 stayed `null, null`.
+
+`Request::latestStageLog()` (`hasOne(...)->latestOfMany('acted_at')`) and `Request::stageTimeliness(): ?array`
+(the ratio-based green/yellow/red/critical bucketing) landed exactly as planned. **One real gotcha, not scope
+creep**: eager-loading `latestStageLog` with a restricted column list (`'latestStageLog:id,request_id,acted_at'`)
+breaks — Laravel's generated `latestOfMany` subquery join produces an "ambiguous column name: request_id" SQL
+error, because the column restriction interferes with the join's own internal aliasing. Fixed by eager-loading the
+relation with no column restriction (`'latestStageLog'`) in both `RequestController::index()` and
+`detailResource()`; `currentStage`'s column list still restricts to the fields actually needed
+(`target_days_min`/`target_days_max` added there). `RequestResource::stageTimeliness()` is unconditional, so every
+other endpoint reusing that resource (`ApprovalController`, `CommitteeCandidateController`, `ReportController`) now
+also calls it — verified this is silently safe, not an N+1 risk: those controllers eager-load `currentStage` with a
+column list that omits the two target columns, so `stage_timeliness` resolves to `null` there without touching
+`latestStageLog` at all (the method checks `target_days_max === null` before ever touching the log relation) —
+deliberately not extending soft-SLA visibility to those other lists, since Stage 52's own scope is the general
+request workspace, not every list screen.
+
+Frontend: `RequestResource`'s new field surfaces on both `RequestsView.vue` (a small colored dot next to the stage
+name, tooltip-labelled) and `RequestDetailView.vue`'s summary card (level badge + elapsed/target days line,
+styled after the existing `documentsComplete`/`financialImpact` rows) — both `v-if`-gated on the field being
+non-null, so a stage with no sourced target shows nothing rather than a fabricated "on target". New
+`requestDetail.stageTimeliness.*` locale keys in both `ar.json`/`en.json`. Never blocking — no gate, no workflow
+change, purely informational, per the stage's own Goal line.
+
+Verification: new `tests/Feature/StageTimelinessTest.php` (6 tests — green/yellow/red/critical bucketing against a
+hand-set `RequestStageLog.acted_at`, a stage with no sourced target reporting `null`, and the field round-tripping
+through both the list and detail endpoints), full suite **210 tests / 1209 assertions** green (was 204/1194), Pint
+clean on every touched/new file, `npm run build` passes with `RequestsView`/`RequestDetailView` picking up the new
+markup in their existing chunks (then reverted `frontend/dist`, tracked in git, per every prior stage's note),
+locale key-parity verified programmatically (863 keys each side, zero on-one-side-only), and the migration plus the
+`WorkflowStageSeeder` reseed both ran clean against the real MySQL/Homestead database. **Not verified: no browser
+this session** — the badge/dot's layout is calculated from the existing `.status`/`.sla-alert` patterns, not
+observed, consistent with every prior UI-touching note.
+
+**Open item for whoever builds Stage 53+**: the [A] §12 → 14-stage mapping and the 1.0/1.5/2.0 ratio thresholds are
+both documented judgment calls, not sourced figures — if a future session gets hold of [D]'s actual appendix
+(الملحق 7/8/37/38/71) with its real per-stage day counts and bucket boundaries, replace the seeded values and the
+threshold constants in `Request::stageTimeliness()` outright rather than layering a second interpretation on top.
+
+---
+
+### 2026-09-01 23:10 EET — Claude — Stage 52 implementation plan (per-stage operational timeframes / soft SLA)
+
+Building Stage 52 per STAGE_PLAN.md Track I: a non-blocking, per-`workflow_stages` target duration, surfaced as a
+green/yellow/red/critical escalation indicator — explicitly *not* a replacement for Stage 17's hard per-type
+`due_date`/`overdue_at` SLA, which stays untouched.
+
+**Source figures, not fabricated.** [D]'s own appendix ("الملحق 7, 8, 37, 38, 71" — "المدد التشغيلية المستهدفة") is
+the named source but its exact day-counts aren't reproduced anywhere in the locally-indexed docs; what *is* already
+quoted verbatim, and cross-referenced in `official-process-summary.md` as "Cf. [D]'s appendix... the primary
+reference for Track I Stage 52", is [A] §12's 10-step non-binding timeframe list (تسجيل الطلب وإشعار الموظف = يوم
+عمل; الفحص الأولي = 3 أيام; طلب النواقص = خلال 3 أيام; الدراسة الإدارية والفنية = 5–10 أيام; المراجعة القانونية = 5
+أيام; الإدراج في جدول الأعمال = أول اجتماع متاح; إعداد المحضر بعد الاجتماع = 3 أيام; الاعتماد المحلي = 5 أيام؛ تنفيذ
+القرار = 5 أيام; تبليغ الموظف = يوم-يومان). Using those.
+
+**Mapping [A] §12's 10 process steps onto the current 14 `workflow_stages` rows is a judgment call, recorded here
+rather than left implicit** — the two lists don't share granularity (some [A] steps are exception sub-flows or
+cross-cutting notification steps with no dedicated stage; some current stages, notably the diagram-alignment
+redesign's stages 2–3, postdate [A]'s process description entirely and have no timeframe named for them at all):
+- `receive_and_register` (4) ← "تسجيل الطلب وإشعار الموظف" = 1 day (exact name match: "الاستلام والتسجيل").
+- `requirements_check` (5) ← "الفحص الأولي" = 3 days.
+- `reviewer_review` (6) ← "المراجعة القانونية" = 5 days (its own name, "مراجعة المقرر وفق اللوائح", is a
+  regulatory/legal-conformance check — the closest fit).
+- `observations` (7) ← "الدراسة الإدارية والفنية" = 5–10 days (this is already this codebase's established "الدراسة"
+  checkpoint, per Stage 47/51's notes).
+- `receive_from_committee` (10) ← "إعداد المحضر بعد الاجتماع" = 3 days (post-vote/decision minutes prep happens at
+  this stage before the record moves to `approval_by_authority`).
+- `approval_by_authority` (11) ← "الاعتماد المحلي" = 5 days (exact conceptual match — local approval, per
+  permissions).
+- `final_approval_archiving` (14) ← "تنفيذ القرار بعد اعتماده" = 5 days (closest available stage for
+  post-decision execution/closing; "تبليغ الموظف" (1–2 days) is a notification sub-step already handled by
+  `NotificationDispatcher`, not modeled as its own stage, so it isn't separately targeted).
+- Left **without a target** (`target_days_min`/`max` both null — no indicator renders, not a fabricated "on
+  target"): `receive_from_municipality` (1, pre-registration intake, no [A] figure), `direct_manager_review` (2)
+  and `administrative_routing` (3) (both postdate [A]'s source text — added by the diagram-alignment redesign),
+  `ministry_endorsement` (8), `forward_to_committee` (9) ("الإدراج في جدول الأعمال" is "first available meeting",
+  not a day count), `local_governance_ministry` (12), `competent_authority` (13) (central-ministry steps, [A] only
+  says "عند الحاجة", no duration given).
+
+**Mechanism**: two new nullable `workflow_stages` columns, `target_days_min`/`target_days_max`
+(`unsignedSmallInteger`), seeded per the mapping above (both set together or both left null — no case needs a
+lone min or max). `Request` gains a `latestStageLog(): HasOne` (`hasOne(RequestStageLog::class)->latestOfMany
+('acted_at')`) — the latest stage-log row's `acted_at` is definitionally when the request arrived at its current
+stage, since every `WorkflowService`/`CommitteeStatusService` transition that changes `current_stage_id` writes a
+matching log row in the same transaction. New `Request::stageTimeliness(): ?array` (mirroring `isOverdue()`/
+`documentsComplete()`'s "small derived-fact method" pattern) returns `null` when the current stage has no target,
+else `{level, elapsed_days, target_days_min, target_days_max}`. **Threshold scheme is a second judgment call, since
+the source only names that 4 buckets exist (أخضر/أصفر/أحمر/حرج), not their boundaries**: ratio =
+elapsed_days / target_days_max; ≤1.0 green, ≤1.5 yellow, ≤2.0 red, else critical — a plain, symmetric doubling
+scheme, documented so a future stage with real boundary data can replace it outright rather than guess what this
+one meant. Calendar days, not business days — matching `RequestDeadlineService::dueDateFor()`'s existing precedent
+of plain calendar-day arithmetic (the source text says "أيام عمل" but Stage 17 already established this
+simplification for the hard SLA; keeping both mechanisms consistent with each other beats introducing business-day
+math only for the soft one).
+
+**Frontend**: `RequestResource`/`RequestDetailResource` (shared, so it's automatically on both the list and detail
+payload) gain `stage_timeliness`. `RequestsView.vue`'s stage column gets a small color dot (green/yellow/red/
+critical, using `--color-success/warning/danger-fg` tokens — "critical" reuses the danger family with a filled
+treatment rather than inventing a token) next to the stage name, only rendered when non-null; `RequestDetailView
+.vue`'s summary card gets one more row, styled after the existing `documentsComplete`/`financialImpact` rows,
+showing the level plus elapsed/target days. New `requestDetail.stageTimeliness.*` locale keys in both `ar.json`/
+`en.json`. **Never blocking**: no gate, no required action, no workflow change — purely informational, per the
+stage's own Goal line.
+
+**Verification plan**: new `tests/Feature/StageTimelinessTest.php` — a request just arrived at a targeted stage
+reads `green`; one past `target_days_max` reads `yellow`, past 1.5x reads `red`, past 2x reads `critical`; a
+request at a stage with no target returns `null`; the field round-trips through both `RequestResource` and
+`RequestDetailResource` — plus the full PHPUnit suite, Pint on touched/new files, `npm run build`, and `php
+artisan migrate` against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-01 17:20 EET — Claude — Stage 51 complete (employee-facing visibility)
 
 Built exactly per the plan below. No migration — every field is derived from existing columns/

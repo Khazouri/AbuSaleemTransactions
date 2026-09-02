@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $code e.g. 'requirements_check'
  * @property string $name_ar
  * @property int|null $responsible_role_id Display only — NOT access control
+ * @property int|null $target_days_min Stage 52 — non-binding soft-SLA target
+ * @property int|null $target_days_max Stage 52 — non-binding soft-SLA target
  */
 class WorkflowStage extends Model
 {
@@ -28,6 +30,8 @@ class WorkflowStage extends Model
         'name_en',
         'responsible_role_id',
         'description',
+        'target_days_min',
+        'target_days_max',
     ];
 
     /**

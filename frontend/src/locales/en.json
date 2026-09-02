@@ -314,6 +314,17 @@
       "yes": "File complete",
       "no": "Awaiting missing documents"
     },
+    "stageTimeliness": {
+      "label": "Stage timeliness",
+      "noTarget": "No target duration for this stage",
+      "elapsed": "{days} day(s) at this stage (target: {target})",
+      "level": {
+        "green": "Within the target duration",
+        "yellow": "Slightly past the target duration",
+        "red": "Significantly past the target duration",
+        "critical": "Critically past the target duration"
+      }
+    },
     "committeeSummary": {
       "title": "Committee presentation",
       "meetingNumber": "Meeting number",

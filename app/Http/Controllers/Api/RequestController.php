@@ -50,7 +50,13 @@ class RequestController extends Controller
                 'department:id,name_ar,name_en,code',
                 'requestType:id,code,name_ar,name_en,decision_grade_threshold',
                 'status:id,code,name_ar,name_en,color',
-                'currentStage:id,order_no,code,name_ar,name_en',
+                // Stage 52 — target_days_* feed stageTimeliness(); latestStageLog
+                // is a single-subquery eager load (latestOfMany), not per-row N+1.
+                'currentStage:id,order_no,code,name_ar,name_en,target_days_min,target_days_max',
+                // No column restriction here — latestOfMany's generated join
+                // needs the full row shape or the subquery's column names
+                // collide ("ambiguous column name: request_id").
+                'latestStageLog',
             ])
             ->when($filters['status'] ?? null, function ($query, string $status) {
                 $query->whereHas('status', fn ($statusQuery) => $statusQuery->where('code', $status));
@@ -296,7 +302,14 @@ class RequestController extends Controller
             'department:id,name_ar,name_en,code',
             'requestType:id,code,name_ar,name_en,decision_grade_threshold',
             'status:id,code,name_ar,name_en,color',
-            'currentStage:id,order_no,code,name_ar,name_en',
+            // Stage 52 — target_days_* feed stageTimeliness(); latestStageLog
+            // gives it the current-stage entry timestamp without re-deriving
+            // it from the full stageLogs history loaded below.
+            'currentStage:id,order_no,code,name_ar,name_en,target_days_min,target_days_max',
+            // No column restriction here — latestOfMany's generated join
+            // needs the full row shape or the subquery's column names
+            // collide ("ambiguous column name: request_id").
+            'latestStageLog',
             'createdBy:id,name',
             'attachments:id,request_id,original_name,mime_type,size_bytes,label,uploaded_by_user_id,created_at',
             'stageLogs' => fn ($query) => $query->orderBy('acted_at')->orderBy('id'),

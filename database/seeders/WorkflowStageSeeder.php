@@ -24,6 +24,17 @@ use Illuminate\Support\Facades\DB;
  * deliberately left NULL for them; a role FK cannot express that.
  *
  * Runs after RoleSeeder (looks roles up by code).
+ *
+ * Stage 52 — `target_days_min`/`target_days_max` are a non-binding, soft-SLA
+ * target duration per stage (never blocking — see App\Models\Request::
+ * stageTimeliness()). Sourced from [A] §12's 10-step timeframe list, which
+ * `docs/employee-committee-lifecycle/official-process-summary.md` cross-
+ * references as the same figures [D]'s own appendix uses. [A]'s 10 steps and
+ * this table's 14 stages don't share granularity, so the mapping below is a
+ * judgment call — recorded in full in AGENT_NOTES.md's Stage 52 plan entry,
+ * not re-derived here. A stage left `null, null` genuinely has no sourced
+ * target (either it postdates [A]'s text — the diagram-alignment redesign's
+ * stages 2–3 — or [A] gives it no day count at all, e.g. "أول اجتماع متاح").
  */
 class WorkflowStageSeeder extends Seeder
 {
@@ -41,29 +52,29 @@ class WorkflowStageSeeder extends Seeder
         // there are only 14 rows.
         WorkflowStage::query()->update(['order_no' => DB::raw('order_no + 1000')]);
 
-        // [order, code, Arabic name, English name, role usually holding it (or null — see docblock)]
+        // [order, code, Arabic name, English name, role usually holding it (or null — see docblock), target_days_min, target_days_max]
         $stages = [
-            [1,  'receive_from_municipality', 'استلام الطلب من البلدية',        'Receive from municipality',     'R01'],
-            [2,  'direct_manager_review',     'مراجعة الطلب من المدير المباشر',    'Direct manager review',         null],
-            [3,  'administrative_routing',    'إحالة الطلب لأحد المسارات الإدارية', 'Administrative routing',        null],
-            [4,  'receive_and_register',      'الاستلام والتسجيل',                'Receive and register',          null],
-            [5,  'requirements_check',        'فحص استيفاء المتطلبات',           'Requirements check',           'R02'],
-            [6,  'reviewer_review',           'مراجعة المقرر وفق اللوائح',        'Reviewer review',              'R02'],
-            [7,  'observations',              'إبداء الملاحظات (إن وجدت)',        'Observations (if any)',        'R02'],
-            [8,  'ministry_endorsement',      'اعتماد الوزارة',                  'Ministry endorsement',         'R05'],
-            [9,  'forward_to_committee',      'تحويل الطلب للجنة القائمة',     'Forward to committee',         'R05'],
+            [1,  'receive_from_municipality', 'استلام الطلب من البلدية',        'Receive from municipality',     'R01', null, null],
+            [2,  'direct_manager_review',     'مراجعة الطلب من المدير المباشر',    'Direct manager review',         null, null, null],
+            [3,  'administrative_routing',    'إحالة الطلب لأحد المسارات الإدارية', 'Administrative routing',        null, null, null],
+            [4,  'receive_and_register',      'الاستلام والتسجيل',                'Receive and register',          null, 1, 1],
+            [5,  'requirements_check',        'فحص استيفاء المتطلبات',           'Requirements check',           'R02', 3, 3],
+            [6,  'reviewer_review',           'مراجعة المقرر وفق اللوائح',        'Reviewer review',              'R02', 5, 5],
+            [7,  'observations',              'إبداء الملاحظات (إن وجدت)',        'Observations (if any)',        'R02', 5, 10],
+            [8,  'ministry_endorsement',      'اعتماد الوزارة',                  'Ministry endorsement',         'R05', null, null],
+            [9,  'forward_to_committee',      'تحويل الطلب للجنة القائمة',     'Forward to committee',         'R05', null, null],
             // Display role only (see docblock): R03 -> R09. The R03
             // decision-action `required_role_id` on vote/decision transitions
             // is seeded separately in WorkflowTransitionSeeder and is
             // unaffected by this indicative field.
-            [10, 'receive_from_committee',    'استلام الطلب من اللجنة',        'Receive from committee',       'R09'],
-            [11, 'approval_by_authority',     'اعتماد (حسب الصلاحيات)',          'Approval (per permissions)',   'R05'],
-            [12, 'local_governance_ministry', 'وزارة الحكم المحلي',              'Local Governance Ministry',    'R06'],
-            [13, 'competent_authority',       'اعتماد الجهة المختصة',            'Competent authority approval', 'R07'],
-            [14, 'final_approval_archiving',  'الاعتماد النهائي والأرشفة',        'Final approval & archiving',   'R07'],
+            [10, 'receive_from_committee',    'استلام الطلب من اللجنة',        'Receive from committee',       'R09', 3, 3],
+            [11, 'approval_by_authority',     'اعتماد (حسب الصلاحيات)',          'Approval (per permissions)',   'R05', 5, 5],
+            [12, 'local_governance_ministry', 'وزارة الحكم المحلي',              'Local Governance Ministry',    'R06', null, null],
+            [13, 'competent_authority',       'اعتماد الجهة المختصة',            'Competent authority approval', 'R07', null, null],
+            [14, 'final_approval_archiving',  'الاعتماد النهائي والأرشفة',        'Final approval & archiving',   'R07', 5, 5],
         ];
 
-        foreach ($stages as [$order, $code, $nameAr, $nameEn, $roleCode]) {
+        foreach ($stages as [$order, $code, $nameAr, $nameEn, $roleCode, $targetMin, $targetMax]) {
             // Keyed on `code` so stage ids stay stable across re-seeds —
             // requests and transitions both point at them.
             WorkflowStage::updateOrCreate(
@@ -73,6 +84,8 @@ class WorkflowStageSeeder extends Seeder
                     'name_ar' => $nameAr,
                     'name_en' => $nameEn,
                     'responsible_role_id' => $roleCode === null ? null : $rolesByCode[$roleCode]?->id,
+                    'target_days_min' => $targetMin,
+                    'target_days_max' => $targetMax,
                 ],
             );
         }

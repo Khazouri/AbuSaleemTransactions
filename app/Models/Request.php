@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * A staff-affairs request travelling through the 11-stage workflow.
@@ -73,6 +74,18 @@ class Request extends Model
         return $this->hasMany(RequestStageLog::class);
     }
 
+    /**
+     * Stage 52 — the log row that put this request at its current stage. Every
+     * transition that changes current_stage_id writes a matching stage-log
+     * row in the same DB transaction (WorkflowService/CommitteeStatusService),
+     * so the latest row's acted_at is definitionally the current-stage entry
+     * time — no separate "stage entered at" column needed.
+     */
+    public function latestStageLog(): HasOne
+    {
+        return $this->hasOne(RequestStageLog::class)->latestOfMany('acted_at');
+    }
+
     public function statusHistory(): HasMany
     {
         return $this->hasMany(RequestStatusHistory::class);
@@ -126,5 +139,47 @@ class Request extends Model
     public function documentsComplete(): bool
     {
         return ! in_array($this->status?->code, ['incomplete', 'completion_required'], true);
+    }
+
+    /**
+     * Stage 52 — a non-binding, per-stage soft-SLA indicator, distinct from
+     * isOverdue()'s hard per-type deadline. Null when the current stage has
+     * no sourced target (see WorkflowStageSeeder) — the absence of a target
+     * is never rendered as "on target".
+     *
+     * The four-bucket ratio scheme (elapsed / target_days_max) is a
+     * documented judgment call — the source names the four buckets
+     * (أخضر/أصفر/أحمر/حرج) but not their boundaries. See AGENT_NOTES.md.
+     */
+    public function stageTimeliness(): ?array
+    {
+        $stage = $this->currentStage;
+
+        if ($stage === null || $stage->target_days_max === null) {
+            return null;
+        }
+
+        $enteredAt = $this->latestStageLog?->acted_at;
+
+        if ($enteredAt === null) {
+            return null;
+        }
+
+        $elapsedDays = max(0, $enteredAt->copy()->startOfDay()->diffInDays(now()->startOfDay()));
+        $ratio = $elapsedDays / $stage->target_days_max;
+
+        $level = match (true) {
+            $ratio <= 1.0 => 'green',
+            $ratio <= 1.5 => 'yellow',
+            $ratio <= 2.0 => 'red',
+            default => 'critical',
+        };
+
+        return [
+            'level' => $level,
+            'elapsed_days' => $elapsedDays,
+            'target_days_min' => $stage->target_days_min,
+            'target_days_max' => $stage->target_days_max,
+        ];
     }
 }

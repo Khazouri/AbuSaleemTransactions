@@ -48,6 +48,9 @@ class RequestResource extends JsonResource
             'due_date' => $this->due_date?->toDateString(),
             'is_overdue' => $this->isOverdue(),
             'overdue_at' => $this->overdue_at?->toIso8601String(),
+            // Stage 52 — soft, non-blocking per-stage target; null when the
+            // current stage has no sourced target duration.
+            'stage_timeliness' => $this->stageTimeliness(),
             'created_at' => $this->created_at?->toIso8601String(),
             // Stage 44 — the requester ("الموظف"), only populated when a
             // caller explicitly eager-loads createdBy (e.g. the committee
