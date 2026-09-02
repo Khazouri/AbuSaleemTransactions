@@ -6,6 +6,7 @@ use App\Exceptions\WorkflowTransitionException;
 use App\Models\Approval;
 use App\Models\Request;
 use App\Models\RequestStageLog;
+use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
 use App\Models\Role;
 use App\Models\User;
@@ -39,13 +40,16 @@ class WorkflowService
      * Stage order remains useful for routing, while this level gives reports
      * a stable reviewer-to-final sequence even if stage labels later change.
      */
+    // Stage 57 removed competent_authority as a distinct approval tier — the
+    // standard has no third post-committee approver, only the mayor and, when
+    // required, the ministry (see AGENT_NOTES.md). A full chain is now 5
+    // levels, not 6.
     private const APPROVAL_LEVELS = [
         'requirements_check' => 1,
         'receive_from_committee' => 2,
         'approval_by_authority' => 3,
         'local_governance_ministry' => 4,
-        'competent_authority' => 5,
-        'final_approval_archiving' => 6,
+        'final_approval_archiving' => 5,
     ];
 
     /**
@@ -319,10 +323,11 @@ class WorkflowService
         $fromStageId = $lockedRequest->current_stage_id;
         $fromStatusId = $lockedRequest->status_id;
         $toStageId = $this->destinationStageId($lockedRequest, $rule);
+        $statusId = $this->destinationStatusId($lockedRequest, $rule);
 
         $lockedRequest->current_stage_id = $toStageId;
-        if ($rule->set_status_id !== null) {
-            $lockedRequest->status_id = $rule->set_status_id;
+        if ($statusId !== null) {
+            $lockedRequest->status_id = $statusId;
         }
         $lockedRequest->save();
 
@@ -354,11 +359,11 @@ class WorkflowService
         // A configured status is stamped and recorded on every move, even
         // when adjacent stages share a broad status such as `in_review`.
         // That preserves the exact rule outcome alongside the stage log.
-        if ($rule->set_status_id !== null) {
+        if ($statusId !== null) {
             RequestStatusHistory::create([
                 'request_id' => $lockedRequest->id,
                 'from_status_id' => $fromStatusId,
-                'to_status_id' => $rule->set_status_id,
+                'to_status_id' => $statusId,
                 'reason' => $comment,
                 'changed_by_user_id' => $actor->id,
                 'changed_at' => $occurredAt,
@@ -477,23 +482,43 @@ class WorkflowService
     }
 
     /**
-     * Stage 18 conditional branch: after the admin manager approves, low-grade
-     * work bypasses ministry and lands directly with the competent authority.
+     * Stage 18 conditional branch, restructured by Stage 57: after the admin
+     * manager approves, low-grade work skips the ministry checkpoint
+     * entirely and lands directly at final approval — the standard's
+     * mayor-only path, with no third approving authority in between.
      */
     private function destinationStageId(Request $requestRecord, WorkflowTransition $rule): int
     {
-        $fromStageCode = $rule->fromStage()->value('code');
-
-        if ($rule->action !== 'approve'
-            || $fromStageCode !== 'approval_by_authority'
-            || $requestRecord->requiresMinistryApproval()) {
+        if (! $this->bypassesMinistryApproval($requestRecord, $rule)) {
             return $rule->to_stage_id;
         }
 
         return WorkflowStage::query()
-            ->where('code', 'competent_authority')
+            ->where('code', 'final_approval_archiving')
             ->firstOrFail()
             ->id;
+    }
+
+    /**
+     * Stage 57 — the bypass above also has to override the status, not just
+     * the stage: the row's own `set_status_id` (`approved`, still meaning
+     * "one more approval pending" on the normal ministry-bound path) would
+     * misrepresent the bypass arrival, where nothing is left pending.
+     */
+    private function destinationStatusId(Request $requestRecord, WorkflowTransition $rule): ?int
+    {
+        if (! $this->bypassesMinistryApproval($requestRecord, $rule)) {
+            return $rule->set_status_id;
+        }
+
+        return RequestStatus::query()->where('code', 'final_approved')->value('id');
+    }
+
+    private function bypassesMinistryApproval(Request $requestRecord, WorkflowTransition $rule): bool
+    {
+        return $rule->action === 'approve'
+            && $rule->fromStage()->value('code') === 'approval_by_authority'
+            && ! $requestRecord->requiresMinistryApproval();
     }
 
     /** Only normal `approve` moves belong in the approval-specific ledger. */

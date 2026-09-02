@@ -14,6 +14,232 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-02 14:35 EET — Claude — Stage 57 complete (⚠ pre-committee ministry stage + approval-tail restructure)
+
+Built exactly per the plan below. No new migration — this is purely a seed-data + service-logic
+restructure (`workflow_stages`/`workflow_transitions`/`screens`/`screen_role_permissions` are all
+seeded, not migrated, tables). `WorkflowStageSeeder` now deletes `ministry_endorsement` and
+`competent_authority` first (their `workflow_transitions` rows cascade-delete automatically —
+`from_stage_id`/`to_stage_id` are `cascadeOnDelete` on `workflow_stages`, confirmed by reading the
+migration before relying on it) then renumbers the surviving 12 with the same bump-then-set idiom
+Stage 51/52 already established. `WorkflowTransitionSeeder`: `observations` now forwards straight
+into `forward_to_committee` (same role R02, same status `ready`); `local_governance_ministry`'s
+approve now targets `final_approval_archiving` directly with `set_status_id` = `final_approved` (was
+`competent_authority` / `approved`); the old `competent_authority → final_approval_archiving` row is
+gone; both doomed stages dropped out of `cancellationRoles` and the deadline-escalation list (leaving
+them in would have thrown on a missing `$stages[...]` key the moment the stage rows were actually
+gone — a loud failure I confirmed doesn't happen, not a silent one I had to guess about).
+
+`WorkflowService::APPROVAL_LEVELS` drops `competent_authority`, `final_approval_archiving` moves from
+level 6 to 5. The one real mechanical fix, flagged in the plan below as the wrinkle to watch:
+`destinationStageId()`'s existing runtime bypass override only ever touched `to_stage_id`, leaving
+`set_status_id` applied as-authored regardless of which branch fired — harmless while the bypass
+target (`competent_authority`) still meant "one approval pending" either way, wrong once the bypass
+target became `final_approval_archiving` itself (arrival there means every approval is done). Added a
+sibling `destinationStatusId()` mirroring the same new `bypassesMinistryApproval()` predicate, wired
+into `applyRule()` everywhere `$rule->set_status_id` was previously read directly (both the model
+write and the `RequestStatusHistory` row) — confirmed by the tinker smoke test below that the bypass
+path now stamps `final_approved` on arrival, matching Stage 54b's own reconciliation of that status
+against Art. 38 code 17.
+
+Screens: `ScreenSeeder` now has its **first-ever explicit deletion** (`authority_approval` — its
+`screen_role_permissions` rows cascade-delete with it, confirmed by reading that migration too), with
+the removal mirrored in `ApprovalController::LEVELS`, `RequestController::
+actorCanApproveCurrentLevel()`'s `$screenByStage`, `routes/api.php`'s `$approvalScreens` (which also
+removes the `/approvals/authority` routes for free, since that array drives a route-registration
+loop), `ScreenRolePermissionSeeder::DEFAULTS`, and the two frontend arrays that mirror the same list
+generically (`router/index.js`, `AppSidebar.vue`'s `ICON_BY_CODE`). R07 now holds exactly one approval
+screen (`final_approval`) instead of two.
+
+**Test files needing real edits, found by grepping the affected codes and reading every hit in
+context rather than assumed from the filename** (per the plan's own inventory): `tests/Unit/
+WorkflowServiceTest.php` — the full happy-path walk (14→12 stage-log entries, approval level sequence
+range(1,6)→range(1,5), role-pluck list loses a duplicate `R07`), the seeded-rule-shape counts (15→13
+non-exception rows, 16→14 cancel rows, both per-stage-code maps, plus new assertions that both doomed
+codes are genuinely absent from the rule map, not merely unreferenced), and the low-grade ministry-skip
+test (one fewer `forward`/R05 step in the setup since the two-hop `ministry_endorsement` detour is
+gone, bypass destination `competent_authority`→`final_approval_archiving` with the new
+`final_approved` status, one R07 click instead of two to reach `in_execution`).
+`tests/Feature/CommitteeSeatRosterTest.php` — the ministry-delegate-seat guarantee test's bypass-branch
+assertion. `tests/Feature/MeetingOutputsTest.php` — one hardcoded `level => 6` assertion, caught by the
+first full-suite run, not anticipated in the plan (the plan's file inventory missed this one hit since
+the initial grep for the four stage codes doesn't catch a bare approval-level literal with no stage
+code nearby — worth remembering: a renumbered level sequence needs its own separate grep, `level.*[0-9]`
+near `approvals`, not just the stage-code grep). Every other file the initial grep matched
+(`ApprovalChainTest`, `DecisionOutcomeTemplateTest`, `CommitteeCandidatesDashboardTest`,
+`DecisionVotingTest`, `RequestSlaTest`, `RequirementsCheckJurisdictionTest`, my own
+`EmployeeRequestVisibilityTest`) needed no change — confirmed by reading each hit, not assumed.
+
+Verification: full suite **219 tests / 1267 assertions** green (was 219/1264 before this stage's test
+rewrites — same test count, net +3 assertions from the two new "genuinely absent, not just
+unreferenced" assertions plus the new status assertion in the seat-roster test), Pint clean on every
+touched file, `npm run build` passes with `RequestDetailView`/`ApprovalQueueView` picking up nothing
+new (no frontend markup changed, only two small array literals) in their existing chunks — then
+reverted `frontend/dist`, tracked in git, per every prior stage's note. Reseeded
+`WorkflowStageSeeder`/`WorkflowTransitionSeeder`/`ScreenSeeder`/`ScreenRolePermissionSeeder` against the
+real MySQL/Homestead database and confirmed via tinker: 12 stages (both doomed codes genuinely absent,
+not just unreferenced), 29 screens (`authority_approval` gone), 54 transitions with zero rows
+referencing a now-missing stage. Ran a full end-to-end smoke test directly against the real database
+inside a rolled-back transaction (no residue — `Request::count()` still 0 afterward): the
+ministry-required branch walks `approval_by_authority`[approved]→`local_governance_ministry`[approved]
+→`final_approval_archiving`[final_approved]→(self-loop)[in_execution]; the bypass branch walks
+`approval_by_authority`→`final_approval_archiving`[final_approved] directly→(self-loop)[in_execution]
+— both exactly as designed. `gap-analysis.md` §14 updated with the resolution (git-ignored, local-only,
+not a tracked-file change), same housekeeping Stage 54b did for its own table.
+
+**Open items for whoever builds further Track I stages**, both already flagged as deliberate scoping
+decisions, not oversights: (1) `jurisdiction_test.requires_central_approval` (Stage 54's Art. 45 Q6
+answer) still drives nothing downstream — a future stage could wire it into the ministry-routing branch
+instead of/alongside `requiresMinistryApproval()`, but that's an independent design decision from this
+stage's stage-count restructuring, deliberately not conflated with it. (2) [A] §5's Path 3
+(send-the-minutes-back-for-reconsideration) has no equivalent — a genuinely new capability, not named
+in this stage's Build bullet. Stage 58 (appeal/تظلم lifecycle) is next per STAGE_PLAN's own text,
+flagged there as comparable in size to all of Track H and needing its own sub-staging when scheduled.
+
+---
+
+### 2026-09-02 13:40 EET — Claude — Stage 57 implementation plan (⚠ pre-committee ministry stage + approval-tail restructure)
+
+Building Stage 57 per STAGE_PLAN.md Track I — the one stage in the whole track explicitly flagged
+"needs its own design pass before touching code, not a quick fix alongside another stage." Took that
+literally: read [D] Art. 31/92–97, [E] stages 14–21, [A] §5's Path 1/2/3, and gap-analysis.md §14 in
+full before writing any code, then checked the real database for actual blast radius.
+
+**Blast radius check first.** `Request::count()` against the real MySQL/Homestead database is **0** —
+this is a dev/test system with no live requests sitting at any of the affected stages. The "in-flight
+requests need a defined migration path" risk STAGE_PLAN itself flags is therefore moot for *this*
+database today; the remaining risk is purely the code/test surface (stage graph, approval levels,
+screens, ~15 files). Grepped the whole repo for the four affected stage codes and the two doomed
+approval-screen codes to build a complete file inventory before touching anything, rather than fixing
+forward from memory.
+
+**What the standard actually says, reconciled against what's currently built:**
+[E]'s 21-stage table (stages 14–17) and [A] §5 agree on one model: after the committee decides, the
+minutes go to **عميد البلدية أو المفوض قانونًا** (the mayor or their legal delegate) for approval;
+*from there* a single binary gate ("هل تتطلب الحالة إجراء أو موافقة مركزية؟", [E] stage 15) decides
+whether the file also needs **وزارة الحكم المحلي** (Path 2) or is done (Path 1). There is no
+third approving *party* after the ministry — [E] stage 17's "الاعتماد النهائي" is the *completion
+checkpoint* ("once every required approval is complete"), not a separate authority's approval, and
+[A] §5 Path 2 itself treats "وزارة الحكم المحلي أو وزارة الخدمة المدنية أو الجهة المختصة" as
+interchangeable names for the *same* central-approval party, not three sequential approvers. Current
+system has **two** structural mismatches against this: (1) `ministry_endorsement` sits at workflow
+stage 8, *before* the committee ever sees the request (stage 9's `forward_to_committee`) — no
+document puts ministry involvement before the committee's own decision; (2) the post-committee tail
+is 4 levels (`approval_by_authority`→`local_governance_ministry`→`competent_authority`→
+`final_approval_archiving`) gated by a numeric `decision_grade` threshold, not the standard's binary
+two-path branch. **Fix: delete `ministry_endorsement` entirely (14→13 stages) and delete
+`competent_authority` as a separate stage/screen/approval-level (13→12 stages)**, collapsing the tail
+to `approval_by_authority` → [conditional] `local_governance_ministry` → `final_approval_archiving`.
+
+**Explicitly NOT touched, and why — a scoping decision worth restating before someone assumes it was
+missed:** Stage 54 (already built) added `requests.jurisdiction_test`, whose Q6
+(`requires_central_approval`) is [D] Art. 45's *own* early, human-recorded answer to almost this exact
+question ("هل توجد موافقة مسبقة أو لاحقة من وزارة الحكم المحلي؟"), captured at `requirements_check`
+— and today it drives *nothing* downstream; it only gates the three `requirements_check` actions.
+Swapping the post-committee branch's signal from `Request::requiresMinistryApproval()`
+(`decision_grade` vs `RequestType.decision_grade_threshold`, purpose-built for exactly this gate,
+already tested end-to-end including the Stage 45 ministry-delegate-seat guarantee) to
+`jurisdiction_test.requires_central_approval` would be a second, *independent* design decision — which
+signal drives ministry-routing — conflated with this stage's actual ask (how many *stages* the tail
+has). STAGE_PLAN's own Build bullet is about stage/screen structure, not about re-plumbing which field
+drives the existing bypass; changing both at once would make it much harder to isolate a regression
+in either. Flagging this as a concrete, well-defined open item for a future stage (wire
+`jurisdiction_test.requires_central_approval` into the branch, and decide what happens if it disagrees
+with `requiresMinistryApproval()`) rather than silently deciding it here.
+
+Also not touched: [A] §5's **Path 3** ("جهة الاعتماد ترفض التوصية أو تطلب تعديلها → إعادة مسببة
+للجنة") — a send-the-minutes-back-for-reconsideration outcome with no current equivalent. STAGE_PLAN's
+Stage 57 Build bullet doesn't name it, and it's a genuinely new capability (a new exception transition
++ status), not a restructuring of what exists — left as an open item, not built.
+
+**The one real mechanical wrinkle, worth recording before writing the fix**: `WorkflowService::
+destinationStageId()` already overrides `to_stage_id` at runtime (bypassing to whatever the low-grade
+destination is) but the transition rule's `set_status_id` is always applied as-authored, unconditionally
+— today that's harmless because the bypass target (`competent_authority`) still means "one approval
+still pending" under either branch, so status `approved` is correct regardless of which branch fired.
+Once the bypass target becomes `final_approval_archiving` directly, reusing the row's fixed `approved`
+status would misrepresent "every approval done" as "still pending" — Stage 54b's own status
+reconciliation confirmed `approved` deliberately spans "pending mayor OR pending ministry" (Art. 38
+codes 15–16) while `final_approved` is the exact-match code 17 ("every approval complete"). Fix: a new
+sibling `destinationStatusId()` mirroring the same `bypassesMinistryApproval()` predicate, used in
+`applyRule()` everywhere `$rule->set_status_id` was read directly (both the model write and the
+`RequestStatusHistory` row) — so the bypass path now stamps `final_approved` on arrival, matching the
+non-bypass path's eventual arrival status once `local_governance_ministry` approves (that row's own
+`set_status_id` changes from `approved` to `final_approved` too, since ministry approving is now the
+literal last gate before `final_approval_archiving`).
+
+**New stage numbering (14 → 12, `WorkflowStageSeeder`)**: delete the two stage rows first (their
+`workflow_transitions` rows cascade-delete automatically — `from_stage_id`/`to_stage_id` are
+`cascadeOnDelete` on `workflow_stages`, confirmed by reading the migration), then the existing
+bump-by-1000-then-set-final-values idiom (same one Stage 51/52 already established) renumbers the
+remaining 12: …6 reviewer_review, 7 observations, **8 forward_to_committee** (was 9), **9
+receive_from_committee** (was 10), **10 approval_by_authority** (was 11), **11
+local_governance_ministry** (was 12), **12 final_approval_archiving** (was 14). Stages 1–7 keep their
+current order_no unchanged (both removed stages sit after them). No `target_days_min`/`max` value is
+lost — both removed stages were seeded `null,null` (no sourced Stage 52 target) already.
+
+**`WorkflowTransitionSeeder` changes**: `observations`'s `forward` row now targets
+`forward_to_committee` directly (same role R02, same status `ready` — collapses two R02/R05 hops into
+one, since `ministry_endorsement`'s only real content was "sit at another R05-owned stage before the
+R05-owned agenda-insertion stage"). `local_governance_ministry`'s `approve` row now targets
+`final_approval_archiving` directly with `set_status_id` = `final_approved` (was `competent_authority`
+/ `approved`). The old `competent_authority → final_approval_archiving` row is deleted outright — no
+replacement, since that stage no longer exists. Both stages also drop out of `cancellationRoles` and
+`$openStageCodesForDeadlineEscalation` (their rows would cascade-delete anyway once the stage is gone,
+but the seeder's own arrays would otherwise throw on a missing `$stages[...]` key on next reseed — a
+loud failure, not a silent one, but removing them up front is the honest fix).
+
+**`WorkflowService::APPROVAL_LEVELS`**: drop `competent_authority => 5`; `final_approval_archiving`
+moves from level 6 to level 5. A full approval chain is now 5 ledger rows, not 6 (reviewer, committee,
+admin-manager, [ministry], final-self-loop) — one fewer even on the path that still visits ministry,
+since the old design needed two separate R07 clicks (`authority` then `final`) to close out a request
+that had already cleared ministry; now one R07 self-loop click does it.
+
+**Screens/routes**: delete the `authority_approval` screen (its `screen_role_permissions` rows
+cascade-delete — confirmed via migration) — the **first** screen this seeder has ever had to actually
+remove rather than just add/modify, so `ScreenSeeder` needs an explicit `Screen::whereIn(...)->delete()`
+call, not just dropping the row from its upsert array (which would leave a stale, orphaned row behind).
+Mirrored removals: `ApprovalController::LEVELS['authority']`, `RequestController::
+actorCanApproveCurrentLevel()`'s `$screenByStage['competent_authority']`, `routes/api.php`'s
+`$approvalScreens['authority']` (which also deletes the `/approvals/authority` routes for free, since
+that array drives a loop), `ScreenRolePermissionSeeder::DEFAULTS['authority_approval']`, and the two
+frontend arrays that mirror the same list generically (`router/index.js`'s approvals-screen map,
+`AppSidebar.vue`'s `ICON_BY_CODE`). R07 keeps exactly one approval screen (`final_approval`) instead of
+two.
+
+**Test files needing real edits** (found by grepping the 4 stage codes + inspecting each hit, not
+assumed): `tests/Unit/WorkflowServiceTest.php` — the full happy-path walk (14→12 steps, level sequence
+range(1,6)→range(1,5), role-pluck list loses a duplicate `R07`), the seeded-rule-shape counts (15→13
+non-exception rows, 16→14 cancel rows, both per-stage-code maps), and the low-grade ministry-skip test
+(bypass destination `competent_authority`→`final_approval_archiving`, one fewer approval click).
+`tests/Feature/CommitteeSeatRosterTest.php` — the ministry-delegate-seat guarantee test's bypass-branch
+assertion (`competent_authority`→`final_approval_archiving`, plus asserting the new `final_approved`
+status). Every other file the initial grep matched (`ApprovalChainTest`, `DecisionOutcomeTemplateTest`,
+`CommitteeCandidatesDashboardTest`, `DecisionVotingTest`, `MeetingOutputsTest`, `RequestSlaTest`,
+`RequirementsCheckJurisdictionTest`, my own `EmployeeRequestVisibilityTest`) only reference stage codes
+that are unaffected by this change (`approval_by_authority`, `local_governance_ministry`,
+`requirements_check`, etc., all kept as-is) or matched on an unrelated substring (`jurisdiction_test.
+final_approval_authority`, a free-text field name, not the `final_approval` screen) — confirmed by
+reading each hit in context, not assumed safe from the filename alone.
+
+**Explicitly not touched**: `TEST_PLAN.md`/`TEST_PLAN.ar.md`'s approval-chain sections (already stale
+against the diagram-alignment redesign per multiple earlier notes; a full docs sweep remains its own
+deferred future session, not bundled into this stage). `STAGE_PLAN.md` itself (no prior stage edits it
+to mark completion — AGENT_NOTES + git log are the completion record). `gap-analysis.md` §14 will get
+a resolution note added after the build, same housekeeping Stage 54b did for its own table — git-ignored,
+local-only, not a tracked-file change.
+
+**Verification plan**: rewrite the two test files named above to match the new 12-stage/5-level chain;
+add a tinker/manual smoke proving both branches end-to-end against the real database (grade at
+threshold → visits `local_governance_ministry` → `final_approved` → `in_execution`; grade below
+threshold → skips straight to `final_approval_archiving` → `final_approved` → `in_execution`); full
+PHPUnit suite; Pint on every touched file; `npm run build`; reseed `WorkflowStageSeeder` +
+`WorkflowTransitionSeeder` + `ScreenSeeder` + `ScreenRolePermissionSeeder` against the real
+MySQL/Homestead database and confirm via tinker that both doomed stages/screen are actually gone (not
+just unreferenced) and no transition row survives pointing at them.
+
+---
+
 ### 2026-09-02 13:05 EET — Claude — Stage 56 complete (verify 3-way routing selection rule)
 
 Built exactly per the plan below. Confirmed the free/manual-choice verdict by re-reading

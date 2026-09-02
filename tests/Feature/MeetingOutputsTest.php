@@ -75,9 +75,11 @@ class MeetingOutputsTest extends TestCase
             ->assertJsonPath('data.status.code', 'in_execution');
 
         $this->assertSame('final_approval_archiving', $requestRecord->fresh()->currentStage->code);
+        // Stage 57 removed the competent_authority checkpoint, so
+        // final_approval_archiving's self-loop is level 5 now, not 6.
         $this->assertDatabaseHas('approvals', [
             'request_id' => $requestRecord->id,
-            'level' => 6,
+            'level' => 5,
             'approved_by_user_id' => $finalApprover->id,
         ]);
 

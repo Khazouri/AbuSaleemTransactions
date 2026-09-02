@@ -46,13 +46,22 @@ class WorkflowTransitionSeeder extends Seeder
             ['receive_from_municipality', 'direct_manager_review', 'submit', 'R01', 'in_review'],
             ['requirements_check', 'reviewer_review', 'approve', 'R02', 'in_review'],
             ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
-            ['observations', 'ministry_endorsement', 'forward', 'R02', 'ready'],
-            ['ministry_endorsement', 'forward_to_committee', 'forward', 'R05', 'ready'],
+            // Stage 57 — collapses the old two-hop observations ->
+            // ministry_endorsement -> forward_to_committee into one: no
+            // standard document ([A]/[D]/[E]) puts a ministry checkpoint
+            // before the committee ever sees the request. Same role/status
+            // as before.
+            ['observations', 'forward_to_committee', 'forward', 'R02', 'ready'],
             ['forward_to_committee', 'receive_from_committee', 'forward', 'R05', 'in_meeting'],
             ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'decided'],
             ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'approved'],
-            ['local_governance_ministry', 'competent_authority', 'approve', 'R06', 'approved'],
-            ['competent_authority', 'final_approval_archiving', 'approve', 'R07', 'final_approved'],
+            // Stage 57 — ministry approval is now the literal last gate
+            // before final_approval_archiving (competent_authority, a fourth
+            // approval tier the standard never describes, is gone); arrival
+            // here means every required approval is complete, so this row
+            // sets final_approved directly rather than the tail's usual
+            // still-pending `approved`.
+            ['local_governance_ministry', 'final_approval_archiving', 'approve', 'R06', 'final_approved'],
             // Stage 37 — final approval hands the request to execution. The
             // meeting outputs tracker performs the later status-only close.
             ['final_approval_archiving', 'final_approval_archiving', 'approve', 'R07', 'in_execution'],
@@ -245,12 +254,10 @@ class WorkflowTransitionSeeder extends Seeder
             'requirements_check' => 'R02',
             'reviewer_review' => 'R02',
             'observations' => 'R02',
-            'ministry_endorsement' => 'R05',
             'forward_to_committee' => 'R05',
             'receive_from_committee' => 'R03',
             'approval_by_authority' => 'R05',
             'local_governance_ministry' => 'R06',
-            'competent_authority' => 'R07',
             'final_approval_archiving' => 'R07',
         ];
 
@@ -425,12 +432,10 @@ class WorkflowTransitionSeeder extends Seeder
             'requirements_check',
             'reviewer_review',
             'observations',
-            'ministry_endorsement',
             'forward_to_committee',
             'receive_from_committee',
             'approval_by_authority',
             'local_governance_ministry',
-            'competent_authority',
         ];
 
         foreach ($openStageCodesForDeadlineEscalation as $stageCode) {

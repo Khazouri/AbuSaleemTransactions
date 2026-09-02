@@ -7,14 +7,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * WorkflowStage (مرحلة) — one of the 14 steps a request passes through.
+ * WorkflowStage (مرحلة) — one of the 12 steps a request passes through.
  *
- * Order runs 1 (استلام الطلب من البلدية) to 14 (الاعتماد النهائي والأرشفة);
+ * Order runs 1 (استلام الطلب من البلدية) to 12 (الاعتماد النهائي والأرشفة);
  * see the migration for the full list. Stages 2–4 (direct manager review,
  * administrative routing, receive & register) were added by the
- * diagram-alignment redesign — see AGENT_NOTES.md.
+ * diagram-alignment redesign — see AGENT_NOTES.md. Stage 57 later removed two
+ * stages (ministry_endorsement, competent_authority) that had no counterpart
+ * in the [A]/[D]/[E] standard — 14 stages became 12.
  *
- * @property int $order_no 1..14
+ * @property int $order_no 1..12
  * @property string $code e.g. 'requirements_check'
  * @property string $name_ar
  * @property int|null $responsible_role_id Display only — NOT access control

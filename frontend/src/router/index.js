@@ -191,7 +191,7 @@ const routes = [
         ['committee_head_approval', 'committee-head'],
         ['admin_manager_approval', 'admin-manager'],
         ['ministry_approval', 'ministry'],
-        ['authority_approval', 'authority'],
+        // Stage 57 — 'authority_approval' (competent_authority) removed.
         ['final_approval', 'final'],
       ].map(([screenCode, level]) => ({
         path: `approvals/${level}`,

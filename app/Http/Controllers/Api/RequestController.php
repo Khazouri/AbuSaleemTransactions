@@ -396,12 +396,14 @@ class RequestController extends Controller
     /** Approval screen paired with each of Stage 18's six checkpoints. */
     private function actorCanApproveCurrentLevel(Request $requestRecord, User $actor): bool
     {
+        // Stage 57 — competent_authority no longer exists as an approval
+        // checkpoint (see AGENT_NOTES.md); local_governance_ministry's
+        // approve now hands straight to final_approval_archiving.
         $screenByStage = [
             'requirements_check' => 'reviewer_approval',
             'receive_from_committee' => 'committee_head_approval',
             'approval_by_authority' => 'admin_manager_approval',
             'local_governance_ministry' => 'ministry_approval',
-            'competent_authority' => 'authority_approval',
             'final_approval_archiving' => 'final_approval',
         ];
         $stageCode = $requestRecord->currentStage()->value('code');

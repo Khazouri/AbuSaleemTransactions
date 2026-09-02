@@ -148,7 +148,9 @@ class CommitteeSeatRosterTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $localGovernanceMinistry = WorkflowStage::where('code', 'local_governance_ministry')->firstOrFail();
-        $competentAuthority = WorkflowStage::where('code', 'competent_authority')->firstOrFail();
+        // Stage 57 removed competent_authority as a distinct checkpoint — a
+        // bypass now lands directly at final_approval_archiving.
+        $finalApprovalArchiving = WorkflowStage::where('code', 'final_approval_archiving')->firstOrFail();
 
         // Grade at the threshold: ministry approval is still required.
         $requiresMinistry = $this->decideAndAdvanceToAuthorityCheckpoint(decisionGrade: 10);
@@ -159,7 +161,8 @@ class CommitteeSeatRosterTest extends TestCase
         // vote: the request bypasses ministry on its own grade, not because
         // of who sat on or voted with the committee.
         $bypassesMinistry = $this->decideAndAdvanceToAuthorityCheckpoint(decisionGrade: 5);
-        $this->assertSame($competentAuthority->id, $bypassesMinistry->fresh()->current_stage_id);
+        $this->assertSame($finalApprovalArchiving->id, $bypassesMinistry->fresh()->current_stage_id);
+        $this->assertSame('final_approved', $bypassesMinistry->fresh()->status->code);
         $this->assertFalse($bypassesMinistry->fresh()->requiresMinistryApproval());
     }
 

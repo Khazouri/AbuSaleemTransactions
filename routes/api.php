@@ -227,12 +227,12 @@ Route::middleware('auth:sanctum')->group(function () {
      * routes keep a caller from swapping a level slug under a permission
      * granted for a different screen.
      */
+    // Stage 57 — 'authority' (competent_authority) is gone; R07 keeps only 'final'.
     $approvalScreens = [
         'reviewer' => 'reviewer_approval',
         'committee-head' => 'committee_head_approval',
         'admin-manager' => 'admin_manager_approval',
         'ministry' => 'ministry_approval',
-        'authority' => 'authority_approval',
         'final' => 'final_approval',
     ];
 

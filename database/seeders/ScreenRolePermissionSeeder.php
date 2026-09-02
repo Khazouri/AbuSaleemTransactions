@@ -79,7 +79,9 @@ class ScreenRolePermissionSeeder extends Seeder
         'committee_head_approval' => ['view' => ['R03'], 'approve' => ['R03']],
         'admin_manager_approval' => ['view' => ['R05'], 'approve' => ['R05']],
         'ministry_approval' => ['view' => ['R06'], 'approve' => ['R06']],
-        'authority_approval' => ['view' => ['R07'], 'approve' => ['R07']],
+        // Stage 57 — 'authority_approval' (competent_authority) removed; R07
+        // keeps this one checkpoint only. ScreenSeeder deletes the row, so
+        // this entry would be dead data if left in.
         'final_approval' => ['view' => ['R07'], 'approve' => ['R07']],
 
         // Administration: empty array = R08 only.

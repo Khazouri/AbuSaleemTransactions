@@ -62,7 +62,6 @@ const ICON_BY_CODE = {
   committee_head_approval: 'check-square',
   admin_manager_approval: 'check-square',
   ministry_approval: 'check-square',
-  authority_approval: 'check-square',
   final_approval: 'check-square',
   users: 'users',
   roles_permissions: 'shield',

@@ -23,12 +23,14 @@ use Throwable;
  */
 class ApprovalController extends Controller
 {
+    // Stage 57 — the `authority` checkpoint (competent_authority) is gone: no
+    // standard document names a fourth post-committee approving party. R07
+    // keeps exactly one approval screen now, `final`.
     private const LEVELS = [
         'reviewer' => ['stage' => 'requirements_check', 'role' => 'R02'],
         'committee-head' => ['stage' => 'receive_from_committee', 'role' => 'R03'],
         'admin-manager' => ['stage' => 'approval_by_authority', 'role' => 'R05'],
         'ministry' => ['stage' => 'local_governance_ministry', 'role' => 'R06'],
-        'authority' => ['stage' => 'competent_authority', 'role' => 'R07'],
         'final' => ['stage' => 'final_approval_archiving', 'role' => 'R07'],
     ];
 

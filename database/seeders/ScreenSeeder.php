@@ -26,6 +26,12 @@ class ScreenSeeder extends Seeder
 {
     public function run(): void
     {
+        // Stage 57 — the first screen this seeder has ever had to actually
+        // remove, not just add/modify: dropping a row from the upsert array
+        // below leaves it orphaned, since updateOrCreate() never deletes.
+        // Its screen_role_permissions rows cascade-delete with it.
+        Screen::query()->where('code', 'authority_approval')->delete();
+
         // [code, Arabic name, English name, Vue route, icon, group]
         // `group` is null for every ungrouped (flat, top-level) screen —
         // Stage 28 is the first to use it, on the Committee block below.
@@ -63,7 +69,9 @@ class ScreenSeeder extends Seeder
             ['committee_head_approval',  'اعتماد رئيس اللجنة',         'Committee Head Approval',      '/approvals/committee-head', 'award',        null],
             ['admin_manager_approval',   'اعتماد مدير الإدارة',        'Admin Manager Approval',       '/approvals/admin-manager',  'briefcase',    null],
             ['ministry_approval',        'اعتماد وزارة الحكم المحلي',   'Ministry Approval',            '/approvals/ministry',       'landmark',     null],
-            ['authority_approval',       'اعتماد الجهة المختصة',       'Competent Authority Approval', '/approvals/authority',      'shield',       null],
+            // Stage 57 removed `authority_approval` (competent_authority) —
+            // no standard document names a fourth post-committee approving
+            // party; see the explicit delete() call below.
             ['final_approval',           'الاعتماد النهائي والأرشفة',   'Final Approval & Archiving',   '/approvals/final',          'archive',      null],
 
             // --- Administration ------------------------------------------------
