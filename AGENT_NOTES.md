@@ -14,6 +14,46 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-02 12:15 EET — Claude — Stage 55 complete (verify `direct_manager_review` gate — confirmed compliant, no code change)
+
+Per STAGE_PLAN.md Track I, Stage 55 is a verification-only stage ("adjust copy/validation messages
+only if an actual gap is found, not the gate mechanism itself") — same category as Stage 38. Re-read
+every source touching [D] Art. 10's "no withholding without a written reason" (the manual index's own
+"Art. 10" text is the 5-seat-roster article; the actual citation traces through
+`official-detailed-flow.md`'s comparison note and gap-analysis.md §13's paraphrase) against the real
+`WorkflowTransitionSeeder` rows and the generic exception-action UI.
+
+**Verdict: already compliant, nothing to change.** `forward` (the sole deterministic continuation) is
+`is_exception=false`/`requires_comment=false` and renders as the primary button — matching [E] stage
+02's "review-then-forward" default framing. `return_to_employee` and `cancel` are both manager-gated
+exceptions with `requires_comment=true` (the `seedException()` default), enforced both client-side
+(the exception-reason modal won't submit empty) and server-side
+(`WorkflowTransitionException::commentRequired()`), and both render under the UI's visually-secondary
+"إجراءات الاستثناء" block, not as equal-weight buttons next to `forward` — matching [E]'s "not a
+routine gate" framing for blocking. The reason is permanently written to the stage-log/status-history
+row, satisfying "documented reason" rather than a UI-only prompt. Art. 10's other half, "دون تأخير غير
+مبرر" (no unjustified delay), is already covered generically: `direct_manager_review` is a normal open
+stage under Stage 17's SLA system and is already in `WorkflowTransitionSeeder`'s
+`$openStageCodesForDeadlineEscalation` list, so an overdue manager review already escalates via the
+seeded `deadline_expired` exception like every other open stage.
+
+No wording change was made deliberately: the generic `commentRequired()` message and exception-modal
+copy are shared verbatim by every comment-required action app-wide (return_missing_docs, reject_review,
+reject_formally, request_edit, defer, cancel, declare_no_jurisdiction, etc.) — carving out
+stage-specific wording for just this one action would break that established one-mechanism convention
+for a distinction Art. 10 itself doesn't ask for.
+
+**Deliverable**: `docs/employee-committee-lifecycle/gap-analysis.md` gained a new §16 recording this
+verification in full (git-ignored, local-only — doesn't show in `git status`), and its §13 bullet plus
+the summary table's Stage 55 row were updated to point at it. No migration, no seeder change, no
+PHP/Vue file touched — matching this stage's own scope. No PHPUnit run needed (nothing executable
+changed).
+
+Next per STAGE_PLAN's suggested order: **Stage 56** (verify 3-way `administrative_routing` selection
+rule — same verification-only shape as this stage).
+
+---
+
 ### 2026-09-02 11:40 EET — Claude — Stage 54b complete (status-vocabulary reconciliation)
 
 Built exactly per the plan below. `docs/employee-committee-lifecycle/gap-analysis.md` §4 (git-ignored,
