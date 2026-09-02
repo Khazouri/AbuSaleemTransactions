@@ -88,6 +88,16 @@ class ApprovalController extends Controller
             ]);
         }
 
+        // Stage 54 — the reviewer queue is the primary way `requirements_check`
+        // gets approved; this must refuse the same way RequestController's
+        // generic transition endpoint does, or the jurisdiction test would be
+        // trivially bypassable through this parallel entry point.
+        if ($configuration['stage'] === 'requirements_check' && $requestRecord->jurisdiction_test === null) {
+            throw ValidationException::withMessages([
+                'request' => ['يجب إكمال اختبار الاختصاص (المادة 45) قبل اتخاذ هذا الإجراء.'],
+            ]);
+        }
+
         $signaturePath = $signatureStorage->store($request->file('signature'), $requestRecord);
 
         try {

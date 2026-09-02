@@ -262,6 +262,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:notes_attachments,edit')
         ->patch('requests/{requestRecord}/financial-impact', [RequestController::class, 'updateFinancialImpact']);
 
+    // Stage 54 — recording [D] Art. 45's jurisdiction test is the same kind
+    // of narrow ancillary correction as financial-impact above, so it rides
+    // the same grant rather than a new permission tier.
+    Route::middleware('screen.permission:notes_attachments,edit')
+        ->patch('requests/{requestRecord}/jurisdiction-test', [RequestController::class, 'recordJurisdictionTest']);
+
     /*
      * Stage 20 — committees & meetings. Neither has a screen of its own on the
      * 22/23-screen sheet, so both ride the `meetings` screen's permissions

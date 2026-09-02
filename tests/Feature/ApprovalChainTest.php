@@ -216,6 +216,18 @@ class ApprovalChainTest extends TestCase
             'created_by_user_id' => $creator?->id,
             'submitted_at' => now(),
             'decision_grade' => 10,
+            // Stage 54 gates requirements_check's approve action on this
+            // being recorded; set it here so every scenario in this file
+            // stays about role/signature/self-approval mechanics, not the
+            // new gate (which has its own dedicated test coverage).
+            'jurisdiction_test' => [
+                'has_legal_basis' => true,
+                'employee_covered' => true,
+                'within_municipal_jurisdiction' => true,
+                'committee_decides' => true,
+                'final_approval_authority' => 'عميد البلدية',
+                'requires_central_approval' => false,
+            ],
         ]);
     }
 

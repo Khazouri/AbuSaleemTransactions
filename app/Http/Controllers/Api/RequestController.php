@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Request\IndexRequest;
+use App\Http\Requests\Request\RecordJurisdictionTestRequest;
 use App\Http\Requests\Request\StoreRequest;
 use App\Http\Requests\Request\TransitionRequest;
 use App\Http\Requests\Request\UpdateFinancialImpactRequest;
@@ -41,6 +42,9 @@ use Throwable;
  */
 class RequestController extends Controller
 {
+    /** Stage 54 — requirements_check outcomes that require the jurisdiction test first. */
+    private const JURISDICTION_TEST_GATED_ACTIONS = ['approve', 'declare_no_jurisdiction', 'reject_formally'];
+
     public function index(IndexRequest $request, RequestVisibility $visibility): AnonymousResourceCollection
     {
         $filters = $request->validated();
@@ -248,6 +252,18 @@ class RequestController extends Controller
             ]);
         }
 
+        // Stage 54 — [D] Art. 45's jurisdiction test must be answered before
+        // requirements_check's classifying outcomes (approve / declare no
+        // jurisdiction / formal rejection) can be taken; return_missing_docs
+        // is exempt, since an incomplete file can't be honestly classified yet.
+        if (in_array($action, self::JURISDICTION_TEST_GATED_ACTIONS, true)
+            && $requestRecord->currentStage()->value('code') === 'requirements_check'
+            && $requestRecord->jurisdiction_test === null) {
+            throw ValidationException::withMessages([
+                'action' => ['يجب إكمال اختبار الاختصاص (المادة 45) قبل اتخاذ هذا الإجراء.'],
+            ]);
+        }
+
         // Stage 19 — only an approval writes signature evidence; ordinary
         // forwards and exception commands remain compact JSON/form commands.
         $signaturePath = $action === 'approve'
@@ -296,6 +312,26 @@ class RequestController extends Controller
         return $this->detailResource($requestRecord, $workflow, $request->user());
     }
 
+    /**
+     * Stage 54 — record [D] Art. 45's 6-question jurisdiction test. Rides the
+     * same notes_attachments,edit grant updateFinancialImpact() uses, and
+     * carries no stage restriction of its own — it is a working draft that
+     * can be revised any time before (or after) requirements_check acts on
+     * it, mirroring that method's own precedent.
+     */
+    public function recordJurisdictionTest(
+        RecordJurisdictionTestRequest $request,
+        Request $requestRecord,
+        WorkflowService $workflow,
+        RequestVisibility $visibility,
+    ): RequestDetailResource {
+        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
+
+        $requestRecord->update(['jurisdiction_test' => $request->validated()]);
+
+        return $this->detailResource($requestRecord, $workflow, $request->user());
+    }
+
     private function detailResource(Request $requestRecord, WorkflowService $workflow, $actor): RequestDetailResource
     {
         $requestRecord->load([
@@ -339,6 +375,11 @@ class RequestController extends Controller
         $availableTransitions = $workflow->availableTransitions($requestRecord, $actor)
             ->filter(fn ($rule) => $rule->action !== 'approve'
                 || $this->actorCanApproveCurrentLevel($requestRecord, $actor))
+            // Stage 54 — the preview must agree with transition()'s own gate
+            // above, or the SPA could offer a button the endpoint refuses.
+            ->filter(fn ($rule) => ! in_array($rule->action, self::JURISDICTION_TEST_GATED_ACTIONS, true)
+                || $requestRecord->currentStage()->value('code') !== 'requirements_check'
+                || $requestRecord->jurisdiction_test !== null)
             ->values();
         $requestRecord->setAttribute('available_actions', $availableTransitions->pluck('action')->all());
         $requestRecord->setAttribute('available_transitions', $availableTransitions->map(fn ($rule) => [

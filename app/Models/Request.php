@@ -32,6 +32,7 @@ class Request extends Model
         'due_date',
         'decision_grade',
         'has_financial_impact',
+        'jurisdiction_test',
     ];
 
     protected function casts(): array
@@ -41,6 +42,10 @@ class Request extends Model
             'due_date' => 'date',
             'overdue_at' => 'datetime',
             'has_financial_impact' => 'boolean',
+            // Stage 54 — [D] Art. 45's 6-question jurisdiction test, recorded
+            // once at requirements_check and gating that stage's approve/
+            // declare_no_jurisdiction/reject_formally outcomes.
+            'jurisdiction_test' => 'array',
         ];
     }
 

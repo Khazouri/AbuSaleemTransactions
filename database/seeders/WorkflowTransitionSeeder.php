@@ -362,6 +362,36 @@ class WorkflowTransitionSeeder extends Seeder
             54,
         );
 
+        // Stage 54 — [D] Art. 45's 6-question jurisdiction test, gated by
+        // RequestController::transition()/detailResource() on
+        // requests.jurisdiction_test being recorded first. Two more
+        // requirements_check self-loop outcomes alongside the existing
+        // approve/return_missing_docs/cancel, matching [A] §4 stage 3's 4
+        // named results. declare_no_jurisdiction reuses the exact action
+        // name Stage 49 seeded at the committee stage — same real-world
+        // fact (outside the committee's jurisdiction), just determined at
+        // an earlier checkpoint, so the frontend's generic action-label
+        // lookup and exception-button rendering need no new code for it.
+        // reject_formally is a genuinely new action, reusing the `rejected`
+        // status reject_review already produces at a different stage rather
+        // than adding a new one.
+        $this->seedException(
+            $stages['requirements_check']->id,
+            $stages['requirements_check']->id,
+            'declare_no_jurisdiction',
+            $roles['R02']->id,
+            $statuses['outside_jurisdiction']->id,
+            22,
+        );
+        $this->seedException(
+            $stages['requirements_check']->id,
+            $stages['requirements_check']->id,
+            'reject_formally',
+            $roles['R02']->id,
+            $statuses['rejected']->id,
+            23,
+        );
+
         // Stage 32 — the candidate-requests worklist's "return to study": the
         // committee sends a request back to the observations checkpoint for
         // more work before it can be nominated again. Unlike CommitteeStatusService's

@@ -19,6 +19,9 @@ class RequestDetailResource extends RequestResource
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
             // Stage 51 — [A] §7's employee-facing visibility list.
             'documents_complete' => $this->documentsComplete(),
+            // Stage 54 — [D] Art. 45's 6-question jurisdiction test, recorded
+            // at requirements_check; null until someone has answered it.
+            'jurisdiction_test' => $this->jurisdiction_test,
             'committee_summary' => $this->whenLoaded('meetingRequests', function () {
                 $agendaItem = $this->meetingRequests->sortByDesc('id')->first();
 

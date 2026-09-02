@@ -14,6 +14,137 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-02 10:55 EET — Claude — Stage 54 complete (committee jurisdiction validation at initial review)
+
+Built exactly per the plan below. One migration (`requests.jurisdiction_test`, nullable json, applied
+to the real MySQL/Homestead database) and two new self-loop `WorkflowTransitionSeeder` rows at
+`requirements_check` (`declare_no_jurisdiction` reusing Stage 49's status/action name; `reject_formally`
+reusing `reject_review`'s `rejected` status) — reseeded and verified via tinker (60 transitions total,
+both new rows self-looping, `is_exception=true`, `requires_comment=true`).
+
+New `RecordJurisdictionTestRequest` (all 6 of Art. 45's questions required together — a partial answer
+set would misrepresent Art. 45's "not finalized until all 6 are answered" as done) and
+`RequestController::recordJurisdictionTest()`, riding the same `notes_attachments,edit` grant
+`updateFinancialImpact()` already uses, at new `PATCH requests/{requestRecord}/jurisdiction-test`. The
+gate itself lives in two places, not one — a real design point worth restating here since the plan
+below only anticipated the first: `RequestController::transition()` (the generic detail-screen
+endpoint) **and** `ApprovalController::store()` (the dedicated reviewer approval queue, R02's primary
+approve path per Stage 18's own comment calling `/transition` "the older generic workspace endpoint").
+Both call `WorkflowService::transition()` for the same `requirements_check` `approve` action, so gating
+only one would have left the jurisdiction test trivially bypassable through the other — caught before
+writing tests, not after, by tracing every caller of `WorkflowService::transition()` for this stage/
+action pair. `detailResource()`'s `available_transitions`/`available_actions` preview gained a matching
+filter so the SPA never offers a button either endpoint would refuse, mirroring the existing Stage 18
+approve-permission filter's exact shape (controller-layer, not inside `WorkflowService`, which stays a
+pure role/manager/status engine — consistent with why `actorCanApproveCurrentLevel()` already lives at
+this same layer).
+
+**One pre-existing test file needed a legitimate fixture update, not a regression fix**:
+`ApprovalChainTest::requestAt()` now seeds a satisfied `jurisdiction_test` by default, so its six
+scenarios (queue approval, missing-signature 422, cross-level refusal, revoked-permission refusal,
+detail-transition approval, self-approval refusal) stay about the mechanics they were written to test
+rather than becoming confounded by the new gate — documented in-place with a comment explaining why.
+
+Frontend: `RequestDetailView.vue` gained a jurisdiction-test card (visible only at
+`current_stage.code === 'requirements_check'`) with the 6 fields as a draft form (synced from
+`request.jurisdiction_test` on every load, PATCHed on save), and `reject_formally` was added to the
+existing `destructive`-styling class list alongside `reject_review`/`cancel` — `declare_no_jurisdiction`
+needed zero new frontend code since it reuses Stage 49's existing locale key and generic exception-
+button rendering. New `requestDetail.jurisdictionTest.*` + `workflow.actions.reject_formally` locale
+keys in both `ar.json`/`en.json` (884 keys each side, zero on-one-side-only, verified
+programmatically).
+
+Verification: new `tests/Feature/RequirementsCheckJurisdictionTest.php` (7 tests — recording round-
+trips through the detail resource; a partial answer set 422s; all three gated actions refused before
+recording, both via `/transition` and via the reviewer approval queue; `return_missing_docs` unaffected;
+all three gated actions succeed once recorded, landing at the right stage/status;
+`available_transitions` excludes the gated actions before recording and includes them after), full
+suite **218 tests / 1264 assertions** green (was 211/1215), Pint clean on every touched/new file,
+`npm run build` passes with `RequestDetailView` picking up the new markup in its existing chunk (then
+reverted `frontend/dist`, tracked in git, per every prior stage's note), and both the migration and the
+`WorkflowTransitionSeeder` reseed ran clean against the real MySQL/Homestead database.
+
+Next per STAGE_PLAN's suggested order: **Stage 54b** (status-vocabulary reconciliation) or **Stage 55**
+(verify `direct_manager_review` gate wording) — both still open.
+
+---
+
+### 2026-09-02 10:20 EET — Claude — Stage 54 implementation plan (committee jurisdiction validation at initial review)
+
+Building Stage 54 per STAGE_PLAN.md Track I: `requirements_check` (R02's initial-review checkpoint,
+stage 5) currently has only 3 outcomes — `approve`/`return_missing_docs`/`cancel` — with no
+jurisdiction check at all. [D] Art. 45's 6-question test ("classification is not finalized until all
+6 are answered") and [A] §4 stage 3's 4 named results (مقبول شكليًا وينتقل للدراسة / متوقف الستكمال
+نواقص / محال لجهة أخرى لعدم الاختصاص / مرفوض شكلاً بقرار مسبب) are the two sources named by the
+stage.
+
+**Mapping the 4 results onto the 3 existing + 2 new outcomes**: #1 (accepted, moves to study) is the
+existing `approve`; #2 (suspended for missing docs) is the existing `return_missing_docs` — both
+unchanged. #3 (referred elsewhere for lack of jurisdiction) is genuinely missing — gap-analysis.md §5
+says so explicitly ("no 'عدم اختصاص' outcome anywhere in the main workflow" outside the committee
+stage). #4 (formally rejected, with a reasoned decision) is also genuinely missing — nothing at
+`requirements_check` today lets R02 reject a request outright with a reason, only kick it back
+(`return_missing_docs`) or park it (`cancel`).
+
+**#3 reuses the exact action name `declare_no_jurisdiction`, seeded a second time at
+`requirements_check`** (self-loop, R02, `requires_comment=true`, status `outside_jurisdiction` — the
+same status Stage 49's committee-level declaration already uses). Same real-world fact (the matter is
+outside the committee's jurisdiction), just determined at an earlier checkpoint — reusing the action
+name means the frontend's generic `actionLabel()`/`workflow.actions.declare_no_jurisdiction` lookup
+and its exception-button rendering need zero new code, and it's the kind of vocabulary consolidation
+Stage 54b's own charter favors over inventing a near-duplicate. **#4 is a genuinely new action**,
+`reject_formally` (self-loop, R02, `requires_comment=true`, status `rejected` — reusing the existing
+`rejected` status `reject_review` already produces at a different stage/action, rather than adding a
+new status: `ReportMetricsService::ABANDONED_STATUSES` already treats `rejected` as an abandoned
+outcome, which is the correct classification for this too). Neither outcome is modeled as terminal in
+`WorkflowService::hasTerminalStatus()` — matches the existing precedent that `rejected`/
+`outside_jurisdiction` already aren't in that list, so a request can still be re-acted-on afterward if
+a reviewer reconsiders (same as `reject_review`'s kickback today).
+
+**"Gated on the 6-question test"**: a new nullable `requests.jurisdiction_test` JSON column holds
+structured answers to Art. 45's 6 questions (`has_legal_basis`, `employee_covered`,
+`within_municipal_jurisdiction`, `committee_decides` [binding vs. advisory-only — Q4],
+`final_approval_authority` [free text — Q5], `requires_central_approval` [Q6]) — booleans plus one
+free-text field, not a free-text blob, so the record is queryable/auditable rather than just another
+comment. New `PATCH requests/{requestRecord}/jurisdiction-test` (new `RecordJurisdictionTestRequest`,
+all 6 required) rides the same `notes_attachments,edit` grant (R01/R02) `updateFinancialImpact`
+already uses for this exact kind of narrow ancillary correction — no stage restriction on the PATCH
+itself (a working draft, editable any time, mirroring that precedent). The actual gate: `approve`,
+`declare_no_jurisdiction`, and `reject_formally` at `requirements_check` are refused (422) until
+`jurisdiction_test` is non-null — enforced in `RequestController::transition()` as a controller-level
+business check, the same layer the existing Stage 18 approve-permission check already lives at (not
+inside `WorkflowService`, which stays a pure role/manager/status engine). `return_missing_docs` is
+exempt — a file with missing documents can't be honestly classified yet, matching [A]'s own stage
+ordering (فحص أولي → استكمال النواقص, completion happens after classification, not before it).
+
+**Preview/execution agreement, the load-bearing property `actorMayUse()`'s docblock already
+insists on**: `RequestController::detailResource()`'s `available_transitions`/`available_actions`
+filter (which already excludes `approve` when `actorCanApproveCurrentLevel()` fails) gains a second
+filter excluding the same 3 gated actions at `requirements_check` when `jurisdiction_test` is still
+null — so the UI never offers a button the transition endpoint will refuse. This mirrors the existing
+approve-permission filter's shape exactly (a controller-layer filter, not an `actorMayUse()` change),
+consistent with that method's own precedent of layering business rules outside the raw workflow-rule
+engine.
+
+**Frontend**: `RequestDetailView.vue` gains a jurisdiction-test card (visible only when
+`current_stage.code === 'requirements_check'`) with 6 fields (4 yes/no selects, 1 binding/advisory
+select, 1 free-text authority field) and a save button riding `v-can="'notes_attachments.edit'"`,
+mirroring the financial-impact toggle's PATCH-and-replace pattern. No new exception-button code is
+needed for either new action — `declare_no_jurisdiction` already renders generically (same locale key
+as its Stage 49 use), and `reject_formally` needs only a new `workflow.actions.reject_formally` locale
+key plus adding it to the existing `destructive`-styling class list alongside `reject_review`/`cancel`.
+
+**Verification plan**: new `tests/Feature/RequirementsCheckJurisdictionTest.php` — recording the test
+round-trips through the detail resource; `approve`/`declare_no_jurisdiction`/`reject_formally` are all
+refused with 422 before it's recorded and all three succeed after; `return_missing_docs` and `cancel`
+are unaffected either way; `declare_no_jurisdiction` sets `outside_jurisdiction` and `reject_formally`
+sets `rejected`, both as self-loops (current_stage unchanged); `available_transitions` excludes the 3
+gated actions before recording and includes them after — plus the full PHPUnit suite, Pint on
+touched/new files, `npm run build`, locale key-parity, and `php artisan migrate` +
+`db:seed --class=WorkflowTransitionSeeder` against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-02 09:55 EET — Claude — Stage 53 complete (RequestType catalogue + per-type document checklists)
 
 Built exactly per the plan below. One migration (`request_types.required_documents`, nullable json,

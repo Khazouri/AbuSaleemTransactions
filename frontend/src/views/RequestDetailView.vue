@@ -29,6 +29,9 @@ const attachmentPreviewing = ref(false)
 const attachmentPreviewError = ref('')
 const financialImpactSaving = ref(false)
 const financialImpactError = ref('')
+const jurisdictionTestSaving = ref(false)
+const jurisdictionTestError = ref('')
+const jurisdictionTestForm = ref(blankJurisdictionTest())
 
 const name = (item) => {
   if (!item) return t('common.none')
@@ -119,6 +122,56 @@ async function downloadAttachment(attachment) {
   }
 }
 
+/** Stage 54 — [D] Art. 45's 6-question jurisdiction test, kept as a draft form. */
+function blankJurisdictionTest() {
+  return {
+    has_legal_basis: '',
+    employee_covered: '',
+    within_municipal_jurisdiction: '',
+    committee_decides: '',
+    final_approval_authority: '',
+    requires_central_approval: '',
+  }
+}
+
+function syncJurisdictionTestForm() {
+  const existing = request.value?.jurisdiction_test
+  jurisdictionTestForm.value = existing
+    ? {
+        has_legal_basis: existing.has_legal_basis ? 'yes' : 'no',
+        employee_covered: existing.employee_covered ? 'yes' : 'no',
+        within_municipal_jurisdiction: existing.within_municipal_jurisdiction ? 'yes' : 'no',
+        committee_decides: existing.committee_decides ? 'yes' : 'no',
+        final_approval_authority: existing.final_approval_authority || '',
+        requires_central_approval: existing.requires_central_approval ? 'yes' : 'no',
+      }
+    : blankJurisdictionTest()
+}
+
+async function saveJurisdictionTest() {
+  if (jurisdictionTestSaving.value) return
+  jurisdictionTestSaving.value = true
+  jurisdictionTestError.value = ''
+  try {
+    const { data } = await api.patch(`/requests/${request.value.id}/jurisdiction-test`, {
+      has_legal_basis: jurisdictionTestForm.value.has_legal_basis === 'yes',
+      employee_covered: jurisdictionTestForm.value.employee_covered === 'yes',
+      within_municipal_jurisdiction: jurisdictionTestForm.value.within_municipal_jurisdiction === 'yes',
+      committee_decides: jurisdictionTestForm.value.committee_decides === 'yes',
+      final_approval_authority: jurisdictionTestForm.value.final_approval_authority.trim(),
+      requires_central_approval: jurisdictionTestForm.value.requires_central_approval === 'yes',
+    })
+    request.value = data.data
+    syncJurisdictionTestForm()
+  } catch (requestError) {
+    jurisdictionTestError.value = requestError.response?.data?.errors?.final_approval_authority?.[0]
+      ?? requestError.response?.data?.message
+      ?? t('requestDetail.jurisdictionTest.saveFailed')
+  } finally {
+    jurisdictionTestSaving.value = false
+  }
+}
+
 /** Stage 47 — flips the auto-derived flag; the PATCH returns the full detail resource. */
 async function toggleFinancialImpact() {
   if (financialImpactSaving.value) return
@@ -143,6 +196,7 @@ async function load() {
   try {
     const { data } = await api.get(`/requests/${route.params.id}`)
     request.value = data.data
+    syncJurisdictionTestForm()
   } catch (requestError) {
     error.value = requestError.response?.data?.message ?? t('requestDetail.loadFailed')
   } finally {
@@ -299,6 +353,72 @@ onBeforeUnmount(clearAttachmentPreview)
       </section>
       <p v-if="financialImpactError" class="action-error" role="alert">{{ financialImpactError }}</p>
 
+      <!-- Stage 54 — [D] Art. 45's jurisdiction test, answered once at requirements_check. -->
+      <section v-if="request.current_stage?.code === 'requirements_check'" class="card jurisdiction-test">
+        <h3>{{ t('requestDetail.jurisdictionTest.title') }}</h3>
+        <p>{{ t('requestDetail.jurisdictionTest.hint') }}</p>
+        <p v-if="request.jurisdiction_test" class="state">{{ t('requestDetail.jurisdictionTest.recorded') }}</p>
+        <p v-else class="action-error">{{ t('requestDetail.jurisdictionTest.notRecorded') }}</p>
+        <fieldset :disabled="jurisdictionTestSaving">
+          <div class="grid">
+            <label>
+              {{ t('requestDetail.jurisdictionTest.q1') }}
+              <select v-model="jurisdictionTestForm.has_legal_basis">
+                <option value="" disabled>{{ t('requestDetail.jurisdictionTest.choose') }}</option>
+                <option value="yes">{{ t('requestDetail.jurisdictionTest.yes') }}</option>
+                <option value="no">{{ t('requestDetail.jurisdictionTest.no') }}</option>
+              </select>
+            </label>
+            <label>
+              {{ t('requestDetail.jurisdictionTest.q2') }}
+              <select v-model="jurisdictionTestForm.employee_covered">
+                <option value="" disabled>{{ t('requestDetail.jurisdictionTest.choose') }}</option>
+                <option value="yes">{{ t('requestDetail.jurisdictionTest.yes') }}</option>
+                <option value="no">{{ t('requestDetail.jurisdictionTest.no') }}</option>
+              </select>
+            </label>
+            <label>
+              {{ t('requestDetail.jurisdictionTest.q3') }}
+              <select v-model="jurisdictionTestForm.within_municipal_jurisdiction">
+                <option value="" disabled>{{ t('requestDetail.jurisdictionTest.choose') }}</option>
+                <option value="yes">{{ t('requestDetail.jurisdictionTest.yes') }}</option>
+                <option value="no">{{ t('requestDetail.jurisdictionTest.no') }}</option>
+              </select>
+            </label>
+            <label>
+              {{ t('requestDetail.jurisdictionTest.q4') }}
+              <select v-model="jurisdictionTestForm.committee_decides">
+                <option value="" disabled>{{ t('requestDetail.jurisdictionTest.choose') }}</option>
+                <option value="yes">{{ t('requestDetail.jurisdictionTest.binding') }}</option>
+                <option value="no">{{ t('requestDetail.jurisdictionTest.advisory') }}</option>
+              </select>
+            </label>
+            <label class="wide">
+              {{ t('requestDetail.jurisdictionTest.q5') }}
+              <input v-model="jurisdictionTestForm.final_approval_authority" type="text" maxlength="255" />
+            </label>
+            <label>
+              {{ t('requestDetail.jurisdictionTest.q6') }}
+              <select v-model="jurisdictionTestForm.requires_central_approval">
+                <option value="" disabled>{{ t('requestDetail.jurisdictionTest.choose') }}</option>
+                <option value="yes">{{ t('requestDetail.jurisdictionTest.yes') }}</option>
+                <option value="no">{{ t('requestDetail.jurisdictionTest.no') }}</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+        <p v-if="jurisdictionTestError" class="action-error" role="alert">{{ jurisdictionTestError }}</p>
+        <button
+          v-can="'notes_attachments.edit'"
+          class="ghost"
+          type="button"
+          :disabled="jurisdictionTestSaving"
+          @click="saveJurisdictionTest"
+        >
+          {{ jurisdictionTestSaving ? t('requestDetail.jurisdictionTest.saving') : t('requestDetail.jurisdictionTest.save') }}
+        </button>
+      </section>
+
       <section v-if="canAct" class="card action-panel">
         <h3>{{ t('requestDetail.actions') }}</h3>
         <p>{{ t('requestDetail.actionHint') }}</p>
@@ -332,7 +452,7 @@ onBeforeUnmount(clearAttachmentPreview)
               v-for="item in exceptionActions"
               :key="item.action"
               class="exception-button"
-              :class="{ destructive: ['reject_review', 'cancel'].includes(item.action) }"
+              :class="{ destructive: ['reject_review', 'reject_formally', 'cancel'].includes(item.action) }"
               type="button"
               :disabled="acting"
               @click="openException(item)"
@@ -484,5 +604,5 @@ onBeforeUnmount(clearAttachmentPreview)
 </template>
 
 <style scoped>
-.detail { max-inline-size: 82rem; }.back { display: inline-block; margin-bottom: .85rem; color: var(--color-brand-text); font-size: .85rem; text-decoration: none; }.back:hover { text-decoration: underline; }.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.heading h2 { margin: .15rem 0 0; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }.reference { margin: 0; color: var(--color-muted); font-family: var(--font-mono); font-size: .8rem; }.status { display: inline-flex; align-items: center; gap: .4rem; flex: none; padding: .35rem .55rem; border-radius: var(--radius-full); color: var(--color-black-700); background: var(--color-surface-hover); font-size: .82rem; }.status::before { content: ''; inline-size: .55rem; block-size: .55rem; border-radius: 50%; background: var(--status-color); }.sla-alert { padding: .75rem .9rem; margin: 0 0 1rem; border: 1px solid var(--color-warning-border); border-radius: var(--radius-lg); color: var(--color-warning-fg); background: var(--color-warning-bg); font-size: .86rem; }.timeliness { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .5rem; border-radius: var(--radius-full); font-size: .8rem; font-weight: 600; }.timeliness::before { content: ''; inline-size: .5rem; block-size: .5rem; border-radius: 50%; background: currentColor; }.timeliness.level-green { color: var(--color-success-fg); background: var(--color-success-bg); border: 1px solid var(--color-success-border); }.timeliness.level-yellow { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }.timeliness.level-red { color: var(--color-danger-fg); background: var(--color-danger-bg); border: 1px solid var(--color-danger-border); }.timeliness.level-critical { color: var(--color-on-brand); background: var(--color-danger-fg); border: 1px solid var(--color-danger-fg); }.card { padding: 1.1rem; }.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }.summary div { display: grid; gap: .2rem; }.summary span { color: var(--color-muted); font-size: .76rem; }.summary strong { color: var(--color-black-700); font-size: .88rem; }.action-panel { margin-bottom: 1rem; }.action-panel h3, .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 .45rem; color: var(--color-brand-text); font-size: 1rem; }.committee-summary { margin-bottom: 0; }.action-panel > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.action-panel label, .reason-modal label { display: grid; gap: .3rem; max-inline-size: 40rem; font-size: .85rem; }.action-panel textarea, .reason-modal textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }.action-buttons, .attachment-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }.primary, .exception-button { padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; }.primary:disabled, .exception-button:disabled, .ghost:disabled { cursor: not-allowed; opacity: .6; }.exception-actions { padding-top: .85rem; margin-top: .9rem; border-top: 1px solid var(--color-border); }.exception-actions > p { margin: 0; color: var(--color-muted); font-size: .8rem; }.exception-button { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }.exception-button.destructive { color: var(--color-danger-fg); background: var(--color-danger-bg); border-color: var(--color-danger-border); }.action-error, .alert { color: var(--color-danger-fg); }.action-error { margin: .6rem 0 0; font-size: .84rem; }.alert { padding: .75rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.ghost { margin-inline-start: .5rem; padding: .35rem .55rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); cursor: pointer; }.financial-impact-toggle { font-weight: normal; font-size: .76rem; }.columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, .85fr); gap: 1rem; align-items: start; }.main-column, .side-column { display: grid; gap: 1rem; }.description p { margin: 0; color: var(--color-black-700); line-height: 1.75; white-space: pre-wrap; }.timeline ol { display: grid; gap: 0; padding: 0; margin: .9rem 0 0; list-style: none; }.timeline li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: .6rem; padding-bottom: 1rem; }.timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .45rem; inset-block-start: .85rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }.dot { position: relative; z-index: 1; inline-size: .9rem; block-size: .9rem; margin-top: .15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }.timeline p { margin: .2rem 0; color: var(--color-black-700); font-size: .85rem; }.timeline small, .attachments small, .state { color: var(--color-muted); font-size: .78rem; }.entry-comment { white-space: pre-wrap; }.attachments ul { display: grid; gap: .65rem; padding: 0; margin: .85rem 0; list-style: none; }.attachments li { display: grid; gap: .15rem; padding-bottom: .65rem; border-bottom: 1px solid var(--color-border); }.file-name { overflow-wrap: anywhere; color: var(--color-black-700); font-size: .83rem; }.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }.reason-modal, .attachment-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }.attachment-modal { inline-size: min(64rem, 100%); max-block-size: calc(100vh - 2rem); overflow: auto; }.attachment-image, .attachment-pdf { display: block; inline-size: 100%; max-block-size: 72vh; border: 0; object-fit: contain; }.attachment-pdf { block-size: 72vh; }.reason-modal h3 { margin: 0; color: var(--color-brand-text); }.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }.reason-modal label { max-inline-size: none; }.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }.modal-actions .ghost { margin: 0; }@media (max-width: 720px) { .columns { grid-template-columns: 1fr; }.heading { flex-direction: column; }.summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.detail { max-inline-size: 82rem; }.back { display: inline-block; margin-bottom: .85rem; color: var(--color-brand-text); font-size: .85rem; text-decoration: none; }.back:hover { text-decoration: underline; }.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.heading h2 { margin: .15rem 0 0; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }.reference { margin: 0; color: var(--color-muted); font-family: var(--font-mono); font-size: .8rem; }.status { display: inline-flex; align-items: center; gap: .4rem; flex: none; padding: .35rem .55rem; border-radius: var(--radius-full); color: var(--color-black-700); background: var(--color-surface-hover); font-size: .82rem; }.status::before { content: ''; inline-size: .55rem; block-size: .55rem; border-radius: 50%; background: var(--status-color); }.sla-alert { padding: .75rem .9rem; margin: 0 0 1rem; border: 1px solid var(--color-warning-border); border-radius: var(--radius-lg); color: var(--color-warning-fg); background: var(--color-warning-bg); font-size: .86rem; }.timeliness { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .5rem; border-radius: var(--radius-full); font-size: .8rem; font-weight: 600; }.timeliness::before { content: ''; inline-size: .5rem; block-size: .5rem; border-radius: 50%; background: currentColor; }.timeliness.level-green { color: var(--color-success-fg); background: var(--color-success-bg); border: 1px solid var(--color-success-border); }.timeliness.level-yellow { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }.timeliness.level-red { color: var(--color-danger-fg); background: var(--color-danger-bg); border: 1px solid var(--color-danger-border); }.timeliness.level-critical { color: var(--color-on-brand); background: var(--color-danger-fg); border: 1px solid var(--color-danger-fg); }.card { padding: 1.1rem; }.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }.summary div { display: grid; gap: .2rem; }.summary span { color: var(--color-muted); font-size: .76rem; }.summary strong { color: var(--color-black-700); font-size: .88rem; }.action-panel { margin-bottom: 1rem; }.action-panel h3, .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 .45rem; color: var(--color-brand-text); font-size: 1rem; }.committee-summary { margin-bottom: 0; }.action-panel > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.action-panel label, .reason-modal label { display: grid; gap: .3rem; max-inline-size: 40rem; font-size: .85rem; }.action-panel textarea, .reason-modal textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }.action-buttons, .attachment-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }.primary, .exception-button { padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; }.primary:disabled, .exception-button:disabled, .ghost:disabled { cursor: not-allowed; opacity: .6; }.exception-actions { padding-top: .85rem; margin-top: .9rem; border-top: 1px solid var(--color-border); }.exception-actions > p { margin: 0; color: var(--color-muted); font-size: .8rem; }.exception-button { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }.exception-button.destructive { color: var(--color-danger-fg); background: var(--color-danger-bg); border-color: var(--color-danger-border); }.action-error, .alert { color: var(--color-danger-fg); }.action-error { margin: .6rem 0 0; font-size: .84rem; }.alert { padding: .75rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.ghost { margin-inline-start: .5rem; padding: .35rem .55rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); cursor: pointer; }.financial-impact-toggle { font-weight: normal; font-size: .76rem; }.jurisdiction-test { margin-bottom: 1rem; }.jurisdiction-test h3 { margin: 0 0 .45rem; color: var(--color-brand-text); font-size: 1rem; }.jurisdiction-test > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.jurisdiction-test fieldset { padding: 0; margin: 0; border: 0; }.jurisdiction-test .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.jurisdiction-test .wide { grid-column: 1 / -1; }.jurisdiction-test label { display: grid; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }.jurisdiction-test select, .jurisdiction-test input { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }.jurisdiction-test button { margin-top: .85rem; }@media (max-width: 640px) { .jurisdiction-test .grid { grid-template-columns: 1fr; } }.columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, .85fr); gap: 1rem; align-items: start; }.main-column, .side-column { display: grid; gap: 1rem; }.description p { margin: 0; color: var(--color-black-700); line-height: 1.75; white-space: pre-wrap; }.timeline ol { display: grid; gap: 0; padding: 0; margin: .9rem 0 0; list-style: none; }.timeline li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: .6rem; padding-bottom: 1rem; }.timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .45rem; inset-block-start: .85rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }.dot { position: relative; z-index: 1; inline-size: .9rem; block-size: .9rem; margin-top: .15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }.timeline p { margin: .2rem 0; color: var(--color-black-700); font-size: .85rem; }.timeline small, .attachments small, .state { color: var(--color-muted); font-size: .78rem; }.entry-comment { white-space: pre-wrap; }.attachments ul { display: grid; gap: .65rem; padding: 0; margin: .85rem 0; list-style: none; }.attachments li { display: grid; gap: .15rem; padding-bottom: .65rem; border-bottom: 1px solid var(--color-border); }.file-name { overflow-wrap: anywhere; color: var(--color-black-700); font-size: .83rem; }.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }.reason-modal, .attachment-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }.attachment-modal { inline-size: min(64rem, 100%); max-block-size: calc(100vh - 2rem); overflow: auto; }.attachment-image, .attachment-pdf { display: block; inline-size: 100%; max-block-size: 72vh; border: 0; object-fit: contain; }.attachment-pdf { block-size: 72vh; }.reason-modal h3 { margin: 0; color: var(--color-brand-text); }.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }.reason-modal label { max-inline-size: none; }.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }.modal-actions .ghost { margin: 0; }@media (max-width: 720px) { .columns { grid-template-columns: 1fr; }.heading { flex-direction: column; }.summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

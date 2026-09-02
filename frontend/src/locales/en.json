@@ -337,6 +337,26 @@
       "committeeResult": "Committee result",
       "resultPending": "No result yet",
       "decisionDate": "Decision date"
+    },
+    "jurisdictionTest": {
+      "title": "Jurisdiction test (Article 45)",
+      "hint": "All six questions must be answered before the request can be accepted, rejected, or referred for lack of jurisdiction.",
+      "recorded": "The jurisdiction test has been recorded.",
+      "notRecorded": "The jurisdiction test has not been recorded yet — it must be recorded before an initial-review action can be taken.",
+      "choose": "— Choose —",
+      "yes": "Yes",
+      "no": "No",
+      "binding": "Binding decision",
+      "advisory": "Opinion or recommendation only",
+      "q1": "Is there a legal or regulatory basis that requires or permits presenting this matter to the committee?",
+      "q2": "Is the employee among the categories covered by this system?",
+      "q3": "Does the matter fall within the municipality's jurisdiction at all?",
+      "q4": "Does the committee have the authority to decide the matter, or is its authority limited to an opinion or recommendation?",
+      "q5": "Which body holds final approval authority?",
+      "q6": "Is prior or subsequent approval required from the ministry of local governance or another central body?",
+      "save": "Save jurisdiction test",
+      "saving": "Saving…",
+      "saveFailed": "The jurisdiction test could not be saved."
     }
   },
   "committees": {
@@ -896,7 +916,8 @@
       "route_to_diwan": "Route to Diwan Deputy",
       "route_to_committee_secretary": "Route to Committee Secretary",
       "register": "Register receipt",
-      "return_to_employee": "Return to employee"
+      "return_to_employee": "Return to employee",
+      "reject_formally": "Formal rejection with reason"
     }
   },
   "auditLog": {
