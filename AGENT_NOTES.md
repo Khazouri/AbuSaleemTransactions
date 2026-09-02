@@ -14,6 +14,90 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-02 11:40 EET — Claude — Stage 54b complete (status-vocabulary reconciliation)
+
+Built exactly per the plan below. `docs/employee-committee-lifecycle/gap-analysis.md` §4 (git-ignored,
+local-only, so this doesn't show up in `git status`) now carries the full 28-row reconciliation table
+plus a decisions summary, replacing the old one-paragraph finding; the stale "25 statuses" count was
+corrected to 28 in both the baseline-facts section and §4's own heading. Every current status was kept
+as-is (code and label) — the divergences found are all either exact matches, deliberate coarser merges
+the status/stage split already explains, deliberate finer splits with a traced functional reason (the
+3-way routing statuses; `completion_required` vs. `deferred` per Art. 27), or this-system-only
+procedural pauses Art. 38 doesn't itemize. One substantive finding was flagged rather than silently
+fixed: `rejected`/`cancelled` each currently span meanings Art. 38 keeps separate (pre-committee
+administrative rejection vs. a committee's own non-approval decision) — left open for a future stage,
+since building a distinct status is new-feature scope, not a reconciliation decision.
+
+Only one tracked file changed: `RequestStatusSeeder`'s class docblock gained a pointer to the
+reconciliation document, so a future reader doesn't mistake a merged/split/reused status for an
+oversight. No migration, no seeded value change, no route/controller/frontend change — confirmed the
+full PHPUnit suite is still **218 tests / 1264 assertions** green (unchanged from Stage 54, as
+expected for a docblock-only tracked change) and Pint is clean on the one touched file.
+
+Next per STAGE_PLAN's suggested order: **Stage 55** (verify `direct_manager_review` gate wording) —
+flagged in STAGE_PLAN as likely already close to compliant, confirm before assuming a rebuild is
+needed.
+
+---
+
+### 2026-09-02 11:20 EET — Claude — Stage 54b implementation plan (status-vocabulary reconciliation)
+
+Building Stage 54b per STAGE_PLAN.md Track I: a documentation/housekeeping stage, same category as
+Stage 38 ("no code change — this stage is the housekeeping the other 20 depend on") — the Build bullet
+itself asks to "document the mapping... and decide, per divergent status, whether to rename/merge/
+keep," not to redesign the status machine.
+
+**First correction, before building the table**: `gap-analysis.md`'s own baseline count ("25
+statuses") is stale — `RequestStatus::count()` against the real database is **28** today (confirmed
+via tinker), since `outside_jurisdiction` (Stage 49) postdates when that count was written and the
+4 routing/registration statuses from the diagram-alignment redesign were undercounted in the doc's own
+arithmetic (9+4+3+5+2+4=27, not 25, even before adding `outside_jurisdiction`). Both the baseline
+section and §4's own heading get corrected to 28 as part of this pass.
+
+**Method**: traced every `set_status_id` in `WorkflowTransitionSeeder` and every `to` in
+`CommitteeStatusService::ACTIONS` to know EXACTLY which real-world moment each of the 28 current
+statuses represents (not guessed from the name), then compared each against Art. 38's 20-code
+dictionary (`official-procedures-manual-index.md` §5, already transcribed in full). Building a
+per-current-status table (28 rows), not a per-Art-38-code table, since Stage 54b's own Build bullet
+frames the decision as "per divergent status."
+
+**The substantive finding worth flagging up front, not buried in the table**: `rejected` and
+`cancelled` are each reused across meanings Art. 38 keeps distinct. `rejected` fires both from
+`reviewer_review` (an R02 case officer's own kickback) and now also from `requirements_check`'s new
+Stage 54 `reject_formally` — both are *pre-committee administrative* rejections, which Art. 38 has no
+code for at all (its dictionary only reaches a rejection-shaped code at 13 "غير موافق عليها," a
+*committee* non-approval, post-meeting). `cancelled` is reused for plain administrative withdrawal at
+any open stage AND for the committee's own `reject` decision outcome (`DecisionController`'s
+outcome→action map sends `reject` through the generic `cancel` self-loop) — the latter usage is the
+one that's actually closest to Art. 38's 13, but it's indistinguishable in the data from an ordinary
+cancellation. This is recorded as an open finding for a future stage to weigh (e.g., a possible future
+`rejected_by_committee` status), not fixed here — adding a new status/workflow branch is new-feature
+scope, not a reconciliation-table decision.
+
+**Everything else is either an exact match (`outside_jurisdiction`↔14, `on_agenda`↔09,
+`under_discussion`↔10, `final_approved`↔17, `in_execution`↔18), a deliberate coarser merge this
+system's status+stage split already explains (`in_review` spans Art. 38's 01–03, `ready` spans 06–08,
+`approved` spans 15–16, `completed_closed` merges 19+20), a deliberate finer split with its own
+documented reason (the 3 `routed_to_*` statuses split Art. 38's single 02; `completion_required` vs.
+`deferred` were already correctly kept apart per Art. 27's "غير مستوفٍ ≠ مؤجل" rule, verified in
+Stage 49's own planning note), or a this-system-only procedural pause Art. 38 doesn't itemize
+(`legal_opinion_requested`, `referred_to_other_body`, `nominated_for_committee`,
+`awaiting_recommendation_approval`, `returned`)** — verdict for every one of these: **keep**. No
+current status name is actually *wrong* against Art. 38, only coarser, finer, or differently
+sequenced (this system's committee-secretary/case-officer role split, already a known and accepted
+Track G decision, means several of Art. 38's early codes — 03 through 08 — don't map onto this
+system's pipeline in the same order [D] describes; that's a pipeline-shape difference already made
+and recorded, not a status-naming problem to fix here). A rename would misrepresent already-correct
+labels as if they needed fixing.
+
+**Deliverables**: the full reconciliation table + decisions replaces the current one-paragraph §4 in
+`gap-analysis.md` (git-ignored, local-only — no code, no migration, no seeder value change); a
+one-line pointer comment added to `RequestStatusSeeder`'s class docblock referencing the reconciliation
+for traceability, the only tracked-file change this stage makes. No PHPUnit run needed (nothing
+executable changed) beyond confirming the status count via tinker, already done above.
+
+---
+
 ### 2026-09-02 10:55 EET — Claude — Stage 54 complete (committee jurisdiction validation at initial review)
 
 Built exactly per the plan below. One migration (`requests.jurisdiction_test`, nullable json, applied

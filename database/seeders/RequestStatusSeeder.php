@@ -13,6 +13,13 @@ use Illuminate\Database\Seeder;
  * (returned / rejected / cancelled / deferred) are exception outcomes,
  * driven by the exception transitions added in Stage 16 and Stage 21 — they're
  * seeded now so those transitions have something to point at.
+ *
+ * Stage 54b reconciled this full 28-row vocabulary against [D] Art. 38's
+ * canonical 20-code dictionary — see
+ * docs/employee-committee-lifecycle/gap-analysis.md §4 (git-ignored,
+ * local-only) for the per-status mapping and the rename/merge/keep decision
+ * behind each one before assuming a status name or its reuse across
+ * multiple transitions is an oversight.
  */
 class RequestStatusSeeder extends Seeder
 {
