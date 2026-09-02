@@ -336,7 +336,9 @@ class RequestController extends Controller
     {
         $requestRecord->load([
             'department:id,name_ar,name_en,code',
-            'requestType:id,code,name_ar,name_en,decision_grade_threshold',
+            // Stage 56 — default_administrative_route feeds the SPA's
+            // suggested-route badge on the administrative_routing screen.
+            'requestType:id,code,name_ar,name_en,decision_grade_threshold,default_administrative_route',
             'status:id,code,name_ar,name_en,color',
             // Stage 52 — target_days_* feed stageTimeliness(); latestStageLog
             // gives it the current-stage entry timestamp without re-deriving

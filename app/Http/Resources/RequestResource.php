@@ -26,6 +26,9 @@ class RequestResource extends JsonResource
                 'name_ar' => $this->requestType->name_ar,
                 'name_en' => $this->requestType->name_en,
                 'decision_grade_threshold' => $this->requestType->decision_grade_threshold,
+                // Stage 56 — an advisory suggestion only; all 3
+                // administrative_routing actions stay freely selectable.
+                'default_administrative_route' => $this->requestType->default_administrative_route,
             ] : null,
             'decision_grade' => $this->decision_grade,
             'requires_ministry_approval' => $this->requiresMinistryApproval(),

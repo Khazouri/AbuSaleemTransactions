@@ -294,6 +294,7 @@
     "comment": "Comment (optional)",
     "processing": "Processing…",
     "exceptionActions": "Exception actions — a reason is required before execution.",
+    "suggestedRoute": "Suggested for this request type",
     "exceptionReasonTitle": "Reason for: {action}",
     "exceptionReasonHint": "The reason will be preserved in the workflow timeline and cannot be blank.",
     "reason": "Reason",

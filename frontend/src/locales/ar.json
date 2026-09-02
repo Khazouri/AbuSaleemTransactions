@@ -294,6 +294,7 @@
     "comment": "تعليق (اختياري)",
     "processing": "جارٍ التنفيذ…",
     "exceptionActions": "إجراءات الاستثناء — يلزم إدخال سبب قبل التنفيذ.",
+    "suggestedRoute": "مقترح حسب نوع الطلب",
     "exceptionReasonTitle": "سبب إجراء: {action}",
     "exceptionReasonHint": "سيُحفظ السبب في سجل سير العمل ولا يمكن تركه فارغاً.",
     "reason": "السبب",

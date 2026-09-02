@@ -200,6 +200,43 @@ class DirectManagerRoutingTest extends TestCase
         }
     }
 
+    public function test_the_suggested_administrative_route_is_advisory_only_all_three_routes_stay_available(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        // request_details,view is granted per-role ('*' means every seeded
+        // role, not literally anyone) — the manager needs a role of some
+        // kind to pass the HTTP screen-permission gate below.
+        $manager = $this->userWithRole('R02');
+        $employee = $this->userWithRole('R01');
+        $employee->manager_id = $manager->id;
+        $employee->save();
+
+        // newRequest() always seeds a PROM request, whose Stage 56 default
+        // suggestion is committee_secretary (see RequestTypeSeeder).
+        $requestRecord = $this->newRequest('administrative_routing', 'in_review', $employee->id);
+
+        $response = $this->actingAs($manager, 'sanctum')
+            ->getJson("/api/requests/{$requestRecord->id}")
+            ->assertOk();
+
+        $response->assertJsonPath('data.request_type.default_administrative_route', 'committee_secretary');
+
+        // The suggestion is advisory, not a gate — every one of the 3
+        // manual routes must still be selectable, matching Stage 56's own
+        // "additive to the existing 3 paths, not a replacement" scope.
+        $actions = $response->json('data.available_actions');
+        $this->assertContains('route_to_hr', $actions);
+        $this->assertContains('route_to_diwan', $actions);
+        $this->assertContains('route_to_committee_secretary', $actions);
+
+        // Picking the non-suggested route still works end to end.
+        $service = app(WorkflowService::class);
+        $moved = $service->transition($requestRecord->refresh(), 'route_to_hr', $manager);
+        $this->assertSame('receive_and_register', $moved->currentStage->code);
+        $this->assertSame('routed_to_hr', $moved->status->code);
+    }
+
     public function test_available_transitions_and_transition_agree_for_a_manager_gated_row(): void
     {
         $this->seed(DatabaseSeeder::class);

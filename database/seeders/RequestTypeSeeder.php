@@ -46,6 +46,23 @@ use Illuminate\Database\Seeder;
  * from an appendix this session could not read. Treat this as a reasonable
  * starting checklist, not a sourced transcription — replace outright, don't
  * layer on top, once a future session has the actual appendix pages in hand.
+ *
+ * default_administrative_route (Stage 56) is a soft, advisory suggestion for
+ * which of administrative_routing's 3 manual routes (hr/diwan/
+ * committee_secretary) fits this type — surfaced as a badge on the SPA's
+ * matching action button, never enforced; all 3 routes stay freely
+ * selectable regardless. [D] Arts. 11/16 and [E] stage 03 only say routing
+ * is "بحسب الموضوع" (by subject matter) without naming which subject maps
+ * to which of the three, so this split is a documented judgment call, not a
+ * sourced mapping: types that are already committee-track staff matters
+ * needing no cross-body processing first go to committee_secretary
+ * (رئيس قسم شؤون الموظفين, who preps files for the committee directly);
+ * hiring/contracting administration goes to hr (مدير إدارة الموارد
+ * البشرية); moving an employee across organizational units or to/from
+ * another body goes to diwan (وكيل الديوان), since that has
+ * municipality-wide governance implications the other two don't. Replace
+ * outright, don't layer on top, once a future session has the actual
+ * per-subject mapping.
  */
 class RequestTypeSeeder extends Seeder
 {
@@ -118,6 +135,25 @@ class RequestTypeSeeder extends Seeder
             ]],
         ];
 
+        // Stage 56 — suggested administrative_routing target per type, see
+        // the class docblock for the reasoning. Kept as a separate map
+        // rather than a 7th positional element on $types above, so the
+        // existing per-type rows above don't need reformatting.
+        $administrativeRoutes = [
+            'PROM' => 'committee_secretary',
+            'LEAV' => 'committee_secretary',
+            'ALLW' => 'committee_secretary',
+            'SECD' => 'diwan',
+            'GRIV' => 'committee_secretary',
+            'TRNS' => 'diwan',
+            'EOSV' => 'committee_secretary',
+            'CONF' => 'committee_secretary',
+            'APPT' => 'hr',
+            'CTRC' => 'hr',
+            'SETL' => 'committee_secretary',
+            'PEVG' => 'committee_secretary',
+        ];
+
         foreach ($types as [$code, $nameAr, $nameEn, $sla, $hasFinancialImpact, $requiredDocuments]) {
             RequestType::updateOrCreate(
                 ['code' => $code],
@@ -129,6 +165,7 @@ class RequestTypeSeeder extends Seeder
                     'is_active' => true,
                     'default_has_financial_impact' => $hasFinancialImpact,
                     'required_documents' => $requiredDocuments,
+                    'default_administrative_route' => $administrativeRoutes[$code],
                 ],
             );
         }

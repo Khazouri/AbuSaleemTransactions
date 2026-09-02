@@ -14,6 +14,96 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-02 13:05 EET — Claude — Stage 56 complete (verify 3-way routing selection rule)
+
+Built exactly per the plan below. Confirmed the free/manual-choice verdict by re-reading
+`WorkflowTransitionSeeder`'s three `route_to_*` rows before writing anything — all three are gated
+only on `requires_submitter_manager=true`, nothing about the request itself constrains the choice,
+and neither [D] Art. 11/16 nor [E] stage 03 give a literal subject→body table to enforce instead.
+
+One migration (`request_types.default_administrative_route`, nullable string, applied to the real
+MySQL/Homestead database), `RequestType::$fillable`/docblock, and a documented 3-way split seeded in
+`RequestTypeSeeder` (8 types → `committee_secretary`, `APPT`/`CTRC` → `hr`, `SECD`/`TRNS` → `diwan`) —
+reseeded and verified via tinker against the real database. `RequestResource`'s `request_type` block
+gained the new field (inherited by `RequestDetailResource` for free), and `RequestController::detailResource()`'s
+eager-load widened to include it. **No change to `WorkflowService`/`WorkflowTransitionSeeder`'s
+actual rules** — this is advisory only, per the stage's own "additive to the existing 3 paths, not a
+replacement" instruction.
+
+Frontend: `RequestDetailView.vue` gained a `suggestedRoutingAction` computed (non-null only at
+`current_stage.code === 'administrative_routing'`) and a small badge rendered next to the matching
+exception button among the existing three — the other two stay exactly as clickable as before. New
+`requestDetail.suggestedRoute` locale key in both `ar.json`/`en.json`.
+
+Verification: extended `DirectManagerRoutingTest.php` with a new test proving the suggestion round-trips
+through the detail endpoint (`request_type.default_administrative_route`) and that all three routing
+actions remain available and independently executable regardless of the suggestion — proving this is
+advisory, not a gate. Full suite **219 tests / 1271 assertions** green (was 218/1264), Pint clean on
+every touched/new file, `npm run build` passes with `RequestDetailView` picking up the new markup in
+its existing chunk (then reverted `frontend/dist`, tracked in git, per every prior stage's note), and
+the migration plus the `RequestTypeSeeder` reseed both ran clean against the real MySQL/Homestead
+database — confirmed via tinker that all 12 types now carry a `default_administrative_route` value.
+`docs/employee-committee-lifecycle/gap-analysis.md` gained a new §17 recording this verification in
+full (git-ignored, local-only), and its §13 bullet plus the summary table's Stage 56 row were updated
+to point at it.
+
+Next per STAGE_PLAN's suggested order: **Stage 57** (pre-committee ministry stage + approval-tail
+restructure) — flagged in STAGE_PLAN as the one item in this track with real blast radius, needing its
+own design pass before touching code, not a quick fix alongside another stage — or **Stage 58**
+(appeal/تظلم lifecycle), the largest remaining gap.
+
+---
+
+### 2026-09-02 12:35 EET — Claude — Stage 56 implementation plan (verify 3-way routing selection rule)
+
+Building Stage 56 per STAGE_PLAN.md Track I: confirm whether `administrative_routing`'s 3-way
+selection (`route_to_hr`/`route_to_diwan`/`route_to_committee_secretary`) is a subject-matter-based
+rule per [D] Art. 11/16 and [E] stage 03 ("بحسب الموضوع"), or effectively a free/manual choice today.
+
+**Verdict, checked against `WorkflowTransitionSeeder` before writing anything: it is a free manual
+choice today.** All three routing rows are `seedException()` calls gated only on
+`requires_submitter_manager=true` (the same actor as `direct_manager_review`) with
+`required_role_id=null` — nothing about the request (type, department, content) constrains which of
+the three the manager may pick. The docs don't give a literal mapping table either — Arts. 11/16 both
+say "بحسب الموضوع" without enumerating which subjects go where — so there is no sourced rule to copy
+verbatim, only a shape ("selection should track subject matter") to honor with a documented judgment
+call, same category as Stage 47's/53's own flagged judgment calls.
+
+**Per the stage's own instruction, this is additive, not a replacement of the 3 manual paths**: a
+manager can still pick any of the three routes freely; a new per-`request_type`
+`default_administrative_route` column (`hr|diwan|committee_secretary`, nullable) supplies a
+*suggested* route surfaced in the UI as a badge on the matching action button — informational only,
+no server-side enforcement, no new gate, mirroring Stage 52's "soft, non-blocking" precedent for
+per-stage timeframes.
+
+**The 3-way split** (documented reasoning, not sourced): `PROM/CONF/ALLW/LEAV/EOSV/SETL/GRIV/PEVG` →
+`committee_secretary` (already committee-track staff matters — رئيس قسم شؤون الموظفين preps these
+directly for the committee, no cross-body coordination needed first); `APPT/CTRC` → `hr` (hiring/
+contracting are core HR administrative functions — مدير إدارة الموارد البشرية); `SECD/TRNS` →
+`diwan` (moving an employee across organizational units or to/from another body has municipality-wide
+governance implications — وكيل الديوان). Flagging this explicitly as a starting point to replace
+outright, not layer on top of, if a future session gets the actual per-subject mapping from [D]'s
+appendix.
+
+**Backend**: one migration (`request_types.default_administrative_route`, nullable string, after
+`required_documents`), added to `RequestType::$fillable`+docblock, seeded per the split above in
+`RequestTypeSeeder`, exposed in `RequestResource`'s `request_type` array (inherited by
+`RequestDetailResource` for free — no separate change needed there). **Frontend**: `RequestDetailView.vue`
+gains a `suggestedRoutingAction` computed (only non-null when `current_stage.code ===
+'administrative_routing'`, mapping the type's `default_administrative_route` to its matching action
+name) and a small suggested-route badge rendered next to that one exception button among the existing
+three — the other two stay exactly as clickable as before. New `requestDetail.suggestedRoute` locale
+key in both `ar.json`/`en.json`.
+
+**Verification plan**: extend `DirectManagerRoutingTest.php` (or a new test) asserting the seeded
+`default_administrative_route` values round-trip through `/requests/{id}` for a couple of
+representative types, and that all three routing actions remain available/executable regardless of
+the suggestion (proving this is advisory, not a gate) — plus the full PHPUnit suite, Pint, `npm run
+build`, and `php artisan migrate` + the `RequestTypeSeeder` reseed against the real MySQL/Homestead
+database.
+
+---
+
 ### 2026-09-02 12:15 EET — Claude — Stage 55 complete (verify `direct_manager_review` gate — confirmed compliant, no code change)
 
 Per STAGE_PLAN.md Track I, Stage 55 is a verification-only stage ("adjust copy/validation messages

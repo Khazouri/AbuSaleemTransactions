@@ -20,6 +20,10 @@ use Illuminate\Database\Eloquent\Model;
  *                                              new request's own has_financial_impact flag; overridable per request.
  * @property array|null $required_documents Stage 53 — a soft, informational
  *                                          intake checklist ({ar, en} pairs); never enforced server-side.
+ * @property string|null $default_administrative_route Stage 56 — a soft,
+ *                                                     advisory suggestion (hr|diwan|committee_secretary) for which
+ *                                                     of administrative_routing's 3 manual routes fits this type;
+ *                                                     never enforced, all 3 stay freely selectable.
  */
 class RequestType extends Model
 {
@@ -32,6 +36,7 @@ class RequestType extends Model
         'is_active',
         'default_has_financial_impact',
         'required_documents',
+        'default_administrative_route',
     ];
 
     protected function casts(): array
