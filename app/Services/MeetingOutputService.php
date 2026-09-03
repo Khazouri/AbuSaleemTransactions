@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\MeetingOutputTransitionException;
+use App\Models\Appeal;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStatus;
@@ -53,6 +54,13 @@ class MeetingOutputService
 
             if ($requestRecord->status?->code !== 'in_execution') {
                 throw MeetingOutputTransitionException::transitionNotAllowed();
+            }
+
+            // Stage 59, Track J — [D] Arts. 34–37: the file stays open until
+            // every تظلم path against it has concluded. Stage 65 is the one
+            // that releases this hold once an appeal reaches notified_closed.
+            if (Appeal::openAgainst($requestRecord->id)) {
+                throw MeetingOutputTransitionException::appealOpen();
             }
 
             $completedStatus = RequestStatus::query()

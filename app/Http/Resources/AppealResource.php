@@ -24,6 +24,12 @@ class AppealResource extends JsonResource
             'original_decision_id' => $this->original_decision_id,
             'original_decision_reference' => $this->original_decision_reference,
             'original_decision_date' => $this->original_decision_date?->toDateString(),
+            // Stage 59 — [A] §9 step 1's real intake fields.
+            'known_at' => $this->known_at?->toDateString(),
+            'appeal_reasons' => $this->appeal_reasons,
+            'final_request' => $this->final_request,
+            'new_facts_declaration' => $this->new_facts_declaration,
+            'attachments_count' => $this->whenCounted('attachments'),
             'status' => $this->whenLoaded('status', fn () => $this->status ? [
                 'code' => $this->status->code,
                 'name_ar' => $this->status->name_ar,

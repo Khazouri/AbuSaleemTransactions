@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AppealAttachmentController;
 use App\Http\Controllers\Api\AppealController;
 use App\Http\Controllers\Api\ApprovalController;
 use App\Http\Controllers\Api\ApprovalSignatureController;
@@ -587,4 +588,14 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('appeals', [AppealController::class, 'index']);
     Route::middleware('screen.permission:appeals,add')
         ->post('appeals', [AppealController::class, 'store']);
+
+    // Stage 59 — supporting documents, uploaded as follow-up calls once the
+    // appeal exists (same "create the parent, then attach" flow Stage 12/13
+    // established for requests). Scoped to the appeal's own appellant or
+    // R08 inside the controller, not RequestVisibility.
+    Route::middleware('screen.permission:appeals,add')
+        ->post('appeals/{appeal}/attachments', [AppealAttachmentController::class, 'store']);
+    Route::middleware('screen.permission:appeals,view')
+        ->get('appeals/{appeal}/attachments/{attachment}/preview', [AppealAttachmentController::class, 'preview'])
+        ->name('appeals.attachments.preview');
 });

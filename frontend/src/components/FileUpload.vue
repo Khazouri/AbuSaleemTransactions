@@ -1,12 +1,20 @@
 <script setup>
-/** Reusable request attachment picker and uploader — Stage 12. */
-import { onBeforeUnmount, ref } from 'vue'
+/**
+ * Reusable private-file picker and uploader — Stage 12.
+ * Defaults to a request's own attachment endpoint; pass `uploadUrl` to
+ * target a different parent (e.g. Stage 59's `/appeals/{id}/attachments`)
+ * without duplicating this component.
+ */
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 
 const props = defineProps({
-  requestId: { type: [Number, String], required: true },
+  requestId: { type: [Number, String], default: null },
+  uploadUrl: { type: String, default: null },
 })
+
+const targetUrl = computed(() => props.uploadUrl ?? `/requests/${props.requestId}/attachments`)
 
 const emit = defineEmits(['uploaded'])
 const { t } = useI18n()
@@ -74,7 +82,7 @@ async function upload() {
   if (label.value.trim()) form.append('label', label.value.trim())
 
   try {
-    const { data } = await api.post(`/requests/${props.requestId}/attachments`, form, {
+    const { data } = await api.post(targetUrl.value, form, {
       onUploadProgress: (event) => {
         if (event.total) progress.value = Math.round((event.loaded / event.total) * 100)
       },

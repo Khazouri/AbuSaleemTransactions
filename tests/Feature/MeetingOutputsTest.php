@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Appeal;
+use App\Models\AppealStatus;
 use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
@@ -124,6 +126,36 @@ class MeetingOutputsTest extends TestCase
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
             ->assertStatus(422);
+    }
+
+    /** Stage 59, Track J — [D] Arts. 34–37: an open appeal keeps the file open. */
+    public function test_completion_is_blocked_while_an_open_appeal_exists_then_succeeds_once_it_closes(): void
+    {
+        [$head, , $employee, $meeting, $agendaItem, $requestRecord] = $this->decidedMeetingOutput('final_approval_archiving', 'in_execution');
+
+        $appeal = Appeal::create([
+            'appellant_user_id' => $employee->id,
+            'original_request_id' => $requestRecord->id,
+            'original_decision_reference' => 'قرار تنفيذ',
+            'known_at' => now()->subDay(),
+            'appeal_reasons' => 'اعتراض على أسلوب التنفيذ.',
+            'final_request' => 'وقف التنفيذ ومراجعة القرار.',
+            'appeal_status_id' => AppealStatus::where('code', 'submitted')->value('id'),
+        ]);
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('action');
+
+        $this->assertSame('in_execution', $requestRecord->fresh()->status->code);
+
+        $appeal->update(['appeal_status_id' => AppealStatus::where('code', 'notified_closed')->value('id')]);
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
+            ->assertOk()
+            ->assertJsonPath('data.outputs.0.execution_status.code', 'completed_closed');
     }
 
     public function test_completion_requires_the_output_to_belong_to_the_selected_meeting(): void

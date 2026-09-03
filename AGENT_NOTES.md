@@ -14,6 +14,186 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-02 17:55 EET — Claude — Stage 59 complete (appeal intake: real fields + eligibility gates)
+
+Built exactly per the plan below. Two migrations applied to the real MySQL/Homestead database: four
+new nullable `appeals` columns (`known_at`, `appeal_reasons`, `final_request`, `new_facts_declaration`)
+and a new `appeal_attachments` table (same shape as `attachments`, FK'd to `appeals` instead, cascade-
+deleted with the parent). `Appeal` gained the matching fillable/casts, an `attachments()` relation, and
+the static `openAgainst()` predicate Track J's scope decision (3) needs.
+
+New `App\Services\AppealEligibility` (mirrors `DecisionEligibility`'s shape exactly) owns all three
+intake rules: ownership (`created_by_user_id` must equal the appellant), the decided-status restriction
+(reverse-mapped from STAGE_PLAN's 6 named Art. 38 codes through Stage 54b's reconciliation table —
+`decided`/`approved_with_conditions`/`outside_jurisdiction`/`final_approved`/`completed_closed`/
+`archived` qualify outright; `cancelled` qualifies only when a linked `Decision` with `outcome=reject`
+actually exists, distinguishing a real committee rejection from a plain administrative withdrawal using
+data that already exists rather than touching the status vocabulary; `rejected` and `in_execution` are
+both deliberately excluded, the latter because STAGE_PLAN's own code list skips Art. 38's 18 while
+naming 17/19/20 on either side of it), and non-duplication (any prior appeal — any status, not only open
+ones — against the same request by the same appellant requires a non-empty `new_facts_declaration`).
+`latestDecisionFor()` auto-fills `original_decision_id` from the target's latest committee appearance,
+reusing the exact "latest by id" selection `RequestDetailResource::committee_summary`/
+`RequestResource::proposed_meeting` already established, so all three places agree on what "the current
+decision" means. `original_decision_id` is no longer client-accepted at all (dropped from
+`StoreAppealRequest`, same "never client-supplied" treatment `appellant_user_id` already gets) —
+confirmed live that a spoofed value is silently ignored. When no Decision is found (the pre-committee
+`outside_jurisdiction`-via-`requirements_check` case, or any future decision-less path),
+`original_decision_reference` becomes required, enforced in the controller once the lookup comes back
+empty since it depends on that query result, not as a static FormRequest rule.
+
+Attachments: the flagged ⚠ design decision was made deliberately — a separate `appeal_attachments`
+table plus `AppealAttachmentController` (`store`/`preview`), riding the *existing* `appeals` screen's
+`add`/`view` grants (zero seeder changes needed, same as Stage 58's own screen work). Scoped to the
+appeal's own appellant or R08 inside the controller (mirroring `AppealController::index()`'s exact
+scoping), not `RequestVisibility` — an appeal's documents belong to the appeal, not the original
+request's workspace. Same upload validation as the existing `attachments` mechanism (Stage 12), same
+"create the parent, then attach as follow-up calls" flow.
+
+Track J intro's scope decision (3), Stage 59's own half: `MeetingOutputService::complete()` — confirmed
+by grep to be the *only* writer of `completed_closed` anywhere in the codebase — now refuses (422) to
+close a request while `Appeal::openAgainst()` is true, checked inside the same locked transaction right
+after the existing stage/status guards. New `MeetingOutputTransitionException::appealOpen()`. Stage 65
+will release the hold once an appeal reaches `notified_closed`; nothing to build here beyond the block.
+
+Frontend: `AppealsView.vue`'s create form gained the three required fields (`known_at`/`appeal_reasons`/
+`final_request`) plus an always-visible optional `new_facts_declaration` field (the backend states the
+reason when it's actually required, matching how exception-reason modals already work elsewhere rather
+than duplicating the duplicate-detection logic client-side). After a successful create, the form
+switches into an attachments step for the new appeal's id, reusing `FileUpload.vue` — generalized with
+a new optional `uploadUrl` prop (falls back to its existing `/requests/${requestId}/attachments`
+default, so `RequestDetailView.vue`/`RequestsView.vue` needed zero changes) rather than a second upload
+component. New `appeals.create.*` locale keys in both `ar.json`/`en.json`.
+
+Verification: rewrote `tests/Feature/AppealTest.php` in full (6 → 14 tests — Stage 58's fixtures never
+set `created_by_user_id` at all since ownership wasn't enforced yet) covering ownership, every qualifying
+status code, the `cancelled`-with/without-Decision(reject) split, duplicate-without-declaration vs.
+duplicate-with-declaration, decision auto-fill vs. the no-Decision fallback-required case, a spoofed
+`original_decision_id` being silently ignored, and attachment upload/preview/cross-appeal-404/role
+scoping. Added one new test to `MeetingOutputsTest.php` proving `complete()` 422s while an open appeal
+exists and succeeds once it reaches `notified_closed`. Full suite **234 tests / 1353 assertions** green
+(was 225/1298), Pint clean on every touched/new file, `npm run build` passes with `AppealsView` picking
+up the new markup in its existing chunk and `FileUpload` gaining the generalized prop (then reverted
+`frontend/dist`, tracked in git, per every prior stage's note), locale key-parity verified
+programmatically (913 keys each side, zero on-one-side-only), and both migrations ran clean against the
+real MySQL/Homestead database. Smoke-tested end-to-end over real HTTP against Homestead as
+`r01.employee@` (login → create an appeal against a real fixture Request → the duplicate-without-facts
+422 confirmed live → upload a real PDF attachment → preview it as the owner (200) → confirmed an R02
+stranger gets 404 on the same preview URL, proving the scoping is real, not just unit-tested), using a
+`Request` row created directly via tinker (this dev database has zero real `Request` rows, same as every
+recent stage's note) and deleted afterward along with the appeal/attachment it produced — no residue
+left in the real database.
+
+**Open items for whoever builds Stage 60+**: the formal-verification gate (standing/target/deadline/
+duplication re-check by a human) is entirely unbuilt — Stage 59's non-duplication check is deliberately
+just the intake-time heuristic STAGE_PLAN itself describes ("re-verified here by a human rather than
+only the intake-time heuristic"). `AppealResource` now exposes `known_at`/`appeal_reasons`/
+`final_request`/`new_facts_declaration`/`attachments_count`, but the appeals list table itself
+(`AppealsView.vue`) doesn't render most of these yet or list uploaded attachments per row — not part of
+this stage's own done-when, left as a display polish item.
+
+---
+
+### 2026-09-02 17:15 EET — Claude — Stage 59 implementation plan (appeal intake: real fields + eligibility gates)
+
+Building Stage 59 per STAGE_PLAN.md Track J on top of Stage 58's schema-only `appeals`/`appeal_statuses`.
+Re-read the Build bullet, the Track J intro's scope decision (3), and Stage 54b's reconciliation table
+(`docs/employee-committee-lifecycle/gap-analysis.md` §4) before designing the eligibility rules, rather
+than re-deriving the Art. 38 mapping from memory.
+
+**Qualifying "decided" statuses, resolved from the reconciliation table, not guessed.** STAGE_PLAN names
+6 Art. 38 codes (12/13/14/17/19/20). Reverse-mapping each through §4's table: 12→`decided` +
+`approved_with_conditions`; 14→`outside_jurisdiction` (exact, reachable either via committee
+`declare_no_jurisdiction` *with* a Decision, or `requirements_check`'s own `declare_no_jurisdiction`
+*without* one — Stage 54, pre-committee); 17→`final_approved`; 19–20→`completed_closed` (merged) and
+`archived` (legacy, code 20 alone). Code 13 (غير موافق عليها) has **no clean current-status match** — the
+table itself says `rejected` has "no direct counterpart" (it's a pre-committee administrative rejection,
+not a committee non-approval) and only `cancelled` is "loosely" 13, and only for its committee-`reject`
+usage, since `cancelled` also covers plain administrative withdrawal (an already-flagged, not-yet-fixed
+conflation, gap-analysis.md §4's own "Decisions summary"). Deliberate calls, both documented in code, not
+silently resolved: **`rejected` is excluded entirely** (no Art. 38 counterpart per the table itself,
+consistent with not re-opening Stage 54b's decision); **`cancelled` qualifies only when a `Decision` row
+with `outcome = 'reject'` is actually linked to the request** (`Decision::whereHas('meetingRequest', ...)`)
+— distinguishing a real committee rejection from a plain withdrawal using data that already exists,
+without touching the status vocabulary itself. `in_execution` (Art. 38 code 18) is deliberately **not**
+included — STAGE_PLAN's own code list skips 18 while including 17/19/20 on either side of it; honoring
+that literally rather than second-guessing it.
+
+**Ownership**: `original_request_id`'s `created_by_user_id` must equal the acting user — not enforced at
+all in Stage 58. **Non-duplication**: ANY prior `Appeal` row (any status, not just open ones — refiling
+the identical appeal after a first one already concluded is exactly what "unless new facts" guards
+against) for the same appellant + `original_request_id` requires a non-empty `new_facts_declaration` on
+the new one; Stage 60 re-verifies this by a human rather than trusting the heuristic alone, per its own
+Build bullet text — so this stays a simple non-empty-string check, no semantic verification.
+
+All three rules land in a new `App\Services\AppealEligibility` (mirrors `DecisionEligibility`'s shape:
+`reasonBlockingAppeal(): ?string`, ordered checks, each with its own Arabic message), not in the
+FormRequest — this codebase's established split (grep confirms no `withValidator` usage anywhere) keeps
+DB-dependent business rules in a service/controller, converted to `ValidationException::withMessages` in
+the controller, exactly like `MeetingOutputsController`/`CommitteeCandidateController` already do.
+
+**"القرار المتظلم منه (auto-filled from the pick)"**: `original_decision_id` stops being client-supplied
+(dropped from `StoreAppealRequest::rules()` entirely, same treatment `appellant_user_id` already gets) —
+the controller derives it from the target request's latest `MeetingRequest`→`Decision` (reusing the exact
+"latest agenda appearance" pattern `RequestDetailResource::committee_summary`/`RequestResource::
+proposed_meeting` already established: `sortByDesc('id')->first()`). When no Decision is found (the
+pre-committee `outside_jurisdiction` case, or any future decision-less path), `original_decision_reference`
+becomes required instead — enforced in the controller once the lookup comes back empty, not as a static
+FormRequest rule, since it depends on the query result.
+
+**New intake fields on `appeals`** (nullable at the DB layer, required at the FormRequest layer for the
+three substantive ones): `known_at` (تاريخ العلم به, date, not in the future), `appeal_reasons` (أسباب
+الاعتراض, text, required), `final_request` (الطلب النهائي, text, required), `new_facts_declaration`
+(nullable text, conditionally required per the non-duplication rule above).
+
+**Attachments — the flagged ⚠ design decision, picked deliberately: a separate `appeal_attachments`
+table**, not polymorphic `attachments` (would touch every existing consumer: `AttachmentController`,
+`AttachmentResource`, every eager-load of `request.attachments` across `RequestDetailResource`,
+`PresentationMemoCompiler`, `MeetingMinutesCompiler`, etc., for a feature that only needs one new,
+independent parent) and not hung off the original request with a label (an appeal's supporting document
+is not the original request's document — an adversarial record should keep the two files visibly
+separate). Same shape as `attachments` (disk/path/original_name/mime_type/size_bytes/label/
+uploaded_by_user_id), same validation (`StoreAppealAttachmentRequest` mirrors `StoreAttachmentRequest`
+verbatim), same "create parent first, upload attachments as follow-up calls" flow Stage 12/13 already
+established — not required at appeal-creation time. New `AppealAttachmentController` (`store`/`preview`),
+gated on the *existing* `appeals` screen's `add`/`view` grants (no seeder change needed — the grants
+already fit, same as Stage 58's own screen work). Ownership-scoped the same way `AppealController::index()`
+already scopes the list (appellant or R08), not `RequestVisibility` (that gate is about a *request's*
+workspace, and an appeal's documents belong to the appeal, not the request).
+
+**Track J intro's scope decision (3) — Stage 59's half**: `MeetingOutputService::complete()` is the
+**only** writer of `completed_closed` anywhere in the codebase (confirmed by grep — every other
+`completed_closed` mention is a read-side filter/count), so it is the single point to gate. A new
+`Appeal::openAgainst(int $requestId): bool` (any appeal against the request whose status isn't
+`notified_closed` — including a null `appeal_status_id`, which shouldn't happen since `store()` always
+sets `submitted`, but is treated as open defensively) is checked right after the existing
+`wrongStage`/`transitionNotAllowed` guards, inside the same locked transaction, throwing a new
+`MeetingOutputTransitionException::appealOpen()`. Stage 65 will be the one to actually *release* this
+hold once an appeal concludes (nothing to build here beyond the block itself) and Stage 66 owns the
+non-reopening rule — this stage only carries its own half, per the intro's own "Stages 59/65/66 each
+carry their half" line.
+
+**Frontend**: `AppealsView.vue`'s create form gains the three new required fields plus the optional
+new-facts declaration (always visible, not conditionally shown — the backend states the reason when it's
+actually required, matching how exception-reason modals already work elsewhere in this app rather than
+duplicating the duplicate-detection logic client-side). After a successful create, the form switches into
+an attachments step for the newly-created appeal's id, reusing `FileUpload.vue` — generalized with a new
+optional `uploadUrl` prop (falls back to its existing `/requests/${requestId}/attachments` default, so
+`RequestDetailView.vue`/`RequestsView.vue` need zero changes) rather than a second upload component.
+
+**Verification plan**: rewrite `tests/Feature/AppealTest.php`'s fixtures (now needs a creator +
+qualifying status per case — Stage 58's helper didn't set `created_by_user_id` at all, since ownership
+wasn't enforced yet) and add real Stage 59 coverage — ownership block, non-qualifying-status block, the
+`cancelled`-without-Decision vs. `cancelled`-with-Decision(reject) split, duplicate-without-declaration
+block vs. duplicate-with-declaration success, decision auto-fill vs. the no-Decision fallback-required
+case, attachment upload + preview + cross-appeal 404s + role scoping. Add one new test to
+`MeetingOutputsTest.php` (already has a `decidedMeetingOutput()` fixture reaching `in_execution`) proving
+`complete()` 422s while an open appeal exists and succeeds once the appeal reaches `notified_closed`.
+Plus the full PHPUnit suite, Pint, `npm run build`, locale key-parity, and `php artisan migrate` against
+the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-02 16:45 EET — Claude — Stage 58 complete (appeal entity, schema & status machine)
 
 Built exactly per the plan below. Two migrations (`appeal_statuses`, `appeals`) applied to the real

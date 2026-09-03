@@ -36,4 +36,10 @@ class MeetingOutputTransitionException extends DomainException
     {
         return new self('يجب أن يكون الطلب قيد التنفيذ قبل إغلاقه.');
     }
+
+    /** Stage 59, Track J — [D] Arts. 34–37: an open appeal keeps the file open. */
+    public static function appealOpen(): self
+    {
+        return new self('لا يمكن إغلاق الطلب مع وجود تظلم لم يُبلَّغ ويُغلَق بعد بشأنه.');
+    }
 }

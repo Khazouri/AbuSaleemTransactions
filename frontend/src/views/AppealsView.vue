@@ -1,16 +1,18 @@
 <script setup>
 /**
- * Appeals (التظلمات) — Stage 58, Track J.
+ * Appeals (التظلمات) — Stage 58 (foundational screen), Stage 59 (real
+ * intake: ownership/decided-status/non-duplication, all enforced server-
+ * side in AppealEligibility — the new-facts field below is always shown
+ * rather than conditionally revealed, since only the server actually knows
+ * whether a prior appeal exists on the chosen request).
  *
- * The foundational screen: pick an already-decided request and file an
- * appeal against it. No workflow logic yet — no ownership/decided-status/
- * duplication validation (Stage 59+), so this screen is intentionally thin.
  * The list is scoped server-side to the caller's own appeals unless they're
  * R08 (see AppealController::index).
  */
 import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import FileUpload from '../components/FileUpload.vue'
 
 const { t, locale } = useI18n()
 
@@ -86,9 +88,36 @@ function clearSelection() {
 
 const decisionReference = ref('')
 const decisionDate = ref('')
+const knownAt = ref('')
+const appealReasons = ref('')
+const finalRequestText = ref('')
+const newFactsDeclaration = ref('')
 const creating = ref(false)
 const createError = ref(null)
 const createMessage = ref(null)
+
+// Stage 59 — once created, offer the supporting-documents step for this
+// specific appeal before returning to the plain create form.
+const newAppealId = ref(null)
+
+function extractErrorMessage(error, fallback) {
+  const errors = error?.response?.data?.errors
+  if (errors) {
+    const first = Object.values(errors)[0]
+    if (Array.isArray(first) && first.length) return first[0]
+  }
+  return error?.response?.data?.message ?? fallback
+}
+
+function resetCreateForm() {
+  selectedRequest.value = null
+  decisionReference.value = ''
+  decisionDate.value = ''
+  knownAt.value = ''
+  appealReasons.value = ''
+  finalRequestText.value = ''
+  newFactsDeclaration.value = ''
+}
 
 async function createAppeal() {
   if (!selectedRequest.value) {
@@ -99,21 +128,29 @@ async function createAppeal() {
   createError.value = null
   createMessage.value = null
   try {
-    await api.post('/appeals', {
+    const { data } = await api.post('/appeals', {
       original_request_id: selectedRequest.value.id,
       original_decision_reference: decisionReference.value || null,
       original_decision_date: decisionDate.value || null,
+      known_at: knownAt.value,
+      appeal_reasons: appealReasons.value,
+      final_request: finalRequestText.value,
+      new_facts_declaration: newFactsDeclaration.value || null,
     })
     createMessage.value = t('appeals.create.success')
-    selectedRequest.value = null
-    decisionReference.value = ''
-    decisionDate.value = ''
+    newAppealId.value = data.data.id
+    resetCreateForm()
     await load(1)
   } catch (error) {
-    createError.value = error?.response?.data?.message ?? t('appeals.create.failed')
+    createError.value = extractErrorMessage(error, t('appeals.create.failed'))
   } finally {
     creating.value = false
   }
+}
+
+function finishAttachments() {
+  newAppealId.value = null
+  createMessage.value = null
 }
 
 onMounted(() => load())
@@ -128,7 +165,16 @@ onMounted(() => load())
       </div>
     </div>
 
-    <div v-can="'appeals.add'" class="card create">
+    <div v-if="newAppealId" v-can="'appeals.add'" class="card create">
+      <h3>{{ t('appeals.create.attachmentsHeading') }}</h3>
+      <p v-if="createMessage" class="notice success">{{ createMessage }}</p>
+      <FileUpload :upload-url="`/appeals/${newAppealId}/attachments`" />
+      <button class="ghost" type="button" @click="finishAttachments">
+        {{ t('appeals.create.finish') }}
+      </button>
+    </div>
+
+    <div v-else v-can="'appeals.add'" class="card create">
       <h3>{{ t('appeals.create.heading') }}</h3>
 
       <div v-if="!selectedRequest" class="search-block">
@@ -164,6 +210,10 @@ onMounted(() => load())
 
       <div class="fields">
         <label>
+          {{ t('appeals.create.knownAt') }}
+          <input v-model="knownAt" type="date" />
+        </label>
+        <label>
           {{ t('appeals.create.decisionReference') }}
           <input
             v-model="decisionReference"
@@ -176,6 +226,19 @@ onMounted(() => load())
           <input v-model="decisionDate" type="date" />
         </label>
       </div>
+
+      <label class="full">
+        {{ t('appeals.create.appealReasons') }}
+        <textarea v-model="appealReasons" rows="3"></textarea>
+      </label>
+      <label class="full">
+        {{ t('appeals.create.finalRequest') }}
+        <textarea v-model="finalRequestText" rows="2"></textarea>
+      </label>
+      <label class="full">
+        {{ t('appeals.create.newFactsDeclaration') }}
+        <textarea v-model="newFactsDeclaration" rows="2" :placeholder="t('appeals.create.newFactsDeclarationHint')"></textarea>
+      </label>
 
       <p v-if="createMessage" class="notice success">{{ createMessage }}</p>
       <p v-if="createError" class="alert">{{ createError }}</p>
@@ -243,8 +306,9 @@ h3 { margin: 0 0 .75rem; color: var(--color-black-700); font-size: 1rem; }
 
 .card { border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); padding: 1.25rem; margin-bottom: 1rem; }
 .create label { display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; color: var(--color-black-700); margin-bottom: .75rem; }
-.create input { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: .85rem; }
-.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem 1rem; }
+.create label.full { margin-bottom: .75rem; }
+.create input, .create textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: .85rem; font-family: inherit; resize: vertical; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem 1rem; margin-bottom: .75rem; }
 
 .results, .search-block ul.state { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; max-height: 12rem; overflow-y: auto; }
 .results button { width: 100%; display: flex; gap: .5rem; align-items: center; text-align: start; }
@@ -252,6 +316,7 @@ h3 { margin: 0 0 .75rem; color: var(--color-black-700); font-size: 1rem; }
 .selected > div { display: flex; gap: .6rem; align-items: baseline; }
 
 button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
+.create > .ghost { margin-top: .75rem; }
 .primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
 .ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
 .ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
