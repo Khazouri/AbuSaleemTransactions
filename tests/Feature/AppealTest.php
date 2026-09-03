@@ -14,6 +14,7 @@ use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\Role;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -28,6 +29,10 @@ use Tests\TestCase;
  * reconciliation table), non-duplication, auto-filled decision targeting,
  * supporting-document upload/preview, and the Track J intro's scope
  * decision (3) half this stage owns (the block, not the release).
+ *
+ * Stage 60 — the formal-verification gate (AppealController::verify()):
+ * pass/fail outcomes, the one-shot guard, the self-verification block, the
+ * `appeals,edit` visibility widening, and the configurable filing deadline.
  */
 class AppealTest extends TestCase
 {
@@ -372,6 +377,165 @@ class AppealTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->get(route('appeals.attachments.preview', ['appeal' => $appeal, 'attachment' => $attachment]))
             ->assertOk();
+    }
+
+    public function test_a_passing_verification_advances_the_appeal_and_records_who_when_why(): void
+    {
+        $employee = $this->userWithRole('R01');
+        $reviewer = $this->userWithRole('R02');
+        $appeal = $this->appealFixture($employee);
+
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/appeals/{$appeal->id}/verify", [
+                'appellant_standing' => true,
+                'valid_target_decision' => true,
+                'non_duplication' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status.code', 'formal_verification')
+            ->assertJsonPath('data.formal_verification.checks.appellant_standing', true)
+            ->assertJsonPath('data.formal_verification.checks.valid_target_decision', true)
+            ->assertJsonPath('data.formal_verification.checks.non_duplication', true)
+            ->assertJsonPath('data.formal_verification.checks.deadline_met', null)
+            ->assertJsonPath('data.formal_verification.reason', null)
+            ->assertJsonPath('data.formal_verification.verified_by.id', $reviewer->id);
+
+        $this->assertDatabaseHas('appeals', [
+            'id' => $appeal->id,
+            'formal_verified_by_user_id' => $reviewer->id,
+        ]);
+        $this->assertNotNull($appeal->fresh()->formal_verified_at);
+    }
+
+    public function test_a_failing_verification_requires_a_reason_and_closes_the_appeal_as_rejected(): void
+    {
+        $employee = $this->userWithRole('R01');
+        $reviewer = $this->userWithRole('R02');
+        $appeal = $this->appealFixture($employee);
+
+        // No reason supplied — refused, nothing recorded.
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/appeals/{$appeal->id}/verify", [
+                'appellant_standing' => false,
+                'valid_target_decision' => true,
+                'non_duplication' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('reason');
+
+        $this->assertNull($appeal->fresh()->formal_verified_at);
+
+        // With a reason — closes as rejected.
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/appeals/{$appeal->id}/verify", [
+                'appellant_standing' => false,
+                'valid_target_decision' => true,
+                'non_duplication' => true,
+                'reason' => 'المتظلم ليس صاحب الطلب موضوع التظلم.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status.code', 'rejected')
+            ->assertJsonPath('data.formal_verification.checks.appellant_standing', false)
+            ->assertJsonPath('data.formal_verification.reason', 'المتظلم ليس صاحب الطلب موضوع التظلم.');
+    }
+
+    public function test_an_already_verified_appeal_cannot_be_verified_again(): void
+    {
+        $employee = $this->userWithRole('R01');
+        $reviewer = $this->userWithRole('R02');
+        $appeal = $this->appealFixture($employee);
+        $appeal->update(['appeal_status_id' => AppealStatus::where('code', 'formal_verification')->value('id')]);
+
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/appeals/{$appeal->id}/verify", [
+                'appellant_standing' => true,
+                'valid_target_decision' => true,
+                'non_duplication' => true,
+            ])
+            ->assertUnprocessable();
+    }
+
+    public function test_the_appellant_cannot_verify_their_own_appeal(): void
+    {
+        $employee = $this->userWithRole('R01');
+        $employee->roles()->attach(Role::where('code', 'R02')->value('id'));
+        $appeal = $this->appealFixture($employee);
+
+        $this->actingAs($employee, 'sanctum')
+            ->postJson("/api/appeals/{$appeal->id}/verify", [
+                'appellant_standing' => true,
+                'valid_target_decision' => true,
+                'non_duplication' => true,
+            ])
+            ->assertUnprocessable();
+    }
+
+    public function test_a_role_without_appeals_edit_permission_is_refused(): void
+    {
+        $employee = $this->userWithRole('R01');
+        $anotherEmployee = $this->userWithRole('R01');
+        $appeal = $this->appealFixture($employee);
+
+        $this->actingAs($anotherEmployee, 'sanctum')
+            ->postJson("/api/appeals/{$appeal->id}/verify", [
+                'appellant_standing' => true,
+                'valid_target_decision' => true,
+                'non_duplication' => true,
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_the_filing_deadline_check_is_skipped_until_configured_then_enforced(): void
+    {
+        $employee = $this->userWithRole('R01');
+        $reviewer = $this->userWithRole('R02');
+
+        // No Setting row configured yet (SettingSeeder seeds it empty) —
+        // deadline_met is null and never blocks the verdict.
+        $onTimeAppeal = $this->appealFixture($employee);
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/appeals/{$onTimeAppeal->id}/verify", [
+                'appellant_standing' => true,
+                'valid_target_decision' => true,
+                'non_duplication' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status.code', 'formal_verification')
+            ->assertJsonPath('data.formal_verification.checks.deadline_met', null);
+
+        // Configure a 5-day deadline and file well past it.
+        Setting::where('key', 'appeal_filing_deadline_days')->update(['value' => '5']);
+        $lateAppeal = $this->appealFixture($employee);
+        $lateAppeal->forceFill(['known_at' => now()->subDays(30)])->save();
+
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/appeals/{$lateAppeal->id}/verify", [
+                'appellant_standing' => true,
+                'valid_target_decision' => true,
+                'non_duplication' => true,
+                'reason' => 'تجاوز المدة القانونية لتقديم التظلم.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status.code', 'rejected')
+            ->assertJsonPath('data.formal_verification.checks.deadline_met', false);
+    }
+
+    public function test_r02_sees_appeals_filed_by_others_once_granted_edit_while_r01_still_sees_only_their_own(): void
+    {
+        $filer = $this->userWithRole('R01');
+        $reviewer = $this->userWithRole('R02');
+        $this->appealFixture($filer);
+
+        $this->actingAs($reviewer, 'sanctum')
+            ->getJson('/api/appeals')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->actingAs($filer, 'sanctum')
+            ->getJson('/api/appeals?status=submitted')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.appellant.id', $filer->id);
     }
 
     // --- helpers ------------------------------------------------------------

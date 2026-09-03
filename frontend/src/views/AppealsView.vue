@@ -4,10 +4,12 @@
  * intake: ownership/decided-status/non-duplication, all enforced server-
  * side in AppealEligibility — the new-facts field below is always shown
  * rather than conditionally revealed, since only the server actually knows
- * whether a prior appeal exists on the chosen request).
+ * whether a prior appeal exists on the chosen request), Stage 60 (the
+ * formal-verification gate — AppealController::verify()).
  *
  * The list is scoped server-side to the caller's own appeals unless they're
- * R08 (see AppealController::index).
+ * R08 or hold `appeals.edit` (see AppealController::index) — the second
+ * bypass is what lets an R02 verifier see appeals filed by other people.
  */
 import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -16,18 +18,26 @@ import FileUpload from '../components/FileUpload.vue'
 
 const { t, locale } = useI18n()
 
+const STATUS_CODES = [
+  'submitted', 'formal_verification', 'file_assembly', 'legal_review',
+  'committee_presentation', 'notified_closed', 'rejected',
+]
+
 // --- List -------------------------------------------------------------------
 
 const rows = ref([])
 const page = ref({ current_page: 1, last_page: 1, total: 0 })
 const loading = ref(false)
 const loadError = ref(null)
+const statusFilter = ref('')
 
 async function load(requestedPage = 1) {
   loading.value = true
   loadError.value = null
   try {
-    const { data } = await api.get('/appeals', { params: { page: requestedPage } })
+    const { data } = await api.get('/appeals', {
+      params: { page: requestedPage, status: statusFilter.value || undefined },
+    })
     rows.value = data.data ?? []
     page.value = data.meta ?? page.value
   } catch (error) {
@@ -36,6 +46,8 @@ async function load(requestedPage = 1) {
     loading.value = false
   }
 }
+
+watch(statusFilter, () => load(1))
 
 function dateTime(value) {
   if (!value) return t('common.none')
@@ -153,6 +165,53 @@ function finishAttachments() {
   createMessage.value = null
 }
 
+// --- Stage 60 — formal verification ------------------------------------------
+
+const verifyTarget = ref(null)
+const verifyForm = ref(blankVerifyForm())
+const verifying = ref(false)
+const verifyError = ref(null)
+
+function blankVerifyForm() {
+  return { appellant_standing: '', valid_target_decision: '', non_duplication: '', reason: '' }
+}
+
+function startVerify(row) {
+  verifyTarget.value = row
+  verifyForm.value = blankVerifyForm()
+  verifyError.value = null
+}
+
+function cancelVerify() {
+  verifyTarget.value = null
+  verifyError.value = null
+}
+
+async function submitVerify() {
+  if (!verifyTarget.value || verifying.value) return
+  verifying.value = true
+  verifyError.value = null
+  try {
+    await api.post(`/appeals/${verifyTarget.value.id}/verify`, {
+      appellant_standing: verifyForm.value.appellant_standing === 'yes',
+      valid_target_decision: verifyForm.value.valid_target_decision === 'yes',
+      non_duplication: verifyForm.value.non_duplication === 'yes',
+      reason: verifyForm.value.reason || null,
+    })
+    verifyTarget.value = null
+    await load(page.value.current_page)
+  } catch (error) {
+    verifyError.value = extractErrorMessage(error, t('appeals.verify.failed'))
+  } finally {
+    verifying.value = false
+  }
+}
+
+function deadlineLabel(deadlineMet) {
+  if (deadlineMet === null) return t('appeals.verify.deadlineNotConfigured')
+  return deadlineMet ? t('appeals.verify.deadlineMet') : t('appeals.verify.deadlineMissed')
+}
+
 onMounted(() => load())
 </script>
 
@@ -248,12 +307,77 @@ onMounted(() => load())
       </button>
     </div>
 
+    <div v-if="verifyTarget" v-can="'appeals.edit'" class="card create">
+      <h3>{{ t('appeals.verify.heading') }}</h3>
+      <p class="subtitle">{{ t('appeals.verify.hint') }}</p>
+      <div class="selected">
+        <div>
+          <span class="ref ltr">{{ verifyTarget.original_request?.reference_number }}</span>
+          <span>{{ verifyTarget.original_request?.title }}</span>
+        </div>
+      </div>
+
+      <fieldset :disabled="verifying">
+        <div class="fields">
+          <label>
+            {{ t('appeals.verify.appellantStanding') }}
+            <select v-model="verifyForm.appellant_standing">
+              <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
+              <option value="yes">{{ t('appeals.verify.yes') }}</option>
+              <option value="no">{{ t('appeals.verify.no') }}</option>
+            </select>
+          </label>
+          <label>
+            {{ t('appeals.verify.validTargetDecision') }}
+            <select v-model="verifyForm.valid_target_decision">
+              <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
+              <option value="yes">{{ t('appeals.verify.yes') }}</option>
+              <option value="no">{{ t('appeals.verify.no') }}</option>
+            </select>
+          </label>
+          <label>
+            {{ t('appeals.verify.nonDuplication') }}
+            <select v-model="verifyForm.non_duplication">
+              <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
+              <option value="yes">{{ t('appeals.verify.yes') }}</option>
+              <option value="no">{{ t('appeals.verify.no') }}</option>
+            </select>
+          </label>
+        </div>
+        <label class="full">
+          {{ t('appeals.verify.reason') }}
+          <textarea v-model="verifyForm.reason" rows="2"></textarea>
+        </label>
+      </fieldset>
+
+      <p v-if="verifyError" class="alert">{{ verifyError }}</p>
+
+      <button class="primary" type="button" :disabled="verifying" @click="submitVerify">
+        {{ verifying ? t('appeals.verify.submitting') : t('appeals.verify.submit') }}
+      </button>
+      <button class="ghost" type="button" :disabled="verifying" @click="cancelVerify">
+        {{ t('appeals.verify.cancel') }}
+      </button>
+    </div>
+
     <p v-if="loadError" class="alert">
       {{ t('nav.error') }}
       <button class="ghost" type="button" @click="load(page.current_page)">{{ t('common.retry') }}</button>
     </p>
 
     <div class="card list">
+      <div class="filters">
+        <label>
+          {{ t('appeals.filters.status') }}
+          <select v-model="statusFilter">
+            <option value="">{{ t('appeals.filters.all') }}</option>
+            <option v-for="code in STATUS_CODES" :key="code" :value="code">
+              {{ t(`appeals.filters.statuses.${code}`) }}
+            </option>
+          </select>
+        </label>
+      </div>
+
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="!loadError && rows.length === 0" class="state">{{ t('appeals.empty') }}</p>
       <div v-else-if="!loadError" class="table-wrap">
@@ -264,6 +388,7 @@ onMounted(() => load())
               <th>{{ t('appeals.columns.decision') }}</th>
               <th>{{ t('appeals.columns.status') }}</th>
               <th>{{ t('appeals.columns.filedAt') }}</th>
+              <th>{{ t('appeals.columns.verification') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -280,6 +405,28 @@ onMounted(() => load())
                 <span v-else>{{ t('common.none') }}</span>
               </td>
               <td class="nowrap">{{ dateTime(row.created_at) }}</td>
+              <td>
+                <button
+                  v-if="row.status?.code === 'submitted'"
+                  v-can="'appeals.edit'"
+                  class="ghost"
+                  type="button"
+                  @click="startVerify(row)"
+                >
+                  {{ t('appeals.verify.action') }}
+                </button>
+                <div v-else-if="row.formal_verification" class="verification-summary">
+                  <span class="pill" :class="row.status?.code === 'rejected' ? 'rejected' : 'passed'">
+                    {{ row.status?.code === 'rejected' ? t('appeals.verify.resultRejected') : t('appeals.verify.resultPassed') }}
+                  </span>
+                  <small class="muted">{{ deadlineLabel(row.formal_verification.checks.deadline_met) }}</small>
+                  <small v-if="row.formal_verification.reason" class="muted">{{ row.formal_verification.reason }}</small>
+                  <small v-if="row.formal_verification.verified_by" class="muted">
+                    {{ t('appeals.verify.verifiedBy') }}: {{ row.formal_verification.verified_by.name }}
+                  </small>
+                </div>
+                <span v-else class="muted">{{ t('appeals.verify.notYet') }}</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -307,8 +454,16 @@ h3 { margin: 0 0 .75rem; color: var(--color-black-700); font-size: 1rem; }
 .card { border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); padding: 1.25rem; margin-bottom: 1rem; }
 .create label { display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; color: var(--color-black-700); margin-bottom: .75rem; }
 .create label.full { margin-bottom: .75rem; }
-.create input, .create textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: .85rem; font-family: inherit; resize: vertical; }
+.create input, .create select, .create textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: .85rem; font-family: inherit; resize: vertical; }
 .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem 1rem; margin-bottom: .75rem; }
+
+.filters { display: flex; align-items: end; gap: .75rem; margin-bottom: 1rem; }
+.filters label { display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; color: var(--color-black-700); }
+.filters select { padding: .4rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: .85rem; }
+
+.verification-summary { display: flex; flex-direction: column; gap: .2rem; align-items: start; }
+.pill.passed { border-color: var(--color-success-border); color: var(--color-success-fg); background: var(--color-success-bg); }
+.pill.rejected { border-color: var(--color-danger-border); color: var(--color-danger-fg); background: var(--color-danger-bg); }
 
 .results, .search-block ul.state { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; max-height: 12rem; overflow-y: auto; }
 .results button { width: 100%; display: flex; gap: .5rem; align-items: center; text-align: start; }
@@ -317,6 +472,8 @@ h3 { margin: 0 0 .75rem; color: var(--color-black-700); font-size: 1rem; }
 
 button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
 .create > .ghost { margin-top: .75rem; }
+.create > .ghost + .ghost { margin-inline-start: .5rem; }
+.create > .primary + .ghost { margin-top: .75rem; margin-inline-start: .5rem; }
 .primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
 .ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
 .ghost:hover:not(:disabled) { background: var(--color-surface-hover); }

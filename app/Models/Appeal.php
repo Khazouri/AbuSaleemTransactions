@@ -27,6 +27,11 @@ use Illuminate\Support\Carbon;
  * @property string|null $new_facts_declaration Stage 59 — [A] §9 step 2's
  *                                              non-duplication escape hatch; see AppealEligibility.
  * @property int|null $appeal_status_id
+ * @property array|null $formal_verification_checks Stage 60 — {appellant_standing, valid_target_decision,
+ *                                                  deadline_met (bool|null), non_duplication}.
+ * @property string|null $formal_verification_reason Required when the verdict above is a fail.
+ * @property int|null $formal_verified_by_user_id
+ * @property Carbon|null $formal_verified_at
  */
 class Appeal extends Model
 {
@@ -41,6 +46,10 @@ class Appeal extends Model
         'final_request',
         'new_facts_declaration',
         'appeal_status_id',
+        'formal_verification_checks',
+        'formal_verification_reason',
+        'formal_verified_by_user_id',
+        'formal_verified_at',
     ];
 
     protected function casts(): array
@@ -48,6 +57,8 @@ class Appeal extends Model
         return [
             'original_decision_date' => 'date',
             'known_at' => 'date',
+            'formal_verification_checks' => 'array',
+            'formal_verified_at' => 'datetime',
         ];
     }
 
@@ -69,6 +80,11 @@ class Appeal extends Model
     public function status(): BelongsTo
     {
         return $this->belongsTo(AppealStatus::class, 'appeal_status_id');
+    }
+
+    public function formalVerifiedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'formal_verified_by_user_id');
     }
 
     public function attachments(): HasMany

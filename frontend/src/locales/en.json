@@ -206,7 +206,46 @@
       "request": "Target request",
       "decision": "Decision reference",
       "status": "Status",
-      "filedAt": "Filed at"
+      "filedAt": "Filed at",
+      "verification": "Formal verification"
+    },
+    "filters": {
+      "status": "Status",
+      "all": "All statuses",
+      "statuses": {
+        "submitted": "Submitted",
+        "formal_verification": "Formal Verification",
+        "file_assembly": "Original File Assembly",
+        "legal_review": "Legal Review",
+        "committee_presentation": "Committee/Authority Presentation",
+        "notified_closed": "Notified & Closed",
+        "rejected": "Formally Rejected"
+      }
+    },
+    "verify": {
+      "action": "Formal verification",
+      "heading": "Formal verification of the appeal",
+      "hint": "Check appellant standing, the validity of the target decision, and non-duplication. The statutory deadline is computed automatically.",
+      "choose": "— Choose —",
+      "yes": "Yes",
+      "no": "No",
+      "appellantStanding": "Appellant standing",
+      "validTargetDecision": "Validity of the target decision",
+      "nonDuplication": "Non-duplication",
+      "reason": "Rejection reason (required if any check fails)",
+      "submit": "Record verification result",
+      "submitting": "Saving…",
+      "success": "Formal verification result recorded.",
+      "failed": "The verification result could not be recorded.",
+      "cancel": "Cancel",
+      "resultPassed": "Passed formal verification",
+      "resultRejected": "Failed formal verification",
+      "deadlineMet": "Statutory deadline: met",
+      "deadlineMissed": "Statutory deadline: missed",
+      "deadlineNotConfigured": "Statutory deadline: not configured",
+      "verifiedBy": "Verified by",
+      "verifiedAt": "Verified at",
+      "notYet": "Not verified yet"
     }
   },
   "requests": {

@@ -19,6 +19,8 @@ use Illuminate\Database\Seeder;
  *   RequestType..   the request types
  *   WorkflowTransition. the Stage 14/16 normal and exception state machine
  *   AppealStatusSeeder  Stage 58's own small appeal status machine
+ *   SettingSeeder       Stage 60's appeal_filing_deadline_days default (no
+ *                       dependency — the settings table stands alone)
  *   ScreenSeeder        the 22 screens
  *   ScreenRolePerm..    the 22 x 8 matrix — needs screens AND roles
  */
@@ -45,6 +47,7 @@ class DatabaseSeeder extends Seeder
             // Stage 58 — the appeal (تظلم) status machine, independent of the
             // above (see AppealStatusSeeder's own docblock).
             AppealStatusSeeder::class,
+            SettingSeeder::class,
             ScreenSeeder::class,
             ScreenRolePermissionSeeder::class,
         ]));

@@ -14,6 +14,160 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-03 11:15 EET — Claude — Stage 60 complete (formal verification gate)
+
+Built exactly per the plan below. One migration (`appeals.formal_verification_checks/reason/
+formal_verified_by_user_id/formal_verified_at`), applied to the real MySQL/Homestead database. A new
+7th `AppealStatus` row (`rejected`, order_no 7, danger-red) seeded alongside the existing six — the
+`AppealStatusSeeder` docblock now documents both the "status = milestone just reached" convention and
+`rejected`'s status as a terminal branch outcome, not an 8th sequential step. New `Setting` row
+`appeal_filing_deadline_days`, seeded empty by a brand-new `SettingSeeder` (`firstOrCreate`, so a
+reseed never clobbers an admin's later configuration) — no document in this folder states an actual
+day count, so the deadline check is opt-in configuration, not a fabricated number.
+
+New `App\Services\AppealVerificationService::deadlineMet()` — null (never blocks) until an admin sets
+the setting, else plain arithmetic against `known_at`. `App\Http\Requests\Appeal\VerifyAppealRequest`
+collects the three human-judgment checks (appellant standing, target-decision validity, non-
+duplication) as required-together booleans, mirroring `RecordJurisdictionTestRequest`'s shape — the
+fourth check (the deadline) is deliberately never client-supplied. `AppealController::verify()`
+computes the overall verdict (all three human checks true AND deadline_met !== false), requires a
+`reason` when the verdict is a fail, and writes the checks/reason/verifier/timestamp plus the new
+`appeal_status_id` (`formal_verification` on pass, `rejected` on fail) in one `update()` call — which
+`AuditLog` (Appeal is already in `AUDITED_MODELS`) picks up for free, giving "who/when" alongside the
+"why" this stage records explicitly. Two guards, both 422/one 422 one plain-403-via-middleware: a
+one-shot check (`appeal->status->code !== 'submitted'` refuses re-verification) and a self-verification
+block (the appellant may not verify their own filing, same caution as `WorkflowService`'s existing
+self-approval guard on ordinary requests).
+
+**The visibility gap flagged in the plan was real and needed fixing, not just noting.**
+`AppealController::index()`'s R08-only bypass left an R02 reviewer with no way to see appeals filed by
+anyone else — fixed by widening the bypass to "R08 OR holds `appeals,can_edit`"
+(`User::hasScreenPermission()` — caught one bug here: the method needs the `can_` prefix on the action
+name, confirmed by reading `CheckScreenPermission` middleware, not guessed; the first pass without the
+prefix silently returned false for everyone and was caught by the R02-visibility test, not assumed
+correct). Also added an optional `?status=` filter to `index()` so a reviewer can pull up exactly the
+`submitted` worklist. `ScreenRolePermissionSeeder`'s `appeals` row gained its first-ever `edit` grant
+(`R02` only) — the seeder's own prior comment had already flagged this as the stage to widen it.
+
+Frontend: `AppealsView.vue` gained a status filter (hardcoded 7-code ar/en label map, mirroring Stage
+32's "small static label map, not a new lookup endpoint" precedent), a per-row "formal verification"
+action visible only via `v-can="'appeals.edit'"` on `submitted` rows opening an inline card with 3
+yes/no `<select>`s (mirroring `RequestDetailView.vue`'s jurisdiction-test pattern) + a reason textarea
++ submit/cancel, and a compact pass/fail summary (checks, deadline result, reason, verifier) once a
+row has been verified. New `appeals.verify.*` + `appeals.filters.*` locale keys in both `ar.json`/
+`en.json`.
+
+Verification: 7 new tests appended to `tests/Feature/AppealTest.php` (a pass advances the appeal and
+records who/when/why; a fail 422s without a reason then succeeds and closes as `rejected` with one; an
+already-verified appeal refuses a second verify; the appellant cannot verify their own appeal; a role
+without `appeals,edit` gets 403; the deadline check is null/skipped with no configured `Setting` then
+enforced once one exists, tested against a hand-backdated `known_at`; R02 sees an appeal filed by R01
+once granted `edit`, while R01 without it still sees only their own). Full suite **241 tests / 1385
+assertions** green (was 234/1353), Pint clean on every touched/new file, `npm run build` passes with
+`AppealsView` picking up the new markup in its existing chunk (then reverted `frontend/dist`, tracked
+in git, per every prior stage's note), locale key-parity verified programmatically (946 keys each side,
+zero on-one-side-only), and the migration plus all three reseeds (`AppealStatusSeeder`, `SettingSeeder`,
+`ScreenRolePermissionSeeder`) ran clean against the real MySQL/Homestead database — confirmed via
+tinker that the `rejected` status exists (7 rows total), the setting exists with a null value, and R02
+holds `can_edit` on `appeals`. Smoke-tested the full pass path end-to-end over real HTTP against
+Homestead (login as `r01.employee@` → file an appeal against a tinker-created fixture Request → login
+as `r02.reviewer@` → confirmed the widened visibility actually lists the R01-filed appeal → verify
+[pass] → status became `formal_verification` with checks/verifier recorded → a second verify attempt
+422s [one-shot guard] → `r01.employee@` attempting to verify a stranger's appeal gets 403 [no
+`appeals,edit`]), then deleted the fixture appeal/request and revoked both minted tokens — no residue
+left in the real database.
+
+**Open items for whoever builds Stage 61+**: `formal_verification_checks`/`reason` are immutable after
+the one verify() call — there is no "amend a verification" endpoint, matching the "no restore/undo"
+precedent Stage 26 already set for backups. The `rejected` status is a dead end today — nothing reads
+it yet (no notification, no closure record); Stage 65's own closure mechanism is the natural place to
+eventually notify a rejected appellant too, but that's explicitly out of this stage's scope, not
+silently assumed. A pass here only ever sets status to `formal_verification` — Stage 61's own Build
+bullet describes a read-only compiler with no status transition of its own, so nothing in this codebase
+yet moves an appeal's status to `file_assembly`. Whoever builds Stage 62+ should decide explicitly
+whether/when that status is ever reached, rather than assuming Stage 61 already handles it.
+
+---
+
+### 2026-09-03 10:00 EET — Claude — Stage 60 implementation plan (formal verification gate)
+
+Building Stage 60 per STAGE_PLAN.md Track J: قسم شؤون الموظفين's admissibility check on a freshly-
+filed appeal (status `submitted`), checking صفة المتظلم / القرار محل التظلم / المواعيد القانونية /
+عدم التكرار, closing the appeal immediately on a failing check or advancing it on a pass.
+
+**Status semantics, decided before writing code**: `AppealStatus` codes read as "the milestone just
+reached," matching every other status-machine in this codebase (`CommitteeStatusService`'s sub-
+statuses, `RequestStatus`). So a pass moves `appeal_status_id` from `submitted` straight to
+`formal_verification` (Stage 60's own status, order_no 2 — "formal verification passed, ready for
+Stage 61's file assembly"), not through some separate "currently verifying" state. A fail needs a
+status this 6-row machine doesn't have — the six rows are [A] §9's happy-path sequence only, with no
+rejection branch — so a **new 7th `AppealStatus` row, `rejected`** (مرفوض شكلياً, order_no 7,
+danger-red badge) is added, documented as a terminal branch outcome, not a 7th sequential step.
+`notified_closed` is deliberately not reused for this: that status is Stage 65's own closure
+mechanism (an 8-field closure record + a notification event, neither of which exists yet) and reusing
+its name for an early administrative rejection would misrepresent an unbuilt mechanism as having
+fired.
+
+**Three of the four checks are human judgment calls, not re-run heuristics.** Re-running the exact
+`AppealEligibility::reasonBlockingAppeal()` computation from intake would be redundant with "only the
+intake-time heuristic," which the stage's own text says this must go beyond. So `appellant_standing`,
+`valid_target_decision`, and `non_duplication` are three required booleans a human (R02, قسم شؤون
+الموظفين's reviewer role) submits through the verification form — mirroring Stage 54's
+`RecordJurisdictionTestRequest` all-required-together shape, not free text. **The fourth,
+المواعيد القانونية, is server-computed, not human-attested** — it's arithmetic, not judgment, once a
+deadline is configured. New `Setting` row `appeal_filing_deadline_days`, seeded **empty** via a new
+`SettingSeeder` (first seeder for this table — `firstOrCreate`, not `updateOrCreate`, so a reseed never
+clobbers an admin's later configuration) — no document in this folder states an actual day count, so
+fabricating one would be worse than an honest gap. `AppealVerificationService::deadlineMet(Appeal
+$appeal): ?bool` returns null (not applicable, never blocks) when the setting is unset/non-numeric,
+else compares `$appeal->created_at` against `known_at + N days`.
+
+**Overall verdict** = all three human checks true AND deadline_met !== false (null passes). A reason
+is required when the verdict is a fail (`ValidationException::withMessages`, same pattern
+`AppealController::store()` already uses for `AppealEligibility` failures) — recorded alongside the
+full checks map, the verifying user, and a timestamp, satisfying "each outcome logged with who/when/
+why" together with the generic `AuditLog` (Appeal is already in `AUDITED_MODELS`) which independently
+logs the `appeal_status_id`/new columns old→new on the same `update()` call.
+
+**New `appeals` columns** (one migration): `formal_verification_checks` (json), `formal_verification_
+reason` (nullable text), `formal_verified_by_user_id` (nullable FK users, nullOnDelete), `formal_
+verified_at` (nullable timestamp).
+
+**New route** `POST appeals/{appeal}/verify`, gated `screen.permission:appeals,edit` — a genuinely new
+grant (`ScreenRolePermissionSeeder`'s `appeals` row currently has no `edit` at all; its own comment
+already flags "widen this once a later Track J stage... needs staff roles to act on this screen too" —
+this is that stage). Granting R02 only, matching R02's "قسم شؤون الموظفين" role description.
+`AppealController::verify()` guards: 422 if `appeal->status->code !== 'submitted'` (one-shot gate, no
+re-verification), 422 if the actor is the appeal's own appellant (self-verification block, same
+caution as `WorkflowService`'s existing self-approval guard on ordinary requests).
+
+**Visibility gap this stage has to close, not defer**: `AppealController::index()` today scopes to
+`appellant_user_id = actor.id` unless the actor is R08 — an R02 reviewer has no way to see *anyone
+else's* filed appeals to know what to verify. Widening the bypass from "is R08" to "is R08 OR holds
+`appeals,edit`" (`User::hasScreenPermission()`) fixes this with the same permission tier that gates
+the verify action itself, so visibility and write-capability agree. Also adding an optional `?status=`
+filter to `index()` so a reviewer can pull up exactly the `submitted` worklist.
+
+**Frontend**: `AppealsView.vue` gains a status filter (hardcoded ar/en label map for the 7 codes,
+mirroring Stage 32's "small static label map, not a new lookup endpoint" precedent), a per-row
+"formal verification" action visible only via `v-can="'appeals.edit'"` on `submitted` rows, opening an
+inline card with 3 yes/no `<select>`s (mirroring `RequestDetailView.vue`'s jurisdiction-test pattern)
++ a reason textarea + submit, and a compact verified-result display (pass/fail + reason + verifier +
+date) once `formal_verification.checks` is present. New `appeals.verify.*` + `appeals.filters.*`
+locale keys in both `ar.json`/`en.json`.
+
+**Verification plan**: new tests in `tests/Feature/AppealTest.php` (or a new `AppealVerificationTest`)
+— a pass moves status to `formal_verification` and records checks/verifier/timestamp; a fail requires
+a reason and moves to `rejected`; a fail without a reason 422s; re-verifying an already-verified appeal
+422s; the appellant cannot verify their own appeal; a role without `appeals,edit` gets 403; the
+deadline check is null/skipped with no `Setting` row, then true/false once one is configured; R02 sees
+appeals filed by others once granted `edit`, R01 without it still sees only their own — plus the full
+PHPUnit suite, Pint, `npm run build`, locale key-parity, and `php artisan migrate` +
+`db:seed --class=SettingSeeder` + reseed of `AppealStatusSeeder`/`ScreenRolePermissionSeeder` against
+the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-02 17:55 EET — Claude — Stage 59 complete (appeal intake: real fields + eligibility gates)
 
 Built exactly per the plan below. Two migrations applied to the real MySQL/Homestead database: four

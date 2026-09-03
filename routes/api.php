@@ -598,4 +598,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:appeals,view')
         ->get('appeals/{appeal}/attachments/{attachment}/preview', [AppealAttachmentController::class, 'preview'])
         ->name('appeals.attachments.preview');
+
+    // Stage 60 — the formal-verification gate (صفة المتظلم / القرار محل
+    // التظلم / المواعيد القانونية / عدم التكرار). One-shot: only an appeal
+    // still at `submitted` can be verified (enforced in the controller).
+    Route::middleware('screen.permission:appeals,edit')
+        ->post('appeals/{appeal}/verify', [AppealController::class, 'verify']);
 });

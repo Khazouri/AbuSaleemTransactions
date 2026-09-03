@@ -36,6 +36,17 @@ class AppealResource extends JsonResource
                 'name_en' => $this->status->name_en,
                 'color' => $this->status->color,
             ] : null),
+            // Stage 60 — the formal-verification record, present once
+            // AppealController::verify() has acted on this appeal.
+            'formal_verification' => $this->formal_verification_checks === null ? null : [
+                'checks' => $this->formal_verification_checks,
+                'reason' => $this->formal_verification_reason,
+                'verified_by' => $this->whenLoaded('formalVerifiedBy', fn () => $this->formalVerifiedBy ? [
+                    'id' => $this->formalVerifiedBy->id,
+                    'name' => $this->formalVerifiedBy->name,
+                ] : null),
+                'verified_at' => $this->formal_verified_at,
+            ],
             'created_at' => $this->created_at,
         ];
     }
