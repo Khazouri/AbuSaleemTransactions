@@ -14,6 +14,166 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-05 15:10 EET — Claude — Stage 62 complete (jurisdiction test & legal review)
+
+Built exactly per the plan below. One migration (`appeals.jurisdiction_test`/`jurisdiction_tested_by_
+user_id`/`jurisdiction_tested_at`/`legal_review`/`legal_reviewed_by_user_id`/`legal_reviewed_at`,
+applied to the real MySQL/Homestead database) and a new 8th `AppealStatus` row (`outside_jurisdiction`,
+order_no 8, reusing Stage 49's exact Request-level naming + badge colour `#78350f`) seeded and
+verified via tinker.
+
+Two new one-shot `AppealController` actions, both riding the existing `appeals,edit` grant (no seeder
+change — R02 + R08 automatically, per that seeder's own "R08 is granted every action on every screen"
+rule): `recordJurisdictionTest()` (guarded to `status.code === 'formal_verification'`, self-action
+blocked same as `verify()`) advances to `file_assembly` on a `committee` answer or terminates straight
+to `outside_jurisdiction` on any of the other four; `recordLegalReview()` (guarded to
+`status.code === 'file_assembly'`) advances to `legal_review` once all 5 Art. 75 point 4 questions are
+answered together. This closes the exact open item Stage 60's note flagged ("nothing in this codebase
+yet moves an appeal's status to `file_assembly`... whoever builds Stage 62+ should decide explicitly
+whether/when that status is ever reached") — recording the jurisdiction test with a positive answer is
+now that trigger, on the reasoning that you can't sensibly answer a jurisdiction question without
+having reviewed the assembled file.
+
+**One deliberate generalization beyond Art. 77's literal text, recorded as a judgment call, not a
+guess**: STAGE_PLAN's own wording only explicitly names the disciplinary-board/court answer as
+requiring termination ("the last option, per Art. 77, must terminate the appeal"), but all four
+non-committee answers (mayor/ministry/other_body/disciplinary_or_court) now terminate identically —
+the whole point of the question is filtering out every case where the committee isn't the competent
+venue, and letting three of four "not us" answers silently proceed while blocking only the fourth would
+be an arbitrary, textually-unsupported carve-out. A new test
+(`test_every_non_committee_answer_terminates_the_appeal`) proves this generalization explicitly, on top
+of the dedicated Art. 77 disciplinary-case test.
+
+Legal review's 5 answers (`factual_error`/`legal_text_violation`/`new_documents`/
+`formation_or_reasoning_defect`/`issued_by_competent_body`) are stored as-is and are informational for
+Stage 63/64's later outcome selection — only the record's presence (and the status transition it
+triggers) gates progress, matching Stage 54's own split between a gated action and a non-blocking
+answer field. No new service class — both actions live directly in `AppealController`, matching
+`verify()`'s own orchestration-in-controller style rather than `AppealVerificationService`'s
+reusable-computation one.
+
+Frontend: `AppealsView.vue` gained two new table columns (اختبار الاختصاص / المراجعة القانونية), each
+showing a status-gated action button or a recorded summary, plus two new inline panels mirroring the
+existing `verifyTarget` card — the jurisdiction panel shows a live termination warning the moment a
+non-committee option is picked, before submitting. New `appeals.jurisdiction.*`, `appeals.legalReview.*`,
+`appeals.columns.jurisdiction/legalReview`, and `appeals.filters.statuses.outside_jurisdiction` locale
+keys in both `ar.json`/`en.json`.
+
+Verification: new `tests/Feature/AppealJurisdictionReviewTest.php` (12 tests — committee-competent
+advances to `file_assembly` with who/when recorded; the Art. 77 disciplinary case terminates to
+`outside_jurisdiction`; all three other non-committee answers terminate the same way; the action is
+refused before `formal_verification` and refused again once already recorded (one-shot, both actions);
+the appellant cannot act on their own appeal for either action; a role without `appeals,edit` is
+refused for either action; legal review is refused before `file_assembly`; legal review requires all 5
+questions together; legal review advances to `legal_review` with who/when recorded). Full suite
+**260 tests / 1486 assertions** green (was 248/1452), Pint clean repo-wide (`--test` reports zero diffs
+this time, not just on touched files), `npm run build` passes with `AppealsView` picking up the new
+columns/panels in its existing chunk (then reverted `frontend/dist`, tracked in git, per every prior
+stage's note), locale key-parity verified programmatically (1027 keys each side, zero on-one-side-only),
+and the migration plus the `AppealStatusSeeder` reseed both ran clean against the real MySQL/Homestead
+database (confirmed via tinker: 8 statuses in order, `outside_jurisdiction` at order_no 8). Smoke-tested
+both actions end-to-end over real HTTP against Homestead as the seeded `r02.reviewer@` test user against
+two fixture appeals built via tinker: a `committee` answer advanced one appeal to `file_assembly` then
+`legal_review` after the checklist; a `disciplinary_or_court` answer on the second terminated it to
+`outside_jurisdiction`; a stranger (`r01.employee@`, no `appeals,edit`) got a real 403 attempting the
+legal-review action. Deleted both fixture appeals/requests and revoked both minted tokens afterward —
+`Appeal::count()` and the smoke-test token/request queries all confirmed back to zero, no residue left
+in the real database.
+
+**Open item for whoever builds Stage 63+**: Stage 63 (committee presentation) is expected to require
+`appeal.status.code === 'legal_review'` before allowing an appeal onto a committee agenda — this stage
+sets up that status for Stage 63 to check but does not build the gate itself, since Stage 63's own
+`item_type=appeal` agenda mechanism doesn't exist yet. `outside_jurisdiction` (like `rejected` before
+it) is a dead end today — nothing yet notifies the appellant or produces a closure record for either
+branch status; `Appeal::openAgainst()` already treats both as "still open" (only `notified_closed`
+counts as concluded), so Stage 65's notify+close pass is still the thing that eventually resolves them,
+exactly as that stage's own note already anticipates.
+
+---
+
+### 2026-09-05 14:30 EET — Claude — Stage 62 implementation plan (jurisdiction test & legal review)
+
+Building Stage 62 per STAGE_PLAN.md Track J: Art. 77's disciplinary-matter exclusion plus the Art. 75
+point 4 legal-review checklist, both gating whether an appeal can reach Stage 63's committee
+presentation. This also **closes the open item Stage 60's note explicitly deferred**: "nothing in this
+codebase yet moves an appeal's status to `file_assembly`... whoever builds Stage 62+ should decide
+explicitly whether/when that status is ever reached."
+
+**Decision, recorded before coding**: the two structured records ride the existing `appeal_statuses`
+sequence exactly (submitted → formal_verification → file_assembly → legal_review →
+committee_presentation → notified_closed), one status per completed record, rather than inventing a
+separate "in progress" state. Recording the jurisdiction test (with a "committee is competent" answer)
+is what advances `formal_verification` → `file_assembly` — treated as the natural proxy for "the file
+has now been reviewed enough to answer a jurisdiction question," since Stage 61's own compiler is
+read-only with no "confirm assembly" action of its own. Recording the legal review then advances
+`file_assembly` → `legal_review` (the status code IS the milestone just completed, matching every
+other Appeal/Request status's naming convention). Stage 63 (unbuilt) is expected to require
+`status.code === 'legal_review'` before allowing an appeal onto a committee agenda — this stage doesn't
+build that gate itself since Stage 63 doesn't exist yet, only sets up the status for it to check.
+
+**Jurisdiction test = a single structured select, not 6 boolean fields** — [D]/[E]'s question is
+literally "is the committee competent, or does it belong to [4 named alternatives]?", so the "mirror
+Stage 54's UI pattern" instruction is read as "structured, not free text," not "must have 6 fields."
+New `jurisdiction_test` json column stores `{competent_body}` ∈
+`{committee, mayor, ministry, other_body, disciplinary_or_court}`. **Generalizing Art. 77's explicit
+"disciplinary board/court terminates" rule to all four non-committee answers, not just the last one** —
+documented as a deliberate reading, since the whole point of asking "is it the committee, or one of
+these four" is to filter out every case where the committee isn't the right venue; letting 3 of 4 "not
+us" answers silently proceed while blocking only the disciplinary one would be an arbitrary carve-out
+with no textual basis. Any non-`committee` answer immediately sets a new terminal branch status,
+**`outside_jurisdiction`** (order_no 8, reusing the exact naming + badge colour `#78350f` Stage 49 used
+for the analogous Request-level status) — mirrors `rejected`'s existing "branch, not a step" treatment
+from Stage 60, and is NOT `notified_closed` (an appeal terminated this way still needs Stage 65's actual
+notify+close pass before `Appeal::openAgainst()` stops treating it as open — no change needed there
+since that predicate already excludes only `notified_closed`).
+
+**Legal review = Art. 75 point 4's 5-question checklist, all required together** (mirroring Stage 54's
+"not finalized until every question is answered" pattern): `factual_error`, `legal_text_violation`,
+`new_documents`, `formation_or_reasoning_defect`, `issued_by_competent_body` — all booleans, informational
+for Stage 63/64's later outcome selection, not a pass/fail gate themselves (unlike the jurisdiction
+test's `competent_body`, presence is what gates, not the answers' content — same split Stage 54 already
+established between its own gated actions and the non-blocking `requires_central_approval` field).
+
+**New migration**: `appeals` gains `jurisdiction_test` (json), `jurisdiction_tested_by_user_id` (FK
+users, nullOnDelete), `jurisdiction_tested_at`, `legal_review` (json), `legal_reviewed_by_user_id` (FK
+users, nullOnDelete), `legal_reviewed_at` — all nullable, `after('formal_verified_at')`, matching Stage
+60's own migration shape exactly (who/when columns separate from the JSON answer blob).
+
+**Two new one-shot actions on `AppealController`** (no new service class — this is orchestration-level
+logic comparable to `verify()`'s own directly-in-controller style, not a reusable computation like
+`AppealVerificationService::deadlineMet()`): `recordJurisdictionTest()` (guarded to
+`status.code === 'formal_verification'`, self-action blocked same as `verify()`) and
+`recordLegalReview()` (guarded to `status.code === 'file_assembly'`, same self-action block). Both ride
+the *existing* `appeals,edit` grant (R02 + R08 automatically, per `ScreenRolePermissionSeeder`'s "R08 is
+granted every action on every screen" rule) — no seeder change. New routes: `PATCH
+appeals/{appeal}/jurisdiction-test` and `PATCH appeals/{appeal}/legal-review`, both behind
+`screen.permission:appeals,edit`. New `RecordAppealJurisdictionTestRequest` / `RecordAppealLegalReviewRequest`
+Form Requests (Arabic messages, matching house style). `AppealResource` gains `jurisdiction_test` and
+`legal_review` blocks (null until recorded), and `AppealController::WITH` gains
+`jurisdictionTestedBy:id,name` / `legalReviewedBy:id,name`.
+
+**Frontend**: `AppealsView.vue` gains two new table columns (جهة الاختصاص / المراجعة القانونية) each
+showing either an action button (gated `v-can="'appeals.edit'"`, visible only at the row's matching
+status) or a recorded summary, plus two new inline panels mirroring the existing `verifyTarget` card
+shape — the jurisdiction panel shows a live termination warning once a non-committee option is picked,
+before submitting. New `appeals.columns.jurisdiction/legalReview`, `appeals.jurisdiction.*`,
+`appeals.legalReview.*`, and `appeals.filters.statuses.outside_jurisdiction` locale keys in both
+`ar.json`/`en.json`. `STATUS_CODES` in the script gains `outside_jurisdiction`.
+
+**Verification plan**: new `tests/Feature/AppealJurisdictionReviewTest.php` — a `committee` answer
+advances to `file_assembly` and records who/when; each of the 4 non-committee answers terminates to
+`outside_jurisdiction` (one test using `disciplinary_or_court` for the Art. 77 case, one parametrized
+or looped over the other 3 to confirm the generalization); the action is refused before
+`formal_verification` and refused again once already recorded (one-shot); the appellant cannot test
+their own appeal's jurisdiction; a role without `appeals,edit` is refused; legal review is refused
+before `file_assembly`, requires all 5 questions together, advances to `legal_review` and records
+who/when once complete, and is refused for the appellant's own appeal — plus the full PHPUnit suite,
+Pint on touched/new files, `npm run build`, locale key-parity, and `php artisan migrate` +
+`db:seed --class=AppealStatusSeeder` against the real MySQL/Homestead database if reachable this
+session.
+
+---
+
 ### 2026-09-05 EET — Claude — Stage 61 complete (original file assembly), resuming a disconnected session
 
 Picked up a session that disconnected mid-build; the backend (`AppealFileCompiler`, `AppealController::

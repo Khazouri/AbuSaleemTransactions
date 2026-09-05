@@ -208,6 +208,8 @@
       "status": "Status",
       "filedAt": "Filed at",
       "verification": "Formal verification",
+      "jurisdiction": "Jurisdiction test",
+      "legalReview": "Legal review",
       "file": "Original file"
     },
     "filters": {
@@ -220,7 +222,8 @@
         "legal_review": "Legal Review",
         "committee_presentation": "Committee/Authority Presentation",
         "notified_closed": "Notified & Closed",
-        "rejected": "Formally Rejected"
+        "rejected": "Formally Rejected",
+        "outside_jurisdiction": "Outside Committee Jurisdiction"
       }
     },
     "verify": {
@@ -247,6 +250,41 @@
       "verifiedBy": "Verified by",
       "verifiedAt": "Verified at",
       "notYet": "Not verified yet"
+    },
+    "jurisdiction": {
+      "action": "Jurisdiction test",
+      "heading": "Test the committee's jurisdiction over this appeal",
+      "hint": "Determine whether the committee is the competent body for this appeal, or whether it belongs elsewhere.",
+      "question": "Competent body for this appeal",
+      "options": {
+        "committee": "The committee (competent)",
+        "mayor": "Mayor of the municipality",
+        "ministry": "Ministry of Local Governance",
+        "other_body": "Another organizational body",
+        "disciplinary_or_court": "A disciplinary board or court"
+      },
+      "terminationWarning": "Choosing a body other than the committee will terminate this appeal immediately and refer it, per Art. 77, without presenting it to the committee.",
+      "submit": "Record jurisdiction test result",
+      "submitting": "Saving…",
+      "selectFirst": "Please select the competent body first.",
+      "failed": "The jurisdiction test result could not be recorded.",
+      "notYet": "Jurisdiction not tested yet"
+    },
+    "legalReview": {
+      "action": "Legal review",
+      "heading": "Legal review of the appeal",
+      "hint": "Record the legal review of the original decision against the checklist.",
+      "factualError": "Is there a factual error?",
+      "legalTextViolation": "Is there a violation of a legal text?",
+      "newDocuments": "Are there new documents?",
+      "formationOrReasoningDefect": "Is there a formation, quorum, or reasoning defect in the original decision?",
+      "issuedByCompetentBody": "Was the original decision issued by a competent body?",
+      "submit": "Record legal review",
+      "submitting": "Saving…",
+      "failed": "The legal review could not be recorded.",
+      "answerAll": "All legal-review questions must be answered.",
+      "recorded": "Legal review recorded",
+      "notYet": "Legal review not recorded yet"
     },
     "file": {
       "view": "View original file",

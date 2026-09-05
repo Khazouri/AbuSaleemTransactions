@@ -25,6 +25,15 @@ use Illuminate\Database\Seeder;
  * notification event), and reusing its name here would misrepresent an
  * unbuilt mechanism as having fired for what is really an early
  * administrative rejection.
+ *
+ * Stage 62 adds an 8th row, `outside_jurisdiction` — another terminal
+ * BRANCH, this time for Art. 77's jurisdiction test: the committee is not
+ * the competent body for this appeal (it belongs to the mayor / ministry /
+ * another org body / a disciplinary board or court). Reuses the exact
+ * naming + badge colour Stage 49 already gave the analogous status on
+ * ordinary requests. Neither this nor `rejected` is `notified_closed` —
+ * both still need Stage 65's actual notify+close pass before
+ * Appeal::openAgainst() stops treating the appeal as open.
  */
 class AppealStatusSeeder extends Seeder
 {
@@ -41,6 +50,9 @@ class AppealStatusSeeder extends Seeder
             // Stage 60 — a formal-verification failure branch, not a 7th
             // step in the happy-path sequence above (see the class docblock).
             [7, 'rejected',               'مرفوض شكلياً',                 'Formally Rejected',         '#b91c1c'],
+            // Stage 62 — Art. 77's jurisdiction-test failure branch (see the
+            // class docblock).
+            [8, 'outside_jurisdiction',   'خارج اختصاص اللجنة',           'Outside Committee Jurisdiction', '#78350f'],
         ];
 
         foreach ($statuses as [$orderNo, $code, $nameAr, $nameEn, $color]) {

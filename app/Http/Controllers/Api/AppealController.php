@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Appeal\RecordAppealJurisdictionTestRequest;
+use App\Http\Requests\Appeal\RecordAppealLegalReviewRequest;
 use App\Http\Requests\Appeal\StoreAppealRequest;
 use App\Http\Requests\Appeal\VerifyAppealRequest;
 use App\Http\Resources\AppealResource;
@@ -18,10 +20,11 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Stage 59/60/61, Track J — the `appeals` screen with its real intake rules
- * (App\Services\AppealEligibility), the formal-verification gate
- * (App\Services\AppealVerificationService), and the assembled original-
- * matter dossier (App\Services\AppealFileCompiler). Still no outcome
+ * Stage 59/60/61/62, Track J — the `appeals` screen with its real intake
+ * rules (App\Services\AppealEligibility), the formal-verification gate
+ * (App\Services\AppealVerificationService), the assembled original-matter
+ * dossier (App\Services\AppealFileCompiler), and the jurisdiction test +
+ * legal review that gate Stage 63's committee presentation. Still no outcome
  * execution (Stage 64). See STAGE_PLAN.md Track J and AGENT_NOTES.md for the
  * scope decisions this stage rests on.
  */
@@ -32,6 +35,8 @@ class AppealController extends Controller
         'originalRequest:id,reference_number,title',
         'status:id,code,name_ar,name_en,color',
         'formalVerifiedBy:id,name',
+        'jurisdictionTestedBy:id,name',
+        'legalReviewedBy:id,name',
     ];
 
     /**
@@ -160,6 +165,89 @@ class AppealController extends Controller
             'formal_verified_by_user_id' => $actor->id,
             'formal_verified_at' => now(),
             'appeal_status_id' => AppealStatus::where('code', $passed ? 'formal_verification' : 'rejected')->value('id'),
+        ]);
+
+        return new AppealResource(
+            $appeal->fresh()->loadCount('attachments')->load(self::WITH),
+        );
+    }
+
+    /**
+     * Stage 62 — Art. 77's jurisdiction test. One-shot, only from
+     * `formal_verification` (the appeal has passed admissibility but not yet
+     * had its jurisdiction tested), same self-action block as verify(). Any
+     * answer other than `committee` terminates the appeal immediately as
+     * `outside_jurisdiction` — Art. 77 is explicit about the
+     * disciplinary/court case, and the same "the committee is not the right
+     * venue" logic is generalized to the other three named alternatives,
+     * since none of them are the committee either.
+     */
+    public function recordJurisdictionTest(
+        RecordAppealJurisdictionTestRequest $request,
+        Appeal $appeal,
+    ): AppealResource|JsonResponse {
+        $actor = $request->user();
+
+        if ($appeal->appellant_user_id === $actor->id) {
+            return response()->json([
+                'message' => 'لا يجوز للمتظلم إجراء اختبار الاختصاص على تظلمه بنفسه.',
+            ], 422);
+        }
+
+        if ($appeal->status?->code !== 'formal_verification') {
+            return response()->json([
+                'message' => 'لا يمكن إجراء اختبار الاختصاص إلا لتظلم اجتاز التحقق الشكلي.',
+            ], 422);
+        }
+
+        $competentBody = $request->validated('competent_body');
+
+        $appeal->update([
+            'jurisdiction_test' => ['competent_body' => $competentBody],
+            'jurisdiction_tested_by_user_id' => $actor->id,
+            'jurisdiction_tested_at' => now(),
+            'appeal_status_id' => AppealStatus::where(
+                'code',
+                $competentBody === 'committee' ? 'file_assembly' : 'outside_jurisdiction',
+            )->value('id'),
+        ]);
+
+        return new AppealResource(
+            $appeal->fresh()->loadCount('attachments')->load(self::WITH),
+        );
+    }
+
+    /**
+     * Stage 62 — Art. 75 point 4's legal-review checklist. One-shot, only
+     * from `file_assembly` (jurisdiction already confirmed with the
+     * committee), same self-action block as verify()/recordJurisdictionTest().
+     * The 5 answers are informational for Stage 63/64's later outcome
+     * selection — only the record's presence (and the status it advances to)
+     * gates progression to committee presentation.
+     */
+    public function recordLegalReview(
+        RecordAppealLegalReviewRequest $request,
+        Appeal $appeal,
+    ): AppealResource|JsonResponse {
+        $actor = $request->user();
+
+        if ($appeal->appellant_user_id === $actor->id) {
+            return response()->json([
+                'message' => 'لا يجوز للمتظلم إجراء المراجعة القانونية على تظلمه بنفسه.',
+            ], 422);
+        }
+
+        if ($appeal->status?->code !== 'file_assembly') {
+            return response()->json([
+                'message' => 'لا يمكن إجراء المراجعة القانونية إلا بعد اجتياز اختبار الاختصاص.',
+            ], 422);
+        }
+
+        $appeal->update([
+            'legal_review' => $request->validated(),
+            'legal_reviewed_by_user_id' => $actor->id,
+            'legal_reviewed_at' => now(),
+            'appeal_status_id' => AppealStatus::where('code', 'legal_review')->value('id'),
         ]);
 
         return new AppealResource(

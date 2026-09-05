@@ -605,6 +605,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:appeals,edit')
         ->post('appeals/{appeal}/verify', [AppealController::class, 'verify']);
 
+    // Stage 62 — Art. 77's jurisdiction test (is the committee competent, or
+    // does this belong to the mayor / ministry / another org body / a
+    // disciplinary board or court?) and Art. 75 point 4's legal-review
+    // checklist. Both one-shot; a non-committee jurisdiction answer
+    // terminates the appeal immediately (enforced in the controller).
+    Route::middleware('screen.permission:appeals,edit')
+        ->patch('appeals/{appeal}/jurisdiction-test', [AppealController::class, 'recordJurisdictionTest']);
+    Route::middleware('screen.permission:appeals,edit')
+        ->patch('appeals/{appeal}/legal-review', [AppealController::class, 'recordLegalReview']);
+
     // Stage 61 — the assembled original-matter dossier (memo/minutes/
     // decision/notification evidence/appeal documents). Per-appeal
     // visibility is Appeal::isVisibleTo(), not a coarser screen permission.

@@ -47,6 +47,26 @@ class AppealResource extends JsonResource
                 ] : null),
                 'verified_at' => $this->formal_verified_at,
             ],
+            // Stage 62 — Art. 77's jurisdiction test, present once
+            // AppealController::recordJurisdictionTest() has acted.
+            'jurisdiction_test' => $this->jurisdiction_test === null ? null : [
+                'competent_body' => $this->jurisdiction_test['competent_body'] ?? null,
+                'tested_by' => $this->whenLoaded('jurisdictionTestedBy', fn () => $this->jurisdictionTestedBy ? [
+                    'id' => $this->jurisdictionTestedBy->id,
+                    'name' => $this->jurisdictionTestedBy->name,
+                ] : null),
+                'tested_at' => $this->jurisdiction_tested_at,
+            ],
+            // Stage 62 — Art. 75 point 4's legal-review checklist, present
+            // once AppealController::recordLegalReview() has acted.
+            'legal_review' => $this->legal_review === null ? null : [
+                'checks' => $this->legal_review,
+                'reviewed_by' => $this->whenLoaded('legalReviewedBy', fn () => $this->legalReviewedBy ? [
+                    'id' => $this->legalReviewedBy->id,
+                    'name' => $this->legalReviewedBy->name,
+                ] : null),
+                'reviewed_at' => $this->legal_reviewed_at,
+            ],
             'created_at' => $this->created_at,
         ];
     }

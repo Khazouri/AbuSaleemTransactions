@@ -32,6 +32,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $formal_verification_reason Required when the verdict above is a fail.
  * @property int|null $formal_verified_by_user_id
  * @property Carbon|null $formal_verified_at
+ * @property array|null $jurisdiction_test Stage 62 — {competent_body}, one of
+ *                                         committee|mayor|ministry|other_body|disciplinary_or_court.
+ * @property int|null $jurisdiction_tested_by_user_id
+ * @property Carbon|null $jurisdiction_tested_at
+ * @property array|null $legal_review Stage 62 — Art. 75 point 4's 5-question checklist, all booleans.
+ * @property int|null $legal_reviewed_by_user_id
+ * @property Carbon|null $legal_reviewed_at
  */
 class Appeal extends Model
 {
@@ -50,6 +57,12 @@ class Appeal extends Model
         'formal_verification_reason',
         'formal_verified_by_user_id',
         'formal_verified_at',
+        'jurisdiction_test',
+        'jurisdiction_tested_by_user_id',
+        'jurisdiction_tested_at',
+        'legal_review',
+        'legal_reviewed_by_user_id',
+        'legal_reviewed_at',
     ];
 
     protected function casts(): array
@@ -59,6 +72,10 @@ class Appeal extends Model
             'known_at' => 'date',
             'formal_verification_checks' => 'array',
             'formal_verified_at' => 'datetime',
+            'jurisdiction_test' => 'array',
+            'jurisdiction_tested_at' => 'datetime',
+            'legal_review' => 'array',
+            'legal_reviewed_at' => 'datetime',
         ];
     }
 
@@ -85,6 +102,16 @@ class Appeal extends Model
     public function formalVerifiedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'formal_verified_by_user_id');
+    }
+
+    public function jurisdictionTestedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'jurisdiction_tested_by_user_id');
+    }
+
+    public function legalReviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'legal_reviewed_by_user_id');
     }
 
     public function attachments(): HasMany

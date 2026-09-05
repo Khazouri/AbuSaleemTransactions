@@ -20,8 +20,10 @@ const { t, locale } = useI18n()
 
 const STATUS_CODES = [
   'submitted', 'formal_verification', 'file_assembly', 'legal_review',
-  'committee_presentation', 'notified_closed', 'rejected',
+  'committee_presentation', 'notified_closed', 'rejected', 'outside_jurisdiction',
 ]
+
+const COMPETENT_BODY_OPTIONS = ['committee', 'mayor', 'ministry', 'other_body', 'disciplinary_or_court']
 
 // --- List -------------------------------------------------------------------
 
@@ -210,6 +212,104 @@ async function submitVerify() {
 function deadlineLabel(deadlineMet) {
   if (deadlineMet === null) return t('appeals.verify.deadlineNotConfigured')
   return deadlineMet ? t('appeals.verify.deadlineMet') : t('appeals.verify.deadlineMissed')
+}
+
+// --- Stage 62 — jurisdiction test (Art. 77) -----------------------------------
+
+const jurisdictionTarget = ref(null)
+const jurisdictionCompetentBody = ref('')
+const jurisdictionSubmitting = ref(false)
+const jurisdictionError = ref(null)
+
+function startJurisdictionTest(row) {
+  jurisdictionTarget.value = row
+  jurisdictionCompetentBody.value = ''
+  jurisdictionError.value = null
+}
+
+function cancelJurisdictionTest() {
+  jurisdictionTarget.value = null
+  jurisdictionError.value = null
+}
+
+async function submitJurisdictionTest() {
+  if (!jurisdictionTarget.value || jurisdictionSubmitting.value) return
+  if (!jurisdictionCompetentBody.value) {
+    jurisdictionError.value = t('appeals.jurisdiction.selectFirst')
+    return
+  }
+  jurisdictionSubmitting.value = true
+  jurisdictionError.value = null
+  try {
+    await api.patch(`/appeals/${jurisdictionTarget.value.id}/jurisdiction-test`, {
+      competent_body: jurisdictionCompetentBody.value,
+    })
+    jurisdictionTarget.value = null
+    await load(page.value.current_page)
+  } catch (error) {
+    jurisdictionError.value = extractErrorMessage(error, t('appeals.jurisdiction.failed'))
+  } finally {
+    jurisdictionSubmitting.value = false
+  }
+}
+
+function competentBodyLabel(code) {
+  return code ? t('appeals.jurisdiction.options.' + code) : t('common.none')
+}
+
+// --- Stage 62 — legal review (Art. 75 point 4) --------------------------------
+
+const legalReviewTarget = ref(null)
+const legalReviewForm = ref(blankLegalReviewForm())
+const legalReviewSubmitting = ref(false)
+const legalReviewError = ref(null)
+
+function blankLegalReviewForm() {
+  return {
+    factual_error: '',
+    legal_text_violation: '',
+    new_documents: '',
+    formation_or_reasoning_defect: '',
+    issued_by_competent_body: '',
+  }
+}
+
+function startLegalReview(row) {
+  legalReviewTarget.value = row
+  legalReviewForm.value = blankLegalReviewForm()
+  legalReviewError.value = null
+}
+
+function cancelLegalReview() {
+  legalReviewTarget.value = null
+  legalReviewError.value = null
+}
+
+async function submitLegalReview() {
+  if (!legalReviewTarget.value || legalReviewSubmitting.value) return
+  const form = legalReviewForm.value
+  const values = Object.values(form)
+  if (values.some((value) => value === '')) {
+    legalReviewError.value = t('appeals.legalReview.answerAll')
+    return
+  }
+  legalReviewSubmitting.value = true
+  legalReviewError.value = null
+  try {
+    await api.patch(`/appeals/${legalReviewTarget.value.id}/legal-review`, {
+      factual_error: form.factual_error === 'yes',
+      legal_text_violation: form.legal_text_violation === 'yes',
+      new_documents: form.new_documents === 'yes',
+      formation_or_reasoning_defect: form.formation_or_reasoning_defect === 'yes',
+      issued_by_competent_body: form.issued_by_competent_body === 'yes',
+    })
+    legalReviewTarget.value = null
+    await load(page.value.current_page)
+  } catch (error) {
+    legalReviewError.value = extractErrorMessage(error, t('appeals.legalReview.failed'))
+  } finally {
+    legalReviewSubmitting.value = false
+  }
 }
 
 // --- Stage 61 — original file dossier ----------------------------------------
@@ -428,6 +528,106 @@ onMounted(() => load())
       </button>
     </div>
 
+    <div v-if="jurisdictionTarget" v-can="'appeals.edit'" class="card create">
+      <h3>{{ t('appeals.jurisdiction.heading') }}</h3>
+      <p class="subtitle">{{ t('appeals.jurisdiction.hint') }}</p>
+      <div class="selected">
+        <div>
+          <span class="ref ltr">{{ jurisdictionTarget.original_request?.reference_number }}</span>
+          <span>{{ jurisdictionTarget.original_request?.title }}</span>
+        </div>
+      </div>
+
+      <fieldset :disabled="jurisdictionSubmitting">
+        <label class="full">
+          {{ t('appeals.jurisdiction.question') }}
+          <select v-model="jurisdictionCompetentBody">
+            <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
+            <option v-for="code in COMPETENT_BODY_OPTIONS" :key="code" :value="code">
+              {{ t('appeals.jurisdiction.options.' + code) }}
+            </option>
+          </select>
+        </label>
+      </fieldset>
+
+      <p v-if="jurisdictionCompetentBody && jurisdictionCompetentBody !== 'committee'" class="notice">
+        {{ t('appeals.jurisdiction.terminationWarning') }}
+      </p>
+      <p v-if="jurisdictionError" class="alert">{{ jurisdictionError }}</p>
+
+      <button class="primary" type="button" :disabled="jurisdictionSubmitting" @click="submitJurisdictionTest">
+        {{ jurisdictionSubmitting ? t('appeals.jurisdiction.submitting') : t('appeals.jurisdiction.submit') }}
+      </button>
+      <button class="ghost" type="button" :disabled="jurisdictionSubmitting" @click="cancelJurisdictionTest">
+        {{ t('appeals.verify.cancel') }}
+      </button>
+    </div>
+
+    <div v-if="legalReviewTarget" v-can="'appeals.edit'" class="card create">
+      <h3>{{ t('appeals.legalReview.heading') }}</h3>
+      <p class="subtitle">{{ t('appeals.legalReview.hint') }}</p>
+      <div class="selected">
+        <div>
+          <span class="ref ltr">{{ legalReviewTarget.original_request?.reference_number }}</span>
+          <span>{{ legalReviewTarget.original_request?.title }}</span>
+        </div>
+      </div>
+
+      <fieldset :disabled="legalReviewSubmitting">
+        <div class="fields">
+          <label>
+            {{ t('appeals.legalReview.factualError') }}
+            <select v-model="legalReviewForm.factual_error">
+              <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
+              <option value="yes">{{ t('appeals.verify.yes') }}</option>
+              <option value="no">{{ t('appeals.verify.no') }}</option>
+            </select>
+          </label>
+          <label>
+            {{ t('appeals.legalReview.legalTextViolation') }}
+            <select v-model="legalReviewForm.legal_text_violation">
+              <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
+              <option value="yes">{{ t('appeals.verify.yes') }}</option>
+              <option value="no">{{ t('appeals.verify.no') }}</option>
+            </select>
+          </label>
+          <label>
+            {{ t('appeals.legalReview.newDocuments') }}
+            <select v-model="legalReviewForm.new_documents">
+              <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
+              <option value="yes">{{ t('appeals.verify.yes') }}</option>
+              <option value="no">{{ t('appeals.verify.no') }}</option>
+            </select>
+          </label>
+          <label>
+            {{ t('appeals.legalReview.formationOrReasoningDefect') }}
+            <select v-model="legalReviewForm.formation_or_reasoning_defect">
+              <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
+              <option value="yes">{{ t('appeals.verify.yes') }}</option>
+              <option value="no">{{ t('appeals.verify.no') }}</option>
+            </select>
+          </label>
+          <label>
+            {{ t('appeals.legalReview.issuedByCompetentBody') }}
+            <select v-model="legalReviewForm.issued_by_competent_body">
+              <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
+              <option value="yes">{{ t('appeals.verify.yes') }}</option>
+              <option value="no">{{ t('appeals.verify.no') }}</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <p v-if="legalReviewError" class="alert">{{ legalReviewError }}</p>
+
+      <button class="primary" type="button" :disabled="legalReviewSubmitting" @click="submitLegalReview">
+        {{ legalReviewSubmitting ? t('appeals.legalReview.submitting') : t('appeals.legalReview.submit') }}
+      </button>
+      <button class="ghost" type="button" :disabled="legalReviewSubmitting" @click="cancelLegalReview">
+        {{ t('appeals.verify.cancel') }}
+      </button>
+    </div>
+
     <p v-if="loadError" class="alert">
       {{ t('nav.error') }}
       <button class="ghost" type="button" @click="load(page.current_page)">{{ t('common.retry') }}</button>
@@ -457,6 +657,8 @@ onMounted(() => load())
               <th>{{ t('appeals.columns.status') }}</th>
               <th>{{ t('appeals.columns.filedAt') }}</th>
               <th>{{ t('appeals.columns.verification') }}</th>
+              <th>{{ t('appeals.columns.jurisdiction') }}</th>
+              <th>{{ t('appeals.columns.legalReview') }}</th>
               <th>{{ t('appeals.columns.file') }}</th>
             </tr>
           </thead>
@@ -498,13 +700,51 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.verify.notYet') }}</span>
               </td>
               <td>
+                <button
+                  v-if="row.status?.code === 'formal_verification'"
+                  v-can="'appeals.edit'"
+                  class="ghost"
+                  type="button"
+                  @click="startJurisdictionTest(row)"
+                >
+                  {{ t('appeals.jurisdiction.action') }}
+                </button>
+                <div v-else-if="row.jurisdiction_test" class="verification-summary">
+                  <span class="pill" :class="row.jurisdiction_test.competent_body === 'committee' ? 'passed' : 'rejected'">
+                    {{ competentBodyLabel(row.jurisdiction_test.competent_body) }}
+                  </span>
+                  <small v-if="row.jurisdiction_test.tested_by" class="muted">
+                    {{ row.jurisdiction_test.tested_by.name }}
+                  </small>
+                </div>
+                <span v-else class="muted">{{ t('appeals.jurisdiction.notYet') }}</span>
+              </td>
+              <td>
+                <button
+                  v-if="row.status?.code === 'file_assembly'"
+                  v-can="'appeals.edit'"
+                  class="ghost"
+                  type="button"
+                  @click="startLegalReview(row)"
+                >
+                  {{ t('appeals.legalReview.action') }}
+                </button>
+                <div v-else-if="row.legal_review" class="verification-summary">
+                  <span class="pill passed">{{ t('appeals.legalReview.recorded') }}</span>
+                  <small v-if="row.legal_review.reviewed_by" class="muted">
+                    {{ row.legal_review.reviewed_by.name }}
+                  </small>
+                </div>
+                <span v-else class="muted">{{ t('appeals.legalReview.notYet') }}</span>
+              </td>
+              <td>
                 <button class="ghost" type="button" @click="toggleFile(row)">
                   {{ fileTargetId === row.id ? t('appeals.file.hide') : t('appeals.file.view') }}
                 </button>
               </td>
             </tr>
             <tr v-if="fileTargetId === row.id">
-              <td colspan="6" class="file-panel">
+              <td colspan="8" class="file-panel">
                 <p v-if="fileLoading" class="state">{{ t('common.loading') }}</p>
                 <p v-else-if="fileError" class="alert">{{ fileError }}</p>
                 <div v-else-if="fileData" class="dossier">
@@ -728,7 +968,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .state { padding: .5rem; margin: 0; color: var(--color-muted); }
 
 .table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 700px; border-collapse: collapse; }
+table { width: 100%; min-width: 900px; border-collapse: collapse; }
 th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
 th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
 td { font-size: .84rem; }
