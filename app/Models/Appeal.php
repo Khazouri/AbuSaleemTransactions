@@ -93,6 +93,24 @@ class Appeal extends Model
     }
 
     /**
+     * May this actor see this appeal? Owner, R08, or anyone holding this
+     * screen's `edit` grant — the exact predicate AppealController::index()
+     * already applies as a query condition (Stage 60's visibility widening,
+     * so an R02 verifier can find appeals filed by other people), now
+     * available as a per-instance check for endpoints that load one appeal
+     * directly rather than filtering a list.
+     */
+    public function isVisibleTo(User $actor): bool
+    {
+        if ($this->appellant_user_id === $actor->id) {
+            return true;
+        }
+
+        return $actor->roles()->where('code', 'R08')->exists()
+            || $actor->hasScreenPermission('appeals', 'can_edit');
+    }
+
+    /**
      * Track J intro, scope decision (3): [D] Arts. 34–37's closure rule keeps
      * a matter open until every تظلم path against it has concluded. "Open"
      * here means anything short of the terminal `notified_closed` status

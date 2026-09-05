@@ -207,7 +207,8 @@
       "decision": "Decision reference",
       "status": "Status",
       "filedAt": "Filed at",
-      "verification": "Formal verification"
+      "verification": "Formal verification",
+      "file": "Original file"
     },
     "filters": {
       "status": "Status",
@@ -246,6 +247,70 @@
       "verifiedBy": "Verified by",
       "verifiedAt": "Verified at",
       "notYet": "Not verified yet"
+    },
+    "file": {
+      "view": "View original file",
+      "hide": "Hide file",
+      "failed": "The original file could not be loaded.",
+      "originalRequest": {
+        "heading": "Original request",
+        "status": "Status",
+        "stage": "Stage",
+        "type": "Request type",
+        "department": "Department",
+        "submittedAt": "Submitted at",
+        "createdBy": "Submitted by",
+        "attachments": "Original request documents"
+      },
+      "memo": {
+        "heading": "Original presentation memo",
+        "none": "No presentation memo was ever generated for this item.",
+        "workUnit": "Employee's work unit",
+        "referringBody": "Referring body",
+        "keyDocuments": "Key documents",
+        "factsSummary": "Facts summary",
+        "legalOpinion": "Legal opinion",
+        "committeeQuestion": "Question put to the committee",
+        "notAuthoredYet": "This memo's content has not been authored yet."
+      },
+      "minutes": {
+        "heading": "Original meeting minutes",
+        "none": "No minutes have been generated for this meeting.",
+        "status": {
+          "draft": "Draft",
+          "pending_signatures": "Pending signatures",
+          "approved": "Approved"
+        },
+        "quorum": "Quorum (present / required)",
+        "factsSummary": "Facts summary",
+        "legalBasis": "Legal basis",
+        "votes": "Votes",
+        "dissentingOpinions": "Dissenting opinions",
+        "requiredSignatories": "Required signatories"
+      },
+      "decision": {
+        "heading": "Decision",
+        "none": "No decision is recorded for this request.",
+        "referenceFallback": "Manually entered reference",
+        "outcome": "Outcome",
+        "referralAuthority": "Referred to",
+        "decidedBy": "Decided by",
+        "decidedAt": "Decided at"
+      },
+      "documents": {
+        "heading": "Appeal documents",
+        "previewFailed": "The document could not be opened."
+      },
+      "notifications": {
+        "heading": "Proof of notification",
+        "inApp": "In-app notifications",
+        "none": "No in-app notifications about this request.",
+        "read": "Read",
+        "unread": "Not read yet",
+        "email": "Email",
+        "sms": "SMS",
+        "noEvidence": "No delivery record is kept for this channel"
+      }
     }
   },
   "requests": {

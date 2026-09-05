@@ -604,4 +604,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // still at `submitted` can be verified (enforced in the controller).
     Route::middleware('screen.permission:appeals,edit')
         ->post('appeals/{appeal}/verify', [AppealController::class, 'verify']);
+
+    // Stage 61 — the assembled original-matter dossier (memo/minutes/
+    // decision/notification evidence/appeal documents). Per-appeal
+    // visibility is Appeal::isVisibleTo(), not a coarser screen permission.
+    Route::middleware('screen.permission:appeals,view')
+        ->get('appeals/{appeal}/file', [AppealController::class, 'file']);
 });

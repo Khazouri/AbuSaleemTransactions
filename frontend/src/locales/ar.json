@@ -207,7 +207,8 @@
       "decision": "مرجع القرار",
       "status": "الحالة",
       "filedAt": "تاريخ التقديم",
-      "verification": "التحقق الشكلي"
+      "verification": "التحقق الشكلي",
+      "file": "الملف الأصلي"
     },
     "filters": {
       "status": "الحالة",
@@ -246,6 +247,70 @@
       "verifiedBy": "تم التحقق بواسطة",
       "verifiedAt": "تاريخ التحقق",
       "notYet": "لم يُتحقق منه بعد"
+    },
+    "file": {
+      "view": "عرض الملف الأصلي",
+      "hide": "إخفاء الملف",
+      "failed": "تعذّر تحميل الملف الأصلي.",
+      "originalRequest": {
+        "heading": "الطلب الأصلي",
+        "status": "الحالة",
+        "stage": "المرحلة",
+        "type": "نوع الطلب",
+        "department": "الإدارة",
+        "submittedAt": "تاريخ التقديم",
+        "createdBy": "مقدّم الطلب",
+        "attachments": "مستندات الطلب الأصلي"
+      },
+      "memo": {
+        "heading": "مذكرة العرض الأصلية",
+        "none": "لم يتم توليد مذكرة عرض لهذا البند.",
+        "workUnit": "جهة عمل الموظف",
+        "referringBody": "الجهة المحيلة",
+        "keyDocuments": "المستندات الأساسية",
+        "factsSummary": "ملخص الوقائع",
+        "legalOpinion": "الرأي القانوني",
+        "committeeQuestion": "السؤال المطروح على اللجنة",
+        "notAuthoredYet": "لم يتم تحرير محتوى المذكرة بعد."
+      },
+      "minutes": {
+        "heading": "محضر الاجتماع الأصلي",
+        "none": "لم يتم إنشاء محضر لهذا الاجتماع.",
+        "status": {
+          "draft": "مسودة",
+          "pending_signatures": "بانتظار التوقيع",
+          "approved": "معتمد"
+        },
+        "quorum": "النصاب (حاضر / مطلوب)",
+        "factsSummary": "ملخص الوقائع",
+        "legalBasis": "الأساس القانوني",
+        "votes": "التصويت",
+        "dissentingOpinions": "الآراء المخالفة",
+        "requiredSignatories": "الموقّعون المطلوبون"
+      },
+      "decision": {
+        "heading": "القرار",
+        "none": "لا يوجد قرار مسجَّل بشأن هذا الطلب.",
+        "referenceFallback": "المرجع المدخل يدوياً",
+        "outcome": "النتيجة",
+        "referralAuthority": "الجهة المحال إليها",
+        "decidedBy": "بواسطة",
+        "decidedAt": "بتاريخ"
+      },
+      "documents": {
+        "heading": "مستندات التظلم",
+        "previewFailed": "تعذّر فتح المستند."
+      },
+      "notifications": {
+        "heading": "إثبات التبليغ",
+        "inApp": "إشعارات داخل النظام",
+        "none": "لا توجد إشعارات داخل النظام بشأن هذا الطلب.",
+        "read": "تمت القراءة",
+        "unread": "لم تتم القراءة بعد",
+        "email": "البريد الإلكتروني",
+        "sms": "الرسائل النصية القصيرة",
+        "noEvidence": "لا يحتفظ النظام بسجل تسليم لهذه القناة"
+      }
     }
   },
   "requests": {

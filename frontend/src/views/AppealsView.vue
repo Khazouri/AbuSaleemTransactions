@@ -212,6 +212,74 @@ function deadlineLabel(deadlineMet) {
   return deadlineMet ? t('appeals.verify.deadlineMet') : t('appeals.verify.deadlineMissed')
 }
 
+// --- Stage 61 — original file dossier ----------------------------------------
+// A read-only, lazily-fetched view of AppealFileCompiler's output. Every row
+// currently visible in the list is visible through /appeals/{id}/file too —
+// both read the same Appeal::isVisibleTo() predicate server-side — so no
+// extra v-can gate is needed on the toggle button itself.
+
+const fileTargetId = ref(null)
+const fileData = ref(null)
+const fileLoading = ref(false)
+const fileError = ref(null)
+
+async function toggleFile(row) {
+  if (fileTargetId.value === row.id) {
+    fileTargetId.value = null
+    fileData.value = null
+    fileError.value = null
+    return
+  }
+  fileTargetId.value = row.id
+  fileData.value = null
+  fileError.value = null
+  fileLoading.value = true
+  try {
+    const { data } = await api.get(`/appeals/${row.id}/file`)
+    fileData.value = data.data
+  } catch (error) {
+    fileError.value = extractErrorMessage(error, t('appeals.file.failed'))
+  } finally {
+    fileLoading.value = false
+  }
+}
+
+function bilingual(entity) {
+  if (!entity) return t('common.none')
+  return locale.value === 'ar' ? (entity.name_ar || entity.name_en) : (entity.name_en || entity.name_ar)
+}
+
+function minutesStatusLabel(status) {
+  return status ? t(`appeals.file.minutes.status.${status}`) : t('common.none')
+}
+
+function formatBytes(bytes) {
+  if (!bytes && bytes !== 0) return ''
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = bytes
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex += 1
+  }
+  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
+}
+
+// The appeal's own documents carry a real preview_url (unlike the read-only
+// original-request/memo document listings above), fetched through the
+// bearer-aware axios instance — a plain <a href> would hit the private
+// stream unauthenticated, matching RequestDetailView.vue's own pattern.
+async function openAppealDocument(doc) {
+  try {
+    const { data } = await api.get(doc.preview_url, { responseType: 'blob' })
+    const url = URL.createObjectURL(data)
+    window.open(url, '_blank', 'noopener')
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000)
+  } catch {
+    fileError.value = t('appeals.file.documents.previewFailed')
+  }
+}
+
 onMounted(() => load())
 </script>
 
@@ -389,10 +457,12 @@ onMounted(() => load())
               <th>{{ t('appeals.columns.status') }}</th>
               <th>{{ t('appeals.columns.filedAt') }}</th>
               <th>{{ t('appeals.columns.verification') }}</th>
+              <th>{{ t('appeals.columns.file') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in rows" :key="row.id">
+            <template v-for="row in rows" :key="row.id">
+            <tr>
               <td>
                 <span class="ref ltr">{{ row.original_request?.reference_number }}</span>
                 <small class="muted">{{ row.original_request?.title }}</small>
@@ -427,7 +497,165 @@ onMounted(() => load())
                 </div>
                 <span v-else class="muted">{{ t('appeals.verify.notYet') }}</span>
               </td>
+              <td>
+                <button class="ghost" type="button" @click="toggleFile(row)">
+                  {{ fileTargetId === row.id ? t('appeals.file.hide') : t('appeals.file.view') }}
+                </button>
+              </td>
             </tr>
+            <tr v-if="fileTargetId === row.id">
+              <td colspan="6" class="file-panel">
+                <p v-if="fileLoading" class="state">{{ t('common.loading') }}</p>
+                <p v-else-if="fileError" class="alert">{{ fileError }}</p>
+                <div v-else-if="fileData" class="dossier">
+                  <section class="dossier-section" v-if="fileData.original_request">
+                    <h4>{{ t('appeals.file.originalRequest.heading') }}</h4>
+                    <dl class="info-grid">
+                      <dt>{{ t('appeals.file.originalRequest.status') }}</dt>
+                      <dd>
+                        <span v-if="fileData.original_request.status" class="pill" :style="{ borderColor: fileData.original_request.status.color }">
+                          {{ bilingual(fileData.original_request.status) }}
+                        </span>
+                        <span v-else>{{ t('common.none') }}</span>
+                      </dd>
+                      <dt>{{ t('appeals.file.originalRequest.stage') }}</dt>
+                      <dd>{{ bilingual(fileData.original_request.current_stage) }}</dd>
+                      <dt>{{ t('appeals.file.originalRequest.type') }}</dt>
+                      <dd>{{ bilingual(fileData.original_request.request_type) }}</dd>
+                      <dt>{{ t('appeals.file.originalRequest.department') }}</dt>
+                      <dd>{{ bilingual(fileData.original_request.department) }}</dd>
+                      <dt>{{ t('appeals.file.originalRequest.submittedAt') }}</dt>
+                      <dd>{{ dateTime(fileData.original_request.submitted_at) }}</dd>
+                      <dt>{{ t('appeals.file.originalRequest.createdBy') }}</dt>
+                      <dd>{{ fileData.original_request.created_by?.name || t('common.none') }}</dd>
+                    </dl>
+                    <p v-if="fileData.original_request.description" class="text-block">{{ fileData.original_request.description }}</p>
+                    <div v-if="fileData.original_request.attachments?.length">
+                      <h5>{{ t('appeals.file.originalRequest.attachments') }}</h5>
+                      <ul class="doc-list">
+                        <li v-for="doc in fileData.original_request.attachments" :key="doc.id">
+                          {{ doc.original_name }} <small class="muted">({{ formatBytes(doc.size_bytes) }})</small>
+                        </li>
+                      </ul>
+                    </div>
+                  </section>
+
+                  <section class="dossier-section">
+                    <h4>{{ t('appeals.file.memo.heading') }}</h4>
+                    <p v-if="!fileData.presentation_memo" class="state">{{ t('appeals.file.memo.none') }}</p>
+                    <template v-else>
+                      <dl class="info-grid">
+                        <dt>{{ t('appeals.file.memo.workUnit') }}</dt>
+                        <dd>{{ bilingual(fileData.presentation_memo.derived.work_unit) }}</dd>
+                        <dt>{{ t('appeals.file.memo.referringBody') }}</dt>
+                        <dd>{{ bilingual(fileData.presentation_memo.derived.referring_body) }}</dd>
+                      </dl>
+                      <div v-if="fileData.presentation_memo.derived.key_documents?.length">
+                        <h5>{{ t('appeals.file.memo.keyDocuments') }}</h5>
+                        <ul class="doc-list">
+                          <li v-for="doc in fileData.presentation_memo.derived.key_documents" :key="doc.id">
+                            {{ doc.original_name }}
+                          </li>
+                        </ul>
+                      </div>
+                      <template v-if="fileData.presentation_memo.authored">
+                        <p v-if="fileData.presentation_memo.authored.facts_summary"><strong>{{ t('appeals.file.memo.factsSummary') }}:</strong> {{ fileData.presentation_memo.authored.facts_summary }}</p>
+                        <p v-if="fileData.presentation_memo.authored.legal_opinion"><strong>{{ t('appeals.file.memo.legalOpinion') }}:</strong> {{ fileData.presentation_memo.authored.legal_opinion }}</p>
+                        <p v-if="fileData.presentation_memo.authored.committee_question"><strong>{{ t('appeals.file.memo.committeeQuestion') }}:</strong> {{ fileData.presentation_memo.authored.committee_question }}</p>
+                      </template>
+                      <p v-else class="state">{{ t('appeals.file.memo.notAuthoredYet') }}</p>
+                    </template>
+                  </section>
+
+                  <section class="dossier-section">
+                    <h4>{{ t('appeals.file.minutes.heading') }}</h4>
+                    <p v-if="!fileData.meeting_minutes" class="state">{{ t('appeals.file.minutes.none') }}</p>
+                    <template v-else>
+                      <span class="pill">{{ minutesStatusLabel(fileData.meeting_minutes.status) }}</span>
+                      <dl class="info-grid" v-if="fileData.meeting_minutes.attendance">
+                        <dt>{{ t('appeals.file.minutes.quorum') }}</dt>
+                        <dd>{{ fileData.meeting_minutes.attendance.quorum_present }} / {{ fileData.meeting_minutes.attendance.quorum_required }}</dd>
+                      </dl>
+                      <template v-if="fileData.meeting_minutes.agenda_item">
+                        <p v-if="fileData.meeting_minutes.agenda_item.facts_summary"><strong>{{ t('appeals.file.minutes.factsSummary') }}:</strong> {{ fileData.meeting_minutes.agenda_item.facts_summary }}</p>
+                        <p v-if="fileData.meeting_minutes.agenda_item.legal_basis"><strong>{{ t('appeals.file.minutes.legalBasis') }}:</strong> {{ fileData.meeting_minutes.agenda_item.legal_basis }}</p>
+                        <div v-if="fileData.meeting_minutes.agenda_item.votes">
+                          <h5>{{ t('appeals.file.minutes.votes') }}</h5>
+                          <p class="text-block">
+                            <span v-for="(count, outcome) in fileData.meeting_minutes.agenda_item.votes" :key="outcome">
+                              {{ t('decisions.tally.' + outcome) }}: {{ count }}&nbsp;&nbsp;
+                            </span>
+                          </p>
+                        </div>
+                        <div v-if="fileData.meeting_minutes.agenda_item.dissenting_opinions?.length">
+                          <h5>{{ t('appeals.file.minutes.dissentingOpinions') }}</h5>
+                          <ul class="doc-list">
+                            <li v-for="(opinion, index) in fileData.meeting_minutes.agenda_item.dissenting_opinions" :key="index">
+                              {{ opinion.user }} — {{ t('decisions.vote.' + opinion.vote) }}: {{ opinion.comment }}
+                            </li>
+                          </ul>
+                        </div>
+                      </template>
+                      <div v-if="fileData.meeting_minutes.required_signatories?.length">
+                        <h5>{{ t('appeals.file.minutes.requiredSignatories') }}</h5>
+                        <ul class="doc-list">
+                          <li v-for="signatory in fileData.meeting_minutes.required_signatories" :key="signatory.id">
+                            {{ signatory.name }}
+                          </li>
+                        </ul>
+                      </div>
+                    </template>
+                  </section>
+
+                  <section class="dossier-section">
+                    <h4>{{ t('appeals.file.decision.heading') }}</h4>
+                    <p v-if="!fileData.decision && !fileData.decision_reference_fallback" class="state">{{ t('appeals.file.decision.none') }}</p>
+                    <dl v-else-if="fileData.decision" class="info-grid">
+                      <dt>{{ t('appeals.file.decision.outcome') }}</dt>
+                      <dd>{{ t('decisions.outcome.' + fileData.decision.outcome) }}</dd>
+                      <dt v-if="fileData.decision.referral_authority">{{ t('appeals.file.decision.referralAuthority') }}</dt>
+                      <dd v-if="fileData.decision.referral_authority">{{ fileData.decision.referral_authority }}</dd>
+                      <dt>{{ t('appeals.file.decision.decidedBy') }}</dt>
+                      <dd>{{ fileData.decision.decided_by?.name || t('common.none') }}</dd>
+                      <dt>{{ t('appeals.file.decision.decidedAt') }}</dt>
+                      <dd>{{ dateTime(fileData.decision.decided_at) }}</dd>
+                    </dl>
+                    <dl v-else class="info-grid">
+                      <dt>{{ t('appeals.file.decision.referenceFallback') }}</dt>
+                      <dd>{{ fileData.decision_reference_fallback.reference || t('common.none') }}</dd>
+                      <dt>{{ t('appeals.file.decision.decidedAt') }}</dt>
+                      <dd>{{ dateTime(fileData.decision_reference_fallback.date) }}</dd>
+                    </dl>
+                  </section>
+
+                  <section class="dossier-section">
+                    <h4>{{ t('appeals.file.documents.heading') }}</h4>
+                    <p v-if="!fileData.appeal_documents?.length" class="state">{{ t('appeals.empty') }}</p>
+                    <ul v-else class="doc-list">
+                      <li v-for="doc in fileData.appeal_documents" :key="doc.id">
+                        <button class="link" type="button" @click="openAppealDocument(doc)">{{ doc.original_name }}</button>
+                        <small class="muted">({{ formatBytes(doc.size_bytes) }})</small>
+                      </li>
+                    </ul>
+                  </section>
+
+                  <section class="dossier-section" v-if="fileData.notification_evidence">
+                    <h4>{{ t('appeals.file.notifications.heading') }}</h4>
+                    <h5>{{ t('appeals.file.notifications.inApp') }}</h5>
+                    <p v-if="!fileData.notification_evidence.in_app?.length" class="state">{{ t('appeals.file.notifications.none') }}</p>
+                    <ul v-else class="doc-list">
+                      <li v-for="notice in fileData.notification_evidence.in_app" :key="notice.id">
+                        {{ locale === 'ar' ? notice.title_ar : notice.title_en }} — {{ dateTime(notice.created_at) }}
+                        <small class="muted">({{ notice.read_at ? t('appeals.file.notifications.read') : t('appeals.file.notifications.unread') }})</small>
+                      </li>
+                    </ul>
+                    <p class="text-block muted">{{ t('appeals.file.notifications.email') }}: {{ t('appeals.file.notifications.noEvidence') }}</p>
+                    <p class="text-block muted">{{ t('appeals.file.notifications.sms') }}: {{ t('appeals.file.notifications.noEvidence') }}</p>
+                  </section>
+                </div>
+              </td>
+            </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -464,6 +692,20 @@ h3 { margin: 0 0 .75rem; color: var(--color-black-700); font-size: 1rem; }
 .verification-summary { display: flex; flex-direction: column; gap: .2rem; align-items: start; }
 .pill.passed { border-color: var(--color-success-border); color: var(--color-success-fg); background: var(--color-success-bg); }
 .pill.rejected { border-color: var(--color-danger-border); color: var(--color-danger-fg); background: var(--color-danger-bg); }
+
+.file-panel { background: var(--color-surface-hover); }
+.dossier { display: flex; flex-direction: column; gap: 1rem; padding: .5rem 0; }
+.dossier-section { border-inline-start: 3px solid var(--color-border-hover); padding-inline-start: .75rem; }
+.dossier-section h4 { margin: 0 0 .5rem; color: var(--color-brand-text); font-size: .92rem; }
+.dossier-section h5 { margin: .6rem 0 .3rem; color: var(--color-black-700); font-size: .82rem; }
+.dossier-section p { margin: .25rem 0; font-size: .84rem; color: var(--color-foreground); }
+.info-grid { display: grid; grid-template-columns: max-content 1fr; gap: .3rem .75rem; margin: 0; font-size: .84rem; }
+.info-grid dt { color: var(--color-muted); }
+.info-grid dd { margin: 0; color: var(--color-foreground); }
+.text-block { white-space: pre-line; }
+.doc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; }
+.doc-list li { display: flex; align-items: center; gap: .4rem; }
+.link { padding: 0; border: 0; background: none; color: var(--color-brand-text); text-decoration: underline; font-size: inherit; }
 
 .results, .search-block ul.state { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; max-height: 12rem; overflow-y: auto; }
 .results button { width: 100%; display: flex; gap: .5rem; align-items: center; text-align: start; }

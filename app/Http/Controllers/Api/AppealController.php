@@ -10,6 +10,7 @@ use App\Models\Appeal;
 use App\Models\AppealStatus;
 use App\Models\Request as RequestRecord;
 use App\Services\AppealEligibility;
+use App\Services\AppealFileCompiler;
 use App\Services\AppealVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,11 +18,12 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Stage 59/60, Track J — the `appeals` screen with its real intake rules
- * (App\Services\AppealEligibility) and, since Stage 60, the formal-
- * verification gate (App\Services\AppealVerificationService). Still no
- * outcome execution (Stage 64). See STAGE_PLAN.md Track J and
- * AGENT_NOTES.md for the scope decisions this stage rests on.
+ * Stage 59/60/61, Track J — the `appeals` screen with its real intake rules
+ * (App\Services\AppealEligibility), the formal-verification gate
+ * (App\Services\AppealVerificationService), and the assembled original-
+ * matter dossier (App\Services\AppealFileCompiler). Still no outcome
+ * execution (Stage 64). See STAGE_PLAN.md Track J and AGENT_NOTES.md for the
+ * scope decisions this stage rests on.
  */
 class AppealController extends Controller
 {
@@ -163,5 +165,20 @@ class AppealController extends Controller
         return new AppealResource(
             $appeal->fresh()->loadCount('attachments')->load(self::WITH),
         );
+    }
+
+    /**
+     * Stage 61 — the assembled original-matter dossier: the original
+     * request, its presentation memo, its meeting-minutes excerpt, its
+     * decision, whatever notification evidence genuinely exists, and the
+     * appeal's own documents, all in one place. Visibility is the same
+     * per-instance predicate index() already applies as a query condition
+     * (Appeal::isVisibleTo) — a stranger gets 404, not an empty payload.
+     */
+    public function file(Request $request, Appeal $appeal, AppealFileCompiler $compiler): JsonResponse
+    {
+        abort_unless($appeal->isVisibleTo($request->user()), 404);
+
+        return response()->json(['data' => $compiler->compile($appeal)]);
     }
 }

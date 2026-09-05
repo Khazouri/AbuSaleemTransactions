@@ -14,6 +14,161 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-05 EET — Claude — Stage 61 complete (original file assembly), resuming a disconnected session
+
+Picked up a session that disconnected mid-build; the backend (`AppealFileCompiler`, `AppealController::
+file()`, the `Appeal::isVisibleTo()` visibility-gap fix, the widened `AppealAttachmentController`
+scoping), the frontend (`AppealsView.vue`'s inline dossier panel), and `tests/Feature/AppealFileTest.php`
+were all already written per the plan below — verifying and finishing rather than re-planning from
+scratch.
+
+**One real bug found and fixed, not a symptom patch.** `test_notification_evidence_lists_only_in_app_
+notifications_addressed_to_the_appellant_about_that_request` hardcoded an expected count of exactly 1,
+but the shared `decidedAppealFixture()` helper records a real committee decision through the actual
+`DecisionController::record()` → `WorkflowService::transition()` path, which itself dispatches genuine
+`stage_changed` and `decision_recorded` notifications to the request's creator (the same person as the
+appellant in every fixture use) — so the real count was 3, not 1, and the test was asserting a stale
+assumption from before the fixture existed, not exercising a bug in `AppealFileCompiler`. Confirmed by
+reproducing the fixture in isolation and dumping the actual `DatabaseNotification` rows before touching
+anything. Fixed by computing a `$baseline` count of pre-existing (appellant, target) notifications before
+adding the three manual marker notifications, then asserting `count($inApp) === $baseline + 1` and that
+every returned entry's `request_id` matches — this proves the actual property under test (scoping: the
+unrelated request and the stranger's notification are excluded) without being fragile to how many real
+system notifications a realistic fixture happens to produce.
+
+Pint's `fully_qualified_strict_types`/`ordered_imports` fixers cleaned up the new `DatabaseNotification`
+import once added (plus pulling `MeetingRequest` into a real `use` from a docblock-only reference) — both
+auto-fixes, not manual edits.
+
+Verification: full suite **248 tests / 1452 assertions** green (was 241/1385 — the 7 new `AppealFileTest`
+cases), Pint clean on every touched/new file, `npm run build` passes with `AppealsView` picking up the new
+dossier markup in its existing chunk (then reverted `frontend/dist`, tracked in git, per every prior
+stage's note), locale key-parity verified programmatically (995 keys each side, zero on-one-side-only),
+and `php artisan migrate:status` confirms this stage added no schema (all prior migrations already `Ran`
+against the real MySQL/Homestead database — no migration was expected or needed). Smoke-tested the whole
+dossier end-to-end over real HTTP against Homestead: built a real committee/meeting/agenda-item fixture
+via tinker, cast a vote and recorded a decision as the seeded R03 test user (a real multipart signature
+upload, not a stub), created the appeal, then confirmed `GET /appeals/{id}/file` returns the full
+structure (original_request/presentation_memo.derived/decision/decision_reference_fallback=null/
+appeal_documents/notification_evidence) as the appellant, that the seeded R02 test user (holds
+`appeals,edit` per Stage 60) and R08 admin both get 200 on a file they didn't file (closing the same
+visibility gap the test suite covers), and that `notification_evidence.in_app` is honestly empty in this
+environment because notifications are queued (`QUEUE_CONNECTION=database`) and no worker was running to
+process them into the `notifications` table — a known, already-documented environment characteristic
+(see the 2026-09-03 Stage 60 note's own `queue:work --stop-when-empty` drain), not a compiler defect;
+the PHPUnit suite's own baseline-count fix above is what confirms the query logic is correct once rows
+actually exist. Cleaned up afterward: deleted the fixture Appeal/Decision/Vote/Meeting/Committee/Request
+rows, purged the 5 leftover queued notification jobs the smoke test generated (would have referenced
+now-deleted models if ever processed), and revoked every token minted during the session — `Appeal::
+count()`/`Request::count()`/`Committee::count()`/`Meeting::count()` and the `jobs`/`personal_access_
+tokens` tables all confirmed back to zero/empty afterward, no residue left in the real database.
+
+Stage 61, and with it the original-file-assembly half of Track J, is done. Next per STAGE_PLAN.md's
+suggested order: **Stage 62** (jurisdiction test + legal review, with Art. 77's disciplinary-board
+exclusion terminating the appeal) — still open, and Stage 64 (outcome execution, ⚠ flagged as needing its
+own design pass) remains the one to not rush alongside another stage.
+
+---
+
+### 2026-09-03 13:00 EET — Claude — Stage 61 implementation plan (original file assembly)
+
+Building Stage 61 per STAGE_PLAN.md Track J: a read-only `AppealFileCompiler` assembling, for one
+appeal, the original request + its presentation memo + its meeting minutes excerpt + its decision +
+the appeal's own newly-submitted documents + whatever notification evidence genuinely exists —
+reusing Stage 46's `PresentationMemoCompiler` and Stage 36/50's `MeetingMinutesCompiler` rather than
+re-deriving their data, per the stage's own instruction.
+
+**Locating the original committee appearance.** `Appeal::originalDecision` (nullable — Stage 58's
+free-text fallback for a decided matter with no `decisions` row, e.g. Stage 54's `reject_formally`)
+is the anchor: when present, `originalDecision->meetingRequest` is the agenda item and `->meeting` is
+the meeting. When absent, there is no committee appearance at all — `presentation_memo` and
+`meeting_minutes` are both honestly null, and the dossier falls back to the appeal's own stored
+`original_decision_reference`/`original_decision_date` free text (already on the Appeal row, not
+re-derived).
+
+**Presentation memo — always recompute the derived half, only read the authored half if it was ever
+written.** `PresentationMemoCompiler::compile($agendaItem)` produces purely derivable fields
+(reference/employee/work_unit/subject/submission_date/referring_body/key_documents/prior_decisions)
+with nothing fabricated, so it's safe to call live regardless of whether a `PresentationMemo` row was
+ever persisted for that item — the same "always recomputed" property Stage 46 already gives it. The
+four authored fields (facts_summary etc.) are read from the persisted `PresentationMemo::
+content['authored']` only if a row exists; when none does, `presentation_memo.authored` is null
+rather than the key being silently missing, matching Stage 46/50's honest-gap convention for content
+nobody ever wrote.
+
+**Meeting minutes — read the persisted, possibly-still-draft document, never live-recompile it.**
+Unlike the presentation memo, minutes are an official record with its own approval lifecycle
+(Stage 36) — regenerating one live to show in a dossier would misrepresent something that may never
+have been generated, reviewed, or signed as though it had. So `meeting_minutes` is read from the
+meeting's persisted `MeetingMinutes` row (`$meeting->meetingMinutes`) if one exists — its `status`
+(draft/pending_signatures/approved) travels with it so the dossier viewer knows whether it's official
+— pulling the top-level `content.meeting`/`content.attendance`/`content.required_signatories` plus
+this one agenda item's own entry matched out of `content.agenda_items` by id (the compiled content is
+already frozen JSON `MeetingMinutesCompiler` itself produced — reading it is the "reuse", not a
+second live compile). Null, with no fabrication, when no `MeetingMinutes` row exists yet for that
+meeting.
+
+**Decision** — `DecisionResource` (already built, Stage 21/35/49/50) wraps `$appeal->originalDecision`
+directly rather than re-deriving vote-tally/outcome/referral_authority fields a second time.
+
+**إثبات التبليغ (proof of notification) — genuinely partial, shown honestly, not glossed.** [A] §9
+step 3 wants this in the dossier; Stage 23's `notifications` table is Laravel's standard database-
+channel store — a row per in-app notification, nothing for mail/SMS, which have no delivery log
+anywhere in this schema. So `notification_evidence.in_app` is the real list — every
+`Illuminate\Notifications\DatabaseNotification` row addressed to the appellant (who, per
+`AppealEligibility`'s ownership rule, is always the original request's own creator) whose stored
+`data->request_id` matches the original request, reusing the existing `NotificationResource` shape —
+and `notification_evidence.email`/`.sms` are static `{evidence_available: false, note: '...'}` blocks
+stating why, not a fabricated "notified" or silently omitted keys. Building a real per-channel
+delivery log is separate, unbuilt work, exactly as the stage's own ⚠ already says.
+
+**Appeal's own documents** — `$appeal->attachments`, same shape `AppealAttachmentResource` already
+exposes (id/original_name/mime_type/size_bytes/label/preview_url/uploaded_by/created_at) — built
+directly rather than instantiating the resource, since the compiler returns a plain array, not a
+Resource tree.
+
+**A real visibility gap this stage has to close, not defer, because it's the reader for a screen
+that's already been widened.** `AppealController::index()` (Stage 60) and `AppealAttachmentController
+::authorizeAccess()` (Stage 59) currently disagree on who may see one appeal: `index()`'s scoping
+already bypasses to "R08 OR holds `appeals,edit`" so an R02 verifier can find appeals filed by other
+people, but `AppealAttachmentController::authorizeAccess()` never got that same widening — it's still
+owner-or-R08 only, a leftover from before Stage 60 existed. Opening Stage 61's dossier would surface
+appeal-document links an R02 verifier can list in the file view but then gets 404 previewing — a dead
+link introduced live in this same session. Fix: a new `Appeal::isVisibleTo(User $actor): bool` model
+method (owner OR R08 OR `appeals,can_edit` — the exact predicate `index()` already applies as a query
+condition, now available as a per-instance check), used by both the new file endpoint and a one-line
+widening of `AppealAttachmentController::authorizeAccess()`.
+
+**New endpoint**: `GET appeals/{appeal}/file` (`AppealController::file()`), gated
+`screen.permission:appeals,view` (the same grant `index()` already rides — per-row visibility is
+`isVisibleTo()`, not a coarser screen permission, matching how `index()` narrows its own query beneath
+the same grant). 404s via `isVisibleTo()` for a stranger, same as the attachment routes.
+
+**Frontend**: `AppealsView.vue` gains a "view file" action per row (no extra `v-can` needed — every
+row already visible in the list is visible via `file()` too, same server-side predicate) opening an
+inline, lazily-fetched dossier card: original request summary + its own attachments, the presentation
+memo (derived fields always, authored fields when present), the meeting minutes excerpt (status badge
++ facts/legal basis/votes/decision/signatories for this one item), the decision block, the appeal's
+own documents (linking to the existing preview route), and the notification-evidence block (an in-app
+list, plus explicit "no evidence" lines for email/SMS). New `appeals.file.*` locale keys in both
+`ar.json`/`en.json`.
+
+**Verification plan**: new `tests/Feature/AppealFileTest.php` — a fully-backed appeal (agenda item
+with a generated+authored presentation memo, approved meeting minutes, a decided vote) returns every
+section populated and the minutes' `agenda_item` matches the right one out of a multi-item meeting; a
+decision-less appeal (free-text fallback) returns null presentation_memo/meeting_minutes and echoes
+the stored reference/date instead; a presentation memo that was never authored (only ever
+auto-derived) returns `authored: null` while `derived` is still populated; minutes that were never
+generated for the meeting return `meeting_minutes: null`; notification_evidence lists an in-app
+notification actually addressed to the appellant about that request and excludes one addressed to
+someone else or about a different request, while email/sms always report no evidence; a stranger gets
+404 on `file()` and on previewing the appeal's own attachments; R08 and an `appeals,edit` holder (R02)
+can both open a file they didn't file and preview its attachments (closing the gap above) — plus the
+full PHPUnit suite, Pint on touched/new files, `npm run build`, and a locale key-parity check. No
+migration — this stage is pure service/controller/route/frontend, no schema change.
+
+---
+
 ### 2026-09-03 11:15 EET — Claude — Stage 60 complete (formal verification gate)
 
 Built exactly per the plan below. One migration (`appeals.formal_verification_checks/reason/

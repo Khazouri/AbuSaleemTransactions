@@ -68,12 +68,13 @@ class AppealAttachmentController extends Controller
         );
     }
 
-    /** Same scoping AppealController::index() already applies to the list. */
+    /**
+     * Appeal::isVisibleTo() — owner, R08, or (Stage 61) anyone holding
+     * `appeals,edit`, matching AppealController::index()'s own scoping so a
+     * verifier who can list an appeal can also open its documents.
+     */
     private function authorizeAccess(User $actor, Appeal $appeal): void
     {
-        $isOwner = $appeal->appellant_user_id === $actor->id;
-        $isAdmin = $actor->roles()->where('code', 'R08')->exists();
-
-        abort_unless($isOwner || $isAdmin, 404);
+        abort_unless($appeal->isVisibleTo($actor), 404);
     }
 }
