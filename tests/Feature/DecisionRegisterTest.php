@@ -140,9 +140,11 @@ class DecisionRegisterTest extends TestCase
         $this->actingAs($this->userWithRole('R04'), 'sanctum')
             ->getJson('/api/decisions/filters')
             ->assertOk()
+            // Stage 63 — appeal outcomes joined the same shared filter list.
             ->assertJsonPath('data.outcomes', [
                 'approve', 'reject', 'defer',
                 'conditional_approval', 'legal_opinion', 'refer_other_body', 'no_jurisdiction',
+                'appeal_accept', 'appeal_partial_accept', 'appeal_reject', 'appeal_refer', 'appeal_redo',
             ])
             ->assertJsonPath('data.formats', ['xlsx', 'pdf'])
             ->assertJsonPath('data.committees.0.name_ar', 'لجنة المشتريات');

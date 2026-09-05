@@ -391,6 +391,14 @@ onMounted(async () => {
                     <strong>{{ item.request.title }}</strong>
                     <span v-if="item.request.status" class="pill">{{ name(item.request.status) }}</span>
                   </template>
+                  <template v-else-if="item.appeal">
+                    <span class="ref ltr">#{{ item.appeal.id }}</span>
+                    <strong>{{ item.appeal.appellant?.name ?? t('common.none') }}</strong>
+                    <span class="pill">{{ t('meetings.agenda.itemType.appeal') }}</span>
+                    <span v-if="item.appeal.original_request" class="pill">
+                      {{ item.appeal.original_request.reference_number || `#${item.appeal.original_request.id}` }}
+                    </span>
+                  </template>
                   <template v-else>
                     <strong>{{ item.subject }}</strong>
                     <span class="pill">{{ t(`meetings.agenda.itemType.${item.item_type}`) }}</span>
@@ -407,7 +415,7 @@ onMounted(async () => {
               </div>
 
               <AgendaItemDecisionPanel
-                v-if="item.item_type === 'employee_request'"
+                v-if="['employee_request', 'appeal'].includes(item.item_type)"
                 :meeting-id="meeting.id"
                 :item="item"
                 :templates="decisionTemplates"

@@ -614,7 +614,8 @@
       "itemType": {
         "employee_request": "طلب موظف",
         "administrative": "بند إداري",
-        "emerging": "بند طارئ"
+        "emerging": "بند طارئ",
+        "appeal": "تظلم"
       },
       "priority": {
         "label": "الأولوية",
@@ -682,6 +683,11 @@
       "legal_opinion": "رأي قانوني",
       "refer_other_body": "إحالة",
       "no_jurisdiction": "عدم اختصاص",
+      "appeal_accept": "قبول التظلم",
+      "appeal_partial_accept": "قبول جزئي",
+      "appeal_reject": "رفض التظلم",
+      "appeal_refer": "إحالة التظلم",
+      "appeal_redo": "إعادة الإجراءات",
       "abstain": "ممتنع"
     },
     "vote": {
@@ -692,6 +698,11 @@
       "legal_opinion": "طلب رأي قانوني",
       "refer_other_body": "إحالة لجهة أخرى",
       "no_jurisdiction": "عدم اختصاص",
+      "appeal_accept": "قبول التظلم",
+      "appeal_partial_accept": "قبول التظلم جزئياً",
+      "appeal_reject": "رفض التظلم",
+      "appeal_refer": "إحالة التظلم لجهة أخرى",
+      "appeal_redo": "إعادة الإجراءات من مرحلة العيب",
       "abstain": "امتناع"
     },
     "outcome": {
@@ -701,7 +712,12 @@
       "conditional_approval": "اعتماد مشروط",
       "legal_opinion": "طلب رأي قانوني",
       "refer_other_body": "إحالة لجهة أخرى",
-      "no_jurisdiction": "عدم اختصاص"
+      "no_jurisdiction": "عدم اختصاص",
+      "appeal_accept": "تم قبول التظلم",
+      "appeal_partial_accept": "تم قبول التظلم جزئياً",
+      "appeal_reject": "تم رفض التظلم",
+      "appeal_refer": "تمت إحالة التظلم لجهة أخرى",
+      "appeal_redo": "تمت إعادة الإجراءات من مرحلة العيب"
     },
     "conflict": {
       "listTitle": "تعارض المصالح المعلن",
@@ -719,6 +735,8 @@
       "draftError": "تعذّرت صياغة المسودة من القالب."
     },
     "commentPlaceholder": "سبب القرار (اختياري للموافقة، مطلوب لبقية النتائج)",
+    "appealLabel": "تظلم",
+    "appealSubject": "تظلم من {appellant} — {title}",
     "referralAuthorityLabel": "الجهة المحال إليها",
     "referralAuthorityPlaceholder": "الجهة المحال إليها الموضوع (اختياري)",
     "record": "تسجيل القرار",
@@ -756,7 +774,7 @@
       "committee": "اللجنة",
       "meeting": "الاجتماع",
       "outcome": "النتيجة",
-      "tally": "موافق / رافض / مؤجل / مشروط / رأي قانوني / إحالة / عدم اختصاص / ممتنع",
+      "tally": "موافق / رافض / مؤجل / مشروط / رأي قانوني / إحالة / عدم اختصاص / قبول تظلم / قبول جزئي / رفض تظلم / إحالة تظلم / إعادة إجراءات / ممتنع",
       "template": "القالب",
       "decidedBy": "صاحب القرار",
       "decidedAt": "تاريخ القرار"
@@ -856,7 +874,8 @@
         "noRequestType": "بدون نوع طلب"
       },
       "dragToReorder": "اسحب لإعادة الترتيب",
-      "openMemo": "فتح مذكرة العرض"
+      "openMemo": "فتح مذكرة العرض",
+      "noAppeals": "لا توجد تظلمات جاهزة للعرض على اللجنة."
     },
     "readiness": {
       "title": "جاهزية الاجتماع",

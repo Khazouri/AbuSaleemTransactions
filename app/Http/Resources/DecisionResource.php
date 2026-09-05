@@ -25,6 +25,14 @@ class DecisionResource extends JsonResource
             // committee's jurisdiction entirely, distinct from asking another
             // body for input (refer_other_body above).
             'votes_no_jurisdiction_count' => $this->votes_no_jurisdiction_count,
+            // Stage 63 — Art. 75 point 5's five-outcome appeal vocabulary,
+            // recorded by DecisionController::recordAppealDecision instead of
+            // record() — always zero for an employee_request decision.
+            'votes_appeal_accept_count' => $this->votes_appeal_accept_count,
+            'votes_appeal_partial_accept_count' => $this->votes_appeal_partial_accept_count,
+            'votes_appeal_reject_count' => $this->votes_appeal_reject_count,
+            'votes_appeal_refer_count' => $this->votes_appeal_refer_count,
+            'votes_appeal_redo_count' => $this->votes_appeal_redo_count,
             // Stage 41 — counted like any other vote, but never a plurality
             // leader: DecisionController::record never lets it drive a
             // workflow transition, so it stays outside the outcome list.
@@ -65,6 +73,7 @@ class DecisionResource extends JsonResource
 
         $meeting = $agendaItem->relationLoaded('meeting') ? $agendaItem->meeting : null;
         $requestRecord = $agendaItem->relationLoaded('request') ? $agendaItem->request : null;
+        $appeal = $agendaItem->relationLoaded('appeal') ? $agendaItem->appeal : null;
         $committee = $meeting?->relationLoaded('committee') ? $meeting->committee : null;
 
         return [
@@ -73,6 +82,20 @@ class DecisionResource extends JsonResource
                 'id' => $requestRecord->id,
                 'reference_number' => $requestRecord->reference_number,
                 'title' => $requestRecord->title,
+            ],
+            // Stage 63 — the appeal riding an `appeal` item, mirroring the
+            // `request` block above.
+            'appeal' => $appeal === null ? null : [
+                'id' => $appeal->id,
+                'appellant' => $appeal->relationLoaded('appellant') && $appeal->appellant ? [
+                    'id' => $appeal->appellant->id,
+                    'name' => $appeal->appellant->name,
+                ] : null,
+                'original_request' => $appeal->relationLoaded('originalRequest') && $appeal->originalRequest ? [
+                    'id' => $appeal->originalRequest->id,
+                    'reference_number' => $appeal->originalRequest->reference_number,
+                    'title' => $appeal->originalRequest->title,
+                ] : null,
             ],
             'meeting' => $meeting === null ? null : [
                 'id' => $meeting->id,

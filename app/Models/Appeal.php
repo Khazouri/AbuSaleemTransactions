@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -117,6 +118,20 @@ class Appeal extends Model
     public function attachments(): HasMany
     {
         return $this->hasMany(AppealAttachment::class);
+    }
+
+    /**
+     * Stage 63 — the agenda slot this appeal was presented on, once
+     * nominated. A plain hasOne, not latestOfMany: an appeal is only ever
+     * meant to be nominated once (MeetingController::appealOptions() excludes
+     * an appeal that already has one), so the common case needs nothing more
+     * elaborate — see DecisionController::recordAppealDecision() for the
+     * defensive status re-check that covers the rare double-nomination case
+     * this relation alone doesn't fully prevent.
+     */
+    public function committeeAgendaItem(): HasOne
+    {
+        return $this->hasOne(MeetingRequest::class, 'appeal_id');
     }
 
     /**

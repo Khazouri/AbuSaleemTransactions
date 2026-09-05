@@ -108,6 +108,19 @@ async function loadDepartmentOptions() {
   }
 }
 
+// --- Appeal options (Stage 63 — appeals ready for committee presentation) -------
+
+const appealOptions = ref([])
+
+async function loadAppealOptions() {
+  try {
+    const { data } = await api.get('/meetings/appeal-options')
+    appealOptions.value = data.data ?? []
+  } catch {
+    appealOptions.value = []
+  }
+}
+
 // --- Add item form ----------------------------------------------------------------
 
 const newItemType = ref('employee_request')
@@ -125,6 +138,12 @@ let searchTimer = null
 
 const agendaRequestIds = computed(() => new Set(
   (meeting.value?.agenda_items ?? []).filter((i) => i.request).map((i) => i.request.id),
+))
+
+// Stage 63 — already-nominated appeals, so the picker below doesn't offer an
+// appeal a second time before the next appeal-options refetch catches up.
+const agendaAppealIds = computed(() => new Set(
+  (meeting.value?.agenda_items ?? []).filter((i) => i.appeal).map((i) => i.appeal.id),
 ))
 
 watch(requestSearch, (value) => {
@@ -170,6 +189,27 @@ async function addRequestItem(request) {
   } catch (requestError) {
     addError.value = requestError.response?.data?.message
       ?? requestError.response?.data?.errors?.request_id?.[0]
+      ?? t('common.none')
+  } finally {
+    adding.value = false
+  }
+}
+
+async function addAppealItem(appeal) {
+  addError.value = ''
+  adding.value = true
+  try {
+    await api.post(`/meetings/${meeting.value.id}/agenda`, {
+      item_type: 'appeal',
+      appeal_id: appeal.id,
+      priority: newPriority.value || null,
+      estimated_minutes: newEstimatedMinutes.value || null,
+    })
+    resetAddForm()
+    await Promise.all([loadMeeting(), loadAppealOptions()])
+  } catch (requestError) {
+    addError.value = requestError.response?.data?.message
+      ?? requestError.response?.data?.errors?.appeal_id?.[0]
       ?? t('common.none')
   } finally {
     adding.value = false
@@ -279,7 +319,7 @@ function onDragEnd() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadMeetings(), loadDepartmentOptions(), loadMeeting()])
+  await Promise.all([loadMeetings(), loadDepartmentOptions(), loadAppealOptions(), loadMeeting()])
 })
 </script>
 
@@ -324,6 +364,7 @@ onMounted(async () => {
             {{ t('meetings.agenda.itemType.employee_request') }} {{ stats.by_type.employee_request }}
             · {{ t('meetings.agenda.itemType.administrative') }} {{ stats.by_type.administrative }}
             · {{ t('meetings.agenda.itemType.emerging') }} {{ stats.by_type.emerging }}
+            · {{ t('meetings.agenda.itemType.appeal') }} {{ stats.by_type.appeal }}
           </strong>
         </div>
         <button class="ghost" type="button" @click="showGroups = !showGroups">
@@ -370,7 +411,7 @@ onMounted(async () => {
         <h3>{{ t('meetingsUnit.agenda.addItem') }}</h3>
         <div class="type-toggle">
           <button
-            v-for="type in ['employee_request', 'administrative', 'emerging']"
+            v-for="type in ['employee_request', 'administrative', 'emerging', 'appeal']"
             :key="type"
             type="button"
             class="ghost"
@@ -419,6 +460,26 @@ onMounted(async () => {
                 </button>
               </li>
             </template>
+          </ul>
+        </template>
+        <template v-else-if="newItemType === 'appeal'">
+          <ul class="results">
+            <li v-if="!appealOptions.length" class="state">{{ t('meetingsUnit.agenda.noAppeals') }}</li>
+            <li v-for="appeal in appealOptions" :key="appeal.id" class="result">
+              <span class="ref ltr">#{{ appeal.id }}</span>
+              <span>
+                {{ appeal.appellant?.name ?? t('common.none') }}
+                — {{ appeal.original_request?.reference_number ?? t('common.none') }}
+              </span>
+              <button
+                class="ghost"
+                type="button"
+                :disabled="adding || agendaAppealIds.has(appeal.id)"
+                @click="addAppealItem(appeal)"
+              >
+                {{ t('meetings.agenda.add') }}
+              </button>
+            </li>
           </ul>
         </template>
         <template v-else>
@@ -470,6 +531,13 @@ onMounted(async () => {
                 <template v-if="item.request">
                   <span class="ref ltr">{{ item.request.reference_number || `#${item.request.id}` }}</span>
                   <strong>{{ item.request.title }}</strong>
+                </template>
+                <template v-else-if="item.appeal">
+                  <span class="ref ltr">#{{ item.appeal.id }}</span>
+                  <strong>{{ item.appeal.appellant?.name ?? t('common.none') }}</strong>
+                  <span v-if="item.appeal.original_request" class="pill">
+                    {{ item.appeal.original_request.reference_number || `#${item.appeal.original_request.id}` }}
+                  </span>
                 </template>
                 <template v-else>
                   <strong>{{ item.subject }}</strong>

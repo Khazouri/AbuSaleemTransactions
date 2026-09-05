@@ -12,6 +12,7 @@ use App\Http\Requests\Vote\StoreVoteRequest;
 use App\Http\Resources\DecisionResource;
 use App\Http\Resources\MeetingRequestResource;
 use App\Http\Resources\VoteResource;
+use App\Models\AppealStatus;
 use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Meeting;
@@ -74,10 +75,17 @@ class DecisionController extends Controller
                 'legal_opinion' => 'طلب رأي قانوني',
                 'refer_other_body' => 'إحالة لجهة أخرى',
                 'no_jurisdiction' => 'عدم اختصاص',
+                // Stage 63 — Art. 75 point 5's five-outcome appeal vocabulary.
+                'appeal_accept' => 'قبول التظلم',
+                'appeal_partial_accept' => 'قبول جزئي',
+                'appeal_reject' => 'رفض التظلم',
+                'appeal_refer' => 'إحالة التظلم',
+                'appeal_redo' => 'إعادة الإجراءات',
             ],
             'columns' => [
                 'الرقم المرجعي', 'الموضوع', 'اللجنة', 'الاجتماع', 'تاريخ الاجتماع',
-                'النتيجة', 'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة', 'عدم اختصاص', 'ممتنع',
+                'النتيجة', 'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة', 'عدم اختصاص',
+                'قبول التظلم', 'قبول جزئي', 'رفض التظلم', 'إحالة التظلم', 'إعادة الإجراءات', 'ممتنع',
                 'القالب', 'صاحب القرار', 'تاريخ القرار', 'الملاحظات',
             ],
             'none' => '—',
@@ -101,10 +109,17 @@ class DecisionController extends Controller
                 'legal_opinion' => 'Legal Opinion Requested',
                 'refer_other_body' => 'Referred to Another Body',
                 'no_jurisdiction' => 'Outside Jurisdiction',
+                // Stage 63 — Art. 75 point 5's five-outcome appeal vocabulary.
+                'appeal_accept' => 'Appeal Accepted',
+                'appeal_partial_accept' => 'Partially Accepted',
+                'appeal_reject' => 'Appeal Rejected',
+                'appeal_refer' => 'Appeal Referred',
+                'appeal_redo' => 'Procedures Redone',
             ],
             'columns' => [
                 'Reference', 'Subject', 'Committee', 'Meeting', 'Meeting date',
-                'Outcome', 'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred', 'No jurisdiction', 'Abstain',
+                'Outcome', 'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred', 'No jurisdiction',
+                'Appeal accepted', 'Appeal partial', 'Appeal rejected', 'Appeal referred', 'Appeal redo', 'Abstain',
                 'Template', 'Decided by', 'Decided at', 'Comment',
             ],
             'none' => '—',
@@ -130,6 +145,20 @@ class DecisionController extends Controller
         'legal_opinion' => 'request_legal_opinion',
         'refer_other_body' => 'refer_to_another_body',
         'no_jurisdiction' => 'declare_no_jurisdiction',
+    ];
+
+    /**
+     * Stage 63, Track J — Art. 75 point 5's five-outcome appeal vocabulary.
+     * Deliberately a flat list, not a map onto a workflow action like ACTIONS
+     * above: an appeal never touches WorkflowService (Track J intro's scope
+     * decision (2) — its own status machine, not the 14-stage
+     * workflow_stages table). Recording one of these always advances the
+     * appeal from `legal_review` to `committee_presentation`; which outcome
+     * won only matters to Stage 64's later, deliberately separate, execution
+     * step.
+     */
+    public const APPEAL_OUTCOMES = [
+        'appeal_accept', 'appeal_partial_accept', 'appeal_reject', 'appeal_refer', 'appeal_redo',
     ];
 
     public function vote(
@@ -183,6 +212,14 @@ class DecisionController extends Controller
         NotificationDispatcher $notifications,
     ): JsonResponse {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        // Stage 63 — an appeal item never runs through WorkflowService (Track
+        // J's own status machine instead); its five-outcome vocabulary and
+        // "commit" step are different enough to live in their own method
+        // rather than being threaded through the branches below.
+        if ($agendaItem->item_type === 'appeal') {
+            return $this->recordAppealDecision($request, $agendaItem);
+        }
 
         // Stage 31 — an admin/emerging item has no request for
         // WorkflowService::transition() to move.
@@ -260,6 +297,16 @@ class DecisionController extends Controller
                     'votes_legal_opinion_count' => $tally['legal_opinion'],
                     'votes_refer_other_body_count' => $tally['refer_other_body'],
                     'votes_no_jurisdiction_count' => $tally['no_jurisdiction'],
+                    // Stage 63 — the appeal vocabulary never applies to an
+                    // employee_request decision; set explicitly (rather than
+                    // left unset) so the immediate response reads 0, not
+                    // null, the same as every column above and as a
+                    // subsequent fetch would already show via the DB default.
+                    'votes_appeal_accept_count' => 0,
+                    'votes_appeal_partial_accept_count' => 0,
+                    'votes_appeal_reject_count' => 0,
+                    'votes_appeal_refer_count' => 0,
+                    'votes_appeal_redo_count' => 0,
                     'votes_abstain_count' => $abstainCount,
                     'comment' => $comment,
                     'referral_authority' => $referralAuthority,
@@ -277,6 +324,128 @@ class DecisionController extends Controller
         // transition raises: this one names the outcome and the tally, which
         // is the part the requester and the committee actually ask about.
         $notifications->decisionRecorded($agendaItem->request, $decision, $meeting, $actor);
+
+        return (new DecisionResource($decision->load('decidedBy:id,name', 'template:id,code,name_ar,name_en')))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    /**
+     * Stage 63, Track J — Art. 75 point 5's five-outcome appeal decision.
+     * Same plurality-tally shape as record() above, but the "commit" step is
+     * entirely different: no WorkflowService call at all, since an appeal
+     * never touches the 14-stage workflow_stages table (Track J intro's
+     * scope decision (2)) — recording a decision here only ever advances the
+     * appeal's own status from `legal_review` to `committee_presentation`.
+     * Mutating the *original* request per the chosen outcome is Stage 64's
+     * own, deliberately separate, scope.
+     *
+     * Every outcome requires a non-empty comment (generalizing "رفض مسبب"'s
+     * explicit "reasoned" requirement to all five, the same kind of call
+     * Stage 62's jurisdiction-test generalization made) and none requires a
+     * signature (unlike `approve`, whose signature requirement is a side
+     * effect of WorkflowService::APPROVAL_LEVELS gating a real multi-tier
+     * approval chain that has no appeal equivalent).
+     *
+     * No notification is fired here — Stage 65's own Build bullet is
+     * explicitly "a new appeal_decided event"; firing a generic
+     * decisionRecorded() now would blur into that stage's "final result"
+     * semantics and risk notifying the appellant twice.
+     */
+    private function recordAppealDecision(StoreDecisionRequest $request, MeetingRequest $agendaItem): JsonResponse
+    {
+        if ($agendaItem->decision()->exists()) {
+            return response()->json([
+                'message' => 'تم تسجيل قرار هذا البند بالفعل.',
+            ], 422);
+        }
+
+        $appeal = $agendaItem->appeal;
+
+        // Defensive, not redundant: MeetingController::addAgendaItem() already
+        // gates nomination on legal_review, but a second meeting_requests row
+        // for the same appeal (Appeal::committeeAgendaItem's own docblock
+        // flags this as a known, rare edge case) could otherwise try to
+        // re-decide an appeal that already moved past this status.
+        if ($appeal === null || $appeal->status?->code !== 'legal_review') {
+            return response()->json([
+                'message' => 'لا يمكن تسجيل قرار على تظلم لم يجتز المراجعة القانونية بعد.',
+            ], 422);
+        }
+
+        $counts = Vote::query()
+            ->where('meeting_request_id', $agendaItem->id)
+            ->selectRaw('vote, count(*) as total')
+            ->groupBy('vote')
+            ->pluck('total', 'vote');
+
+        $tally = collect(self::APPEAL_OUTCOMES)
+            ->mapWithKeys(fn (string $outcome) => [$outcome => (int) ($counts[$outcome] ?? 0)]);
+        $abstainCount = (int) ($counts['abstain'] ?? 0);
+
+        $max = $tally->max();
+        if ($max === 0) {
+            return response()->json([
+                'message' => 'لا توجد أصوات مسجلة على هذا البند بعد.',
+            ], 422);
+        }
+
+        $leaders = $tally->filter(fn (int $count) => $count === $max);
+        if ($leaders->count() > 1) {
+            return response()->json([
+                'message' => 'التصويت متعادل، لا يمكن حسم القرار تلقائياً.',
+            ], 422);
+        }
+
+        $outcome = $leaders->keys()->first();
+        $comment = trim((string) $request->validated('comment'));
+
+        if ($comment === '') {
+            return response()->json([
+                'message' => 'يجب إثبات سبب قرار اللجنة على التظلم.',
+            ], 422);
+        }
+
+        $templateId = $request->validated('template_id');
+        $referralAuthority = $request->validated('referral_authority');
+        $actor = $request->user();
+
+        $decision = DB::transaction(function () use (
+            $appeal, $agendaItem, $outcome, $tally, $abstainCount, $comment, $referralAuthority, $templateId, $actor,
+        ) {
+            $appeal->update([
+                'appeal_status_id' => AppealStatus::where('code', 'committee_presentation')->value('id'),
+            ]);
+
+            // Stage 34 — mirrors record()'s own progress-tracking side effect.
+            $agendaItem->update(['item_state' => 'complete', 'state_changed_at' => now()]);
+
+            return Decision::create([
+                'meeting_request_id' => $agendaItem->id,
+                'template_id' => $templateId,
+                'outcome' => $outcome,
+                // The employee_request vocabulary never applies here; set
+                // explicitly so the immediate response reads 0, not null —
+                // see record()'s matching comment on its own reverse case.
+                'votes_approve_count' => 0,
+                'votes_reject_count' => 0,
+                'votes_defer_count' => 0,
+                'votes_conditional_approval_count' => 0,
+                'votes_legal_opinion_count' => 0,
+                'votes_refer_other_body_count' => 0,
+                'votes_no_jurisdiction_count' => 0,
+                'votes_appeal_accept_count' => $tally['appeal_accept'],
+                'votes_appeal_partial_accept_count' => $tally['appeal_partial_accept'],
+                'votes_appeal_reject_count' => $tally['appeal_reject'],
+                'votes_appeal_refer_count' => $tally['appeal_refer'],
+                'votes_appeal_redo_count' => $tally['appeal_redo'],
+                'votes_abstain_count' => $abstainCount,
+                'comment' => $comment,
+                'referral_authority' => $referralAuthority,
+                'decided_by_user_id' => $actor->id,
+                'decided_at' => now(),
+            ]);
+        });
 
         return (new DecisionResource($decision->load('decidedBy:id,name', 'template:id,code,name_ar,name_en')))
             ->response()
@@ -349,6 +518,12 @@ class DecisionController extends Controller
             ->with([
                 'request:id,reference_number,title,status_id',
                 'request.status:id,code,name_ar,name_en,color',
+                // Stage 63 — the appeal riding an `appeal` item, mirroring the
+                // request block above.
+                'appeal:id,appellant_user_id,original_request_id,appeal_status_id',
+                'appeal.appellant:id,name',
+                'appeal.originalRequest:id,reference_number,title',
+                'appeal.status:id,code,name_ar,name_en,color',
                 'meeting:id,title,scheduled_at,committee_id',
                 'meeting.committee:id,name_ar,name_en',
                 'votes.user:id,name',
@@ -427,8 +602,13 @@ class DecisionController extends Controller
             ->with([
                 'decidedBy:id,name',
                 'template:id,code,name_ar,name_en',
-                'meetingRequest:id,meeting_id,request_id',
+                'meetingRequest:id,meeting_id,request_id,appeal_id',
                 'meetingRequest.request:id,reference_number,title',
+                // Stage 63 — the appeal riding an `appeal` item, mirroring the
+                // request eager-load above.
+                'meetingRequest.appeal:id,appellant_user_id,original_request_id,appeal_status_id',
+                'meetingRequest.appeal.appellant:id,name',
+                'meetingRequest.appeal.originalRequest:id,reference_number,title',
                 'meetingRequest.meeting:id,title,scheduled_at,committee_id',
                 'meetingRequest.meeting.committee:id,name_ar,name_en',
             ])
@@ -453,12 +633,22 @@ class DecisionController extends Controller
             )
             ->when(
                 $filters['search'] ?? null,
-                fn (Builder $query, string $term) => $query->whereHas(
-                    'meetingRequest.request',
-                    fn (Builder $requestRecord) => $requestRecord
-                        ->where('reference_number', 'like', "%{$term}%")
-                        ->orWhere('title', 'like', "%{$term}%"),
-                ),
+                fn (Builder $query, string $term) => $query->where(fn (Builder $matches) => $matches
+                    ->whereHas(
+                        'meetingRequest.request',
+                        fn (Builder $requestRecord) => $requestRecord
+                            ->where('reference_number', 'like', "%{$term}%")
+                            ->orWhere('title', 'like', "%{$term}%"),
+                    )
+                    // Stage 63 — an appeal decision's own "reference/subject"
+                    // is its original request's, since the appeal itself has
+                    // no reference number or title of its own.
+                    ->orWhereHas(
+                        'meetingRequest.appeal.originalRequest',
+                        fn (Builder $requestRecord) => $requestRecord
+                            ->where('reference_number', 'like', "%{$term}%")
+                            ->orWhere('title', 'like', "%{$term}%"),
+                    )),
             )
             ->latest('decided_at');
     }
@@ -472,10 +662,14 @@ class DecisionController extends Controller
         $agendaItem = $decision->meetingRequest;
         $meeting = $agendaItem?->meeting;
         $committee = $meeting?->committee;
+        // Stage 63 — an appeal item's own "reference/subject" is its
+        // original request's, since the appeal has no reference number or
+        // title of its own.
+        $originalRequest = $agendaItem?->request ?? $agendaItem?->appeal?->originalRequest;
 
         return [
-            $agendaItem?->request?->reference_number ?? $labels['none'],
-            $agendaItem?->request?->title ?? $labels['none'],
+            $originalRequest?->reference_number ?? $labels['none'],
+            $originalRequest?->title ?? $labels['none'],
             $this->localName($committee, $locale, $labels),
             $meeting?->title ?? $labels['none'],
             $meeting?->scheduled_at?->format('Y-m-d') ?? $labels['none'],
@@ -487,6 +681,11 @@ class DecisionController extends Controller
             $decision->votes_legal_opinion_count,
             $decision->votes_refer_other_body_count,
             $decision->votes_no_jurisdiction_count,
+            $decision->votes_appeal_accept_count,
+            $decision->votes_appeal_partial_accept_count,
+            $decision->votes_appeal_reject_count,
+            $decision->votes_appeal_refer_count,
+            $decision->votes_appeal_redo_count,
             $decision->votes_abstain_count,
             $this->localName($decision->template, $locale, $labels),
             $decision->decidedBy?->name ?? $labels['none'],
@@ -538,8 +737,9 @@ class DecisionController extends Controller
     {
         return [
             ['label' => $labels['total'], 'value' => (string) $rows->count()],
-            ...collect(self::ACTIONS)
-                ->keys()
+            // Stage 63 — appeal outcomes are a second, independent vocabulary
+            // sharing this same column; both need a per-outcome total.
+            ...collect([...array_keys(self::ACTIONS), ...self::APPEAL_OUTCOMES])
                 ->map(fn (string $outcome) => [
                     'label' => $labels['outcomes'][$outcome],
                     'value' => (string) $rows->where('outcome', $outcome)->count(),

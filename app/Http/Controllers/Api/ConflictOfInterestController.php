@@ -39,9 +39,11 @@ class ConflictOfInterestController extends Controller
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
-        if ($agendaItem->item_type !== 'employee_request') {
+        // Stage 63 — appeal items are voted on the same way employee_request
+        // ones are, so a stake in one must be declarable the same way too.
+        if (! in_array($agendaItem->item_type, ['employee_request', 'appeal'], true)) {
             return response()->json([
-                'message' => 'الإعلان عن تعارض المصالح مقصور على بنود الطلبات المرتبطة بطلب.',
+                'message' => 'الإعلان عن تعارض المصالح مقصور على بنود الطلبات أو التظلمات المرتبطة بها.',
             ], 422);
         }
 

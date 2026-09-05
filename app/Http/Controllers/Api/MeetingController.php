@@ -15,6 +15,7 @@ use App\Http\Requests\MeetingAttendee\UpdateMeetingAttendeeRequest;
 use App\Http\Resources\MeetingAttendeeResource;
 use App\Http\Resources\MeetingRequestResource;
 use App\Http\Resources\MeetingResource;
+use App\Models\Appeal;
 use App\Models\Attachment;
 use App\Models\Committee;
 use App\Models\Department;
@@ -29,6 +30,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -166,51 +168,73 @@ class MeetingController extends Controller
         return response()->json(null, 204);
     }
 
+    /** Every agenda-item read that needs enough of a request/appeal to render one row. */
+    private const AGENDA_ITEM_WITH = [
+        'request:id,reference_number,title,status_id',
+        'request.status:id,code,name_ar,name_en,color',
+        'appeal:id,appellant_user_id,original_request_id,appeal_status_id',
+        'appeal.appellant:id,name',
+        'appeal.originalRequest:id,reference_number,title',
+        'appeal.status:id,code,name_ar,name_en,color',
+        'department:id,name_ar,name_en',
+    ];
+
     /**
      * Stage 31 — an item is either an `employee_request` riding a request
-     * (the only kind before this stage) or a standalone `administrative`/
-     * `emerging` item; the FormRequest's conditional rules already picked
-     * which of request_id/subject is present, so this just stores
-     * whichever validated shape arrived.
+     * (the only kind before this stage), a standalone `administrative`/
+     * `emerging` item, or (Stage 63) an `appeal`; the FormRequest's
+     * conditional rules already picked which of request_id/appeal_id/subject
+     * is present, so this just stores whichever validated shape arrived.
+     *
+     * The one business rule the FormRequest can't express: an appeal may
+     * only be nominated once it has passed legal review (Stage 62's own
+     * "cannot reach Stage 63 without both records present" done-when, read
+     * as a nomination-time gate).
      */
     public function addAgendaItem(StoreMeetingAgendaRequest $request, Meeting $meeting): JsonResponse
     {
+        $validated = $request->validated();
+
+        if (($validated['item_type'] ?? 'employee_request') === 'appeal') {
+            $appeal = Appeal::query()->with('status:id,code')->findOrFail($validated['appeal_id']);
+
+            if ($appeal->status?->code !== 'legal_review') {
+                throw ValidationException::withMessages([
+                    'appeal_id' => ['لا يمكن عرض التظلم على اللجنة إلا بعد اجتياز المراجعة القانونية.'],
+                ]);
+            }
+        }
+
         $nextOrder = ($meeting->agendaItems()->max('agenda_order') ?? 0) + 1;
 
         $item = $meeting->agendaItems()->create([
-            ...$request->validated(),
-            'item_type' => $request->validated('item_type') ?? 'employee_request',
+            ...$validated,
+            'item_type' => $validated['item_type'] ?? 'employee_request',
             'agenda_order' => $nextOrder,
         ]);
 
-        return (new MeetingRequestResource($item->load([
-            'request:id,reference_number,title,status_id',
-            'request.status:id,code,name_ar,name_en,color',
-            'department:id,name_ar,name_en',
-        ])))->response()->setStatusCode(201);
+        return (new MeetingRequestResource($item->load(self::AGENDA_ITEM_WITH)))
+            ->response()->setStatusCode(201);
     }
 
-    /** Stage 31 — priority/time/subject/department only; see the FormRequest for why item_type/request_id stay fixed. */
+    /** Stage 31 — priority/time/subject/department only; see the FormRequest for why item_type/request_id/appeal_id stay fixed. */
     public function updateAgendaItem(UpdateMeetingAgendaItemRequest $request, Meeting $meeting, MeetingRequest $agendaItem): MeetingRequestResource
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
         $agendaItem->update($request->validated());
 
-        return new MeetingRequestResource($agendaItem->load([
-            'request:id,reference_number,title,status_id',
-            'request.status:id,code,name_ar,name_en,color',
-            'department:id,name_ar,name_en',
-        ]));
+        return new MeetingRequestResource($agendaItem->load(self::AGENDA_ITEM_WITH));
     }
 
     /**
      * Stage 34 — the live runner advancing (or reopening) one agenda item's
      * state. A resolved item (already has a decision) refuses any further
      * change, mirroring DecisionEligibility's "voting closes once decided"
-     * rule. `complete` is refused outright for a request item — that state
-     * is only ever reached as a side effect of DecisionController::record(),
-     * so a `complete` request item always means a real recorded decision.
+     * rule. `complete` is refused outright for a request or appeal item —
+     * that state is only ever reached as a side effect of
+     * DecisionController::record()/recordAppealDecision(), so a `complete`
+     * item of either kind always means a real recorded decision.
      */
     public function updateItemState(UpdateMeetingAgendaItemStateRequest $request, Meeting $meeting, MeetingRequest $agendaItem): MeetingRequestResource|JsonResponse
     {
@@ -224,9 +248,9 @@ class MeetingController extends Controller
 
         $newState = $request->validated('item_state');
 
-        if ($newState === 'complete' && $agendaItem->item_type === 'employee_request') {
+        if ($newState === 'complete' && in_array($agendaItem->item_type, ['employee_request', 'appeal'], true)) {
             return response()->json([
-                'message' => 'بنود الطلبات تُستكمل تلقائياً عند تسجيل القرار، لا يمكن إنهاؤها يدوياً.',
+                'message' => 'بنود الطلبات والتظلمات تُستكمل تلقائياً عند تسجيل القرار، لا يمكن إنهاؤها يدوياً.',
             ], 422);
         }
 
@@ -234,11 +258,7 @@ class MeetingController extends Controller
             $agendaItem->update(['item_state' => $newState, 'state_changed_at' => now()]);
         }
 
-        return new MeetingRequestResource($agendaItem->load([
-            'request:id,reference_number,title,status_id',
-            'request.status:id,code,name_ar,name_en,color',
-            'department:id,name_ar,name_en',
-        ]));
+        return new MeetingRequestResource($agendaItem->load(self::AGENDA_ITEM_WITH));
     }
 
     /**
@@ -416,11 +436,7 @@ class MeetingController extends Controller
         });
 
         return MeetingRequestResource::collection(
-            $meeting->agendaItems()->with([
-                'request:id,reference_number,title,status_id',
-                'request.status:id,code,name_ar,name_en,color',
-                'department:id,name_ar,name_en',
-            ])->get(),
+            $meeting->agendaItems()->with(self::AGENDA_ITEM_WITH)->get(),
         );
     }
 
@@ -430,8 +446,8 @@ class MeetingController extends Controller
      * by effective department (the item's own for an admin item, its
      * request's for a request) or, Stage 40, by the request's type — [C]
      * §4's own example groups by request type ("جميع طلبات الترقية...
-     * في مجموعة واحدة"), not department. An admin/emerging item has no
-     * request and therefore no type, so under request_type grouping it
+     * في مجموعة واحدة"), not department. An admin/emerging/appeal item has
+     * no request and therefore no type, so under request_type grouping it
      * always lands in the null-type bucket, mirroring how a department-less
      * item already lands in the null-department bucket today.
      */
@@ -445,10 +461,14 @@ class MeetingController extends Controller
             'request.department:id,name_ar,name_en',
             'request.requestType:id,name_ar,name_en',
             'department:id,name_ar,name_en',
+            'appeal:id,original_request_id',
+            'appeal.originalRequest:id,title',
         ])->get();
 
         $byPriority = ['high' => 0, 'medium' => 0, 'low' => 0, 'none' => 0];
-        $byType = ['employee_request' => 0, 'administrative' => 0, 'emerging' => 0];
+        // Stage 63 — a fourth bucket for appeal items, alongside Stage 31's
+        // original three.
+        $byType = ['employee_request' => 0, 'administrative' => 0, 'emerging' => 0, 'appeal' => 0];
         $groups = [];
 
         foreach ($items as $item) {
@@ -475,7 +495,10 @@ class MeetingController extends Controller
 
             $groups[$key]['items'][] = [
                 'id' => $item->id,
-                'label' => $item->request?->title ?? $item->subject,
+                // Stage 63 — an appeal item has neither a title-bearing
+                // request nor a subject; fall back to the original request's
+                // own title rather than rendering a blank label.
+                'label' => $item->request?->title ?? $item->subject ?? $item->appeal?->originalRequest?->title ?? ('#'.$item->id),
             ];
         }
 
@@ -497,6 +520,41 @@ class MeetingController extends Controller
                 ->where('is_active', true)
                 ->orderBy('name_ar')
                 ->get(['id', 'name_ar', 'name_en']),
+        ]);
+    }
+
+    /**
+     * Stage 63 — the appeal picker for the agenda builder's `appeal` item
+     * form. A narrow, purpose-built lookup, same "picker, not the full
+     * resource's own visibility rule" precedent as departmentOptions()/
+     * CommitteeController::userOptions() — AppealController::index() scopes
+     * a non-R08/non-`appeals,edit` actor to their own filings, which the
+     * `meeting_agenda,edit` roles (R03/R09) don't hold. Excludes an appeal
+     * already nominated on some agenda (Appeal::committeeAgendaItem) — once
+     * nominated it stays nominated until decided, never re-offered here.
+     */
+    public function appealOptions(): JsonResponse
+    {
+        return response()->json([
+            'data' => Appeal::query()
+                ->whereHas('status', fn ($query) => $query->where('code', 'legal_review'))
+                ->whereDoesntHave('committeeAgendaItem')
+                ->with(['appellant:id,name', 'originalRequest:id,reference_number,title'])
+                ->latest()
+                ->get()
+                ->map(fn (Appeal $appeal) => [
+                    'id' => $appeal->id,
+                    'appellant' => $appeal->appellant ? [
+                        'id' => $appeal->appellant->id,
+                        'name' => $appeal->appellant->name,
+                    ] : null,
+                    'original_request' => $appeal->originalRequest ? [
+                        'id' => $appeal->originalRequest->id,
+                        'reference_number' => $appeal->originalRequest->reference_number,
+                        'title' => $appeal->originalRequest->title,
+                    ] : null,
+                ])
+                ->values(),
         ]);
     }
 
@@ -568,6 +626,12 @@ class MeetingController extends Controller
             'attendees.user:id,name',
             'agendaItems.request:id,reference_number,title,status_id',
             'agendaItems.request.status:id,code,name_ar,name_en,color',
+            // Stage 63 — the appeal riding an `appeal` item, mirroring the
+            // request block above.
+            'agendaItems.appeal:id,appellant_user_id,original_request_id,appeal_status_id',
+            'agendaItems.appeal.appellant:id,name',
+            'agendaItems.appeal.originalRequest:id,reference_number,title',
+            'agendaItems.appeal.status:id,code,name_ar,name_en,color',
             'agendaItems.department:id,name_ar,name_en',
             'agendaItems.votes.user:id,name',
             'agendaItems.decision.decidedBy:id,name',

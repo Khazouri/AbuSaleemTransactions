@@ -14,7 +14,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
-import { VOTE_OPTIONS } from '../lib/decisionOutcomes'
+import { APPEAL_VOTE_OPTIONS, VOTE_OPTIONS } from '../lib/decisionOutcomes'
 import { downloadExport } from '../lib/download'
 import { useAuthStore } from '../stores/auth'
 
@@ -131,8 +131,15 @@ async function exportAs(format) {
 // Same helpers the meeting screen uses; the tally is computed client-side from
 // the votes already in the payload so the counts move the moment you vote.
 
+// Stage 63 — an appeal item's votes are tallied against its own,
+// independent 5-outcome vocabulary; see AgendaItemDecisionPanel.vue's
+// matching split.
+function voteOptions(item) {
+  return item.item_type === 'appeal' ? APPEAL_VOTE_OPTIONS : VOTE_OPTIONS
+}
+
 function tally(item) {
-  const counts = Object.fromEntries(VOTE_OPTIONS.map((outcome) => [outcome, 0]))
+  const counts = Object.fromEntries(voteOptions(item).map((outcome) => [outcome, 0]))
   for (const vote of item.votes ?? []) counts[vote.vote] = (counts[vote.vote] ?? 0) + 1
   return counts
 }
@@ -280,9 +287,20 @@ onMounted(async () => {
                     class="reference ltr"
                     :to="{ name: 'request_details', params: { id: row.context.request.id } }"
                   >{{ row.context.request.reference_number ?? `#${row.context.request.id}` }}</RouterLink>
+                  <span v-else-if="row.context?.appeal" class="reference ltr">
+                    {{ t('decisions.appealLabel') }} #{{ row.context.appeal.id }}
+                  </span>
                   <span v-else>{{ t('common.none') }}</span>
                 </td>
-                <td class="subject">{{ row.context?.request?.title ?? t('common.none') }}</td>
+                <td class="subject">
+                  {{ row.context?.request?.title
+                    ?? (row.context?.appeal
+                      ? t('decisions.appealSubject', {
+                        appellant: row.context.appeal.appellant?.name ?? t('common.none'),
+                        title: row.context.appeal.original_request?.title ?? t('common.none'),
+                      })
+                      : t('common.none')) }}
+                </td>
                 <td>{{ localName(row.context?.committee) }}</td>
                 <td>
                   <RouterLink
@@ -299,6 +317,8 @@ onMounted(async () => {
                   {{ row.votes_approve_count }} / {{ row.votes_reject_count }} / {{ row.votes_defer_count }}
                   / {{ row.votes_conditional_approval_count }} / {{ row.votes_legal_opinion_count }}
                   / {{ row.votes_refer_other_body_count }} / {{ row.votes_no_jurisdiction_count }}
+                  / {{ row.votes_appeal_accept_count }} / {{ row.votes_appeal_partial_accept_count }}
+                  / {{ row.votes_appeal_reject_count }} / {{ row.votes_appeal_refer_count }} / {{ row.votes_appeal_redo_count }}
                   / {{ row.votes_abstain_count }}
                 </td>
                 <td>{{ row.template ? localName(row.template) : t('common.none') }}</td>
@@ -340,7 +360,16 @@ onMounted(async () => {
                 class="reference ltr"
                 :to="{ name: 'request_details', params: { id: item.request.id } }"
               >{{ item.request.reference_number ?? `#${item.request.id}` }}</RouterLink>
-              <strong class="pending-title">{{ item.request?.title ?? t('common.none') }}</strong>
+              <span v-else-if="item.appeal" class="reference ltr">{{ t('decisions.appealLabel') }} #{{ item.appeal.id }}</span>
+              <strong class="pending-title">
+                {{ item.request?.title
+                  ?? (item.appeal
+                    ? t('decisions.appealSubject', {
+                      appellant: item.appeal.appellant?.name ?? t('common.none'),
+                      title: item.appeal.original_request?.title ?? t('common.none'),
+                    })
+                    : t('common.none')) }}
+              </strong>
             </div>
             <div class="pending-meta">
               <RouterLink :to="{ name: 'meeting_details', params: { id: item.meeting.id } }">
@@ -353,14 +382,14 @@ onMounted(async () => {
           </div>
 
           <div class="tally">
-            <span v-for="outcome in VOTE_OPTIONS" :key="outcome">
+            <span v-for="outcome in voteOptions(item)" :key="outcome">
               {{ t(`decisions.tally.${outcome}`) }}: {{ tally(item)[outcome] }}
             </span>
           </div>
 
           <div v-can="'decisions.add'" class="vote-actions no-print">
             <button
-              v-for="option in VOTE_OPTIONS"
+              v-for="option in voteOptions(item)"
               :key="option"
               class="ghost"
               :class="{ active: myVote(item) === option }"

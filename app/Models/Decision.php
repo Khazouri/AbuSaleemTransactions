@@ -20,6 +20,13 @@ class Decision extends Model
         'votes_refer_other_body_count',
         'votes_no_jurisdiction_count',
         'votes_abstain_count',
+        // Stage 63 — Art. 75 point 5's five-outcome appeal vocabulary; see
+        // DecisionController::APPEAL_OUTCOMES.
+        'votes_appeal_accept_count',
+        'votes_appeal_partial_accept_count',
+        'votes_appeal_reject_count',
+        'votes_appeal_refer_count',
+        'votes_appeal_redo_count',
         'comment',
         // Stage 50 — [D] Art. 28's minutes-content list: which body a
         // referral (refer_other_body/no_jurisdiction, typically) was made

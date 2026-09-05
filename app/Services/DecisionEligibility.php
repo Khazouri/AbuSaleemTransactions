@@ -40,10 +40,12 @@ class DecisionEligibility
      */
     public function reasonBlockingVote(MeetingRequest $agendaItem, User $user): ?string
     {
-        // Stage 31 — an admin/emerging item has no request to run through
-        // WorkflowService::transition(), so it can never go to a vote.
-        if ($agendaItem->item_type !== 'employee_request') {
-            return 'التصويت مقصور على بنود الطلبات المرتبطة بطلب.';
+        // Stage 31 — an admin/emerging item has no request or appeal behind
+        // it, so it can never go to a vote. Stage 63 widens this to appeal
+        // items, which ride DecisionController::recordAppealDecision()
+        // instead of WorkflowService::transition() but still vote the same way.
+        if (! in_array($agendaItem->item_type, ['employee_request', 'appeal'], true)) {
+            return 'التصويت مقصور على بنود الطلبات أو التظلمات المرتبطة بها.';
         }
 
         if ($agendaItem->decision()->exists()) {
@@ -121,7 +123,9 @@ class DecisionEligibility
     public function pendingVotesQuery(User $user): Builder
     {
         return MeetingRequest::query()
-            ->where('item_type', 'employee_request')
+            // Stage 63 — appeal items vote the same way employee_request
+            // ones do; see reasonBlockingVote()'s matching widening.
+            ->whereIn('item_type', ['employee_request', 'appeal'])
             ->whereDoesntHave('decision')
             // Stage 48 — the same two exclusions reasonBlockingVote enforces:
             // a declared conflict of interest, or being this meeting's

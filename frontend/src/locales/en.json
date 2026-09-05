@@ -614,7 +614,8 @@
       "itemType": {
         "employee_request": "Employee request",
         "administrative": "Administrative item",
-        "emerging": "Emerging item"
+        "emerging": "Emerging item",
+        "appeal": "Appeal"
       },
       "priority": {
         "label": "Priority",
@@ -682,6 +683,11 @@
       "legal_opinion": "Legal opinion",
       "refer_other_body": "Referred",
       "no_jurisdiction": "No jurisdiction",
+      "appeal_accept": "Accept appeal",
+      "appeal_partial_accept": "Partial acceptance",
+      "appeal_reject": "Reject appeal",
+      "appeal_refer": "Refer appeal",
+      "appeal_redo": "Redo procedures",
       "abstain": "Abstain"
     },
     "vote": {
@@ -692,6 +698,11 @@
       "legal_opinion": "Request legal opinion",
       "refer_other_body": "Refer to another body",
       "no_jurisdiction": "Outside jurisdiction",
+      "appeal_accept": "Accept the appeal",
+      "appeal_partial_accept": "Partially accept the appeal",
+      "appeal_reject": "Reject the appeal",
+      "appeal_refer": "Refer to another body",
+      "appeal_redo": "Redo procedures from the defect stage",
       "abstain": "Abstain"
     },
     "outcome": {
@@ -701,7 +712,12 @@
       "conditional_approval": "Conditionally approved",
       "legal_opinion": "Legal opinion requested",
       "refer_other_body": "Referred to another body",
-      "no_jurisdiction": "Outside jurisdiction"
+      "no_jurisdiction": "Outside jurisdiction",
+      "appeal_accept": "Appeal accepted",
+      "appeal_partial_accept": "Appeal partially accepted",
+      "appeal_reject": "Appeal rejected",
+      "appeal_refer": "Appeal referred to another body",
+      "appeal_redo": "Procedures redone from the defect stage"
     },
     "conflict": {
       "listTitle": "Declared conflicts of interest",
@@ -719,6 +735,8 @@
       "draftError": "Couldn't draft the decision text from this template."
     },
     "commentPlaceholder": "Reason for the decision (optional for approve, required for the other outcomes)",
+    "appealLabel": "Appeal",
+    "appealSubject": "Appeal by {appellant} — {title}",
     "referralAuthorityLabel": "Referred to",
     "referralAuthorityPlaceholder": "Authority the matter was referred to (optional)",
     "record": "Record decision",
@@ -756,7 +774,7 @@
       "committee": "Committee",
       "meeting": "Meeting",
       "outcome": "Outcome",
-      "tally": "Approve / Reject / Defer / Conditional / Legal / Referred / No jurisdiction / Abstain",
+      "tally": "Approve / Reject / Defer / Conditional / Legal / Referred / No jurisdiction / Appeal accepted / Appeal partial / Appeal rejected / Appeal referred / Appeal redo / Abstain",
       "template": "Template",
       "decidedBy": "Decided by",
       "decidedAt": "Decided at"
@@ -856,7 +874,8 @@
         "noRequestType": "No request type"
       },
       "dragToReorder": "Drag to reorder",
-      "openMemo": "Open presentation memo"
+      "openMemo": "Open presentation memo",
+      "noAppeals": "No appeals ready for committee presentation."
     },
     "readiness": {
       "title": "Meeting Readiness",

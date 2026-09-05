@@ -38,8 +38,10 @@ class MeetingDiscussionNoteController extends Controller
 
         // Stage 48 — a disclosed conflict of interest blocks deliberation, not
         // only the vote; the discussion feed is exactly the deliberation this
-        // guards, per [D] Art. 11/15/18.
-        if ($agendaItem->item_type === 'employee_request' && $eligibility->isRecused($agendaItem, $request->user())) {
+        // guards, per [D] Art. 11/15/18. Stage 63 widens this to appeal items,
+        // which can carry a conflict declaration the same way.
+        if (in_array($agendaItem->item_type, ['employee_request', 'appeal'], true)
+            && $eligibility->isRecused($agendaItem, $request->user())) {
             return response()->json([
                 'message' => 'تم إعلان تعارض مصالح على هذا البند، لا يجوز المشاركة في مداولته.',
             ], 422);

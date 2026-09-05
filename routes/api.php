@@ -318,6 +318,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('screen.permission:meeting_agenda,view')
         ->get('meetings/department-options', [MeetingController::class, 'departmentOptions']);
+    // Stage 63 — the appeal picker for the agenda builder's `appeal` item
+    // form; a literal path declared before the `meetings/{meeting}`
+    // wildcard, same reason department-options is.
+    Route::middleware('screen.permission:meeting_agenda,view')
+        ->get('meetings/appeal-options', [MeetingController::class, 'appealOptions']);
     Route::middleware('screen.permission:meetings,view')
         ->get('meetings', [MeetingController::class, 'index']);
     Route::middleware('screen.permission:meetings,add')

@@ -9,10 +9,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * One agenda slot, in order — either an `employee_request` item riding an
- * existing request, or (Stage 31) a standalone `administrative`/
- * `emerging` item with its own subject/department.
+ * existing request, a `appeal` item riding an appeal (Stage 63), or a
+ * standalone `administrative`/`emerging` item with its own subject/
+ * department (Stage 31).
  *
- * @property string $item_type employee_request|administrative|emerging
+ * @property string $item_type employee_request|administrative|emerging|appeal
  * @property string|null $priority high|medium|low
  * @property string $item_state presented|discussion|voting|deciding|complete
  */
@@ -29,6 +30,7 @@ class MeetingRequest extends Model
     protected $fillable = [
         'meeting_id',
         'request_id',
+        'appeal_id',
         'agenda_order',
         'item_type',
         'priority',
@@ -72,6 +74,12 @@ class MeetingRequest extends Model
     public function request(): BelongsTo
     {
         return $this->belongsTo(Request::class);
+    }
+
+    /** Stage 63 — set only on an `appeal` item; the appeal riding this agenda slot. */
+    public function appeal(): BelongsTo
+    {
+        return $this->belongsTo(Appeal::class);
     }
 
     /** Stage 31 — only set on an admin item; a request item's department is its request's. */

@@ -27,3 +27,20 @@ export const VOTE_OPTIONS = [...DECISION_OUTCOMES, 'abstain']
 
 /** Outcomes still counted as an "approval" for signature-pad purposes. */
 export const SIGNATURE_OUTCOMES = ['approve']
+
+/**
+ * Stage 63 — Art. 75 point 5's five-outcome appeal vocabulary, a second and
+ * completely independent outcome set from DECISION_OUTCOMES: an `appeal`
+ * agenda item is decided with exactly one of these, never one of the seven
+ * above. Mirrors DecisionController::APPEAL_OUTCOMES.
+ */
+export const APPEAL_DECISION_OUTCOMES = [
+  'appeal_accept',
+  'appeal_partial_accept',
+  'appeal_reject',
+  'appeal_refer',
+  'appeal_redo',
+]
+
+/** Stage 63 — the appeal-item equivalent of VOTE_OPTIONS. */
+export const APPEAL_VOTE_OPTIONS = [...APPEAL_DECISION_OUTCOMES, 'abstain']

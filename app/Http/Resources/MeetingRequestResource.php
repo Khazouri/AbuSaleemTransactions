@@ -46,6 +46,26 @@ class MeetingRequestResource extends JsonResource
                     'color' => $this->request->status->color,
                 ] : null,
             ] : null),
+            // Stage 63 — the appeal riding an `appeal` item, mirroring the
+            // `request` block above.
+            'appeal' => $this->whenLoaded('appeal', fn () => $this->appeal ? [
+                'id' => $this->appeal->id,
+                'appellant' => $this->appeal->appellant ? [
+                    'id' => $this->appeal->appellant->id,
+                    'name' => $this->appeal->appellant->name,
+                ] : null,
+                'original_request' => $this->appeal->originalRequest ? [
+                    'id' => $this->appeal->originalRequest->id,
+                    'reference_number' => $this->appeal->originalRequest->reference_number,
+                    'title' => $this->appeal->originalRequest->title,
+                ] : null,
+                'status' => $this->appeal->status ? [
+                    'code' => $this->appeal->status->code,
+                    'name_ar' => $this->appeal->status->name_ar,
+                    'name_en' => $this->appeal->status->name_en,
+                    'color' => $this->appeal->status->color,
+                ] : null,
+            ] : null),
             'votes' => $this->whenLoaded('votes', fn () => VoteResource::collection($this->votes)),
             'decision' => $this->whenLoaded('decision', fn () => $this->decision ? new DecisionResource($this->decision) : null),
             // Stage 48 — who has disclosed a conflict of interest on this item;

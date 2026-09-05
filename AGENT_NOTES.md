@@ -14,6 +14,251 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-05 17:15 EET — Claude — Stage 63 complete (committee presentation & 5-outcome decision)
+
+Built exactly per the plan below. Two migrations applied to the real MySQL/Homestead database:
+`meeting_requests.appeal_id` (nullable FK → appeals, cascadeOnDelete, `unique(meeting_id, appeal_id)`,
+mirroring `request_id`'s shape) and 5 new `votes_appeal_*_count` snapshot columns on `decisions`. Every
+one of the ~14 `item_type === 'employee_request'` guards named in Stage 62/63's own inventory was given
+an individual, documented yes/no — see the plan entry below for the full list; nothing was blanket-widened.
+
+`DecisionController::record()` now branches an `appeal` item into a new private `recordAppealDecision()`
+before the existing employee_request-only guard ever runs — same plurality-tally mechanics (tie/zero-vote
+both refused with the same messages), but the "commit" step never touches `WorkflowService`: it advances
+`$appeal->appeal_status_id` from `legal_review` to `committee_presentation` directly inside the same DB
+transaction that creates the `Decision` row and marks the agenda item complete. Every one of the 5
+outcomes requires a non-empty comment (generalizing "رفض مسبب"'s "reasoned" requirement to all five, the
+same style of call Stage 62's jurisdiction-test generalization made); none requires a signature (no appeal
+outcome is the literal `approve` WorkflowService action `APPROVAL_LEVELS` gates). No notification fires —
+Stage 65's own Build bullet is explicitly "a new `appeal_decided` event"; firing `decisionRecorded()` here
+would blur into that stage's "final result" semantics.
+
+Nomination reuses the existing `POST meetings/{meeting}/agenda` endpoint (`meeting_agenda,edit` = R03/R09,
+unchanged) — `StoreMeetingAgendaRequest` gained `appeal_id` alongside `request_id`, both conditionally
+required by `item_type`. `MeetingController::addAgendaItem()` adds the one business-rule gate the
+FormRequest can't express: an appeal may only be nominated once it has passed legal review (Stage 62's own
+"cannot reach Stage 63 without both records present" done-when, read literally as a nomination-time gate).
+A new `GET meetings/appeal-options` (registered as a literal path before the `meetings/{meeting}` wildcard,
+same reason `department-options` already is) is the picker — same "narrow lookup, not the full resource's
+visibility rule" precedent `departmentOptions()`/`CommitteeController::userOptions()` already set, since
+`AppealController::index()` scopes a non-R08/non-`appeals,edit` actor to their own filings, which R03/R09
+committee roles don't hold. It excludes an appeal already nominated via a new `Appeal::committeeAgendaItem()`
+(`hasOne`, no `latestOfMany` — appeals are only ever meant to be nominated once).
+
+**One real bug found during the end-to-end smoke test, not caught by the PHPUnit suite (sqlite doesn't
+distinguish it either — this is a general Eloquent-partial-select gotcha, not a MySQL-specific one, just
+one PHPUnit's fixtures happened not to exercise the way the smoke test's real HTTP round-trip did):**
+every `'appeal:id,appellant_user_id,original_request_id'` partial eager-load (4 call sites, in
+`MeetingController::AGENDA_ITEM_WITH`/`loadDetail()` and `DecisionController::pending()`/`registerQuery()`)
+omitted `appeal_status_id` — the column the nested `appeal.status` BelongsTo relation actually needs to
+resolve. Without it, `appeal.status` silently came back `null` in every API response despite the appeal
+genuinely having one, confirmed by comparing a direct `Appeal::with('status')->find()` (correct) against
+the live `GET /meetings/{id}` response (null) over real HTTP. Fixed by adding `appeal_status_id` to all
+four column lists. **A second, smaller one in the same smoke test**: `Decision::create()` in both
+`record()` and the new `recordAppealDecision()` only ever explicitly set its own vocabulary's vote-count
+columns — the *other* vocabulary's columns, never passed to `create()`, read back as PHP `null` on the
+immediately-returned (not refetched) model, even though the DB itself correctly applies its own
+`default(0)`. A `GET` afterward always shows the true `0` (confirmed via tinker), so this was invisible to
+every existing register/pending test (which reload via a fresh query) — but the literal `POST .../decision`
+response itself would show e.g. `votes_approve_count: null` for a freshly-recorded appeal decision, which
+is worse than the `0` a later fetch of the identical row gives. Fixed by having each `create()` call
+explicitly zero the other vocabulary's 7 (or 5) columns too, so the immediate response and a later fetch
+can never disagree.
+
+Voting/CoI/discussion-notes widened to `['employee_request', 'appeal']` in `DecisionEligibility`
+(`reasonBlockingVote()`/`pendingVotesQuery()`), `ConflictOfInterestController::store()`, and
+`MeetingDiscussionNoteController::store()`'s recusal check — "voting and conflict-of-interest almost
+certainly yes" from the stage's own scope note. `StoreVoteRequest` reads the already-resolved
+`{agendaItem}` route model (same pattern `StoreMeetingAgendaRequest` uses for `{meeting}`) to restrict the
+allowed vote value to the correct 5-or-7-outcome vocabulary for that item's actual type, rather than
+accepting a flat union of both. `MeetingController::updateItemState()`'s "no manual complete" guard and
+`agendaStats()`'s `$byType` map (now with a fourth `'appeal'` bucket and a request→subject→appeal-original-
+title→`#id` label fallback) were widened too.
+
+**Explicitly left unchanged, each a documented "no," not an oversight:** `DecisionController::draft()`
+(Stage 42's template-draft composer has no appeal-data equivalent — the frontend just hides the template
+picker for appeal items instead); `PresentationMemoController` (Stage 61's `AppealFileCompiler` is already
+the appeal-side equivalent of Art. 22's memo — wiring a second, unrelated compiler into the same concept
+would conflate two different documents); `MeetingController::agendaItemContext()`/`agendaItemAttachment()`
+(Stage 44's request-only quick-info tabs — the runner's current-item header shows the appellant/original-
+request inline instead, and appeal items fall through to the same always-visible discussion-notes block
+administrative/emerging items already use); `MeetingReadinessService`'s file-completeness check and
+`MeetingsDashboardMetrics`'s `pending_decisions` KPI (both request-pipeline-scoped, matching the Track J
+intro's deliberate separation of the appeal lifecycle from the ordinary request pipeline).
+
+Frontend: `decisionOutcomes.js` gained `APPEAL_DECISION_OUTCOMES`/`APPEAL_VOTE_OPTIONS` (5+abstain), kept
+completely separate from the existing 7-outcome exports. `AgendaItemDecisionPanel.vue` picks whichever
+vocabulary matches `item.item_type`, hides the template-picker for appeal items, and disables the record
+button until a comment is present for an appeal outcome (client-side nicety only — the 422 is the real
+enforcement). `MeetingAgendaBuilderView.vue` gained a 4th type-toggle button and a plain (no free-text
+search — legal_review appeals are rare enough that an unfiltered list is fine) picker fed by the new
+endpoint. `MeetingDetailView.vue`/`MeetingLiveView.vue` gained appeal-aware label fallbacks (would
+otherwise render blank — neither `item.request` nor `item.subject` exist on an appeal item) and their
+`AgendaItemDecisionPanel` `v-if` widened to include `'appeal'`. `DecisionsView.vue`'s register table and
+pending-vote tab both gained an `item.appeal`/`row.context.appeal` fallback next to the existing
+`request`/`context.request` one.
+
+Verification: new `tests/Feature/AppealCommitteePresentationTest.php` (11 tests — nomination refused
+before `legal_review` and succeeds once reached; `appeal-options` excludes a non-`legal_review` appeal and
+one already nominated; voting reuses the membership/attendance/conflict-of-interest rules, including that
+a declared conflict also blocks the discussion-notes endpoint; a tie and a zero-vote tally both refuse; an
+empty comment refuses then a real one succeeds; each of the 5 outcomes advances the appeal to
+`committee_presentation` while leaving the *original* request's status/stage completely untouched — the
+Stage 64 boundary, proven explicitly per outcome; the register/pending endpoints surface appeal context).
+One pre-existing test updated in place (`DecisionRegisterTest`'s `/decisions/filters` outcome-list
+assertion, the same category of update Stage 49's own note already flagged for this exact test). Full
+suite **271 tests / 1571 assertions** green (was 260/1486), Pint clean on every touched/new file, `npm run
+build` passes with all touched views picking up the new markup in their existing chunks (then reverted
+`frontend/dist`, tracked in git, per every prior stage's note), locale key-parity verified programmatically
+(1046 keys each side, zero on-one-side-only), and both migrations ran clean against the real
+MySQL/Homestead database. Smoke-tested the full nominate → vote → record path end-to-end over real HTTP
+against Homestead using the seeded R03/R04×2/R01 test users and a tinker-built fixture committee/request/
+appeal/meeting (which is what surfaced both bugs above, fixed before this note) — confirmed the appeal
+reached `committee_presentation`, the original request's status/stage were untouched, and the decision's
+vote-count columns were correct on a fresh fetch. Deleted the fixture committee/meeting/request/appeal/
+decision/vote rows and revoked the three minted tokens afterward — `Appeal::count()`/`Meeting::count()`/
+`Request::count()`/`Committee::count()` all confirmed back to zero, no residue left in the real database.
+
+**Known, deliberately-accepted minor gap for whoever builds Stage 64+**: `Appeal::committeeAgendaItem()`
+being a plain `hasOne` (not `latestOfMany`) means if an appeal is somehow nominated on two different
+meetings before either records a decision, only one of the two `meeting_requests` rows is reachable
+through that relation — `appealOptions()`'s exclusion closes the common path to this (an appeal disappears
+from the picker the moment it's nominated once), but doesn't make it impossible via direct API calls.
+`recordAppealDecision()`'s defensive `status?->code === 'legal_review'` re-check is what actually prevents
+a stale second nomination from re-deciding an already-`committee_presentation` appeal, so the system stays
+correct even though the relation itself doesn't dedupe perfectly. Stage 64 (outcome execution) is next per
+STAGE_PLAN.md's own suggested order — flagged there as needing its own design pass before coding, the
+same caution Stage 57 required, since إعادة اإلجراءات من المرحلة التي وقع فيها العيب means genuinely
+re-entering the *original* request's own `WorkflowService` state machine at a specific stage, real new
+coupling between two systems this track has deliberately kept apart everywhere else.
+
+---
+
+### 2026-09-05 16:00 EET — Claude — Stage 63 implementation plan (committee presentation & 5-outcome decision)
+
+Building Stage 63 per STAGE_PLAN.md Track J: an appeal at `legal_review` status can be nominated onto a
+meeting agenda and decided with Art. 75 point 5's own 5-outcome vocabulary, riding the existing Stage
+31/21/25/48 agenda/vote/signature/CoI machinery via a new `item_type='appeal'` rather than a parallel
+mechanism. Per the stage's own ⚠, did a full inventory of every `item_type === 'employee_request'` guard
+before touching anything, and made an individual, documented yes/no call on each — not a blanket widening.
+
+**Schema.** `meeting_requests` gains `appeal_id` (nullable FK → appeals, cascadeOnDelete — same "meaningless
+without its subject" reasoning `request_id` already gets, `unique(['meeting_id','appeal_id'])` mirroring
+`request_id`'s own per-meeting uniqueness). `decisions` gains 5 new snapshot vote-count columns —
+`votes_appeal_accept_count`/`votes_appeal_partial_accept_count`/`votes_appeal_reject_count`/
+`votes_appeal_refer_count`/`votes_appeal_redo_count` — kept as their own columns rather than reusing the 7
+employee_request ones, since an appeal decision means something structurally different (Stage 64) and a
+shared column would conflate two outcome vocabularies. `outcome`/`vote` need no further width change —
+already `string(30)` since Stage 35, and the longest new key (`appeal_partial_accept`, 21 chars) fits.
+`Appeal` gains `committeeAgendaItem(): HasOne` (plain `hasOne(MeetingRequest::class,'appeal_id')`, no
+`latestOfMany` — appeals should only ever be nominated once, so a plain hasOne is both simpler and matches
+the common case) and `MeetingController::appealOptions()` uses `whereDoesntHave('committeeAgendaItem')` to
+exclude an already-nominated appeal from the picker, closing the double-nomination gap other than as a
+defensive status re-check inside `recordAppealDecision()` (see below).
+
+**The 5-outcome vocabulary, English keys chosen deliberately distinct from the 7 employee_request ones so
+they can never collide in the shared `decisions.outcome` column:** `appeal_accept` (قبول التظلم وسحب أو
+تعديل القرار), `appeal_partial_accept` (قبول جزئي), `appeal_reject` (رفض مسبب), `appeal_refer` (إحالة لجهة
+أخرى), `appeal_redo` (إعادة الإجراءات من المرحلة التي وقع فيها العيب) — kept on `DecisionController` as a
+new `APPEAL_OUTCOMES` const, separate from the existing (private) `ACTIONS` map, since appeal outcomes
+don't map onto a `WorkflowService` action at all (Track J intro's scope decision (2): appeals never touch
+the 14-stage `workflow_stages` table).
+
+**Recording an appeal decision is a new private `recordAppealDecision()`, not a branch inside the existing
+tally/transition code** — same plurality-tally shape (tie/zero-vote both refused, same messages), but the
+"commit" step is completely different: no `WorkflowService::transition()` call at all, just
+`$appeal->update(['appeal_status_id' => committee_presentation])` inside the same DB transaction that
+creates the `Decision` row and marks the agenda item `item_state=complete`. A **defensive re-check that
+`$appeal->status?->code === 'legal_review'`** guards the one edge case the nomination-time gate can't fully
+close (a second `meeting_requests` row referencing the same, already-decided appeal, from the
+double-nomination gap above) — refused with 422 rather than silently moving a `committee_presentation`
+appeal backward or double-recording.
+
+**Two deliberate judgment calls on requirements, documented rather than guessed at silently:** (1) **every
+appeal outcome requires a non-empty comment** — generalizing "رفض مسبب"'s explicit "reasoned" requirement to
+all 5, on the same reasoning Stage 62's jurisdiction-test generalization used (the whole point of an
+appellate decision is that the appellant gets to know why, not just the one outcome whose name says so
+in words). (2) **no appeal outcome requires a signature** — unlike `approve` (whose signature requirement
+is a side effect of `WorkflowService::APPROVAL_LEVELS` gating a real multi-tier approval chain, irrelevant
+to appeals, which have no approval chain at all), none of the 5 appeal outcomes is the literal `approve`
+workflow action, so none is signature-gated — matching Stage 35's own precedent that `conditional_approve`
+(the closest employee_request analogue to "accept") doesn't require one either. **No notification is fired
+for an appeal decision in this stage** — Stage 65's own Build bullet is explicitly "a new `appeal_decided`
+event on the existing NotificationDispatcher"; firing a generic `decisionRecorded` notification here now
+would blur into that stage's "final result" semantics and risk double-notifying the appellant later.
+
+**The ~14-guard inventory, one line each, all individually decided:**
+- `DecisionEligibility::reasonBlockingVote()` — **yes**, widen to `employee_request|appeal`.
+- `DecisionEligibility::pendingVotesQuery()` — **yes**, same widening (`whereIn`), so the worklist and the
+  vote guard keep agreeing per that service's own load-bearing invariant.
+- `StoreVoteRequest` — **yes**, but context-aware rather than a flat union: reads `$this->route('agendaItem')`
+  (already resolved by route-model-binding before `rules()` runs, same pattern `StoreMeetingAgendaRequest`
+  already uses for `$this->route('meeting')`) and restricts `Rule::in` to the correct 5-or-7-outcome
+  vocabulary (+abstain) for that item's actual type, rather than accepting either vocabulary on either item
+  type.
+- `ConflictOfInterestController::store()` — **yes**, widen the guard; a stake in an appeal is exactly the
+  kind of thing Art. 11/15/18 already cares about.
+- `MeetingDiscussionNoteController::store()`'s recusal check — **yes**, widen from an `employee_request`-only
+  condition so a recused member is blocked from an appeal's deliberation feed too.
+- `MeetingController::addAgendaItem()` — **yes**, appeal is a normal nomination path, gated on
+  `appeal.status.code === 'legal_review'` (Stage 62's own "cannot reach Stage 63 without both records
+  present" done-when, read literally as a nomination-time gate).
+- `MeetingController::updateItemState()`'s "no manual complete" guard — **yes**, widen: an appeal item
+  reaches `complete` only via a recorded decision, exactly like an employee_request item, never manually.
+- `MeetingController::agendaStats()`'s `$byType` map — **yes**, a fourth `'appeal'` bucket, plus a label
+  fallback (`request title → subject → appeal's original request title → '#id'`) so a group listing an
+  appeal item never renders a blank label.
+- `DecisionController::record()`'s top-level guard — **restructured**, not simply widened: appeal branches
+  off into `recordAppealDecision()` before the existing `employee_request`-only check ever runs.
+- `DecisionController::draft()` (the Stage 42 template-draft composer) — **no**. `DecisionDraftComposer`
+  interpolates request/employee/date data that has no appeal equivalent; conflating the two would silently
+  misrepresent one for the other. The frontend panel simply hides the template picker for appeal items
+  instead of exercising an endpoint that would 422.
+- `PresentationMemoController::show()`/`generate()` (Stage 46, [D] Art. 22's pre-meeting memo) — **no**.
+  Stage 61's `AppealFileCompiler` is already the appeal-side equivalent artifact; wiring a second, unrelated
+  compiler into the same concept would conflate two different documents.
+- `MeetingController::agendaItemContext()` / `agendaItemAttachment()` (Stage 44's live-runner quick-info
+  tabs) — **no**, left employee_request-only. Reusing `AppealFileCompiler` inside the runner would be a
+  reasonable future polish item but is new scope this stage doesn't need for its own done-when; the
+  runner's current-item header shows the appellant name + original request reference inline instead, and
+  appeal items simply fall through to the runner's existing always-visible discussion-notes block (the same
+  one administrative/emerging items already use) rather than the employee_request-only tab strip.
+
+**Explicitly left unchanged, and why:** `MeetingReadinessService`'s file-completeness check stays scoped to
+`employee_request` items only — an appeal's own file-completeness was already verified back at Stage 61,
+and its attachments live on `Appeal`, not `Request`, so the check wouldn't even mean the same thing.
+`MeetingsDashboardMetrics`'s `pending_decisions` KPI stays request-pipeline-only, matching the Track J
+intro's deliberate separation of the appeal lifecycle from the ordinary request pipeline. `AppealResource`
+is untouched — `status.code` (`legal_review` → `committee_presentation`) already communicates the state
+change honestly without a new field.
+
+**Frontend**: `decisionOutcomes.js` gains `APPEAL_DECISION_OUTCOMES`/`APPEAL_VOTE_OPTIONS` (5+abstain), kept
+separate from the existing 7-outcome exports. `AgendaItemDecisionPanel.vue` picks whichever vocabulary
+matches `item.item_type`, hides the template-picker for appeal items, and disables the record button until
+a comment is present for an appeal outcome (client-side nicety; the 422 is the real enforcement).
+`MeetingAgendaBuilderView.vue` gets a 4th type-toggle button and a plain (no free-text search — appeals
+reaching `legal_review` are rare enough that a short unfiltered list is fine, unlike the debounced request
+search) picker fed by a new `GET meetings/appeal-options` endpoint (mirrors `departmentOptions()`'s "narrow
+picker, not the full resource's own visibility rule" precedent, since `AppealController::index()` scopes
+non-R08/non-`appeals,edit` actors to their own filings, which R03/R09 committee roles aren't). Both
+`MeetingDetailView.vue` and `MeetingLiveView.vue` get appeal-aware label fallbacks (currently would render
+blank — neither `item.request` nor `item.subject` exist on an appeal item) and their `AgendaItemDecisionPanel`
+`v-if` widened to `['employee_request','appeal'].includes(item.item_type)`. `DecisionsView.vue`'s register
+table and pending-vote tab both gain an `item.appeal`/`row.context.appeal` fallback next to the existing
+`request`/`context.request` one, so an appeal decision doesn't just show "—" for its reference and subject.
+
+**Verification plan**: new `tests/Feature/AppealCommitteePresentationTest.php` — nomination refused before
+`legal_review` and succeeds once it's reached; `appeal-options` excludes a non-`legal_review` appeal and one
+already nominated; voting reuses the same membership/attendance/CoI/rapporteur rules already covered for
+employee_request (one new test proving the reuse, not re-testing DecisionEligibility's own unit coverage);
+a tie and a zero-vote tally both refuse; an empty comment refuses; each of the 5 outcomes advances the
+appeal to `committee_presentation` and leaves the *original* request's own status/stage completely
+untouched (the Stage 64 boundary, proven explicitly); the register/pending endpoints surface appeal context
+— plus the full PHPUnit suite, Pint on touched/new files, `npm run build`, locale key-parity, and
+`php artisan migrate` against the real MySQL/Homestead database if reachable this session.
+
+---
+
 ### 2026-09-05 15:10 EET — Claude — Stage 62 complete (jurisdiction test & legal review)
 
 Built exactly per the plan below. One migration (`appeals.jurisdiction_test`/`jurisdiction_tested_by_

@@ -126,9 +126,18 @@ const elapsed = computed(() => {
 })
 
 function itemStates(item) {
-  return item.item_type === 'employee_request'
+  // Stage 63 — an appeal item completes the same way an employee_request
+  // item does (a recorded decision), never a manual `complete` click.
+  return ['employee_request', 'appeal'].includes(item.item_type)
     ? ['presented', 'discussion', 'voting', 'deciding']
     : ['presented', 'discussion', 'voting', 'deciding', 'complete']
+}
+
+/** Stage 63 — a label for an agenda item that has neither a request nor a subject. */
+function agendaItemLabel(item) {
+  if (item.request) return item.request.title
+  if (item.appeal) return item.appeal.appellant?.name ?? t('common.none')
+  return item.subject
 }
 
 // --- Item state (chair only) ----------------------------------------------------
@@ -415,7 +424,7 @@ onMounted(async () => {
               :class="{ active: currentItem && currentItem.id === item.id, resolved: item.is_resolved }"
               @click="selectedItemId = item.id"
             >
-              <span class="agenda-label">{{ item.request ? item.request.title : item.subject }}</span>
+              <span class="agenda-label">{{ agendaItemLabel(item) }}</span>
               <span class="pill small">{{ t(`meetingsUnit.live.states.${item.item_state}`) }}</span>
             </li>
           </ol>
@@ -427,6 +436,14 @@ onMounted(async () => {
               <template v-if="currentItem.request">
                 <span class="ref ltr">{{ currentItem.request.reference_number || `#${currentItem.request.id}` }}</span>
                 <strong>{{ currentItem.request.title }}</strong>
+              </template>
+              <template v-else-if="currentItem.appeal">
+                <span class="ref ltr">#{{ currentItem.appeal.id }}</span>
+                <strong>{{ currentItem.appeal.appellant?.name ?? t('common.none') }}</strong>
+                <span class="pill">{{ t('meetings.agenda.itemType.appeal') }}</span>
+                <span v-if="currentItem.appeal.original_request" class="pill">
+                  {{ currentItem.appeal.original_request.reference_number || `#${currentItem.appeal.original_request.id}` }}
+                </span>
               </template>
               <template v-else>
                 <strong>{{ currentItem.subject }}</strong>
@@ -454,7 +471,7 @@ onMounted(async () => {
           <p v-if="stateError" class="alert">{{ stateError }}</p>
 
           <AgendaItemDecisionPanel
-            v-if="currentItem.item_type === 'employee_request'"
+            v-if="['employee_request', 'appeal'].includes(currentItem.item_type)"
             :meeting-id="meeting.id"
             :item="currentItem"
             :templates="decisionTemplates"

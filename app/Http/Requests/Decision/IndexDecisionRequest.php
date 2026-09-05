@@ -13,11 +13,15 @@ class IndexDecisionRequest extends FormRequest
 {
     /**
      * The outcomes DecisionController::record can produce (Stage 35, plus
-     * `no_jurisdiction` in Stage 49).
+     * `no_jurisdiction` in Stage 49) and, Stage 63, the five
+     * DecisionController::recordAppealDecision can — the register is one
+     * shared table across both item types, so its outcome filter has to
+     * offer both vocabularies.
      */
     public const OUTCOMES = [
         'approve', 'reject', 'defer',
         'conditional_approval', 'legal_opinion', 'refer_other_body', 'no_jurisdiction',
+        'appeal_accept', 'appeal_partial_accept', 'appeal_reject', 'appeal_refer', 'appeal_redo',
     ];
 
     public function authorize(): bool

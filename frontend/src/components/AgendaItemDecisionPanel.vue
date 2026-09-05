@@ -19,10 +19,24 @@
  * panel's two endpoints, `.../votes` and `.../conflict-of-interest`) is the
  * real enforcement (DecisionEligibility), this is proactive UX so the vote
  * buttons don't just fail silently for someone who already knows why.
+ *
+ * Stage 63 — an `appeal` item votes/records through the same two endpoints,
+ * but with its own, completely independent 5-outcome vocabulary
+ * (APPEAL_DECISION_OUTCOMES) instead of the 7 employee_request ones. No
+ * appeal outcome needs a signature (see DecisionController::
+ * recordAppealDecision's docblock), and template drafting isn't wired for
+ * appeals (Stage 42's DecisionDraftComposer has no appeal equivalent), so
+ * the template picker is hidden for that item type.
  */
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { DECISION_OUTCOMES, SIGNATURE_OUTCOMES, VOTE_OPTIONS } from '../lib/decisionOutcomes'
+import {
+  APPEAL_DECISION_OUTCOMES,
+  APPEAL_VOTE_OPTIONS,
+  DECISION_OUTCOMES,
+  SIGNATURE_OUTCOMES,
+  VOTE_OPTIONS,
+} from '../lib/decisionOutcomes'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import SignaturePad from './SignaturePad.vue'
@@ -58,6 +72,12 @@ const myConflictDeclaration = computed(() => (props.item.conflict_declarations ?
 
 const isNonVotingRapporteur = computed(() => props.meeting?.rapporteur?.id === auth.user?.id
   && !props.meeting?.committee?.rapporteur_votes)
+
+// Stage 63 — which of the two, entirely independent, outcome vocabularies
+// this item's votes/decision are drawn from.
+const isAppeal = computed(() => props.item.item_type === 'appeal')
+const voteOptions = computed(() => (isAppeal.value ? APPEAL_VOTE_OPTIONS : VOTE_OPTIONS))
+const outcomeOptions = computed(() => (isAppeal.value ? APPEAL_DECISION_OUTCOMES : DECISION_OUTCOMES))
 
 async function declareConflict() {
   conflictError.value = ''
@@ -102,20 +122,23 @@ async function useTemplate() {
 }
 
 function tally(item) {
-  const counts = Object.fromEntries(VOTE_OPTIONS.map((outcome) => [outcome, 0]))
+  const options = item.item_type === 'appeal' ? APPEAL_VOTE_OPTIONS : VOTE_OPTIONS
+  const counts = Object.fromEntries(options.map((outcome) => [outcome, 0]))
   for (const vote of item.votes ?? []) counts[vote.vote] = (counts[vote.vote] ?? 0) + 1
   return counts
 }
 
-// Same plurality rule DecisionController::record applies server-side — used
-// here only to decide whether to show the signature pad before submitting.
-// Stage 41 — counted from DECISION_OUTCOMES only, same as the server's
-// $tally: an abstain-heavy vote must never read as "leading" here either.
+// Same plurality rule DecisionController::record/recordAppealDecision
+// applies server-side — used here only to decide whether to show the
+// signature pad before submitting. Stage 41 — counted from the outcome
+// vocabulary only (never abstain), same as the server's $tally: an
+// abstain-heavy vote must never read as "leading" here either.
 function predictedOutcome(item) {
+  const outcomes = item.item_type === 'appeal' ? APPEAL_DECISION_OUTCOMES : DECISION_OUTCOMES
   const counts = tally(item)
-  const max = Math.max(...DECISION_OUTCOMES.map((outcome) => counts[outcome]))
+  const max = Math.max(...outcomes.map((outcome) => counts[outcome]))
   if (max === 0) return null
-  const leaders = DECISION_OUTCOMES
+  const leaders = outcomes
     .map((outcome) => [outcome, counts[outcome]])
     .filter(([, count]) => count === max)
   return leaders.length === 1 ? leaders[0][0] : null
@@ -205,14 +228,14 @@ async function recordDecision() {
       <p v-if="conflictError" class="alert">{{ conflictError }}</p>
 
       <div class="tally">
-        <span v-for="outcome in VOTE_OPTIONS" :key="outcome">
+        <span v-for="outcome in voteOptions" :key="outcome">
           {{ t(`decisions.tally.${outcome}`) }}: {{ tally(item)[outcome] }}
         </span>
       </div>
 
       <div v-if="!myConflictDeclaration && !isNonVotingRapporteur" v-can="'decisions.add'" class="vote-actions">
         <button
-          v-for="option in VOTE_OPTIONS"
+          v-for="option in voteOptions"
           :key="option"
           class="ghost"
           :class="{ active: myVote(item) === option }"
@@ -226,7 +249,7 @@ async function recordDecision() {
       <p v-if="votingError" class="alert">{{ votingError }}</p>
 
       <div v-can="'decisions.approve'" class="record-decision">
-        <div v-if="templates.length" class="template-picker">
+        <div v-if="templates.length && !isAppeal" class="template-picker">
           <select v-model="selectedTemplateId" :aria-label="t('decisions.template.choose')">
             <option value="">{{ t('decisions.template.choose') }}</option>
             <option v-for="template in templates" :key="template.id" :value="template.id">
@@ -260,7 +283,9 @@ async function recordDecision() {
           <button
             class="primary"
             type="button"
-            :disabled="decidingBusy || !predictedOutcome(item) || (SIGNATURE_OUTCOMES.includes(predictedOutcome(item)) && !signatureReady)"
+            :disabled="decidingBusy || !predictedOutcome(item)
+              || (SIGNATURE_OUTCOMES.includes(predictedOutcome(item)) && !signatureReady)
+              || (isAppeal && !decisionComment.trim())"
             @click="recordDecision"
           >
             {{ decidingBusy ? t('decisions.recording') : t('decisions.record') }}
