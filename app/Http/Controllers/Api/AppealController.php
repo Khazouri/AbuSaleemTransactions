@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Appeal\CloseAppealRequest;
 use App\Http\Requests\Appeal\ExecuteAppealOutcomeRequest;
 use App\Http\Requests\Appeal\RecordAppealJurisdictionTestRequest;
 use App\Http\Requests\Appeal\RecordAppealLegalReviewRequest;
@@ -13,11 +14,13 @@ use App\Http\Resources\AppealResource;
 use App\Models\Appeal;
 use App\Models\AppealStatus;
 use App\Models\Request as RequestRecord;
+use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\AppealEligibility;
 use App\Services\AppealFileCompiler;
 use App\Services\AppealOutcomeExecutor;
 use App\Services\AppealVerificationService;
+use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -25,14 +28,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Stage 59/60/61/62/64, Track J — the `appeals` screen with its real intake
- * rules (App\Services\AppealEligibility), the formal-verification gate
- * (App\Services\AppealVerificationService), the assembled original-matter
- * dossier (App\Services\AppealFileCompiler), the jurisdiction test + legal
- * review that gate Stage 63's committee presentation, and Stage 64's
- * execution of that committee decision's real effect on the original
- * Request (App\Services\AppealOutcomeExecutor). See STAGE_PLAN.md Track J
- * and AGENT_NOTES.md for the scope decisions this stage rests on.
+ * Stage 59/60/61/62/64/65, Track J — the `appeals` screen with its real
+ * intake rules (App\Services\AppealEligibility), the formal-verification
+ * gate (App\Services\AppealVerificationService), the assembled
+ * original-matter dossier (App\Services\AppealFileCompiler), the
+ * jurisdiction test + legal review that gate Stage 63's committee
+ * presentation, Stage 64's execution of that committee decision's real
+ * effect on the original Request (App\Services\AppealOutcomeExecutor), and
+ * Stage 65's notification + closure record. See STAGE_PLAN.md Track J and
+ * AGENT_NOTES.md for the scope decisions this stage rests on.
  */
 class AppealController extends Controller
 {
@@ -56,6 +60,7 @@ class AppealController extends Controller
         'outcomeExecutedBy:id,name',
         'outcomeRedoStage:id,code,name_ar,name_en',
         'committeeAgendaItem.decision:id,meeting_request_id,outcome,comment,decided_at',
+        'closedBy:id,name',
     ];
 
     /**
@@ -381,6 +386,75 @@ class AppealController extends Controller
         } catch (WorkflowTransitionException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
+
+        return new AppealResource(
+            $appeal->fresh()->loadCount('attachments')->load(self::WITH),
+        );
+    }
+
+    /**
+     * Stage 65 — Art. 75 point 6: written notice of the final result, plus
+     * [D] Arts. 34–37's closure-field list. One-shot, same self-action block
+     * as every other Track J action. Reachable from either terminal branch
+     * (`rejected` at Stage 60, `outside_jurisdiction` at Stage 62 — neither
+     * of which ever reaches a committee vote) or from `committee_presentation`
+     * once Stage 64 has already executed the outcome — an appeal cannot be
+     * closed on a decision that hasn't taken effect yet.
+     *
+     * `final_result_code` and `notice_status` are derived here, never
+     * client-supplied: the former is already known (the branch status, or
+     * the committee's own recorded outcome), and the latter is a plain fact
+     * about whether the appellant's account can currently receive anything.
+     * Setting `appeal_status_id` to `notified_closed` is what releases
+     * Appeal::openAgainst()'s hold on the original request's own closure
+     * (Track J intro, scope decision (3)).
+     */
+    public function close(
+        CloseAppealRequest $request,
+        Appeal $appeal,
+        NotificationDispatcher $notifications,
+    ): AppealResource|JsonResponse {
+        $actor = $request->user();
+
+        if ($appeal->appellant_user_id === $actor->id) {
+            return response()->json([
+                'message' => 'لا يجوز للمتظلم إغلاق تظلمه بنفسه.',
+            ], 422);
+        }
+
+        $statusCode = $appeal->status?->code;
+        $terminalBranch = in_array($statusCode, ['rejected', 'outside_jurisdiction'], true);
+        $decidedAndExecuted = $statusCode === 'committee_presentation' && $appeal->outcome_executed_at !== null;
+
+        if (! $terminalBranch && ! $decidedAndExecuted) {
+            return response()->json([
+                'message' => 'لا يمكن إغلاق التظلم إلا بعد انتهاء إجراءاته: رفض شكلي، أو عدم اختصاص، أو تنفيذ قرار اللجنة، ولم يُغلق بعد.',
+            ], 422);
+        }
+
+        $finalResultCode = $terminalBranch ? $statusCode : $appeal->committeeAgendaItem?->decision?->outcome;
+
+        $appellantActive = $appeal->appellant_user_id !== null
+            && User::query()->whereKey($appeal->appellant_user_id)->where('is_active', true)->exists();
+
+        $validated = $request->validated();
+
+        $appeal->update([
+            'closure' => [
+                'final_result_code' => $finalResultCode,
+                'final_decision_number' => $validated['final_decision_number'] ?? null,
+                'approving_body' => $validated['approving_body'],
+                'execution_date' => $validated['execution_date'] ?? null,
+                'executing_body' => $validated['executing_body'] ?? null,
+                'file_storage_location' => $validated['file_storage_location'],
+                'notice_status' => $appellantActive ? 'notified' : 'appellant_unreachable',
+            ],
+            'closed_by_user_id' => $actor->id,
+            'closed_at' => now(),
+            'appeal_status_id' => AppealStatus::where('code', 'notified_closed')->value('id'),
+        ]);
+
+        $notifications->appealDecided($appeal->fresh()->load('originalRequest:id,reference_number'), $actor);
 
         return new AppealResource(
             $appeal->fresh()->loadCount('attachments')->load(self::WITH),

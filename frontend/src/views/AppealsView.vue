@@ -442,6 +442,73 @@ async function submitExecution() {
   }
 }
 
+// --- Stage 65 — notification & closure ----------------------------------------
+// Closable once the appeal has genuinely concluded: either terminal branch
+// (rejected at Stage 60, outside_jurisdiction at Stage 62) or a committee
+// decision whose outcome has already been executed (Stage 64). The final
+// result itself is derived server-side, never entered here — this form only
+// collects the manual closure-record fields [D] Arts. 34–37 ask for.
+const APPEAL_DECISION_OUTCOME_CODES = ['appeal_accept', 'appeal_partial_accept', 'appeal_reject', 'appeal_refer', 'appeal_redo']
+
+function isClosable(row) {
+  const code = row.status?.code
+  if (code === 'rejected' || code === 'outside_jurisdiction') return true
+  return code === 'committee_presentation' && !!row.outcome_execution
+}
+
+function pendingFinalResultCode(row) {
+  const code = row.status?.code
+  if (code === 'rejected' || code === 'outside_jurisdiction') return code
+  return row.committee_decision?.outcome ?? null
+}
+
+function finalResultLabel(code) {
+  if (!code) return t('common.none')
+  if (APPEAL_DECISION_OUTCOME_CODES.includes(code)) return t('decisions.outcome.' + code)
+  return t('appeals.filters.statuses.' + code)
+}
+
+const closureTarget = ref(null)
+const closureForm = ref(blankClosureForm())
+const closureSubmitting = ref(false)
+const closureError = ref(null)
+
+function blankClosureForm() {
+  return { final_decision_number: '', approving_body: '', execution_date: '', executing_body: '', file_storage_location: '' }
+}
+
+function startClosure(row) {
+  closureTarget.value = row
+  closureForm.value = blankClosureForm()
+  closureError.value = null
+}
+
+function cancelClosure() {
+  closureTarget.value = null
+  closureError.value = null
+}
+
+async function submitClosure() {
+  if (!closureTarget.value || closureSubmitting.value) return
+  closureSubmitting.value = true
+  closureError.value = null
+  try {
+    await api.patch(`/appeals/${closureTarget.value.id}/close`, {
+      final_decision_number: closureForm.value.final_decision_number || null,
+      approving_body: closureForm.value.approving_body,
+      execution_date: closureForm.value.execution_date || null,
+      executing_body: closureForm.value.executing_body || null,
+      file_storage_location: closureForm.value.file_storage_location,
+    })
+    closureTarget.value = null
+    await load(page.value.current_page)
+  } catch (error) {
+    closureError.value = extractErrorMessage(error, t('appeals.closure.failed'))
+  } finally {
+    closureSubmitting.value = false
+  }
+}
+
 onMounted(() => load())
 </script>
 
@@ -730,6 +797,56 @@ onMounted(() => load())
       </button>
     </div>
 
+    <div v-if="closureTarget" v-can="'appeals.edit'" class="card create">
+      <h3>{{ t('appeals.closure.heading') }}</h3>
+      <p class="subtitle">{{ t('appeals.closure.hint') }}</p>
+      <div class="selected">
+        <div>
+          <span class="ref ltr">{{ closureTarget.original_request?.reference_number }}</span>
+          <span>{{ closureTarget.original_request?.title }}</span>
+        </div>
+      </div>
+
+      <p class="text-block">
+        <strong>{{ t('appeals.closure.finalResult') }}:</strong>
+        {{ finalResultLabel(pendingFinalResultCode(closureTarget)) }}
+      </p>
+
+      <fieldset :disabled="closureSubmitting">
+        <div class="fields">
+          <label>
+            {{ t('appeals.closure.finalDecisionNumber') }}
+            <input v-model="closureForm.final_decision_number" type="text" />
+          </label>
+          <label>
+            {{ t('appeals.closure.approvingBody') }}
+            <input v-model="closureForm.approving_body" type="text" />
+          </label>
+          <label>
+            {{ t('appeals.closure.executionDate') }}
+            <input v-model="closureForm.execution_date" type="date" />
+          </label>
+          <label>
+            {{ t('appeals.closure.executingBody') }}
+            <input v-model="closureForm.executing_body" type="text" />
+          </label>
+          <label>
+            {{ t('appeals.closure.fileStorageLocation') }}
+            <input v-model="closureForm.file_storage_location" type="text" />
+          </label>
+        </div>
+      </fieldset>
+
+      <p v-if="closureError" class="alert">{{ closureError }}</p>
+
+      <button class="primary" type="button" :disabled="closureSubmitting" @click="submitClosure">
+        {{ closureSubmitting ? t('appeals.closure.submitting') : t('appeals.closure.submit') }}
+      </button>
+      <button class="ghost" type="button" :disabled="closureSubmitting" @click="cancelClosure">
+        {{ t('appeals.closure.cancel') }}
+      </button>
+    </div>
+
     <p v-if="loadError" class="alert">
       {{ t('nav.error') }}
       <button class="ghost" type="button" @click="load(page.current_page)">{{ t('common.retry') }}</button>
@@ -762,6 +879,7 @@ onMounted(() => load())
               <th>{{ t('appeals.columns.jurisdiction') }}</th>
               <th>{{ t('appeals.columns.legalReview') }}</th>
               <th>{{ t('appeals.columns.execution') }}</th>
+              <th>{{ t('appeals.columns.closure') }}</th>
               <th>{{ t('appeals.columns.file') }}</th>
             </tr>
           </thead>
@@ -863,13 +981,32 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.execution.notYet') }}</span>
               </td>
               <td>
+                <button
+                  v-if="isClosable(row) && !row.closure"
+                  v-can="'appeals.edit'"
+                  class="ghost"
+                  type="button"
+                  @click="startClosure(row)"
+                >
+                  {{ t('appeals.closure.action') }}
+                </button>
+                <div v-else-if="row.closure" class="verification-summary">
+                  <span class="pill passed">{{ finalResultLabel(row.closure.final_result_code) }}</span>
+                  <small class="muted">{{ t('appeals.closure.noticeStatus.' + row.closure.notice_status) }}</small>
+                  <small v-if="row.closure.closed_by" class="muted">
+                    {{ t('appeals.closure.closedBy') }}: {{ row.closure.closed_by.name }}
+                  </small>
+                </div>
+                <span v-else class="muted">{{ t('appeals.closure.notConcludedYet') }}</span>
+              </td>
+              <td>
                 <button class="ghost" type="button" @click="toggleFile(row)">
                   {{ fileTargetId === row.id ? t('appeals.file.hide') : t('appeals.file.view') }}
                 </button>
               </td>
             </tr>
             <tr v-if="fileTargetId === row.id">
-              <td colspan="9" class="file-panel">
+              <td colspan="10" class="file-panel">
                 <p v-if="fileLoading" class="state">{{ t('common.loading') }}</p>
                 <p v-else-if="fileError" class="alert">{{ fileError }}</p>
                 <div v-else-if="fileData" class="dossier">

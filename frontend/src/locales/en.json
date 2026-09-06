@@ -211,7 +211,8 @@
       "jurisdiction": "Jurisdiction test",
       "legalReview": "Legal review",
       "file": "Original file",
-      "execution": "Outcome execution"
+      "execution": "Outcome execution",
+      "closure": "Closure & notice"
     },
     "filters": {
       "status": "Status",
@@ -370,6 +371,28 @@
       "executedBy": "Executed by",
       "executedAt": "Executed at",
       "redoStageLabel": "Request reopened at"
+    },
+    "closure": {
+      "action": "Close appeal",
+      "heading": "Close the appeal and notify the appellant",
+      "hint": "Record the appeal's closure details; the appellant will be notified automatically of the final result through their enabled channels.",
+      "finalResult": "Final result",
+      "finalDecisionNumber": "Final decision number (if any)",
+      "approvingBody": "Approving body",
+      "executionDate": "Execution date (optional)",
+      "executingBody": "Executing body (optional)",
+      "fileStorageLocation": "File storage location",
+      "submit": "Record closure & send notice",
+      "submitting": "Saving…",
+      "failed": "The appeal could not be closed.",
+      "cancel": "Cancel",
+      "notConcludedYet": "Awaiting the appeal's own procedures to conclude",
+      "closedBy": "Closed by",
+      "closedAt": "Closed at",
+      "noticeStatus": {
+        "notified": "Appellant notified",
+        "appellant_unreachable": "Appellant could not be notified (inactive account)"
+      }
     }
   },
   "requests": {

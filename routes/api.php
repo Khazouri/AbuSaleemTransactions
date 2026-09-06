@@ -637,4 +637,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // against the original Request.
     Route::middleware('screen.permission:appeals,edit')
         ->patch('appeals/{appeal}/execute-outcome', [AppealController::class, 'executeOutcome']);
+
+    // Stage 65 — notifies the appellant of the final result and records the
+    // closure. Releases Appeal::openAgainst()'s hold on the original
+    // request's own closure (Track J intro, scope decision 3).
+    Route::middleware('screen.permission:appeals,edit')
+        ->patch('appeals/{appeal}/close', [AppealController::class, 'close']);
 });

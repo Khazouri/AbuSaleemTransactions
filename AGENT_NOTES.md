@@ -14,6 +14,86 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-06 08:00 EET — Claude — Stage 65 complete (notification & closure)
+
+Built per STAGE_PLAN.md Track J: a new `PATCH appeals/{appeal}/close`, riding the existing `appeals,edit`
+grant (zero seeder changes, matching every other Track J stage). One migration
+(`appeals.closure`/`closed_by_user_id`/`closed_at`), applied to the real MySQL/Homestead database — `closure`
+is a single JSON column carrying the 6 fields with no dedicated column of their own ([D] Arts. 34–37's
+closure-field list minus the closure date itself, which is `closed_at`): `final_result_code`,
+`final_decision_number`, `approving_body`, `execution_date`, `executing_body`, `file_storage_location`,
+`notice_status`. No existing closure-record precedent existed to mirror (re-verified the STAGE_PLAN note's
+own grep finding before building — still nothing), so this is genuinely new shape, not a reuse.
+
+**`close()` is reachable from three different starting points, not one** — the appeal's own status machine
+has two terminal branches that never reach a committee vote at all (`rejected` at Stage 60, `outside_
+jurisdiction` at Stage 62) alongside the ordinary `committee_presentation`-then-executed path (Stage 63
+decides, Stage 64 executes). All three are treated as "concluded" by one check: `terminalBranch` (status in
+`[rejected, outside_jurisdiction]`) OR `decidedAndExecuted` (`committee_presentation` AND
+`outcome_executed_at !== null`) — refusing an appeal that's merely reached `committee_presentation` with no
+executed outcome yet, since notifying "it's over" before Stage 64 has actually given the decision its effect
+would be premature. One-shot, same self-action block as every other Track J action (verified via a dual-role
+R01+R02 fixture user, same precedent `AppealOutcomeExecutionTest`/`AppealJurisdictionReviewTest` already
+established, since a plain R01 appellant is blocked earlier by the route's own `appeals,edit` middleware).
+
+**Two of the seven closure fields are deliberately server-computed, never client-supplied — a judgment call,
+not an oversight**: `final_result_code` is already known (the branch status code, or
+`$appeal->committeeAgendaItem->decision->outcome`) — asking the closer to retype it risked the record
+disagreeing with what actually happened, the same "never client-supplied when derivable" reasoning
+`original_decision_id`/`appellant_user_id` already follow at appeal creation. `notice_status` (`notified` |
+`appellant_unreachable`) is a plain fact about whether the appellant's account is currently active, not
+something a human attests to. The other five (`final_decision_number`, `approving_body`, `execution_date`,
+`executing_body`, `file_storage_location`) are genuinely new manual input — nothing in this schema tracks a
+decision-numbering scheme, an approving/executing body, or a file archive location, so `CloseAppealRequest`
+requires `approving_body`/`file_storage_location` and leaves the rest optional.
+
+**New `appeal_decided` event** (`NotificationSetting::EVENT_TYPES`, in_app+email, mirroring `decision_
+recorded`) and `App\Notifications\AppealDecidedNotification` — its own local bilingual `RESULTS` label map
+covering both vocabularies a closed appeal can end on (Stage 63's five committee outcomes, plus the two
+terminal branch codes), the same "each notification class carries its own labels" pattern `Decision
+RecordedNotification` already set rather than reaching into `DecisionController::LABELS` (private anyway).
+New `NotificationDispatcher::appealDecided()` + a private `appellantOf()` helper mirroring `creatorOf()`'s
+exact shape for `Request` — recipients = the appeal's own appellant (excluding the actor), empty if inactive
+or removed, same as every other recipient-resolution method in that class.
+
+**Scope decision (3) from the Track J intro is closed by this stage, not by new code** — `Appeal::
+openAgainst()` already excludes `notified_closed`, and `MeetingOutputService::complete()` already checks it
+(Stage 59's own half); `close()` setting `appeal_status_id` to `notified_closed` is the only piece that was
+missing. Verified directly (`test_closing_releases_the_hold_on_the_original_requests_own_closure`) rather
+than assumed.
+
+Frontend: `AppealsView.vue` gained a 10th table column ("الإغلاق والتبليغ") with a close button (only once
+`isClosable(row) && !row.closure`) and an inline panel showing the pending final result (computed client-side
+via the same branch-or-decision logic the backend uses, purely for the preview — the server is what actually
+derives and stores it) plus the 5 manual fields. New `appeals.closure.*` + `appeals.columns.closure` locale
+keys in both `ar.json`/`en.json`.
+
+Verification: new `tests/Feature/AppealClosureTest.php` (12 tests — all three closable starting points,
+refusal before conclusion (both "never started" and "decided but not yet executed"), one-shot, self-action
+block, permission gate, required-field validation, notice_status for an active vs. inactive appellant, the
+`openAgainst()` release, and channel-preference honoring via `Notification::fake()`). Full suite **296 tests
+/ 1702 assertions** green (was 284/1660), Pint clean on every touched/new file (one auto-fix on `Appeal.php`
+— phpdoc alignment, not a manual edit), `npm run build` passes with `AppealsView` picking up the new markup
+in its existing chunk (then reverted `frontend/dist`, tracked in git, per every prior stage's note), locale
+key-parity verified programmatically (1084 keys each side, zero on-one-side-only), and the migration ran
+clean against the real MySQL/Homestead database. Smoke-tested the full close path end-to-end over real HTTP
+against Homestead using the seeded `r01.employee@`/`r02.reviewer@` test accounts and a tinker-built fixture
+request/appeal at `rejected`: the employee's own attempt got a real 403 (no `appeals.edit`), the verifier's
+close succeeded and moved status to `notified_closed` with the closure fields recorded, `queue:work
+--stop-when-empty` drained the real queued `AppealDecidedNotification` job and confirmed exactly one
+`notifications` row for the employee with the correct bilingual body text, and `Appeal::openAgainst()`
+against the fixture request confirmed `false` afterward. Deleted the fixture appeal/request/notification rows
+and revoked both minted tokens afterward — `Appeal::count()`/`Request::count()` both confirmed back to zero,
+no residue left in the real database.
+
+**Track J's appeal lifecycle is now fully wired end-to-end, Stage 66 (the non-reopening rule) excepted.**
+Open item for whoever builds it: `closed_at`/`closure` are immutable after the one `close()` call — there is
+no "amend a closure" endpoint, matching every other Track J one-shot action's precedent. Stage 66's `reopen`
+action will need its own explicit handling of a `notified_closed` appeal (and of a terminal original
+`Request`) rather than assuming either is still mutable through any existing endpoint.
+
+---
+
 ### 2026-09-05 19:45 EET — Claude — Stage 64 complete (⚠ outcome execution: accept / amend / refer / redo)
 
 Built exactly per the plan below. One migration (`appeals.outcome_executed_at`/`outcome_executed_by_user_id`/

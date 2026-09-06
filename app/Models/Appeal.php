@@ -45,6 +45,11 @@ use Illuminate\Support\Carbon;
  *                                            effect on the original Request.
  * @property int|null $outcome_executed_by_user_id
  * @property int|null $outcome_redo_stage_id Only set when the executed outcome was `appeal_redo`.
+ * @property array|null $closure Stage 65 — [D] Arts. 34–37's closure-field list: final_result_code,
+ *                               final_decision_number, approving_body, execution_date, executing_body,
+ *                               file_storage_location, notice_status. Set once by AppealController::close().
+ * @property int|null $closed_by_user_id
+ * @property Carbon|null $closed_at
  */
 class Appeal extends Model
 {
@@ -72,6 +77,9 @@ class Appeal extends Model
         'outcome_executed_at',
         'outcome_executed_by_user_id',
         'outcome_redo_stage_id',
+        'closure',
+        'closed_by_user_id',
+        'closed_at',
     ];
 
     protected function casts(): array
@@ -86,6 +94,8 @@ class Appeal extends Model
             'legal_review' => 'array',
             'legal_reviewed_at' => 'datetime',
             'outcome_executed_at' => 'datetime',
+            'closure' => 'array',
+            'closed_at' => 'datetime',
         ];
     }
 
@@ -133,6 +143,12 @@ class Appeal extends Model
     public function outcomeRedoStage(): BelongsTo
     {
         return $this->belongsTo(WorkflowStage::class, 'outcome_redo_stage_id');
+    }
+
+    /** Stage 65 — who recorded the closure, once AppealController::close() has acted. */
+    public function closedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'closed_by_user_id');
     }
 
     public function attachments(): HasMany

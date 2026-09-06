@@ -40,6 +40,10 @@ class NotificationSetting extends Model
         'minutes_approved' => ['in_app' => true, 'email' => true, 'sms' => false],
         // Stage 47 — asks Salaries & Benefits to form an opinion, not just FYI.
         'financial_impact_review' => ['in_app' => true, 'email' => true, 'sms' => false],
+        // Stage 65, Track J — Art. 75 point 6: the appellant's written notice
+        // of the appeal's final result. A final outcome, same defaults as
+        // `decision_recorded`.
+        'appeal_decided' => ['in_app' => true, 'email' => true, 'sms' => false],
     ];
 
     /** The preference columns, in the order the preferences screen shows them. */

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Appeal;
 use App\Models\Decision;
 use App\Models\Department;
 use App\Models\Meeting;
@@ -10,6 +11,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use App\Notifications\ActionRequiredNotification;
+use App\Notifications\AppealDecidedNotification;
 use App\Notifications\DecisionRecordedNotification;
 use App\Notifications\FinancialImpactReviewNotification;
 use App\Notifications\MeetingMinutesApprovedNotification;
@@ -153,6 +155,17 @@ class NotificationDispatcher
     }
 
     /**
+     * Stage 65, Track J — Art. 75 point 6: the appellant hears the final
+     * result once the appeal genuinely concludes. See
+     * AppealController::close(), the only caller — it decides WHEN an appeal
+     * may close; this only decides who hears about it once it has.
+     */
+    public function appealDecided(Appeal $appeal, User $actor): void
+    {
+        $this->send($this->appellantOf($appeal, [$actor->id]), new AppealDecidedNotification($appeal));
+    }
+
+    /**
      * The request's creator, as a collection so callers can concat and
      * unique() without null checks. Empty when the creator is the actor, is
      * inactive, or the account has since been removed.
@@ -169,6 +182,27 @@ class NotificationDispatcher
 
         return User::query()
             ->whereKey($requestRecord->created_by_user_id)
+            ->where('is_active', true)
+            ->get();
+    }
+
+    /**
+     * An appeal's appellant, mirroring creatorOf()'s shape for Request —
+     * empty when the appellant is the actor, is inactive, or the account has
+     * since been removed.
+     *
+     * @param  array<int, int>  $excludeUserIds
+     * @return Collection<int, User>
+     */
+    private function appellantOf(Appeal $appeal, array $excludeUserIds = []): Collection
+    {
+        if ($appeal->appellant_user_id === null
+            || in_array($appeal->appellant_user_id, $excludeUserIds, true)) {
+            return collect();
+        }
+
+        return User::query()
+            ->whereKey($appeal->appellant_user_id)
             ->where('is_active', true)
             ->get();
     }

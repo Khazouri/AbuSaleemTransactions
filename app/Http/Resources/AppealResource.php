@@ -92,6 +92,23 @@ class AppealResource extends JsonResource
                     'name_en' => $this->outcomeRedoStage->name_en,
                 ] : null),
             ],
+            // Stage 65 — the closure record, present once
+            // AppealController::close() has concluded the appeal (Art. 75
+            // point 6 + Arts. 34–37's closure-field list).
+            'closure' => $this->closure === null ? null : [
+                'final_result_code' => $this->closure['final_result_code'] ?? null,
+                'final_decision_number' => $this->closure['final_decision_number'] ?? null,
+                'approving_body' => $this->closure['approving_body'] ?? null,
+                'execution_date' => $this->closure['execution_date'] ?? null,
+                'executing_body' => $this->closure['executing_body'] ?? null,
+                'file_storage_location' => $this->closure['file_storage_location'] ?? null,
+                'notice_status' => $this->closure['notice_status'] ?? null,
+                'closed_by' => $this->whenLoaded('closedBy', fn () => $this->closedBy ? [
+                    'id' => $this->closedBy->id,
+                    'name' => $this->closedBy->name,
+                ] : null),
+                'closed_at' => $this->closed_at,
+            ],
             'created_at' => $this->created_at,
         ];
     }
