@@ -6,6 +6,7 @@ use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Request\IndexRequest;
 use App\Http\Requests\Request\RecordJurisdictionTestRequest;
+use App\Http\Requests\Request\ReopenRequest;
 use App\Http\Requests\Request\StoreRequest;
 use App\Http\Requests\Request\TransitionRequest;
 use App\Http\Requests\Request\UpdateFinancialImpactRequest;
@@ -22,6 +23,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\ApprovalSignatureStorage;
 use App\Services\NotificationDispatcher;
+use App\Services\ReopenReasonCatalog;
 use App\Services\RequestDeadlineService;
 use App\Services\RequestReferenceGenerator;
 use App\Services\RequestVisibility;
@@ -44,6 +46,15 @@ class RequestController extends Controller
 {
     /** Stage 54 — requirements_check outcomes that require the jurisdiction test first. */
     private const JURISDICTION_TEST_GATED_ACTIONS = ['approve', 'declare_no_jurisdiction', 'reject_formally'];
+
+    /**
+     * Stage 66, Track J — [D] Arts. 34–37/78–79: only a request that has
+     * genuinely concluded may be re-presented. Mirrors WorkflowService::
+     * hasTerminalStatus()'s list minus `in_execution` — a request still
+     * being executed hasn't concluded yet (Stage 37's own tracker owns its
+     * eventual close), so re-presenting it mid-execution doesn't make sense.
+     */
+    private const REOPENABLE_STATUS_CODES = ['cancelled', 'archived', 'completed_closed', 'decision_withdrawn', 'decision_amended'];
 
     public function index(IndexRequest $request, RequestVisibility $visibility): AnonymousResourceCollection
     {
@@ -330,6 +341,62 @@ class RequestController extends Controller
         $requestRecord->update(['jurisdiction_test' => $request->validated()]);
 
         return $this->detailResource($requestRecord, $workflow, $request->user());
+    }
+
+    /**
+     * Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path for a
+     * concluded request, independent of any Appeal (Stage 64's appeal_redo
+     * already covers the appeal-driven case via a different status —
+     * `reopened_by_appeal` — and stays untouched). Rides the same
+     * `appeals,edit` grant (R02 + R08) Track J's other post-decision
+     * reconsideration actions use on this exact model — Stage 64's
+     * executeOutcome() already mutates a Request under that grant — rather
+     * than a new `request_details` edit tier, since this is the same class
+     * of actor handling the same class of action.
+     *
+     * Deliberately skips RequestVisibility::canView(): that gate excludes
+     * every terminal-status request from a non-creator's assignment-based
+     * visibility by design (see its own `$terminalStatusIds` comment), which
+     * would 404 the very actor this action exists for. The `appeals,edit`
+     * screen permission is the real authorization here, the same way
+     * Appeal::isVisibleTo()'s third branch already treats it as sufficient.
+     */
+    public function reopen(ReopenRequest $request, Request $requestRecord, WorkflowService $workflow): RequestDetailResource|JsonResponse
+    {
+        $actor = $request->user();
+
+        if ($requestRecord->created_by_user_id === $actor->id) {
+            return response()->json([
+                'message' => 'لا يجوز لمقدّم الطلب إعادة فتح طلبه بنفسه.',
+            ], 422);
+        }
+
+        if (! in_array($requestRecord->status?->code, self::REOPENABLE_STATUS_CODES, true)) {
+            return response()->json([
+                'message' => 'لا يمكن إعادة عرض طلب لم تُختتم إجراءاته بعد.',
+            ], 422);
+        }
+
+        $validated = $request->validated();
+        $targetStage = WorkflowStage::findOrFail($validated['target_stage_id']);
+        $note = trim((string) ($validated['note'] ?? ''));
+        $reasonText = ReopenReasonCatalog::label($validated['reason_code']).($note !== '' ? ': '.$note : '');
+
+        try {
+            $requestRecord = $workflow->reopenAtStage(
+                $requestRecord,
+                $targetStage,
+                $actor,
+                $reasonText,
+                action: 'reopen',
+                statusCode: 'reopened_for_representation',
+                enforceBackwardOnly: false,
+            );
+        } catch (WorkflowTransitionException $exception) {
+            throw ValidationException::withMessages(['target_stage_id' => [$exception->getMessage()]]);
+        }
+
+        return $this->detailResource($requestRecord, $workflow, $actor);
     }
 
     private function detailResource(Request $requestRecord, WorkflowService $workflow, $actor): RequestDetailResource

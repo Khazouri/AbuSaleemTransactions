@@ -50,6 +50,11 @@ use Illuminate\Support\Carbon;
  *                               file_storage_location, notice_status. Set once by AppealController::close().
  * @property int|null $closed_by_user_id
  * @property Carbon|null $closed_at
+ * @property Carbon|null $reopened_at Stage 66 — set by AppealController::reopen(); only the most recent
+ *                                    reopen, full history lives in AuditLog.
+ * @property int|null $reopened_by_user_id
+ * @property string|null $reopen_reason_code One of App\Services\ReopenReasonCatalog::CODES.
+ * @property string|null $reopen_reason_note Optional free-text elaboration — never a substitute for the code.
  */
 class Appeal extends Model
 {
@@ -80,6 +85,10 @@ class Appeal extends Model
         'closure',
         'closed_by_user_id',
         'closed_at',
+        'reopened_at',
+        'reopened_by_user_id',
+        'reopen_reason_code',
+        'reopen_reason_note',
     ];
 
     protected function casts(): array
@@ -96,6 +105,7 @@ class Appeal extends Model
             'outcome_executed_at' => 'datetime',
             'closure' => 'array',
             'closed_at' => 'datetime',
+            'reopened_at' => 'datetime',
         ];
     }
 
@@ -149,6 +159,12 @@ class Appeal extends Model
     public function closedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'closed_by_user_id');
+    }
+
+    /** Stage 66 — who reopened this appeal, once AppealController::reopen() has acted. */
+    public function reopenedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reopened_by_user_id');
     }
 
     public function attachments(): HasMany

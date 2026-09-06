@@ -109,6 +109,17 @@ class AppealResource extends JsonResource
                 ] : null),
                 'closed_at' => $this->closed_at,
             ],
+            // Stage 66 — present once AppealController::reopen() has acted;
+            // only the most recent reopen (full history lives in AuditLog).
+            'reopen' => $this->reopened_at === null ? null : [
+                'reason_code' => $this->reopen_reason_code,
+                'note' => $this->reopen_reason_note,
+                'reopened_by' => $this->whenLoaded('reopenedBy', fn () => $this->reopenedBy ? [
+                    'id' => $this->reopenedBy->id,
+                    'name' => $this->reopenedBy->name,
+                ] : null),
+                'reopened_at' => $this->reopened_at,
+            ],
             'created_at' => $this->created_at,
         ];
     }

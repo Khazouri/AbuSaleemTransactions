@@ -98,6 +98,17 @@ class RequestStatusSeeder extends Seeder
             ['decision_withdrawn', 'قرار مسحوب بموجب تظلم',  'Decision Withdrawn (Appeal)', '#9f1239'],
             ['decision_amended',   'قرار معدَّل بموجب تظلم', 'Decision Amended (Appeal)',   '#be185d'],
             ['reopened_by_appeal', 'أعيد فتحه بموجب تظلم',   'Reopened via Appeal',         '#0ea5e9'],
+
+            // --- Track J, Stage 66: the general reopen mechanism -------------
+            // Distinct from `reopened_by_appeal` above, which is only ever
+            // set by AppealOutcomeExecutor's `appeal_redo` case. This one is
+            // set by App\Http\Controllers\Api\RequestController::reopen(),
+            // reachable even without any appeal at all — [D] Arts. 34–37's
+            // إعادة العرض rule (re-presenting a concluded matter for a new
+            // document/material-error/legal-status reason) is a broader
+            // mechanism than appeal-driven redo. Not terminal, for the same
+            // reason reopened_by_appeal isn't: ordinary processing resumes.
+            ['reopened_for_representation', 'أعيد فتحه لإعادة العرض', 'Reopened for Re-presentation', '#0284c7'],
         ];
 
         foreach ($statuses as [$code, $nameAr, $nameEn, $color]) {

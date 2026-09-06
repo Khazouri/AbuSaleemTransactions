@@ -509,6 +509,55 @@ async function submitClosure() {
   }
 }
 
+// --- Stage 66 — enumerated-reason-only reopen -----------------------------
+// A closed appeal (notified_closed) only. The reason list is the same
+// six ReopenReasonCatalog codes the request-side reopen action uses —
+// see requestDetail.reopen in RequestDetailView.vue.
+const REOPEN_REASON_CODES = [
+  'new_document', 'external_reply_received', 'material_error_correction',
+  'legal_status_change', 'returned_by_approving_body', 'competent_authority_restudy',
+]
+
+const reopenTarget = ref(null)
+const reopenReasonCode = ref('')
+const reopenNote = ref('')
+const reopenSubmitting = ref(false)
+const reopenError = ref(null)
+
+function startReopen(row) {
+  reopenTarget.value = row
+  reopenReasonCode.value = ''
+  reopenNote.value = ''
+  reopenError.value = null
+}
+
+function cancelReopen() {
+  reopenTarget.value = null
+  reopenError.value = null
+}
+
+async function submitReopen() {
+  if (!reopenTarget.value || reopenSubmitting.value) return
+  if (!reopenReasonCode.value) {
+    reopenError.value = t('appeals.reopen.reasonLabel')
+    return
+  }
+  reopenSubmitting.value = true
+  reopenError.value = null
+  try {
+    await api.patch(`/appeals/${reopenTarget.value.id}/reopen`, {
+      reason_code: reopenReasonCode.value,
+      note: reopenNote.value || null,
+    })
+    reopenTarget.value = null
+    await load(page.value.current_page)
+  } catch (error) {
+    reopenError.value = extractErrorMessage(error, t('appeals.reopen.failed'))
+  } finally {
+    reopenSubmitting.value = false
+  }
+}
+
 onMounted(() => load())
 </script>
 
@@ -847,6 +896,44 @@ onMounted(() => load())
       </button>
     </div>
 
+    <div v-if="reopenTarget" v-can="'appeals.edit'" class="card create">
+      <h3>{{ t('appeals.reopen.heading') }}</h3>
+      <p class="subtitle">{{ t('appeals.reopen.hint') }}</p>
+      <div class="selected">
+        <div>
+          <span class="ref ltr">{{ reopenTarget.original_request?.reference_number }}</span>
+          <span>{{ reopenTarget.original_request?.title }}</span>
+        </div>
+      </div>
+
+      <fieldset :disabled="reopenSubmitting">
+        <div class="fields">
+          <label class="full">
+            {{ t('appeals.reopen.reasonLabel') }}
+            <select v-model="reopenReasonCode">
+              <option value="" disabled>{{ t('appeals.reopen.chooseReason') }}</option>
+              <option v-for="code in REOPEN_REASON_CODES" :key="code" :value="code">
+                {{ t(`reopenReasons.${code}`) }}
+              </option>
+            </select>
+          </label>
+          <label class="full">
+            {{ t('appeals.reopen.noteLabel') }}
+            <textarea v-model="reopenNote" rows="2" maxlength="5000" />
+          </label>
+        </div>
+      </fieldset>
+
+      <p v-if="reopenError" class="alert">{{ reopenError }}</p>
+
+      <button class="primary" type="button" :disabled="reopenSubmitting" @click="submitReopen">
+        {{ reopenSubmitting ? t('appeals.reopen.submitting') : t('appeals.reopen.submit') }}
+      </button>
+      <button class="ghost" type="button" :disabled="reopenSubmitting" @click="cancelReopen">
+        {{ t('appeals.reopen.cancel') }}
+      </button>
+    </div>
+
     <p v-if="loadError" class="alert">
       {{ t('nav.error') }}
       <button class="ghost" type="button" @click="load(page.current_page)">{{ t('common.retry') }}</button>
@@ -880,6 +967,7 @@ onMounted(() => load())
               <th>{{ t('appeals.columns.legalReview') }}</th>
               <th>{{ t('appeals.columns.execution') }}</th>
               <th>{{ t('appeals.columns.closure') }}</th>
+              <th>{{ t('appeals.columns.reopen') }}</th>
               <th>{{ t('appeals.columns.file') }}</th>
             </tr>
           </thead>
@@ -1000,13 +1088,31 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.closure.notConcludedYet') }}</span>
               </td>
               <td>
+                <button
+                  v-if="row.status?.code === 'notified_closed'"
+                  v-can="'appeals.edit'"
+                  class="ghost"
+                  type="button"
+                  @click="startReopen(row)"
+                >
+                  {{ t('appeals.reopen.action') }}
+                </button>
+                <div v-else-if="row.reopen" class="verification-summary">
+                  <span class="pill passed">{{ t(`reopenReasons.${row.reopen.reason_code}`) }}</span>
+                  <small v-if="row.reopen.reopened_by" class="muted">
+                    {{ t('appeals.reopen.reopenedBy') }}: {{ row.reopen.reopened_by.name }}
+                  </small>
+                </div>
+                <span v-else class="muted">{{ t('appeals.reopen.notClosedYet') }}</span>
+              </td>
+              <td>
                 <button class="ghost" type="button" @click="toggleFile(row)">
                   {{ fileTargetId === row.id ? t('appeals.file.hide') : t('appeals.file.view') }}
                 </button>
               </td>
             </tr>
             <tr v-if="fileTargetId === row.id">
-              <td colspan="10" class="file-panel">
+              <td colspan="11" class="file-panel">
                 <p v-if="fileLoading" class="state">{{ t('common.loading') }}</p>
                 <p v-else-if="fileError" class="alert">{{ fileError }}</p>
                 <div v-else-if="fileData" class="dossier">

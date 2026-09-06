@@ -8,6 +8,7 @@ use App\Http\Requests\Appeal\CloseAppealRequest;
 use App\Http\Requests\Appeal\ExecuteAppealOutcomeRequest;
 use App\Http\Requests\Appeal\RecordAppealJurisdictionTestRequest;
 use App\Http\Requests\Appeal\RecordAppealLegalReviewRequest;
+use App\Http\Requests\Appeal\ReopenAppealRequest;
 use App\Http\Requests\Appeal\StoreAppealRequest;
 use App\Http\Requests\Appeal\VerifyAppealRequest;
 use App\Http\Resources\AppealResource;
@@ -34,8 +35,9 @@ use Illuminate\Validation\ValidationException;
  * original-matter dossier (App\Services\AppealFileCompiler), the
  * jurisdiction test + legal review that gate Stage 63's committee
  * presentation, Stage 64's execution of that committee decision's real
- * effect on the original Request (App\Services\AppealOutcomeExecutor), and
- * Stage 65's notification + closure record. See STAGE_PLAN.md Track J and
+ * effect on the original Request (App\Services\AppealOutcomeExecutor),
+ * Stage 65's notification + closure record, and Stage 66's enumerated-
+ * reason-only reopen of a closed appeal. See STAGE_PLAN.md Track J and
  * AGENT_NOTES.md for the scope decisions this stage rests on.
  */
 class AppealController extends Controller
@@ -61,6 +63,7 @@ class AppealController extends Controller
         'outcomeRedoStage:id,code,name_ar,name_en',
         'committeeAgendaItem.decision:id,meeting_request_id,outcome,comment,decided_at',
         'closedBy:id,name',
+        'reopenedBy:id,name',
     ];
 
     /**
@@ -455,6 +458,59 @@ class AppealController extends Controller
         ]);
 
         $notifications->appealDecided($appeal->fresh()->load('originalRequest:id,reference_number'), $actor);
+
+        return new AppealResource(
+            $appeal->fresh()->loadCount('attachments')->load(self::WITH),
+        );
+    }
+
+    /**
+     * Stage 66 — [D] Arts. 78–79's non-reopening rule: only an appeal that
+     * has actually concluded (`notified_closed` — Stage 65's own definition
+     * of "closed", per Appeal::openAgainst()) may be reopened, and only for
+     * one of App\Services\ReopenReasonCatalog's enumerated reasons. Same
+     * self-action block as every other Track J action.
+     *
+     * Resumes at `formal_verification`, not `submitted`: Stage 60's
+     * standing/deadline checks already happened and a new document/legal-
+     * status change doesn't put those back in question, so reopening skips
+     * straight to the next real checkpoint (Stage 62's jurisdiction test)
+     * rather than re-running the whole pipeline. Clears the prior lap's
+     * terminal bookkeeping (outcome execution, closure) so Stage 64/65's
+     * one-shot gates don't stay stuck refusing a fresh pass through
+     * committee_presentation.
+     */
+    public function reopen(ReopenAppealRequest $request, Appeal $appeal): AppealResource|JsonResponse
+    {
+        $actor = $request->user();
+
+        if ($appeal->appellant_user_id === $actor->id) {
+            return response()->json([
+                'message' => 'لا يجوز للمتظلم إعادة فتح تظلمه بنفسه.',
+            ], 422);
+        }
+
+        if ($appeal->status?->code !== 'notified_closed') {
+            return response()->json([
+                'message' => 'لا يمكن إعادة فتح تظلم لم يُغلق بعد.',
+            ], 422);
+        }
+
+        $validated = $request->validated();
+
+        $appeal->update([
+            'appeal_status_id' => AppealStatus::where('code', 'formal_verification')->value('id'),
+            'reopened_at' => now(),
+            'reopened_by_user_id' => $actor->id,
+            'reopen_reason_code' => $validated['reason_code'],
+            'reopen_reason_note' => $validated['note'] ?? null,
+            'outcome_executed_at' => null,
+            'outcome_executed_by_user_id' => null,
+            'outcome_redo_stage_id' => null,
+            'closure' => null,
+            'closed_by_user_id' => null,
+            'closed_at' => null,
+        ]);
 
         return new AppealResource(
             $appeal->fresh()->loadCount('attachments')->load(self::WITH),

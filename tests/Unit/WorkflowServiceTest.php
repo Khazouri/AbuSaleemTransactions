@@ -506,6 +506,47 @@ class WorkflowServiceTest extends TestCase
         ]);
     }
 
+    /**
+     * Stage 66, Track J generalizes reopenAtStage() for the non-appeal
+     * re-presentation path (RequestController::reopen()) — an early
+     * cancellation reopened for re-presentation may need to move FORWARD
+     * (resume past where it stopped), unlike appeal_redo's "undo a specific
+     * defect" framing, which is always backward relative to an
+     * already-decided request. `enforceBackwardOnly: false` is what makes
+     * that forward move possible; the custom $action/$statusCode are what
+     * keep it out of `reopened_by_appeal`'s vocabulary.
+     */
+    public function test_reopen_at_stage_allows_a_forward_move_with_a_custom_action_and_status_when_backward_only_is_disabled(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $actor = $this->userWithRole('R02');
+        $requestRecord = $this->newRequest('direct_manager_review', 'cancelled');
+        $fromStageId = $requestRecord->current_stage_id;
+        $target = WorkflowStage::where('code', 'requirements_check')->firstOrFail();
+
+        $moved = app(WorkflowService::class)->reopenAtStage(
+            $requestRecord,
+            $target,
+            $actor,
+            'سبب إعادة العرض',
+            action: 'reopen',
+            statusCode: 'reopened_for_representation',
+            enforceBackwardOnly: false,
+        );
+
+        $this->assertSame($target->id, $moved->current_stage_id);
+        $this->assertSame('reopened_for_representation', $moved->status->code);
+
+        $this->assertDatabaseHas('request_stage_logs', [
+            'request_id' => $requestRecord->id,
+            'from_stage_id' => $fromStageId,
+            'to_stage_id' => $target->id,
+            'action' => 'reopen',
+            'comment' => 'سبب إعادة العرض',
+        ]);
+    }
+
     private function newRequest(
         string $stageCode = 'receive_from_municipality',
         string $statusCode = 'new',

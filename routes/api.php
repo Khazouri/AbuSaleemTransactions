@@ -270,6 +270,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:notes_attachments,edit')
         ->patch('requests/{requestRecord}/jurisdiction-test', [RequestController::class, 'recordJurisdictionTest']);
 
+    // Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path for a
+    // concluded request, independent of any Appeal. Rides the same
+    // appeals,edit grant (R02 + R08) Track J's other post-decision
+    // reconsideration actions use on this model (see RequestController::
+    // reopen()'s own docblock for why RequestVisibility isn't checked here).
+    Route::middleware('screen.permission:appeals,edit')
+        ->patch('requests/{requestRecord}/reopen', [RequestController::class, 'reopen']);
+
     /*
      * Stage 20 — committees & meetings. Neither has a screen of its own on the
      * 22/23-screen sheet, so both ride the `meetings` screen's permissions
@@ -643,4 +651,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // request's own closure (Track J intro, scope decision 3).
     Route::middleware('screen.permission:appeals,edit')
         ->patch('appeals/{appeal}/close', [AppealController::class, 'close']);
+
+    // Stage 66 — [D] Arts. 78–79's non-reopening rule: a closed appeal may
+    // only be reopened for one of ReopenReasonCatalog's enumerated reasons.
+    Route::middleware('screen.permission:appeals,edit')
+        ->patch('appeals/{appeal}/reopen', [AppealController::class, 'reopen']);
 });

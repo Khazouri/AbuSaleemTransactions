@@ -212,7 +212,8 @@
       "legalReview": "Legal review",
       "file": "Original file",
       "execution": "Outcome execution",
-      "closure": "Closure & notice"
+      "closure": "Closure & notice",
+      "reopen": "Reopen"
     },
     "filters": {
       "status": "Status",
@@ -393,6 +394,21 @@
         "notified": "Appellant notified",
         "appellant_unreachable": "Appellant could not be notified (inactive account)"
       }
+    },
+    "reopen": {
+      "action": "Reopen",
+      "heading": "Reopen the appeal",
+      "hint": "A closed appeal may only be reopened for one of the reasons listed below — mere dissatisfaction with the result is not enough.",
+      "reasonLabel": "Reason for reopening",
+      "chooseReason": "— Choose a reason —",
+      "noteLabel": "Additional note (optional)",
+      "submit": "Confirm reopening",
+      "submitting": "Saving…",
+      "failed": "The appeal could not be reopened.",
+      "cancel": "Cancel",
+      "notClosedYet": "Can only be reopened once closed",
+      "reopenedBy": "Reopened by",
+      "reopenedAt": "Reopened at"
     }
   },
   "requests": {
@@ -577,6 +593,21 @@
       "save": "Save jurisdiction test",
       "saving": "Saving…",
       "saveFailed": "The jurisdiction test could not be saved."
+    },
+    "reopen": {
+      "title": "Re-present this request",
+      "hint": "A concluded request may only be re-presented for one of the reasons listed below, naming the stage it re-enters processing at.",
+      "action": "Reopen",
+      "reasonLabel": "Reason for re-presentation",
+      "chooseReason": "— Choose a reason —",
+      "targetStageLabel": "Stage to re-present at",
+      "chooseStage": "— Choose a stage —",
+      "loadStagesFailed": "The stage list could not be loaded.",
+      "noteLabel": "Additional note (optional)",
+      "submit": "Confirm re-presentation",
+      "submitting": "Saving…",
+      "failed": "The request could not be reopened.",
+      "cancel": "Cancel"
     }
   },
   "committees": {
@@ -1133,6 +1164,14 @@
       }
     }
   },
+  "reopenReasons": {
+    "new_document": "A new document has emerged",
+    "external_reply_received": "A reply arrived from an external body",
+    "material_error_correction": "Correction of a material error",
+    "legal_status_change": "A change in legal status",
+    "returned_by_approving_body": "Returned by the approving body",
+    "competent_authority_restudy": "A competent authority directed a re-study"
+  },
   "workflow": {
     "actions": {
       "intake": "Request intake",
@@ -1156,7 +1195,8 @@
       "route_to_committee_secretary": "Route to Committee Secretary",
       "register": "Register receipt",
       "return_to_employee": "Return to employee",
-      "reject_formally": "Formal rejection with reason"
+      "reject_formally": "Formal rejection with reason",
+      "reopen": "Reopen for re-presentation"
     }
   },
   "auditLog": {

@@ -14,6 +14,120 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-06 10:35 EET — Claude — Stage 66 complete (non-reopening rule + the reopen mechanism) — Track J finished
+
+Built per STAGE_PLAN.md Track J's final stage: [D] Arts. 78–79's rule that neither a closed appeal nor a
+concluded original request may be reopened merely because the affected party is unhappy with the result —
+only for one of Art. 78–79's own enumerated reasons. New `App\Services\ReopenReasonCatalog::CODES` (6
+codes: `new_document`, `external_reply_received`, `material_error_correction`, `legal_status_change`,
+`returned_by_approving_body`, `competent_authority_restudy`) is the single source both new endpoints
+validate against — "the enumerated list serves both" mechanisms, per the stage's own text tying Arts.
+78–79's appeal-reopening rule to Arts. 34–37's matching عدم الموافقة non-re-presentation rule.
+
+**Two separate wire-ups, on two separate models, exactly as the stage's own Build bullet lists them** — not
+one cascading from the other. `PATCH appeals/{appeal}/reopen` (`AppealController::reopen()`, `appeals,edit`,
+same self-action block as every other Track J action) is gated to `appeal_status.code === 'notified_closed'`
+— the one status `Appeal::openAgainst()` itself treats as concluded — and resumes the appeal at
+`formal_verification`, not `submitted`: Stage 60's standing/deadline checks already happened and a new
+document doesn't put those back in question, so reopening skips straight to Stage 62's jurisdiction test
+rather than re-running the whole pipeline. It also clears the prior lap's one-shot terminal bookkeeping
+(`outcome_executed_at`/`outcome_executed_by_user_id`/`outcome_redo_stage_id`, `closure`/`closed_by_user_id`/
+`closed_at`) so Stage 64/65's own one-shot gates don't stay stuck refusing a fresh pass through
+`committee_presentation` on the appeal's second lap. New `appeals` columns (`reopened_at`,
+`reopened_by_user_id`, `reopen_reason_code`, `reopen_reason_note`) hold only the most recent reopen — full
+history lives in `AuditLog`, which already covers `Appeal` generically — matching every other Track J
+who/when pair's "latest occurrence" precedent, since `Appeal` has no per-transition log table the way
+`Request` does.
+
+`PATCH requests/{requestRecord}/reopen` (`RequestController::reopen()`) is the [D] Arts. 34–37 re-
+presentation path, **deliberately independent of any Appeal** — Arts. 34–37's إعادة العرض mechanism covers
+a plain administrative correction (new document, material error) with no appeal involved at all, distinct
+from Stage 64's appeal-driven `appeal_redo` (which stays untouched, still landing on its own
+`reopened_by_appeal` status). Gated to a new `REOPENABLE_STATUS_CODES` const
+(`cancelled`/`archived`/`completed_closed`/`decision_withdrawn`/`decision_amended` — `WorkflowService::
+hasTerminalStatus()`'s list **minus** `in_execution`, since a request still being executed hasn't concluded
+yet; Stage 37's own tracker owns its eventual close). Rides the same `appeals,edit` grant (R02+R08) Track
+J's other post-decision reconsideration actions already use on this exact model (Stage 64's
+`executeOutcome()` precedent) rather than a new `request_details` edit tier.
+
+**One real design point worth restating, not just documenting in a comment**: `RequestController::reopen()`
+deliberately skips `RequestVisibility::canView()` — that gate's `$terminalStatusIds` clause excludes every
+terminal-status request from a non-creator's assignment-based visibility *by design* (Stage 64's own note
+already explains why: a request an appeal has overturned shouldn't keep showing up in an approver's queue),
+which would 404 the very R02/R08 actor this action exists for. The `appeals,edit` screen permission is the
+real authorization here, the same way `Appeal::isVisibleTo()`'s third branch already treats holding that
+grant as sufficient on its own.
+
+**`WorkflowService::reopenAtStage()` was generalized, not duplicated** — three new optional parameters
+(`string $action = 'appeal_redo'`, `string $statusCode = 'reopened_by_appeal'`,
+`bool $enforceBackwardOnly = true`), all defaulted to preserve `AppealOutcomeExecutor::execute()`'s existing
+call site verbatim (confirmed: zero changes needed there). The new `$enforceBackwardOnly` flag is the one
+genuine behavioral fork, and it's there for a real semantic reason, not just parameter-passing convenience:
+`appeal_redo`'s backward-only order check makes sense for "undo a specific defect the legal review found at
+an earlier stage of an already-progressed request" — but Stage 66's generic re-presentation can legitimately
+need to move **forward** too (a request cancelled early in intake, at `direct_manager_review`, needs to
+resume past where it stopped, not backward from there), and the existing order check would have wrongly
+refused that case. `RequestController::reopen()` passes `enforceBackwardOnly: false`; the request-side
+reopen reuses the exact same `REDO_EXCLUDED_STAGE_CODES` exclusion list (the 4 pre-committee stages) for the
+same reasons already documented there. The `reason` text passed to `reopenAtStage()` for the Request side is
+built from `ReopenReasonCatalog::label()` (the code's Arabic label) plus the optional free-text `note` —
+`Request` has no dedicated reopen-reason column the way `Appeal` does, since `RequestStageLog`/
+`RequestStatusHistory`'s existing `comment`/`reason` text field is already exactly the structured-enough
+audit trail every other transition uses, and the timeline UI already renders it generically via
+`actionLabel(entry.action)` once `workflow.actions.reopen` exists.
+
+New `reopened_for_representation` `RequestStatus` (distinct from `reopened_by_appeal` — the two reopen
+paths must never be conflated, since one implies an appeal concluded and the other doesn't), non-terminal
+for the same reason `reopened_by_appeal` isn't: ordinary processing resumes. Two new Form Requests
+(`ReopenAppealRequest`, `ReopenRequest` — the latter named per AGENTS.md's "drop the doubled word" `Request`
+convention) both validate `reason_code` via `Rule::in(ReopenReasonCatalog::CODES)`, which is the actual
+mechanism behind "a plain 'I disagree with the outcome' attempt is rejected" — a `reason_code` that isn't one
+of the six known values 422s before any business logic runs.
+
+Frontend: `AppealsView.vue` gained an 11th table column ("إعادة الفتح") with a reopen button (only once
+`row.status?.code === 'notified_closed'`) and an inline panel (reason `<select>` over the shared 6 codes +
+optional note), mirroring the existing closure/execution panels' exact shape. `RequestDetailView.vue` gained
+a new card (shown only when `isReopenable` — the same 5-code list mirrored client-side) with a reason
+`<select>`, a target-stage `<select>` fed by the **same** `GET appeals/redo-stage-options` lookup Stage 64
+already built (no new endpoint needed — it's the identical set of allowed stages), and an optional note.
+New shared top-level `reopenReasons.*` locale block (6 labels, used by both screens so the vocabulary can't
+drift between them) plus `appeals.reopen.*`, `appeals.columns.reopen`, `requestDetail.reopen.*`, and
+`workflow.actions.reopen` (for the request timeline's generic `actionLabel()` rendering) in both
+`ar.json`/`en.json`.
+
+Verification: new `tests/Feature/AppealReopenTest.php` (6 tests — success + reason/note round-trip, refused
+before the appeal has concluded, the enumerated-reason gate rejecting both a made-up code and a missing one,
+the appellant self-block, the permission gate, and a full committee-decide → execute → close → reopen walk
+proving the prior lap's execution/closure bookkeeping is cleared) and `tests/Feature/RequestReopenTest.php`
+(8 tests — a backward re-presentation with a full audit-trail check, a forward one for an early cancellation,
+refused for a non-concluded status, refused for `in_execution` specifically, the enumerated-reason gate,
+refused for an excluded target stage, the creator self-block, the permission gate), plus one new unit test
+in `tests/Unit/WorkflowServiceTest.php` isolating `reopenAtStage()`'s new forward-move-when-backward-only-
+disabled behavior directly (the two pre-existing `reopenAtStage()` tests needed zero changes — the new
+parameters are additive with preserved defaults). Full suite **311 tests / 1750 assertions** green (was
+296/1702), Pint clean on every touched/new file, `npm run build` passes with `AppealsView`/`RequestDetailView`
+picking up the new markup in their existing chunks (then reverted `frontend/dist`, tracked in git, per every
+prior stage's note), locale key-parity verified programmatically (1118 keys each side, zero
+on-one-side-only), and the migration plus the `RequestStatusSeeder` reseed both ran clean against the real
+MySQL/Homestead database (32 statuses total, confirmed via tinker). Smoke-tested both new endpoints
+end-to-end over real HTTP against Homestead using the seeded `r02.reviewer@` test account and tinker-built
+fixtures: reopening a `notified_closed` appeal moved it to `formal_verification` with the reason/note
+recorded, and reopening a `completed_closed` request moved it backward to `reviewer_review` with status
+`reopened_for_representation`. Deleted both fixture rows and purged the one queued `stageChanged()`
+notification job the request-reopen smoke test generated (`jobs`/`notifications` tables both confirmed
+empty afterward) and revoked the minted token — `Appeal::count()`/`Request::count()` both confirmed back to
+zero, no residue left in the real database.
+
+**Track J (Stages 58–66, the appeal/تظلم lifecycle) is now complete end-to-end**: intake → eligibility →
+formal verification → original-file assembly → jurisdiction test + legal review → committee presentation →
+outcome execution → notification + closure → the non-reopening rule and its enumerated-reason reopen
+mechanism for both the appeal and the original matter. No open items flagged by this stage specifically —
+STAGE_PLAN.md's own suggested-order block ends at Stage 37 (Track H) plus this Track J listing, so whoever
+picks up next should check STAGE_PLAN.md for whichever track/stage is still unbuilt rather than assuming
+one from this note.
+
+---
+
 ### 2026-09-06 08:00 EET — Claude — Stage 65 complete (notification & closure)
 
 Built per STAGE_PLAN.md Track J: a new `PATCH appeals/{appeal}/close`, riding the existing `appeals,edit`

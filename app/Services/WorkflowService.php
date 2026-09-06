@@ -53,14 +53,16 @@ class WorkflowService
     ];
 
     /**
-     * Stage 64, Track J — stages `reopenAtStage()` refuses as an appeal's
-     * `appeal_redo` target. The three front-of-chain intake/routing stages
-     * involve no decision-making a legal review could find defective; the
-     * fourth, `receive_and_register`, has a real mechanical gap — its only
-     * outbound actions are the three `register` rows gated by
+     * Stage 64, Track J — stages `reopenAtStage()` refuses as a target,
+     * whether the caller is Stage 64's `appeal_redo` outcome or Stage 66's
+     * general reopen mechanism (both share this exclusion — see
+     * reopenAtStage()'s own docblock). The three front-of-chain intake/
+     * routing stages involve no decision-making a legal review could find
+     * defective; the fourth, `receive_and_register`, has a real mechanical
+     * gap — its only outbound actions are the three `register` rows gated by
      * `required_status_id` on one of the three `routed_to_*` statuses, which
-     * the generic `reopened_by_appeal` status this method stamps would never
-     * satisfy, stranding the request.
+     * neither `reopened_by_appeal` nor `reopened_for_representation` would
+     * ever satisfy, stranding the request.
      */
     private const REDO_EXCLUDED_STAGE_CODES = [
         'receive_from_municipality', 'direct_manager_review', 'administrative_routing', 'receive_and_register',
@@ -303,18 +305,30 @@ class WorkflowService
      * genuinely re-enter this state machine, at a stage a human names (the
      * one the legal review found a defect at), not the next stage in
      * sequence and not a restart from scratch. See AppealOutcomeExecutor,
-     * the only caller.
+     * the only caller of the default `$action`/`$statusCode`/
+     * `$enforceBackwardOnly` shape.
+     *
+     * Stage 66, Track J generalizes this into the [D] Arts. 34–37/78–79
+     * reopen mechanism proper: RequestController::reopen() calls this same
+     * method with `action: 'reopen'`, `statusCode: 'reopened_for_representation'`,
+     * `enforceBackwardOnly: false` — a concluded request can be re-presented
+     * either backward (a defect found before an already-reached later stage,
+     * same direction appeal_redo always moves) or forward (e.g. a request
+     * cancelled early in intake needs to resume past where it stopped), so
+     * the "must not exceed current order" guard that makes sense for
+     * appeal_redo's "undo a specific defect" framing would wrongly refuse
+     * the forward case for a plain re-presentation.
      *
      * Unlike transition(), no workflow_transitions row is resolved or
-     * required — an arbitrary backward jump is not something any configured
-     * rule could match, so this is an out-of-band, appeal-authorized
-     * override: the caller, not a role/rule check, is vouching that this
-     * specific reopening should happen. Unlike applySystemTransition() (a
-     * similar "caller vouches" shape used for a very different reason — the
-     * Stage 57 intake auto-hop), this method opens its own transaction and
-     * locks the row itself: it acts on an existing, potentially long-lived
-     * request rather than one the caller just created microseconds ago in
-     * the same transaction, so it cannot assume away a concurrent writer.
+     * required — an arbitrary jump is not something any configured rule
+     * could match, so this is an out-of-band, caller-authorized override:
+     * the caller, not a role/rule check, is vouching that this specific
+     * reopening should happen. Unlike applySystemTransition() (a similar
+     * "caller vouches" shape used for a very different reason — the Stage 57
+     * intake auto-hop), this method opens its own transaction and locks the
+     * row itself: it acts on an existing, potentially long-lived request
+     * rather than one the caller just created microseconds ago in the same
+     * transaction, so it cannot assume away a concurrent writer.
      *
      * Every other write shape (both history rows, the stageChanged()
      * notification) still mirrors applyRule()'s, so a reopening leaves the
@@ -322,25 +336,32 @@ class WorkflowService
      *
      * @throws WorkflowTransitionException
      */
-    public function reopenAtStage(Request $requestRecord, WorkflowStage $targetStage, User $actor, string $reason): Request
-    {
+    public function reopenAtStage(
+        Request $requestRecord,
+        WorkflowStage $targetStage,
+        User $actor,
+        string $reason,
+        string $action = 'appeal_redo',
+        string $statusCode = 'reopened_by_appeal',
+        bool $enforceBackwardOnly = true,
+    ): Request {
         if (in_array($targetStage->code, self::REDO_EXCLUDED_STAGE_CODES, true)) {
             throw WorkflowTransitionException::invalidRedoStage();
         }
 
-        [$movedRequest, $fromStageId] = DB::transaction(function () use ($requestRecord, $targetStage, $actor, $reason) {
+        [$movedRequest, $fromStageId] = DB::transaction(function () use ($requestRecord, $targetStage, $actor, $reason, $action, $statusCode, $enforceBackwardOnly) {
             $lockedRequest = Request::query()
                 ->lockForUpdate()
                 ->findOrFail($requestRecord->getKey());
 
             $currentOrder = $lockedRequest->currentStage?->order_no;
-            if ($currentOrder !== null && $targetStage->order_no > $currentOrder) {
+            if ($enforceBackwardOnly && $currentOrder !== null && $targetStage->order_no > $currentOrder) {
                 throw WorkflowTransitionException::redoStageMustPrecedeCurrent();
             }
 
             $fromStageId = $lockedRequest->current_stage_id;
             $fromStatusId = $lockedRequest->status_id;
-            $statusId = RequestStatus::query()->where('code', 'reopened_by_appeal')->value('id');
+            $statusId = RequestStatus::query()->where('code', $statusCode)->value('id');
 
             $lockedRequest->current_stage_id = $targetStage->id;
             $lockedRequest->status_id = $statusId;
@@ -352,7 +373,7 @@ class WorkflowService
                 'request_id' => $lockedRequest->id,
                 'from_stage_id' => $fromStageId,
                 'to_stage_id' => $targetStage->id,
-                'action' => 'appeal_redo',
+                'action' => $action,
                 'comment' => $reason,
                 'acted_by_user_id' => $actor->id,
                 'acted_at' => $occurredAt,
@@ -370,7 +391,7 @@ class WorkflowService
             return [$lockedRequest->refresh(), $fromStageId];
         });
 
-        $this->notifications->stageChanged($movedRequest, $actor, 'appeal_redo', WorkflowStage::find($fromStageId), $targetStage);
+        $this->notifications->stageChanged($movedRequest, $actor, $action, WorkflowStage::find($fromStageId), $targetStage);
 
         return $movedRequest;
     }

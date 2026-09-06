@@ -212,7 +212,8 @@
       "legalReview": "المراجعة القانونية",
       "file": "الملف الأصلي",
       "execution": "تنفيذ النتيجة",
-      "closure": "الإغلاق والتبليغ"
+      "closure": "الإغلاق والتبليغ",
+      "reopen": "إعادة الفتح"
     },
     "filters": {
       "status": "الحالة",
@@ -393,6 +394,21 @@
         "notified": "تم تبليغ المتظلم",
         "appellant_unreachable": "تعذّر تبليغ المتظلم (حساب غير نشط)"
       }
+    },
+    "reopen": {
+      "action": "إعادة الفتح",
+      "heading": "إعادة فتح التظلم",
+      "hint": "لا يجوز إعادة فتح تظلم مغلق إلا لأحد الأسباب المحددة أدناه — عدم الرضا عن النتيجة وحده لا يكفي.",
+      "reasonLabel": "سبب إعادة الفتح",
+      "chooseReason": "— اختر السبب —",
+      "noteLabel": "توضيح إضافي (اختياري)",
+      "submit": "تأكيد إعادة الفتح",
+      "submitting": "جارٍ الحفظ…",
+      "failed": "تعذّر إعادة فتح التظلم.",
+      "cancel": "إلغاء",
+      "notClosedYet": "لا يمكن إعادة فتحه إلا بعد إغلاقه",
+      "reopenedBy": "أُعيد فتحه بواسطة",
+      "reopenedAt": "تاريخ إعادة الفتح"
     }
   },
   "requests": {
@@ -577,6 +593,21 @@
       "save": "حفظ اختبار الاختصاص",
       "saving": "جارٍ الحفظ…",
       "saveFailed": "تعذّر حفظ اختبار الاختصاص."
+    },
+    "reopen": {
+      "title": "إعادة عرض الطلب",
+      "hint": "لا يجوز إعادة عرض طلب مختتم إلا لأحد الأسباب المحددة أدناه، مع تحديد المرحلة التي يعاد عرضه عندها.",
+      "action": "إعادة العرض",
+      "reasonLabel": "سبب إعادة العرض",
+      "chooseReason": "— اختر السبب —",
+      "targetStageLabel": "المرحلة التي يعاد عرض الطلب عندها",
+      "chooseStage": "— اختر المرحلة —",
+      "loadStagesFailed": "تعذّر تحميل قائمة المراحل.",
+      "noteLabel": "توضيح إضافي (اختياري)",
+      "submit": "تأكيد إعادة العرض",
+      "submitting": "جارٍ الحفظ…",
+      "failed": "تعذّر إعادة عرض الطلب.",
+      "cancel": "إلغاء"
     }
   },
   "committees": {
@@ -1133,6 +1164,14 @@
       }
     }
   },
+  "reopenReasons": {
+    "new_document": "ظهور مستند جديد",
+    "external_reply_received": "ورود رد من جهة خارجية",
+    "material_error_correction": "تصحيح خطأ جوهري",
+    "legal_status_change": "تغيّر الحالة القانونية",
+    "returned_by_approving_body": "إعادتها من الجهة المعتمِدة",
+    "competent_authority_restudy": "توجيه جهة مختصة بإعادة الدراسة"
+  },
   "workflow": {
     "actions": {
       "intake": "استلام الطلب",
@@ -1156,7 +1195,8 @@
       "route_to_committee_secretary": "إحالة إلى أمين سر اللجنة",
       "register": "تسجيل الاستلام",
       "return_to_employee": "إعادة إلى الموظف",
-      "reject_formally": "رفض شكلي بقرار مسبب"
+      "reject_formally": "رفض شكلي بقرار مسبب",
+      "reopen": "إعادة العرض"
     }
   },
   "auditLog": {
