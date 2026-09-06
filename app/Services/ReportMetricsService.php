@@ -23,8 +23,11 @@ class ReportMetricsService
     /**
      * Work is finished once it has been approved at the last checkpoint or
      * filed away. Everything else that isn't abandoned is still someone's job.
+     * Stage 64, Track J — decision_withdrawn/decision_amended are a final
+     * disposition too, just reached via an appeal overturning/amending the
+     * original decision rather than the ordinary chain.
      */
-    public const COMPLETED_STATUSES = ['final_approved', 'archived', 'completed_closed'];
+    public const COMPLETED_STATUSES = ['final_approved', 'archived', 'completed_closed', 'decision_withdrawn', 'decision_amended'];
 
     /** Abandoned outcomes: they leave the pipeline without ever completing. */
     public const ABANDONED_STATUSES = ['cancelled', 'rejected'];

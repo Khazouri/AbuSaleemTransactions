@@ -32,8 +32,13 @@ class RequestVisibility
 
         $roleIds = $actor->roles()->pluck('roles.id');
         $isSystemAdmin = $actor->roles()->where('code', 'R08')->exists();
+        // Stage 64, Track J: decision_withdrawn/decision_amended mirror
+        // WorkflowService::hasTerminalStatus()'s own list — a non-creator
+        // actor's assignment-based visibility should stop offering a
+        // request an appeal has already overturned or amended, the same way
+        // it already stops for cancelled/archived/in_execution/closed work.
         $terminalStatusIds = RequestStatus::query()
-            ->whereIn('code', ['cancelled', 'archived', 'in_execution', 'completed_closed'])
+            ->whereIn('code', ['cancelled', 'archived', 'in_execution', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
             ->select('id');
         // Stage 47 — قسم المرتبات والمزايا has no role tied to any
         // workflow_transitions row, so without this a flagged request's

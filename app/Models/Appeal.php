@@ -40,6 +40,11 @@ use Illuminate\Support\Carbon;
  * @property array|null $legal_review Stage 62 — Art. 75 point 4's 5-question checklist, all booleans.
  * @property int|null $legal_reviewed_by_user_id
  * @property Carbon|null $legal_reviewed_at
+ * @property Carbon|null $outcome_executed_at Stage 64 — set once AppealController::executeOutcome() has
+ *                                            given the committee's already-recorded outcome its real
+ *                                            effect on the original Request.
+ * @property int|null $outcome_executed_by_user_id
+ * @property int|null $outcome_redo_stage_id Only set when the executed outcome was `appeal_redo`.
  */
 class Appeal extends Model
 {
@@ -64,6 +69,9 @@ class Appeal extends Model
         'legal_review',
         'legal_reviewed_by_user_id',
         'legal_reviewed_at',
+        'outcome_executed_at',
+        'outcome_executed_by_user_id',
+        'outcome_redo_stage_id',
     ];
 
     protected function casts(): array
@@ -77,6 +85,7 @@ class Appeal extends Model
             'jurisdiction_tested_at' => 'datetime',
             'legal_review' => 'array',
             'legal_reviewed_at' => 'datetime',
+            'outcome_executed_at' => 'datetime',
         ];
     }
 
@@ -113,6 +122,17 @@ class Appeal extends Model
     public function legalReviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'legal_reviewed_by_user_id');
+    }
+
+    public function outcomeExecutedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'outcome_executed_by_user_id');
+    }
+
+    /** Stage 64 — only set when the executed outcome was `appeal_redo`. */
+    public function outcomeRedoStage(): BelongsTo
+    {
+        return $this->belongsTo(WorkflowStage::class, 'outcome_redo_stage_id');
     }
 
     public function attachments(): HasMany

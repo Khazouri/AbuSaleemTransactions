@@ -380,6 +380,68 @@ async function openAppealDocument(doc) {
   }
 }
 
+// --- Stage 64 — outcome execution ---------------------------------------------
+// A separate, deliberate step from Stage 63's own vote/decision recording —
+// see AppealOutcomeExecutor / AppealController::executeOutcome. The redo
+// stage picker is only fetched once, lazily, the first time it's needed.
+
+const executionTarget = ref(null)
+const executionRedoStage = ref('')
+const executionSubmitting = ref(false)
+const executionError = ref(null)
+const redoStageOptions = ref([])
+const redoStagesLoading = ref(false)
+const redoStagesError = ref(null)
+
+function startExecution(row) {
+  executionTarget.value = row
+  executionRedoStage.value = ''
+  executionError.value = null
+  if (row.committee_decision?.outcome === 'appeal_redo' && redoStageOptions.value.length === 0) {
+    loadRedoStageOptions()
+  }
+}
+
+function cancelExecution() {
+  executionTarget.value = null
+  executionError.value = null
+}
+
+async function loadRedoStageOptions() {
+  redoStagesLoading.value = true
+  redoStagesError.value = null
+  try {
+    const { data } = await api.get('/appeals/redo-stage-options')
+    redoStageOptions.value = data.data ?? []
+  } catch {
+    redoStagesError.value = t('appeals.execution.loadStagesFailed')
+  } finally {
+    redoStagesLoading.value = false
+  }
+}
+
+async function submitExecution() {
+  if (!executionTarget.value || executionSubmitting.value) return
+  const isRedo = executionTarget.value.committee_decision?.outcome === 'appeal_redo'
+  if (isRedo && !executionRedoStage.value) {
+    executionError.value = t('appeals.execution.selectStageFirst')
+    return
+  }
+  executionSubmitting.value = true
+  executionError.value = null
+  try {
+    await api.patch(`/appeals/${executionTarget.value.id}/execute-outcome`, {
+      redo_stage_id: isRedo ? executionRedoStage.value : undefined,
+    })
+    executionTarget.value = null
+    await load(page.value.current_page)
+  } catch (error) {
+    executionError.value = extractErrorMessage(error, t('appeals.execution.failed'))
+  } finally {
+    executionSubmitting.value = false
+  }
+}
+
 onMounted(() => load())
 </script>
 
@@ -628,6 +690,46 @@ onMounted(() => load())
       </button>
     </div>
 
+    <div v-if="executionTarget" v-can="'appeals.edit'" class="card create">
+      <h3>{{ t('appeals.execution.heading') }}</h3>
+      <p class="subtitle">{{ t('appeals.execution.hint') }}</p>
+      <div class="selected">
+        <div>
+          <span class="ref ltr">{{ executionTarget.original_request?.reference_number }}</span>
+          <span>{{ executionTarget.original_request?.title }}</span>
+        </div>
+      </div>
+
+      <p class="text-block">
+        <strong>{{ t('appeals.execution.decidedOutcome') }}:</strong>
+        {{ t('decisions.outcome.' + executionTarget.committee_decision?.outcome) }}
+      </p>
+
+      <fieldset v-if="executionTarget.committee_decision?.outcome === 'appeal_redo'" :disabled="executionSubmitting">
+        <label class="full">
+          {{ t('appeals.execution.redoStage') }}
+          <select v-model="executionRedoStage">
+            <option value="" disabled>{{ t('appeals.execution.chooseStage') }}</option>
+            <option v-for="stage in redoStageOptions" :key="stage.id" :value="stage.id">
+              {{ locale === 'ar' ? stage.name_ar : stage.name_en }}
+            </option>
+          </select>
+        </label>
+        <p class="notice">{{ t('appeals.execution.redoHint') }}</p>
+        <p v-if="redoStagesLoading" class="state">{{ t('common.loading') }}</p>
+        <p v-if="redoStagesError" class="alert">{{ redoStagesError }}</p>
+      </fieldset>
+
+      <p v-if="executionError" class="alert">{{ executionError }}</p>
+
+      <button class="primary" type="button" :disabled="executionSubmitting" @click="submitExecution">
+        {{ executionSubmitting ? t('appeals.execution.submitting') : t('appeals.execution.submit') }}
+      </button>
+      <button class="ghost" type="button" :disabled="executionSubmitting" @click="cancelExecution">
+        {{ t('appeals.execution.cancel') }}
+      </button>
+    </div>
+
     <p v-if="loadError" class="alert">
       {{ t('nav.error') }}
       <button class="ghost" type="button" @click="load(page.current_page)">{{ t('common.retry') }}</button>
@@ -659,6 +761,7 @@ onMounted(() => load())
               <th>{{ t('appeals.columns.verification') }}</th>
               <th>{{ t('appeals.columns.jurisdiction') }}</th>
               <th>{{ t('appeals.columns.legalReview') }}</th>
+              <th>{{ t('appeals.columns.execution') }}</th>
               <th>{{ t('appeals.columns.file') }}</th>
             </tr>
           </thead>
@@ -738,13 +841,35 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.legalReview.notYet') }}</span>
               </td>
               <td>
+                <button
+                  v-if="row.status?.code === 'committee_presentation' && row.committee_decision && !row.outcome_execution"
+                  v-can="'appeals.edit'"
+                  class="ghost"
+                  type="button"
+                  @click="startExecution(row)"
+                >
+                  {{ t('appeals.execution.action') }}
+                </button>
+                <div v-else-if="row.outcome_execution" class="verification-summary">
+                  <span class="pill passed">{{ t('decisions.outcome.' + row.committee_decision?.outcome) }}</span>
+                  <small v-if="row.outcome_execution.redo_stage" class="muted">
+                    {{ t('appeals.execution.redoStageLabel') }}: {{ locale === 'ar' ? row.outcome_execution.redo_stage.name_ar : row.outcome_execution.redo_stage.name_en }}
+                  </small>
+                  <small v-if="row.outcome_execution.executed_by" class="muted">
+                    {{ t('appeals.execution.executedBy') }}: {{ row.outcome_execution.executed_by.name }}
+                  </small>
+                </div>
+                <span v-else-if="row.status?.code === 'committee_presentation'" class="muted">{{ t('appeals.execution.noDecisionYet') }}</span>
+                <span v-else class="muted">{{ t('appeals.execution.notYet') }}</span>
+              </td>
+              <td>
                 <button class="ghost" type="button" @click="toggleFile(row)">
                   {{ fileTargetId === row.id ? t('appeals.file.hide') : t('appeals.file.view') }}
                 </button>
               </td>
             </tr>
             <tr v-if="fileTargetId === row.id">
-              <td colspan="8" class="file-panel">
+              <td colspan="9" class="file-panel">
                 <p v-if="fileLoading" class="state">{{ t('common.loading') }}</p>
                 <p v-else-if="fileError" class="alert">{{ fileError }}</p>
                 <div v-else-if="fileData" class="dossier">

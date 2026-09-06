@@ -165,8 +165,12 @@ class CommitteeStatusService
 
     private function hasTerminalStatus(Request $requestRecord): bool
     {
+        // Stage 64, Track J — decision_withdrawn/decision_amended mirror
+        // WorkflowService's own copy of this list: an appeal that finally
+        // overturned or amended a decision leaves no further committee
+        // sub-status move to make either.
         return $requestRecord->status()
-            ->whereIn('code', ['cancelled', 'archived', 'completed_closed'])
+            ->whereIn('code', ['cancelled', 'archived', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
             ->exists();
     }
 }

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Appeal\ExecuteAppealOutcomeRequest;
 use App\Http\Requests\Appeal\RecordAppealJurisdictionTestRequest;
 use App\Http\Requests\Appeal\RecordAppealLegalReviewRequest;
 use App\Http\Requests\Appeal\StoreAppealRequest;
@@ -11,25 +13,39 @@ use App\Http\Resources\AppealResource;
 use App\Models\Appeal;
 use App\Models\AppealStatus;
 use App\Models\Request as RequestRecord;
+use App\Models\WorkflowStage;
 use App\Services\AppealEligibility;
 use App\Services\AppealFileCompiler;
+use App\Services\AppealOutcomeExecutor;
 use App\Services\AppealVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Stage 59/60/61/62, Track J — the `appeals` screen with its real intake
+ * Stage 59/60/61/62/64, Track J — the `appeals` screen with its real intake
  * rules (App\Services\AppealEligibility), the formal-verification gate
  * (App\Services\AppealVerificationService), the assembled original-matter
- * dossier (App\Services\AppealFileCompiler), and the jurisdiction test +
- * legal review that gate Stage 63's committee presentation. Still no outcome
- * execution (Stage 64). See STAGE_PLAN.md Track J and AGENT_NOTES.md for the
- * scope decisions this stage rests on.
+ * dossier (App\Services\AppealFileCompiler), the jurisdiction test + legal
+ * review that gate Stage 63's committee presentation, and Stage 64's
+ * execution of that committee decision's real effect on the original
+ * Request (App\Services\AppealOutcomeExecutor). See STAGE_PLAN.md Track J
+ * and AGENT_NOTES.md for the scope decisions this stage rests on.
  */
 class AppealController extends Controller
 {
+    /**
+     * Stages this list refuses to name as an `appeal_redo` target — see
+     * WorkflowService::REDO_EXCLUDED_STAGE_CODES for why. Kept here too,
+     * as the literal set redoStageOptions() excludes from the picker, so
+     * the UI never offers a stage executeOutcome() would refuse.
+     */
+    private const REDO_EXCLUDED_STAGE_CODES = [
+        'receive_from_municipality', 'direct_manager_review', 'administrative_routing', 'receive_and_register',
+    ];
+
     private const WITH = [
         'appellant:id,name',
         'originalRequest:id,reference_number,title',
@@ -37,6 +53,9 @@ class AppealController extends Controller
         'formalVerifiedBy:id,name',
         'jurisdictionTestedBy:id,name',
         'legalReviewedBy:id,name',
+        'outcomeExecutedBy:id,name',
+        'outcomeRedoStage:id,code,name_ar,name_en',
+        'committeeAgendaItem.decision:id,meeting_request_id,outcome,comment,decided_at',
     ];
 
     /**
@@ -268,5 +287,103 @@ class AppealController extends Controller
         abort_unless($appeal->isVisibleTo($request->user()), 404);
 
         return response()->json(['data' => $compiler->compile($appeal)]);
+    }
+
+    /**
+     * Stage 64 — the stages an `appeal_redo` outcome may target, narrower
+     * than the full 12-stage catalogue. A narrow lookup, not the full
+     * resource's own visibility rule — same "picker, not a general list"
+     * precedent MeetingController::appealOptions()/departmentOptions()
+     * already set.
+     */
+    public function redoStageOptions(): JsonResponse
+    {
+        return response()->json([
+            'data' => WorkflowStage::query()
+                ->whereNotIn('code', self::REDO_EXCLUDED_STAGE_CODES)
+                ->orderBy('order_no')
+                ->get(['id', 'code', 'order_no', 'name_ar', 'name_en']),
+        ]);
+    }
+
+    /**
+     * Stage 64 — executes Stage 63's already-recorded committee decision:
+     * قبول/قبول جزئي/رفض/إحالة are a direct status mutation on the original
+     * Request (App\Services\AppealOutcomeExecutor); إعادة الإجراءات is the
+     * one outcome that re-enters WorkflowService, at a stage this actor
+     * names explicitly since Stage 62's legal-review checklist never
+     * recorded one. One-shot, same self-action block as every other Track
+     * J action on this model.
+     */
+    public function executeOutcome(
+        ExecuteAppealOutcomeRequest $request,
+        Appeal $appeal,
+        AppealOutcomeExecutor $executor,
+    ): AppealResource|JsonResponse {
+        $actor = $request->user();
+
+        if ($appeal->appellant_user_id === $actor->id) {
+            return response()->json([
+                'message' => 'لا يجوز للمتظلم تنفيذ نتيجة تظلمه بنفسه.',
+            ], 422);
+        }
+
+        if ($appeal->status?->code !== 'committee_presentation') {
+            return response()->json([
+                'message' => 'لا يمكن تنفيذ نتيجة التظلم إلا بعد صدور قرار اللجنة بشأنه.',
+            ], 422);
+        }
+
+        if ($appeal->outcome_executed_at !== null) {
+            return response()->json([
+                'message' => 'تم تنفيذ نتيجة هذا التظلم بالفعل.',
+            ], 422);
+        }
+
+        $decision = $appeal->committeeAgendaItem?->decision;
+
+        if ($decision === null) {
+            return response()->json([
+                'message' => 'لا يوجد قرار مسجل لهذا التظلم بعد.',
+            ], 422);
+        }
+
+        $redoStage = null;
+
+        if ($decision->outcome === 'appeal_redo') {
+            $redoStageId = $request->validated('redo_stage_id');
+
+            if ($redoStageId === null) {
+                throw ValidationException::withMessages([
+                    'redo_stage_id' => ['يجب تحديد المرحلة التي وقع فيها العيب لإعادة الإجراءات إليها.'],
+                ]);
+            }
+
+            $redoStage = WorkflowStage::find($redoStageId);
+
+            if ($redoStage !== null && in_array($redoStage->code, self::REDO_EXCLUDED_STAGE_CODES, true)) {
+                throw ValidationException::withMessages([
+                    'redo_stage_id' => ['لا يمكن إعادة الإجراءات إلى هذه المرحلة.'],
+                ]);
+            }
+        }
+
+        try {
+            DB::transaction(function () use ($appeal, $decision, $actor, $redoStage, $executor) {
+                $executor->execute($appeal, $decision->outcome, $actor, $redoStage);
+
+                $appeal->update([
+                    'outcome_executed_by_user_id' => $actor->id,
+                    'outcome_executed_at' => now(),
+                    'outcome_redo_stage_id' => $redoStage?->id,
+                ]);
+            });
+        } catch (WorkflowTransitionException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return new AppealResource(
+            $appeal->fresh()->loadCount('attachments')->load(self::WITH),
+        );
     }
 }

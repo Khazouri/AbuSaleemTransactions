@@ -434,6 +434,78 @@ class WorkflowServiceTest extends TestCase
         $this->assertSame('approval_by_authority', $requestRecord->refresh()->currentStage->code);
     }
 
+    /**
+     * Stage 64, Track J — the appeal_redo re-entry mechanism. Not driven by
+     * any workflow_transitions row, so both guards (the fixed exclusion
+     * list and the backward-only order check) live entirely inside the
+     * method itself; see AppealOutcomeExecutor, its only caller.
+     */
+    public function test_reopen_at_stage_refuses_an_excluded_target(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $actor = $this->userWithRole('R02');
+        $requestRecord = $this->newRequest('receive_from_committee', 'decided');
+        $target = WorkflowStage::where('code', 'receive_and_register')->firstOrFail();
+
+        try {
+            app(WorkflowService::class)->reopenAtStage($requestRecord, $target, $actor, 'سبب');
+            $this->fail('receive_and_register must be refused as a redo target.');
+        } catch (WorkflowTransitionException $exception) {
+            $this->assertSame('لا يمكن إعادة الإجراءات إلى هذه المرحلة.', $exception->getMessage());
+        }
+
+        $this->assertSame('receive_from_committee', $requestRecord->refresh()->currentStage->code);
+    }
+
+    public function test_reopen_at_stage_refuses_a_target_stage_ordered_after_the_current_one(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $actor = $this->userWithRole('R02');
+        $requestRecord = $this->newRequest('receive_from_committee', 'decided');
+        $target = WorkflowStage::where('code', 'final_approval_archiving')->firstOrFail();
+
+        try {
+            app(WorkflowService::class)->reopenAtStage($requestRecord, $target, $actor, 'سبب');
+            $this->fail('A forward redo target must be refused.');
+        } catch (WorkflowTransitionException $exception) {
+            $this->assertSame(
+                'يجب أن تكون مرحلة إعادة الإجراءات سابقة لمرحلة الطلب الحالية أو مساوية لها.',
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame('receive_from_committee', $requestRecord->refresh()->currentStage->code);
+    }
+
+    public function test_reopen_at_stage_moves_backward_and_writes_a_full_audit_trail(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $actor = $this->userWithRole('R02');
+        $requestRecord = $this->newRequest('receive_from_committee', 'decided');
+        $fromStageId = $requestRecord->current_stage_id;
+        $target = WorkflowStage::where('code', 'reviewer_review')->firstOrFail();
+
+        $moved = app(WorkflowService::class)->reopenAtStage($requestRecord, $target, $actor, 'سبب إعادة الإجراءات');
+
+        $this->assertSame($target->id, $moved->current_stage_id);
+        $this->assertSame('reopened_by_appeal', $moved->status->code);
+
+        $this->assertDatabaseHas('request_stage_logs', [
+            'request_id' => $requestRecord->id,
+            'from_stage_id' => $fromStageId,
+            'to_stage_id' => $target->id,
+            'action' => 'appeal_redo',
+            'comment' => 'سبب إعادة الإجراءات',
+        ]);
+        $this->assertDatabaseHas('request_status_history', [
+            'request_id' => $requestRecord->id,
+            'to_status_id' => RequestStatus::where('code', 'reopened_by_appeal')->value('id'),
+        ]);
+    }
+
     private function newRequest(
         string $stageCode = 'receive_from_municipality',
         string $statusCode = 'new',

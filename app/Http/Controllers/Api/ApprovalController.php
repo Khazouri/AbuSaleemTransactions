@@ -55,10 +55,14 @@ class ApprovalController extends Controller
                     ->orWhere('created_by_user_id', '!=', $request->user()->id);
             })
             // Stage 37: final approval moves to in_execution; keeping that
-            // status out prevents the stage-11 self-loop being approved twice.
+            // status out prevents the stage-11 self-loop being approved
+            // twice. Stage 64, Track J: decision_withdrawn/decision_amended
+            // mirror WorkflowService::hasTerminalStatus()'s own list — an
+            // appeal that already overturned/amended this decision leaves
+            // nothing left to approve here.
             ->whereDoesntHave('status', fn ($query) => $query->whereIn(
                 'code',
-                ['cancelled', 'archived', 'in_execution', 'completed_closed'],
+                ['cancelled', 'archived', 'in_execution', 'completed_closed', 'decision_withdrawn', 'decision_amended'],
             ))
             ->latest('submitted_at')
             ->paginate(20)

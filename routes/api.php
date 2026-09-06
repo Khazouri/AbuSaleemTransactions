@@ -594,6 +594,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:appeals,add')
         ->post('appeals', [AppealController::class, 'store']);
 
+    // Stage 64 — the stages an appeal_redo outcome may target. A literal
+    // path, declared before the {appeal} wildcard routes below so it can
+    // never be shadowed (same ordering convention as departments'
+    // toggle-active route).
+    Route::middleware('screen.permission:appeals,edit')
+        ->get('appeals/redo-stage-options', [AppealController::class, 'redoStageOptions']);
+
     // Stage 59 — supporting documents, uploaded as follow-up calls once the
     // appeal exists (same "create the parent, then attach" flow Stage 12/13
     // established for requests). Scoped to the appeal's own appellant or
@@ -625,4 +632,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // visibility is Appeal::isVisibleTo(), not a coarser screen permission.
     Route::middleware('screen.permission:appeals,view')
         ->get('appeals/{appeal}/file', [AppealController::class, 'file']);
+
+    // Stage 64 — executes Stage 63's already-recorded committee outcome
+    // against the original Request.
+    Route::middleware('screen.permission:appeals,edit')
+        ->patch('appeals/{appeal}/execute-outcome', [AppealController::class, 'executeOutcome']);
 });

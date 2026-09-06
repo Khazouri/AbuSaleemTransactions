@@ -14,6 +14,211 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-05 19:45 EET — Claude — Stage 64 complete (⚠ outcome execution: accept / amend / refer / redo)
+
+Built exactly per the plan below. One migration (`appeals.outcome_executed_at`/`outcome_executed_by_user_id`/
+`outcome_redo_stage_id`), applied to the real MySQL/Homestead database, plus 3 new `RequestStatus` rows
+(`decision_withdrawn`, `decision_amended`, `reopened_by_appeal`) reseeded there too. New
+`App\Services\AppealOutcomeExecutor` (the per-outcome `match`) and a new public `WorkflowService::
+reopenAtStage()` (the appeal_redo re-entry — its own transaction+lock, a fixed exclusion list, and a
+backward-only order check, all internal since no `workflow_transitions` row drives this hop). New
+`AppealController::executeOutcome()`/`redoStageOptions()`, both riding the existing `appeals,edit` grant
+(R02 + R08) — zero seeder changes, matching every other Track J stage's pattern.
+
+**One correctness gap found and closed while implementing, not left dangling**: `WorkflowService::
+hasTerminalStatus()`'s exact 4-code list (`cancelled|archived|in_execution|completed_closed`) turned out to
+be duplicated in three more places — `CommitteeStatusService`'s own copy, `RequestVisibility::apply()`'s
+non-creator visibility gate, and `ApprovalController::index()`'s queue filter. All three needed the two new
+terminal statuses added too, or a request whose decision an appeal just withdrew/amended would keep
+showing up in an approver's queue and keep being visible to non-creators via the assignment-match branch,
+even though `WorkflowService::transition()` would correctly refuse any actual action on it — a confusing,
+already-known-stale-elsewhere class of duplication, not new to this stage, but this stage is what exposed
+it. `ReportMetricsService::COMPLETED_STATUSES` also gained both statuses (a final disposition reached via
+appeal is still a completion, for KPI purposes).
+
+**The two judgment calls flagged in the plan held up under implementation, unchanged:** Arts. 34–37's
+إعادة العرض rule is read as "always mutate the same Request row, never spawn a duplicate" — a constraint
+on every outcome equally, not a signal that accept/partial-accept trigger a full re-presentation to
+committee. That's what keeps `appeal_redo` "the one genuinely novel case": accept/partial-accept are a
+direct status write (`decision_withdrawn`/`decision_amended`, both terminal); refer reuses the *existing*
+`referred_to_other_body` status verbatim (Stage 35/49's own committee-referral status), self-loop, not
+terminal; reject does nothing to the original Request at all. The redo-stage picker is populated by a new,
+narrow `GET appeals/redo-stage-options` lookup (8 of the 12 stages — excludes the four pre-committee
+intake/routing ones), and the "required only when the confirmed outcome is `appeal_redo`" check lives in
+the controller (`ExecuteAppealOutcomeRequest` only validates format), the exact split `StoreDecisionRequest`'s
+own docblock already established for comment/signature requiredness.
+
+Frontend: `AppealsView.vue` gained a 9th table column ("تنفيذ النتيجة") with an execute button (only at
+`committee_presentation` once a decision exists and hasn't been executed), an inline panel showing the
+confirmed outcome (reusing the existing `decisions.outcome.appeal_*` locale keys rather than duplicating
+them) plus a stage `<select>` — lazily fetched from the new lookup endpoint — only when that outcome is
+`appeal_redo`, and a result summary (outcome/executed-by/redo-stage) once done. New `appeals.execution.*` +
+`appeals.columns.execution` locale keys in both `ar.json`/`en.json`.
+
+Verification: new `tests/Feature/AppealOutcomeExecutionTest.php` (10 tests — every precondition gate
+including the one-shot guard and the appellant self-block [needed a dual-role R01+R02 fixture user to
+actually *reach* the controller check, since a plain R01 appellant is blocked earlier by the route's own
+`appeals,edit` middleware — same precedent `AppealJurisdictionReviewTest` already set]; each of the 5
+outcomes' concrete effect, including proving accept/partial-accept become genuinely terminal — a further
+`GET /requests/{id}` as the request's own creator, whose visibility is never terminal-status-gated, shows
+an empty `available_actions` — while refer stays non-terminal and leaves the stage untouched; redo moves
+stage+status with both audit rows and a subsequent R02 fetch shows the target stage's own normal actions,
+not an empty list) plus 3 new `tests/Unit/WorkflowServiceTest.php` cases isolating `reopenAtStage()` itself
+(the excluded-stage guard, the backward-only order guard, and a clean backward move's audit trail — kept
+here rather than only through HTTP since the feature fixture's original request already sits at the last
+stage, order 12, so there's no literal "forward" target to probe through that path). Full suite **284
+tests / 1660 assertions** green (was 271/1571), Pint clean on every touched/new file (one auto-fix applied
+to the new `AppealOutcomeExecutor.php` — import ordering/brace style, not a manual edit), `npm run build`
+passes with `AppealsView` picking up the new markup in its existing chunk (then reverted `frontend/dist`,
+tracked in git, per every prior stage's note), locale key-parity verified programmatically (1065 keys each
+side, zero on-one-side-only), and the migration plus the `RequestStatusSeeder` reseed both ran clean
+against the real MySQL/Homestead database (31 statuses total, confirmed via tinker).
+
+Smoke-tested the full path end-to-end over real HTTP against Homestead using the seeded r03.head@/
+r04.member1@/r02.reviewer@/r01.employee@ test accounts and a tinker-built fixture committee/meeting/
+request/appeal/agenda-item — voted `appeal_redo` from both committee members, recorded the decision,
+confirmed `redo-stage-options` returns exactly the 8 non-excluded stages, confirmed `execute-outcome`
+422s without a stage and again for the excluded `receive_and_register` stage, then succeeded targeting
+`reviewer_review`: the original request's `current_stage`/`status` moved there/`reopened_by_appeal`, its
+timeline shows the `appeal_redo` hop from `final_approval_archiving`, a second execution attempt 422s
+(one-shot), and a subsequent `GET` as R02 shows `available_actions: [forward, reject_review, cancel]` —
+the ordinary `reviewer_review` actions, proving the reopened request is genuinely back in live processing,
+not stuck. Deleted the fixture committee/meeting/request/appeal/decision/vote/stage-log/status-history rows
+and revoked all three minted tokens afterward — `Committee::count()`/`Meeting::count()`/`Request::count()`/
+`Appeal::count()`/`Decision::count()`/`Vote::count()`/token count all confirmed back to zero, no residue
+left in the real database.
+
+**Open item for whoever builds Stage 65+**: `outcome_executed_at`/`outcome_redo_stage_id` are immutable
+after `executeOutcome()`'s one call — there is no "amend an execution" endpoint, matching the "no restore/
+undo" precedent Stage 26 set for backups and every other Track J one-shot action since. Stage 65 (notify +
+closure) is next per STAGE_PLAN's own suggested order — its own note already flags that an appeal reaching
+`notified_closed` is what actually releases the Track J intro's scope-decision-3 hold on the original
+request's closure; that hold is completely independent of whether this stage's execution happened, so
+nothing here needs revisiting when Stage 65 lands.
+
+---
+
+### 2026-09-05 18:30 EET — Claude — Stage 64 implementation plan (⚠ outcome execution: accept / amend / refer / redo)
+
+Building Stage 64 per STAGE_PLAN.md Track J, the stage flagged as needing its own design pass (same
+caution level as Stage 57) rather than a quick fix alongside another stage. Read the Build/Done-when text
+and the Track J intro's three scope decisions in full before designing anything, plus Stage 63's own note
+("Mutating the *original* request per the chosen outcome is Stage 64's own, deliberately separate, scope")
+and Stage 62's legal-review checklist (Art. 75 point 4's 5 booleans — none of which names a stage, an
+important gap this plan has to close itself, see below).
+
+**Decision recording (Stage 63) and outcome execution (Stage 64) are two separate actions, not one
+atomic step — mirroring the exact split Stage 37 already drew between `DecisionController::record()` and
+`MeetingOutputsController::complete()` for ordinary employee_request items.** `DecisionController::
+recordAppealDecision()` stays untouched: it tallies votes and advances `appeal_status_id` to
+`committee_presentation`, nothing more. A new one-shot `AppealController::executeOutcome()` (same shape as
+`verify()`/`recordJurisdictionTest()`/`recordLegalReview()` — status-gated precondition, self-action block,
+who/when columns directly on `Appeal`, riding the existing `appeals,edit` grant, zero seeder changes) is
+what actually mutates the *original* Request once the outcome is already confirmed. This also solves a
+real UX problem the atomic-with-voting alternative could not: the outcome is only known *after* the vote
+tally resolves, so the person recording the decision cannot know in advance whether `appeal_redo` will win
+and therefore cannot supply the one piece Stage 62 never captured — *which* stage the defect occurred at.
+Making execution its own later step lets the executing actor (this screen's usual R02 audience, not
+necessarily the committee chair who ran the vote) look at the now-confirmed outcome and name the target
+stage deliberately.
+
+**Per-outcome effect, resolved from close re-reading of the Build bullet's own citations, not guessed:**
+Arts. 34–37's إعادة العرض rule ("never create a new transaction merely to re-present the same matter") is
+read as a *general* constraint applying to every outcome equally — "always mutate the existing Request
+row, never spawn a duplicate" — not as a signal that accept/partial-accept trigger a full re-presentation
+to committee. That reading is what lets `appeal_redo` stay "the one genuinely novel case" the Build text
+calls it: accept/partial-accept represent the appeal body's own final resolution (they already wrote the
+withdrawal/amendment as part of deciding the appeal — Stage 63's `comment` field already carries that
+reasoning), so they need no further committee process, just a direct status change:
+- **`appeal_accept`** → original Request status → new terminal status `decision_withdrawn`.
+- **`appeal_partial_accept`** → new terminal status `decision_amended`.
+- **`appeal_reject`** → no change to the original Request at all (Build text's own literal words) — Stage
+  63 already recorded the full reasoning; nothing left to execute.
+- **`appeal_refer`** → reuses the *existing* `referred_to_other_body` status (Stage 35/49's own self-loop
+  status for an ordinary committee referral) — literally "the refer_to_another_body-style pattern" the
+  Build text names. NOT terminal (the matter can still be re-decided once the other body replies), and
+  `current_stage_id` is left untouched, matching how that status already behaves for non-appeal decisions.
+- **`appeal_redo`** → the novel case: `WorkflowService::reopenAtStage()` (new public method) moves
+  `current_stage_id` to a stage the executing actor names explicitly and stamps a new, non-terminal status
+  `reopened_by_appeal`, with its own `RequestStageLog`/`RequestStatusHistory` audit rows and the same
+  `stageChanged()` notification an ordinary transition would fire — this is NOT a `workflow_transitions`-
+  row-driven hop (no configured rule matches an arbitrary backward jump), so it bypasses `transition()`'s
+  rule-resolution entirely, the same "out-of-band, caller-vouches" shape `applySystemTransition()` already
+  established for a different reason (Stage 57's intake auto-hop). Unlike that method, this one opens its
+  own `DB::transaction()`+row lock, since it acts on an old, potentially long-lived request instead of one
+  the caller just created microseconds ago in the same transaction.
+
+**Two new terminal statuses (`decision_withdrawn`, `decision_amended`) added to BOTH `WorkflowService::
+hasTerminalStatus()` and `CommitteeStatusService`'s own separate copy** — once an appeal has finally
+overturned/amended a decision, no further ordinary workflow or committee-substate move should be possible
+on that request. Both also added to `ReportMetricsService::COMPLETED_STATUSES` (the matter did reach a
+final disposition, just via appeal rather than the ordinary chain) so dashboards don't show it as
+perpetually "still pending." `reopened_by_appeal` is deliberately NOT terminal anywhere — the entire point
+of redo is that ordinary processing resumes.
+
+**Redo-stage validation, a judgment call recorded explicitly**: legal review's 5 booleans (Stage 62) never
+named a stage, so the executing actor must supply one (`redo_stage_id`) at execution time — required only
+when the confirmed outcome is `appeal_redo` (checked in the controller after loading the decision, not a
+static FormRequest rule, mirroring `AppealController::store()`'s own "depends on a lookup result" pattern
+for `original_decision_reference`). Two guards, both inside `reopenAtStage()` so they can't be bypassed by
+a future second caller: (1) a fixed exclusion list — `receive_from_municipality`, `direct_manager_review`,
+`administrative_routing`, `receive_and_register` — none of these four pre-committee intake/routing stages
+involves the kind of decision-making Stage 62's checklist tests for (factual error, legal-text violation,
+new documents, formation/reasoning defect, wrong issuing body), and `receive_and_register` additionally has
+a real *mechanical* gap: its only outbound actions are the three `register` rows gated by
+`required_status_id` on one of the three `routed_to_*` statuses, which a generic `reopened_by_appeal`
+status would never satisfy, stranding the request. (2) the target stage's `order_no` must not exceed the
+request's current stage's `order_no` — redo means going backward (or the same stage), never forward.
+
+**New `appeals` columns** (one migration, positioned after `legal_reviewed_at`, matching every prior
+Track J migration's who/when-column shape): `outcome_executed_at`, `outcome_executed_by_user_id` (FK
+users, nullOnDelete), `outcome_redo_stage_id` (FK workflow_stages, nullOnDelete, null except for
+`appeal_redo`). Deliberately NOT duplicating anything onto the `decisions` table — the decision's own
+`outcome`/`comment` already say what was decided; these three columns say whether/how/by-whom/at-what-
+stage it was *executed*, which belongs on the Appeal itself, matching Stage 60/62's exact `*_by_user_id`/
+`*_at` precedent rather than inventing a new shape.
+
+**New service `App\Services\AppealOutcomeExecutor`** — a `match` over the 5 outcome keys, each branch
+either a direct status write (with its own `RequestStatusHistory` row) or a call into `WorkflowService::
+reopenAtStage()` for `appeal_redo`. Kept as its own service (unlike Stage 62's "no new service class, both
+actions live directly in the controller" call) because this one composes two already-existing collaborators
+(`WorkflowService` for redo, direct model writes for the other three) and is exactly the kind of reusable,
+DB-dependent computation `AppealVerificationService` already established the precedent for.
+
+**New backend surface**: `App\Http\Requests\Appeal\ExecuteAppealOutcomeRequest` (format-only:
+`redo_stage_id` nullable int, must exist in `workflow_stages` — the "required when outcome is redo" check
+is business logic, resolved in the controller, matching `StoreDecisionRequest`'s own documented split);
+`AppealController::executeOutcome()` (one-shot: refuses before `committee_presentation`, refuses if
+`outcome_executed_at` is already set, refuses the appellant acting on their own appeal — same self-action
+caution every other Track J action already has); `AppealController::redoStageOptions()` (a narrow lookup,
+`GET appeals/redo-stage-options`, registered before the `{appeal}` wildcard routes per house convention,
+same "narrow picker, not the full resource" precedent `MeetingController::appealOptions()`/
+`departmentOptions()` already set — returns the 8 non-excluded stages in order). `AppealResource` gains a
+`committee_decision` block (the already-recorded outcome/comment/decided_at, so the execution panel can
+show what's about to be executed) and an `outcome_execution` block (who/when/redo-stage, present once
+`executeOutcome()` has acted).
+
+**Frontend**: `AppealsView.vue` gains an 9th table column ("تنفيذ النتيجة") with an execute button (only
+at `committee_presentation` with no execution yet), a small inline panel showing the confirmed outcome and,
+only when it's `appeal_redo`, a stage `<select>` fed by the new lookup endpoint before the submit button
+enables — and a result summary (outcome/executed-by/redo-stage) once done. Reuses the existing
+`decisions.outcome.appeal_*` locale keys for the outcome label rather than duplicating them. New
+`appeals.execution.*` + `appeals.columns.execution` locale keys in both `ar.json`/`en.json`.
+
+**Verification plan**: new `tests/Feature/AppealOutcomeExecutionTest.php` — every precondition gate
+(too-early status, no decision yet, appellant self-block, already-executed one-shot guard, missing
+`redo_stage_id` when the confirmed outcome is `appeal_redo`, an excluded stage, a stage ordered after the
+request's current one); each of the 5 outcomes' concrete effect (accept/partial-accept set the two new
+terminal statuses and a further `WorkflowService::transition()` attempt is refused as closed; reject
+leaves the original Request's status/stage completely untouched; refer sets `referred_to_other_body`
+without moving `current_stage_id` and a further transition still succeeds, proving it's non-terminal; redo
+moves `current_stage_id` to the named stage, sets `reopened_by_appeal`, writes both audit rows, and
+`available_transitions` afterward matches the target stage's normal actions) — plus the full PHPUnit
+suite, Pint on touched/new files, `npm run build`, locale key-parity, and `php artisan migrate` against the
+real MySQL/Homestead database if reachable this session.
+
+---
+
 ### 2026-09-05 17:15 EET — Claude — Stage 63 complete (committee presentation & 5-outcome decision)
 
 Built exactly per the plan below. Two migrations applied to the real MySQL/Homestead database:

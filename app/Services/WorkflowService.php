@@ -53,6 +53,20 @@ class WorkflowService
     ];
 
     /**
+     * Stage 64, Track J — stages `reopenAtStage()` refuses as an appeal's
+     * `appeal_redo` target. The three front-of-chain intake/routing stages
+     * involve no decision-making a legal review could find defective; the
+     * fourth, `receive_and_register`, has a real mechanical gap — its only
+     * outbound actions are the three `register` rows gated by
+     * `required_status_id` on one of the three `routed_to_*` statuses, which
+     * the generic `reopened_by_appeal` status this method stamps would never
+     * satisfy, stranding the request.
+     */
+    private const REDO_EXCLUDED_STAGE_CODES = [
+        'receive_from_municipality', 'direct_manager_review', 'administrative_routing', 'receive_and_register',
+    ];
+
+    /**
      * Actions this actor may currently attempt, for rendering the workspace.
      *
      * The transition method repeats every check under a row lock; this is only
@@ -280,6 +294,83 @@ class WorkflowService
         );
 
         $this->notifications->stageChanged($movedRequest, $actor, $action, $fromStageModel, $toStageModel);
+
+        return $movedRequest;
+    }
+
+    /**
+     * Stage 64, Track J — the one appeal outcome (`appeal_redo`) that must
+     * genuinely re-enter this state machine, at a stage a human names (the
+     * one the legal review found a defect at), not the next stage in
+     * sequence and not a restart from scratch. See AppealOutcomeExecutor,
+     * the only caller.
+     *
+     * Unlike transition(), no workflow_transitions row is resolved or
+     * required — an arbitrary backward jump is not something any configured
+     * rule could match, so this is an out-of-band, appeal-authorized
+     * override: the caller, not a role/rule check, is vouching that this
+     * specific reopening should happen. Unlike applySystemTransition() (a
+     * similar "caller vouches" shape used for a very different reason — the
+     * Stage 57 intake auto-hop), this method opens its own transaction and
+     * locks the row itself: it acts on an existing, potentially long-lived
+     * request rather than one the caller just created microseconds ago in
+     * the same transaction, so it cannot assume away a concurrent writer.
+     *
+     * Every other write shape (both history rows, the stageChanged()
+     * notification) still mirrors applyRule()'s, so a reopening leaves the
+     * exact same audit trail an ordinary transition would.
+     *
+     * @throws WorkflowTransitionException
+     */
+    public function reopenAtStage(Request $requestRecord, WorkflowStage $targetStage, User $actor, string $reason): Request
+    {
+        if (in_array($targetStage->code, self::REDO_EXCLUDED_STAGE_CODES, true)) {
+            throw WorkflowTransitionException::invalidRedoStage();
+        }
+
+        [$movedRequest, $fromStageId] = DB::transaction(function () use ($requestRecord, $targetStage, $actor, $reason) {
+            $lockedRequest = Request::query()
+                ->lockForUpdate()
+                ->findOrFail($requestRecord->getKey());
+
+            $currentOrder = $lockedRequest->currentStage?->order_no;
+            if ($currentOrder !== null && $targetStage->order_no > $currentOrder) {
+                throw WorkflowTransitionException::redoStageMustPrecedeCurrent();
+            }
+
+            $fromStageId = $lockedRequest->current_stage_id;
+            $fromStatusId = $lockedRequest->status_id;
+            $statusId = RequestStatus::query()->where('code', 'reopened_by_appeal')->value('id');
+
+            $lockedRequest->current_stage_id = $targetStage->id;
+            $lockedRequest->status_id = $statusId;
+            $lockedRequest->save();
+
+            $occurredAt = now();
+
+            RequestStageLog::create([
+                'request_id' => $lockedRequest->id,
+                'from_stage_id' => $fromStageId,
+                'to_stage_id' => $targetStage->id,
+                'action' => 'appeal_redo',
+                'comment' => $reason,
+                'acted_by_user_id' => $actor->id,
+                'acted_at' => $occurredAt,
+            ]);
+
+            RequestStatusHistory::create([
+                'request_id' => $lockedRequest->id,
+                'from_status_id' => $fromStatusId,
+                'to_status_id' => $statusId,
+                'reason' => $reason,
+                'changed_by_user_id' => $actor->id,
+                'changed_at' => $occurredAt,
+            ]);
+
+            return [$lockedRequest->refresh(), $fromStageId];
+        });
+
+        $this->notifications->stageChanged($movedRequest, $actor, 'appeal_redo', WorkflowStage::find($fromStageId), $targetStage);
 
         return $movedRequest;
     }
@@ -535,11 +626,15 @@ class WorkflowService
      * These statuses have left the stage-changing workflow even when the last
      * stage still has configured rules. `in_execution` is deliberately here:
      * Stage 37's status-only output service owns its eventual close.
+     * `decision_withdrawn`/`decision_amended` (Stage 64, Track J) are here
+     * too: once an appeal has finally overturned or amended a decision, the
+     * appeal body's own resolution is the final word — no further ordinary
+     * workflow move follows.
      */
     private function hasTerminalStatus(Request $requestRecord): bool
     {
         return $requestRecord->status()
-            ->whereIn('code', ['cancelled', 'archived', 'in_execution', 'completed_closed'])
+            ->whereIn('code', ['cancelled', 'archived', 'in_execution', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
             ->exists();
     }
 }

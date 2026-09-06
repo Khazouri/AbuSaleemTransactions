@@ -84,6 +84,20 @@ class RequestStatusSeeder extends Seeder
             ['routed_to_diwan',                'موجّه إلى وكيل الديوان',           'Routed to Diwan Deputy',          '#4f46e5'],
             ['routed_to_committee_secretary',  'موجّه إلى أمين سر اللجنة',         'Routed to Committee Secretary',   '#7c3aed'],
             ['registered',                     'تم التسجيل',                     'Registered',                      '#0891b2'],
+
+            // --- Track J, Stage 64: appeal outcome execution -----------------
+            // Written only by App\Services\AppealOutcomeExecutor / WorkflowService
+            // ::reopenAtStage() — never by an ordinary workflow_transitions row.
+            // Both "decision_*" statuses are terminal (WorkflowService::
+            // hasTerminalStatus, CommitteeStatusService's own copy): the appeal
+            // body's own decision IS the final word on the matter once it
+            // accepts or partially accepts the appeal, so no further ordinary
+            // processing follows. `reopened_by_appeal` is deliberately NOT
+            // terminal — the whole point of إعادة الإجراءات is that the request
+            // re-enters ordinary processing at the stage the defect occurred.
+            ['decision_withdrawn', 'قرار مسحوب بموجب تظلم',  'Decision Withdrawn (Appeal)', '#9f1239'],
+            ['decision_amended',   'قرار معدَّل بموجب تظلم', 'Decision Amended (Appeal)',   '#be185d'],
+            ['reopened_by_appeal', 'أعيد فتحه بموجب تظلم',   'Reopened via Appeal',         '#0ea5e9'],
         ];
 
         foreach ($statuses as [$code, $nameAr, $nameEn, $color]) {

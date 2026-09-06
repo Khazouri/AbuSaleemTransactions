@@ -72,4 +72,15 @@ class WorkflowTransitionException extends DomainException
     {
         return new self('يوجد أكثر من مسار مطابق لهذا الإجراء؛ يرجى مراجعة إعدادات سير العمل.');
     }
+
+    /** Stage 64, Track J — an appeal's `appeal_redo` outcome named a stage WorkflowService::reopenAtStage() refuses to reopen at. */
+    public static function invalidRedoStage(): self
+    {
+        return new self('لا يمكن إعادة الإجراءات إلى هذه المرحلة.');
+    }
+
+    public static function redoStageMustPrecedeCurrent(): self
+    {
+        return new self('يجب أن تكون مرحلة إعادة الإجراءات سابقة لمرحلة الطلب الحالية أو مساوية لها.');
+    }
 }

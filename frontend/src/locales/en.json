@@ -210,7 +210,8 @@
       "verification": "Formal verification",
       "jurisdiction": "Jurisdiction test",
       "legalReview": "Legal review",
-      "file": "Original file"
+      "file": "Original file",
+      "execution": "Outcome execution"
     },
     "filters": {
       "status": "Status",
@@ -349,6 +350,26 @@
         "sms": "SMS",
         "noEvidence": "No delivery record is kept for this channel"
       }
+    },
+    "execution": {
+      "action": "Execute outcome",
+      "heading": "Execute the committee's decision",
+      "hint": "Gives the committee's decision its real effect on the original request.",
+      "decidedOutcome": "Decided outcome",
+      "redoStage": "Stage where the defect occurred",
+      "chooseStage": "— Choose a stage —",
+      "redoHint": "Pick the stage the legal review found the defect at, to reopen the original request there.",
+      "loadStagesFailed": "The stage list could not be loaded.",
+      "selectStageFirst": "A stage must be selected before executing a redo.",
+      "submit": "Execute",
+      "submitting": "Executing…",
+      "failed": "The appeal outcome could not be executed.",
+      "cancel": "Cancel",
+      "notYet": "Awaiting the committee's decision",
+      "noDecisionYet": "No committee decision yet",
+      "executedBy": "Executed by",
+      "executedAt": "Executed at",
+      "redoStageLabel": "Request reopened at"
     }
   },
   "requests": {

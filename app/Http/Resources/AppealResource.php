@@ -67,6 +67,31 @@ class AppealResource extends JsonResource
                 ] : null),
                 'reviewed_at' => $this->legal_reviewed_at,
             ],
+            // Stage 64 — the committee's already-recorded outcome (Stage 63),
+            // surfaced here so the execution panel can show what's about to
+            // be executed before AppealController::executeOutcome() acts.
+            'committee_decision' => $this->whenLoaded(
+                'committeeAgendaItem',
+                fn () => $this->committeeAgendaItem?->decision ? [
+                    'outcome' => $this->committeeAgendaItem->decision->outcome,
+                    'comment' => $this->committeeAgendaItem->decision->comment,
+                    'decided_at' => $this->committeeAgendaItem->decision->decided_at,
+                ] : null,
+            ),
+            // Stage 64 — present once executeOutcome() has given that
+            // decision its real effect on the original Request.
+            'outcome_execution' => $this->outcome_executed_at === null ? null : [
+                'executed_by' => $this->whenLoaded('outcomeExecutedBy', fn () => $this->outcomeExecutedBy ? [
+                    'id' => $this->outcomeExecutedBy->id,
+                    'name' => $this->outcomeExecutedBy->name,
+                ] : null),
+                'executed_at' => $this->outcome_executed_at,
+                'redo_stage' => $this->whenLoaded('outcomeRedoStage', fn () => $this->outcomeRedoStage ? [
+                    'code' => $this->outcomeRedoStage->code,
+                    'name_ar' => $this->outcomeRedoStage->name_ar,
+                    'name_en' => $this->outcomeRedoStage->name_en,
+                ] : null),
+            ],
             'created_at' => $this->created_at,
         ];
     }
