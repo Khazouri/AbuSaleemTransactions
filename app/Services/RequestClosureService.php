@@ -53,12 +53,20 @@ class RequestClosureService
      * appendix has twelve bullets, and the source text wins (the precedent
      * Stage 68 set when Appendix 22's "دراسة فقط" beat its paraphrase).
      *
-     * Two of the twelve are absent from CLOSER_CHECKS below and answered by
-     * the server instead: `appeal_path_concluded` (#10) is Appeal::openAgainst()
-     * and `archive_location_set` (#12) is the closure card's own required
-     * `file_storage_location`. Asking a human for an answer the system already
-     * holds — and would then have to override — is worse than not asking, the
-     * split Stage 60 established for appeal formal verification.
+     * Three of the twelve are absent from CLOSER_CHECKS below and answered by
+     * the server instead: `appeal_path_concluded` (#10) is Appeal::openAgainst(),
+     * `archive_location_set` (#12) is the closure card's own required
+     * `file_storage_location`, and `execution_document_attached` (#9) is Stage
+     * 76's Appendix 70 evidence — which is what closes Stage 75's own open
+     * item (2), since that check was an attestation only for as long as there
+     * was nothing verifiable to read. Asking a human for an answer the system
+     * already holds — and would then have to override — is worse than not
+     * asking, the split Stage 60 established for appeal formal verification.
+     *
+     * Appendix 47's fifth check (هل تم التنفيذ؟) is deliberately left with the
+     * closer even though `executed_at` could now answer it: Stage 75 asked this
+     * stage to decide the *evidence* question, and a wrong answer on #5 refuses
+     * a closure rather than wrongly permitting one.
      *
      * @var array<string, string>
      */
@@ -77,7 +85,7 @@ class RequestClosureService
         'archive_location_set' => 'هل تم تحديد مكان الأرشفة؟',
     ];
 
-    /** The ten Appendix 47 checks the closer answers; the other two are derived. */
+    /** The nine Appendix 47 checks the closer answers; the other three are derived. */
     public const CLOSER_CHECKS = [
         'final_result_issued',
         'minutes_approved',
@@ -87,7 +95,6 @@ class RequestClosureService
         'service_file_updated',
         'electronic_record_updated',
         'decision_copy_attached',
-        'execution_document_attached',
         'no_party_awaiting_action',
     ];
 
@@ -263,7 +270,7 @@ class RequestClosureService
                         ? 'notified'
                         : 'requester_unreachable',
                 ],
-                'closure_audit' => $this->auditRecord($audit, $card),
+                'closure_audit' => $this->auditRecord($locked, $audit, $card),
                 'closed_by_user_id' => $actor->id,
                 'closed_at' => now(),
             ]);
@@ -282,15 +289,15 @@ class RequestClosureService
     }
 
     /**
-     * The stored audit is all twelve of Appendix 47's checks — the closer's ten
-     * answers plus the two the server derives — so the record reads as the
-     * appendix's own list rather than a subset a reader has to reassemble.
+     * The stored audit is all twelve of Appendix 47's checks — the closer's
+     * nine answers plus the three the server derives — so the record reads as
+     * the appendix's own list rather than a subset a reader has to reassemble.
      *
      * @param  array<string, string>  $audit
      * @param  array<string, mixed>  $card
      * @return array<string, string>
      */
-    private function auditRecord(array $audit, array $card): array
+    private function auditRecord(Request $requestRecord, array $audit, array $card): array
     {
         $record = [];
 
@@ -299,6 +306,16 @@ class RequestClosureService
                 // #10 — the same predicate the refusal above enforces; reaching
                 // here means it passed.
                 'appeal_path_concluded' => 'yes',
+                // #9 — Stage 76 made this verifiable. Appendix 70 refuses to
+                // let "تم إرفاق مستند التنفيذ" be a claim, so it is read from
+                // the request's own marked documents. Art. 37's Paths 2 and 3
+                // close requests that were never executed and honestly have no
+                // execution document, hence 'not_applicable' rather than 'no'.
+                'execution_document_attached' => $requestRecord->attachments()
+                    ->whereNotNull('execution_evidence_type')
+                    ->exists()
+                        ? 'yes'
+                        : 'not_applicable',
                 // #12 — answered by the card's own required field.
                 'archive_location_set' => trim((string) ($card['file_storage_location'] ?? '')) !== ''
                     ? 'yes'

@@ -103,12 +103,18 @@ class RequestClosureTest extends TestCase
                 'executed' => 'not_applicable',
                 'service_file_updated' => 'not_applicable',
                 'decision_copy_attached' => 'not_applicable',
-                'execution_document_attached' => 'not_applicable',
+                // `execution_document_attached` is deliberately absent: Stage 76
+                // made it server-derived from Appendix 70 evidence, so it is no
+                // longer a question the closer answers. The assertion below
+                // proves the derivation reports it for this unexecuted path.
             ]))
             ->assertOk()
             ->assertJsonPath('data.status.code', 'completed_closed')
             ->assertJsonPath('data.closure.final_result_code', 'outside_jurisdiction')
-            ->assertJsonPath('data.closure_audit.minutes_approved', 'not_applicable');
+            ->assertJsonPath('data.closure_audit.minutes_approved', 'not_applicable')
+            // Stage 76 — Art. 37's Path 3 closes a request that was never
+            // executed, so there honestly is no دليل التنفيذ to have attached.
+            ->assertJsonPath('data.closure_audit.execution_document_attached', 'not_applicable');
     }
 
     /**

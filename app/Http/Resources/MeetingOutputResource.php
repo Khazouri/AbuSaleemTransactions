@@ -33,6 +33,17 @@ class MeetingOutputResource extends JsonResource
                     'name' => $requestRecord->createdBy->name,
                 ] : null,
                 'department' => $this->namedEntity($requestRecord->department),
+                // Stage 76 — the panel picks Appendix 70's دليل التنفيذ from
+                // the request's own documents, so it needs the list plus
+                // whichever of them a previous lap already marked.
+                'attachments' => $requestRecord->relationLoaded('attachments')
+                    ? $requestRecord->attachments->map(fn ($attachment) => [
+                        'id' => $attachment->id,
+                        'original_name' => $attachment->original_name,
+                        'label' => $attachment->label,
+                        'execution_evidence_type' => $attachment->execution_evidence_type,
+                    ])->values()->all()
+                    : [],
             ] : null,
             'decision' => $this->decision ? [
                 'id' => $this->decision->id,
@@ -65,6 +76,17 @@ class MeetingOutputResource extends JsonResource
             ] : null,
             'can_mark_executed' => $inExecution && $atFinalStage,
             'can_close' => $executed && $atFinalStage,
+            // Stage 76 — النموذج 17's recorded card and its seven متابعة
+            // التنفيذ answers, so the screen shows the proof rather than only
+            // the claim once execution has been recorded.
+            'execution' => $requestRecord?->execution === null ? null : [
+                ...$requestRecord->execution,
+                'executed_at' => $requestRecord->executed_at?->toIso8601String(),
+            ],
+            'execution_checklist' => $requestRecord?->execution_checklist,
+            // Art. 97 — the one متابعة التنفيذ answer that binds against real
+            // state, surfaced so the panel can say so before submitting.
+            'has_financial_impact' => (bool) $requestRecord?->has_financial_impact,
         ];
     }
 

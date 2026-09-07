@@ -41,6 +41,14 @@ class Request extends Model
         'closure_audit',
         'closed_by_user_id',
         'closed_at',
+        // Stage 76 — النموذج 17's execution card and its متابعة التنفيذ
+        // checks. Written only by MeetingOutputService::markExecuted() (and
+        // cleared by RequestController::reopen), fillable for the same reason
+        // the closure columns above are.
+        'execution',
+        'execution_checklist',
+        'executed_by_user_id',
+        'executed_at',
     ];
 
     protected function casts(): array
@@ -64,6 +72,11 @@ class Request extends Model
             'closure' => 'array',
             'closure_audit' => 'array',
             'closed_at' => 'datetime',
+            // Stage 76 — Appendix 70's execution proof and النموذج 17's
+            // seven-point tracking checklist.
+            'execution' => 'array',
+            'execution_checklist' => 'array',
+            'executed_at' => 'datetime',
         ];
     }
 
@@ -96,6 +109,12 @@ class Request extends Model
     public function closedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'closed_by_user_id');
+    }
+
+    /** Stage 76 — النموذج 17's executing officer. */
+    public function executedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'executed_by_user_id');
     }
 
     public function stageLogs(): HasMany

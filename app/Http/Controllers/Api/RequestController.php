@@ -418,6 +418,27 @@ class RequestController extends Controller
             ]);
         }
 
+        // Stage 76 — the same rule one step earlier, for the same reason: a
+        // reopened request that carries the previous lap's execution record
+        // would be refused a second, genuine execution by that stage's one-shot
+        // gate. The Appendix 70 marks are cleared with it, deliberately: a
+        // fresh lap needs fresh دليل التنفيذ, and leaving the marks would let a
+        // document produced for a superseded execution satisfy the evidence
+        // requirement for one it was never produced for. The documents
+        // themselves stay in the file; only their evidence designation goes.
+        if ($requestRecord->executed_at !== null) {
+            $requestRecord->attachments()
+                ->whereNotNull('execution_evidence_type')
+                ->update(['execution_evidence_type' => null]);
+
+            $requestRecord->update([
+                'execution' => null,
+                'execution_checklist' => null,
+                'executed_by_user_id' => null,
+                'executed_at' => null,
+            ]);
+        }
+
         return $this->detailResource($requestRecord, $workflow, $actor);
     }
 
@@ -477,7 +498,11 @@ class RequestController extends Controller
             // collide ("ambiguous column name: request_id").
             'latestStageLog',
             'createdBy:id,name',
-            'attachments:id,request_id,original_name,mime_type,size_bytes,label,uploaded_by_user_id,created_at',
+            // Stage 76 — execution_evidence_type flags which documents are
+            // Appendix 70's دليل التنفيذ; omitting it from this restricted
+            // list would make AttachmentResource report every document as
+            // unmarked on the one screen that shows the execution record.
+            'attachments:id,request_id,original_name,mime_type,size_bytes,label,execution_evidence_type,uploaded_by_user_id,created_at',
             'stageLogs' => fn ($query) => $query->orderBy('acted_at')->orderBy('id'),
             'stageLogs.fromStage:id,order_no,code,name_ar,name_en',
             'stageLogs.toStage:id,order_no,code,name_ar,name_en',
@@ -507,6 +532,8 @@ class RequestController extends Controller
             'latestLegalReview.reviewedBy:id,name',
             // Stage 75 — النموذج 18's مسؤول الإقفال, named on the closure card.
             'closedBy:id,name',
+            // Stage 76 — النموذج 17's executing officer.
+            'executedBy:id,name',
         ]);
         $requestRecord->loadCount('legalReviews');
         // Stage 75 — Appendix 48's refusal, computed by the same service the

@@ -19,12 +19,14 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\ClosesRequests;
+use Tests\ExecutesRequests;
 use Tests\TestCase;
 
 /** Stage 37 — meeting decisions followed through approval, execution, and close. */
 class MeetingOutputsTest extends TestCase
 {
     use ClosesRequests;
+    use ExecutesRequests;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -104,7 +106,7 @@ class MeetingOutputsTest extends TestCase
 
         // Members may monitor outputs, but only the head's edit grant can act.
         $this->actingAs($member, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute")
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute", $this->executionPayload($requestRecord))
             ->assertForbidden();
 
         // Stage 69 — Appendix 5 refuses to let 19 and 20 collapse, so closing
@@ -118,7 +120,7 @@ class MeetingOutputsTest extends TestCase
             ->assertStatus(422);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute")
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute", $this->executionPayload($requestRecord))
             ->assertOk()
             ->assertJsonPath('data.summary.in_execution', 0)
             ->assertJsonPath('data.summary.executed', 1)
@@ -184,7 +186,7 @@ class MeetingOutputsTest extends TestCase
         // statement about closure. So execution succeeds and the close is what
         // the hold refuses.
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute")
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute", $this->executionPayload($requestRecord))
             ->assertOk()
             ->assertJsonPath('data.outputs.0.execution_status.code', 'executed');
 
@@ -214,7 +216,7 @@ class MeetingOutputsTest extends TestCase
         ]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$otherMeeting->id}/outputs/{$agendaItem->id}/execute")
+            ->postJson("/api/meetings/{$otherMeeting->id}/outputs/{$agendaItem->id}/execute", $this->executionPayload($agendaItem->request))
             ->assertNotFound();
 
         $this->assertSame('in_execution', $agendaItem->request->fresh()->status->code);
@@ -225,7 +227,7 @@ class MeetingOutputsTest extends TestCase
         [$head, , , $meeting, $agendaItem, $requestRecord] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute")
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute", $this->executionPayload($requestRecord))
             ->assertStatus(422)
             ->assertJsonValidationErrors('action');
 

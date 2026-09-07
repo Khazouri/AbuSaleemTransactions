@@ -109,6 +109,19 @@ class RequestDetailResource extends RequestResource
                 'can_close' => $this->closure_refusal === null,
                 'reason' => $this->closure_refusal,
             ],
+            // Stage 76 — النموذج 17's execution card and its seven متابعة
+            // التنفيذ answers, read-only here. Recording execution stays on the
+            // outputs screen, which is agenda-item-scoped: unlike closure, code
+            // 19 is only ever reachable through a decided agenda item.
+            'execution' => $this->execution === null ? null : [
+                ...$this->execution,
+                'executed_at' => $this->executed_at?->toIso8601String(),
+                'executed_by' => $this->executedBy ? [
+                    'id' => $this->executedBy->id,
+                    'name' => $this->executedBy->name,
+                ] : null,
+            ],
+            'execution_checklist' => $this->execution_checklist,
         ];
     }
 }

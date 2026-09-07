@@ -14,6 +14,271 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-08 13:05 EET — Claude — Stage 76 complete (execution proof)
+
+Built per the plan below, from the verbatim sources — [D] **Arts. 95, 96, 97**, **Appendices 52 and 70** and
+**النموذج 17** read directly. One migration (four columns on `requests`, one on `attachments`), applied to the
+real MySQL/Homestead database. **No seeder change and no new endpoint**: this stage gave an endpoint that
+already existed the evidence Appendix 70 has always demanded of it.
+
+**The Build bullet names a method that no longer exists, and the right host was already documented.**
+STAGE_PLAN says the evidence gate goes "before `MeetingOutputService::complete()` will close the item" — but
+Stage 69 split `complete()` into `markExecuted()` (18 → 19) and `close()` (19 → 20), and Stage 75 deleted
+`close()` outright. Appendix 70 is التحقق النهائي **من التنفيذ**, so it verifies the execution claim, and the
+execution claim is exactly code 19: the gate is on **`markExecuted()`**, which is where that method's own
+docblock already said Stage 76's requirement belonged. Execution stays **meeting-scoped** where Stage 75's
+closure had to move: `markExecuted()` requires a persisted agenda item carrying a decision, so unlike
+عدم موافقة/عدم اختصاص there is no execution path that never rode an agenda.
+
+**The evidence is a real attachment, and that is the whole stage.** New nullable
+`attachments.execution_evidence_type` carries one of Appendix 70's own eight kinds (قرار إداري · تحديث في سجل
+الموظف · قرار نقل · قرار ندب · تعديل درجة · إفادة مالية · مستند مباشرة · وثيقة أخرى) — `other` included because
+the appendix introduces its list with "وقد يكون", i.e. examples, and closes with "أي وثيقة تثبت تحقق الأثر
+المطلوب", so an exhaustive enum would close a list the source leaves open (Stage 74's Appendix 28 reasoning).
+Code 19 is now unreachable unless at least one of the request's **own** documents is nominated and typed. One
+column on the **existing** `attachments` table, not a second table: Stage 59's separate `appeal_attachments`
+exists because an appeal is a *different parent*, whereas execution evidence belongs to the same `requests`
+row whose document set `RequestDetailView` and Stage 72's checklist card already render as one list.
+
+**النموذج 17's seventh check is therefore derived, never asked.** "هل تم إرفاق مستند التنفيذ؟" is read from
+the marked documents — the Stage 60/75 split (ask a human only what the system cannot answer, because asking
+and then overriding is worse than not asking), applied to the one check Appendix 70 explicitly refuses to let
+be an attestation. The other six are the executing officer's, **tri-state** (`yes|no|not_applicable`) for
+Stage 75's reasons: not every executed decision issues an administrative قرار or touches an organisational
+unit. A single `no` refuses, quoting the failed question back.
+
+**Art. 97 gives one of those six a real system fact to bind against, and that is the substantive find.**
+Five are attestations with no column to read — but `financial_effect_referred` is not: Stage 47 already
+records `requests.has_financial_impact`. A request flagged as carrying a financial effect **cannot** reach
+code 19 until that check is `yes`; on an unflagged request `not_applicable` is honest. Same shape as Stage
+75's Appendix 48 condition 8 — an answer that binds against real state rather than one that can be ticked
+away. **The inverse is deliberately not enforced**: answering `yes` on an unflagged request is not refused,
+because the flag is a per-type default and the executing body may know better. Both directions are tested,
+and the refusal was proven live.
+
+**النموذج 17's card, less the three fields already known.** الموظف is the request's `createdBy`, رقم المعاملة
+is `reference_number`, and القرار is the agenda item's Stage 70-numbered decision — asking a human to retype
+an answer the system holds is the error Stage 75's computed `final_result_code` avoided. So `requests.execution`
+stores `executing_body`, `action_taken`, `effective_date`, `approving_body` (**all four required** — Appendix
+70's premise is that the executing body's claim must be substantiated, and each is knowable by whoever
+received Art. 95's execution file) plus optional `approval_number`, `approval_date`, `financial_effect_note`.
+رقم/تاريخ الاعتماد stay optional because the approving body's own numbering is **Stage 77's** scope (Stage 70's
+note on Appendix 30), and requiring it would demand data no path supplies yet. That set also completes **Art.
+95**: its eight components are the decision, the requester, الإجراء المطلوب، تاريخ النفاذ، الأثر المالي،
+الجهات المخطرة (the checklist's own إخطار items) and "أي مستند آخر لازم", which is the evidence itself.
+
+**Appendix 52 is evidenced, not modelled** — Track K's scope decision (1) puts ملف الخدمة outside this
+application, so its eight items (القرار النهائي، تاريخ النفاذ، أثر القرار، الدرجة، الوظيفة، الجهة، الوضع
+المالي، الأقدمية) are the on-screen prompt for what `employee_file_updated` means, and the *proof* is an
+Appendix 70 attachment of kind `employee_record_update`. Its matrix row **stays ⚠ on purpose**: nothing
+verifies the eight fields were actually written, because the file they live in is not here.
+
+**This stage closes Stage 75's own open item (2), and the closure is proven rather than asserted.** Appendix
+47's ninth check (`execution_document_attached`) moved out of `RequestClosureService::CLOSER_CHECKS` and joins
+`appeal_path_concluded`/`archive_location_set` as server-derived: `yes` when the request carries Appendix 70
+evidence, `not_applicable` otherwise — Art. 37's Paths 2 and 3 close requests that were never executed and
+honestly have no execution document. The smoke run **spoofed `"no"` on that key and got `"yes"` back**, since
+`CloseRequest` no longer accepts it at all. **Appendix 47's fifth check (هل تم التنفيذ؟) was deliberately left
+with the closer** even though `executed_at` could now answer it: Stage 75 asked this stage to decide the
+*evidence* question specifically, and a wrong answer on #5 refuses a closure rather than wrongly permitting
+one. Flagged below rather than swept along.
+
+**Schema mirrors Stage 75's closure columns exactly**: `requests.execution` (json), `execution_checklist`
+(json), `executed_by_user_id` (FK, nullOnDelete), `executed_at` — `executed_at` **is** the execution date and
+`executed_by_user_id` النموذج 17's executing officer, so the JSON carries the rest. The real database held
+**0 requests** going in, so there was no backfill.
+
+**Reopening clears the record *and* unmarks its evidence.** Stage 75's clearing precedent, plus one addition
+worth knowing: the Appendix 70 marks go too, because a stale document produced for a superseded execution
+would otherwise satisfy the gate for a lap it never covered. **The documents themselves stay in the file** —
+only their evidence designation is removed, which a test asserts explicitly.
+
+**One real correctness gap found and closed — the fourth instance of the same class.** `RequestVisibility`
+lists `in_execution` among the terminal statuses excluded from a non-creator's assignment-based visibility,
+and Stage 75's clause admits only Art. 37's three *closable* states — so an R02/R03 executing a request they
+did not create would 404 on the file, **and on `AttachmentController::store()` when uploading the very
+evidence this stage demands**. Fixed by extending that clause with `in_execution` (named through
+`RequestExecutionService::EXECUTABLE_STATUS` rather than a second literal). **Verified live in both
+directions**: R02 got 200 on an `in_execution` request they did not create, R04 — who holds no
+`meeting_outputs,edit` — got 404 on the same request, so the widening is grant-bounded, not general.
+
+**Permissions: no seeder change.** `meeting_outputs,edit` is `['R02','R03']` after Stage 75, and Art. 96
+assigns execution and its follow-up to قسم شؤون الموظفين — R02's own area. `notes_attachments,add` already
+covers R02–R05, so uploading evidence needed nothing either.
+
+Frontend: new shared `RequestExecutionPanel.vue` plus `lib/requestExecution.js` mirroring the check, kind and
+Appendix 52 lists once (the Stage 75 `RequestClosurePanel.vue` precedent). `MeetingOutputsView`'s one-click
+execute button became that panel — the view's `completingId`/`actionError` state and the
+`markExecuted`/`executeConfirm` locale keys were removed, since both row actions now own their own posting
+and surface their own errors inline. `RequestDetailView` gained a read-only execution card and flags which
+attachments are دليل التنفيذ. `RequestDetailResource` gained `execution`/`execution_checklist` (deliberately
+not the shared `RequestResource`, so list payloads stay untouched, per Stage 72's precedent); the closure
+panel lost its now-derived question.
+
+Verification: new `tests/Feature/RequestExecutionTest.php` (12 tests — Appendix 70 refusing a bare claim and
+refusing evidence belonging to another request; a full execution recording the card, the checklist and the
+mark while leaving the stage untouched; each of the four required card fields refused when blank; a single
+`no` refusing while `not_applicable` passes; Art. 97 binding then releasing, and an unflagged request answering
+`not_applicable` honestly; the one-shot gate; a reopen clearing the record and unmarking the evidence while
+keeping the document; closure deriving Appendix 47 #9 from real evidence; the non-creator executor opening and
+attaching to a request they did not create; the R04 403 and R02 200). Full suite **396 tests / 2521
+assertions** green (was 384/2449), Pint clean **repo-wide** (`--test` over `app/`, `database/`, `tests/`
+reports zero diffs), `npm run build` passes (then reverted `frontend/dist`, tracked in git, per every prior
+stage's note), locale key-parity verified programmatically (1346 keys each side, zero on-one-side-only), and
+the migration ran clean against the real MySQL/Homestead database.
+
+**Two pre-existing test files needed legitimate fixture updates, not regression fixes** — `MeetingOutputsTest`'s
+five execute calls now carry النموذج 17 and Appendix 70, since this stage deliberately changes what that
+action requires; a new `Tests\ExecutesRequests` trait supplies one complete payload (and a real attachment) so
+those tests say "a properly substantiated execution" once, the `ClosesRequests` precedent. `RequestClosureTest`
+stopped supplying `execution_document_attached` and now asserts the derivation instead — the assertion that
+proves Path 3 reports `not_applicable`.
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r02.reviewer@` account and a
+bootstrapped fixture: a bare claim was refused with **Appendix 70's own sentence** ("لا يكفي أن تقول الجهة
+المنفذة (تم التنفيذ)؛ يجب إرفاق دليل التنفيذ."); a single `no` was refused quoting "هل تم تحديث ملف الموظف؟"; a
+foreign attachment id was refused; a financially-flagged request was refused with Art. 97's own message and
+recorded once the referral was answered; the full execution landed on `executed` with `next_action:
+close_request`, the card intact, the checklist's derived seventh check reading `yes`, and the attachment marked
+`administrative_decision`; a second attempt 422'd; and the closure derived #9 as `yes` against a spoofed `no`.
+Deleted every fixture row (2 requests, meeting, agenda item, decision, attachment, committee — hard-deleted,
+since `Committee` soft-deletes), revoked every token and purged the run's queued jobs and audit rows — counts
+confirmed back to 0 requests / 0 meetings / 0 decisions / 0 attachments / 0 tokens / 0 jobs. The four
+soft-deleted committees earlier sessions left behind were left alone, as in Stage 74.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Art. **95** ⚠→✅, Appendix **70** ❌→✅ and
+**النموذج 17** ❌→✅, and rewrote Arts. **96**/**97** and Appendix **52**'s rows — 52 **stays ⚠ on purpose**,
+since ملف الخدمة is outside this application. Headline counts adjusted by this stage's own delta (articles
+82→83 ✅ / 15→14 ⚠; appendices 48→49 ✅). **A drift in those headline counts was found and flagged rather than
+silently propagated**: the appendices' ❌ column read 0 while appendices 10, 13 and 70 were all tagged ❌ in the
+rows. A note under the table now says to trust the per-row tags until someone recounts, and explains why a
+naive count disagrees (grouped rows like 58–61 and appendix 3's per-form children).
+
+**Open items for whoever builds Stage 77+.** (1) **Appendix 47's fifth check (هل تم التنفيذ؟) is still an
+attestation** although `executed_at` could answer it — a deliberate, minimal-scope call recorded above; a stage
+that wants closure's audit fully derived should take it, and take Appendix 47 #5 and #9 together. (2) **The six
+executor checks other than the financial one bind against nothing** — Appendix 52's fields, "تحديث النظام" and
+the two إخطار items have no system fact to read, and inventing proxies would report guesses as recorded facts;
+whichever stage adds employment-record data or Art. 101's notification moments (Stage 79) should decide
+deliberately which of them become derived. (3) **`executing_body`/`approving_body` are free text and duplicate
+what Stage 68's legal card and Stage 75's closure card ask separately** — the third instance of the same
+duplication Stage 74's open item (1) first flagged; the execution card now *precedes* closure, so it is the
+natural pre-fill source if a stage wants them reconciled. (4) **Evidence is nominated from the request's
+existing attachments, never uploaded by the execute endpoint itself** — deliberate (one upload mechanism,
+Stage 12's, and the panel says so when a request has no documents yet), but it means the executor uploads on
+the request screen and then returns to the outputs screen. (5) Execution fires **no notification**; Art. 101's
+twelve moments are Stage 79's, and "بدء التنفيذ" is named among them.
+
+---
+
+### 2026-09-08 11:20 EET — Claude — Stage 76 implementation plan (execution proof)
+
+Building Stage 76 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Art. 95**
+(ملف التنفيذ — the eight things sent to the executing body), **Art. 96** (قسم شؤون الموظفين executes,
+follows up and updates the employee file), **Art. 97** (أثر القرار المالي — "يحال إلى الجهة المالية أو
+**قسم المرتبات والمهايا** بعد اكتمال الاعتماد"), **Appendix 52** (قواعد تحديث الملف الوظيفي بعد التنفيذ),
+**Appendix 70** (التحقق النهائي من التنفيذ — "لا يكفي أن تقول الجهة المنفذة: (تم التنفيذ) **بل يجب إرفاق
+دليل التنفيذ**", with eight named kinds) and **النموذج 17** (أمر تنفيذ قرار وظيفي — its header card plus a
+**seven-point** متابعة التنفيذ list).
+
+**The Build bullet names a method that no longer exists, and the correct host is already documented.**
+STAGE_PLAN says the evidence must be required "before `MeetingOutputService::complete()` will close the
+item" — but Stage 69 split `complete()` into `markExecuted()` (18 → 19) and `close()` (19 → 20), and
+Stage 75 deleted `close()` outright, moving closure to `RequestClosureService`. Appendix 70 is
+التحقق النهائي **من التنفيذ**, i.e. it verifies the execution claim, and the execution claim is exactly
+code 19 — so the gate goes on **`markExecuted()`**, which is also where `MeetingOutputService`'s own
+docblock already says Stage 76's evidence requirement belongs. Execution stays **meeting-scoped** (unlike
+Stage 75's closure, which had to move): `markExecuted()` requires a persisted agenda item with a recorded
+decision, so unlike عدم موافقة/عدم اختصاص there is no execution path that never rode an agenda.
+
+**The evidence is a real attachment, not a tick — that is the whole stage.** Appendix 70's "دليل التنفيذ"
+becomes a nullable **`attachments.execution_evidence_type`** column carrying one of the appendix's own
+eight kinds (قرار إداري · تحديث في سجل الموظف · قرار نقل · قرار ندب · تعديل درجة · إفادة مالية · مستند
+مباشرة · أي وثيقة أخرى → `administrative_decision|employee_record_update|transfer_decision|
+secondment_decision|grade_amendment|financial_statement|commencement_document|other`). One column on the
+**existing** `attachments` table rather than a second table (the Stage 59 `appeal_attachments` precedent
+does not apply — that table exists because an appeal is a *different parent*; here the parent is the same
+`requests` row, and a separate table would fragment a request's document set that `RequestDetailView` and
+Stage 72's checklist card already render as one). A non-null value is what makes النموذج 17's seventh
+check (تم إرفاق مستند التنفيذ) **server-derived** rather than attested — the Stage 60/75 split, applied to
+the one check Appendix 70 refuses to let a human answer.
+
+**Schema mirrors Stage 75's closure columns exactly**, one migration, two tables: `requests.execution`
+(json — النموذج 17's card), `requests.execution_checklist` (json — its seven checks),
+`executed_by_user_id` (FK, nullOnDelete), `executed_at`; plus `attachments.execution_evidence_type`.
+`executed_at` **is** the execution date and `executed_by_user_id` the executing officer, so the JSON
+carries the rest under Stage 75's own key naming.
+
+**النموذج 17's card: three of its fields are already known and are not asked for.** الموظف is the
+request's `createdBy`, رقم المعاملة is `reference_number`, and القرار is the agenda item's own Stage
+70-numbered decision — asking a human to retype an answer the system holds is the error Stage 75's
+`final_result_code` avoided. The card therefore stores `executing_body`, `action_taken`, `effective_date`
+(Art. 95 item 5 / Appendix 52 item 2's تاريخ النفاذ), `approving_body` — all four **required**, because
+Appendix 70's premise is that the executing body's claim must be substantiated and each is knowable by
+whoever received Art. 95's execution file — plus optional `approval_number`, `approval_date` and
+`financial_effect_note` (رقم/تاريخ الاعتماد stay optional because the approving body's own numbering is
+**Stage 77's** scope, per Stage 70's note on Appendix 30, and requiring it would demand data no path
+supplies yet).
+
+**Art. 97 gives one of the seven checks a real system fact to bind against, and that is the substantive
+find.** Six of النموذج 17's checks are attestations with no column to read — but `financial_effect_referred`
+is not: Stage 47 already records `requests.has_financial_impact`. So a request flagged as carrying a
+financial effect **cannot** be executed until that check is `yes`; on an unflagged request it may honestly
+be `not_applicable`. This is the same shape as Stage 75's Appendix 48 condition 8 (an answer that binds
+against real state rather than one that can be ticked away). The inverse is deliberately **not** enforced —
+answering `yes` on an unflagged request is not refused, since the flag is a default derived from the
+request type and the executor may know better.
+
+Checks are **tri-state** (`yes|no|not_applicable`) for Stage 75's own reasons — not every executed decision
+issues an administrative قرار or touches an organisational unit — and a single `no` refuses, quoting the
+failed question back. **Appendix 52 is honoured as guidance, not as columns**: per the Track K intro's
+scope decision (1) ملف الخدمة lives outside this application, so its eight items are surfaced as the
+on-screen prompt for what `employee_file_updated` means, and the *evidence* for it is an Appendix 70
+attachment of kind `employee_record_update`.
+
+**This stage closes Stage 75's own open item (2).** `RequestClosureService`'s Appendix 47 check
+`execution_document_attached` was an attestation because nothing verifiable existed; it now moves out of
+`CLOSER_CHECKS` and joins `appeal_path_concluded`/`archive_location_set` as server-derived — `yes` when the
+request carries Appendix 70 evidence, `not_applicable` otherwise (Art. 37's Paths 2 and 3 close requests
+that were never executed). Appendix 47's fifth check (هل تم التنفيذ؟) is **deliberately left as an
+attestation** and recorded as an open item rather than swept along: it is not what Stage 75 asked this
+stage to decide, and a wrong answer there refuses closure rather than wrongly permitting it.
+
+**One real correctness gap to close, the fourth instance of the same class.** `RequestVisibility::apply()`
+lists `in_execution` among the terminal statuses excluded from a non-creator's assignment-based visibility,
+and Stage 75's `$isCloser` clause admits only Art. 37's three *closable* states — so an R02/R03 executing a
+request they did not create would 404 on the file, and on `AttachmentController::store()` when uploading the
+very evidence Appendix 70 demands. Fixed with the same bounded clause Stages 47/68/75 used: extend that
+clause by `in_execution`. `notes_attachments,add` already covers R02–R05, so no seeder change there.
+
+**Permissions: no seeder change.** `meeting_outputs,edit` is `['R02','R03']` after Stage 75, and Art. 96
+assigns execution and follow-up to قسم شؤون الموظفين — R02's own area — so the grant already fits.
+
+**Reopening clears the execution record *and* unmarks its evidence**, matching Stage 75's clearing of the
+closure card: otherwise the one-shot gate would refuse a second, genuine execution, and a stale previous-lap
+document would satisfy Appendix 70 for a lap it was never produced for.
+
+Frontend: new shared `RequestExecutionPanel.vue` plus `lib/requestExecution.js` mirroring the check and
+evidence-kind lists once (the Stage 75 `RequestClosurePanel.vue` precedent); `MeetingOutputsView`'s execute
+button becomes that panel (card + six checks + an evidence picker over the request's own attachments);
+`RequestDetailView` gains a read-only execution card and flags which attachments are دليل التنفيذ;
+`RequestDetailResource` gains `execution`/`execution_checklist`; the closure panel loses its now-derived
+question. New top-level `requestExecution.*` locale block in both files.
+
+**Verification plan**: new `tests/Feature/RequestExecutionTest.php` — execution refused with no evidence in
+Appendix 70's own words, and refused when the named attachment belongs to another request; recorded with the
+card, the checklist and the marked evidence, landing on code 19 with the stage untouched; each of the four
+required card fields refused when blank; a single `no` refusing while `not_applicable` passes; Art. 97's
+binding refusing a financially-flagged request whose referral check is not `yes`, then passing once it is;
+the one-shot gate; a reopen clearing the record and unmarking the evidence; the closure audit deriving
+`execution_document_attached` as `yes` after a real execution and `not_applicable` on a Path 3 closure; the
+non-creator executor's visibility over an `in_execution` request; the R04 403 and R02 200. Plus updating
+`MeetingOutputsTest`'s execute calls (a legitimate fixture update — this stage deliberately changes what
+that action requires), the full PHPUnit suite, Pint, `npm run build`, locale key-parity, and the migration
+against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-08 09:55 EET — Claude — Stage 75 complete (request closure record)
 
 Built per the plan below, from the verbatim sources — [D] **Art. 37**, **Appendices 47 and 48** and

@@ -58,14 +58,20 @@ class RequestVisibility
         // carrying a review this member's tier already recorded — never a
         // general read of the whole pipeline.
         $isLegalReviewer = $actor->hasScreenPermission('legal_review', 'can_add');
-        // Stage 75 — the third instance of the same gap. [D] Art. 37's second
-        // and third final paths close requests (عدم موافقة، عدم اختصاص) whose
+        // Stage 75/76 — the third and fourth instances of the same gap.
+        // [D] Art. 37's second and third final paths close requests (عدم موافقة، عدم اختصاص) whose
         // statuses are in $terminalStatusIds above, and a Stage 54
         // pre-committee عدم اختصاص appears on no meeting screen at all, so the
         // closer would 404 on the very file Appendix 47 puts in front of them.
         // Bounded to Art. 37's own three closable states plus a file this
         // grant has already closed (so the card stays readable), never a
         // general read of the pipeline.
+        //
+        // Stage 76 added `in_execution` for the same reason one step earlier:
+        // Appendix 70 requires the executing body to attach دليل التنفيذ, and
+        // AttachmentController::store() runs through this very gate, so without
+        // it the executor would 404 uploading the evidence their own action
+        // demands. Same grant, same bound — the outputs screen's own states.
         $isCloser = $actor->hasScreenPermission('meeting_outputs', 'can_edit');
 
         return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser) {
@@ -95,7 +101,10 @@ class RequestVisibility
                     $closable->whereIn(
                         'requests.status_id',
                         RequestStatus::query()
-                            ->whereIn('code', RequestClosureService::CLOSABLE_STATUSES)
+                            ->whereIn('code', [
+                                ...RequestClosureService::CLOSABLE_STATUSES,
+                                RequestExecutionService::EXECUTABLE_STATUS,
+                            ])
                             ->select('id'),
                     )->orWhereNotNull('requests.closed_at');
                 });

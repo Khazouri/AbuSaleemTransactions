@@ -1261,8 +1261,6 @@
       "liveHint": "تعكس الحالات مسار الطلب الفعلي وتتحدث تلقائياً.",
       "empty": "لا توجد في هذا الاجتماع طلبات قابلة للمتابعة.",
       "awaitingDecision": "بانتظار قرار اللجنة",
-      "markExecuted": "تسجيل التنفيذ",
-      "executeConfirm": "هل تؤكد تنفيذ الأثر الإداري أو المالي المطلوب؟",
       "summary": {
         "title": "ملخص مخرجات الاجتماع",
         "total_items": "بنود جدول الأعمال",
@@ -1406,6 +1404,68 @@
       "executed": "منفذة ومغلقة",
       "not_approved": "غير موافق عليها ومغلقة",
       "outside_jurisdiction": "عدم اختصاص ومغلقة"
+    }
+  },
+  "requestExecution": {
+    "title": "إثبات التنفيذ",
+    "action": "إثبات التنفيذ",
+    "formNote": "أمر تنفيذ قرار وظيفي — لا يكفي أن تقول الجهة المنفذة (تم التنفيذ) بل يجب إرفاق دليل التنفيذ.",
+    "evidenceTitle": "دليل التنفيذ",
+    "evidenceNote": "حدد المستند أو المستندات التي تثبت تحقق الأثر المطلوب، ونوع كل منها.",
+    "evidenceBadge": "دليل التنفيذ",
+    "noAttachments": "لا توجد مستندات مرفقة بهذه المعاملة؛ أرفق دليل التنفيذ من صفحة المعاملة أولاً.",
+    "notEvidence": "ليس دليل تنفيذ",
+    "checklistTitle": "متابعة التنفيذ",
+    "checklistNote": "يجاب على كل بند؛ ويعد إرفاق مستند التنفيذ محققاً تلقائياً من المستندات المحددة أعلاه.",
+    "financialBinds": "هذه المعاملة ذات أثر مالي، فلا يثبت التنفيذ قبل إحالته.",
+    "confirm": "إثبات التنفيذ",
+    "cancel": "إلغاء",
+    "saving": "جارٍ الحفظ…",
+    "error": "تعذر إثبات التنفيذ.",
+    "executedAt": "تاريخ إثبات التنفيذ",
+    "executedBy": "مسؤول التنفيذ",
+    "fields": {
+      "executing_body": "الجهة المنفذة",
+      "action_taken": "الإجراء المنفذ",
+      "effective_date": "تاريخ سريان الأثر",
+      "approving_body": "جهة الاعتماد",
+      "approval_number": "رقم الاعتماد",
+      "approval_date": "تاريخ الاعتماد",
+      "financial_effect_note": "بيان الأثر المالي"
+    },
+    "checks": {
+      "administrative_decision_issued": "هل تم إصدار القرار الإداري؟",
+      "employee_file_updated": "هل تم تحديث ملف الموظف؟",
+      "system_updated": "هل تم تحديث النظام؟",
+      "financial_effect_referred": "هل تمت إحالة الأثر المالي؟",
+      "organizational_unit_notified": "هل تم إخطار التقسيم التنظيمي؟",
+      "employee_notified": "هل تم إخطار الموظف؟",
+      "execution_document_attached": "هل تم إرفاق مستند التنفيذ؟"
+    },
+    "answers": {
+      "yes": "نعم",
+      "no": "لا",
+      "not_applicable": "لا ينطبق"
+    },
+    "evidenceTypes": {
+      "administrative_decision": "قرار إداري",
+      "employee_record_update": "تحديث في سجل الموظف",
+      "transfer_decision": "قرار نقل",
+      "secondment_decision": "قرار ندب",
+      "grade_amendment": "تعديل درجة",
+      "financial_statement": "إفادة مالية",
+      "commencement_document": "مستند مباشرة",
+      "other": "وثيقة أخرى تثبت تحقق الأثر"
+    },
+    "serviceFile": {
+      "final_decision": "القرار النهائي",
+      "effective_date": "تاريخ النفاذ",
+      "decision_effect": "أثر القرار",
+      "grade_change": "تعديل الدرجة",
+      "position_change": "تعديل الوظيفة",
+      "body_change": "تعديل الجهة",
+      "financial_change": "تعديل الوضع المالي",
+      "seniority_date": "تاريخ الأقدمية"
     }
   },
   "workflow": {

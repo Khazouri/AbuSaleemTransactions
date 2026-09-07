@@ -1261,8 +1261,6 @@
       "liveHint": "Statuses follow the live request workflow and refresh automatically.",
       "empty": "This meeting has no request items to follow.",
       "awaitingDecision": "Awaiting committee decision",
-      "markExecuted": "Record execution",
-      "executeConfirm": "Confirm that the required administrative or financial effect has been carried out?",
       "summary": {
         "title": "Meeting output summary",
         "total_items": "Agenda items",
@@ -1406,6 +1404,68 @@
       "executed": "Executed and closed",
       "not_approved": "Not approved and closed",
       "outside_jurisdiction": "Outside jurisdiction and closed"
+    }
+  },
+  "requestExecution": {
+    "title": "Execution proof",
+    "action": "Record execution proof",
+    "formNote": "Job decision execution order — the executing body saying \"done\" is not enough; the execution document must be attached.",
+    "evidenceTitle": "Execution evidence",
+    "evidenceNote": "Select the document or documents proving the required effect was achieved, and the kind of each.",
+    "evidenceBadge": "Execution evidence",
+    "noAttachments": "This request has no attached documents; upload the execution evidence from the request page first.",
+    "notEvidence": "Not execution evidence",
+    "checklistTitle": "Execution follow-up",
+    "checklistNote": "Every item must be answered; the execution-document check is derived from the evidence selected above.",
+    "financialBinds": "This request carries a financial effect, so execution cannot be proven before it is referred.",
+    "confirm": "Record execution",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "error": "Execution could not be recorded.",
+    "executedAt": "Execution recorded at",
+    "executedBy": "Executing officer",
+    "fields": {
+      "executing_body": "Executing body",
+      "action_taken": "Action carried out",
+      "effective_date": "Effective date",
+      "approving_body": "Approving body",
+      "approval_number": "Approval number",
+      "approval_date": "Approval date",
+      "financial_effect_note": "Financial effect note"
+    },
+    "checks": {
+      "administrative_decision_issued": "Was the administrative decision issued?",
+      "employee_file_updated": "Was the employee file updated?",
+      "system_updated": "Was the system updated?",
+      "financial_effect_referred": "Was the financial effect referred?",
+      "organizational_unit_notified": "Was the organizational unit notified?",
+      "employee_notified": "Was the employee notified?",
+      "execution_document_attached": "Was the execution document attached?"
+    },
+    "answers": {
+      "yes": "Yes",
+      "no": "No",
+      "not_applicable": "Not applicable"
+    },
+    "evidenceTypes": {
+      "administrative_decision": "Administrative decision",
+      "employee_record_update": "Employee record update",
+      "transfer_decision": "Transfer decision",
+      "secondment_decision": "Secondment decision",
+      "grade_amendment": "Grade amendment",
+      "financial_statement": "Financial statement",
+      "commencement_document": "Commencement document",
+      "other": "Another document proving the effect"
+    },
+    "serviceFile": {
+      "final_decision": "Final decision",
+      "effective_date": "Effective date",
+      "decision_effect": "Decision effect",
+      "grade_change": "Grade change",
+      "position_change": "Position change",
+      "body_change": "Body change",
+      "financial_change": "Financial status change",
+      "seniority_date": "Seniority date"
     }
   },
   "workflow": {

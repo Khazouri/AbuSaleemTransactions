@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Exceptions\MeetingOutputTransitionException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Meeting\ExecuteMeetingOutputRequest;
 use App\Http\Resources\MeetingOutputsResource;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Services\MeetingOutputService;
-use Illuminate\Http\Request;
+use DomainException;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -26,14 +26,28 @@ class MeetingOutputsController extends Controller
         return new MeetingOutputsResource($this->loadOutputs($meeting));
     }
 
-    /** Stage 69 — Art. 38 code 18 → 19: the effect has been carried out. */
+    /**
+     * Stage 69 — Art. 38 code 18 → 19: the effect has been carried out.
+     *
+     * Stage 76 made that a substantiated claim rather than a bare one. The
+     * request now carries النموذج 17's card, its متابعة التنفيذ answers and
+     * Appendix 70's دليل التنفيذ, all written with the status move.
+     */
     public function execute(
-        Request $request,
+        ExecuteMeetingOutputRequest $request,
         Meeting $meeting,
         MeetingRequest $agendaItem,
         MeetingOutputService $outputs,
     ): MeetingOutputsResource {
-        return $this->apply($meeting, $agendaItem, fn () => $outputs->markExecuted($agendaItem, $request->user()));
+        $validated = $request->validated();
+
+        return $this->apply($meeting, $agendaItem, fn () => $outputs->markExecuted(
+            $agendaItem,
+            $request->user(),
+            $validated,
+            $validated['checklist'],
+            $validated['evidence'],
+        ));
     }
 
     private function apply(Meeting $meeting, MeetingRequest $agendaItem, callable $move): MeetingOutputsResource
@@ -42,7 +56,10 @@ class MeetingOutputsController extends Controller
 
         try {
             $move();
-        } catch (MeetingOutputTransitionException $exception) {
+        } catch (DomainException $exception) {
+            // MeetingOutputTransitionException extends DomainException, so this
+            // one catch covers both the structural refusals that class raises
+            // and Stage 76's RequestExecutionService rules.
             throw ValidationException::withMessages([
                 'action' => [$exception->getMessage()],
             ]);
@@ -61,6 +78,10 @@ class MeetingOutputsController extends Controller
             'agendaItems.request.status:id,code,name_ar,name_en,color',
             'agendaItems.request.currentStage:id,order_no,code,name_ar,name_en,responsible_role_id',
             'agendaItems.request.currentStage.responsibleRole:id,code,name_ar,name_en',
+            // Stage 76 — the outputs screen's execute panel picks Appendix 70's
+            // دليل التنفيذ from the request's own documents, and shows the
+            // recorded card once execution is proven.
+            'agendaItems.request.attachments:id,request_id,original_name,mime_type,label,execution_evidence_type',
         ]);
     }
 }

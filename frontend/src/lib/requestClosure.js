@@ -1,10 +1,11 @@
 // Stage 75 — [D] Appendix 47's قائمة التدقيق النهائية قبل الإقفال, mirrored
 // once for every screen that renders it (the decisionOutcomes.js precedent).
 //
-// Twelve checks, verbatim and in the appendix's own order. Ten are answered by
-// the closer; `appeal_path_concluded` and `archive_location_set` are derived
-// server-side (from the open-appeal hold and the card's own required archive
-// location), so they appear in a recorded audit but never in the form.
+// Twelve checks, verbatim and in the appendix's own order. Nine are answered by
+// the closer; `appeal_path_concluded`, `archive_location_set` and — since Stage
+// 76 — `execution_document_attached` are derived server-side (from the
+// open-appeal hold, the card's own required archive location, and Appendix 70's
+// real دليل التنفيذ), so they appear in a recorded audit but never in the form.
 export const AUDIT_CHECKS = [
   'final_result_issued',
   'minutes_approved',
@@ -20,7 +21,7 @@ export const AUDIT_CHECKS = [
   'archive_location_set',
 ]
 
-const DERIVED_CHECKS = ['appeal_path_concluded', 'archive_location_set']
+const DERIVED_CHECKS = ['appeal_path_concluded', 'archive_location_set', 'execution_document_attached']
 
 export const CLOSER_CHECKS = AUDIT_CHECKS.filter((check) => !DERIVED_CHECKS.includes(check))
 

@@ -7,6 +7,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import RequestClosurePanel from '../components/RequestClosurePanel.vue'
+import RequestExecutionPanel from '../components/RequestExecutionPanel.vue'
 import api from '../lib/api'
 
 const route = useRoute()
@@ -33,8 +34,6 @@ const meetingId = ref(route.query.meeting ? Number(route.query.meeting) : '')
 const tracker = ref(null)
 const loading = ref(false)
 const error = ref('')
-const completingId = ref(null)
-const actionError = ref('')
 
 async function loadMeetings() {
   try {
@@ -70,25 +69,10 @@ async function load({ quiet = false } = {}) {
 // 37's card and Appendix 47's audit, and is a request-level act (two of that
 // article's four final paths close requests that never reached an agenda), so
 // it runs through the shared RequestClosurePanel against the request itself.
-async function markExecuted(output) {
-  if (!window.confirm(t('meetingsUnit.outputs.executeConfirm'))) return
-
-  completingId.value = output.agenda_item_id
-  actionError.value = ''
-  try {
-    const { data } = await api.post(
-      `/meetings/${meetingId.value}/outputs/${output.agenda_item_id}/execute`,
-    )
-    tracker.value = data.data
-  } catch (requestError) {
-    actionError.value = requestError.response?.data?.errors?.action?.[0]
-      ?? requestError.response?.data?.message
-      ?? t('meetingsUnit.outputs.error')
-  } finally {
-    completingId.value = null
-  }
-}
-
+//
+// Stage 76 — recording the effect stopped being a one-click confirm. Appendix
+// 70 requires دليل التنفيذ, so both actions are now panels that own their own
+// posting and hand the refreshed tracker back.
 watch(meetingId, load)
 
 const summaryCards = computed(() => {
@@ -162,8 +146,6 @@ onUnmounted(() => window.clearInterval(refreshTimer))
         </article>
       </section>
 
-      <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
-
       <section class="card table-card">
         <div class="table-heading">
           <div>
@@ -222,18 +204,14 @@ onUnmounted(() => window.clearInterval(refreshTimer))
                   <span v-else>{{ t('common.none') }}</span>
                 </td>
                 <td>
-                  <button
-                    v-if="output.can_mark_executed"
-                    v-can="'meeting_outputs.edit'"
-                    class="primary compact"
-                    type="button"
-                    :disabled="completingId === output.agenda_item_id"
-                    @click="markExecuted(output)"
-                  >
-                    {{ completingId === output.agenda_item_id
-                      ? t('common.saving')
-                      : t('meetingsUnit.outputs.markExecuted') }}
-                  </button>
+                  <RequestExecutionPanel
+                    v-if="output.can_mark_executed && output.request"
+                    :meeting-id="tracker.meeting.id"
+                    :agenda-item-id="output.agenda_item_id"
+                    :attachments="output.request.attachments"
+                    :has-financial-impact="output.has_financial_impact"
+                    @executed="(data) => (tracker = data)"
+                  />
                   <RequestClosurePanel
                     v-else-if="output.can_close && output.request"
                     :request-id="output.request.id"
