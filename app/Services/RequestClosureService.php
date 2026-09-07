@@ -125,10 +125,11 @@ class RequestClosureService
      * rather than a generic refusal, the one-message-at-a-time discipline
      * DecisionStructureRules already set.
      *
-     * Condition 7 (أعيدت من جهة الاعتماد) is absent: nothing in this schema
-     * records a return from the approving body. That is Stage 77's own scope,
-     * and is left as an honest gap rather than proxied off a status that means
-     * something else.
+     * Condition 7 (أعيدت من جهة الاعتماد) was absent until Stage 77, which is
+     * what closes Stage 75's own open item (1): nothing in this schema recorded
+     * a return from the approving body, so the condition was left as an honest
+     * gap rather than proxied off a status that means something else. All eight
+     * are enforced now.
      *
      * @var array<string, string>
      */
@@ -146,6 +147,8 @@ class RequestClosureService
         // 5 — بانتظار مستند طلبته اللجنة
         'completion_required' => 'لا يجوز إقفال معاملة بانتظار مستند طلبته اللجنة.',
         'incomplete' => 'لا يجوز إقفال معاملة بانتظار مستند طلبته اللجنة.',
+        // 7 — أعيدت من جهة الاعتماد (Stage 77)
+        ApprovalReturnService::RETURNED_STATUS => 'لا يجوز إقفال معاملة أعيدت من جهة الاعتماد.',
     ];
 
     /**

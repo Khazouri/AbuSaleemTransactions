@@ -72,6 +72,13 @@ class RequestVisibility
         // AttachmentController::store() runs through this very gate, so without
         // it the executor would 404 uploading the evidence their own action
         // demands. Same grant, same bound — the outputs screen's own states.
+        //
+        // Stage 77 added the approval-cycle statuses for the fifth instance of
+        // the same gap: [D] Art. 30 assigns the approval register ("ويسجل مقرر
+        // اللجنة … تاريخ ورود النتيجة … أي ملاحظات أو توجيهات") to المقرر (R02),
+        // who holds no workflow_transitions row at either approval checkpoint —
+        // so the recorder would 404 on the very file they are meant to record a
+        // return from the approving body against.
         $isCloser = $actor->hasScreenPermission('meeting_outputs', 'can_edit');
 
         return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser) {
@@ -104,6 +111,7 @@ class RequestVisibility
                             ->whereIn('code', [
                                 ...RequestClosureService::CLOSABLE_STATUSES,
                                 RequestExecutionService::EXECUTABLE_STATUS,
+                                ...ApprovalReturnService::APPROVAL_CYCLE_STATUSES,
                             ])
                             ->select('id'),
                     )->orWhereNotNull('requests.closed_at');

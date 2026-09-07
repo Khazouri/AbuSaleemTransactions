@@ -154,6 +154,22 @@ class RequestStatusSeeder extends Seeder
             ['awaiting_central_approval',   'بانتظار الاعتماد المركزي', 'Awaiting Central Approval',   '#1d4ed8'],
             ['not_approved',                'غير موافق عليها',          'Not Approved',                '#b91c1c'],
             ['executed',                    'منفذة',                    'Executed',                    '#15803d'],
+
+            // --- Track K, Stage 77: returned from the approving body -------
+            // [D] Art. 38 has no code for this state — its twenty stop at
+            // بانتظار الاعتماد and معتمدة نهائيًا, with nothing between them for
+            // a file the approving body sends back. Appendix 48 names it
+            // verbatim as its seventh closure-refusal condition ("أعيدت من جهة
+            // الاعتماد"), so this is sourced rather than invented, in the same
+            // category as the routing/committee sub-states above that Art. 38
+            // also does not itemise.
+            //
+            // Deliberately NOT terminal: Art. 94 requires a re-processing
+            // action, so the file is very much still open work. Written only
+            // by App\Services\ApprovalReturnService::record(), and cleared by
+            // its resolve() back to the awaiting status or forward to Art.
+            // 78's إعادة عرض.
+            ['returned_by_approving_body', 'أعيدت من جهة الاعتماد', 'Returned by Approving Body', '#c2410c'],
         ];
 
         foreach ($statuses as [$code, $nameAr, $nameEn, $color]) {

@@ -6,8 +6,10 @@ use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Request\CloseRequest;
 use App\Http\Requests\Request\IndexRequest;
+use App\Http\Requests\Request\RecordApprovalReturnRequest;
 use App\Http\Requests\Request\RecordJurisdictionTestRequest;
 use App\Http\Requests\Request\ReopenRequest;
+use App\Http\Requests\Request\ResolveApprovalReturnRequest;
 use App\Http\Requests\Request\StoreRequest;
 use App\Http\Requests\Request\TransitionRequest;
 use App\Http\Requests\Request\UpdateFinancialImpactRequest;
@@ -22,6 +24,7 @@ use App\Models\RequestStatusHistory;
 use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Services\ApprovalReturnService;
 use App\Services\ApprovalSignatureStorage;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\NotificationDispatcher;
@@ -48,6 +51,13 @@ class RequestController extends Controller
 {
     /** Stage 54 — requirements_check outcomes that require the jurisdiction test first. */
     private const JURISDICTION_TEST_GATED_ACTIONS = ['approve', 'declare_no_jurisdiction', 'reject_formally'];
+
+    /**
+     * Stage 77 — the refusal both `approve` entry points and the detail
+     * screen's own preview filter share, so a button the SPA offers and the
+     * endpoint behind it can never disagree about an open return.
+     */
+    public const APPROVAL_RETURN_BLOCK_MESSAGE = 'لا يعتمد المحضر المعاد من جهة الاعتماد قبل إثبات إجراء إعادة المعالجة.';
 
     /**
      * Stage 66, Track J — [D] Arts. 34–37/78–79: only a request that has
@@ -284,6 +294,18 @@ class RequestController extends Controller
             ]);
         }
 
+        // Stage 77 — [D] Art. 94: a محضر the approving body sent back is not
+        // approved onward until the re-processing action has been recorded.
+        // Enforced here AND in ApprovalController::store(), which is the other
+        // way this same `approve` reaches WorkflowService — gating one alone
+        // leaves the other wide open, the dual-path trap Stage 54's own
+        // jurisdiction gate had to close the same way.
+        if ($action === 'approve' && $requestRecord->openApprovalReturn()->exists()) {
+            throw ValidationException::withMessages([
+                'action' => [self::APPROVAL_RETURN_BLOCK_MESSAGE],
+            ]);
+        }
+
         // Stage 19 — only an approval writes signature evidence; ordinary
         // forwards and exception commands remain compact JSON/form commands.
         $signaturePath = $action === 'approve'
@@ -481,6 +503,88 @@ class RequestController extends Controller
         return $this->detailResource($requestRecord, $workflow, $actor);
     }
 
+    /**
+     * Stage 77 — [D] Art. 94's سبب الإعادة half: the approving body sent the
+     * file back, and Appendix 34 classifies the return as شكلية or موضوعية.
+     *
+     * Status-only. Art. 94 is explicit that an approved محضر is never quietly
+     * amended — "بل ينشأ إجراء إعادة معالجة" — so recording the return does not
+     * move the file anywhere; resolveApprovalReturn() below is the action that
+     * does, and it routes per the kind recorded here.
+     *
+     * Rides `meeting_outputs,edit` (R02 + R03), the grant that already owns the
+     * post-decision follow-up actions. Art. 30 addresses this register to مقرر
+     * اللجنة, which is R02's own role name.
+     */
+    public function recordApprovalReturn(
+        RecordApprovalReturnRequest $request,
+        Request $requestRecord,
+        ApprovalReturnService $returns,
+        WorkflowService $workflow,
+    ): RequestDetailResource|JsonResponse {
+        $actor = $request->user();
+        $requestRecord->loadMissing(['status:id,code', 'currentStage:id,code']);
+        $validated = $request->validated();
+
+        if (($reason = $returns->refusalReason($requestRecord)) !== null) {
+            return response()->json(['message' => $reason], 422);
+        }
+
+        // Appendix 34's own classification of the reason must agree with the
+        // kind the recorder chose; only `other` is free either way, since both
+        // of the appendix's lists are introduced with "مثل".
+        if (($mismatch = $returns->kindMismatch($validated['return_kind'], $validated['return_reason_code'])) !== null) {
+            return response()->json(['message' => $mismatch], 422);
+        }
+
+        try {
+            $returns->record($requestRecord, $actor, $validated);
+        } catch (\DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return $this->detailResource($requestRecord->refresh(), $workflow, $actor);
+    }
+
+    /**
+     * Stage 77 — [D] Art. 94's الإجراء الذي اتخذ بشأنها half, and the routing
+     * Appendix 34 attaches to its own classification.
+     *
+     * Where the file goes is not a parameter: a شكلية return is re-referred to
+     * the same body the مقرر corrected it for, and a موضوعية one goes back to
+     * the committee ("لا يعدل المقرر القرار من تلقاء نفسه"). Letting the
+     * resolver pick would let a substantive remark be answered by the مقرر
+     * alone, which is the one thing the appendix rules out.
+     */
+    public function resolveApprovalReturn(
+        ResolveApprovalReturnRequest $request,
+        Request $requestRecord,
+        ApprovalReturnService $returns,
+        WorkflowService $workflow,
+    ): RequestDetailResource|JsonResponse {
+        $actor = $request->user();
+        $open = $returns->openReturn($requestRecord);
+
+        if ($open === null) {
+            return response()->json([
+                'message' => 'لا توجد إعادة من جهة الاعتماد بانتظار إثبات الإجراء المتخذ بشأنها.',
+            ], 422);
+        }
+
+        try {
+            $requestRecord = $returns->resolve(
+                $requestRecord,
+                $open,
+                $actor,
+                $request->validated('resolution_action'),
+            );
+        } catch (WorkflowTransitionException|\DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return $this->detailResource($requestRecord, $workflow, $actor);
+    }
+
     private function detailResource(Request $requestRecord, WorkflowService $workflow, $actor): RequestDetailResource
     {
         $requestRecord->load([
@@ -534,6 +638,13 @@ class RequestController extends Controller
             'closedBy:id,name',
             // Stage 76 — النموذج 17's executing officer.
             'executedBy:id,name',
+            // Stage 77 — every round of Art. 94's إجراء إعادة معالجة, oldest
+            // first, since Art. 98's own register is a register of returns.
+            'approvalReturns' => fn ($query) => $query->orderBy('id'),
+            'approvalReturns.returnedFromStage:id,code,name_ar,name_en',
+            'approvalReturns.resolutionTargetStage:id,code,name_ar,name_en',
+            'approvalReturns.recordedBy:id,name',
+            'approvalReturns.resolvedBy:id,name',
         ]);
         $requestRecord->loadCount('legalReviews');
         // Stage 75 — Appendix 48's refusal, computed by the same service the
@@ -543,6 +654,15 @@ class RequestController extends Controller
             'closure_refusal',
             app(RequestClosureService::class)->refusalReason($requestRecord),
         );
+        // Stage 77 — Appendix 34's own refusal, from the same service the two
+        // return endpoints enforce with.
+        $approvalReturns = app(ApprovalReturnService::class);
+        $requestRecord->setAttribute(
+            'approval_return_refusal',
+            $approvalReturns->refusalReason($requestRecord),
+        );
+        $openApprovalReturn = $approvalReturns->openReturn($requestRecord);
+        $requestRecord->setAttribute('open_approval_return_id', $openApprovalReturn?->id);
         $availableTransitions = $workflow->availableTransitions($requestRecord, $actor)
             ->filter(fn ($rule) => $rule->action !== 'approve'
                 || $this->actorCanApproveCurrentLevel($requestRecord, $actor))
@@ -551,6 +671,10 @@ class RequestController extends Controller
             ->filter(fn ($rule) => ! in_array($rule->action, self::JURISDICTION_TEST_GATED_ACTIONS, true)
                 || $requestRecord->currentStage()->value('code') !== 'requirements_check'
                 || $requestRecord->jurisdiction_test !== null)
+            // Stage 77 — the third site that must agree with transition() and
+            // ApprovalController::store() about an open return, or the SPA
+            // would offer an approve button both of them refuse.
+            ->filter(fn ($rule) => $rule->action !== 'approve' || $openApprovalReturn === null)
             ->values();
         $requestRecord->setAttribute('available_actions', $availableTransitions->pluck('action')->all());
         $requestRecord->setAttribute('available_transitions', $availableTransitions->map(fn ($rule) => [

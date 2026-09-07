@@ -290,6 +290,23 @@ Route::middleware('auth:sanctum')->group(function () {
         ->patch('requests/{requestRecord}/close', [RequestController::class, 'close']);
 
     /*
+     * Stage 77 — [D] Art. 94 / Appendix 34: the approving body sends the file
+     * back, and Art. 94 requires a formal إجراء إعادة معالجة recording both the
+     * reason and the action taken — never a quiet edit of an approved محضر.
+     * Two endpoints because the article names two things and nobody knows the
+     * second at the moment of the first.
+     *
+     * Same `meeting_outputs,edit` grant (R02 + R03) closure and execution
+     * already ride: that screen's declared domain is following a decision
+     * through approval, execution and close, and Art. 30 addresses this
+     * register to مقرر اللجنة, which is R02's own role name.
+     */
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->patch('requests/{requestRecord}/approval-return', [RequestController::class, 'recordApprovalReturn']);
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->patch('requests/{requestRecord}/approval-return/resolve', [RequestController::class, 'resolveApprovalReturn']);
+
+    /*
      * Stage 20 — committees & meetings. Neither has a screen of its own on the
      * 22/23-screen sheet, so both ride the `meetings` screen's permissions
      * (committee management is a prerequisite of scheduling that committee's

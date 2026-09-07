@@ -1406,6 +1406,51 @@
       "outside_jurisdiction": "Outside jurisdiction and closed"
     }
   },
+  "approvalReturn": {
+    "title": "Return from the Approving Body",
+    "action": "Record a return from the approving body",
+    "formNote": "An approved record is never informally amended; a formal re-processing action records the reason for the return and the action taken (Art. 94).",
+    "pendingResolution": "The approving body returned this request and the action taken has not been recorded yet.",
+    "resolveAction": "Record the re-processing action",
+    "confirm": "Record the return",
+    "confirmResolution": "Record the action",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "error": "The operation could not be completed.",
+    "notResolved": "Not yet recorded",
+    "returnedFrom": "Returned from stage",
+    "recordedBy": "Recorded by",
+    "resolvedAt": "Action recorded at",
+    "resolvedTo": "Referred to stage",
+    "routing": {
+      "formal": "Formal return: the rapporteur corrects the defect and the file is re-referred to the same approving body.",
+      "substantive": "Substantive return: the rapporteur does not amend the decision alone; the matter goes back to the committee."
+    },
+    "kinds": {
+      "formal": "Formal return",
+      "substantive": "Substantive return"
+    },
+    "reasons": {
+      "missing_signature": "Missing signature",
+      "numeric_error": "Numeric error",
+      "missing_document": "Missing document or attachment",
+      "drafting_error": "Drafting error",
+      "incomplete_data": "Incomplete data",
+      "restudy_requested": "Re-study requested",
+      "legal_observation": "Legal observation",
+      "jurisdiction_conflict": "Jurisdiction conflict or lack of jurisdiction",
+      "result_objection": "Objection to the result",
+      "other": "Another reason stated by the approving body"
+    },
+    "fields": {
+      "return_kind": "Return classification",
+      "return_reason_code": "Reason for the return",
+      "return_note": "Approving body's observations or directives",
+      "letter_number": "Return letter number",
+      "received_at": "Date the result arrived",
+      "resolution_action": "Action taken about the return"
+    }
+  },
   "requestExecution": {
     "title": "Execution proof",
     "action": "Record execution proof",

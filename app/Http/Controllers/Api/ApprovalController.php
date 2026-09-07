@@ -104,6 +104,18 @@ class ApprovalController extends Controller
             ]);
         }
 
+        // Stage 77 — [D] Art. 94: a محضر the approving body sent back is not
+        // approved onward until the re-processing action has been recorded.
+        // The queue is the primary way the two approving-body checkpoints get
+        // approved, so this must refuse exactly the way RequestController's
+        // generic transition endpoint does — the same reason the jurisdiction
+        // gate above is repeated here.
+        if ($requestRecord->openApprovalReturn()->exists()) {
+            throw ValidationException::withMessages([
+                'request' => [RequestController::APPROVAL_RETURN_BLOCK_MESSAGE],
+            ]);
+        }
+
         $signaturePath = $signatureStorage->store($request->file('signature'), $requestRecord);
 
         try {

@@ -14,6 +14,302 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-08 17:30 EET — Claude — Stage 77 complete (return from the approving body)
+
+Built per the plan below, from the verbatim sources — [D] **Arts. 30, 78, 94** and **Appendices 5, 34, 48** read
+directly. One migration (a new `approval_returns` table), applied to the real MySQL/Homestead database, plus one
+new `RequestStatus` row. **No seeder change beyond that status and no permission change**: `meeting_outputs,edit`
+is already `['R02','R03']` after Stage 75, and Art. 30 addresses this register to **مقرر اللجنة**, which is R02's
+own RoleSeeder name. [A] §5's **Path 3**, flagged as having no equivalent since gap-analysis §14, exists.
+
+**A return is a history table, not a column, and Art. 94 asks for that in so many words.** The article does not
+describe a field — it describes an *action*: "فلا يعدل المحضر المعتمد بصورة غير رسمية. **بل ينشأ إجراء إعادة
+معالجة يثبت سبب الإعادة والإجراء الذي اتخذ بشأنها**". A file can go round the approval loop more than once, and
+Art. 98's twelve registers include **سجل القرارات المعادة من جهة الاعتماد** — a register of returns, which an
+overwritten column cannot supply. Same reasoning Stage 68 used for `request_legal_reviews` against Stage 62's
+one-shot JSON column, and that migration's own docblock already named this stage as a future consumer. A test
+walks two rounds and asserts the first survives the second.
+
+**Each row is written at two moments because the article names two things**, and nobody knows the second at the
+moment of the first. `record()` writes سبب الإعادة (kind, reason, the approving body's own ملاحظات أو توجيهات,
+the letter number, تاريخ ورود النتيجة); `resolve()` writes الإجراء الذي اتخذ بشأنها and routes the file. That
+split is also what gives **Appendix 48's seventh condition** real teeth — while a round is open and unresolved
+the request sits on a status that refuses closure.
+
+**Appendix 34's classification is the routing, and it is derived from the reason rather than typed twice.**
+Merging Art. 94's six reasons with the appendix's seven examples gives one list partitioned by the kind each
+source assigns: **شكلية** — `missing_signature`, `numeric_error`, `missing_document` (Art. 94's نقص مستند and the
+appendix's نقص مرفق are the same thing, one code), `drafting_error`, `incomplete_data`; **موضوعية** —
+`restudy_requested`, `legal_observation`, `jurisdiction_conflict` (عدم الاختصاص / تعارض في الاختصاص likewise),
+`result_objection`. Plus **`other`**, whose kind the recorder states, because Appendix 34 introduces *both* lists
+with "مثل" — an exhaustive enum would close a list the source deliberately leaves open (Stage 74's Appendix 28
+reasoning, applied again). `return_kind` is stored either way, since the appendix's own instruction is "تصنف
+الإعادة إلى" — the classification is the datum — but a code the source classifies is **refused** when it
+disagrees, so "توقيع ناقص، موضوعية" cannot be recorded, and the test proves both directions.
+
+**Routing, per Appendix 34's own consequence.** The return itself is **status-only** — stage untouched, status →
+the new `returned_by_approving_body`, plus a `RequestStatusHistory` row and deliberately **no stage log**, because
+nothing moved. Then:
+- **شكلية** → the مقرر corrected it and re-referred to the same body: the awaiting status for the stage it is
+  standing on is restored (`approval_by_authority` → `awaiting_municipal_approval`, `local_governance_ministry` →
+  `awaiting_central_approval`), stage unchanged. That is the appendix's own carve-out — a formal defect does not
+  need the committee again, and a test asserts no stage log is written.
+- **موضوعية** → "يعاد الموضوع إلى اللجنة": `WorkflowService::reopenAtStage()` moves the file to
+  `receive_from_committee` on **`reopened_for_representation`**. That status is not invented here — **Art. 78**
+  lists إعادة الموضوع من جهة الاعتماد among إعادة العرض's own seven legitimate reasons, and Stage 66 already built
+  that status for this exact class of move (`ReopenReasonCatalog`'s `returned_by_approving_body` code is its other
+  half). Going through `reopenAtStage()` rather than writing `current_stage_id` here keeps **WorkflowService the
+  sole owner of stage movement** and leaves the same audit trail an ordinary transition would (both history rows
+  plus `stageChanged()`).
+
+**The approved محضر is never edited, which is the article's whole point.** A substantively returned request lands
+back at the committee stage with its previous `Decision` row **intact** — a test asserts the row is still there,
+unchanged — and must be nominated onto a fresh agenda to be decided again. Nothing in this stage amends a decision
+or a minutes document.
+
+**Where the file goes is deliberately not a parameter.** `resolve()` takes only the action taken; the routing
+comes from the kind recorded when the return came in. Letting the resolver pick would let a substantive remark be
+answered by the مقرر alone, which is the one thing Appendix 34 rules out.
+
+**One real gate, on the pattern Stage 54 established, at all three sites that must agree.** While a return is open
+the next approving tier must not be able to approve past it, or the remark could simply be ignored. The seeded
+`required_status_id` mechanism **cannot express this** — it is an equality gate, and `approval_by_authority` is
+legitimately reachable carrying Stage 35's `approved_with_conditions`, which such a gate would strand — so it is a
+controller-level refusal in `RequestController::transition()`, `ApprovalController::store()` (the dual path Stage
+54's own note warns about; gating one alone leaves the other wide open) and `detailResource()`'s preview filter,
+all reading one shared `APPROVAL_RETURN_BLOCK_MESSAGE`. **Verified live through both endpoints**, not merely
+unit-tested: R05 got a 422 from the approval queue and a 422 from the generic transition endpoint, with zero
+`Approval` rows written.
+
+**Appendix 48's seventh condition — Stage 75's own open item (1) — is closed.** `returned_by_approving_body` joins
+`RequestClosureService::BLOCKING_STATUSES` with the appendix's own words ("لا يجوز إقفال معاملة أعيدت من جهة
+الاعتماد."), taking that appendix from seven of eight enforced to **eight of eight**.
+
+**One real correctness gap found and closed — the fifth instance of the same class.** Art. 30 assigns this
+register to مقرر اللجنة (R02), but R02 holds no `workflow_transitions` row at either approval checkpoint, so the
+recorder would have 404'd on the very file they are meant to record against. Fixed by extending
+`RequestVisibility`'s existing `$isCloser` clause with the approval-cycle statuses, named once as
+`ApprovalReturnService::APPROVAL_CYCLE_STATUSES` (`awaiting_municipal_approval`, `awaiting_central_approval`,
+legacy `approved`, `returned_by_approving_body`) — bounded to files actually inside the approval cycle, never a
+general read of the pipeline, the same shape Stages 47/68/75/76 used. **Proven live**: R02 opened a request they
+did not create and got `can_record: true`.
+
+**The new status is not one of Art. 38's twenty, and that is stated rather than glossed.** The dictionary stops at
+بانتظار الاعتماد and معتمدة نهائيًا with nothing between them for a file the approving body sends back — but
+**Appendix 48 names the state verbatim** ("أعيدت من جهة الاعتماد"), so it is sourced rather than invented, in the
+same category as the routing and committee sub-states Art. 38 also does not itemise. Deliberately **non-terminal**:
+Art. 94 requires a re-processing action, so the file is still open work.
+
+**Art. 30 is closed by half, and the split is recorded rather than glossed.** A return records the article's
+fields 4 (تاريخ ورود النتيجة) and 6 (أي ملاحظات أو توجيهات صادرة عن جهة الاعتماد). Field 5 (**رقم قرار الاعتماد**)
+exists only on a *successful* approval and would mean threading optional metadata through
+`WorkflowService::transition()` — the app's highest-consequence write path — and its three outward counterparts
+(تاريخ الإحالة · رقم كتاب الإحالة · الجهة المحال إليها) belong with Art. 98's **سجل الإحالات للاعتماد**, i.e.
+**Stage 80**. Building half of the article here and half there would fragment it, so that row stays ⚠ with the
+split written into it.
+
+**No notification, deliberately**: Art. 101's twelve moments are Stage 79's, and `reopenAtStage()` already fires
+`stageChanged()` on the substantive branch, which is the only branch that moves.
+
+**`ApprovalReturn` is deliberately NOT in `AuditLog::AUDITED_MODELS`**, following Stage 68's own precedent for
+`RequestLegalReview` (also absent): a purpose-built history table that carries `recorded_by_user_id`/`created_at`
+and `resolved_by_user_id`/`resolved_at` for its only two writes already *is* the audit trail, and generic coverage
+would duplicate it.
+
+Frontend: new shared `ApprovalReturnPanel.vue` plus `lib/approvalReturn.js` mirroring the kind/reason table once
+(the Stage 75/76 precedent) — the reason picker filters to the chosen kind, so the form can never present a
+combination the server refuses. `RequestDetailView.vue` gained a card rendering the whole register plus the
+record/resolve panels; `RequestDetailResource` gained `approval_returns` and `approval_return_eligibility`
+(deliberately not the shared `RequestResource`, per Stage 72's precedent, so list payloads stay untouched). New
+top-level `approvalReturn.*` locale block in both files.
+
+Verification: new `tests/Feature/ApprovalReturnTest.php` (12 tests — a return recorded at each of the two approval
+checkpoints with the stage untouched and no stage log; the Appendix 34 kind/reason mismatch refused while `other`
+is accepted either way; refused outside the approval cycle and refused while one is open; each mandatory field
+refused when blank, on both halves; a formal resolution re-referring to the same body with no stage move; a
+substantive resolution reaching `receive_from_committee` on `reopened_for_representation` with both audit rows
+written and the previous decision intact; the approve gate refusing through **both** entry points with no
+`Approval` row and the preview omitting the button; closure refused in Appendix 48's own words; two rounds
+accumulating rather than overwriting; the non-creator recorder opening the file; the R04 403 and R03 200; and
+resolving with nothing open answering 422 rather than 500). Full suite **408 tests / 2610 assertions** green (was
+396/2521) — **no pre-existing test needed updating**, which is the check that this stage is additive. Pint clean
+**repo-wide** (`--test` over `app/`, `database/`, `tests/`, `routes/` reports zero diffs), `npm run build` passes
+(then reverted `frontend/dist`, tracked in git, per every prior stage's note), locale key-parity verified
+programmatically (1381 keys each side, zero on-one-side-only), and the migration plus the `RequestStatusSeeder`
+reseed ran clean against the real MySQL/Homestead database — 38 statuses, the table present with all fifteen
+columns, and **0 requests** going in, so there was no backfill.
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r02.reviewer@`/`r05.manager@` accounts
+and a bootstrapped fixture at `approval_by_authority`: R02 opened a request they did not create (the visibility
+fix, proven live); a mismatched kind was refused with Appendix 34's own classification quoted back; the recorded
+return landed on `returned_by_approving_body` with the stage untouched and closure immediately reporting "لا يجوز
+إقفال معاملة أعيدت من جهة الاعتماد."; R05 was refused through the approval queue **and** the generic transition
+endpoint; and the substantive resolution moved the file to `receive_from_committee` on
+`reopened_for_representation` with the timeline showing `approval_return_restudy`. Deleted every fixture row
+(request, return, stage log, both status-history rows, audit rows), revoked both tokens and purged the run's five
+queued jobs — counts confirmed back to 0 requests / 0 returns / 0 stage logs / 0 status history / 0 jobs / 0
+tokens.
+
+**Smoke-test gotcha worth recording**: `curl -F "signature=@/tmp/file.png"` fails with **HTTP 000** in this
+Git-Bash session — curl is the Windows binary and does not resolve the shell's `/tmp` mount, while `curl -d
+@/tmp/...` does. Use the Windows path (`C:/Users/.../Temp/...`) for `-F` uploads. Also re-confirmed: a
+multipart `POST` without `Accept: application/json` gets a **302 redirect** instead of the 422 you are asserting
+on — the same header `RequirementsCheckJurisdictionTest` already passes for its own signature uploads.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Art. **94** ❌→✅, Appendix **34** ❌→✅ and
+Appendix **48** ⚠→✅, and rewrote Art. **78**'s note (its seventh reopen reason is now a real mechanism) and Art.
+**30**'s row, which **stays ⚠ on purpose** with the two-of-six split above written into it. Headline counts
+adjusted by this stage's own delta (articles 83→84 ✅ / 3→2 ❌; appendices 49→51 ✅ / 13→11 ⚠), and the
+outright-missing list is now just Arts. 103-second and 105, both Stage 78's. `gap-analysis.md` §14's own "[A] §5
+Path 3 has no equivalent yet" paragraph records the resolution. `source-detailed-flow-verbatim.md` gained a note
+about the return path and had its rows **19** and **21** corrected — both still read "divergent → Stage 76/75"
+although those stages are built, pre-existing drift from their own doc passes, fixed here rather than left
+misleading.
+
+**Open items for whoever builds Stage 78+.** (1) **Art. 30 is half-recorded** — رقم قرار الاعتماد and the three
+outward referral fields are unbuilt, and **Stage 80** should take all four together with سجل الإحالات للاعتماد
+rather than fragmenting the article further. (2) **A resolved return is immutable** — there is no amend endpoint,
+matching every one-shot action since Stage 26; correcting one means recording a fresh round, which is also what
+Art. 94's loop describes. (3) **`RequestController::reopen()` deliberately does NOT clear approval-return rows**, unlike
+the closure and execution records it does clear: those are one-shot cards a stale copy would block, whereas returns
+are a *register* whose whole value is that earlier rounds stay readable. An open return cannot survive a reopen in
+practice — `REOPENABLE_STATUS_CODES` admits only concluded statuses and `returned_by_approving_body` is not one —
+so a reopened request only ever carries resolved rounds. A stage that widens that list must decide what an open
+round means on the new lap. (4) **Nothing enforces that a substantively returned request is actually re-decided** before it can
+be approved onward again — it re-enters the ordinary pipeline at `receive_from_committee` and the committee's own
+rules take over, which is Art. 78's إعادة العرض shape, but Appendix 63's four control gates (**Stage 78**) are
+where a "before the approval gate" check would belong if one is wanted. (5) A return fires **no notification**. Art. 101's twelve moments are
+Stage 79's, and none of them is literally a return from the approving body — the nearest is item 8, "إعادة الموضوع
+للاستكمال", which in [D] reads as the نواقص loop rather than this one. Stage 79 should decide deliberately whether
+ا return from اعتماد is one of the twelve or a thirteenth this system adds, rather than assuming either.
+
+---
+
+### 2026-09-08 15:10 EET — Claude — Stage 77 implementation plan (return from the approving body)
+
+Building Stage 77 per STAGE_PLAN.md Track K — [A] §5's **Path 3**, flagged as having no equivalent since
+gap-analysis §14. Read the verbatim sources first: [D] **Art. 94** (إعادة المحضر من جهة الاعتماد — its six
+named return reasons and its rule "**فلا يعدل المحضر المعتمد بصورة غير رسمية. بل ينشأ إجراء إعادة معالجة
+يثبت سبب الإعادة والإجراء الذي اتخذ بشأنها**"), **Appendix 34** (إعادة المعاملة من جهة الاعتماد — the
+شكلية/موضوعية split with its own examples, and "**وفي الحالة الموضوعية لا يعدل المقرر القرار من تلقاء نفسه،
+بل يعاد الموضوع إلى اللجنة إذا كانت الملاحظة تمس جوهر قرارها**"), plus **Art. 30** (الاعتماد داخل البلدية —
+the six things مقرر اللجنة records about the approval cycle), **Art. 78** (whose sixth إعادة عرض reason is
+literally "إعادة الموضوع من جهة الاعتماد"), **Appendix 48**'s seventh closure-refusal condition, and
+**Appendix 5**'s entries for statuses 15/16.
+
+**A return is a history, not a column — the Stage 68 precedent, and Art. 94 asks for it in so many words.**
+Art. 94 does not describe a field, it describes an *action*: "ينشأ إجراء إعادة معالجة". A file can go round
+the approval loop more than once (returned → corrected → re-referred → returned again), and Art. 98's
+twelve registers include **سجل القرارات المعادة من جهة الاعتماد** — a register of returns, which an
+overwritten column cannot supply. So a new `approval_returns` table with many rows per request, exactly the
+reasoning Stage 68 used for `request_legal_reviews` against Stage 62's one-shot JSON column. Stage 68's own
+migration already names this stage as a future consumer of Appendix 22's `approving_body`.
+
+**Each return record has two halves, filled at two moments, because Art. 94 names two things.** The article
+requires the re-processing action to prove **سبب الإعادة** *and* **الإجراء الذي اتخذ بشأنها** — and nobody
+knows the second at the moment of the first. So: `record()` writes the return (kind, reason, the approving
+body's own observations, the date it came back, the letter number), and `resolve()` writes what was done
+about it and routes the file. Two moments is also what gives **Appendix 48's seventh condition** real teeth:
+while a return is open and unresolved the request sits at a status that refuses closure.
+
+**Appendix 34's split is the routing decision, and it is derived from the reason rather than typed twice.**
+Merging Art. 94's six reasons with Appendix 34's seven examples gives one list, partitioned by the kind the
+sources themselves assign: **شكلية** — `missing_signature` (توقيع ناقص), `numeric_error` (خطأ رقمي),
+`missing_document` (نقص مستند أو مرفق — Art. 94's نقص مستند and Appendix 34's نقص مرفق are the same thing),
+`drafting_error` (خطأ في الصياغة), `incomplete_data` (نقص في البيانات); **موضوعية** — `restudy_requested`
+(طلب إعادة دراسة), `legal_observation` (ملاحظة قانونية), `jurisdiction_conflict` (تعارض في الاختصاص / عدم
+الاختصاص), `result_objection` (اعتراض على نتيجة). Plus `other`, whose kind the recorder must state, because
+Appendix 34 introduces both lists with "مثل" — an exhaustive enum would close a list the source deliberately
+leaves open (Stage 74's Appendix 28 reasoning, applied again). `return_kind` is stored either way, since
+Appendix 34's own instruction is "تصنف الإعادة إلى" — the classification is the datum — but a code the
+source classifies is refused if it disagrees with the kind, so "توقيع ناقص، موضوعية" cannot be recorded.
+
+**Routing, per Appendix 34's own consequence.** The return itself is **status-only**: stage untouched, status
+→ a new `returned_by_approving_body`, plus a `RequestStatusHistory` row. The file has not gone anywhere yet;
+Art. 94's re-processing action is what moves it. Then `resolve()`:
+- **شكلية** → the مقرر corrects it and re-refers to the same body: status goes back to the awaiting status
+  for the stage it is standing on (`approval_by_authority` → `awaiting_municipal_approval`,
+  `local_governance_ministry` → `awaiting_central_approval`), stage unchanged. This is literally Appendix
+  34's formal case — no committee re-presentation, because the appendix says one is not needed.
+- **موضوعية** → "يعاد الموضوع إلى اللجنة": `WorkflowService::reopenAtStage()` to `receive_from_committee`
+  with status **`reopened_for_representation`**. That status is not invented for this stage — Art. 78 lists
+  إعادة الموضوع من جهة الاعتماد among إعادة العرض's own legitimate reasons, and Stage 66 already built that
+  status for exactly this class of move. `reopenAtStage()` also writes both history rows and fires
+  `stageChanged()`, so a re-processing leaves the same audit trail an ordinary transition would; the
+  backward-only check holds (`receive_from_committee` order 9 < 10/11) and that stage is not in
+  `REDO_EXCLUDED_STAGE_CODES`.
+
+**The old decision is never edited — a new one is recorded.** That is Art. 94's whole point. A substantively
+returned request lands back at the committee stage with its previous `Decision` row intact and must be
+nominated onto a fresh agenda to be decided again, which is the same إعادة العرض path Stage 66 uses. Nothing
+in this stage touches an approved محضر.
+
+**One gate, on the pattern Stage 54 already established.** While a return is open and unresolved, the next
+approving tier must not be able to approve past it — otherwise the return could simply be ignored. The
+seeded `required_status_id` mechanism cannot express this (it is an equality gate, and
+`approval_by_authority` is legitimately reachable with `approved_with_conditions` too, which such a gate
+would strand), so this is the same controller-level refusal the jurisdiction test uses, applied at **all
+three** sites that must agree: `RequestController::transition()`, `ApprovalController::store()` — the dual
+path Stage 54's own note warns about — and `detailResource()`'s preview filter, so the SPA never offers a
+button either endpoint would refuse.
+
+**Appendix 48's seventh condition, which is Stage 75's own open item (1).** `returned_by_approving_body`
+joins `RequestClosureService::BLOCKING_STATUSES` with the appendix's own words. That takes Appendix 48 from
+seven of eight enforced to eight of eight.
+
+**Visibility — the fifth instance of the same class, closed rather than deferred.** Art. 30 assigns this
+register to **مقرر اللجنة** (R02), but R02 holds no `workflow_transitions` row at either approval stage, so
+without a fix the recorder would 404 on the very file they are meant to record a return for.
+`RequestVisibility`'s `$isCloser` clause (already `meeting_outputs,can_edit`, already R02+R03) is extended by
+the approval-cycle statuses — `awaiting_municipal_approval`, `awaiting_central_approval`, legacy `approved`,
+and `returned_by_approving_body` — named once as `ApprovalReturnService::APPROVAL_CYCLE_STATUSES`. Bounded to
+files actually inside the approval cycle, never a general read of the pipeline, the same shape Stages
+47/68/75/76 used.
+
+**Permissions: no seeder change.** `meeting_outputs,edit` is already `['R02','R03']` after Stage 75, and that
+screen's declared domain is following a decision through approval, execution and close — a return from the
+approving body is a post-decision follow-up event on exactly that. Art. 30 addresses the register to المقرر,
+which is R02's own RoleSeeder name.
+
+**Art. 30 is closed by half, and that half is stated rather than glossed.** A return records the article's
+fields 4 (تاريخ ورود النتيجة) and 6 (أي ملاحظات أو توجيهات صادرة عن جهة الاعتماد); field 5 (رقم قرار
+الاعتماد) exists only on a *successful* approval and would mean threading optional metadata through
+`WorkflowService::transition()` — the app's highest-consequence write path — for a field whose outward
+counterparts (تاريخ الإحالة، رقم كتاب الإحالة، الجهة المحال إليها) belong to **Stage 80**'s سجل الإحالات
+للاعتماد. Building half of Art. 30 here and half there would fragment it, so that row stays ⚠ with the split
+recorded. Flagged below, not silently skipped.
+
+**No notification**, deliberately: Art. 101's twelve moments are Stage 79's, and `reopenAtStage()` already
+fires `stageChanged()` for the substantive branch, which is the only branch that moves.
+
+Schema: one migration creating `approval_returns` (`request_id` cascade; `returned_from_stage_id` FK
+nullOnDelete; `return_kind`, `return_reason_code`, `return_note`, `letter_number`, `received_at`;
+`recorded_by_user_id`; `resolution_action`, `resolution_target_stage_id`, `resolved_by_user_id`,
+`resolved_at`; `index(['request_id','id'])`) plus one new `RequestStatus` row. `returned_by_approving_body`
+is **not** one of Art. 38's twenty codes — the dictionary has none for this state — but Appendix 48 names it
+verbatim ("أعيدت من جهة الاعتماد"), so it is sourced rather than invented, and it is deliberately
+**non-terminal**: the whole point is that work continues.
+
+Frontend: new shared `ApprovalReturnPanel.vue` plus `lib/approvalReturn.js` mirroring the kind/reason lists
+once (the Stage 75/76 precedent), a return card on `RequestDetailView.vue` showing the history plus the
+record/resolve panels, `RequestDetailResource` gaining `approval_returns` and `approval_return_eligibility`
+(deliberately not the shared `RequestResource`, per Stage 72's precedent), and a new top-level
+`approvalReturn.*` locale block in both files.
+
+Verification plan: new `tests/Feature/ApprovalReturnTest.php` — a return recorded at each of the two approval
+stages landing on the new status with the stage untouched; a reason code refused when it disagrees with the
+stated kind, and `other` accepted with either; the record refused outside the approval cycle and refused
+while one is already open; the approve gate refusing through **both** `transition()` and the approval queue,
+and the preview omitting the button; a formal resolution re-referring to the same body without touching the
+stage; a substantive resolution moving to `receive_from_committee` on `reopened_for_representation` with both
+audit rows written and the previous decision intact; closure refused in Appendix 48's own words while a
+return is open and permitted once resolved; a second return round accumulating rather than overwriting; the
+non-creator recorder opening a file they did not create; the R04 403 and R02 200. Plus the full PHPUnit
+suite, Pint, `npm run build`, locale key-parity, and the migration plus the `RequestStatusSeeder` reseed
+against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-08 13:05 EET — Claude — Stage 76 complete (execution proof)
 
 Built per the plan below, from the verbatim sources — [D] **Arts. 95, 96, 97**, **Appendices 52 and 70** and

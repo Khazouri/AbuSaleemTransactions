@@ -122,6 +122,21 @@ class RequestDetailResource extends RequestResource
                 ] : null,
             ],
             'execution_checklist' => $this->execution_checklist,
+            // Stage 77 — [D] Art. 94's إجراء إعادة معالجة, every round of it.
+            // History rather than a latest-only block (unlike `legal_review`
+            // above): Art. 98's own سجل القرارات المعادة من جهة الاعتماد is a
+            // register of returns, and a formal return corrected and re-referred
+            // can legitimately be followed by another one.
+            'approval_returns' => ApprovalReturnResource::collection($this->whenLoaded('approvalReturns')),
+            // Appendix 34's refusal plus the open round's id, computed by the
+            // same service the two endpoints enforce with, so the screen's "why
+            // not" and their 422 are the same sentence. Detail resource only —
+            // list payloads stay unchanged, per Stage 72's precedent.
+            'approval_return_eligibility' => [
+                'can_record' => $this->approval_return_refusal === null,
+                'reason' => $this->approval_return_refusal,
+                'open_return_id' => $this->open_approval_return_id,
+            ],
         ];
     }
 }

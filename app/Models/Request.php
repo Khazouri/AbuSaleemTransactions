@@ -171,6 +171,33 @@ class Request extends Model
         return $this->hasMany(Note::class);
     }
 
+    /**
+     * Stage 77 — every round of [D] Art. 94's إجراء إعادة معالجة, oldest first.
+     *
+     * History rather than a single record because Art. 94 describes an action a
+     * file can go through more than once, and Art. 98's سجل القرارات المعادة
+     * من جهة الاعتماد is a register of them. Only the newest unresolved one
+     * gates anything — see openApprovalReturn().
+     */
+    public function approvalReturns(): HasMany
+    {
+        return $this->hasMany(ApprovalReturn::class);
+    }
+
+    /**
+     * The unresolved return this request is sitting on, if any.
+     *
+     * Read by the approve gate in RequestController/ApprovalController and by
+     * Appendix 48's seventh closure condition — while this is non-null the
+     * approving body's own remark has not been answered yet.
+     */
+    public function openApprovalReturn(): HasOne
+    {
+        return $this->hasOne(ApprovalReturn::class)
+            ->whereNull('resolved_at')
+            ->latestOfMany();
+    }
+
     /** Stage 44 — every agenda slot this request has ridden, across meetings. */
     public function meetingRequests(): HasMany
     {
