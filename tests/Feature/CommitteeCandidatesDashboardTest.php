@@ -190,7 +190,8 @@ class CommitteeCandidatesDashboardTest extends TestCase
         $this->committeeRequest('nominated_for_committee');
         $onAgenda = $this->requestAt('receive_from_committee', 'on_agenda');
         $decided = $this->requestAt('receive_from_committee', 'decided');
-        $this->requestAt('local_governance_ministry', 'approved');
+        $this->requestAt('local_governance_ministry', 'awaiting_central_approval');
+        $this->requestAt('final_approval_archiving', 'executed');
 
         // overdue_at isn't mass-assignable (only the SLA sweep sets it in
         // production), so it's set directly here rather than via update().
@@ -260,7 +261,10 @@ class CommitteeCandidatesDashboardTest extends TestCase
 
         $this->assertSame(3, $response->json('data.funnel.candidates'));
         $this->assertSame(1, $response->json('data.funnel.on_agenda'));
-        $this->assertSame(1, $response->json('data.funnel.decided'));
+        // Art. 38's 12/15/16 all mean "resolved, waiting on an approving
+        // authority": the `decided` fixture plus the `awaiting_central_approval`
+        // one, which before Stage 69 was `approved` and wrongly counted closed.
+        $this->assertSame(2, $response->json('data.funnel.decided'));
         $this->assertSame(1, $response->json('data.funnel.closed'));
 
         $this->assertSame($meeting->id, $response->json('data.next_meeting.id'));

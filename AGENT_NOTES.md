@@ -14,6 +14,1584 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-08 02:15 EET — Claude — Stage 73 complete (⚠ committee identity card + configurable quorum)
+
+Built per the plan below, from the verbatim sources — [D] **Appendices 64 and 65** and **Arts. 84, 87**
+read directly, plus **Appendix 8** and **Appendix 26**. One migration, applied to the real
+MySQL/Homestead database. **The invented quorum is gone rather than replaced**, which is the whole
+point of the stage.
+
+**`ceil(activeMembers / 2)` was deleted from both places that had it and nothing took its default
+slot.** Appendix 64 does not leave the quorum unspecified, it *forbids* supplying one — "ولا يجوز
+للدليل إنشاء نسبة نصاب أو أغلبية من تلقاء نفسه" — so a committee whose قرار التشكيل has not been
+transcribed now reports `quorum_required: null`, `quorum_met: null`, `quorum_rule: null` and a new
+blocking readiness exception `committee_rules_not_recorded`. **The four existing committees were
+deliberately not backfilled**: seeding them with the old figure would re-assert the invented ratio as
+though it were sourced, which is the single thing the appendix rules out. The screens say "غير مثبت".
+
+**Quorum and majority are treated differently, and that split is the judgment call worth not
+re-litigating.** `ceil(n/2)` is literally a نسبة نصاب and goes. The decision tally's
+plurality-with-tie-422 asserts no نسبة أغلبية at all — only "whichever outcome got the most votes",
+refusing rather than guessing when nothing did — so it survives as the behaviour for a committee with
+no recorded majority rule, and is also selectable as `majority_type = plurality`. Once a real
+threshold **is** recorded it binds: an outcome that leads without reaching it is refused with no
+`Decision` row written, per Art. 87's "لا يجوز إثبات نتيجة مغايرة لما انتهى إليه التصويت الفعلي".
+
+**Appendix 65's card is 22 real columns on `committees`, not a JSON blob** (Stage 68's Appendix 22
+precedent). Descriptive: `formation_decision_number`/`_date`, `term_note`, `legal_basis`,
+`minutes_approval_body`, `voting_rights_note`, `minutes_signature_rule`, `recusal_rules`. Computable,
+each carrying the source's own wording beside the structured form so the number the system applies can
+be audited against the text it came from: `quorum_type` (`count|fraction`) + `quorum_count` |
+`quorum_numerator`/`_denominator` + `quorum_comparator` + `quorum_text`; `majority_type`
+(`plurality|fraction`) + `majority_basis` (`votes_cast|present|members`) + numerator/denominator +
+comparator + `majority_text`; `tie_break` (`chair_casting_vote|no_decision`) + `tie_break_text`.
+
+**Why a comparator and not a rounding rule.** "أغلبية الأعضاء" (more than half) and "لا يقل عن نصف
+الأعضاء" (at least half) give **different** numbers from the same 1/2 — over four members, three
+versus two — and silently picking one would be inventing exactly what Appendix 64 forbids, so the
+person transcribing the قرار التشكيل picks what their text says. `more_than` is the smallest integer
+strictly above base × n/d; `at_least` is `ceil`. The only arithmetic the system contributes is that a
+person is indivisible, which is not a نسبة. **A dedicated test pins the four-member `more_than 1/2`
+case at 3 precisely because the old invented rule would have said 2** — a relabelling would fail it.
+`tie_break`'s two values are both traceable: `chair_casting_vote` is Art. 87's own named
+ترجيح صوت الرئيس, and `no_decision` is the honest "the text is silent", i.e. the existing 422.
+
+**One `App\Services\CommitteeVotingRules`** owns every derivation and is read by readiness, the minutes
+compiler and `DecisionController` — the `DecisionEligibility` precedent, so the screen that shows a
+quorum and the endpoint that enforces it cannot disagree. Every accessor returns null rather than a
+default; saying "غير مثبت" is the caller's job.
+
+**⚠ The defined behaviour for meetings already held — what this stage's marker was actually asking
+for — is three things.** (1) **No existing `meeting_minutes.content` is rewritten.** It is a frozen
+snapshot of an official document (Art. 88), regeneration is already blocked once minutes leave draft,
+and a محضر keeps the numbers it was generated with. (2) **Convening freezes the rules onto the
+meeting** — new `meetings.voting_rules_snapshot` (json, nullable), written by
+`MeetingReadinessController::convene()`, and both readiness and the compiler prefer it over the live
+card. So a sitting is judged for its whole life by the rules in force when it was held, and editing
+the committee card afterwards cannot retroactively change whether a held meeting was validly convened
+— **proven end to end in the smoke run**, not merely asserted: a meeting convened under "أكثر من نصف
+الأعضاء" still reported 3 after the committee was edited to require 4. (3) **A meeting held before
+this stage has neither a snapshot nor a card and reports nulls**, rather than being retro-fitted with
+either the old invented number or a rule nobody recorded for it. The real database holds 0 meetings, 0
+minutes and 0 decisions (confirmed before designing), so (3) is a correctness statement rather than a
+live migration — but it is what any deployment with data needs.
+
+**Consumers.** `MeetingReadinessService` — quorum required/met nullable, the new exception blocking
+convene like every other one (Art. 84 makes verifying صحة الانعقاد a precondition of deliberating, and
+Stage 33's R03 override is still the escape hatch), plus `quorum_rule` in the payload so the screen can
+name the text it is applying. `MeetingMinutesCompiler` — the attendance block reports the applied rule
+and nulls when there is none, and `compile()` gained a `committee` block carrying the card, because
+Appendix 8 lists "إثبات صحة الانعقاد" among the checks a محضر must pass and validity is unprovable
+without naming the rule. `DecisionController` — one shared private `resolveOutcome()` used by **both**
+`record()` and `recordAppealDecision()`, since those are the same committee voting in the same sitting
+under the same قرار التشكيل, applying the threshold and the chair's casting vote.
+
+Frontend: the committee form gained the card as its own fieldset (the only place these can be set —
+there is still no tashkil workflow, the same reasoning Stage 48 recorded for `rapporteur_votes`), the
+committees list flags an untranscribed committee with a warning pill, `MeetingReadinessView` renders
+"غير مثبت" plus the rule's own wording, `MeetingMinutesView` shows the applied rule and the card, and
+`AppealsView`'s minutes excerpt got the same null-safe quorum line.
+
+Verification: new `tests/Feature/CommitteeVotingRulesTest.php` (11 tests — an untranscribed committee
+reporting no quorum and blocking convene; a `count` rule binding; `more_than 1/2` over four members
+requiring 3 while `at_least 1/2` requires 2; the card round-tripping through store/list and a fraction
+with no comparator being refused rather than defaulted; a recorded majority refusing a leading-but-short
+outcome with `Decision::count()` still 0, then recording it once reached; a chair's casting vote
+resolving a tie the default rule refuses; convening freezing the rules against a later card edit; the
+compiler carrying the applied rule and the card, and reporting nulls for an untranscribed committee).
+Full suite **361 tests / 2275 assertions** green (was 350/2216), Pint clean **repo-wide** (`--test`
+reports zero diffs), `npm run build` passes (then reverted `frontend/dist`, tracked in git, per every
+prior stage's note), locale key-parity verified programmatically (1232 keys each side, zero
+on-one-side-only), and the migration ran clean against the real MySQL/Homestead database.
+
+**One pre-existing test file needed a legitimate fixture update, not a regression fix** —
+`MeetingReadinessTest::committeeWithMembers()` now records "أكثر من نصف الأعضاء" on its fixture
+committee, since a meeting that is meant to be *otherwise* fully prepared can no longer borrow a
+quorum the system used to invent. That rule reproduces the number the old one happened to give for
+those fixtures (2 of 3), so every existing assertion in that file stays meaningful; the unrecorded case
+has its own coverage in the new file. Commented in place.
+
+Smoke-tested against the real MySQL/Homestead database with a bootstrapped script: a four-member
+committee under "أكثر من نصف الأعضاء" required **3** (not the old `ceil(4/2) = 2`), its majority
+threshold over four votes cast was 3, readiness reported 3/3 met, the convene snapshot survived a
+stricter edit to the committee card, the compiled محضر carried both the rule's wording and the
+formation-decision number, and a committee with no card returned `NULL` for its quorum. Deleted every
+fixture row afterward — meetings back to 0 and committees back to the 4 pre-existing rows earlier
+sessions left behind.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Appendix **64** ⚠→✅, Appendix **65**
+❌→✅ and Art. **87** ⚠→✅, and rewrote Art. **84**'s row, which **stays ⚠ on purpose** — its quorum
+check is now real, but the other five opening steps (إثبات الحاضرين والغائبين، اعتماد جدول الأعمال،
+إثبات المؤجلة أو المسحوبة) are still not a sequenced opening act, which is Stage 82's. Headline counts
+adjusted by this stage's own delta (articles 75→76 ✅ / 22→21 ⚠; appendices 41→43 ✅ / 18→17 ⚠ / 3→2 ❌).
+
+**⚠ A repo-hygiene incident worth knowing about, because it nearly cost real work.** Mid-stage I ran
+`git checkout -- app/Http/Controllers/Api/DecisionController.php` to undo a bad scripted edit —
+forgetting that **every Track K stage (67–72) is still uncommitted in this working tree**, so HEAD is
+Stage 66 and that command silently reverted Stage 69's `reject_by_committee` outcome mapping and Stage
+70's decision numbering along with my own edit. Both were reconstructed and are **verified by their own
+dedicated tests rather than by inspection** — `UnifiedNumberingTest`, `ArtThirtyEightStatusTest`,
+`DecisionRegisterTest`, `AppealCommitteePresentationTest` and `DecisionOutcomeTemplateTest` all pass,
+and the full suite is green at the Stage 72 baseline plus this stage's own additions. If a future
+session finds something in that one file that reads as Stage-66-era, that is where it came from. **Do
+not use `git checkout -- <file>` in this repo while Track K is uncommitted** — `git stash`/`git diff`
+are safe, `checkout` is not.
+
+**Open items for whoever builds Stage 74+.** (1) **`minutes_signature_rule`, `voting_rights_note` and
+`recusal_rules` are recorded and printed but enforce nothing** — the signatory roster is still "every
+attendee marked present" (Stage 36), voting rights are still membership + attendance + Stage 48's
+`rapporteur_votes`, and recusal is still Stage 48's per-item declaration. That is deliberate: those
+three are prose in the source, not formulas, and turning free text into a gate would be a second
+invention. Whichever stage wants a configurable signatory roster should structure that column rather
+than parse it. (2) **Quorum is checked at convene time against *confirmed* invitations and reported in
+the محضر against *actual* attendance** — two different measurements, as they were before this stage;
+nothing enforces the quorum at the moment a vote is cast. (3) **A `count`-type quorum is not
+re-validated against the membership**, so a committee can record "5 members required" while holding 3
+and will simply never be ready; that is honest (the text said 5) but a warning on the committee form
+would help. (4) `majority_basis: present` counts attendees marked `attended`, which is only meaningful
+once the sitting has been run — a committee whose text measures the majority against الحاضرين should
+not have decisions recorded before attendance is marked.
+
+---
+
+### 2026-09-08 00:40 EET — Claude — Stage 73 implementation plan (⚠ committee identity card + configurable quorum)
+
+Building Stage 73 per STAGE_PLAN.md Track K — the second of the track's two ⚠ stages. Read the
+verbatim sources first: [D] **Appendix 64** (قواعد النصاب والتصويت واعتماد المحاضر), **Appendix 65**
+(بطاقة تعريف اللجنة), **Arts. 84** (افتتاح الجلسة — "لا تبدأ المداولات قبل التأكد من صحة انعقاد
+اللجنة وفق النصوص المنظمة لها"), **87** (التصويت — "وفي حال كانت قواعد النصاب أو الأغلبية أو ترجيح
+صوت الرئيس محددة في التشريع أو قرار تشكيل اللجنة، تطبق كما وردت دون تعديل بهذا الدليل"), plus
+**Appendix 8** (إثبات صحة الانعقاد among the محضر quality checks) and **Appendix 26** (سجل التصويت's
+own موافق/غير موافق/ممتنع columns).
+
+**The prohibition is the whole stage, so it is worth stating exactly.** Appendix 64 does not merely
+leave the quorum unspecified — it *forbids* supplying one: "ولا يجوز للدليل إنشاء نسبة نصاب أو
+أغلبية من تلقاء نفسه", and again "لا يعتمد في الدليل رقم للنصاب أو قاعدة للتصويت إلا بعد مطابقته
+بالنص التشريعي المرفق أو قرار تشكيل اللجنة". `MeetingReadinessService.php:75` and
+`MeetingMinutesCompiler.php:88` both hard-code `ceil(activeMembers / 2)`, which is exactly the
+invented نسبة the appendix names. **So the fix is not a better default — it is the removal of the
+default.** A committee with no recorded rule reports `quorum_required: null` and a new blocking
+readiness exception (`committee_rules_not_recorded`), never a computed number. Backfilling the four
+existing committees with `ceil(n/2)` would re-assert the invented rule as though it were sourced,
+which is the one thing Appendix 64 rules out, so **there is no backfill**.
+
+**Quorum and majority are treated differently, deliberately.** `ceil(n/2)` is literally a نسبة
+نصاب and goes. The decision tally's plurality-with-tie-422 is *not* a نسبة أغلبية — it asserts only
+"whichever outcome got the most votes", and refuses rather than guess when nothing did — so it
+survives as the behaviour for a committee whose card records no majority rule, and is honoured as
+`majority_type = plurality` when a card explicitly records that. When a card records a real
+threshold, it binds: a leading outcome that falls short is refused (no Decision row) rather than
+recorded, per Art. 87's "لا يجوز إثبات نتيجة مغايرة لما انتهى إليه التصويت الفعلي".
+
+**Schema — Appendix 65's card as real columns on `committees`, not a JSON blob** (Stage 68's
+Appendix 22 precedent). Descriptive halves: `formation_decision_number`, `formation_decision_date`,
+`term_note` (مدة اللجنة إن وجدت), `legal_basis` (السند القانوني — free text, Arabic in practice
+since it cites Libyan statute), `minutes_approval_body` (جهة اعتماد المحاضر), `voting_rights_note`
+(من له حق التصويت — the *enforceable* half of that question is already `rapporteur_votes` +
+membership + attendance, so this column carries the text's own wording rather than a second gate),
+`minutes_signature_rule` (قواعد توقيع المحضر), `recusal_rules` (حالات التنحي). Computable halves,
+each carrying the source's own wording beside the structured form so a human can audit the number
+against the text: `quorum_type` (`count|fraction`), `quorum_count`, `quorum_numerator`,
+`quorum_denominator`, `quorum_comparator` (`at_least|more_than`), `quorum_text`; `majority_type`
+(`plurality|fraction`), `majority_basis` (`votes_cast|present|members`), `majority_numerator`,
+`majority_denominator`, `majority_comparator`, `majority_text`; `tie_break`
+(`chair_casting_vote|no_decision`), `tie_break_text`.
+
+**Why a comparator rather than a rounding rule.** "أغلبية الأعضاء" (more than half) and "لا يقل عن
+نصف الأعضاء" (at least half) give *different* numbers from the same 1/2, and picking one silently
+would be inventing exactly the kind of rule Appendix 64 forbids — so the person transcribing the
+قرار التشكيل picks which the text says. `more_than` yields the smallest integer strictly greater
+than base × n/d; `at_least` yields `ceil`. The only arithmetic the system supplies is that a person
+is indivisible, which is not a نسبة. `tie_break`'s two values are both traceable:
+`chair_casting_vote` is Art. 87's own named case, and `no_decision` is the honest "the text is
+silent, so nothing is recorded" — the current 422.
+
+**One `App\Services\CommitteeVotingRules`** owns every derivation (`hasQuorumRule()`,
+`quorumRequired(int $members)`, `hasMajorityRule()`, `majorityThreshold(int $base)`, `tieBreak()`,
+plus a `toArray()` snapshot), read by readiness, the minutes compiler and `DecisionController` — the
+`DecisionEligibility` precedent, so a screen and the endpoint that enforces the same rule can never
+disagree.
+
+**⚠ The defined behaviour for meetings already held, which is what this stage's marker asks for.**
+Three parts. (1) **Nothing rewrites an existing `meeting_minutes.content`** — it is a frozen
+snapshot of an official document (Art. 88), and Art. 94's "فلا يعدل المحضر المعتمد بصورة غير رسمية"
+is the governing instinct even though that article is Stage 77's; a محضر already generated keeps the
+numbers it was generated with, byte for byte. Regeneration is already blocked once minutes leave
+draft, so an approved محضر cannot be re-derived under new rules even by accident. (2) **Convening
+snapshots the rules onto the meeting** — new `meetings.voting_rules_snapshot` (json, nullable),
+written by `MeetingReadinessController::convene()` from the committee card, so a meeting is judged
+for its whole life by the rules in force when it was held, and a later edit to the committee card
+cannot retroactively change what a held meeting's readiness or محضر says. Readiness and the compiler
+prefer the snapshot over the live card whenever one exists. (3) **A meeting held before this stage
+has neither a snapshot nor a card, and is reported as such** — `quorum_required: null`,
+`quorum_met: null`, `quorum_rule: null` — rather than being retro-fitted with either the old
+invented number or a new rule nobody recorded for it. The real MySQL database holds **0 meetings, 0
+minutes and 0 decisions** (confirmed via a bootstrapped script before designing this), so part (3)
+is a correctness statement rather than a live migration, but it is the behaviour any deployment with
+data needs.
+
+**Consumers.** `MeetingReadinessService`: quorum required/met become nullable, a new
+`committee_rules_not_recorded` exception fires when no rule is available (blocking convene like
+every other exception, with Stage 33's existing R03 override still the escape hatch — Art. 84 makes
+verifying صحة الانعقاد a precondition of deliberating, so this belongs in the blocking set).
+`MeetingMinutesCompiler`: the attendance block reports the rule it applied and nulls when there is
+none, and `compile()` gains a `committee` block carrying the card (formation decision, legal basis,
+approving body, quorum/majority wording) — Appendix 8 requires "إثبات صحة الانعقاد" *inside* the
+محضر, which is unprovable without the rule. `DecisionController`: one shared private resolver used
+by **both** `record()` and `recordAppealDecision()` (same committee, same sitting, same rules — and
+Stage 63's own note establishes those two tallies stay mechanically identical), applying the
+threshold and the chair's casting vote.
+
+**Frontend**: the committee form in `MeetingsView.vue` gains the card as its own fieldset (the only
+place these can be set — no tashkil workflow exists, same reasoning Stage 48 recorded for
+`rapporteur_votes`); `MeetingReadinessView.vue` renders "غير مثبت" for a null quorum and the new
+exception's message; `MeetingMinutesView.vue` shows the applied rule and the committee card.
+
+**Verification plan**: new `tests/Feature/CommitteeVotingRulesTest.php` — an unrecorded committee
+reports a null quorum plus the new exception and is not ready; a `count` quorum binds; a
+`more_than 1/2` quorum over 4 members requires **3**, which is the case that proves the old
+`ceil(4/2) = 2` is gone rather than relabelled; the card round-trips through store/update/resource;
+a recorded majority refuses a leading-but-short outcome with no Decision row and records it once it
+clears; `chair_casting_vote` resolves a tie the plurality rule would have 422'd; convening snapshots
+the rules and a later card edit leaves the held meeting's numbers alone; the compiler reports the
+applied rule and nulls for a legacy meeting. Plus updating `MeetingReadinessTest`'s fixture helper
+to record rules (a legitimate update — this stage deliberately changes what an unconfigured
+committee reports), the full PHPUnit suite, Pint, `npm run build`, locale key-parity, and the
+migration against the real MySQL/Homestead database.
+
+---
+
+### 2026-09-07 23:55 EET — Claude — Stage 72 complete (real per-type document checklists)
+
+Built per the plan below, from the verbatim sources — [D] **Appendix 57** read row by row, plus the
+per-type chapters **Arts. 49, 54, 60, 62–63, 67–69, 71, 72–75**. **No migration** and no new endpoint:
+this stage is seeded-row data, the shape it is stored in, and the two screens that read it.
+`required_documents` now *is* Appendix 57's matrix — a test asserts it type by type.
+
+**Stage 53's lists are gone, replaced outright rather than layered on**, which is what that stage's own
+note asked for. Every entry is now traceable to a line in Appendix 57 or in the type's own article.
+
+**The shape change is the substantive half.** Stage 53 stored a flat `{ar, en}` list, which cannot
+express the thing Appendix 57 is actually about: documents fall into **four groups** (أساسية مشتركة /
+خاصة بالنوع / مشروطة / ناتجة عن دورة اللجنة). Each entry is now `{ar, en, group, condition}` — `group`
+is `basic` or `specific`, and `condition` is a nullable bilingual pair carrying the source's own inline
+qualifier ("بحسب الموضوع"، "عند الحاجة"، "متى كان ذلك شرطًا"). **An entry that has a condition IS the
+appendix's third group**: the source expresses المشروطة as a per-row qualifier, not as a separate list,
+so modelling it as a third `group` value would have been a taxonomy the source does not use.
+**Group 4 is never seeded at all** — الناتجة عن دورة اللجنة come into being *after* the file reaches
+the committee, so they cannot be an intake checklist item. `ar`/`en` stay the first two keys, so nothing
+that already read the column broke.
+
+**The shared basics are merged into every type, not referenced.** One `commonDocuments()` in the seeder
+is prepended per type, so the stored column stays self-contained and `intakeOptions()` needed no change.
+Nine of Appendix 57's twelve basics rows survive the filter, so **no type is ever left with an empty
+checklist** — which is what makes the four uncovered types below still useful rather than blank.
+
+**Four exclusion rules, applied uniformly and asserted by a test rather than only documented.** (1)
+**الرأي القانوني** — the stage's own named exclusion; it is Stage 68's `request_legal_reviews` record.
+(2) **مذكرة/إفادة/رأي إدارة الموارد البشرية and الرأي الإداري** — same category, internal opinions the
+committee cycle produces. (3) **السند القانوني** — Appendix 22's بطاقة السند القانوني is a field Stage
+68 already captures from the legal officer; asking for it as an attachment would duplicate a record the
+system holds. (4) **إحالة الرئيس المباشر / إحالة الجهة الإدارية المعنية** — this system records both as
+workflow transitions (`direct_manager_review → forward`, `administrative_routing → route_to_*`), so
+listing them would ask for a paper duplicate of a step the state machine performs. **A *substantive*
+opinion from the same people is a different artifact and is kept** (TRNS's إفادة الرئيس المباشر، رأي
+الجهة المنقول منها) — that distinction is the whole difference between a procedural handoff and a
+document with content. Also deduped: a per-type item that is literally a basics row is not repeated,
+while a type-specific *variant* is (CONF's "تقارير الأداء أو المتابعة خلال فترة الاختبار", mandatory
+where the basics row is conditional).
+
+**Appendix 4 was read and then deliberately not used**, per the stage's own Build bullet — it is the
+committee's *internal* completeness check, and its seven lists include exactly the internal actions rule
+(1)/(2) exclude. Its compliance-matrix row now says so instead of pointing at this stage.
+
+**Per-type sourcing.** PROM ← Appendix 57 أولًا + Art. 54's الإفادة المالية; TRNS ← ثانيًا; SECD ←
+ثالثًا + Art. 62's "داخل البلدية أم إلى جهة أخرى، كلي أم جزئي"; CONF ← خامسًا + Art. 49's الوظيفة
+والدرجة والمجموعة; SETL ← سادسًا + **Art. 74's "لا تقبل عبارة عامة" rule as its literal first item** +
+Art. 72's "كشف زمني موثق وليس تقدير تقريبي" + Art. 73's مدد الانقطاع/الإجازات/الندب; GRIV ← سابعًا +
+Art. 75. **PEVG is where the separate type finally earns itself**: it takes ملف التظلم's shape with the
+decision-under-grievance items replaced by **Art. 71's own seven-item عند العرض list** (التقرير الأصلي،
+الفترة، الرئيس المسؤول، النتيجة، ملاحظات الموظف، التقارير السابقة، بيان الأثر الوظيفي). **LEAV gains
+its first genuinely sourced list** — Appendix 57 has no leave file, but Art. 68 quotes the اللائحة's own
+leave-form fields and Art. 69 names what an unpaid special leave must establish, and since Art. 67 says
+ordinary leave is *not* brought to the committee at all, one of the four items is a statement of why
+this one is.
+
+**ALLW, EOSV, APPT and CTRC carry the shared basics and nothing else, and that is the honest answer.**
+Grepped [D] for علاوة / إنهاء الخدمة / انتهاء الخدمة / التعاقد / المتعاقد: Arts. 48–79 have chapters for
+probation, promotion, transfer, secondment, loan, leave, performance, durations/settlement and
+grievances and **none for those four** — the only علاوة hits are Art. 69's effect-on-allowance clause,
+and إنهاء الخدمة appears only as a probation *outcome*. Stage 53's guessed lists for them are deleted
+rather than kept, same convention Stage 68 used when only six of twelve types had an Appendix 21
+citation. **A dedicated test asserts they stay basics-only**, which is what stops a future session
+quietly refilling them with invented items.
+
+Frontend: new `lib/requiredDocuments.js` owns the grouping and the label/condition readers once (the
+`lib/decisionOutcomes.js` precedent) because **two** screens render the matrix now.
+`RequestIntakeView.vue` renders Appendix 57's two groups as subsections with each item's condition as a
+muted suffix. Beyond the literal Build bullet, `RequestDetailView.vue` gained the same card next to the
+attachments it is judged against — **the officer performing Art. 18's فحص اكتمال الملف at
+`requirements_check` (the hop Stage 70 made the قيد) is the one who has to decide whether the file is
+complete, and until now only the submitter ever saw the list**. That cost one eager-loaded column plus a
+field on `RequestDetailResource` (deliberately not the shared `RequestResource`, so list payloads are
+untouched). A group with no items is dropped rather than rendered as an empty heading — an absent list
+should not read as a missing one.
+
+Verification: `RequestIntakeTest` gained two tests and had its Stage 53 shape assertion rewritten (a
+legitimate update to expectations this stage deliberately changes, commented in place) — the grouped
+shape and Appendix 57's own الحالة column round-tripping, the internal-opinion exclusion asserted across
+all twelve types, and the basics-only four proven against the eight [D] does cover;
+`RequestDetailTest` gained one for the workspace card. Full suite **350 tests / 2216 assertions** green
+(was 347/1999), Pint clean on every touched file, `npm run build` passes (then reverted `frontend/dist`,
+tracked in git, per every prior stage's note), locale key-parity verified programmatically (1195 keys
+each side, zero on-one-side-only), and the `RequestTypeSeeder` reseed ran clean **and idempotently**
+(twice) against the real MySQL/Homestead database — confirmed via a bootstrapped script row by row: all
+12 types carry the 9 basics, the eight covered types carry 4–13 specifics each, and **zero excluded
+items leaked into any type**. Smoke-tested `GET /api/requests/intake-options` over real HTTP against
+Homestead with the seeded `r01.employee@` account: the grouped matrix came back for all twelve types
+with LEAV's Art. 68 form-fields item intact. Revoked all three tokens the smoke runs minted (count
+confirmed back to 0) — **gotcha worth recording: `/api/auth/login` returns the token at the payload's
+top level (`token`), not under `data`**, so a `data.token` read silently mints a token it then fails to
+revoke.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Appendix **57** and Arts. **54**,
+**58–61**, **62–64**, **73** from ⚠ to ✅, and rewrote three rows that Stage 72 only *partially* touches
+so the next stage is not misled — Appendix **4** (deliberately not this column's source; a structured
+*internal* per-type checklist is still unbuilt, `MeetingReadinessService` only counts attachments), Art.
+**69** (LEAV's list is seeded but its six تحققات are not recorded fields), and Art. **74** (the rule is
+now stated verbatim on screen but nothing structures `SETL`'s sub-type). Headline counts adjusted by this
+stage's own delta (articles 71→75 ✅ / 26→22 ⚠; appendices 40→41 / 19→18) rather than recounted.
+
+**Open items for whoever builds Stage 73+.** (1) **The checklist is informational everywhere and
+enforced nowhere** — deliberately, matching Stage 53's framing and this stage's Build bullet, but it
+means Art. 18's completeness check is still a human judgment with no structured per-item record.
+Whichever stage wants "the officer ticked each required document" needs a new table; it is not a
+widening of this column. (2) **Art. 74's rule is stated, not enforced** — `SETL` still accepts a free-
+text title, so "أطلب تسوية وضعي الوظيفي" is refused by the manual and accepted by the API. A sub-type
+enum on `SETL` is a small, well-defined fix and **no stage currently owns it**. (3) **الإعارة still has
+no request type** — Appendix 57 رابعًا and Arts. 65–66 give it a full file, and Stage 53 declined to
+split it out of `SECD`; that decision was left standing here rather than reopened, so Appendix 57's
+fourth file is the one of seven that is seeded onto no type. (4) The five service-file basics (قرار
+التعيين، مباشرة العمل، كشف الخدمة، المؤهل، تقارير الأداء) are asked for as attachments because Track K's
+scope decision (1) puts ملف الخدمة outside this app — if that ever changes, they become derived data,
+not checklist items.
+
+---
+
+### 2026-09-07 23:20 EET — Claude — Stage 72 implementation plan (real per-type document checklists)
+
+Building Stage 72 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Appendix 57**
+(مصفوفة المستندات الإلزامية حسب نوع المعاملة — its four-group rule, its 12-row shared-basics table
+with a مصدره column, and its seven per-type files) and **Appendix 4** (the seven internal
+file-completeness checklists), plus the per-type chapters **Arts. 49, 54, 60, 62–63, 66, 67–69, 71,
+72–74, 75** read directly.
+
+**Appendix 4 is deliberately NOT a source for this column, per the stage's own Build bullet** — it
+is the committee's *internal* completeness check and its entries include internal actions (الرأي
+القانوني، مذكرة الموارد البشرية) an employee never attaches. Appendix 57 is the matrix; the
+per-type articles are consulted only where they name something Appendix 57 omits.
+
+**The column's shape changes, and that is the substantive half.** Stage 53 stored a flat list of
+`{ar, en}`. Appendix 57's whole point is that documents fall into **four groups** (أساسية مشتركة /
+خاصة بالنوع / مشروطة / ناتجة عن دورة اللجنة), so each entry gains `group` (`basic`|`specific`) and
+a nullable bilingual `condition`. That is faithful to the source's own two axes: group 1 vs group 2
+is *where the document comes from*, while مشروطة is a qualifier the source writes inline per row
+("بحسب الموضوع"، "عند الحاجة"، "متى كان ذلك شرطًا") rather than a separate list. **Group 4 is
+never seeded at all** — those documents come into being *after* the file reaches the committee, so
+they cannot be an intake checklist item. `{ar, en}` stay the first two keys, so the existing
+`documentLabel()` helper and `RequestIntakeTest`'s shape assertion keep working; no migration (the
+column is already `json`, cast `array`).
+
+**The shared basics are stored merged into every type, not referenced.** One `COMMON_DOCUMENTS`
+constant in the seeder is prepended to each type's own list, so the stored column stays
+self-contained and `intakeOptions()` needs no change.
+
+**Four exclusion rules, applied uniformly and documented in the seeder** — this is where the
+"client-submittable" filter actually bites:
+1. **الرأي القانوني** — the stage's own named exclusion; it is Stage 68's `request_legal_reviews`
+   record, produced *by* the committee's legal member.
+2. **مذكرة/إفادة/رأي إدارة الموارد البشرية and الرأي الإداري** — same category: internal opinions
+   the committee cycle produces, not file contents a submitter supplies.
+3. **السند القانوني** — Appendix 22's بطاقة السند القانوني is a field Stage 68 already captures
+   from the legal officer; asking the employee to attach it would duplicate a record the system
+   holds.
+4. **إحالة الرئيس المباشر and إحالة الجهة الإدارية المعنية** (basics rows 2–3) — this system
+   records both as workflow transitions (`direct_manager_review → forward`,
+   `administrative_routing → route_to_*`), so listing them as documents would ask for a paper
+   duplicate of a step the state machine already performs. A *substantive* opinion from the same
+   people (TRNS's "إفادة الرئيس المباشر"، "رأي الجهة المنقول منها") is a different artifact and is
+   kept.
+Also deduped: a per-type item that is literally the same document as a basics row (قرار التعيين،
+تاريخ المباشرة، المؤهل، كشف الخدمة، تقارير الأداء، المستندات المؤيدة، البيانات الوظيفية) is not
+repeated in the specific group; a type-specific *variant* (CONF's "تقارير الأداء أو المتابعة خلال
+فترة الاختبار", mandatory where the basics row is conditional) is kept.
+
+**Per-type mapping, source by source.** PROM ← Appendix 57 أولًا + Art. 54's الإفادة المالية;
+TRNS ← ثانيًا (+ Art. 60); SECD ← ثالثًا + Art. 62's "داخل البلدية أم إلى جهة أخرى، كلي أم جزئي";
+CONF ← خامسًا + Art. 49's الوظيفة والدرجة والمجموعة; SETL ← سادسًا + Art. 74's "لا تقبل عبارة عامة"
+rule as its first item + Art. 72's "كشف زمني موثق وليس تقدير تقريبي" + Art. 73's مدد الانقطاع/
+الإجازات المؤثرة/الندب أو الإعارة; GRIV ← سابعًا + Art. 75; PEVG ← سابعًا **plus Art. 71's own
+seven-item عند العرض list** (التقرير الأصلي، الفترة، الرئيس المسؤول، النتيجة، ملاحظات الموظف،
+التقارير السابقة، بيان الأثر الوظيفي), which is the reason PEVG stays a separate type from GRIV.
+**LEAV gains its first genuinely sourced list** from Arts. 67–69 — Appendix 57 has no leave file,
+but Art. 68 quotes the اللائحة's own leave-form fields (نوع الإجازة، تاريخ البدء والانتهاء،
+الرصيد، اسم ووظيفة المخول بمنحها) and Art. 69 names what an unpaid special leave must establish.
+
+**Four types get the shared basics and no specific list, and that is the honest answer, not an
+oversight**: **ALLW، EOSV، APPT، CTRC**. Grepped [D] for علاوة / إنهاء الخدمة / التعاقد /
+المتعاقد — Arts. 48–79 have chapters for probation, promotion, transfer, secondment, loan, leave,
+performance, durations/settlement and grievances, and **none for those four**; the only علاوة
+mentions are Art. 69's effect-on-allowance clause, and إنهاء الخدمة appears only as a probation
+*outcome*. Stage 53's guessed lists for them are **deleted rather than kept**, per Stage 53's own
+instruction to "replace outright, don't layer on top" — same honest-gap convention Stage 68 used
+when only six of twelve types had an Appendix 21 citation.
+
+**Frontend**: `RequestIntakeView.vue`'s checklist renders the two groups as separate subsections
+with the source's own headings, each item showing its condition as a muted suffix. Beyond the
+literal Build bullet, the same grouped checklist is added to `RequestDetailView.vue` — the officer
+performing Art. 18's فحص اكتمال الملف at `requirements_check` (the hop Stage 70 made the قيد) is
+the one who most needs the matrix, and today only the submitter ever sees it. That costs one
+eager-loaded column plus a field on `RequestDetailResource` (not the shared `RequestResource`, so
+list payloads are untouched).
+
+**Verification plan**: extend `RequestIntakeTest` (every type carries the shared basics; PROM/LEAV
+carry a specific group while ALLW/EOSV/APPT/CTRC carry none; the new `group`/`condition` keys
+round-trip; no seeded item mentions الرأي القانوني or مذكرة إدارة الموارد البشرية) plus a new
+assertion that the detail endpoint surfaces the checklist; then the full PHPUnit suite, Pint,
+`npm run build`, locale key-parity, and the `RequestTypeSeeder` reseed against the real
+MySQL/Homestead database.
+
+---
+
+### 2026-09-07 22:30 EET — Claude — Stage 71 complete (real operational durations + escalation routing)
+
+Built per the plan below, from the verbatim sources — [D] **Appendices 37, 38, 71** plus **17** and
+**10** read directly. One migration, applied to the real MySQL/Homestead database. The soft SLA now
+carries [D]'s own figures, and Appendix 38's buckets finally do something other than colour a dot.
+
+**Appendix 37 replaced Stage 52's [A] §12 substitute outright, as that stage's own note instructed.**
+The appendix measures **the turnaround of whoever is holding the file** — one row per action — so each
+stage takes the row naming the action performed *at* it: `direct_manager_review` 1 (استلام الطلب من
+الرئيس المباشر), `administrative_routing` 2 (إحالة الطلب للجهة المعنية), `receive_and_register` 3
+(تجهيز الملف الإداري), `requirements_check` 2 (فحص المقرر), `reviewer_review` 3 (المراجعة القانونية),
+`observations` 2 (إعداد مذكرة العرض), `receive_from_committee` 3 (إعداد المحضر), `approval_by_authority`
+2 (إحالة المحضر للاعتماد), `final_approval_archiving` **1..2** (إحالة القرار للتنفيذ … إشعار النتيجة).
+**Stages 2 and 3 gained their first target ever** — [A] postdated them, so Stage 52 had nothing to seed.
+Three stages stay `null, null` and deliberately so: `receive_from_municipality` (transient — Stage 70's
+intake auto-hops through it inside one transaction), `forward_to_committee` (its row is "الاجتماع
+التالي", a trigger not a duration) and `local_governance_ministry` (Appendix 37 names no central-ministry
+action at all). That is Stage 52's own honest-gap convention, not an oversight.
+
+**Stage 12 is the only row using the min/max pair as a real range**, because Appendix 37 gives that
+stage two counted actions (1 day and 2 days). The pair spans them rather than summing them — a sum would
+be arithmetic the source never states. **`reviewer_review` keeps المراجعة القانونية** despite Stage 68
+having built Art. 21's legal review as a status-only substate of `receive_from_committee`: that substate
+has no `workflow_stages` row and so nowhere to carry a target, and this stage's own name ("مراجعة المقرر
+وفق اللوائح") is still the only one that *is* a regulatory-conformance review.
+
+**The bucket boundaries changed meaning, which is the substantive half and the thing not to re-litigate.**
+Stage 52 invented ratio thresholds (≤1.0 green, ≤1.5 yellow, ≤2.0 red, else critical) and flagged them
+for outright replacement. Appendix 38 defines them differently, and the difference is not cosmetic:
+**أصفر is "قرب تجاوز المدة" — approaching, i.e. still WITHIN the target**, where the old yellow began at
+1.0–1.5× and so only ever appeared after the target had already been blown. And **حرج is not a further
+time bucket at all** but a qualitative condition — "إذا ارتبط التأخير بمدة قانونية أو حق وظيفي" — so it
+layers on top of red instead of being measured past it. New rule, with **no invented constant surviving**:
+`elapsed < target_days_min` → green; `min <= elapsed <= max` → yellow; `elapsed > max` → red; red plus a
+legal deadline → critical. Every boundary is one of the stage's own seeded Appendix 37 figures, and
+`target_days_min` — display-only until now — is what marks the tail of the allowance. Since most stages
+seed `min == max`, the warning window is the final day of the allowance, which at these 1–3 day targets
+is the right size.
+
+**حرج is honestly half-implemented, and is recorded as such rather than dressed up.** Its condition has
+two limbs. The first, مدة قانونية, is answered by Stage 68's `request_legal_reviews.legal_deadline` —
+Appendix 22's own "هل توجد مدة قانونية؟" field — read off `Request::latestLegalReview()`; the officer
+fills it when a statutory deadline exists and leaves it blank when one doesn't, so a non-empty answer *is*
+the recorded fact (free text, so "non-empty" is the whole test). The second limb, **حق وظيفي, has no field
+anywhere in this schema**, and proxying it off `has_financial_impact` or a request type would report a
+guess as something a human recorded. Left unrepresented; flagged below and in the compliance matrix,
+which is why Appendix 38's row stays ⚠ rather than going ✅.
+
+**Escalation is a new nightly `requests:escalate-delays`, not a widening of `requests:flag-overdue`.**
+Those are two different SLAs from two different sources: the existing sweep enforces Stage 17's *hard*
+per-type `due_date` and writes a one-way flag; this one reads the *soft* per-stage target, resets every
+time the file moves, and has three rungs. Scheduled 00:20, after the overdue sweep, so the two never
+write the same request in the same minute.
+
+**The ladder resets per stage with no column of its own and no hook in `WorkflowService`.** Two new
+nullable columns (`requests.escalation_level`, `escalation_notified_at`), and a recorded level counts
+only while `escalation_notified_at` is at least as new as the request's `latestStageLog.acted_at` — the
+same timestamp `stageTimeliness()` already measures elapsed time from. So any transition, a self-loop
+included (which also writes a stage log and restarts the clock), invalidates the recorded rung
+automatically. A level fires only when it outranks the recorded one, so a file sitting red for a
+fortnight is announced once rather than fourteen times, while still climbing to حرج later if a legal
+review subsequently records a deadline — proven in the smoke run below, not just asserted. The claiming
+`update()` is an optimistic guard matching on the level the decision was based on, so a manual run racing
+the scheduled one leaves exactly one of them with something to announce (the same shape as the overdue
+sweep's `whereNull('overdue_at')` predicate, against a value that climbs rather than one set once).
+
+**Appendix 38 names bodies, not this app's roles, so that mapping is a documented judgment call.**
+أصفر → **the current owner**, which `NotificationDispatcher::actorsForStage()` already resolves — that is
+Appendix 17's المسؤول الحالي, read from the very `workflow_transitions` rows `WorkflowService` enforces,
+so the escalation and the button that would clear it can never name different people. أحمر → **R02**
+(whose RoleSeeder name is literally "المقرر") **+ R05**, since **no HR-director role exists** and مدير
+إدارة الشؤون الإدارية is the nearest administrative-management role. حرج → **R03** (رئيس اللجنة, its
+literal name) **+ R07** (المدير العام / العميد, the local السلطة المختصة left after Stage 57 deleted the
+`competent_authority` stage). Escalation is **cumulative** — red also tells the owner and حرج also tells
+everyone red would have — because the lower rungs are still the people who can actually move the file,
+and Appendix 38 raises an alarm rather than handing the file over.
+
+**One event type and one notification class for all three rungs**, deliberately: the three rungs go to
+three *different* audiences, so a per-rung mute would let nobody mute a rung they actually receive, while
+costing the preferences matrix three rows for one concern. `delay_escalation` (in_app + email, same
+defaults as `request_overdue` — it is the same class of news). Also fixed a pre-existing gap in the same
+screen while there: `minutes_approved`, `financial_impact_review` and `appeal_decided` had **no locale
+labels at all** and were rendering as raw keys through `NotificationsView`'s fallback; all four now have
+Arabic/English names.
+
+Frontend: the four level labels were rewritten to Appendix 38's own wording (ضمن المدة / قرب تجاوز المدة /
+متأخرة / تأخير حرج مرتبط بمدة قانونية) — mandatory, not polish, since yellow now means close to the
+opposite of what its old label said — and `RequestDetailView` shows the recorded escalation under the
+existing timeliness row, rendered only once a rung has actually been announced so a green request stays
+quiet. `RequestsView`'s dot needed nothing beyond the relabelled tooltip.
+
+Verification: new `tests/Feature/DelayEscalationTest.php` (11 tests — nothing escalating within target;
+the final day of the allowance notifying **only** the current owner while the أحمر/حرج targets stay
+silent; red reaching R02+R05 but not R03; a recorded legal deadline making the *same* delay critical and
+reaching R03+R07 while still telling the red targets; a legal review with a *blank* deadline staying red;
+the same level never announced twice; a worsening delay climbing rather than staying put; a stage move
+resetting the ladder so the new stage escalates again; a concluded request and a target-less stage never
+escalating; the recorded escalation reaching the detail screen). Full suite **347 tests / 1999
+assertions** green (was 336/1952), Pint clean **repo-wide** (`--test` reports zero diffs), `npm run build`
+passes (then reverted `frontend/dist`, tracked in git, per every prior stage's note), locale key-parity
+verified programmatically (1191 keys each side, zero on-one-side-only), and the migration plus the
+`WorkflowStageSeeder` reseed ran clean against the real MySQL/Homestead database — all 12 stages'
+targets confirmed row by row via a bootstrapped script, and `schedule:list` shows the new command at
+00:20 between the existing two.
+
+**Four pre-existing `StageTimelinessTest` cases needed legitimate assertion updates, not regression
+fixes** — every bucket boundary this stage deliberately redefines, plus `requirements_check` moving from
+3 days to 2. The old "past target but within 1.5×" case became "the final day of the allowance reads
+yellow *before* the target is exceeded", and the old "past double target reads critical" became "being
+far past the target is still only red without a legal deadline" — the two assertions that most directly
+encode the change of meaning. Each carries an in-place comment saying why.
+
+Smoke-tested the whole ladder end to end against the real MySQL/Homestead database with a bootstrapped
+script and the seeded `r01.employee@` account: 2 days at `requirements_check` (target 2) landed
+**yellow**, 3 days landed **red**, an immediate re-run left `escalation_notified_at` byte-identical
+(nothing re-announced), and recording a `legal_deadline` on the same request turned the same 3-day delay
+**critical** — with `stage_timeliness` reporting `level=critical, escalation=critical` through the model.
+Deleted every fixture row afterward (request + stage log + legal review + status-history rows), purged
+the 16 queued notification jobs the run generated, and removed the run's audit rows — counts confirmed
+back to 0 requests / 0 jobs / 0 legal reviews.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Appendix **37** from ⚠ to ✅ and rewrote
+**38**'s row, which **stays ⚠ on purpose** — the حق وظيفي limb of حرج has no field to read. Headline
+appendix counts adjusted by this stage's own delta (39→40 ✅ / 20→19 ⚠) rather than recounted.
+
+**Open items for whoever builds Stage 72+.** (1) **حرج's second limb (حق وظيفي) is unimplemented** —
+whichever stage introduces employment-record data (Stage 76's execution evidence is the nearest) should
+decide whether a statutory-right marker belongs on the request, rather than letting the gap persist
+silently. (2) `legal_deadline` is **free text**, so "there is a legal deadline" is inferred from the
+field being non-empty; a legal officer who types "لا يوجد" would be read as having one. Structuring it
+(a boolean beside the text, mirroring how Appendix 22's `requires_central_approval` is a three-value
+enum) is a small, well-defined fix for whichever stage next touches that form. (3) Appendix **71**'s
+بطاقة قياس زمن المعاملة (T1–T10, the per-segment breakdown that lets a municipality see *where* the delay
+actually is rather than blaming the committee for the whole elapsed time) is **not built** — this stage
+implements the per-stage target and the escalation ladder that ride on it, but not the T1–T10 report
+itself, which is reporting work and belongs with **Stage 81**'s thirteen KPIs. (4) Escalation is a
+nightly sweep, so a rung is raised at most once per day; nothing recomputes it live on a page load beyond
+the level indicator itself, which is intentional — the ladder is an alarm, not a dashboard tile.
+
+---
+
+### 2026-09-07 21:15 EET — Claude — Stage 71 implementation plan (real operational durations + escalation routing)
+
+Building Stage 71 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Appendix 37**
+(مدد العمل التشغيلية المقترحة — a 14-row table), **Appendix 38** (مستويات التأخير — the four buckets
+*and* their escalation targets), **Appendix 71** (بطاقة قياس زمن المعاملة — T1–T10), plus **Appendix
+17** (المسؤول الحالي) and **Appendix 10** (مؤشرات الإنذار المبكر) for what "the current owner" means.
+
+**Half one — replace Stage 52's substitute figures outright, per its own note.** Stage 52 seeded
+`workflow_stages.target_days_min/max` from [A] §12 because [D]'s appendix wasn't available, and said
+explicitly to "replace the seeded values … outright rather than layering a second interpretation on
+top." Appendix 37 measures **the turnaround of whoever is holding the file**, one row per action, so
+each stage takes the row naming the action performed *at* that stage; a stage whose row carries no day
+count ("الاجتماع التالي", "بعد التنفيذ مباشرة", "بعد اكتمال جميع الإجراءات"), or that Appendix 37 names
+no action for, stays `null, null` — Stage 52's own honest-gap convention, not a fabricated target:
+
+| stage | Appendix 37 row | new | (was) |
+|---|---|---|---|
+| 1 `receive_from_municipality` | — (transient: Stage 70's intake auto-hops through it in the same transaction) | null | null |
+| 2 `direct_manager_review` | استلام الطلب من الرئيس المباشر — يوم عمل | 1,1 | null |
+| 3 `administrative_routing` | إحالة الطلب للجهة المعنية — يومان | 2,2 | null |
+| 4 `receive_and_register` | تجهيز الملف الإداري — 3 أيام | 3,3 | 1,1 |
+| 5 `requirements_check` | فحص المقرر — يومان | 2,2 | 3,3 |
+| 6 `reviewer_review` | المراجعة القانونية — 3 أيام | 3,3 | 5,5 |
+| 7 `observations` | إعداد مذكرة العرض — يومان | 2,2 | 5,10 |
+| 8 `forward_to_committee` | إدراج الجاهز — **الاجتماع التالي** (no day count) | null | null |
+| 9 `receive_from_committee` | إعداد المحضر — 3 أيام بعد الاجتماع | 3,3 | 3,3 |
+| 10 `approval_by_authority` | إحالة المحضر للاعتماد — يومان | 2,2 | 5,5 |
+| 11 `local_governance_ministry` | — (Appendix 37 names no central-ministry duration) | null | null |
+| 12 `final_approval_archiving` | إحالة القرار للتنفيذ — يوم عمل … إشعار النتيجة — يومان | 1,2 | 5,5 |
+
+Stages 2 and 3 gain their **first** target ([A] postdated them, so Stage 52 had nothing to seed).
+Stage 12 is the one row that uses the min/max pair as a genuine range — both of that stage's counted
+actions are in the source (1 and 2 days), so the pair spans them rather than summing them, which would
+be arithmetic the source doesn't state. **`reviewer_review` keeps المراجعة القانونية** even though
+Stage 68 built Art. 21's legal review as a status-only substate at `receive_from_committee`: that
+substate has no stage row and therefore nowhere to carry a target, and `reviewer_review`'s own name
+("مراجعة المقرر وفق اللوائح") is still the only stage that *is* a regulatory/legal-conformance review.
+
+**Half two — the buckets' boundaries are re-derived from Appendix 38, which is a correctness fix, not
+a relabelling.** Stage 52 invented ratio thresholds (≤1.0 green, ≤1.5 yellow, ≤2.0 red, else critical)
+and documented them as a placeholder. Appendix 38 defines them differently: **أخضر = ضمن المدة**,
+**أصفر = قرب تجاوز المدة** (approaching — *before* the target is exceeded, where Stage 52's yellow
+started at 1.0–1.5× i.e. already over), **أحمر = متأخرة** (past it), and **حرج** is not a further time
+bucket at all but a *qualitative* condition: "إذا ارتبط التأخير بمدة قانونية أو حق وظيفي". New rule,
+derived entirely from the stage's own seeded figures with **no invented constant**:
+
+    elapsed <  target_days_min          → green    (ضمن المدة)
+    min <= elapsed <= target_days_max   → yellow   (قرب تجاوز المدة — the last day(s) of the allowance)
+    elapsed >  target_days_max          → red      (متأخرة)
+    red AND legally time-bound          → critical (حرج)
+
+This also gives `target_days_min` its first real job — it was display-only before.
+
+**"حرج" needs a fact about the request, and one already exists — flagged as a half-implementation
+rather than dressed up as complete.** Appendix 38's condition has two limbs: مدة قانونية and حق وظيفي.
+The first is answered by Stage 68's `request_legal_reviews.legal_deadline` (Appendix 22's own "هل توجد
+مدة قانونية؟"), read off `Request::latestLegalReview()` — a non-empty answer means the legal officer
+recorded a statutory deadline. The second limb (حق وظيفي) has **no field anywhere** in this schema, and
+inventing a proxy (`has_financial_impact`, a request type) would misreport a guess as a recorded fact,
+so it is deliberately unrepresented and recorded as an open item. `legal_deadline` is free text, so
+"non-empty" is the test; a future stage may want it structured.
+
+**Escalation targets, mapped to this system's roles (Appendix 38 names bodies, not this app's roles):**
+أصفر → **the current owner**, which is exactly what `NotificationDispatcher::actorsForStage()` already
+resolves (Appendix 17's المسؤول الحالي, and the same `workflow_transitions` rows `WorkflowService`
+enforces — so the escalation and the button that works can't come apart). أحمر → **مقرر اللجنة**
+(R02, whose RoleSeeder name is literally "المقرر") **+ مدير الموارد البشرية** — no HR-director role
+exists, so **R05 مدير إدارة الشؤون الإدارية** stands in, a documented judgment call. حرج → **رئيس
+اللجنة** (R03, literal name) **+ السلطة المختصة** (R07 المدير العام / العميد, the local competent
+authority since Stage 57 deleted the `competent_authority` stage).
+
+**Mechanism: a new nightly `requests:escalate-delays` command**, not a widening of
+`requests:flag-overdue` — that one is the *hard* per-type `due_date` SLA (Stage 17); this is the *soft*
+per-stage one, a different concern with a different source. Escalation is **idempotent per level**, the
+same discipline `overdue_at` already has: two new nullable columns `requests.escalation_level` /
+`escalation_notified_at`, and a level fires only when it outranks the recorded one. The recorded level
+is treated as **stale** when `escalation_notified_at` is older than `latestStageLog.acted_at` — which
+means a stage move (or a self-loop, which also writes a stage log and restarts the clock) resets the
+ladder for free, with **no change to `WorkflowService` at all**, since `stageTimeliness()` already
+derives from that same timestamp.
+
+One new event type `delay_escalation` (in_app + email, mirroring `request_overdue`) and one
+`RequestDelayEscalationNotification` carrying the level, rather than three of each: the three tiers go
+to three different audiences, so a per-tier mute would let nobody actually mute anything they receive,
+and it keeps the preferences matrix from growing three rows for one concern.
+
+**Frontend**: `stage_timeliness` gains `escalation` (level + when), the four level labels are rewritten
+to Appendix 38's own wording (ضمن المدة / قرب تجاوز المدة / متأخرة / حرج) since yellow now means the
+opposite of what it did, and `RequestDetailView` shows the recorded escalation under the existing
+timeliness row. `RequestsView`'s dot needs no change beyond the relabelled tooltip.
+
+**Verification plan**: new `tests/Feature/DelayEscalationTest.php` — each bucket boundary against a
+hand-set `RequestStageLog.acted_at` (including that yellow now fires *before* the target is exceeded);
+critical only with a recorded `legal_deadline`; yellow notifying the stage's own actors, red notifying
+R02+R05, critical notifying R03+R07; the ladder not re-firing the same level twice; a stage move
+resetting it so the new stage can escalate again; a terminal request never escalating. Plus updating
+`StageTimelinessTest`'s bucket expectations (a legitimate update — this stage deliberately changes
+those boundaries), the full PHPUnit suite, Pint, `npm run build`, locale key-parity, and the migration
+plus `WorkflowStageSeeder` reseed against the real MySQL/Homestead database.
+
+---
+
+### 2026-09-07 19:40 EET — Claude — Stage 70 complete (unified numbering + the قيد point moved)
+
+Built per the plan below, from the verbatim sources — [D] **Arts. 15, 17–20, 38, 89, 99**, **Appendices
+8, 12, 15, 74** and **النموذج 05** read directly. One migration, applied to the real MySQL/Homestead
+database. Four artifacts now carry Appendix 15's own codes, and the قيد happens where Art. 20 says it
+happens rather than at intake.
+
+**The source conflict is the one thing worth not re-litigating.** Appendix 15's table writes the
+request's code `M-COM/2026/0001`; **النموذج 05** writes `PM-COM / السنة / الرقم المتسلسل` and works the
+example `PM-COM/2026/0047`. **`PM-COM` won.** النموذج 05 is the dedicated بطاقة القيد card for this exact
+artifact and is the more specific source, and every other code either document issues is `PM-`-prefixed
+— Appendix 15's own `PM-MTG`/`PM-MIN`/`PM-DEC`, and Appendix 74's twenty `PM-F01`–`PM-F20` form codes.
+A lone `M-` in a table of `PM-`s reads as a dropped letter. STAGE_PLAN's Build bullet repeats Appendix
+15's `M-COM`, but it is paraphrasing that same table, so the verbatim form wins — the precedent Stage 68
+set when Appendix 22's verbatim "دراسة فقط" beat STAGE_PLAN's paraphrase "لا اختصاص". The conflict and
+its resolution are recorded in `ArtifactNumberGenerator`'s own docblock, not only here.
+
+**One `App\Services\ArtifactNumberGenerator` owns all five series** behind one private `next()`
+(prefix + width + table + column, `lockForUpdate` inside the caller's transaction — exactly the deleted
+`RequestReferenceGenerator`'s gap-lock shape): `PM-COM/YYYY/0001` request, `PM-MTG/YYYY/01` meeting,
+`PM-MIN/YYYY/01` minutes, `PM-DEC/YYYY/001` decision, plus the receipt below. Appendix 15's example
+widths are treated as **minimums, not caps** — the lookup orders by `LENGTH(column)` before the column
+itself, so a year issuing more than 99 meetings ranks `.../100` above `.../99` instead of the reverse a
+plain string sort would give. Per-year and **global**: Appendix 15's table has no department or
+committee segment, so adopting it drops the old scheme's department scoping. **Existing rows are never
+renumbered** (Art. 99 — one number for life), and the new series' `LIKE` lookup cannot collide with an
+old-format value anyway. `RequestReferenceGenerator` was **deleted rather than left in place**: a
+service still minting the superseded `YYYY-DEPT-NNNNNN` scheme is an invitation to call it.
+
+**Moving the قيد is the substantive half, and it fixed an off-by-one Stage 69 had left aspirational.**
+Art. 18's فحص اكتمال الملف *is* the `requirements_check` stage here — its own name, its
+`return_missing_docs` exception setting `incomplete` (Art. 38's 05), and its `approve` being the "ملف
+مستوفٍ" outcome. So that approve hop is Art. 20's قيد. But the seeded map had `register` stamping
+`registered` on **arrival** at that stage (before anything had been checked) and `approve` stamping
+`in_review` on the way out — while `ArtThirtyEightStatusTest`'s own mapping already claimed 04 →
+`in_review` and 06 → `registered`. The test was right and the seed data contradicted it. **Fix is a
+straight swap across two adjacent transitions, no new status**: `register` now sets `in_review` (04 تحت
+فحص الاكتمال) and `approve` now sets `registered` (06 مستوفية ومقيدة).
+
+**The allocation hook lives in `WorkflowService::applyRule()` and is keyed off the destination status,
+not a stage/action pair.** It had to be in the service, not a controller, because that approve is
+reachable from **both** `RequestController::transition()` and `ApprovalController::store()` — the exact
+dual-path trap Stage 54's jurisdiction gate hit, where gating one leaves the other wide open. Keying on
+"this rule reaches Art. 38's status 06" keeps it declarative and seed-driven: whichever rule the map
+says reaches code 06 is the rule that registers. Allocation is **conditional on `reference_number` being
+null**, which is what enforces Art. 99 and النموذج 05's "ولا يجوز منح أكثر من رقم أساسي لنفس المعاملة
+لمجرد انتقالها بين مراحل العمل" — the `return_missing_docs` round trip re-walks this exact hop, and a
+dedicated test walks it end to end (return → resubmit → route → register → approve) proving the first
+number survives and only one request in the table ever holds one.
+
+**The intake receipt is an invented code family, flagged as such rather than dressed up as sourced.**
+Grepped [D] for إيصال / إشعار الاستلام / رقم مؤقت / رقم أولي — **zero hits**; nothing in the manual
+describes an intake receipt at all, so STAGE_PLAN's "the employee keeps an intake receipt" is its own
+addition and the prefix is mine. New nullable-unique `requests.intake_receipt_number`, minted at
+`store()` as `PM-RCV/YYYY/000001`: a deliberately different prefix **and width** so it cannot be misread
+as the قيد number, and the intake success screen now states Art. 15's own rule in as many words ("هذا
+إيصال استلام وليس قيداً لدى لجنة شؤون الموظفين"). The alternative — no second number, the request id as
+the handle — would have left the employee with nothing quotable on the very screen that used to hand
+them a reference.
+
+**Six notification classes each cast `(string) $requestRecord->reference_number`**, which for every
+pre-قيد move (created, stage-changed, action-required through the whole intake/routing half) would now
+render an **empty string mid-sentence**. New `Request::trackingNumber()`
+(`reference_number ?? intake_receipt_number`) is what those six read instead.
+`AppealDecidedNotification` was deliberately left alone — an appeal only ever targets a decided request,
+which is always post-قيد.
+
+**Meeting numbers stopped being client-supplied.** Free text typed into the scheduling wizard since
+Stage 30 (whose own note flagged auto-numbering as undecided); Appendix 8 refuses to send a محضر for
+approval without "تطابق رقم الاجتماع", which a value a human retypes per meeting can guarantee neither
+uniquely nor consistently. `MeetingController::store()` mints it, both Form Requests dropped the field,
+and the wizard's input became a "assigned automatically" note. The pre-existing
+`MeetingSchedulingWizardTest` now **deliberately still POSTs a `meeting_number`** to prove it is
+ignored. Minutes are numbered at `generate()` and the number is **preserved across regenerates**
+(`$existing?->minutes_number ?? …`) — it identifies the document, not one compilation of it, and a
+reviewer who sent a draft back has already seen it. Decisions are numbered in **both** `record()` and
+`recordAppealDecision()`.
+
+**Art. 89 puts رقم القرار *inside* the محضر**, so it is part of `MeetingMinutesCompiler`'s frozen
+snapshot, not only the live `decisions` row (رقم المعاملة was already there per item). Appendix 12's
+سجل القرارات opens with "الرقم المتسلسل للقرار · رقم الاجتماع · رقم المعاملة", so the register/export
+gained the first two columns — **and only those two**: the rest of that appendix's register (جهة
+الاعتماد، حالة التنفيذ، الإقفال) is Stage 80's, deliberately not half-built here.
+
+**Migration**: one file, four additive changes — `requests.intake_receipt_number`,
+`decisions.decision_number`, `meeting_minutes.minutes_number` (all nullable+unique, where both MySQL and
+SQLite treat each NULL as distinct) plus a unique index on the pre-existing `meetings.meeting_number`.
+The unique index was safe to add unconditionally because the real database held **0 requests, 0
+meetings, 0 decisions and 0 minutes** going in — confirmed via tinker before writing it, not assumed.
+
+Frontend: the intake success screen shows the receipt plus the Art. 15 notice; `RequestDetailView` and
+`RequestsView` fall back to the receipt with a "not yet registered" hint when there is no reference (both
+already had null-safe fallbacks, so nothing broke in between); the wizard's number input became a note;
+`MeetingMinutesView` shows the محضر's own number and each item's رقم القرار; `DecisionsView`'s register
+gained a decision-number column.
+
+Verification: new `tests/Feature/UnifiedNumberingTest.php` (6 tests — the full pre-قيد walk proving no
+stage before `requirements_check → approve` mints anything and that `register` lands on 04; the قيد
+granting 06 + `PM-COM/2026/0001` together while the receipt survives; the return-and-resubmit round trip
+keeping the first number; the request series incrementing across three requests; meeting numbers minted
+server-side and ignoring client input across two meetings; minutes numbered once and stable across a
+regenerate; a decision numbered and that number reaching both the compiled محضر and the register).
+Full suite **336 tests / 1952 assertions** green (was 330/1914), Pint clean **repo-wide** across `app/`,
+`database/` and `tests/` (`--test` reports zero diffs — the pre-existing drift earlier notes flagged is
+gone), `npm run build` passes (then reverted `frontend/dist`, tracked in git, per every prior stage's
+note), locale key-parity verified programmatically (1185 keys each side, zero on-one-side-only), and the
+migration plus the `WorkflowTransitionSeeder` reseed ran clean against the real MySQL/Homestead database
+— confirmed via a bootstrapped script: 55 transitions, 37 statuses, the approve hop setting `registered`,
+all three `register` rows setting `in_review`, and all four numbering columns present.
+
+**Five pre-existing tests needed legitimate assertion updates, not regression fixes** — `RequestIntakeTest`
+(×2: the intake reference assertion, and `test_references_increment_per_department_and_year`, renamed to
+`test_intake_receipts_increment_within_the_year` since the thing that increments at intake is now the
+receipt), `WorkflowServiceTest`'s happy-path status table, `DirectManagerRoutingTest`'s post-register
+status, `RequirementsCheckJurisdictionTest`'s post-approve status, and `MeetingSchedulingWizardTest`'s
+two meeting-number assertions. Each carries an in-place comment saying why.
+
+Smoke-tested the whole path end to end over real HTTP against Homestead with the seeded
+r01.employee@/r02.reviewer@/r05.manager@/r03.head@ accounts: intake returned
+`reference_number: null` + `PM-RCV/2026/000001`; forward → route_to_hr → register all ran with the
+reference still null and `register` landing on `in_review`; recording the jurisdiction test then
+approving with a real signature upload returned `PM-COM/2026/0001` with status `registered` and the
+receipt intact; a new meeting POSTed with a hand-typed `meeting_number` came back
+`PM-MTG/2026/01`; and two consecutive minutes generates both returned `PM-MIN/2026/01`. Deleted every
+fixture row afterward (request + its approvals and stored signature files + stage-log/status-history
+rows, meeting, minutes, attendees, committee), purged the queued notification jobs, revoked all four
+tokens, and removed the run's audit rows — counts confirmed back to 0 requests / 0 meetings / 0 minutes
+/ 0 decisions / 0 approvals / 0 tokens / 0 jobs. **A signature gotcha worth knowing for the next smoke
+test**: `ApprovalSignatureStorage` validates the PNG's *dimensions*, so a 1×1 placeholder 422s with
+"أبعاد صورة التوقيع غير صالحة" — generate a real ~960×330 image (`imagecreatetruecolor`) instead.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Arts. 15(أ), 15, 20, 89, 99 and
+Appendix 15 + النموذج 05 from ⚠ to ✅, and rewrote three rows Stage 70 only *partially* touches so the
+next stage is not misled — Appendix 30's رقم قرار الاعتماد is the **approving body's** number, a
+different artifact recorded on return from اعتماد (**Stage 77**), and Appendix 74 is a catalogue of
+**form codes** for exported documents rather than the four artifacts Appendix 15 numbers (**Stage 80/83**).
+`source-detailed-flow-verbatim.md`'s stage-07 row flipped divergent → compliant. Headline counts were
+adjusted by this stage's own delta (articles 66→71 ✅ / 31→26 ⚠; appendices 38→39 / 21→20) rather than
+recounted from scratch.
+
+**Open items for whoever builds Stage 71+.** (1) **`reviewer_review → observations` still sets
+`in_review`**, so a request that just received status 06 reverts to 04 on its very next hop — the
+*number* persists (which is what Art. 20 is actually about), but the status reads like the قيد was
+undone. This is pre-existing and is Stage 54b's settled "Art. 38's codes 03–08 don't map onto this
+system's pipeline in the same order [D] describes" decision, deliberately not reopened here; whichever
+stage revisits the early status chain should decide it explicitly rather than by accident. (2) The
+`PM-RCV` receipt prefix is **invented** — if a later reading of [D] turns up a real intake-receipt code,
+replace it outright rather than layering a second one. (3) Appendix 12's register is still only
+three-columns-deep on numbering; **Stage 80** owns the rest. (4) Numbers are minted with `lockForUpdate`
+inside the caller's transaction, which is correct for MySQL's gap locking — but the four series are all
+global-per-year, so a very high-volume year serialises intake on one row lock. Not a problem at this
+system's scale; worth knowing before anyone assumes per-department sharding still exists (it does not).
+
+---
+
+### 2026-09-07 17:10 EET — Claude — Stage 70 implementation plan (unified numbering + moving the قيد point)
+
+Building Stage 70 per STAGE_PLAN.md Track K. Read the verbatim sources first rather than the
+paraphrase: [D] **Art. 15** (نقطة بداية المعاملة — "ولا يعد مجرد تقديم الطلب إلى الرئيس المباشر قيدًا
+للموضوع"), **Arts. 17–19** (receipt → completeness check → the استكمال loop), **Art. 20** (القيد
+والرقم الإشاري — "**بعد ثبوت اكتمال الملف**"), **Art. 38**'s codes 04/06, **Art. 89** (رقم القرار
+*inside* the محضر), **Art. 99** (رقم واحد طوال دورة حياتها), **Appendix 15** (الترقيم الموحد),
+**Appendix 8** (ضوابط جودة المحضر — "تطابق رقم الاجتماع · تطابق أرقام المعاملات"), **Appendix 12**
+(سجل القرارات — "الرقم المتسلسل للقرار · رقم الاجتماع · رقم المعاملة"), **Appendix 74** and
+**النموذج 05**.
+
+**A genuine source conflict, resolved explicitly rather than silently.** Appendix 15's table gives the
+request's code as **`M-COM/2026/0001`**, while **النموذج 05** gives **`PM-COM / السنة / الرقم
+المتسلسل`** with the worked example **`PM-COM/2026/0047`**. Adopting **`PM-COM`**: النموذج 05 is the
+dedicated card for this exact artifact and is the more specific of the two, and every other code
+either document issues carries the `PM-` prefix — Appendix 15's own `PM-MTG`/`PM-MIN`/`PM-DEC`, and
+Appendix 74's twenty form codes `PM-F01`–`PM-F20`. A lone `M-` in a table of `PM-`s reads as a dropped
+letter, not a deliberate distinction. STAGE_PLAN's Build bullet repeats Appendix 15's `M-COM`, but it
+is paraphrasing that same table, so the verbatim النموذج 05 wins — the same precedent Stage 68 set
+when Appendix 22's verbatim "دراسة فقط" beat STAGE_PLAN's paraphrase "لا اختصاص".
+
+**The four series, per Appendix 15, per-year and global** (that table carries no department or
+committee segment, so adopting it drops the current scheme's department scoping): request
+`PM-COM/YYYY/0001` (4-digit), meeting `PM-MTG/YYYY/01` (2), minutes `PM-MIN/YYYY/01` (2), decision
+`PM-DEC/YYYY/001` (3). Widths are minimums, not caps. One new `App\Services\ArtifactNumberGenerator`
+owns all of them behind one private `next()` (prefix + width + table + column, `lockForUpdate` inside
+the caller's transaction, exactly `RequestReferenceGenerator`'s existing gap-lock shape) so Appendix
+15's scheme lives in one place instead of four near-identical generators. **`RequestReferenceGenerator`
+is deleted, not kept** — leaving a service that still mints the superseded `YYYY-DEPT-NNNNNN` scheme
+invites someone to call it. **Existing rows are never renumbered**: Art. 99 gives a request one number
+for its whole life, and the new series' `LIKE` lookup cannot collide with an old-format value anyway.
+(Moot in practice — the real database currently holds 0 requests, 0 meetings, 0 decisions and 0
+minutes, confirmed via tinker, so there is no live data to migrate either way.)
+
+**Moving the قيد, the substantive half.** Today `RequestController::store()` mints the reference at
+intake — which Art. 15 forbids calling a قيد at all, and Art. 20 grants only **after** completeness is
+established. In this system Art. 18's فحص اكتمال الملف *is* the `requirements_check` stage (its own
+name, its `return_missing_docs` exception setting `incomplete` = Art. 38's 05, and its `approve` being
+the "ملف مستوفٍ" outcome), so the قيد moment is `requirements_check → approve`.
+
+That also fixes an off-by-one Stage 69 left aspirational rather than true. Art. 38 puts **04 تحت فحص
+الاكتمال** before **06 مستوفية ومقيدة (اكتملت المتطلبات ومنحت رقمًا مرجعيًا)**, but the seeded map has
+`register` stamping `registered` on *arrival* at `requirements_check` (i.e. before any check has
+happened) and `approve` stamping `in_review` on the way out. `ArtThirtyEightStatusTest`'s own mapping
+already claims 04 → `in_review` and 06 → `registered`; the seed data just contradicted it. **Fix is a
+straight swap across two adjacent transitions**, no new status: `receive_and_register → register` now
+sets `in_review` (04) and `requirements_check → approve` now sets `registered` (06).
+
+**The grant hook goes inside `WorkflowService::applyRule()`, keyed off the destination status, not the
+stage/action pair.** It has to be in the service and not a controller because `requirements_check`'s
+`approve` is reachable from *both* `RequestController::transition()` and `ApprovalController::store()`
+— the identical dual-path trap Stage 54's jurisdiction gate hit; gating one leaves the other open.
+Keying it on "this rule lands the request on Art. 38's status 06" rather than on a hardcoded
+stage/action pair keeps it declarative and seed-driven, so the قيد happens wherever the map says code
+06 is reached. Allocation is **conditional on `reference_number` being null**, so a file that goes out
+on `return_missing_docs` and comes back never receives a second number — النموذج 05's "ولا يجوز منح
+أكثر من رقم أساسي لنفس المعاملة لمجرد انتقالها بين مراحل العمل", and Art. 99's rule, both enforced by
+that one condition.
+
+**The intake receipt is an invented code family, flagged as such.** Nothing in [D] names an intake
+receipt — grepped for إيصال / إشعار الاستلام / رقم مؤقت / رقم أولي, zero hits — so STAGE_PLAN's "the
+employee keeps an intake receipt" is its own addition, and any prefix I pick is mine. New nullable
+unique `requests.intake_receipt_number`, minted at `store()` as `PM-RCV/YYYY/000001`: a deliberately
+different prefix and width so it can never be misread as the قيد number, with the intake screen
+stating Art. 15's own rule in as many words. The alternative (no second number, the request id as the
+handle) would leave the employee with nothing quotable on the very screen that used to hand them a
+reference.
+
+**Every notification currently casts `(string) $requestRecord->reference_number`**, which for a
+pre-قيد request would render an empty string mid-sentence in six classes. New
+`Request::trackingNumber()` (`reference_number ?? intake_receipt_number`) is what those six read
+instead — honest for both halves of the lifecycle rather than a blank.
+
+**Meeting numbers stop being client-supplied.** `meeting_number` has been free text typed into the
+scheduling wizard since Stage 30, whose own note flagged auto-numbering as an open decision; Appendix
+8 requires "تطابق رقم الاجتماع" and Appendix 15 lists الاجتماع among the numbered artifacts, so
+`MeetingController::store()` mints it and both Form Requests drop the field — the same
+"never client-supplied when derivable" rule `appellant_user_id`/`original_decision_id` already follow.
+Minutes are numbered at `generate()` (only when null, so a regenerate keeps the number a reviewer has
+already seen); decisions at `Decision::create()` in **both** `record()` and `recordAppealDecision()`.
+
+**Art. 89 requires رقم القرار *inside* the محضر**, so `MeetingMinutesCompiler::agendaItem()`'s decision
+block gains `decision_number`, and Appendix 12's سجل القرارات needs it in the register — so
+`DecisionResource`, `DecisionController::exportRow()` and its `LABELS` columns gain it too, alongside
+the meeting number the same appendix asks for.
+
+**Migrations (4, all additive):** `requests.intake_receipt_number`, `decisions.decision_number`,
+`meeting_minutes.minutes_number` — all nullable+unique — plus a unique index on the existing
+`meetings.meeting_number` (safe: 0 rows).
+
+**Verification plan:** new `tests/Feature/UnifiedNumberingTest.php` — intake mints a receipt and
+**no** reference; the reference appears only on the `requirements_check → approve` hop, in
+`PM-COM/YYYY/0001` form, and a second pass through that hop after `return_missing_docs` does not mint
+a second one; the register/approve statuses land on Art. 38's 04 then 06; meeting/minutes/decision
+numbers mint in their own formats and per-year series; a regenerate keeps the minutes number; the
+decision number reaches the compiled minutes and the register export. Plus the two `RequestIntakeTest`
+cases that assert the old intake reference format (legitimate updates — this stage deliberately
+changes that behaviour, not regression fixes), the full PHPUnit suite, Pint on every touched file,
+`npm run build`, locale key-parity, and all four migrations plus the `WorkflowTransitionSeeder` reseed
+against the real MySQL/Homestead database.
+
+---
+
+### 2026-09-07 15:05 EET — Claude — Stage 69 complete (⚠ Art. 38 status-dictionary reconciliation)
+
+Built per the plan below, from the verbatim sources — [D] **Art. 38**'s twenty-code table, **Art. 31**,
+and **Appendix 5** read status by status. **No migration**: this stage is seeded-row data plus the code
+that reads it. The vocabulary now *is* Art. 38's dictionary — a test asserts that, code by code.
+
+**Four new statuses, none of them renames.** `awaiting_municipal_approval` (15), `awaiting_central_approval`
+(16), `not_approved` (13), `executed` (19). Adding rather than renaming keeps every historical
+`request_status_history` row readable, which a rename would have quietly broken.
+
+**The 12-vs-15 call is the one design decision worth not re-litigating.** gap-analysis §4 records
+`approved` as spanning 15–16, but that reading is **stale**: Stage 57 deleted `competent_authority` and
+with it the second of `approved`'s two call sites, so `approved` meant only Art. 31's **16**. What was
+actually missing is **15** — arrival at `approval_by_authority` (the file is with the البلدية) was
+stamped `decided` (12). Art. 38 keeps 12 and 15 apart because [D] treats الإحالة إلى السلطة المحلية as
+its own act; here `DecisionController::record()` performs the committee's approve decision and that
+referral **atomically**, so no state exists between them. Splitting `record()` into decide-then-refer
+would be Stage-57-scale blast radius this stage's Build bullet never asks for, so the arrival status is
+the more specific and more current of the two (15), and **`decided`/`approved` are retained as legacy** —
+still recognised wherever they are read, exactly as `archived` already is. 12's permanent record is the
+`decisions` row, which is where Art. 89 puts it anyway.
+
+**Code 13 closes gap-analysis §4's one explicitly-open finding.** `DecisionController::ACTIONS` routed
+the committee's `reject` outcome through the generic `cancel` self-loop, so a reasoned committee
+non-approval was indistinguishable in the data from a plain administrative withdrawal. New
+`reject_by_committee` action (self-loop at `receive_from_committee`, R03, comment required per Art. 91),
+new `not_approved` status. `AppealEligibility` no longer has to dig for a linked `Decision(reject)` to
+tell the two apart — 13 qualifies outright, `cancelled` no longer does, and the old heuristic survives
+only for rows written before this stage. **`not_approved` is terminal, matching `cancelled`'s current
+behaviour — a deliberate narrowing of Appendix 5**, whose status-13 entry says a non-approval still
+"يستكمل: المحضر · الاعتماد المطلوب · الإشعار · التظلم إن وجد · الإقفال". Nothing implements any of that
+for `cancelled` either, and making 13 alone non-terminal would put refused requests back into approval
+queues and visibility scopes with no way to close them — a regression dressed as compliance. That half
+is Stage 75's (closure record) and Stage 79's (Art. 101's notification moments); flagged, not half-built.
+
+**Codes 19/20 split `MeetingOutputService::complete()` in two**, because Appendix 5 refuses to let them
+collapse: "منفذة … **لكنها لا تصبح مغلقة إلا بعد التحقق من اكتمال التوثيق**". Now `markExecuted()`
+(18→19) and `close()` (19→20), sharing one private guard that keeps every original check verbatim. **The
+`Appeal::openAgainst()` hold moved to `close()` only** — Arts. 34–37 hold the *file* open until every
+تظلم concludes, which is a statement about closure, not about whether the effect was carried out. Two
+endpoints (`/outputs/{item}/execute`, `/outputs/{item}/close`) replace the one `/complete`; the resource
+grew `can_mark_executed`/`can_close` and an `executed` summary column, and `next_action` moved out of a
+now-four-deep inline ternary into its own method. Appendix 70's execution-evidence requirement before
+`markExecuted()` may fire is **Stage 76's** scope, deliberately not half-built here.
+
+**Validating the map against Appendix 5 surfaced one real, unreachable path — fixed, not merely
+reported.** The status-12 rule ("لا تنتقل مباشرة إلى التنفيذ") holds on both the ministry path and Stage
+57's bypass (execution is reached only through 17). The status-05 rule ("عند استكمال المطلوب **تعاد إلى
+(تحت فحص الاكتمال) ولا تقفز مباشرة إلى جدول الأعمال**") holds for `incomplete`, whose `return_missing_docs`
+sends the file back through the whole chain to `requirements_check`. It did **not** hold for
+`completion_required`: `CommitteeStatusService`'s only exit was `resume_discussion` → `under_discussion`
+(10) — exactly the jump the rule forbids — and `send_to_legal_review`'s origin list excluded it, so a
+file Stage 68's `fail_legal_review` parked there could never be re-reviewed through any endpoint,
+contradicting Art. 21's own loop and [E] stage 08's "استكمال أو تصحيح ثم إعادة المراجعة". **This was not
+theoretical: `RequestLegalReviewTest`'s own re-review test wrote `status_id` directly to `ready` to get
+past it**, which is how the gap survived Stage 68's verification. One line fixes it (`completion_required`
+added to that origin list); the test now walks the real path and still passes.
+
+**⚠ Blast radius was larger than STAGE_PLAN's own warning says.** It names four sites plus
+`ReportMetricsService::COMPLETED_STATUSES`; grep found **eleven**, all moved together in one pass:
+`WorkflowService::hasTerminalStatus()`, `CommitteeStatusService`'s copy (which has always omitted
+`in_execution` — that difference was preserved deliberately, not silently normalised),
+`RequestVisibility::apply()`, `ApprovalController::index()`, `COMPLETED_STATUSES` *and*
+`ABANDONED_STATUSES`, `FlagOverdueRequests`, `MeetingOutputResource`, `MeetingOutputsResource`,
+`MeetingsDashboardMetrics::funnel()`, `AppealEligibility`, `RequestController::REOPENABLE_STATUS_CODES`,
+plus two frontend mirrors. Two judgment calls inside that sweep: **`executed` is deliberately NOT added
+to `FlagOverdueRequests`** — like `in_execution` (already absent there), an executed-but-unclosed request
+is still open work, so it stays flaggable; and **legacy `approved` moved out of the funnel's `closed`
+bucket into `decided`**, since it always meant "an approval is still pending", which is the opposite of
+closed — a pre-existing miscount this stage's own consistency requirement exposed.
+
+Frontend: `MeetingOutputsView.vue`'s single complete button became a two-step (record execution → close
+and archive) driven by the row's own `can_*` flags, its status classes learned the four new codes, and
+`RequestDetailView.vue`'s reopenable list and destructive-action styling picked up `not_approved`.
+
+Verification: new `tests/Feature/ArtThirtyEightStatusTest.php` (7 tests — the tail walking 15→16→17, the
+bypass still reaching execution only through 17, a non-approval refused without a reason then landing on
+13 as a self-loop with no `Approval` row, 13 being terminal for both `availableTransitions()` and
+`ApprovalController`'s own copy of the list, 13 appealable while a plain cancellation is not, 19 counting
+as a reached result, and every one of Art. 38's twenty codes having a status). **Six pre-existing tests
+needed legitimate assertion updates, not regression fixes** — `WorkflowServiceTest`'s happy-path walk,
+`DecisionVotingTest`, `CommitteeCandidatesDashboardTest`'s funnel fixture (now speaking the new codes),
+and three in `MeetingOutputsTest` (rewritten around the execute→close pair, including that closing
+straight out of 18 is refused). Full suite **330 tests / 1914 assertions** green (was 323/1852), Pint
+clean on every touched file, `npm run build` passes (then reverted `frontend/dist`, tracked in git, per
+every prior stage's note), locale key-parity verified programmatically (1180 keys each side, zero
+on-one-side-only), and both reseeds ran clean and idempotently against the real MySQL/Homestead database
+— confirmed via a bootstrapped script: **37 statuses, 55 transitions**, the `reject_by_committee` row a
+7→7 R03 exception with a required comment, and both `approve` rows carrying the new statuses.
+
+Smoke-tested the whole dictionary end to end over real HTTP against Homestead with the seeded
+r03.head@/r05.manager@/r06.ministry@ accounts and tinker-built fixtures: `reject_by_committee` without a
+reason 422s and with one lands `not_approved` at the same stage; the tail walks
+`awaiting_municipal_approval` → `awaiting_central_approval` → `final_approved`; closing straight out of
+`in_execution` is refused, `execute` moves to `executed` with `next_action: close_request`, `close` moves
+to `completed_closed`, and a second close 422s. Deleted every fixture row (3 requests, committee,
+meeting, agenda item, decision, 3 approvals + their stored signature files, all stage-log/status-history
+rows), purged the 12 queued notification jobs the run generated, revoked all 9 tokens, and removed the 27
+audit rows the run wrote — all counts confirmed back to zero. **Two gotchas worth knowing for the next
+smoke test**: `php artisan tinker` neither runs a file argument nor reads piped stdin reliably in this
+environment (both silently no-op) — bootstrap Laravel from a plain PHP script instead; and
+`/api/auth/login` is `throttle:6,1`, so more than six logins in a minute hands back an empty token that
+surfaces as "Unauthenticated" rather than a 429 in the response you're reading.
+
+**Open items for whoever builds Stage 70+.** (1) Art. 38's code **12** now has no status any transition
+sets — that is deliberate (see above), but if a later stage ever splits the decision from the referral,
+`decided` is the label to bring back rather than a new one. (2) `not_approved` being terminal means
+Appendix 5's "13 → المحضر/الإشعار/الإقفال" chain is still unimplemented; **Stage 75** should decide
+whether closure applies to refused requests too, and **Stage 79** whether a refusal notifies. (3)
+Appendix 5's status-11 entry describes an intermediate "جاهزة لإعادة العرض" between a deferral and the
+next agenda, which this system folds into `deferred` — left as the one remaining ⚠ on that appendix's
+matrix row. (4) `FlagOverdueRequests` still omits `in_execution`, `decision_withdrawn` and
+`decision_amended` from its exclusion list, unlike the other four copies — pre-existing, deliberately not
+changed here since it alters overdue counts for a case that predates this stage, but it is the same
+drift-prone duplication Stage 64 first flagged. (5) Four committees from earlier sessions' smoke tests
+(including "لجنة اختبار المرحلة 68") are still in the real database despite those notes claiming a clean
+teardown — not this stage's residue, left alone rather than silently deleted.
+
+---
+
+### 2026-09-07 13:20 EET — Claude — Stage 69 implementation plan (⚠ Art. 38 status-dictionary reconciliation)
+
+Building Stage 69 per STAGE_PLAN.md Track K — one of the two stages carrying a ⚠ blast-radius marker.
+Read the verbatim sources before designing: [D] **Art. 38**'s twenty-code table in full, **Art. 31**
+(الإحالة إلى وزارة الحكم المحلي — which names "بانتظار الاعتماد المركزي" as the literal resulting
+status), and **Appendix 5** (دليل حالات المعاملة والانتقالات المسموح بها) status by status, plus
+gap-analysis §4's 28-row reconciliation and Stage 54b's own "keep every status as-is" decision that
+this stage deliberately reverses.
+
+**Four new statuses, not renames.** `awaiting_municipal_approval` (15 بانتظار اعتماد البلدية),
+`awaiting_central_approval` (16 بانتظار الاعتماد المركزي), `not_approved` (13 غير موافق عليها),
+`executed` (19 منفذة). Adding rather than renaming keeps every historical `request_status_history` row
+readable, and matches the legacy-status precedent `archived` already set.
+
+**The 12-vs-15 call, made explicitly rather than left implicit.** gap-analysis §4 records `approved` as
+spanning codes 15–16, but that reading is **stale**: Stage 57 deleted the `competent_authority` stage
+and with it the second of `approved`'s two call sites, so `approved` today is set in exactly one place —
+`approval_by_authority → local_governance_ministry` — where it means, unambiguously, Art. 31's own
+**16**. The code genuinely missing is **15**, because arrival at `approval_by_authority` (the file is
+with the البلدية) is stamped `decided` (12), conflating the two. Art. 38 keeps 12 and 15 apart because
+[D] treats الإحالة إلى السلطة المحلية as its own act; this system performs the committee's approve
+decision and that referral **atomically** inside `DecisionController::record()`, so no state exists
+between them. Rather than invent an intermediate step — splitting `record()` into decide-then-refer
+would be Stage-57-scale blast radius this stage's Build bullet never asks for — the arrival status
+becomes the more specific and more current of the two, **15**, while `decided` (12) is retained as a
+legacy status still recognised everywhere it is read, exactly as `archived` already is. The permanent
+record of 12 is the `decisions` row itself, which is where Art. 89 puts it anyway. `approved` is
+likewise retained as legacy rather than deleted.
+
+**Code 13 is a new committee outcome, and it closes gap-analysis §4's one explicitly-open finding.**
+Today `DecisionController::ACTIONS` maps the committee's `reject` outcome onto the generic `cancel`
+self-loop, so a real committee non-approval is indistinguishable in the data from a plain
+administrative withdrawal — §4 flagged exactly this and left it for "whoever next touches the
+committee-decision outcome set". New action `reject_by_committee` (self-loop at
+`receive_from_committee`, R03, `requires_comment: true` per Art. 91's reasoned-refusal rule), new status
+`not_approved`, and `ACTIONS['reject']` repointed at it. This also lets `AppealEligibility` drop its
+`cancelled`-plus-a-linked-`Decision(reject)` heuristic: 13 now qualifies outright, and `cancelled`
+reverts to meaning only what its name says.
+
+**`not_approved` is terminal, matching `cancelled`'s current behaviour — a deliberate, documented
+narrowing of Appendix 5.** Appendix 5's status-13 entry says a non-approval still "يستكمل: المحضر ·
+الاعتماد المطلوب · الإشعار · التظلم إن وجد · الإقفال", which argues for non-terminal. But nothing today
+implements any of that for `cancelled` either, and making 13 alone non-terminal would put refused
+requests back into approval queues and visibility scopes with no mechanism to close them — a regression
+dressed as compliance. The المحضر/الإشعار/الإقفال half is Stage 75's (closure record) and Stage 79's
+(Art. 101's twelve notification moments) own scope; flagged there rather than half-built here.
+
+**Codes 19/20 split `MeetingOutputService::complete()` into two status-only actions.** Appendix 5 is
+explicit that 19 is not 20 — "منفذة … **لكنها لا تصبح مغلقة إلا بعد التحقق من اكتمال التوثيق**". So
+`complete()` becomes `markExecuted()` (`in_execution` 18 → `executed` 19) and `close()` (`executed` 19 →
+`completed_closed` 20), both keeping the existing method's guards verbatim (stage must be
+`final_approval_archiving`, actor active, decision exists, row locked). The `Appeal::openAgainst()` hold
+moves to `close()` only — Arts. 34–37 hold the **file open** until every تظلم concludes, which is about
+closure, not about whether the administrative effect was carried out. `executed` blocks further ordinary
+workflow moves for the same reason `in_execution` already does, and counts as completed for reporting
+(17 already does, so 19 certainly must). The execution-evidence requirement Appendix 70 mandates before
+`markExecuted()` may fire is **Stage 76's** scope, deliberately not built here.
+
+**Appendix 5 validation surfaced one real, currently-unreachable path — fixed, not merely reported.**
+Walking all twenty statuses against the seeded map: the status-12 rule ("لا تنتقل مباشرة إلى التنفيذ")
+holds both on the ministry path and on Stage 57's bypass (both reach 18 only through 17); the status-05
+rule ("عند استكمال المطلوب **تعاد إلى (تحت فحص الاكتمال) ولا تقفز مباشرة إلى جدول الأعمال**") holds for
+`incomplete`, whose `return_missing_docs` sends the file back to `receive_from_municipality` and thence
+through the whole chain to `requirements_check` again. It does **not** hold for `completion_required`,
+the other 05-shaped status: `CommitteeStatusService`'s only exit from it is `resume_discussion` →
+`under_discussion` (10), and `send_to_legal_review`'s origin list does not include it — so a file that
+Stage 68's `fail_legal_review` parked at `completion_required` can never be re-reviewed through any
+endpoint, contradicting both Art. 21's own loop and [E] stage 08's "استكمال أو تصحيح ثم **إعادة
+المراجعة**". This is not theoretical: `RequestLegalReviewTest`'s own re-review test writes `status_id`
+directly to `ready` to get past it, bypassing the state machine. Fix is one line — add
+`completion_required` to `send_to_legal_review`'s `from` list — plus rewriting that test to walk the real
+path instead of the workaround.
+
+**⚠ Blast radius, enumerated by grep rather than from STAGE_PLAN's own list, which undercounts it.**
+The Build bullet names four sites plus `ReportMetricsService::COMPLETED_STATUSES`; the actual set is
+**eleven**: `WorkflowService::hasTerminalStatus()`, `CommitteeStatusService`'s own copy,
+`RequestVisibility::apply()`, `ApprovalController::index()`, `ReportMetricsService::COMPLETED_STATUSES`
+*and* `ABANDONED_STATUSES`, `FlagOverdueRequests`, `MeetingOutputResource`, `MeetingOutputsResource`,
+`MeetingsDashboardMetrics::funnel()`, `AppealEligibility`'s qualifying-status list, and
+`RequestController::REOPENABLE_STATUS_CODES` — plus two frontend mirrors (`MeetingOutputsView.vue`'s
+status classes, `RequestDetailView.vue`'s reopenable list). All move together in one pass.
+
+**Verification plan**: new `tests/Feature/ArtThirtyEightStatusTest.php` — the approval tail lands 15 then
+16 then 17 on the ministry path and 15 then 17 on Stage 57's bypass; a committee `reject` produces
+`not_approved` (not `cancelled`) with a required comment, is terminal, and qualifies for an appeal while
+a plain `cancel` no longer does; `markExecuted()` moves 18→19 and `close()` refuses to fire from 18;
+`close()` moves 19→20 and honours the appeal hold; the `completion_required → under_legal_review`
+re-review path works end to end without touching `status_id` by hand. Plus every pre-existing suite that
+asserts the old statuses (expected: `WorkflowServiceTest`'s happy-path walk, `ApprovalChainTest`,
+`MeetingOutputsTest`, `AppealTest`, `RequestLegalReviewTest`), the full PHPUnit suite, Pint on every
+touched file, `npm run build`, locale key-parity, and both reseeds against the real MySQL/Homestead
+database.
+
+---
+
+### 2026-09-07 11:40 EET — Claude — Stage 68 complete (pre-meeting legal review + R11 + Art. 38 status 07)
+
+Built per the plan below, from the **verbatim** sources rather than the paraphrase — [D] Arts. 21, 14 (ب),
+24 and 38, Appendices 2, 6, 7, 21, 22, النموذج 06, and [E] stage 08. Two migrations, both applied to the
+real MySQL/Homestead database. Track K's largest missing mandated step now exists end-to-end.
+
+**`request_legal_reviews` is a history table, not a column — this is the one design decision worth not
+re-litigating.** Stage 62's appeal legal review is a one-shot JSON column, and mirroring it here would
+have been wrong: Art. 21 and [E] stage 08 both describe a *loop* ("توجد ملاحظات → استكمال أو تصحيح ثم
+إعادة المراجعة"), and Art. 21 separately requires the opinion to stay readable in the file at study time
+("ويثبت الرأي أو الملاحظة القانونية في الملف بما يسمح لأعضاء اللجنة بالاطلاع عليها عند الدراسة"). An
+overwritten column destroys the previous round's opinion — exactly what Appendix 13's سجل الآراء
+القانونية exists to prevent. `Request::latestLegalReview()` (`hasOne(...)->latestOfMany()`, same shape as
+`latestStageLog()`) is what the gate reads; `legalReviews()` is what the file shows. Proven end-to-end,
+not just asserted: the smoke test's second round superseded the first while both stayed readable.
+
+**Appendix 22's eight بطاقة السند القانوني fields are real columns, not a blob**, since Stages 69–81 will
+query them. Two of the eight needed a judgment call and got one: `committee_mandate`'s fourth value is
+**دراسة فقط**, which is what the appendix actually says — STAGE_PLAN's own Build bullet paraphrases it as
+"لا اختصاص", and the verbatim text wins. `requires_central_approval` is a **three-value enum**
+(`yes|no|needs_verification`), not a boolean, because Appendix 22 explicitly offers "يحتاج إلى تحقق" —
+and it is deliberately **not** merged with Stage 54's `jurisdiction_test.requires_central_approval`,
+which is a boolean because Art. 45 Q6 asks a plain yes/no question. Two fields, two questions.
+
+**The five verdicts' routing came from reading Art. 21 and [E] stage 08 together**, since Art. 21 lists
+five outcomes and [E] gives the routing as a binary. `sound_ready` and `present_with_note` **permit**
+agenda insertion — the fifth outcome's whole point is that the matter *is* presented with the issue
+stated ("مع بيانها"), so blocking it would contradict its own wording. The other three block and return
+the file for correction then re-review. **`jurisdiction_note` deliberately does not terminate the request
+or set `outside_jurisdiction`**: Art. 14 (ب) says the legal member's opinion "لا يحل محل مداولة اللجنة أو
+تصويتها، كما لا يمنح العضو القانوني سلطة منفردة في قبول الطلب أو رفضه", so declaring عدم اختصاص stays the
+committee's own Stage 49 decision (or Stage 54's pre-committee one). `legal_note` is required for four of
+the five verdicts — `present_with_note` because stating the issue is that outcome's operative half, the
+three blocking ones because a file returned with no stated reason is unactionable.
+
+**Status-only throughout, via three new `CommitteeStatusService` actions** (`send_to_legal_review`,
+`pass_legal_review`, `fail_legal_review`): the review is agenda preparation *inside*
+`receive_from_committee`, between Art. 20's قيد and Art. 22's memo, so it is not a workflow stage and a
+13th `workflow_stages` row would have been Stage-57-scale blast radius the Build bullet never asked for.
+A passing verdict lands on Art. 38's own code 08 (`ready`, جاهزة للعرض); a blocking one on code 05
+(`completion_required`). `RequestLegalReviewController::store()` runs the status move **first**, inside
+the same transaction as the row insert, so a request that was never handed over gets no review row either
+— verified by test and by the smoke run's step 1.
+
+**`CANDIDATE_STATUSES` was deliberately NOT widened** to include `under_legal_review`, preserving its
+documented invariant ("exactly `nominate`'s origin statuses plus the status it moves them to") — a file
+with the legal member is on *their* queue, not the rapporteur's, matching Appendix 6's RACI split
+(العضو القانوني = مسؤول، مقرر اللجنة = منسق). To stop it vanishing from the dashboard for the whole
+duration of the review, `MeetingsDashboardMetrics::funnel()` gained its own `legal_review` bucket instead.
+
+**The gate lives in `MeetingController::addAgendaItem()`, mirroring Stage 63's `appeal_id` gate verbatim
+— not in `CommitteeStatusService::place_on_agenda`**, because Stage 44's own note already established
+that an item can be inserted without that action ever firing, so gating the service alone would be
+trivially bypassable through this very endpoint. Appendix 7's own checklist question ("هل تمت المراجعة
+القانونية المطلوبة؟") is answered separately by a new `missing_legal_review` readiness exception, which
+by construction can only fire for agenda rows created before the gate existed — the honest answer for
+legacy data, and the literal implementation of that checklist line.
+
+**One real correctness gap found and closed, not deferred — the same class Stage 47 had to close.**
+R11 holds no `workflow_transitions` row, so `RequestVisibility` would have 404'd the legal officer on
+every file in their own queue: notified into a dead end. Fixed with one bounded clause — a request is
+visible to a `legal_review,can_add` holder when it is at Art. 38's status 07 right now, or already
+carries a review. Bounded to files actually handed to legal review, never a general read of the pipeline.
+**Gotcha re-confirmed the hard way, exactly as the Stage 60 note recorded it:** `User::hasScreenPermission()`
+needs the `can_` prefix on the action name (`'can_add'`, not `'add'`) or it silently returns false for
+everyone. Caught by the failing test, not assumed correct.
+
+**Appendix 21 rides `request_types`** (`legal_basis_ar` / `legal_basis_note_ar`), transcribed verbatim for
+the **six** of the twelve types the appendix actually names (CONF←م.135، PROM، TRNS، SECD، PEVG←م.177،
+SETL←م.178) and left **null** for the other six (LEAV/ALLW/GRIV/EOSV/APPT/CTRC), which the appendix simply
+does not cover — an honest gap the legal officer fills by hand, not a fabricated citation. Arabic-only
+with no `_en` sibling on purpose: these cite Libyan statute, and an invented English rendering of
+"المادة 135 من قانون علاقات العمل" would be worse than none. They pre-fill Appendix 22's card; nothing is
+enforced.
+
+**R11 العضو القانوني** added to `RoleSeeder` (Stage 45 gave the committee a `legal` *seat*, but Art. 109
+and Appendix 45 both list the legal officer as a system **role** — the gap Stage 67's matrix flagged), plus
+`r11.legal@abusaleem.test` in `TestUserSeeder`, which holds one account per role. New `legal_review` screen
+inside `meetings_management`, with the two write tiers split by Appendix 6's RACI row and **not**
+interchangeable: `add => ['R11']` records a verdict (Art. 14 (ب) makes the opinion the legal member's own
+act), `edit => ['R02','R09']` dispatches a file to review (the rapporteur's coordinating act). Confirmed
+live: R11 gets a real 403 attempting to dispatch, R02 a real 403 attempting to record.
+
+Frontend: new `LegalReviewView.vue` (the queue, plus a modal carrying the earlier-rounds history, the
+Appendix 21 pre-fill, Appendix 22's eight fields and the five-verdict selector with a live
+permits/blocks-the-agenda hint), a `scale` glyph in `AppIcon.vue`, the screen wired into the sidebar's
+meetings group, and a legal-review card on `RequestDetailView.vue` showing the latest verdict plus a
+`v-can="'legal_review.edit'"` send-to-review button.
+
+Verification: new `tests/Feature/RequestLegalReviewTest.php` (12 tests — the dispatch's status-only move
+with stage-log emptiness asserted explicitly; a never-handed-over file leaving no review row behind; each
+of the five verdicts' landing status; Appendix 22's fields round-tripping and Appendix 21 pre-filling for
+a covered type and reporting null for an uncovered one; the note requirement for all four verdicts that
+need it; the agenda gate admitting exactly the two permitting verdicts and refusing an unreviewed file;
+the re-review loop with history preserved and the gate reading only the latest; the two write tiers'
+403s in both directions; the queue listing only status-07 files; `missing_legal_review` firing on a legacy
+agenda row; the detail resource's latest-only block). **Four pre-existing tests needed legitimate fixture
+updates, not regression fixes** — `CommitteeMeetingTest`, `MeetingAgendaBuilderTest` (×2) and
+`MeetingReadinessTest` all put fixture requests on agendas, which the new gate correctly refuses; each now
+seeds a passing review with an in-place comment saying why, the same category of update Stage 54 made to
+`ApprovalChainTest`. Full suite **323 tests / 1852 assertions** green (was 311/1750), Pint clean on every
+touched/new file (one auto-fix on the new Resource — import ordering, not a manual edit), `npm run build`
+passes with `LegalReviewView` as its own 9.1 kB lazy chunk (then reverted `frontend/dist`, tracked in git,
+per every prior stage's note), locale key-parity verified programmatically (1176 keys each side, zero
+on-one-side-only), and both migrations plus all six reseeds ran clean against the real MySQL/Homestead
+database — confirmed via tinker: 11 roles, 33 statuses, 31 screens, the grants exactly as designed, and
+the six seeded legal bases with six honest nulls.
+
+Smoke-tested the whole Art. 21 path end-to-end over real HTTP against Homestead with the seeded
+r11.legal@/r02.reviewer@/r03.head@ accounts and a tinker-built fixture request/committee/meeting: recording
+before handover 422s, R11 dispatching 403s, R02 dispatching moves the file to `under_legal_review` while
+leaving `current_stage_id` at `receive_from_committee`, R11 then opens the file successfully (the
+visibility fix, proven live rather than only unit-tested), the Appendix 21 pre-fill returns PROM's real
+citation, a blocking verdict without a note 422s and with one lands `completion_required`, agenda
+insertion is refused with the Arabic gate message, and after correction → re-dispatch → `sound_ready` the
+same insertion returns 201 while both rounds stay readable in the file and the detail card shows
+`sound_ready` with a count of 2. Deleted every fixture row (request/review/status-history/agenda-item/
+meeting/committee) and revoked all three minted tokens afterward — all counts confirmed back to zero, no
+residue left in the real database.
+
+**Open items for whoever builds Stage 69+.** (1) Art. 38's code **07** now exists, which is one of the
+codes Stage 69's reconciliation was told to expect; the rest of that stage (splitting `approved` into
+15/16, separating 13 from `cancelled`, and 19 from 20) is untouched here, and its ⚠ still stands — the
+terminal-status list is duplicated in four places plus `ReportMetricsService::COMPLETED_STATUSES`, and this
+stage added no new terminal status, so nothing here changes that blast radius. (2) A recorded review is
+**immutable** — there is no amend endpoint, matching every other one-shot action's precedent since Stage
+26; correcting a verdict means a fresh round, which is also what Art. 21's own loop describes. (3) The
+review's `approving_body` and `requires_central_approval` are captured but drive **nothing** downstream
+yet — the same open item Stage 57 left for `jurisdiction_test.requires_central_approval`, now with a
+second, richer source of the same fact. Whichever stage wires ministry-routing to a recorded answer should
+decide between the two deliberately rather than picking one by accident. (4) `MeetingReadinessService`
+reports `missing_legal_review` but computes no legal-review *percentage*, deliberately: the agenda gate
+makes it vacuous for every new item, so a permanent 100% bar would be noise.
+
+---
+
+### 2026-09-07 09:10 EET — Claude — Stage 68 implementation plan (pre-meeting legal review + R11 + status 07)
+
+Building Stage 68 per STAGE_PLAN.md Track K — the largest missing mandated step. Read the verbatim
+sources before designing, not the paraphrase: [D] **Art. 21** (the five procedural outcomes), **Art.
+14(ب)** (the legal member's 8 pre-meeting duties *and* its explicit limit), **Art. 24** item 7
+(المراجعة أو الرأي القانوني as a component of ملف العرض), **Art. 38** code 07, **Appendix 2** (جاهزية
+الملف — "مراجعًا قانونيًا عند الحاجة"), **Appendix 6** (RACI: العضو القانوني = مسؤول، مقرر اللجنة =
+منسق), **Appendix 7** ("هل تمت المراجعة القانونية المطلوبة؟"), **Appendix 21** (the per-subject
+legal-basis matrix), **Appendix 22** (بطاقة السند القانوني), **النموذج 06**, and **[E] stage 08**.
+
+**A `request_legal_reviews` table (hasMany), not a JSON column on `requests`** — deliberately unlike
+Stage 62's one-shot `Appeal.legal_review` column. Both [E] stage 08 ("توجد ملاحظات → استكمال أو تصحيح
+ثم **إعادة المراجعة**") and Art. 21's outcome list describe a *loop*, and Art. 21 additionally requires
+the opinion to stay readable in the file ("ويثبت الرأي أو الملاحظة القانونية في الملف بما يسمح لأعضاء
+اللجنة بالاطلاع عليها عند الدراسة"). A single overwritten column would destroy the previous round's
+opinion — exactly what Appendix 13's سجل الآراء القانونية exists to prevent.
+`Request::latestLegalReview()` (`hasOne(...)->latestOfMany()`, the same shape `latestStageLog()`
+already uses) is what the gate reads; the full `legalReviews()` history is what the file shows.
+
+**Columns = Appendix 22's card verbatim, as real columns rather than a blob**, because Stages 69–81
+will query them (Appendix 13's register, Appendix 21's matrix, and Stage 77's return-from-approving-body
+all read السند القانوني / جهة الاعتماد / اعتماد مركزي): `primary_legislation`, `article_reference`,
+`supplementary_decision`, `committee_mandate` (قرار|توصية|رأي|دراسة فقط — Appendix 22's own four
+values, note **دراسة فقط** rather than the Build bullet's paraphrase "لا اختصاص"; the verbatim text is
+authoritative), `approving_body`, `requires_central_approval` (نعم|لا|يحتاج إلى تحقق — a **three-value
+enum, not a boolean**, because Appendix 22 explicitly offers "يحتاج إلى تحقق"; contrast Stage 54's
+`jurisdiction_test.requires_central_approval`, which is a boolean because Art. 45 Q6 asks a yes/no
+question — the two answer different questions and are deliberately not merged), `legal_deadline`,
+`prohibiting_conditions`, plus النموذج 06's `verdict` and the legal member's `legal_note`.
+
+**The five verdicts and their routing, resolved from Art. 21 + [E] stage 08 read together:** Art. 21
+gives five outcomes; [E] stage 08 gives the routing as a binary ("جاهز قانونيًا → إعداد العرض / توجد
+ملاحظات → استكمال أو تصحيح ثم إعادة المراجعة"). Mapping them: `sound_ready` (سليم قانونيًا وجاهز
+للعرض) and `present_with_note` (مسألة قانونية تستوجب العرض مع بيانها) **permit** agenda insertion —
+the fifth outcome's whole point is that the matter *is* presented, with the issue stated, so treating
+it as a blocker would contradict its own wording. `needs_document`, `needs_clarification` and
+`jurisdiction_note` **block**, returning the file for completion/correction then re-review.
+`jurisdiction_note` deliberately does **not** terminate the request or set `outside_jurisdiction`:
+Art. 14(ب) is explicit that the legal member's opinion "لا يحل محل مداولة اللجنة أو تصويتها، كما لا
+يمنح العضو القانوني سلطة منفردة في قبول الطلب أو رفضه" — declaring عدم اختصاص stays the committee's
+own Stage 49 `declare_no_jurisdiction` decision (or Stage 54's pre-committee one). `present_with_note`
+requires a non-empty `legal_note` (the "مع بيانها" is that outcome's operative half); the three
+blocking verdicts require one too, since a returned file with no stated reason is unactionable.
+
+**Status code 07 arrives as a new `under_legal_review` RequestStatus** driven by three new
+`CommitteeStatusService` actions — status-only, `current_stage_id` untouched, which is exactly what
+that service exists for (legal review is pre-agenda prep inside `receive_from_committee`, not a
+workflow stage; adding a 13th `workflow_stages` row would be Stage-57-scale blast radius the Build
+bullet does not ask for): `send_to_legal_review` (`ready|in_meeting|nominated_for_committee` →
+`under_legal_review`), `pass_legal_review` (→ `ready`, i.e. Art. 38's own code 08 جاهزة للعرض) and
+`fail_legal_review` (→ `completion_required`, Art. 38's 05, comment required). The last two are called
+by the controller inside the same transaction that writes the review row, so a recorded review and the
+status it implies can never disagree.
+
+**`CANDIDATE_STATUSES` is deliberately NOT widened** to include `under_legal_review`, preserving its
+documented invariant ("exactly `nominate`'s origin statuses plus the status it moves them to") — a file
+with the legal member is on *their* queue, not the مقرر's candidate worklist, which matches Appendix
+6's RACI split. To stop it vanishing from the meetings dashboard instead,
+`MeetingsDashboardMetrics::funnel()` gains a `legal_review` bucket of its own rather than folding it
+into `candidates`.
+
+**The agenda gate** lives in `MeetingController::addAgendaItem()`, mirroring the `appeal_id` gate
+Stage 63 put there verbatim — not in `CommitteeStatusService::place_on_agenda`, because Stage 44's own
+note already established that `addAgendaItem()` can insert an item without that action ever firing, so
+gating the service alone would be trivially bypassable. Appendix 7's readiness question is answered
+separately: `MeetingReadinessService` gains a `missing_legal_review` exception, which can only fire for
+items inserted **before** this stage existed — dead code for new items by construction, but the honest
+answer for legacy rows and the literal implementation of Appendix 7's own checklist line.
+
+**Appendix 21 (tagged to this stage by Stage 67's matrix) rides `request_types`**, not a new table: two
+nullable columns `legal_basis_ar` / `legal_basis_note_ar`, seeded verbatim for the **six** of the
+twelve types the appendix actually names (CONF←م.135، PROM، TRNS، SECD، PEVG←م.177، SETL←م.178) and
+left **null** for the other six (LEAV/ALLW/GRIV/EOSV/APPT/CTRC), which Appendix 21 simply does not
+cover — an honest gap the legal officer fills by hand, not a fabricated citation. Arabic-only on
+purpose: these are citations of Libyan statute, and an invented English rendering of "المادة 135 من
+قانون علاقات العمل" would be worse than absent. They pre-fill the review form; nothing is enforced.
+
+**R11 العضو القانوني** (`RoleSeeder`, additive — Stage 45 added a `legal` committee *seat* but Art. 109
+and Appendix 45 both list the legal officer as a **system role**, which is the gap Stage 67's matrix
+flags). New `legal_review` screen inside `meetings_management` (pre-agenda prep, the same block as
+`committee_candidates`). Grants: `view => '*'` (Art. 21 requires committee members to be able to read
+the opinion), **`add => ['R11']`** (only the legal member records a review — the verb that creates a
+`RequestLegalReview` row) and **`edit => ['R02','R09']`** (dispatching a file *to* review, the مقرر's
+coordinating act per Appendix 6's منسق). R08 gets both automatically per that seeder's own rule.
+
+**Backend surface**: `App\Models\RequestLegalReview`; `RequestLegalReviewController` (`index` the
+queue, `show` one request's history plus its type's pre-filled legal basis, `store` record a review,
+`requestReview` dispatch to review);
+`App\Http\Requests\RequestLegalReview\StoreRequestLegalReviewRequest` (Arabic messages, `legal_note`
+`required_if` the verdict is any of the four that need one); `RequestLegalReviewResource`;
+`RequestDetailResource` gains a `legal_review` block (latest + count).
+
+**Frontend**: new `LegalReviewView.vue` (queue + per-request card with the pre-filled legal-basis
+fields and the five-verdict selector), a `scale` glyph in `AppIcon.vue`, the screen wired into the
+sidebar's meetings group, and `RequestDetailView.vue` gains a legal-review card showing the latest
+verdict/note plus a `v-can="'legal_review.edit'"` send-to-review button.
+
+**Verification plan**: new `tests/Feature/RequestLegalReviewTest.php` — dispatch moves status to
+`under_legal_review`; each of the five verdicts lands on the right status; the two permitting verdicts
+let `addAgendaItem` through and the three blocking ones 422 it; an un-reviewed request is refused the
+agenda; `legal_note` is required for all four verdicts that need it; a re-review after a blocking
+verdict supersedes the first (history preserved, gate reads the latest); R11-only `store` and
+R02/R09-only dispatch permission gates; `missing_legal_review` fires on a legacy agenda item; the
+type's seeded legal basis pre-fills `show`. Plus the full PHPUnit suite, Pint on touched/new files,
+`npm run build`, locale key-parity, and `php artisan migrate` + the four reseeds against the real
+MySQL/Homestead database.
+
+---
+
+### 2026-09-07 EET — Claude — Stage 67 complete (verbatim sources + compliance matrix) — docs only, no code
+
+Built per the Track K plan below. **No PHP, Vue, migration or seeder was touched** — `git status` shows only
+`AGENT_NOTES.md` and `STAGE_PLAN.md` as modified (the `docs/` folder is git-ignored, so its five new/changed
+files don't appear). Nothing to test; the full suite is untouched at 311/1750.
+
+**Two new files carry the real text for the first time.** `docs/employee-committee-lifecycle/source-manual-verbatim.md`
+(3,250 lines) transcribes [D] in full — all 114 Articles plus **all 78 organizational appendices**, which no
+prior session had ever read. `source-detailed-flow-verbatim.md` transcribes [E]'s 21-stage table, its
+full-chain summary, the 7 supplementary diagrams and the 8-gate decision model, and closes with a
+stage-by-stage implementation cross-reference (16 compliant / 4 divergent / 1 missing). Verified by counting
+structural headings: 127 article headings and exactly 78 appendix headings.
+
+**One transcription decision worth stating:** the source PDF's text layer mis-extracts the lam-alef ligature
+throughout (`الإجراء`→`اإلجراء`, `الأعمال`→`األعمال`) and scrambles some RTL table cells. Those extraction
+artifacts were normalized to correct Arabic; **no wording, ordering, field list, numeric value or article
+number was altered**. Where the source is genuinely defective — the two numbering collisions — the defect is
+preserved and flagged rather than silently repaired, because repairing it would break every citation already
+in STAGE_PLAN.md and the code comments.
+
+**The numbering-defect finding grew during verification, which is worth recording as a process point.** I
+first recorded [D]'s second collision as "Arts. 9–14 appear twice." Counting `### المادة` headings in the
+finished file returned **127**, not the 121 that claim predicts — which surfaced that **Arts. 15–20 collide
+too**: "المادة 15" is both *مقرر اللجنة واختصاصاته* (Baab 2) and *نقطة بداية المعاملة* (Baab 4). The real
+range is **Arts. 9–20**, corrected across all six places I had already written the wrong range (AGENT_NOTES,
+STAGE_PLAN, README, the index's open-items, the verbatim header, the matrix). Track I/J's existing citations
+were then checked against both occurrences: **Arts. 10–14 always mean (أ), Arts. 15–23 always mean (ب), and
+every one is correct as written** — the ambiguity is a reading hazard, not a bug in what was built.
+
+**`compliance-matrix.md` is the deliverable Stages 68–83 actually read from** — every Article (127 rows
+including duplicates), every appendix (78), every [E] stage, each tagged compliant / divergent / missing /
+n-a with the implementing file or the closing stage named. Headline: **62 articles compliant, 33 divergent,
+5 missing, 27 n-a**; **34 appendices compliant, 22 divergent, 6 missing, 16 n-a**. The five outright-missing
+Articles are 21 and 14(ب) (pre-meeting legal review), 94 (return from the approving body), 103-second
+(pre-execution soundness checklist) and 105 (suspend execution on a bad material fact). Part D indexes every
+finding by closing stage, and the matrix ends with Appendix 77 as the track's own acceptance test — the
+manual's ten-question audit card, of which questions 5 (السند القانوني), 9 (من نفذها) and 10 (دليل التنفيذ
+والإشعار والإقفال) **cannot be answered from any closed transaction's record today**.
+
+**A deviation from the stage's own text, made deliberately and recorded in STAGE_PLAN:** Stage 67 originally
+said "rewrite `gap-analysis.md` as a matrix." I created `compliance-matrix.md` as a new file and gave
+`gap-analysis.md` a superseding header instead. **This folder is git-ignored**, so overwriting would have
+destroyed the only copy of *why* several Track I calls were made — §4's 28-row status reconciliation, §14's
+Stage 57 resolution, §§16–17's verification verdicts — reasoning the matrix cites but does not reproduce.
+The header also lists the four places `gap-analysis.md` is now known to be wrong or incomplete, including
+one worth knowing: **§7 attributes "facts summary" and "documents-reviewed list" to Art. 28 (المحضر), but the
+verbatim text puts them in Art. 22 (مذكرة العرض)** — Stage 50's implementation is fine (it reads them from
+the presentation memo) but the citation was loose, an artifact of working from the paraphrase.
+
+**The reassuring half, stated so nobody re-opens settled work:** the process *shape* Track I/J built is
+right. Art. 10's five-seat roster matches `CommitteeMember::SEATS` seat-for-seat; Art. 45's six jurisdiction
+questions match Stage 54's `jurisdiction_test` field-for-field; Art. 26's four outcomes are all present as a
+superset; Art. 27's غير مستوفٍ-vs-مؤجل distinction is exactly the `require_completion`/`defer` split Stage 49
+verified; Arts. 75–79's appeal lifecycle and enumerated reopen reasons match Track J including
+`ReopenReasonCatalog::CODES`. The paraphrase served better than its own caveat suggested — its blind spot was
+the appendices, not the articles.
+
+**Next: Stage 68** (pre-meeting legal review — Art. 21 / [E] stage 08, the largest missing mandated step; it
+also introduces the R11 legal-officer role and Art. 38's status code 07, which Stage 69 then depends on).
+Stages **69** and **73** carry the ⚠ markers — 69 because the status splits touch the terminal-status list
+duplicated in four places (`WorkflowService`, `CommitteeStatusService`, `RequestVisibility`,
+`ApprovalController`, per Stage 64's own finding) plus `ReportMetricsService::COMPLETED_STATUSES`, and 73
+because changing quorum/majority rules needs a defined behaviour for meetings already held and minuted under
+the invented `ceil(n/2)`.
+
+---
+
+### 2026-09-06 11:30 EET — Claude — TRACK K opened (Stages 67–83): make the system identical to the *verbatim* [D]/[E], plan + Stage 67
+
+The user supplied the **full verbatim text** of [D] (`دليل إجراءات لجنة شؤون الموظفين` — 142 pages, 114
+Articles, **78** organizational appendices) and [E] (`المسار التفصيلي المعتمد` — 21 stages + 7 supplementary
+diagrams) and asked for the whole system to be made identical to them. **This is the first time anyone has
+had the real text.** Every prior alignment stage (Track I 38–57, Track J 58–66) was built against
+`docs/employee-committee-lifecycle/official-procedures-manual-index.md`, which says of itself: "a structured
+index, not a verbatim reproduction — re-read the source PDF before relying on an exact figure or field list
+for anything implementation-critical." Crucially, **none of [D]'s 78 appendices were ever audited** — the
+index only ever quoted a handful by number, and the appendices turn out to be where most of the remaining
+divergence lives.
+
+**The reassuring half, stated first so nobody re-litigates settled work:** the process *shape* Track I/J
+built is right. Art. 10's 5-seat roster matches `CommitteeMember::SEATS` seat-for-seat; Art. 45's six
+jurisdiction questions match Stage 54's `jurisdiction_test` field-for-field; Art. 26's four committee
+outcomes are all present (as a superset, with Stages 35/41/49's additions); Arts. 75–79's appeal lifecycle
+and Arts. 78–79's enumerated non-reopening reasons match Track J including `ReopenReasonCatalog::CODES`.
+Track I/J's own citation caveats held up well even working from a paraphrase. What remains is a concrete,
+enumerable list — not a rebuild.
+
+**Six findings verified directly against code this session, not inferred from the documents:**
+(1) **Quorum is a hard-coded `ceil(activeMembers/2)`** in `MeetingReadinessService.php:65` *and*
+`MeetingMinutesCompiler.php:88` — and the file's own comment admits "there is no design-doc spec beyond the
+four names, so this is the one place those definitions" were invented. **Appendix 64 expressly forbids
+exactly this**: "ولا يجوز للدليل إنشاء نسبة نصاب أو أغلبية من تلقاء نفسه" — quorum, majority, tie-break and
+minutes-approval authority must all come from the قرار تشكيل / the governing text. This is a correctness bug
+against an explicit prohibition, not a preference. (2) `decisions` has **no `decision_number`** and
+`meeting_minutes` has no number either (grep: the only `final_decision_number` anywhere is inside Stage 65's
+Appeal `closure` JSON) — while Art. 89 requires رقم القرار *inside* the محضر and Art. 99 + Appendix 15 define
+a whole unified scheme (`M-COM/2026/0001` / `PM-MTG/2026/01` / `PM-MIN/2026/01` / `PM-DEC/2026/001`). Stage
+51's note had already flagged this as an honest gap it refused to fabricate. (3) The request reference is
+granted **at intake** (`RequestReferenceGenerator`, asserted in `RequestIntakeTest.php:83`), but Art. 15 says
+handing the request to the direct manager "لا يعد… قيدًا لدى لجنة شؤون الموظفين" and Art. 20 grants the رقم
+إشاري only *after* completeness is established — which is exactly what Art. 38's status **06** (مستوفية
+ومقيدة — اكتملت المتطلبات ومنحت رقمًا مرجعيًا) means. (4) `legal_review` exists **only on `Appeal`** (Stage 62,
+Art. 75 pt. 4); nothing on the ordinary request path — yet Art. 21 / **[E] stage 08** is a numbered mandatory
+pre-meeting legal review with its own five-outcome vocabulary and its own form (النموذج 06). Stage 46's note
+had already found this: "no model for that review exists anywhere in this codebase." (5) `users` holds only
+name/email/department/manager/phone/is_active — **no employment data at all**, while every checklist in
+Appendices 4 and 57 depends on قرار التعيين، تاريخ المباشرة، الدرجة، المجموعة الوظيفية، كشف الأقدمية، المؤهل.
+(6) `NotificationSetting::EVENT_TYPES` has **9** events and status-only moves (`CommitteeStatusService`,
+`MeetingOutputService`) fire **nothing** — `stage_changed` only ever fires from `WorkflowService::transition()`
+— while Art. 101 enumerates **12** moments that require an إشعار, including إدراج الطلب بجدول الأعمال، بدء
+التنفيذ، إقفال المعاملة, all currently silent.
+
+**Five places where the source data that was missing at build time now exists**, each one a stage whose own
+note said to replace it outright rather than layer on top: **Appendix 37** (مدد العمل التشغيلية المقترحة)
+gives real per-step day counts, replacing the [A] §12 substitute Stage 52 used; **Appendix 38** (مستويات
+التأخير) gives real escalation *targets* (أصفر→current owner، أحمر→مقرر اللجنة + مدير الموارد البشرية،
+حرج→رئيس اللجنة + السلطة المختصة) where today nothing acts on the bucket beyond colouring it; **Appendix 57**
++ **Appendix 4** give the real per-type document matrices, replacing Stage 53's admitted "judgment-call
+starting checklist"; **Appendix 59** (بنك صيغ قرارات) gives 7 ready Arabic decision formulas, and Stage 35's
+template mechanism currently ships with **nothing seeded** ("entirely inert until an R08 admin creates one");
+and **Appendix 5** (دليل حالات المعاملة والانتقالات المسموح بها) gives the allowed transition per status — a
+direct validation source for the seeded transition map that nobody has ever checked against.
+
+**One new source defect found, worth recording before anyone cites an article number:** [D] contains a
+*second* numbering collision beyond the already-known duplicate Art. 103. **Articles 9–20 appear twice.**
+Occurrence **(أ)** is Baab 2's "الفصل الرابع: تشكيل لجنة شؤون الموظفين" — Arts. 9–20 (الغرض من الفصل / تشكيل
+اللجنة / الهيكل التنظيمي / اختصاصات الرئيس / الأعضاء / مندوب الخدمة المدنية / المقرر / حدود صلاحياته /
+الطبيعة الجماعية / الحياد / السرية / العلاقة التنظيمية). Occurrence **(ب)** restarts the numbering and then
+runs on to 114, spread across Baab 3's chapter *also* labelled "الفصل الرابع" (الأطراف المشاركة، Arts. 9–14:
+الموظف صاحب الطلب / الرئيس المباشر / الجهة الإدارية المعنية / إدارة الموارد البشرية / مقرر اللجنة / العضو
+القانوني) and Baab 4's "الفصل الخامس" (المسار الإجرائي، Arts. 15–23). **I initially recorded this as
+Arts. 9–14 and corrected it during verification** — counting article headings in the finished transcription
+returned 127 rather than the expected 121, which surfaced that Arts. 15–20 collide too: "المادة 15" is both
+*مقرر اللجنة واختصاصاته* and *نقطة بداية المعاملة*. A bare "Art. 11" or "Art. 15" citation from this manual
+is therefore ambiguous — always name the chapter too. Track I/J's existing citations were checked: Arts.
+10–14 always mean (أ), Arts. 15–23 always mean (ب), and all are correct as written.
+
+**Two scope decisions taken with the user before planning, recorded so they aren't re-opened:**
+**(1) ملف الخدمة is evidence-only.** Art. 12 mandates a service file and Appendix 52 mandates updating it
+after execution, but the user's call is that it lives outside this app — so Track K implements Appendix 70 /
+النموذج 17's execution-proof checklist and a required دليل تنفيذ attachment ("لا يكفي أن تقول الجهة المنفذة
+(تم التنفيذ) بل يجب إرفاق دليل التنفيذ") rather than an employment-record module. **(2) Statuses reconcile to
+Art. 38**, deliberately reversing Stage 54b's documented "keep all 32 as-is" decision, because the user asked
+for literal identity: add the missing code **07** (تحت المراجعة القانونية), split code **13** (غير موافق عليها)
+out of the overloaded `cancelled` — the exact item Stage 54b left open — split `approved` into codes **15/16**
+(بانتظار اعتماد البلدية vs بانتظار الاعتماد المركزي, which Art. 31 names explicitly), and separate **19**
+(منفذة) from **20** (مغلقة ومؤرشفة).
+
+**Track K = Stages 67–83**, appended to STAGE_PLAN.md in the same Goal/Build/Done-when/Source format: 67
+verbatim sources + compliance matrix (docs only), 68 pre-meeting legal review + R11 legal role + status 07,
+69 Art. 38 status reconciliation, 70 unified numbering + move the قيد point, 71 real SLA durations +
+escalation routing, 72 real per-type checklists, 73 committee identity card + configurable quorum, 74
+structured decisions/deferrals/refusals + seed the 7 official formulas, 75 request closure record, 76
+execution proof, 77 return-from-approving-body (= [A] §5's Path 3, flagged unbuilt since gap-analysis §14),
+78 the four mandatory control gates, 79 Art. 101's twelve notification moments, 80 the twelve official
+registers, 81 the thirteen official KPIs, 82 agenda ordering + item fields, 83 lifecycle edge cases.
+**Highest-risk, flagged ⚠ alongside the existing 57/64 markers: Stage 69** (the status splits touch the
+terminal-status list duplicated in four places — `WorkflowService`, `CommitteeStatusService`,
+`RequestVisibility`, `ApprovalController` — per Stage 64's own finding) **and Stage 73** (changing
+quorum/majority rules needs a defined behaviour for meetings already held and minuted under the old
+`ceil(n/2)`).
+
+Articles that are pure human-conduct governance (Art. 8's 20 principles, Arts. 18–19's حياد/سرية duties,
+Appendix 49's integrity rules, and the parts of Appendix 66's 15 prohibitions that describe staff behaviour
+rather than system states) are tagged **not applicable** in the matrix and deliberately not turned into code.
+
+---
+
 ### 2026-09-06 10:35 EET — Claude — Stage 66 complete (non-reopening rule + the reopen mechanism) — Track J finished
 
 Built per STAGE_PLAN.md Track J's final stage: [D] Arts. 78–79's rule that neither a closed appeal nor a

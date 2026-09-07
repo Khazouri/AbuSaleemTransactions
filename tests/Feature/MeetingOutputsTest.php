@@ -59,7 +59,7 @@ class MeetingOutputsTest extends TestCase
             ->assertJsonPath('data.outputs.0.next_action.code', 'approval_by_authority')
             ->assertJsonPath('data.outputs.0.responsible_body.code', 'R05')
             ->assertJsonPath('data.outputs.0.execution_status.code', 'decided')
-            ->assertJsonPath('data.outputs.0.can_complete', false);
+            ->assertJsonPath('data.outputs.0.can_mark_executed', false);
 
         $this->assertSame($head->id, $response->json('data.outputs.0.decision.decided_by.id'));
     }
@@ -95,23 +95,43 @@ class MeetingOutputsTest extends TestCase
             ->getJson("/api/meetings/{$meeting->id}/outputs")
             ->assertOk()
             ->assertJsonPath('data.summary.in_execution', 1)
-            ->assertJsonPath('data.outputs.0.next_action.code', 'complete_execution')
+            ->assertJsonPath('data.outputs.0.next_action.code', 'mark_executed')
             ->assertJsonPath('data.outputs.0.responsible_body.code', 'ADM')
-            ->assertJsonPath('data.outputs.0.can_complete', true);
+            ->assertJsonPath('data.outputs.0.can_mark_executed', true)
+            ->assertJsonPath('data.outputs.0.can_close', false);
 
-        // Members may monitor outputs, but only the head's edit grant can close.
+        // Members may monitor outputs, but only the head's edit grant can act.
         $this->actingAs($member, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute")
             ->assertForbidden();
 
+        // Stage 69 — Appendix 5 refuses to let 19 and 20 collapse, so closing
+        // straight out of `in_execution` is not a legal move.
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('action');
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute")
             ->assertOk()
             ->assertJsonPath('data.summary.in_execution', 0)
+            ->assertJsonPath('data.summary.executed', 1)
+            ->assertJsonPath('data.summary.completed_closed', 0)
+            ->assertJsonPath('data.outputs.0.execution_status.code', 'executed')
+            ->assertJsonPath('data.outputs.0.next_action.code', 'close_request')
+            ->assertJsonPath('data.outputs.0.can_mark_executed', false)
+            ->assertJsonPath('data.outputs.0.can_close', true);
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
+            ->assertOk()
+            ->assertJsonPath('data.summary.executed', 0)
             ->assertJsonPath('data.summary.completed_closed', 1)
             ->assertJsonPath('data.outputs.0.execution_status.code', 'completed_closed')
             ->assertJsonPath('data.outputs.0.next_action', null)
-            ->assertJsonPath('data.outputs.0.can_complete', false);
+            ->assertJsonPath('data.outputs.0.can_mark_executed', false)
+            ->assertJsonPath('data.outputs.0.can_close', false);
 
         $closed = $requestRecord->fresh();
         $this->assertSame('final_approval_archiving', $closed->currentStage->code);
@@ -119,12 +139,18 @@ class MeetingOutputsTest extends TestCase
         $this->assertDatabaseHas('request_status_history', [
             'request_id' => $requestRecord->id,
             'from_status_id' => RequestStatus::where('code', 'in_execution')->value('id'),
+            'to_status_id' => RequestStatus::where('code', 'executed')->value('id'),
+            'changed_by_user_id' => $head->id,
+        ]);
+        $this->assertDatabaseHas('request_status_history', [
+            'request_id' => $requestRecord->id,
+            'from_status_id' => RequestStatus::where('code', 'executed')->value('id'),
             'to_status_id' => RequestStatus::where('code', 'completed_closed')->value('id'),
             'changed_by_user_id' => $head->id,
         ]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
             ->assertStatus(422);
     }
 
@@ -143,17 +169,26 @@ class MeetingOutputsTest extends TestCase
             'appeal_status_id' => AppealStatus::where('code', 'submitted')->value('id'),
         ]);
 
+        // Stage 69 — recording that the effect was carried out is NOT held up
+        // by an open appeal: Arts. 34-37 keep the *file* open, which is a
+        // statement about closure. So execution succeeds and the close is what
+        // the hold refuses.
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute")
+            ->assertOk()
+            ->assertJsonPath('data.outputs.0.execution_status.code', 'executed');
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
             ->assertStatus(422)
             ->assertJsonValidationErrors('action');
 
-        $this->assertSame('in_execution', $requestRecord->fresh()->status->code);
+        $this->assertSame('executed', $requestRecord->fresh()->status->code);
 
         $appeal->update(['appeal_status_id' => AppealStatus::where('code', 'notified_closed')->value('id')]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
             ->assertOk()
             ->assertJsonPath('data.outputs.0.execution_status.code', 'completed_closed');
     }
@@ -170,7 +205,7 @@ class MeetingOutputsTest extends TestCase
         ]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$otherMeeting->id}/outputs/{$agendaItem->id}/complete")
+            ->postJson("/api/meetings/{$otherMeeting->id}/outputs/{$agendaItem->id}/execute")
             ->assertNotFound();
 
         $this->assertSame('in_execution', $agendaItem->request->fresh()->status->code);
@@ -181,7 +216,12 @@ class MeetingOutputsTest extends TestCase
         [$head, , , $meeting, $agendaItem, $requestRecord] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/complete")
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('action');
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
             ->assertStatus(422)
             ->assertJsonValidationErrors('action');
 

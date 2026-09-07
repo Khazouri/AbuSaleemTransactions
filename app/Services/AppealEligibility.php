@@ -25,15 +25,20 @@ use App\Models\User;
 class AppealEligibility
 {
     /**
-     * Current status codes that cleanly match one of Art. 38's 12/14/17/
-     * 19/20 (code 13 has no clean match — see requestReachedResult()).
+     * Current status codes matching one of Art. 38's 12/13/14/17/19/20.
+     * Stage 69 gave code 13 a status of its own (`not_approved`) and split
+     * 19 out of `completed_closed`, so the list is now literal rather than
+     * approximate; the `cancelled` special case below survives only for rows
+     * written before that stage.
      */
     private const QUALIFYING_STATUS_CODES = [
         'decided',                 // 12 موافق عليها من اللجنة
         'approved_with_conditions', // 12, with an added condition
         'outside_jurisdiction',    // 14 عدم اختصاص (exact match)
         'final_approved',          // 17 معتمدة نهائيًا
-        'completed_closed',        // 19–20 منفذة / مغلقة ومؤرشفة (merged)
+        'not_approved',            // 13 غير موافق عليها (Stage 69 — exact match)
+        'executed',                // 19 منفذة (Stage 69)
+        'completed_closed',        // 20 مغلقة ومؤرشفة
         'archived',                // 20, legacy-only
         // `in_execution` (Art. 38 code 18) is deliberately excluded —
         // STAGE_PLAN's own code list skips it while naming 17/19/20 on

@@ -934,6 +934,271 @@ disagree with the outcome" attempt is rejected.
 
 ---
 
+# TRACK K — Verbatim-source alignment ([D] and [E] as actually written)
+
+> Tracks I and J aligned this system to [D]/[E] working from
+> [official-procedures-manual-index.md](docs/employee-committee-lifecycle/official-procedures-manual-index.md),
+> which states plainly that it is "a **structured index**, not a verbatim
+> reproduction — re-read the source PDF before relying on an exact figure or
+> field list for anything implementation-critical." In September 2026 the
+> **full verbatim text of both documents** was supplied for the first time.
+> Track K is the correction pass that follows: it audits the real text —
+> including **all 78 of [D]'s organizational appendices, none of which had
+> ever been read** — and closes what the paraphrase could not surface.
+>
+> **What the verbatim text confirmed as already correct**, so it is not
+> re-litigated below: Art. 10's five-seat roster (matches
+> `CommitteeMember::SEATS` seat-for-seat), Art. 45's six jurisdiction
+> questions (match Stage 54's `jurisdiction_test` field-for-field), Art. 26's
+> four committee outcomes (present as a superset), and Arts. 75–79's appeal
+> lifecycle and enumerated reopen reasons (match Track J, including
+> `ReopenReasonCatalog::CODES`). The process *shape* is right; what follows is
+> a finite list, not a rebuild.
+>
+> **Source-citation warning:** [D] contains **two** article-numbering
+> collisions. The already-known duplicate Art. 103, and — found during Track
+> K's audit — **Articles 9–20 appear twice**: occurrence **(أ)** is Baab 2's
+> "الفصل الرابع: تشكيل لجنة شؤون الموظفين" (Arts. 9–20), and occurrence **(ب)**
+> restarts the numbering across Baab 3's chapter *also* labelled "الفصل الرابع"
+> (الأطراف المشاركة، Arts. 9–14) and Baab 4's "الفصل الخامس" (المسار الإجرائي،
+> Arts. 15–23), then runs on to 114. So "المادة 15" is both *مقرر اللجنة* and
+> *نقطة بداية المعاملة*. Existing Track I/J citations of Arts. 10–14 mean (أ);
+> citations of Arts. 15–23 mean (ب) — both verified correct, but always name
+> the chapter alongside an article number from this manual.
+>
+> **Two scope decisions taken once, not re-litigated per stage:**
+> **(1) ملف الخدمة is treated as living outside this application.** Art. 12
+> mandates a service file and Appendix 52 mandates updating it after
+> execution; Track K implements the *evidence* that it was updated (Stage 76),
+> not an employment-record module.
+> **(2) Statuses reconcile to Art. 38 (Stage 69), deliberately reversing Stage
+> 54b's "keep as-is" decision** — that call was correct when the goal was a
+> documented mapping; the goal is now literal identity with Art. 38's
+> twenty-code dictionary.
+>
+> Articles that are pure human-conduct governance — Art. 8's twenty
+> principles, Arts. 18–19's حياد/سرية duties, Appendix 49's integrity rules,
+> and the parts of Appendix 66's prohibitions describing staff behaviour
+> rather than system states — are recorded as **not applicable** in Stage 67's
+> matrix and deliberately not turned into code.
+
+### Stage 67 — Verbatim sources + corrected compliance matrix
+**Goal:** the docs folder stops depending on a paraphrase for anything the
+real text can answer, and a single current matrix says exactly where the
+system stands against every provision.
+**Build:** save both documents' full text as `source-manual-verbatim.md` and
+`source-detailed-flow-verbatim.md`; repoint `README.md`'s lineage table at
+them and demote the index/flow paraphrases; record the newly-found Arts. 9–20
+duplicate-numbering defect alongside the known Art. 103 one; produce
+`compliance-matrix.md` tagging every Article 1–114, every appendix 1–78 and
+every [E] stage 01–21 as **compliant** (citing the implementing file) /
+**divergent** / **missing** / **not applicable**.
+**Note on the matrix's home:** it is a *new* file rather than a rewrite of
+`gap-analysis.md`, which instead gets a superseding header. This folder is
+git-ignored, so overwriting would have destroyed the only copy of *why*
+several Track I decisions were made (§4's status reconciliation, §14's Stage
+57 resolution, §§16–17's verification verdicts) — reasoning the matrix cites
+but does not reproduce.
+**Done when:** every provision appears exactly once with a tag, and the
+divergent/missing rows are the ones Stages 68–83 close. No code change.
+
+### Stage 68 — Pre-meeting legal review (the largest missing mandated step)
+**Goal:** [E]'s numbered **stage 08** exists. Today `legal_review` lives only
+on `Appeal` (Stage 62); the ordinary request path has no legal review at all,
+which Stage 46's own note already found ("no model for that review exists
+anywhere in this codebase").
+**Build:** a `RequestLegalReview` record carrying Appendix 22's بطاقة السند
+القانوني fields (التشريع الأساسي، رقم المادة، القرار أو المنشور المكمل،
+اختصاص اللجنة قرار/توصية/رأي/لا اختصاص، جهة الاعتماد، هل يلزم اعتماد مركزي،
+مدة قانونية مؤثرة، شروط مانعة) plus النموذج 06's five-outcome verdict (سليم
+قانونيًا وجاهز للعرض / يحتاج استكمال مستند أو بيان / يحتاج إيضاح قانوني أو
+إداري / ملاحظة بشأن الاختصاص / مسألة قانونية تستوجب العرض مع بيانها); a new
+**R11 legal-officer role** (Stage 45 added a `legal` committee *seat*, but no
+role and no permissions); the Art. 38 code **07** status; and an
+agenda-insertion gate, per Art. 24's ملف العرض contents and Appendix 7's
+readiness question "هل تمت المراجعة القانونية المطلوبة؟".
+**Done when:** a request cannot reach the agenda without a completed review,
+and each of the five verdicts routes correctly.
+**Source:** [D] Art. 21, 24; [E] stage 08; Appendices 6, 7, 22.
+
+### Stage 69 — ⚠ Art. 38 status-dictionary reconciliation
+**Goal:** the status vocabulary *is* Art. 38's twenty-code dictionary.
+**Build:** split `approved` into codes **15/16** (بانتظار اعتماد البلدية vs
+بانتظار الاعتماد المركزي — Art. 31 names the latter explicitly); separate code
+**13** (غير موافق عليها) from the overloaded `cancelled`, which is the one item
+Stage 54b explicitly left open; separate **19** (منفذة) from **20** (مغلقة
+ومؤرشفة); code **07** arrives with Stage 68. Validate the seeded transition map
+against **Appendix 5**'s allowed-transition rules ("بانتظار استكمال النواقص
+تعاد إلى تحت فحص الاكتمال ولا تقفز مباشرة إلى جدول الأعمال"; "موافق عليها من
+اللجنة لا تنتقل مباشرة إلى التنفيذ").
+**⚠ Blast radius:** the terminal-status list is duplicated in four places —
+`WorkflowService::hasTerminalStatus()`, `CommitteeStatusService`'s own copy,
+`RequestVisibility::apply()` and `ApprovalController::index()` — per Stage 64's
+own finding. All four must move together, plus
+`ReportMetricsService::COMPLETED_STATUSES`.
+**Source:** [D] Art. 38, 31; Appendix 5; gap-analysis §4.
+
+### Stage 70 — Unified numbering + the قيد point
+**Goal:** every artifact carries the number [D] says it must, granted when [D]
+says it is granted.
+**Build:** add `decision_number` to `decisions` (Art. 89 requires رقم القرار
+*inside* the محضر; Stage 51 recorded refusing to fabricate one) and a number to
+`meeting_minutes`; adopt Appendix 15's scheme (`M-COM/YEAR/SERIAL`,
+`PM-MTG/…`, `PM-MIN/…`, `PM-DEC/…`); and move the committee reference-number
+grant from intake to the post-completeness قيد, since Art. 15 says handing the
+request to the direct manager "لا يعد… قيدًا" and Art. 20 grants the number only
+after completeness — Art. 38's status 06. The employee keeps an intake receipt.
+**Source:** [D] Arts. 15, 20, 89, 99; Appendices 15, 74; النموذج 05.
+
+### Stage 71 — Real operational durations + escalation routing
+**Goal:** Stage 52's soft SLA uses [D]'s own figures instead of the [A] §12
+substitute it adopted when the appendix was unavailable — which its own note
+said to "replace outright rather than layering a second interpretation on top."
+**Build:** reseed `target_days_min`/`max` from **Appendix 37**'s table; wire
+**Appendix 38**'s escalation targets so the bucket does something — أصفر
+notifies the current owner, أحمر escalates to مقرر اللجنة + مدير الموارد
+البشرية, and حرج (delay touching a legal deadline or a statutory right)
+escalates to رئيس اللجنة + السلطة المختصة. Today nothing acts on the bucket
+beyond colouring it.
+**Source:** [D] Appendices 37, 38, 71.
+
+### Stage 72 — Real per-type document checklists
+**Goal:** `RequestType.required_documents` reflects [D]'s own matrices, not
+Stage 53's admitted "judgment-call starting checklist."
+**Build:** re-derive from **Appendix 57**'s four groups (أساسية مشتركة /
+خاصة / مشروطة / ناتجة عن دورة اللجنة), keeping only client-submittable items —
+**Appendix 4**'s seven lists are the committee's *internal* file-completeness
+checks and include internal actions (e.g. الرأي القانوني) an employee would
+never attach.
+**Source:** [D] Appendices 57, 4; Arts. 48–79's per-type chapters.
+
+### Stage 73 — ⚠ Committee identity card + configurable quorum
+**Goal:** stop inventing a quorum. `MeetingReadinessService.php:65` and
+`MeetingMinutesCompiler.php:88` both hard-code `ceil(activeMembers/2)`, and the
+file's own comment admits it was invented for lack of a spec — but **Appendix
+64 forbids exactly that**: "ولا يجوز للدليل إنشاء نسبة نصاب أو أغلبية من تلقاء
+نفسه."
+**Build:** add Appendix 65's بطاقة تعريف اللجنة fields to `Committee` (قرار
+التشكيل رقم/تاريخ، من له حق التصويت، النصاب اللازم، الأغلبية اللازمة، معالجة
+تساوي الأصوات، قواعد توقيع المحضر، جهة اعتماد المحاضر، حالات التنحي) and make
+readiness, the minutes compiler and `DecisionController`'s tally read them
+instead of `ceil(n/2)` + plurality-with-tie-422.
+**⚠ Needs a defined behaviour for meetings already held and minuted under the
+old rule** before touching code.
+**Source:** [D] Appendices 64, 65; Arts. 84, 87.
+
+### Stage 74 — Structured decisions, deferrals and refusals
+**Goal:** decisions, deferrals and refusals carry the structure [D] requires
+rather than one free-text comment.
+**Build:** Appendix 27's four decision parts (موضوع / وقائع / سند / منطوق);
+seed **Appendix 59**'s seven official Arabic decision formulas as `Template`
+rows, since Stage 35's template mechanism currently ships with nothing seeded
+("entirely inert until an R08 admin creates one"); capture Art. 34's five
+deferral fields (سبب التأجيل، المطلوب استكماله، الجهة المسؤولة، المستند أو
+الإفادة المطلوبة، أي مدة مقررة) instead of a bare comment, per Appendix 29
+("يمنع استخدام عبارة تأجيل للمراجعة دون بيان المطلوب"); and structure refusal
+reasoning per Art. 91 and Appendix 28, which reject generic phrases such as
+"لمصلحة العمل" or "لعدم الاستحقاق".
+**Source:** [D] Arts. 34, 89, 90, 91; Appendices 27, 28, 29, 59.
+
+### Stage 75 — Request closure record
+**Goal:** ordinary requests get the closure record Stage 65 built for appeals
+and explicitly declined to retrofit here ("the same gap exists for ordinary
+requests, which this stage does not close").
+**Build:** Art. 37's eight closure fields (تاريخ الإقفال، النتيجة النهائية،
+رقم القرار النهائي، جهة الاعتماد، تاريخ التنفيذ، الجهة المنفذة، حالة الإشعار،
+موقع حفظ الملف); Appendix 47's thirteen-point pre-closure audit; and Appendix
+48's eight conditions under which closure must be refused. Mirror Stage 65's
+appeal-closure shape rather than inventing a second one.
+**Source:** [D] Art. 37; Appendices 47, 48; النموذج 18.
+
+### Stage 76 — Execution proof
+**Goal:** "تم التنفيذ" stops being a claim and becomes evidence — Appendix 70
+is explicit: "لا يكفي أن تقول الجهة المنفذة (تم التنفيذ) بل يجب إرفاق دليل
+التنفيذ."
+**Build:** Art. 95's execution-file contents and النموذج 17's seven-point
+tracking checklist (تم إصدار القرار الإداري / تحديث ملف الموظف / تحديث النظام /
+إحالة الأثر المالي / إخطار التقسيم التنظيمي / إخطار الموظف / إرفاق مستند
+التنفيذ), with a required evidence attachment before
+`MeetingOutputService::complete()` will close the item. Per the Track K intro's
+scope decision (1), the ملف الخدمة update is *evidenced* here, not modelled.
+**Source:** [D] Arts. 95, 96, 97; Appendices 52, 70; النموذج 17.
+
+### Stage 77 — Return from the approving body
+**Goal:** [A] §5's "Path 3", flagged as having no equivalent since
+gap-analysis §14.
+**Build:** Appendix 34's شكلية/موضوعية split, honouring Art. 94's rule that
+"فلا يعدل المحضر المعتمد بصورة غير رسمية، بل ينشأ إجراء إعادة معالجة يثبت سبب
+الإعادة والإجراء الذي اتخذ بشأنها" — a formal re-processing action, never a
+quiet edit of an approved محضر.
+**Source:** [D] Art. 94; Appendix 34; [A] §5 Path 3.
+
+### Stage 78 — The four mandatory control gates
+**Goal:** Appendix 63 requires the system itself to block progression at four
+points — قبل القيد / قبل جدول الأعمال / قبل الاعتماد / قبل الإقفال — "وتمنع
+المنظومة الإلكترونية الانتقال إذا كانت متطلبات البوابة غير مكتملة". Stage 33
+built gate 2 only.
+**Build:** gates 1, 3 and 4; Art. 103's twelve-point قائمة فحص سلامة القرار
+before execution; and Art. 105's rule that a material fact discovered to be
+wrong **suspends execution immediately** and refers the matter back to legal
+review — there is no suspend action today.
+**Source:** [D] Arts. 103, 104, 105; Appendices 20, 63.
+
+### Stage 79 — Art. 101's twelve notification moments
+**Goal:** the employee is told at each of the twelve moments [D] enumerates.
+**Build:** `NotificationSetting::EVENT_TYPES` has nine events, and status-only
+moves fire **nothing** — `stage_changed` only ever fires from
+`WorkflowService::transition()`, so إدراج الطلب بجدول الأعمال، بدء التنفيذ and
+إقفال المعاملة are currently silent. Add the missing events, make
+`CommitteeStatusService` and `MeetingOutputService` dispatch, and honour Art.
+102's content limits — no مداولات, no per-member vote, no other employees' data.
+**Source:** [D] Arts. 101, 102; النموذج 16.
+
+### Stage 80 — The twelve official registers
+**Goal:** Art. 98's twelve named registers exist.
+**Build:** الواردة / الناقصة / الاجتماعات / جدول الأعمال / المحاضر / القرارات
+والتوصيات / الإحالات للاعتماد / القرارات المعادة من جهة الاعتماد / التنفيذ /
+التظلمات / المؤجلة / الإقفال والأرشفة — mostly filtered views and exports over
+data that already exists, plus Art. 100's "المستند المرتبط" column on each
+timeline entry.
+**Source:** [D] Arts. 98, 99, 100; Appendices 11, 12.
+
+### Stage 81 — The thirteen official KPIs
+**Goal:** the dashboard measures what Art. 106 says to measure.
+**Build:** [D]'s own thirteen indicators (متوسط مدة الفحص الأولي، نسبة الملفات
+الناقصة، متوسط مدة استكمال النواقص، نسبة الملفات الجاهزة قبل الاجتماع، عدد
+المعاملات بكل اجتماع، نسبة المعاملات المؤجلة، نسبة التأجيل بسبب نقص مستندات،
+متوسط مدة الاعتماد، متوسط مدة التنفيذ بعد الاعتماد، نسبة القرارات المعادة من
+جهة الاعتماد، عدد المعاملات المفتوحة المتأخرة، متوسط الدورة الكاملة), Art.
+107's periodic report, and Appendix 10's ten early-warning conditions.
+**Source:** [D] Arts. 106, 107; Appendices 10, 39, 40.
+
+### Stage 82 — Agenda ordering and item fields
+**Goal:** the agenda is ordered by rule, not by hand.
+**Build:** Art. 83's mandated priority (المؤجلة من اجتماعات سابقة → المرتبطة
+بمدد قانونية → العاجلة المعتمدة → المكتملة بحسب تاريخ جاهزيتها); Appendix 24's
+per-item fields (الرأي القانوني، نوع القرار المطلوب، جهة الاعتماد المتوقعة، هل
+سبق عرضه، رقم الاجتماع السابق) and its two priority levels; and Art. 85's
+nine-step per-item sequence as the live runner's checklist (النموذج 11).
+**Source:** [D] Arts. 82, 83, 85; Appendices 24, 25; النموذج 11.
+
+### Stage 83 — Lifecycle edge cases
+**Goal:** the situations [D] anticipates but the system currently cannot
+represent.
+**Build:** duplicate-transaction prevention (Appendix 16 — search by employee +
+subject, attach to the open file rather than create a second); the mandatory
+"المسؤول الحالي" and "الإجراء التالي" fields (Appendices 17, 18 — "يمنع وجود
+معاملة بحالة عامة مثل (قيد الإجراء) دون معرفة ما المطلوب فعليًا"); urgent-flag
+rules (Appendix 33 — عاجل only for five enumerated reasons, recorded);
+material-error correction (Appendix 53); document-conflict handling (Appendix
+30) and document-validity checks (Appendix 31); withdrawal before and after a
+decision (Appendices 68, 69); and Appendix 60's six special cases (وفاة الموظف
+أثناء نظر المعاملة، انتهاء الخدمة، النقل أثناء الدراسة، تغير التشريع أثناء
+السير، فقدان مستند، اكتشاف مستند غير صحيح بعد القرار).
+**Source:** [D] Appendices 16, 17, 18, 30, 31, 33, 53, 60, 68, 69.
+
+---
+
 ## Suggested order
 
 ```
@@ -950,11 +1215,18 @@ disagree with the outcome" attempt is rejected.
 55 → 56                                           (Track I group 4a — verification only, may need no code change)
 57                                                (Track I group 4b — real conflict; needs its own migration design)
 58 → 59 → 60 → 61 → 62 → 63 → 64 → 65 → 66        (Track J — appeal lifecycle; 58 & 59 first, 63 depends on 20–21/31, 64 needs its own design pass)
+67                                                (Track K — the verbatim audit; everything below reads its matrix)
+68 → 69 → 70                                      (Track K — the structural corrections; 69 needs 68's status 07, 70 needs 69's status set)
+71 → 72 → 74                                      (Track K — reseeding with [D]'s real appendix data; independent of each other)
+73                                                (Track K — quorum; needs a migration story for already-minuted meetings)
+75 → 76 → 77 → 78                                 (Track K — closure, execution proof, approval-return, the four gates)
+79 → 80 → 81 → 82 → 83                            (Track K — notifications, registers, KPIs, agenda rules, edge cases)
 ```
 
-**Stages you can pull forward if you want a break from the hard parts:** 10, 12, 22.
-**Stages not to rush:** 9, 14, 16, 18, 57, 64 — these are where correctness bugs hide (57 and 64 also
-carry real coupling/migration risk, per their own notes in Track I/J).
+**Stages you can pull forward if you want a break from the hard parts:** 10, 12, 22, 74 (seeding
+Appendix 59's seven decision formulas is self-contained and immediately useful).
+**Stages not to rush:** 9, 14, 16, 18, 57, 64, 69, 73 — these are where correctness bugs hide (57, 64,
+69 and 73 also carry real coupling/migration risk, per their own notes in Tracks I/J/K).
 
 ---
 

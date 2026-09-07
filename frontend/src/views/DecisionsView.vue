@@ -268,6 +268,9 @@ onMounted(async () => {
           <table>
             <thead>
               <tr>
+                <!-- Stage 70 — Appendix 12's سجل القرارات opens with the
+                     decision's own serial number. -->
+                <th>{{ t('decisions.decisionNumber') }}</th>
                 <th>{{ t('decisions.columns.reference') }}</th>
                 <th>{{ t('decisions.columns.subject') }}</th>
                 <th>{{ t('decisions.columns.committee') }}</th>
@@ -281,6 +284,7 @@ onMounted(async () => {
             </thead>
             <tbody>
               <tr v-for="row in rows" :key="row.id">
+                <td class="ltr">{{ row.decision_number ?? t('common.none') }}</td>
                 <td>
                   <RouterLink
                     v-if="row.context?.request"

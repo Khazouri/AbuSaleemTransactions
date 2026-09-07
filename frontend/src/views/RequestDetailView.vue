@@ -8,6 +8,10 @@ import FileUpload from '../components/FileUpload.vue'
 import SignaturePad from '../components/SignaturePad.vue'
 import RequestNotes from '../components/RequestNotes.vue'
 import api from '../lib/api'
+// Stage 72 — [D] Appendix 57's grouped document matrix, shared with the intake
+// screen so both read the same list the same way.
+import { documentCondition, documentLabel, groupDocuments } from '../lib/requiredDocuments'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const { t, locale } = useI18n()
@@ -35,7 +39,7 @@ const jurisdictionTestForm = ref(blankJurisdictionTest())
 
 // Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path. Mirrors
 // RequestController::REOPENABLE_STATUS_CODES exactly.
-const REOPENABLE_STATUS_CODES = ['cancelled', 'archived', 'completed_closed', 'decision_withdrawn', 'decision_amended']
+const REOPENABLE_STATUS_CODES = ['cancelled', 'archived', 'not_approved', 'completed_closed', 'decision_withdrawn', 'decision_amended']
 const REOPEN_REASON_CODES = [
   'new_document', 'external_reply_received', 'material_error_correction',
   'legal_status_change', 'returned_by_approving_body', 'competent_authority_restudy',
@@ -94,6 +98,16 @@ const suggestedRoutingAction = computed(() => {
 // Stage 66 — a concluded request may be re-presented for one of six
 // enumerated reasons, never a plain "I disagree with the outcome" attempt.
 const isReopenable = computed(() => REOPENABLE_STATUS_CODES.includes(request.value?.status?.code))
+// Stage 72 — Appendix 57's groups for this request's own type.
+const documentSections = computed(() => groupDocuments(request.value?.required_documents))
+
+function docLabel(doc) {
+  return documentLabel(doc, locale.value)
+}
+
+function docCondition(doc) {
+  return documentCondition(doc, locale.value)
+}
 
 function fileSize(bytes) {
   if (!Number.isFinite(bytes)) return t('common.none')
@@ -200,6 +214,31 @@ async function saveJurisdictionTest() {
       ?? t('requestDetail.jurisdictionTest.saveFailed')
   } finally {
     jurisdictionTestSaving.value = false
+  }
+}
+
+// Stage 68 — [D] Art. 21. Dispatching a file to the legal member is the
+// rapporteur's coordinating act (Appendix 6's RACI), gated by
+// `legal_review.edit`; recording the verdict itself belongs to the legal
+// member's own screen, so nothing here writes a review.
+const auth = useAuthStore()
+const canDispatchLegalReview = computed(() => auth.can('legal_review', 'edit'))
+const dispatchingLegalReview = ref(false)
+const legalReviewError = ref('')
+
+async function sendToLegalReview() {
+  if (dispatchingLegalReview.value) return
+  dispatchingLegalReview.value = true
+  legalReviewError.value = ''
+  try {
+    await api.post(`/requests/${request.value.id}/legal-reviews/request`)
+    await load()
+  } catch (requestError) {
+    legalReviewError.value = requestError.response?.data?.errors?.action?.[0]
+      ?? requestError.response?.data?.message
+      ?? t('requestDetail.legalReview.sendFailed')
+  } finally {
+    dispatchingLegalReview.value = false
   }
 }
 
@@ -366,7 +405,11 @@ onBeforeUnmount(clearAttachmentPreview)
     <template v-else-if="request">
       <header class="heading">
         <div>
-          <p class="reference ltr">{{ request.reference_number || `#${request.id}` }}</p>
+          <!-- Stage 70 — a request before the قيد (Art. 20) genuinely has
+               no reference number; its intake receipt is the only handle that
+               exists, and labelling it as such keeps the two distinct. -->
+          <p class="reference ltr">{{ request.reference_number || request.intake_receipt_number || `#${request.id}` }}</p>
+          <p v-if="!request.reference_number && request.intake_receipt_number" class="reference-hint">{{ t('requestDetail.awaitingRegistration') }}</p>
           <h2>{{ request.title }}</h2>
         </div>
         <span v-if="request.status" class="status" :style="{ '--status-color': request.status.color || 'var(--color-muted)' }">
@@ -415,6 +458,17 @@ onBeforeUnmount(clearAttachmentPreview)
             </span>
             <br>
             <small>{{ t('requestDetail.stageTimeliness.elapsed', { days: request.stage_timeliness.elapsed_days, target: stageTargetLabel(request.stage_timeliness) }) }}</small>
+            <!-- Stage 71 — Appendix 38's ladder only shows once a rung has
+                 actually been announced, so a green request stays quiet. -->
+            <template v-if="request.stage_timeliness.escalation">
+              <br>
+              <small>
+                {{ t('requestDetail.stageTimeliness.escalation') }}:
+                {{ t(`requestDetail.stageTimeliness.level.${request.stage_timeliness.escalation.level}`) }}
+                —
+                {{ t('requestDetail.stageTimeliness.escalated', { date: dateTime(request.stage_timeliness.escalation.notified_at) }) }}
+              </small>
+            </template>
           </strong>
         </div>
         <!-- Stage 47 — derived from request type at intake, correctable by
@@ -536,7 +590,7 @@ onBeforeUnmount(clearAttachmentPreview)
               v-for="item in exceptionActions"
               :key="item.action"
               class="exception-button"
-              :class="{ destructive: ['reject_review', 'reject_formally', 'cancel'].includes(item.action) }"
+              :class="{ destructive: ['reject_review', 'reject_formally', 'reject_by_committee', 'cancel'].includes(item.action) }"
               type="button"
               :disabled="acting"
               @click="openException(item)"
@@ -609,6 +663,56 @@ onBeforeUnmount(clearAttachmentPreview)
             <p>{{ request.description || t('requestDetail.noDescription') }}</p>
           </section>
 
+          <!-- Stage 68 — [D] Art. 21's pre-meeting legal review. Shows the
+               latest verdict (the one that gates the agenda) and the send-to-
+               review action for whoever coordinates it. -->
+          <section v-if="request.legal_review || canDispatchLegalReview" class="card summary legal-review">
+            <h3>{{ t('requestDetail.legalReview.title') }}</h3>
+            <template v-if="request.legal_review">
+              <div>
+                <span>{{ t('requestDetail.legalReview.verdict') }}</span>
+                <strong :class="request.legal_review.permits_agenda ? 'ok' : 'warn'">
+                  {{ t(`meetingsUnit.legalReview.verdicts.${request.legal_review.verdict}`) }}
+                </strong>
+              </div>
+              <div>
+                <span>{{ t('requestDetail.legalReview.reviewedBy') }}</span>
+                <strong>{{ request.legal_review.reviewed_by?.name ?? t('common.none') }}</strong>
+              </div>
+              <div>
+                <span>{{ t('requestDetail.legalReview.reviewedAt') }}</span>
+                <strong>{{ date(request.legal_review.reviewed_at) }}</strong>
+              </div>
+              <div v-if="request.legal_review.primary_legislation">
+                <span>{{ t('meetingsUnit.legalReview.fields.primaryLegislation') }}</span>
+                <strong>{{ request.legal_review.primary_legislation }}</strong>
+              </div>
+              <div v-if="request.legal_review.legal_note" class="full">
+                <span>{{ t('meetingsUnit.legalReview.fields.legalNote') }}</span>
+                <strong>{{ request.legal_review.legal_note }}</strong>
+              </div>
+              <div v-if="request.legal_reviews_count > 1">
+                <span>{{ t('requestDetail.legalReview.rounds') }}</span>
+                <strong>{{ request.legal_reviews_count }}</strong>
+              </div>
+            </template>
+            <p v-else class="muted">{{ t('requestDetail.legalReview.none') }}</p>
+
+            <div v-can="'legal_review.edit'" class="full">
+              <button
+                class="ghost"
+                type="button"
+                :disabled="dispatchingLegalReview"
+                @click="sendToLegalReview"
+              >
+                {{ dispatchingLegalReview
+                  ? t('requestDetail.legalReview.sending')
+                  : t('requestDetail.legalReview.send') }}
+              </button>
+              <p v-if="legalReviewError" class="alert">{{ legalReviewError }}</p>
+            </div>
+          </section>
+
           <!-- Stage 51 — [A] §7's committee-presentation fields, once the request has ridden an agenda. -->
           <section v-if="request.committee_summary" class="card summary committee-summary">
             <h3>{{ t('requestDetail.committeeSummary.title') }}</h3>
@@ -679,6 +783,26 @@ onBeforeUnmount(clearAttachmentPreview)
             <FileUpload v-can="'notes_attachments.add'" :request-id="request.id" @uploaded="load" />
           </section>
 
+          <!--
+            Stage 72 — [D] Appendix 57's document matrix for this request's own
+            type, sat next to the attachments it is judged against: Art. 18's
+            فحص اكتمال الملف at requirements_check is the moment someone has to
+            decide whether the file is complete. Informational only.
+          -->
+          <section v-if="documentSections.length" class="card checklist">
+            <h3>{{ t('requestDetail.requiredDocuments.title') }}</h3>
+            <p class="state">{{ t('requestDetail.requiredDocuments.hint') }}</p>
+            <div v-for="section in documentSections" :key="section.group" class="doc-group">
+              <h4>{{ t(`intake.requiredDocuments.groups.${section.group}`) }}</h4>
+              <ul>
+                <li v-for="(doc, index) in section.items" :key="index">
+                  {{ docLabel(doc) }}
+                  <span v-if="docCondition(doc)" class="doc-condition">({{ docCondition(doc) }})</span>
+                </li>
+              </ul>
+            </div>
+          </section>
+
           <section class="card"><RequestNotes :request-id="request.id" /></section>
         </aside>
       </div>
@@ -727,7 +851,7 @@ onBeforeUnmount(clearAttachmentPreview)
                 </button>
                 <button
                   class="exception-button"
-                  :class="{ destructive: ['reject_review', 'cancel'].includes(selectedException.action) }"
+                  :class="{ destructive: ['reject_review', 'reject_formally', 'reject_by_committee', 'cancel'].includes(selectedException.action) }"
                   type="submit"
                   :disabled="acting || !exceptionReason.trim()"
                 >
@@ -743,5 +867,5 @@ onBeforeUnmount(clearAttachmentPreview)
 </template>
 
 <style scoped>
-.detail { max-inline-size: 82rem; }.back { display: inline-block; margin-bottom: .85rem; color: var(--color-brand-text); font-size: .85rem; text-decoration: none; }.back:hover { text-decoration: underline; }.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.heading h2 { margin: .15rem 0 0; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }.reference { margin: 0; color: var(--color-muted); font-family: var(--font-mono); font-size: .8rem; }.status { display: inline-flex; align-items: center; gap: .4rem; flex: none; padding: .35rem .55rem; border-radius: var(--radius-full); color: var(--color-black-700); background: var(--color-surface-hover); font-size: .82rem; }.status::before { content: ''; inline-size: .55rem; block-size: .55rem; border-radius: 50%; background: var(--status-color); }.sla-alert { padding: .75rem .9rem; margin: 0 0 1rem; border: 1px solid var(--color-warning-border); border-radius: var(--radius-lg); color: var(--color-warning-fg); background: var(--color-warning-bg); font-size: .86rem; }.timeliness { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .5rem; border-radius: var(--radius-full); font-size: .8rem; font-weight: 600; }.timeliness::before { content: ''; inline-size: .5rem; block-size: .5rem; border-radius: 50%; background: currentColor; }.timeliness.level-green { color: var(--color-success-fg); background: var(--color-success-bg); border: 1px solid var(--color-success-border); }.timeliness.level-yellow { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }.timeliness.level-red { color: var(--color-danger-fg); background: var(--color-danger-bg); border: 1px solid var(--color-danger-border); }.timeliness.level-critical { color: var(--color-on-brand); background: var(--color-danger-fg); border: 1px solid var(--color-danger-fg); }.card { padding: 1.1rem; }.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }.summary div { display: grid; gap: .2rem; }.summary span { color: var(--color-muted); font-size: .76rem; }.summary strong { color: var(--color-black-700); font-size: .88rem; }.action-panel { margin-bottom: 1rem; }.action-panel h3, .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 .45rem; color: var(--color-brand-text); font-size: 1rem; }.committee-summary { margin-bottom: 0; }.action-panel > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.action-panel label, .reason-modal label { display: grid; gap: .3rem; max-inline-size: 40rem; font-size: .85rem; }.action-panel textarea, .reason-modal textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }.action-buttons, .attachment-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }.primary, .exception-button { padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; }.primary:disabled, .exception-button:disabled, .ghost:disabled { cursor: not-allowed; opacity: .6; }.exception-actions { padding-top: .85rem; margin-top: .9rem; border-top: 1px solid var(--color-border); }.exception-actions > p { margin: 0; color: var(--color-muted); font-size: .8rem; }.exception-button { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }.exception-button.destructive { color: var(--color-danger-fg); background: var(--color-danger-bg); border-color: var(--color-danger-border); }.suggested-badge { display: inline-block; margin-inline-start: .4rem; padding: .1rem .4rem; border-radius: var(--radius-full); color: var(--color-info-fg); background: var(--color-info-bg); border: 1px solid var(--color-info-border); font-size: .7rem; font-weight: 600; }.action-error, .alert { color: var(--color-danger-fg); }.action-error { margin: .6rem 0 0; font-size: .84rem; }.alert { padding: .75rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.ghost { margin-inline-start: .5rem; padding: .35rem .55rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); cursor: pointer; }.financial-impact-toggle { font-weight: normal; font-size: .76rem; }.jurisdiction-test { margin-bottom: 1rem; }.jurisdiction-test h3 { margin: 0 0 .45rem; color: var(--color-brand-text); font-size: 1rem; }.jurisdiction-test > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.jurisdiction-test fieldset { padding: 0; margin: 0; border: 0; }.jurisdiction-test .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.jurisdiction-test .wide { grid-column: 1 / -1; }.jurisdiction-test label { display: grid; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }.jurisdiction-test select, .jurisdiction-test input { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }.jurisdiction-test button { margin-top: .85rem; }@media (max-width: 640px) { .jurisdiction-test .grid { grid-template-columns: 1fr; } }.columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, .85fr); gap: 1rem; align-items: start; }.main-column, .side-column { display: grid; gap: 1rem; }.description p { margin: 0; color: var(--color-black-700); line-height: 1.75; white-space: pre-wrap; }.timeline ol { display: grid; gap: 0; padding: 0; margin: .9rem 0 0; list-style: none; }.timeline li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: .6rem; padding-bottom: 1rem; }.timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .45rem; inset-block-start: .85rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }.dot { position: relative; z-index: 1; inline-size: .9rem; block-size: .9rem; margin-top: .15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }.timeline p { margin: .2rem 0; color: var(--color-black-700); font-size: .85rem; }.timeline small, .attachments small, .state { color: var(--color-muted); font-size: .78rem; }.entry-comment { white-space: pre-wrap; }.attachments ul { display: grid; gap: .65rem; padding: 0; margin: .85rem 0; list-style: none; }.attachments li { display: grid; gap: .15rem; padding-bottom: .65rem; border-bottom: 1px solid var(--color-border); }.file-name { overflow-wrap: anywhere; color: var(--color-black-700); font-size: .83rem; }.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }.reason-modal, .attachment-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }.attachment-modal { inline-size: min(64rem, 100%); max-block-size: calc(100vh - 2rem); overflow: auto; }.attachment-image, .attachment-pdf { display: block; inline-size: 100%; max-block-size: 72vh; border: 0; object-fit: contain; }.attachment-pdf { block-size: 72vh; }.reason-modal h3 { margin: 0; color: var(--color-brand-text); }.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }.reason-modal label { max-inline-size: none; }.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }.modal-actions .ghost { margin: 0; }.reopen-panel select { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font: inherit; }.reopen-panel fieldset { display: grid; gap: .75rem; padding: 0; margin: .75rem 0; border: 0; max-inline-size: 24rem; }@media (max-width: 720px) { .columns { grid-template-columns: 1fr; }.heading { flex-direction: column; }.summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.detail { max-inline-size: 82rem; }.back { display: inline-block; margin-bottom: .85rem; color: var(--color-brand-text); font-size: .85rem; text-decoration: none; }.back:hover { text-decoration: underline; }.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }.heading h2 { margin: .15rem 0 0; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }.reference { margin: 0; color: var(--color-muted); font-family: var(--font-mono); font-size: .8rem; }.reference-hint { margin: .15rem 0 0; color: var(--color-info-fg); font-size: .72rem; }.status { display: inline-flex; align-items: center; gap: .4rem; flex: none; padding: .35rem .55rem; border-radius: var(--radius-full); color: var(--color-black-700); background: var(--color-surface-hover); font-size: .82rem; }.status::before { content: ''; inline-size: .55rem; block-size: .55rem; border-radius: 50%; background: var(--status-color); }.sla-alert { padding: .75rem .9rem; margin: 0 0 1rem; border: 1px solid var(--color-warning-border); border-radius: var(--radius-lg); color: var(--color-warning-fg); background: var(--color-warning-bg); font-size: .86rem; }.timeliness { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .5rem; border-radius: var(--radius-full); font-size: .8rem; font-weight: 600; }.timeliness::before { content: ''; inline-size: .5rem; block-size: .5rem; border-radius: 50%; background: currentColor; }.timeliness.level-green { color: var(--color-success-fg); background: var(--color-success-bg); border: 1px solid var(--color-success-border); }.timeliness.level-yellow { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }.timeliness.level-red { color: var(--color-danger-fg); background: var(--color-danger-bg); border: 1px solid var(--color-danger-border); }.timeliness.level-critical { color: var(--color-on-brand); background: var(--color-danger-fg); border: 1px solid var(--color-danger-fg); }.card { padding: 1.1rem; }.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }.summary div { display: grid; gap: .2rem; }.summary span { color: var(--color-muted); font-size: .76rem; }.summary strong { color: var(--color-black-700); font-size: .88rem; }.action-panel { margin-bottom: 1rem; }.action-panel h3, .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 .45rem; color: var(--color-brand-text); font-size: 1rem; }.committee-summary { margin-bottom: 0; }.legal-review h3 { margin: 0 0 .45rem; color: var(--color-brand-text); font-size: 1rem; grid-column: 1 / -1; }.legal-review .full { grid-column: 1 / -1; }.legal-review .muted { margin: 0; color: var(--color-muted); font-size: .83rem; grid-column: 1 / -1; }.legal-review strong.ok { color: var(--color-success-fg); }.legal-review strong.warn { color: var(--color-warning-fg); }.legal-review .ghost { margin-inline-start: 0; }.action-panel > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.action-panel label, .reason-modal label { display: grid; gap: .3rem; max-inline-size: 40rem; font-size: .85rem; }.action-panel textarea, .reason-modal textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }.action-buttons, .attachment-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }.primary, .exception-button { padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; }.primary:disabled, .exception-button:disabled, .ghost:disabled { cursor: not-allowed; opacity: .6; }.exception-actions { padding-top: .85rem; margin-top: .9rem; border-top: 1px solid var(--color-border); }.exception-actions > p { margin: 0; color: var(--color-muted); font-size: .8rem; }.exception-button { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }.exception-button.destructive { color: var(--color-danger-fg); background: var(--color-danger-bg); border-color: var(--color-danger-border); }.suggested-badge { display: inline-block; margin-inline-start: .4rem; padding: .1rem .4rem; border-radius: var(--radius-full); color: var(--color-info-fg); background: var(--color-info-bg); border: 1px solid var(--color-info-border); font-size: .7rem; font-weight: 600; }.action-error, .alert { color: var(--color-danger-fg); }.action-error { margin: .6rem 0 0; font-size: .84rem; }.alert { padding: .75rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.ghost { margin-inline-start: .5rem; padding: .35rem .55rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); cursor: pointer; }.financial-impact-toggle { font-weight: normal; font-size: .76rem; }.jurisdiction-test { margin-bottom: 1rem; }.jurisdiction-test h3 { margin: 0 0 .45rem; color: var(--color-brand-text); font-size: 1rem; }.jurisdiction-test > p { margin: 0 0 .75rem; color: var(--color-muted); font-size: .83rem; }.jurisdiction-test fieldset { padding: 0; margin: 0; border: 0; }.jurisdiction-test .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.jurisdiction-test .wide { grid-column: 1 / -1; }.jurisdiction-test label { display: grid; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }.jurisdiction-test select, .jurisdiction-test input { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }.jurisdiction-test button { margin-top: .85rem; }@media (max-width: 640px) { .jurisdiction-test .grid { grid-template-columns: 1fr; } }.columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, .85fr); gap: 1rem; align-items: start; }.main-column, .side-column { display: grid; gap: 1rem; }.description p { margin: 0; color: var(--color-black-700); line-height: 1.75; white-space: pre-wrap; }.timeline ol { display: grid; gap: 0; padding: 0; margin: .9rem 0 0; list-style: none; }.timeline li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: .6rem; padding-bottom: 1rem; }.timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .45rem; inset-block-start: .85rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }.dot { position: relative; z-index: 1; inline-size: .9rem; block-size: .9rem; margin-top: .15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }.timeline p { margin: .2rem 0; color: var(--color-black-700); font-size: .85rem; }.timeline small, .attachments small, .state { color: var(--color-muted); font-size: .78rem; }.entry-comment { white-space: pre-wrap; }.attachments ul { display: grid; gap: .65rem; padding: 0; margin: .85rem 0; list-style: none; }.attachments li { display: grid; gap: .15rem; padding-bottom: .65rem; border-bottom: 1px solid var(--color-border); }.file-name { overflow-wrap: anywhere; color: var(--color-black-700); font-size: .83rem; }.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }.reason-modal, .attachment-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }.attachment-modal { inline-size: min(64rem, 100%); max-block-size: calc(100vh - 2rem); overflow: auto; }.attachment-image, .attachment-pdf { display: block; inline-size: 100%; max-block-size: 72vh; border: 0; object-fit: contain; }.attachment-pdf { block-size: 72vh; }.reason-modal h3 { margin: 0; color: var(--color-brand-text); }.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }.reason-modal label { max-inline-size: none; }.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }.modal-actions .ghost { margin: 0; }.checklist h3 { margin: 0 0 .3rem; color: var(--color-brand-text); font-size: 1rem; }.checklist ul { display: grid; gap: .3rem; padding-inline-start: 1.2rem; margin: 0; color: var(--color-black-700); font-size: .82rem; }.doc-group { margin-block-start: .7rem; }.doc-group h4 { margin: 0 0 .3rem; color: var(--color-black-700); font-size: .78rem; font-weight: 600; }.doc-condition { color: var(--color-black-500); font-size: .72rem; }.reopen-panel select { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font: inherit; }.reopen-panel fieldset { display: grid; gap: .75rem; padding: 0; margin: .75rem 0; border: 0; max-inline-size: 24rem; }@media (max-width: 720px) { .columns { grid-template-columns: 1fr; }.heading { flex-direction: column; }.summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

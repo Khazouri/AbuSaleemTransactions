@@ -42,6 +42,9 @@ class MeetingOutputsResource extends JsonResource
                 'advanced' => $advancedItems->count(),
                 'awaiting_action' => $decidedItems->count() - $advancedItems->count(),
                 'in_execution' => $requestItems->where('request.status.code', 'in_execution')->count(),
+                // Stage 69 — Art. 38 code 19, its own column now that منفذة and
+                // مغلقة ومؤرشفة are two states rather than one.
+                'executed' => $requestItems->where('request.status.code', 'executed')->count(),
                 'completed_closed' => $requestItems
                     ->filter(fn ($item) => in_array(
                         $item->request?->status?->code,

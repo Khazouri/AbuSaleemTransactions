@@ -14,7 +14,12 @@ class MeetingOutputResource extends JsonResource
         $statusCode = $requestRecord?->status?->code;
         $stage = $requestRecord?->currentStage;
         $inExecution = $statusCode === 'in_execution';
+        // Stage 69 — Art. 38's code 19 (منفذة) is its own state between 18 and
+        // 20: the effect has been applied but the file is not closed until the
+        // documentation has been verified (Appendix 5).
+        $executed = $statusCode === 'executed';
         $closed = in_array($statusCode, ['completed_closed', 'archived'], true);
+        $atFinalStage = $stage?->code === 'final_approval_archiving';
 
         return [
             'agenda_item_id' => $this->id,
@@ -45,19 +50,11 @@ class MeetingOutputResource extends JsonResource
                 'name_ar' => $stage->name_ar,
                 'name_en' => $stage->name_en,
             ] : null,
-            'next_action' => $closed ? null : ($inExecution ? [
-                'code' => 'complete_execution',
-                'name_ar' => 'توثيق اكتمال التنفيذ وإغلاق الطلب',
-                'name_en' => 'Confirm execution and close request',
-            ] : ($stage ? [
-                'code' => $stage->code,
-                'name_ar' => $stage->name_ar,
-                'name_en' => $stage->name_en,
-            ] : null)),
+            'next_action' => $this->nextAction($closed, $inExecution, $executed, $stage),
             // Once final approval sends work for execution, the owning
             // department is the body carrying it out; before that, the stage's
             // responsible role is the authority holding the next checkpoint.
-            'responsible_body' => $inExecution || $closed
+            'responsible_body' => $inExecution || $executed || $closed
                 ? $this->namedEntity($requestRecord?->department, 'department')
                 : $this->namedEntity($stage?->responsibleRole, 'role'),
             'execution_status' => $requestRecord?->status ? [
@@ -66,8 +63,47 @@ class MeetingOutputResource extends JsonResource
                 'name_en' => $requestRecord->status->name_en,
                 'color' => $requestRecord->status->color,
             ] : null,
-            'can_complete' => $inExecution && $stage?->code === 'final_approval_archiving',
+            'can_mark_executed' => $inExecution && $atFinalStage,
+            'can_close' => $executed && $atFinalStage,
         ];
+    }
+
+    /**
+     * Stage 69 — three post-decision states, not two: Art. 38 keeps 18 (تحت
+     * التنفيذ), 19 (منفذة) and 20 (مغلقة ومؤرشفة) apart, so the item's next
+     * action is "record the effect", then "verify documentation and close",
+     * then nothing. Extracted from an inline ternary chain that stopped being
+     * readable once the third state arrived.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function nextAction(bool $closed, bool $inExecution, bool $executed, mixed $stage): ?array
+    {
+        if ($closed) {
+            return null;
+        }
+
+        if ($inExecution) {
+            return [
+                'code' => 'mark_executed',
+                'name_ar' => 'تسجيل تنفيذ الأثر الإداري أو المالي',
+                'name_en' => 'Record that the effect has been carried out',
+            ];
+        }
+
+        if ($executed) {
+            return [
+                'code' => 'close_request',
+                'name_ar' => 'التحقق من اكتمال التوثيق وإقفال المعاملة',
+                'name_en' => 'Verify documentation and close the request',
+            ];
+        }
+
+        return $stage ? [
+            'code' => $stage->code,
+            'name_ar' => $stage->name_ar,
+            'name_en' => $stage->name_en,
+        ] : null;
     }
 
     /** @return array<string, mixed>|null */

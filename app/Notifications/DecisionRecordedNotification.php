@@ -34,7 +34,7 @@ class DecisionRecordedNotification extends SystemNotification
     public function __construct(Request $requestRecord, Decision $decision)
     {
         $this->requestId = $requestRecord->id;
-        $this->reference = (string) $requestRecord->reference_number;
+        $this->reference = (string) $requestRecord->trackingNumber();
         $this->outcome = (string) $decision->outcome;
         $this->approveCount = (int) $decision->votes_approve_count;
         $this->rejectCount = (int) $decision->votes_reject_count;

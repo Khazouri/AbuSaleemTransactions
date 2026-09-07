@@ -24,7 +24,7 @@ class MeetingOutputTransitionException extends DomainException
 
     public static function decisionRequired(): self
     {
-        return new self('لا يمكن إغلاق التنفيذ قبل تسجيل قرار اللجنة.');
+        return new self('لا يمكن تحديث حالة التنفيذ قبل تسجيل قرار اللجنة.');
     }
 
     public static function wrongStage(): self
@@ -32,9 +32,19 @@ class MeetingOutputTransitionException extends DomainException
         return new self('لا يمكن إغلاق التنفيذ قبل بلوغ مرحلة الاعتماد النهائي والأرشفة.');
     }
 
-    public static function transitionNotAllowed(): self
+    /** Stage 69 — Art. 38 code 18 is markExecuted()'s only legal origin. */
+    public static function notInExecution(): self
     {
-        return new self('يجب أن يكون الطلب قيد التنفيذ قبل إغلاقه.');
+        return new self('يجب أن يكون الطلب قيد التنفيذ قبل تسجيل تنفيذه.');
+    }
+
+    /**
+     * Stage 69 — Appendix 5: "منفذة … لكنها لا تصبح مغلقة إلا بعد التحقق من
+     * اكتمال التوثيق", so code 19 is the only legal origin for a close.
+     */
+    public static function notExecuted(): self
+    {
+        return new self('لا يمكن إقفال المعاملة قبل تسجيل تنفيذ الأثر المطلوب.');
     }
 
     /** Stage 59, Track J — [D] Arts. 34–37: an open appeal keeps the file open. */

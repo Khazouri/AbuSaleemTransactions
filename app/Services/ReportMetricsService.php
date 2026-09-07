@@ -27,10 +27,10 @@ class ReportMetricsService
      * disposition too, just reached via an appeal overturning/amending the
      * original decision rather than the ordinary chain.
      */
-    public const COMPLETED_STATUSES = ['final_approved', 'archived', 'completed_closed', 'decision_withdrawn', 'decision_amended'];
+    public const COMPLETED_STATUSES = ['final_approved', 'archived', 'executed', 'completed_closed', 'decision_withdrawn', 'decision_amended'];
 
     /** Abandoned outcomes: they leave the pipeline without ever completing. */
-    public const ABANDONED_STATUSES = ['cancelled', 'rejected'];
+    public const ABANDONED_STATUSES = ['cancelled', 'rejected', 'not_approved'];
 
     /**
      * Aggregates are recomputed at most once every five minutes per filter

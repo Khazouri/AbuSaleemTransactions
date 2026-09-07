@@ -93,6 +93,9 @@ class TestUserSeeder extends Seeder
         // receive_and_register (R05/HR already existed as r05.manager@).
         ['r09.secretary@abusaleem.test',  'أمين سر اللجنة التجريبي', 'Committee secretary',          ['R09'],        'CMT', '+218910000013', true],
         ['r10.diwan@abusaleem.test',      'وكيل الديوان التجريبي',   'Diwan deputy',                 ['R10'],        'ABS', '+218910000014', true],
+        // Stage 68 — [D] Art. 21's العضو القانوني, the one role the
+        // pre-meeting legal review can be recorded by.
+        ['r11.legal@abusaleem.test',      'العضو القانوني التجريبي',  'Legal officer',                ['R11'],        'CMT', '+218910000015', true],
     ];
 
     public function run(): void

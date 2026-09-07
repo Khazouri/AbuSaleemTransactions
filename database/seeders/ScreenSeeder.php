@@ -10,7 +10,7 @@ use Illuminate\Database\Seeder;
  * screen-permissions sheet — originally 29 from that sheet (Stage 28 adds 7
  * to the original 22 for the meetings-unit redesign; Stage 57 later removes
  * one, `authority_approval`), plus `departments` (see the note beside it
- * below) and Stage 58's `appeals` = 30 total.
+ * below), Stage 58's `appeals` and Stage 68's `legal_review` = 31 total.
  *
  * Two consumers:
  *   - the sidebar (Stage 5) renders these rows, filtered by can_view
@@ -62,6 +62,11 @@ class ScreenSeeder extends Seeder
             // `group`, same as every other shared screen.
             ['meetings_dashboard',       'لوحة قيادة الاجتماعات',      'Meetings Dashboard',           '/meetings/dashboard',       'grid',         'meetings_management'],
             ['committee_candidates',     'الطلبات المرشحة',            'Committee Candidates',         '/meetings/candidates',      'file-plus',    'meetings_management'],
+            // Stage 68 — [D] Art. 21's pre-meeting legal review. Grouped with
+            // the committee block because it is agenda preparation ([E] stage
+            // 08 sits between completeness and the presentation memo), not an
+            // employee-facing screen like `appeals`.
+            ['legal_review',             'المراجعة القانونية',          'Legal Review',                 '/meetings/legal-review',    'scale',        'meetings_management'],
             ['meetings',                 'الاجتماعات',                'Meetings',                     '/meetings',                 'users',        'meetings_management'],
             ['meeting_agenda',           'جدول الأعمال',               'Meeting Agenda',               '/meetings/agenda',          'file-text',    'meetings_management'],
             ['meeting_readiness',        'جاهزية الاجتماع',            'Meeting Readiness',            '/meetings/readiness',       'check-square', 'meetings_management'],

@@ -222,6 +222,9 @@ onMounted(loadMeetings)
         <section class="card content">
           <h3>{{ t('meetingsUnit.minutes.sections.meetingInfo') }}</h3>
           <div class="summary">
+            <!-- Stage 70 — [D] Appendix 15's PM-MIN code for the محضر
+                 itself, which Appendix 8 checks before it may be approved. -->
+            <div v-if="minutes.minutes_number"><span>{{ t('meetingsUnit.minutes.minutesNumber') }}</span><strong class="ltr">{{ minutes.minutes_number }}</strong></div>
             <div><span>{{ t('meetings.meetingTitle') }}</span><strong>{{ minutes.content.meeting.title }}</strong></div>
             <div v-if="minutes.content.meeting.meeting_number"><span>{{ t('meetings.meetingNumber') }}</span><strong>{{ minutes.content.meeting.meeting_number }}</strong></div>
             <div><span>{{ t('meetings.scheduledAt') }}</span><strong>{{ dateTime(minutes.content.meeting.scheduled_at) }}</strong></div>
@@ -251,10 +254,46 @@ onMounted(loadMeetings)
               </ul>
             </div>
           </div>
-          <p class="quorum" :class="minutes.content.attendance.quorum_met ? 'good' : 'bad'">
+          <!-- Stage 73 — Appendix 8 requires إثبات صحة الانعقاد in the محضر,
+               which means naming the rule the sitting was measured against.
+               A محضر for a committee with no transcribed rule says so. -->
+          <p v-if="minutes.content.attendance.quorum_required !== null" class="quorum" :class="minutes.content.attendance.quorum_met ? 'good' : 'bad'">
             {{ t('meetingsUnit.readiness.quorum.title') }}: {{ minutes.content.attendance.quorum_present }} / {{ minutes.content.attendance.quorum_required }}
             — {{ t(minutes.content.attendance.quorum_met ? 'meetingsUnit.readiness.quorum.met' : 'meetingsUnit.readiness.quorum.notMet') }}
+            <span v-if="minutes.content.attendance.quorum_rule?.quorum_text" class="quorum-source">
+              ({{ minutes.content.attendance.quorum_rule.quorum_text }})
+            </span>
           </p>
+          <p v-else class="quorum bad">
+            {{ t('meetingsUnit.readiness.quorum.title') }}: {{ t('meetingsUnit.readiness.quorum.notRecorded') }}
+          </p>
+
+          <template v-if="minutes.content.committee">
+            <h3>{{ t('committees.card.title') }}</h3>
+            <dl class="committee-card">
+              <template v-if="minutes.content.committee.formation_decision_number">
+                <dt>{{ t('committees.card.formationDecisionNumber') }}</dt>
+                <dd>
+                  {{ minutes.content.committee.formation_decision_number }}
+                  <span v-if="minutes.content.committee.formation_decision_date">
+                    — {{ minutes.content.committee.formation_decision_date }}
+                  </span>
+                </dd>
+              </template>
+              <template v-if="minutes.content.committee.legal_basis">
+                <dt>{{ t('committees.card.legalBasis') }}</dt>
+                <dd>{{ minutes.content.committee.legal_basis }}</dd>
+              </template>
+              <template v-if="minutes.content.committee.minutes_approval_body">
+                <dt>{{ t('committees.card.minutesApprovalBody') }}</dt>
+                <dd>{{ minutes.content.committee.minutes_approval_body }}</dd>
+              </template>
+              <template v-if="minutes.content.committee.minutes_signature_rule">
+                <dt>{{ t('committees.card.minutesSignatureRule') }}</dt>
+                <dd>{{ minutes.content.committee.minutes_signature_rule }}</dd>
+              </template>
+            </dl>
+          </template>
 
           <template v-if="minutes.content.required_signatories?.length">
             <h3>{{ t('meetingsUnit.minutes.sections.requiredSignatories') }}</h3>
@@ -282,6 +321,9 @@ onMounted(loadMeetings)
               <div v-if="tallyFor(item).length" class="tally">
                 <span v-for="v in tallyFor(item)" :key="v.outcome">{{ t(`decisions.tally.${v.outcome}`) }}: {{ v.count }}</span>
               </div>
+              <!-- Art. 89 — رقم القرار is the first element every decision
+                   inside the محضر must carry. -->
+              <p v-if="item.decision?.decision_number" class="item-field"><strong>{{ t('decisions.decisionNumber') }}:</strong> <span class="ltr">{{ item.decision.decision_number }}</span></p>
               <p v-if="item.decision" class="decision">
                 {{ t(`decisions.outcome.${item.decision.outcome}`) }}
                 <template v-if="item.decision.decided_by"> — {{ t('decisions.decidedBy') }} {{ item.decision.decided_by }}</template>
@@ -387,6 +429,10 @@ textarea { width: 100%; resize: vertical; }
 .attendance ul { list-style: none; margin: .25rem 0 0; padding: 0; font-size: .82rem; color: var(--color-black-700); }
 .role { color: var(--color-muted); font-size: .76rem; }
 .quorum { margin: .5rem 0 0; font-size: .82rem; }
+.quorum-source { color: var(--color-muted); }
+.committee-card { display: grid; grid-template-columns: max-content 1fr; gap: .35rem .75rem; margin: 0 0 1rem; font-size: .85rem; }
+.committee-card dt { color: var(--color-muted); }
+.committee-card dd { margin: 0; }
 .quorum.good { color: var(--color-success-fg); }
 .quorum.bad { color: var(--color-danger-fg); }
 .signatories { list-style: none; margin: .25rem 0 0; padding: 0; font-size: .82rem; color: var(--color-black-700); display: grid; gap: .2rem; }

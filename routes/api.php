@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PresentationMemoController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RequestController;
+use App\Http\Controllers\Api\RequestLegalReviewController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
@@ -318,6 +319,24 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('committee-candidates/{requestRecord}/request-completion', [CommitteeCandidateController::class, 'requestCompletion']);
     });
 
+    /*
+     * Stage 68 — [D] Art. 21 / [E] stage 08's pre-meeting legal review.
+     * The queue path is declared before the `{requestRecord}` ones so the
+     * model wildcard cannot swallow the literal segment.
+     *
+     * The two write tiers are NOT interchangeable and split by Appendix 6's
+     * RACI row: `add` is the legal member recording a verdict (R11 only),
+     * `edit` is the rapporteur handing a file over (R02/R09).
+     */
+    Route::middleware('screen.permission:legal_review,view')->group(function () {
+        Route::get('legal-reviews', [RequestLegalReviewController::class, 'index']);
+        Route::get('requests/{requestRecord}/legal-reviews', [RequestLegalReviewController::class, 'show']);
+    });
+    Route::middleware('screen.permission:legal_review,edit')
+        ->post('requests/{requestRecord}/legal-reviews/request', [RequestLegalReviewController::class, 'requestReview']);
+    Route::middleware('screen.permission:legal_review,add')
+        ->post('requests/{requestRecord}/legal-reviews', [RequestLegalReviewController::class, 'store']);
+
     // Stage 32 — the meetings-unit command dashboard. A literal path declared
     // before the `meetings/{meeting}` wildcard below, same reason
     // department-options is.
@@ -443,8 +462,11 @@ Route::middleware('auth:sanctum')->group(function () {
      */
     Route::middleware('screen.permission:meeting_outputs,view')
         ->get('meetings/{meeting}/outputs', [MeetingOutputsController::class, 'show']);
-    Route::middleware('screen.permission:meeting_outputs,edit')
-        ->post('meetings/{meeting}/outputs/{agendaItem}/complete', [MeetingOutputsController::class, 'complete']);
+    // Stage 69 — Art. 38's codes 19 and 20 are two acts, so two endpoints.
+    Route::middleware('screen.permission:meeting_outputs,edit')->group(function () {
+        Route::post('meetings/{meeting}/outputs/{agendaItem}/execute', [MeetingOutputsController::class, 'execute']);
+        Route::post('meetings/{meeting}/outputs/{agendaItem}/close', [MeetingOutputsController::class, 'close']);
+    });
 
     /*
      * Stage 21 — committee voting and decision recording. These ride the

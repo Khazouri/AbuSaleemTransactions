@@ -27,7 +27,15 @@ class WorkflowService
     // Stage 23 — every path that moves a request comes through this
     // service, so notifying from here means the detail screen, the approval
     // queues and the committee decision all announce a move exactly once.
-    public function __construct(private readonly NotificationDispatcher $notifications) {}
+    // Stage 70 — the numbering generator is a dependency of this service, not
+    // of a controller, because the قيد hop (requirements_check -> approve) is
+    // reachable from two endpoints: RequestController::transition() and
+    // ApprovalController::store(). Allocating from either one alone would
+    // leave the other minting no number at all.
+    public function __construct(
+        private readonly NotificationDispatcher $notifications,
+        private readonly ArtifactNumberGenerator $numbers,
+    ) {}
 
     // Cached per instance so a request evaluating many candidate rows (both
     // filter sites loop over several) doesn't re-query the roles table for
@@ -411,6 +419,42 @@ class WorkflowService
      *
      * @return array{0: Request, 1: ?WorkflowStage, 2: ?WorkflowStage}
      */
+    /**
+     * Stage 70 (Track K) — [D] Art. 20's قيد: allocate the committee reference
+     * number the moment, and only the moment, a move lands the request on
+     * Art. 38's code 06 (مستوفية ومقيدة — "اكتملت المتطلبات ومنحت رقمًا
+     * مرجعيًا"). Art. 15 is explicit that everything before that is not a قيد,
+     * which is why intake mints only a receipt.
+     *
+     * Keyed off the DESTINATION STATUS rather than a hardcoded stage/action
+     * pair so the قيد follows the seeded map: whichever rule the seeder says
+     * reaches code 06 is the rule that registers, and re-seeding that map
+     * moves this with it.
+     *
+     * Allocation is conditional on there being no reference yet. Art. 99
+     * ("يكون لكل معاملة رقم واحد طوال دورة حياتها") and النموذج 05 ("ولا يجوز
+     * منح أكثر من رقم أساسي لنفس المعاملة لمجرد انتقالها بين مراحل العمل") both
+     * forbid a second number, and this is the path a file re-walks every time
+     * it comes back from `return_missing_docs`.
+     *
+     * The caller already holds the row lock and is inside the transition's own
+     * DB transaction, which is where ArtifactNumberGenerator needs to run.
+     */
+    private function grantReferenceNumberIfRegistering(Request $lockedRequest, ?int $statusId): void
+    {
+        if ($statusId === null || $lockedRequest->reference_number !== null) {
+            return;
+        }
+
+        $registeredStatusId = RequestStatus::query()->where('code', 'registered')->value('id');
+
+        if ($registeredStatusId === null || $statusId !== $registeredStatusId) {
+            return;
+        }
+
+        $lockedRequest->reference_number = $this->numbers->nextRequestReference();
+    }
+
     private function applyRule(
         Request $lockedRequest,
         WorkflowTransition $rule,
@@ -441,6 +485,7 @@ class WorkflowService
         if ($statusId !== null) {
             $lockedRequest->status_id = $statusId;
         }
+        $this->grantReferenceNumberIfRegistering($lockedRequest, $statusId);
         $lockedRequest->save();
 
         $occurredAt = now();
@@ -655,7 +700,7 @@ class WorkflowService
     private function hasTerminalStatus(Request $requestRecord): bool
     {
         return $requestRecord->status()
-            ->whereIn('code', ['cancelled', 'archived', 'in_execution', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
+            ->whereIn('code', ['cancelled', 'archived', 'not_approved', 'in_execution', 'executed', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
             ->exists();
     }
 }

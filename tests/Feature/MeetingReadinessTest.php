@@ -274,7 +274,21 @@ class MeetingReadinessTest extends TestCase
     /** @return array{0: Committee, 1: User[]} */
     private function committeeWithMembers(int $count): array
     {
-        $committee = Committee::create(['name_ar' => 'لجنة اختبار الجاهزية']);
+        // Stage 73 — a committee now has to carry its own transcribed quorum
+        // rule: the readiness gate no longer supplies ceil(members / 2) for a
+        // committee that has none, so a fixture meant to be *otherwise* fully
+        // prepared has to record one. "أكثر من نصف الأعضاء" reproduces the
+        // number the old invented rule happened to give for these fixtures
+        // (2 of 3), which keeps every existing assertion below meaningful;
+        // the unrecorded case has its own coverage in CommitteeVotingRulesTest.
+        $committee = Committee::create([
+            'name_ar' => 'لجنة اختبار الجاهزية',
+            'quorum_type' => 'fraction',
+            'quorum_numerator' => 1,
+            'quorum_denominator' => 2,
+            'quorum_comparator' => 'more_than',
+            'quorum_text' => 'أكثر من نصف الأعضاء',
+        ]);
         $members = [];
         for ($i = 0; $i < $count; $i++) {
             $user = User::factory()->create(['is_active' => true]);
@@ -316,6 +330,15 @@ class MeetingReadinessTest extends TestCase
             'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
+        ]);
+
+        // Stage 68 — Appendix 7's "هل تمت المراجعة القانونية المطلوبة؟" is now
+        // one of the readiness exceptions, so a fixture item that is meant to
+        // be otherwise fully prepared needs a permitting review. The
+        // missing-review case has its own coverage in RequestLegalReviewTest.
+        $requestRecord->legalReviews()->create([
+            'verdict' => 'sound_ready',
+            'reviewed_at' => now(),
         ]);
 
         if ($withFile) {

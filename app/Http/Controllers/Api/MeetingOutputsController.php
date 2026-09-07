@@ -19,16 +19,36 @@ class MeetingOutputsController extends Controller
         return new MeetingOutputsResource($this->loadOutputs($meeting));
     }
 
-    public function complete(
+    /** Stage 69 — Art. 38 code 18 → 19: the effect has been carried out. */
+    public function execute(
         Request $request,
         Meeting $meeting,
         MeetingRequest $agendaItem,
         MeetingOutputService $outputs,
     ): MeetingOutputsResource {
+        return $this->apply($meeting, $agendaItem, fn () => $outputs->markExecuted($agendaItem, $request->user()));
+    }
+
+    /**
+     * Stage 69 — Art. 38 code 19 → 20. Kept a separate call from execute()
+     * because Appendix 5 refuses to let the two collapse: "منفذة … لكنها لا
+     * تصبح مغلقة إلا بعد التحقق من اكتمال التوثيق".
+     */
+    public function close(
+        Request $request,
+        Meeting $meeting,
+        MeetingRequest $agendaItem,
+        MeetingOutputService $outputs,
+    ): MeetingOutputsResource {
+        return $this->apply($meeting, $agendaItem, fn () => $outputs->close($agendaItem, $request->user()));
+    }
+
+    private function apply(Meeting $meeting, MeetingRequest $agendaItem, callable $move): MeetingOutputsResource
+    {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
         try {
-            $outputs->complete($agendaItem, $request->user());
+            $move();
         } catch (MeetingOutputTransitionException $exception) {
             throw ValidationException::withMessages([
                 'action' => [$exception->getMessage()],

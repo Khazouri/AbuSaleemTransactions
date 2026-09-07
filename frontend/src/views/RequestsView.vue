@@ -154,7 +154,9 @@ onMounted(async () => {
           </thead>
           <tbody>
             <tr v-for="request in requests" :key="request.id">
-              <td><span class="reference ltr">{{ request.reference_number || t('requests.noReference') }}</span></td>
+              <!-- Stage 70 — before the قيد the receipt is what identifies
+                   the row; only a request that has neither shows the placeholder. -->
+              <td><span class="reference ltr">{{ request.reference_number || request.intake_receipt_number || t('requests.noReference') }}</span></td>
               <td class="title">{{ request.title }}</td>
               <td>{{ name(request.department) }}</td>
               <td>{{ name(request.request_type) }}</td>

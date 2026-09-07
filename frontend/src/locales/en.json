@@ -454,12 +454,17 @@
     "submitFailed": "The request could not be submitted. Please try again.",
     "loadFailed": "The intake form options could not be loaded.",
     "successTitle": "Request created",
-    "successBody": "The request has entered stage one with New status. Its reference number is:",
+    "successBody": "The request has entered the official track. Its intake receipt number is:",
+    "receiptNotice": "This is an intake receipt, not a registration with the Employee Affairs Committee. The committee reference number is granted once the file is confirmed complete.",
     "createAnother": "Enter another request",
     "viewQueue": "View request queue",
     "requiredDocuments": {
       "title": "Documents typically required for this type",
-      "hint": "An informational, non-binding list of documents expected for this request type."
+      "hint": "An informational, non-binding list drawn from the mandatory-documents matrix. A note in brackets is the condition under which an item is required.",
+      "groups": {
+        "basic": "Shared basic documents",
+        "specific": "Documents specific to this type"
+      }
     }
   },
   "approvals": {
@@ -520,6 +525,7 @@
   },
   "requestDetail": {
     "back": "Back to request list",
+    "awaitingRegistration": "Intake receipt — not yet registered with the committee.",
     "currentStage": "Current stage",
     "submittedAt": "Submitted",
     "dueDate": "Due date",
@@ -554,16 +560,22 @@
       "yes": "File complete",
       "no": "Awaiting missing documents"
     },
+    "requiredDocuments": {
+      "title": "Document matrix for this type",
+      "hint": "A reference list to check the file's completeness against. A note in brackets is the condition under which an item is required."
+    },
     "stageTimeliness": {
       "label": "Stage timeliness",
       "noTarget": "No target duration for this stage",
       "elapsed": "{days} day(s) at this stage (target: {target})",
       "level": {
         "green": "Within the target duration",
-        "yellow": "Slightly past the target duration",
-        "red": "Significantly past the target duration",
-        "critical": "Critically past the target duration"
-      }
+        "yellow": "Approaching the target duration",
+        "red": "Past the target duration",
+        "critical": "Critical — delay tied to a legal deadline"
+      },
+      "escalation": "Recorded escalation",
+      "escalated": "Escalated on {date}"
     },
     "committeeSummary": {
       "title": "Committee presentation",
@@ -608,6 +620,17 @@
       "submitting": "Saving…",
       "failed": "The request could not be reopened.",
       "cancel": "Cancel"
+    },
+    "legalReview": {
+      "title": "Legal review",
+      "verdict": "Outcome",
+      "reviewedBy": "Legal officer",
+      "reviewedAt": "Reviewed on",
+      "rounds": "Review rounds",
+      "none": "No legal review has been recorded for this file yet.",
+      "send": "Send to legal review",
+      "sending": "Sending…",
+      "sendFailed": "Could not send the file to legal review."
     }
   },
   "committees": {
@@ -638,6 +661,52 @@
       "hr_director": "HR director member",
       "ministry_delegate": "Ministry of Local Governance delegate",
       "rapporteur": "Committee rapporteur"
+    },
+    "card": {
+      "title": "Committee identity card",
+      "hint": "Transcribed from the committee's formation decision and its governing text. The system never supplies a quorum or a majority of its own: leave the quorum blank and readiness will report it as not recorded.",
+      "notRecorded": "Not recorded",
+      "formationDecisionNumber": "Formation decision no.",
+      "formationDecisionDate": "Formation decision date",
+      "termNote": "Committee term, if any",
+      "legalBasis": "Legal basis",
+      "minutesApprovalBody": "Minutes approving body",
+      "votingRightsNote": "Who may vote",
+      "minutesSignatureRule": "Minutes signing rules",
+      "recusalRules": "Recusal and conflict-of-interest cases",
+      "quorumType": "Quorum for a valid sitting",
+      "quorumCount": "Members required",
+      "quorumText": "Quorum as written in the text",
+      "majorityType": "Majority required to decide",
+      "majorityBasis": "Majority measured against",
+      "majorityText": "Voting rule as written in the text",
+      "numerator": "Numerator",
+      "denominator": "Denominator",
+      "comparator": "Wording",
+      "tieBreak": "Tied vote",
+      "tieBreakText": "Tie rule as written in the text",
+      "types": {
+        "count": "A fixed number of members",
+        "fraction": "A share of the members"
+      },
+      "majorityTypes": {
+        "plurality": "Whichever outcome leads",
+        "fraction": "A fixed share"
+      },
+      "bases": {
+        "votes_cast": "Votes cast",
+        "present": "Members present",
+        "members": "Committee members"
+      },
+      "comparators": {
+        "at_least": "At least",
+        "more_than": "More than"
+      },
+      "tieBreaks": {
+        "chair_casting_vote": "The chair's vote prevails",
+        "no_decision": "Undecided — vote again"
+      },
+      "missing": "Quorum not recorded"
     }
   },
   "meetings": {
@@ -646,6 +715,7 @@
     "committee": "Committee",
     "chooseCommittee": "— Choose a committee —",
     "meetingNumber": "Meeting number",
+    "meetingNumberAuto": "Assigned automatically from the unified numbering scheme when the meeting is created.",
     "meetingTitle": "Meeting title",
     "meetingType": "Meeting type",
     "typeRegular": "Regular",
@@ -817,6 +887,7 @@
     "record": "Record decision",
     "recording": "Recording decision…",
     "decidedBy": "Decided by",
+    "decisionNumber": "Decision no.",
     "title": "Decisions & Recommendations",
     "subtitle": "Every binding committee decision, and the items still awaiting your vote.",
     "tabs": {
@@ -959,7 +1030,10 @@
       "chooseMeetingPlaceholder": "— Choose a meeting —",
       "noMeetingSelected": "Choose a meeting to check its readiness.",
       "error": "Could not load readiness data.",
-      "verdict": { "ready": "Ready to convene", "notReady": "Not ready" },
+      "verdict": {
+        "ready": "Ready to convene",
+        "notReady": "Not ready"
+      },
       "percentages": {
         "file": "Case files",
         "member": "Member roster",
@@ -971,7 +1045,9 @@
         "required": "Required",
         "confirmed": "Confirmed",
         "met": "Quorum met",
-        "notMet": "Quorum not met"
+        "notMet": "Quorum not met",
+        "notRecorded": "Not recorded on the committee card",
+        "perText": "Per the text"
       },
       "exceptions": {
         "title": "Exceptions",
@@ -981,7 +1057,8 @@
         "missing_files": "{count} request item(s) are missing attachments.",
         "unconfirmed_members": "{count} committee member(s) were not invited to this meeting.",
         "incomplete_agenda_items": "Some agenda items are missing a priority or estimated time.",
-        "pending_invitations": "Some attendees have not responded to their invitation."
+        "pending_invitations": "Some attendees have not responded to their invitation.",
+        "committee_rules_not_recorded": "The committee card records no quorum rule, and the system may not assume one."
       },
       "convene": {
         "title": "Convene meeting",
@@ -1009,7 +1086,9 @@
       "presentAttendees": "Present attendees",
       "noAttendees": "No attendees marked present yet.",
       "noItems": "The agenda has no items.",
-      "progress": { "resolved": "items resolved" },
+      "progress": {
+        "resolved": "items resolved"
+      },
       "states": {
         "presented": "Presented",
         "discussion": "Discussion",
@@ -1082,6 +1161,7 @@
     },
     "minutes": {
       "title": "Minutes",
+      "minutesNumber": "Minutes no.",
       "subtitle": "Generate, review, and sign the meeting's minutes.",
       "chooseMeeting": "Meeting",
       "chooseMeetingPlaceholder": "— Choose a meeting —",
@@ -1141,8 +1221,10 @@
       "liveHint": "Statuses follow the live request workflow and refresh automatically.",
       "empty": "This meeting has no request items to follow.",
       "awaitingDecision": "Awaiting committee decision",
-      "complete": "Complete and close",
-      "completeConfirm": "Confirm that execution is complete and close this request?",
+      "markExecuted": "Record execution",
+      "executeConfirm": "Confirm that the required administrative or financial effect has been carried out?",
+      "closeRequest": "Close and archive",
+      "closeConfirm": "Confirm that documentation is complete, then close and archive this request?",
       "summary": {
         "title": "Meeting output summary",
         "total_items": "Agenda items",
@@ -1150,6 +1232,7 @@
         "advanced": "Advanced downstream",
         "awaiting_action": "Awaiting action",
         "in_execution": "In execution",
+        "executed": "Executed",
         "completed_closed": "Completed and closed"
       },
       "columns": {
@@ -1161,6 +1244,71 @@
         "responsibleBody": "Responsible body",
         "status": "Status",
         "action": "Action"
+      }
+    },
+    "legalReview": {
+      "title": "Pre-meeting legal review",
+      "subtitle": "Files handed to the legal officer to check the legal basis, jurisdiction and document validity before the committee sees them.",
+      "empty": "No files are with the legal officer right now.",
+      "loadError": "Could not load the legal-review queue.",
+      "submitError": "Could not save the legal review.",
+      "table": {
+        "reference": "Reference",
+        "title": "Subject",
+        "employee": "Employee",
+        "requestType": "Request type",
+        "department": "Department",
+        "submitted": "Submitted",
+        "rounds": "Review rounds",
+        "actions": "Actions"
+      },
+      "actions": {
+        "openFile": "Open file",
+        "review": "Record review"
+      },
+      "form": {
+        "title": "Legal review card",
+        "appendix21": "Procedural note:",
+        "history": "Earlier reviews",
+        "card": "Legal basis card",
+        "verdict": "Review outcome",
+        "chooseVerdict": "Choose an outcome…",
+        "permitsAgenda": "This outcome allows the file onto a meeting agenda.",
+        "blocksAgenda": "This outcome holds the file back for completion or correction, then re-review.",
+        "noteRequired": "Required for this outcome.",
+        "noteOptional": "Optional for this outcome.",
+        "save": "Save review",
+        "saving": "Saving…"
+      },
+      "fields": {
+        "primaryLegislation": "Primary legislation",
+        "articleReference": "Article reference",
+        "supplementaryDecision": "Supplementary decision or circular",
+        "committeeMandate": "Committee's mandate",
+        "approvingBody": "Approving body",
+        "requiresCentralApproval": "Central approval required?",
+        "legalDeadline": "Statutory deadline?",
+        "prohibitingConditions": "Prohibiting conditions?",
+        "verdict": "Outcome",
+        "legalNote": "Legal officer's note"
+      },
+      "verdicts": {
+        "sound_ready": "Legally sound and ready for presentation",
+        "needs_document": "Needs a further document or statement",
+        "needs_clarification": "Needs legal or administrative clarification",
+        "jurisdiction_note": "There is a jurisdiction note",
+        "present_with_note": "A legal issue requiring presentation with a statement"
+      },
+      "mandates": {
+        "decision": "Decision",
+        "recommendation": "Recommendation",
+        "opinion": "Opinion",
+        "study_only": "Study only"
+      },
+      "centralApproval": {
+        "yes": "Yes",
+        "no": "No",
+        "needs_verification": "Needs verification"
       }
     }
   },
@@ -1196,6 +1344,7 @@
       "register": "Register receipt",
       "return_to_employee": "Return to employee",
       "reject_formally": "Formal rejection with reason",
+      "reject_by_committee": "Non-approval with reason",
       "reopen": "Reopen for re-presentation"
     }
   },
@@ -1305,7 +1454,11 @@
       "action_required": "Request waiting for you",
       "request_overdue": "Deadline exceeded",
       "meeting_scheduled": "Meeting invitation",
-      "decision_recorded": "Committee decision recorded"
+      "decision_recorded": "Committee decision recorded",
+      "minutes_approved": "Meeting minutes approved",
+      "financial_impact_review": "Financial impact review",
+      "appeal_decided": "Appeal result",
+      "delay_escalation": "Request delay escalation"
     }
   },
   "dashboard": {

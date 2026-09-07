@@ -38,7 +38,7 @@ class RequestVisibility
         // request an appeal has already overturned or amended, the same way
         // it already stops for cancelled/archived/in_execution/closed work.
         $terminalStatusIds = RequestStatus::query()
-            ->whereIn('code', ['cancelled', 'archived', 'in_execution', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
+            ->whereIn('code', ['cancelled', 'archived', 'not_approved', 'in_execution', 'executed', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
             ->select('id');
         // Stage 47 — قسم المرتبات والمزايا has no role tied to any
         // workflow_transitions row, so without this a flagged request's
@@ -49,12 +49,36 @@ class RequestVisibility
         // interest in a request they were consulted on doesn't expire.
         $salariesDepartmentId = Department::query()->where('code', 'SAL')->value('id');
         $isSalariesReviewer = $salariesDepartmentId !== null && $actor->department_id === $salariesDepartmentId;
+        // Stage 68 — same class of gap, same bounded fix. [D] Art. 21 puts the
+        // completed file in front of the legal member ("يعرض الملف المستوفي
+        // على العضو القانوني"), but R11 holds no workflow_transitions row, so
+        // without this the legal-review queue would list files that 404 when
+        // opened. Bounded to requests that have actually been handed to legal
+        // review — either sitting at Art. 38's status 07 right now, or
+        // carrying a review this member's tier already recorded — never a
+        // general read of the whole pipeline.
+        $isLegalReviewer = $actor->hasScreenPermission('legal_review', 'can_add');
 
-        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer) {
+        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer) {
             $visible->where('requests.created_by_user_id', $actor->id);
 
             if ($isSalariesReviewer) {
                 $visible->orWhere('requests.has_financial_impact', true);
+            }
+
+            if ($isLegalReviewer) {
+                $visible->orWhere(function (Builder $underReview) {
+                    $underReview->whereIn(
+                        'requests.status_id',
+                        RequestStatus::query()
+                            ->where('code', CommitteeStatusService::LEGAL_REVIEW_STATUS)
+                            ->select('id'),
+                    );
+                })->orWhereExists(function ($reviewed) {
+                    $reviewed->selectRaw('1')
+                        ->from('request_legal_reviews')
+                        ->whereColumn('request_legal_reviews.request_id', 'requests.id');
+                });
             }
 
             $visible->orWhereExists(function ($assignment) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds) {

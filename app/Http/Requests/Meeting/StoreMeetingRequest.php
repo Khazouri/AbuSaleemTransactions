@@ -16,7 +16,10 @@ class StoreMeetingRequest extends FormRequest
     {
         return [
             'committee_id' => ['required', 'integer', 'exists:committees,id'],
-            'meeting_number' => ['nullable', 'string', 'max:255'],
+            // Stage 70 — meeting_number is NOT accepted from the client any
+            // more: [D] Appendix 15 defines its shape and MeetingController::
+            // store() mints it, the same "never client-supplied when derivable"
+            // rule appellant_user_id and original_decision_id already follow.
             'title' => ['required', 'string', 'max:255'],
             'meeting_type' => ['sometimes', 'required', Rule::in(['regular', 'extraordinary', 'emergency'])],
             'scheduled_at' => ['required', 'date'],

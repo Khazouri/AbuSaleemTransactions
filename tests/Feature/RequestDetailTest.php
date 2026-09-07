@@ -139,6 +139,29 @@ class RequestDetailTest extends TestCase
         $this->assertDatabaseCount('request_stage_logs', 0);
     }
 
+    /**
+     * Stage 72 — the type's Appendix 57 matrix reaches the workspace, not only
+     * the intake form: the officer performing Art. 18's فحص اكتمال الملف at
+     * requirements_check is the one who judges the file against it.
+     */
+    public function test_the_detail_endpoint_surfaces_the_types_document_matrix(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $requestRecord = $this->newRequest('requirements_check', 'in_review');
+        $reviewer = $this->userWithRole('R02');
+
+        $response = $this->actingAs($reviewer, 'sanctum')
+            ->getJson("/api/requests/{$requestRecord->id}")
+            ->assertOk();
+
+        // The fixture is a PROM request, so it carries both of Appendix 57's
+        // seeded groups.
+        $documents = collect($response->json('data.required_documents'));
+        $this->assertNotEmpty($documents);
+        $this->assertEqualsCanonicalizing(['basic', 'specific'], $documents->pluck('group')->unique()->all());
+        $this->assertNotNull($documents->firstWhere('ar', 'كشف الأقدمية'));
+    }
+
     private function newRequest(string $stageCode = 'receive_from_municipality', string $statusCode = 'new'): Request
     {
         return Request::create([

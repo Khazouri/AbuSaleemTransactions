@@ -19,9 +19,28 @@ class RequestDetailResource extends RequestResource
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
             // Stage 51 — [A] §7's employee-facing visibility list.
             'documents_complete' => $this->documentsComplete(),
+            // Stage 72 — [D] Appendix 57's document matrix for this request's
+            // own type. Surfaced on the detail screen, not only at intake,
+            // because the officer performing Art. 18's فحص اكتمال الملف at
+            // requirements_check is the one who has to judge completeness
+            // against it. Deliberately on the detail resource rather than the
+            // shared RequestResource, so list payloads stay unchanged.
+            'required_documents' => $this->requestType?->required_documents ?? [],
             // Stage 54 — [D] Art. 45's 6-question jurisdiction test, recorded
             // at requirements_check; null until someone has answered it.
             'jurisdiction_test' => $this->jurisdiction_test,
+            // Stage 68 — [D] Art. 21's pre-meeting legal review. Only the
+            // latest round is surfaced here (it is the one that gates the
+            // agenda); the full history lives behind
+            // GET requests/{id}/legal-reviews, per Art. 21's requirement that
+            // every recorded opinion stay readable in the file.
+            'legal_review' => $this->whenLoaded(
+                'latestLegalReview',
+                fn () => $this->latestLegalReview
+                    ? new RequestLegalReviewResource($this->latestLegalReview)
+                    : null,
+            ),
+            'legal_reviews_count' => $this->whenCounted('legalReviews'),
             'committee_summary' => $this->whenLoaded('meetingRequests', function () {
                 $agendaItem = $this->meetingRequests->sortByDesc('id')->first();
 

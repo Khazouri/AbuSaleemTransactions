@@ -14,7 +14,10 @@ use Illuminate\Database\Seeder;
  * driven by the exception transitions added in Stage 16 and Stage 21 — they're
  * seeded now so those transitions have something to point at.
  *
- * Stage 54b reconciled this full 28-row vocabulary against [D] Art. 38's
+ * Stage 69 (Track K) made this vocabulary Art. 38's own twenty-code
+ * dictionary: it added codes 13, 15, 16 and 19, which had no status of
+ * their own, and retired `decided`/`approved` to legacy. Before that,
+ * Stage 54b reconciled the then-28-row vocabulary against [D] Art. 38's
  * canonical 20-code dictionary — see
  * docs/employee-committee-lifecycle/gap-analysis.md §4 (git-ignored,
  * local-only) for the per-status mapping and the rename/merge/keep decision
@@ -33,8 +36,26 @@ class RequestStatusSeeder extends Seeder
             ['incomplete',     'ناقص',            'Incomplete',     '#b45309'], // missing documents
             ['ready',          'جاهزة',           'Ready',          '#14b8a6'], // fit for the agenda
             ['in_meeting',     'في الاجتماع',      'In Meeting',     '#7c3aed'],
-            ['decided',        'قرار صادر',        'Decided',        '#9f1239'], // committee has voted
-            ['approved',       'معتمدة',          'Approved',       '#16a34a'],
+            // Stage 69 (Track K) — both of these are now LEGACY: no seeded
+            // transition sets either any more, and both stay recognised
+            // wherever they are read so old request_status_history rows keep
+            // making sense (the same treatment `archived` already gets).
+            //
+            // Art. 38 keeps code 12 (موافق عليها من اللجنة) and code 15
+            // (بانتظار اعتماد البلدية) apart because [D] treats الإحالة إلى
+            // السلطة المحلية as its own act — but DecisionController::record()
+            // performs the committee's approve decision and that referral
+            // atomically, so no state exists between them. The arrival status
+            // at approval_by_authority is therefore the more specific and more
+            // current of the two (15, below); the `decisions` row itself is the
+            // permanent record of 12, which is where Art. 89 puts it anyway.
+            //
+            // `approved` was read as spanning codes 15–16 by Stage 54b, but
+            // Stage 57 deleted the `competent_authority` stage and with it the
+            // second of its two call sites — leaving it meaning only Art. 31's
+            // code 16, which now has a status that says so.
+            ['decided',        'قرار صادر',        'Decided',        '#9f1239'], // legacy — Art. 38 code 12
+            ['approved',       'معتمدة',          'Approved',       '#16a34a'], // legacy — superseded by 15/16
             ['final_approved', 'معتمدة نهائياً',   'Final Approved', '#065f46'],
             ['archived',       'مؤرشفة',          'Archived',       '#d97706'], // closed, read-only
 
@@ -67,6 +88,14 @@ class RequestStatusSeeder extends Seeder
             ['under_discussion',               'قيد المناقشة',            'Under Discussion',               '#8b5cf6'],
             ['awaiting_recommendation_approval', 'بانتظار اعتماد التوصية', 'Awaiting Recommendation Approval', '#eab308'],
             ['completion_required',            'مطلوب استكمال',           'Completion Required',            '#f97316'],
+
+            // Stage 68 (Track K) — [D] Art. 38's code 07 (تحت المراجعة القانونية
+            // "لدى العضو القانوني"), the one Art. 38 code with no counterpart
+            // before this stage. Also status-only, written by the same
+            // CommitteeStatusService as the five above: Art. 21's review is
+            // pre-agenda preparation inside `receive_from_committee`, not a
+            // workflow stage of its own.
+            ['under_legal_review',             'تحت المراجعة القانونية',   'Under Legal Review',             '#0f766e'],
 
             // Stage 37 reconciles these with the existing downstream path:
             // final approval enters in_execution, then the meeting outputs
@@ -109,6 +138,22 @@ class RequestStatusSeeder extends Seeder
             // mechanism than appeal-driven redo. Not terminal, for the same
             // reason reopened_by_appeal isn't: ordinary processing resumes.
             ['reopened_for_representation', 'أعيد فتحه لإعادة العرض', 'Reopened for Re-presentation', '#0284c7'],
+
+            // --- Track K, Stage 69: the four codes Art. 38 has and this
+            // vocabulary did not ---------------------------------------------
+            // Art. 31 names 16 verbatim ("وفي هذه الحالة تصبح حالة المعاملة:
+            // بانتظار الاعتماد المركزي"). Appendix 5 keeps 19 and 20 apart in
+            // so many words ("منفذة … لكنها لا تصبح مغلقة إلا بعد التحقق من
+            // اكتمال التوثيق"), which is why MeetingOutputService now has two
+            // status-only actions instead of one. And 13 is the committee's own
+            // non-approval, until this stage indistinguishable in the data from
+            // a plain administrative withdrawal because DecisionController
+            // routed the `reject` outcome through the generic `cancel`
+            // self-loop — gap-analysis §4's one explicitly-open finding.
+            ['awaiting_municipal_approval', 'بانتظار اعتماد البلدية',   'Awaiting Municipal Approval', '#0369a1'],
+            ['awaiting_central_approval',   'بانتظار الاعتماد المركزي', 'Awaiting Central Approval',   '#1d4ed8'],
+            ['not_approved',                'غير موافق عليها',          'Not Approved',                '#b91c1c'],
+            ['executed',                    'منفذة',                    'Executed',                    '#15803d'],
         ];
 
         foreach ($statuses as [$code, $nameAr, $nameEn, $color]) {

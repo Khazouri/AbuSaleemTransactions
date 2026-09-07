@@ -20,6 +20,8 @@ use App\Models\MeetingRequest;
 use App\Models\Template;
 use App\Models\Vote;
 use App\Services\ApprovalSignatureStorage;
+use App\Services\ArtifactNumberGenerator;
+use App\Services\CommitteeVotingRules;
 use App\Services\DecisionDraftComposer;
 use App\Services\DecisionEligibility;
 use App\Services\NotificationDispatcher;
@@ -83,6 +85,9 @@ class DecisionController extends Controller
                 'appeal_redo' => 'إعادة الإجراءات',
             ],
             'columns' => [
+                // Stage 70 — Appendix 12's سجل القرارات opens with
+                // الرقم المتسلسل للقرار · رقم الاجتماع · رقم المعاملة.
+                'رقم القرار', 'رقم الاجتماع',
                 'الرقم المرجعي', 'الموضوع', 'اللجنة', 'الاجتماع', 'تاريخ الاجتماع',
                 'النتيجة', 'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة', 'عدم اختصاص',
                 'قبول التظلم', 'قبول جزئي', 'رفض التظلم', 'إحالة التظلم', 'إعادة الإجراءات', 'ممتنع',
@@ -117,6 +122,7 @@ class DecisionController extends Controller
                 'appeal_redo' => 'Procedures Redone',
             ],
             'columns' => [
+                'Decision no.', 'Meeting no.',
                 'Reference', 'Subject', 'Committee', 'Meeting', 'Meeting date',
                 'Outcome', 'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred', 'No jurisdiction',
                 'Appeal accepted', 'Appeal partial', 'Appeal rejected', 'Appeal referred', 'Appeal redo', 'Abstain',
@@ -128,9 +134,13 @@ class DecisionController extends Controller
 
     /**
      * How a vote outcome maps onto the workflow_transitions row seeded at
-     * stage 7 (`receive_from_committee`). `reject` reuses the existing R03
-     * self-loop `cancel` exception rather than inventing a second terminal
-     * outcome; `defer` is the new Stage 21 self-loop.
+     * stage 7 (`receive_from_committee`). `defer` is the Stage 21 self-loop.
+     *
+     * Stage 69 — `reject` no longer reuses the generic `cancel` self-loop:
+     * Art. 38's code 13 (غير موافق عليها) is a reasoned committee
+     * non-approval, which the data must be able to tell apart from a plain
+     * administrative withdrawal, so it has its own `reject_by_committee`
+     * transition and its own `not_approved` status.
      */
     // Stage 35 — three richer outcomes alongside the original three, each
     // still mapping onto one workflow_transitions row at stage 7. See
@@ -139,7 +149,7 @@ class DecisionController extends Controller
     // Stage 49 — a seventh outcome, `no_jurisdiction`, on the same terms.
     private const ACTIONS = [
         'approve' => 'approve',
-        'reject' => 'cancel',
+        'reject' => 'reject_by_committee',
         'defer' => 'defer',
         'conditional_approval' => 'conditional_approve',
         'legal_opinion' => 'request_legal_opinion',
@@ -210,6 +220,7 @@ class DecisionController extends Controller
         WorkflowService $workflow,
         ApprovalSignatureStorage $signatureStorage,
         NotificationDispatcher $notifications,
+        ArtifactNumberGenerator $numbers,
     ): JsonResponse {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
@@ -218,7 +229,7 @@ class DecisionController extends Controller
         // "commit" step are different enough to live in their own method
         // rather than being threaded through the branches below.
         if ($agendaItem->item_type === 'appeal') {
-            return $this->recordAppealDecision($request, $agendaItem);
+            return $this->recordAppealDecision($request, $agendaItem, $numbers);
         }
 
         // Stage 31 — an admin/emerging item has no request for
@@ -249,21 +260,11 @@ class DecisionController extends Controller
         // $tally entirely and can never drive a workflow transition.
         $abstainCount = (int) ($counts['abstain'] ?? 0);
 
-        $max = $tally->max();
-        if ($max === 0) {
-            return response()->json([
-                'message' => 'لا توجد أصوات مسجلة على هذا البند بعد.',
-            ], 422);
+        [$outcome, $refusal] = $this->resolveOutcome($agendaItem, $tally, $abstainCount);
+        if ($outcome === null) {
+            return response()->json(['message' => $refusal], 422);
         }
 
-        $leaders = $tally->filter(fn (int $count) => $count === $max);
-        if ($leaders->count() > 1) {
-            return response()->json([
-                'message' => 'التصويت متعادل، لا يمكن حسم القرار تلقائياً.',
-            ], 422);
-        }
-
-        $outcome = $leaders->keys()->first();
         $action = self::ACTIONS[$outcome];
         $comment = $request->validated('comment');
         $templateId = $request->validated('template_id');
@@ -276,7 +277,7 @@ class DecisionController extends Controller
 
         try {
             $decision = DB::transaction(function () use (
-                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally, $abstainCount, $referralAuthority,
+                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally, $abstainCount, $referralAuthority, $numbers,
             ) {
                 $workflow->transition($agendaItem->request, $action, $actor, $comment, $signaturePath);
 
@@ -288,6 +289,10 @@ class DecisionController extends Controller
 
                 return Decision::create([
                     'meeting_request_id' => $agendaItem->id,
+                    // Stage 70 — Appendix 15's PM-DEC series; Art. 89 requires
+                    // رقم القرار inside the محضر itself, so it is minted with
+                    // the decision, inside the same transaction.
+                    'decision_number' => $numbers->nextDecisionNumber(),
                     'template_id' => $templateId,
                     'outcome' => $outcome,
                     'votes_approve_count' => $tally['approve'],
@@ -331,6 +336,93 @@ class DecisionController extends Controller
     }
 
     /**
+     * Stage 73 — resolve a tally into the single outcome the committee's own
+     * voting rule says it produced, or a refusal explaining why it produced
+     * none. Both the ordinary and the appeal tally go through this one
+     * method, since they are the same committee voting in the same sitting
+     * under the same قرار التشكيل.
+     *
+     * With no rule transcribed the pre-Stage-73 behaviour stands: the outcome
+     * with the most votes wins and a tie is refused. That is deliberate and
+     * is not the thing [D] Appendix 64 forbids — plurality asserts no نسبة
+     * أغلبية of its own, whereas the quorum figure this stage removed did.
+     * Once a real threshold IS recorded it binds, and an outcome that leads
+     * without reaching it is refused rather than written down, per Art. 87's
+     * "لا يجوز إثبات نتيجة مغايرة لما انتهى إليه التصويت الفعلي".
+     *
+     * @param  Collection<string, int>  $tally
+     * @return array{0: string|null, 1: string|null}
+     */
+    private function resolveOutcome(MeetingRequest $agendaItem, Collection $tally, int $abstainCount): array
+    {
+        $max = $tally->max();
+        if ($max === 0) {
+            return [null, 'لا توجد أصوات مسجلة على هذا البند بعد.'];
+        }
+
+        $agendaItem->loadMissing(['meeting.committee', 'meeting.attendees']);
+        $rules = CommitteeVotingRules::forMeeting($agendaItem->meeting);
+
+        $leaders = $tally->filter(fn (int $count) => $count === $max);
+
+        if ($leaders->count() > 1) {
+            // Art. 87 applies ترجيح صوت الرئيس only where the text or the
+            // قرار التشكيل provides for it; otherwise a tie simply leaves the
+            // matter undecided and the chair can call another vote.
+            if ($rules->tieBreak() !== 'chair_casting_vote') {
+                return [null, 'التصويت متعادل، لا يمكن حسم القرار تلقائياً.'];
+            }
+
+            $chairOutcome = $this->chairVote($agendaItem);
+            if ($chairOutcome === null || ! $leaders->has($chairOutcome)) {
+                return [null, 'التصويت متعادل ولم يرجّح صوت رئيس اللجنة أياً من النتائج المتساوية.'];
+            }
+
+            $outcome = $chairOutcome;
+        } else {
+            $outcome = $leaders->keys()->first();
+        }
+
+        if ($rules->hasMajorityThreshold()) {
+            $base = match ($rules->majorityBasis()) {
+                'present' => $agendaItem->meeting?->attendees->where('attended', true)->count() ?? 0,
+                'members' => $agendaItem->meeting?->committee?->activeMembers()->count() ?? 0,
+                // votes_cast — every recorded vote, abstentions included,
+                // matching Appendix 26's register, which counts الممتنعون as
+                // votes cast alongside الموافقون and غير الموافقين.
+                default => $tally->sum() + $abstainCount,
+            };
+
+            $threshold = $rules->majorityThreshold($base);
+            if ($threshold !== null && $tally[$outcome] < $threshold) {
+                return [null, "لم تبلغ نتيجة التصويت الأغلبية اللازمة وفق بطاقة تعريف اللجنة ({$tally[$outcome]} من {$threshold})."];
+            }
+        }
+
+        return [$outcome, null];
+    }
+
+    /**
+     * How the sitting's president voted, for a قرار تشكيل that gives them a
+     * casting vote — the meeting's own chairman where one was named, else
+     * the committee's standing head seat.
+     */
+    private function chairVote(MeetingRequest $agendaItem): ?string
+    {
+        $chairUserId = $agendaItem->meeting?->chairman_user_id
+            ?? $agendaItem->meeting?->committee?->members()->where('is_head', true)->value('user_id');
+
+        if ($chairUserId === null) {
+            return null;
+        }
+
+        return Vote::query()
+            ->where('meeting_request_id', $agendaItem->id)
+            ->where('user_id', $chairUserId)
+            ->value('vote');
+    }
+
+    /**
      * Stage 63, Track J — Art. 75 point 5's five-outcome appeal decision.
      * Same plurality-tally shape as record() above, but the "commit" step is
      * entirely different: no WorkflowService call at all, since an appeal
@@ -352,7 +444,7 @@ class DecisionController extends Controller
      * decisionRecorded() now would blur into that stage's "final result"
      * semantics and risk notifying the appellant twice.
      */
-    private function recordAppealDecision(StoreDecisionRequest $request, MeetingRequest $agendaItem): JsonResponse
+    private function recordAppealDecision(StoreDecisionRequest $request, MeetingRequest $agendaItem, ArtifactNumberGenerator $numbers): JsonResponse
     {
         if ($agendaItem->decision()->exists()) {
             return response()->json([
@@ -383,21 +475,11 @@ class DecisionController extends Controller
             ->mapWithKeys(fn (string $outcome) => [$outcome => (int) ($counts[$outcome] ?? 0)]);
         $abstainCount = (int) ($counts['abstain'] ?? 0);
 
-        $max = $tally->max();
-        if ($max === 0) {
-            return response()->json([
-                'message' => 'لا توجد أصوات مسجلة على هذا البند بعد.',
-            ], 422);
+        [$outcome, $refusal] = $this->resolveOutcome($agendaItem, $tally, $abstainCount);
+        if ($outcome === null) {
+            return response()->json(['message' => $refusal], 422);
         }
 
-        $leaders = $tally->filter(fn (int $count) => $count === $max);
-        if ($leaders->count() > 1) {
-            return response()->json([
-                'message' => 'التصويت متعادل، لا يمكن حسم القرار تلقائياً.',
-            ], 422);
-        }
-
-        $outcome = $leaders->keys()->first();
         $comment = trim((string) $request->validated('comment'));
 
         if ($comment === '') {
@@ -411,7 +493,7 @@ class DecisionController extends Controller
         $actor = $request->user();
 
         $decision = DB::transaction(function () use (
-            $appeal, $agendaItem, $outcome, $tally, $abstainCount, $comment, $referralAuthority, $templateId, $actor,
+            $appeal, $agendaItem, $outcome, $tally, $abstainCount, $comment, $referralAuthority, $templateId, $actor, $numbers,
         ) {
             $appeal->update([
                 'appeal_status_id' => AppealStatus::where('code', 'committee_presentation')->value('id'),
@@ -422,6 +504,8 @@ class DecisionController extends Controller
 
             return Decision::create([
                 'meeting_request_id' => $agendaItem->id,
+                // Stage 70 — an appeal decision carries the same PM-DEC series.
+                'decision_number' => $numbers->nextDecisionNumber(),
                 'template_id' => $templateId,
                 'outcome' => $outcome,
                 // The employee_request vocabulary never applies here; set
@@ -668,6 +752,8 @@ class DecisionController extends Controller
         $originalRequest = $agendaItem?->request ?? $agendaItem?->appeal?->originalRequest;
 
         return [
+            $decision->decision_number ?? $labels['none'],
+            $meeting?->meeting_number ?? $labels['none'],
             $originalRequest?->reference_number ?? $labels['none'],
             $originalRequest?->title ?? $labels['none'],
             $this->localName($committee, $locale, $labels),

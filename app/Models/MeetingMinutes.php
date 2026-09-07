@@ -27,6 +27,7 @@ class MeetingMinutes extends Model
 
     protected $fillable = [
         'meeting_id',
+        'minutes_number',
         'content',
         'status',
         'generated_by_user_id',

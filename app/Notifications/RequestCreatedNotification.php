@@ -16,7 +16,7 @@ class RequestCreatedNotification extends SystemNotification
     public function __construct(Request $requestRecord, private readonly string $actorName)
     {
         $this->requestId = $requestRecord->id;
-        $this->reference = (string) $requestRecord->reference_number;
+        $this->reference = (string) $requestRecord->trackingNumber();
         $this->title = (string) $requestRecord->title;
     }
 

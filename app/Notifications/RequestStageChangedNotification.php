@@ -28,7 +28,7 @@ class RequestStageChangedNotification extends SystemNotification
         private readonly string $actorName,
     ) {
         $this->requestId = $requestRecord->id;
-        $this->reference = (string) $requestRecord->reference_number;
+        $this->reference = (string) $requestRecord->trackingNumber();
         $this->fromStage = $fromStage?->name_ar;
         $this->toStage = $toStage?->name_ar;
     }

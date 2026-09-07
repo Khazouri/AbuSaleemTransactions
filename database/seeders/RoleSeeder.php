@@ -31,6 +31,11 @@ class RoleSeeder extends Seeder
             // only: RoleSeeder upserts on `code`, so nothing above is affected.
             ['code' => 'R09', 'name_ar' => 'أمين سر اللجنة', 'name_en' => 'Committee Secretary', 'description' => 'يستلم الملف بعد اكتمال الدراسة ويُعِدّ جدول أعمال اللجنة'],
             ['code' => 'R10', 'name_ar' => 'وكيل الديوان', 'name_en' => 'Diwan Deputy', 'description' => 'أحد مسارات الإحالة الإدارية من المدير المباشر'],
+            // Stage 68 (Track K) — [D] Art. 21 / Art. 14 (ب)'s العضو القانوني.
+            // Stage 45 gave the committee a `legal` SEAT, but Art. 109 and
+            // Appendix 45 both list the legal officer as a system ROLE with
+            // its own permissions, which is what was missing.
+            ['code' => 'R11', 'name_ar' => 'العضو القانوني', 'name_en' => 'Legal Officer', 'description' => 'يراجع السند القانوني والاختصاص وسلامة المستندات قبل عرض الملف على اللجنة'],
         ];
 
         foreach ($roles as $role) {

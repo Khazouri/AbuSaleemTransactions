@@ -44,7 +44,17 @@ class WorkflowTransitionSeeder extends Seeder
         // one would silently overwrite the other on every re-seed.
         $transitions = [
             ['receive_from_municipality', 'direct_manager_review', 'submit', 'R01', 'in_review'],
-            ['requirements_check', 'reviewer_review', 'approve', 'R02', 'in_review'],
+            // Stage 70 — Art. 20 grants the قيد and its رقم إشاري only "بعد
+            // ثبوت اكتمال الملف", and this hop IS Art. 18's "ملف مستوفٍ"
+            // outcome, so it lands on Art. 38's code 06 (مستوفية ومقيدة)
+            // rather than the old `in_review` (code 04, which now belongs to
+            // the `register` hop that merely delivers the file to be checked).
+            // Reaching this status is also what allocates the reference number
+            // — see WorkflowService::applyRule(), which keys that off the
+            // destination status precisely so BOTH endpoints able to run this
+            // action (RequestController::transition and
+            // ApprovalController::store) go through it.
+            ['requirements_check', 'reviewer_review', 'approve', 'R02', 'registered'],
             ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
             // Stage 57 — collapses the old two-hop observations ->
             // ministry_endorsement -> forward_to_committee into one: no
@@ -53,8 +63,18 @@ class WorkflowTransitionSeeder extends Seeder
             // as before.
             ['observations', 'forward_to_committee', 'forward', 'R02', 'ready'],
             ['forward_to_committee', 'receive_from_committee', 'forward', 'R05', 'in_meeting'],
-            ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'decided'],
-            ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'approved'],
+            // Stage 69 — Art. 38's code 15 (بانتظار اعتماد البلدية), not the
+            // old `decided` (code 12). [D] separates the two because it treats
+            // الإحالة إلى السلطة المحلية as its own act; here recording the
+            // committee's approve decision and referring the file to the
+            // البلدية are one atomic act (DecisionController::record), so the
+            // arrival status is the more specific and more current of the two.
+            ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'awaiting_municipal_approval'],
+            // Stage 69 — Art. 31 names this status verbatim: "وفي هذه الحالة
+            // تصبح حالة المعاملة: (بانتظار الاعتماد المركزي)". The old
+            // `approved` said only that *an* approval had happened, not which
+            // authority the file was now waiting on.
+            ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'awaiting_central_approval'],
             // Stage 57 — ministry approval is now the literal last gate
             // before final_approval_archiving (competent_authority, a fourth
             // approval tier the standard never describes, is gone); arrival
@@ -204,7 +224,12 @@ class WorkflowTransitionSeeder extends Seeder
                 [
                     'to_stage_id' => $stages['requirements_check']->id,
                     'requires_submitter_manager' => false,
-                    'set_status_id' => $statuses['registered']->id,
+                    // Stage 70 — arriving at requirements_check is Art. 38's
+                    // code 04 (تحت فحص الاكتمال), not 06: the file has been
+                    // delivered to the checker, nothing has been checked yet.
+                    // `registered` (06, مستوفية ومقيدة) moved to the approve
+                    // hop OUT of that stage, where Art. 20 grants the قيد.
+                    'set_status_id' => $statuses['in_review']->id,
                     'is_exception' => false,
                     'requires_comment' => false,
                     'order_no' => 12 + $index,
@@ -411,6 +436,23 @@ class WorkflowTransitionSeeder extends Seeder
             $roles['R03']->id,
             $statuses['returned']->id,
             55,
+        );
+
+        // Stage 69 — [D] Art. 38's code 13 (غير موافق عليها) finally has an
+        // action of its own. Until now DecisionController::ACTIONS routed the
+        // committee's `reject` outcome through the generic `cancel` self-loop,
+        // so a reasoned committee non-approval was indistinguishable in the
+        // data from a plain administrative withdrawal — the one finding
+        // gap-analysis §4 explicitly left open for "whoever next touches the
+        // committee-decision outcome set". Comment-required per Art. 91, which
+        // rejects unreasoned refusals outright.
+        $this->seedException(
+            $stages['receive_from_committee']->id,
+            $stages['receive_from_committee']->id,
+            'reject_by_committee',
+            $roles['R03']->id,
+            $statuses['not_approved']->id,
+            56,
         );
 
         // Stage 17 — once the SLA sweep marks a breach, an administrator can

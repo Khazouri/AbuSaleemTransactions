@@ -3,6 +3,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+// Stage 72 — [D] Appendix 57's grouped document matrix, shared with the
+// request workspace so both screens read the same list the same way.
+import { documentCondition, documentLabel, groupDocuments } from '../lib/requiredDocuments'
 
 const { t, locale } = useI18n()
 const options = ref({ departments: [], types: [] })
@@ -20,6 +23,8 @@ const isBusy = computed(() => loadingOptions.value || submitting.value)
 const selectedType = computed(() => options.value.types.find(
   (type) => String(type.id) === String(form.value.request_type_id),
 ))
+// Stage 72 — Appendix 57's groups for the chosen type; empty until one is picked.
+const documentSections = computed(() => groupDocuments(selectedType.value?.required_documents))
 
 function blankForm() {
   return { title: '', description: '', department_id: '', request_type_id: '', decision_grade: '' }
@@ -29,8 +34,12 @@ function name(item) {
   return locale.value === 'ar' ? item.name_ar || item.name_en : item.name_en || item.name_ar
 }
 
-function documentLabel(doc) {
-  return locale.value === 'ar' ? doc.ar || doc.en : doc.en || doc.ar
+function docLabel(doc) {
+  return documentLabel(doc, locale.value)
+}
+
+function docCondition(doc) {
+  return documentCondition(doc, locale.value)
 }
 
 function chooseFiles(event) {
@@ -124,7 +133,11 @@ onMounted(loadOptions)
     <section v-if="created" class="card success" role="status">
       <h3>{{ t('intake.successTitle') }}</h3>
       <p>{{ t('intake.successBody') }}</p>
-      <strong class="reference ltr">{{ created.reference_number }}</strong>
+      <strong class="reference ltr">{{ created.intake_receipt_number }}</strong>
+      <!-- Stage 70 — [D] Art. 15: handing a request to the direct manager is
+           explicitly not a قيد, so the screen says so rather than letting the
+           receipt read as the committee reference it is not. -->
+      <p class="receipt-notice">{{ t("intake.receiptNotice") }}</p>
       <div class="actions">
         <button class="primary" type="button" @click="startAnother">{{ t('intake.createAnother') }}</button>
         <RouterLink class="ghost link-button" :to="{ name: 'requests' }">{{ t('intake.viewQueue') }}</RouterLink>
@@ -181,13 +194,23 @@ onMounted(loadOptions)
         </div>
       </fieldset>
 
-      <!-- Stage 53 — soft, informational document checklist per request type. -->
-      <fieldset v-if="selectedType?.required_documents?.length" class="checklist" :disabled="isBusy">
+      <!--
+        Stage 72 — [D] Appendix 57's document matrix for the chosen type, grouped
+        by the appendix's own أساسية مشتركة / خاصة بالنوع split. Soft and
+        informational: nothing here is validated on submit.
+      -->
+      <fieldset v-if="documentSections.length" class="checklist" :disabled="isBusy">
         <legend>{{ t('intake.requiredDocuments.title') }}</legend>
         <p class="hint">{{ t('intake.requiredDocuments.hint') }}</p>
-        <ul>
-          <li v-for="(doc, index) in selectedType.required_documents" :key="index">{{ documentLabel(doc) }}</li>
-        </ul>
+        <div v-for="section in documentSections" :key="section.group" class="doc-group">
+          <h3>{{ t(`intake.requiredDocuments.groups.${section.group}`) }}</h3>
+          <ul>
+            <li v-for="(doc, index) in section.items" :key="index">
+              {{ docLabel(doc) }}
+              <span v-if="docCondition(doc)" class="doc-condition">({{ docCondition(doc) }})</span>
+            </li>
+          </ul>
+        </div>
       </fieldset>
 
       <fieldset :disabled="isBusy">
@@ -217,6 +240,7 @@ onMounted(loadOptions)
 .card { padding: 1.25rem; }.form { max-inline-size: 52rem; }.form fieldset { min-inline-size: 0; padding: 0; margin: 0 0 1.5rem; border: 0; }.form legend { margin-bottom: .85rem; color: var(--color-brand-text); font-weight: 700; }.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.wide { grid-column: 1 / -1; }
 label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .85rem; }input, select, textarea { min-inline-size: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }textarea { resize: vertical; }small { color: var(--color-danger-fg); font-size: .78rem; }.field-hint, .hint, .state { color: var(--color-muted); font-size: .78rem; }.hint, .state { margin: 0 0 .75rem; }.file-input { max-inline-size: 100%; }
 .checklist ul { display: grid; gap: .35rem; padding-inline-start: 1.2rem; margin: 0; color: var(--color-black-700); font-size: .85rem; }
-.files { display: grid; gap: .6rem; margin-top: .85rem; }.file-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(10rem, 1fr) auto; gap: .5rem; align-items: center; padding: .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.actions { display: flex; gap: .5rem; }.primary, .ghost { padding: .5rem .9rem; border-radius: var(--radius-lg); font-size: .85rem; cursor: pointer; }.primary { border: 0; color: var(--color-on-brand); background: var(--color-brand); }.ghost { border: 1px solid var(--color-border-hover); color: var(--color-black-700); background: var(--color-surface); }.link-button { text-decoration: none; }.primary:disabled, fieldset:disabled { cursor: not-allowed; opacity: .65; }.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.success { max-inline-size: 38rem; }.success h3 { margin: 0; color: var(--color-brand-text); }.success p { color: var(--color-black-700); }.reference { display: block; margin: 1rem 0; color: var(--color-primary); font-size: 1.15rem; }
+.doc-group + .doc-group { margin-block-start: .85rem; }.doc-group h3 { margin: 0 0 .35rem; color: var(--color-black-700); font-size: .8rem; font-weight: 600; }.doc-condition { color: var(--color-black-500); font-size: .75rem; }
+.files { display: grid; gap: .6rem; margin-top: .85rem; }.file-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(10rem, 1fr) auto; gap: .5rem; align-items: center; padding: .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.actions { display: flex; gap: .5rem; }.primary, .ghost { padding: .5rem .9rem; border-radius: var(--radius-lg); font-size: .85rem; cursor: pointer; }.primary { border: 0; color: var(--color-on-brand); background: var(--color-brand); }.ghost { border: 1px solid var(--color-border-hover); color: var(--color-black-700); background: var(--color-surface); }.link-button { text-decoration: none; }.primary:disabled, fieldset:disabled { cursor: not-allowed; opacity: .65; }.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.success { max-inline-size: 38rem; }.success h3 { margin: 0; color: var(--color-brand-text); }.success p { color: var(--color-black-700); }.reference { display: block; margin: 1rem 0; color: var(--color-primary); font-size: 1.15rem; }.receipt-notice { padding: .6rem .7rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-lg); color: var(--color-info-fg); background: var(--color-info-bg); font-size: .8rem; }
 @media (max-width: 640px) { .grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.file-row { grid-template-columns: 1fr; } }
 </style>

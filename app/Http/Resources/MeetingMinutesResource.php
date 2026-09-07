@@ -11,6 +11,8 @@ class MeetingMinutesResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            // Stage 70 — [D] Appendix 15's PM-MIN series.
+            'minutes_number' => $this->minutes_number,
             'status' => $this->status,
             'content' => $this->content,
             'generated_by' => $this->whenLoaded('generatedBy', fn () => $this->generatedBy ? [

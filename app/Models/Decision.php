@@ -10,6 +10,7 @@ class Decision extends Model
 {
     protected $fillable = [
         'meeting_request_id',
+        'decision_number',
         'template_id',
         'outcome',
         'votes_approve_count',

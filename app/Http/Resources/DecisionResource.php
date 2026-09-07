@@ -13,6 +13,8 @@ class DecisionResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            // Stage 70 — Art. 89's رقم القرار (Appendix 15's PM-DEC series).
+            'decision_number' => $this->decision_number,
             'outcome' => $this->outcome,
             'votes_approve_count' => $this->votes_approve_count,
             'votes_reject_count' => $this->votes_reject_count,

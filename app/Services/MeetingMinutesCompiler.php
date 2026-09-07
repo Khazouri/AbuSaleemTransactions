@@ -30,6 +30,16 @@ use Illuminate\Support\Collection;
  * signed_at/image data here would always read "nobody has signed yet."
  * Actual signed proof stays exactly where it already lives and is already
  * exposed: MeetingMinutes::signatures via MeetingMinutesResource.
+ *
+ * Stage 73 — the محضر now records the committee's بطاقة تعريف اللجنة and the
+ * quorum rule the sitting was measured against, because Appendix 8 lists
+ * "إثبات صحة الانعقاد" among the checks a محضر must satisfy before it goes
+ * for approval, and validity cannot be shown without naming the rule. The
+ * rule comes from the meeting's own convene-time snapshot where one exists,
+ * so regenerating a draft cannot silently re-judge a sitting under rules
+ * adopted after it was held; a meeting held before Stage 73 has neither a
+ * snapshot nor a card and honestly reports nulls rather than the invented
+ * ceil(members / 2) it would once have printed.
  */
 class MeetingMinutesCompiler
 {
@@ -62,6 +72,9 @@ class MeetingMinutesCompiler
                 'chairman' => $meeting->chairman ? ['id' => $meeting->chairman->id, 'name' => $meeting->chairman->name] : null,
                 'rapporteur' => $meeting->rapporteur ? ['id' => $meeting->rapporteur->id, 'name' => $meeting->rapporteur->name] : null,
             ],
+            // Appendix 65's بطاقة تعريف اللجنة, carried into the محضر so the
+            // record names the body that sat and the text it sat under.
+            'committee' => $this->committeeCard($meeting),
             'attendance' => $this->attendance($meeting, $membersByUserId),
             'agenda_items' => $meeting->agendaItems->map(fn (MeetingRequest $item) => $this->agendaItem($item))->all(),
             // Art. 28 — "توقيعات من يلزم توقيعهم": who is required to sign,
@@ -71,6 +84,27 @@ class MeetingMinutesCompiler
                 ->map(fn (MeetingAttendee $attendee) => $this->attendeeInfo($attendee, $membersByUserId))
                 ->values()
                 ->all(),
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function committeeCard(Meeting $meeting): ?array
+    {
+        $committee = $meeting->committee;
+
+        if (! $committee) {
+            return null;
+        }
+
+        return [
+            'name_ar' => $committee->name_ar,
+            'name_en' => $committee->name_en,
+            'formation_decision_number' => $committee->formation_decision_number,
+            'formation_decision_date' => $committee->formation_decision_date?->toDateString(),
+            'term_note' => $committee->term_note,
+            'legal_basis' => $committee->legal_basis,
+            'minutes_approval_body' => $committee->minutes_approval_body,
+            'minutes_signature_rule' => $committee->minutes_signature_rule,
         ];
     }
 
@@ -85,7 +119,8 @@ class MeetingMinutesCompiler
         $present = $meeting->attendees->where('attended', true);
         $absent = $meeting->attendees->where('attended', false);
 
-        $quorumRequired = (int) ceil($activeMemberUserIds->count() / 2);
+        $rules = CommitteeVotingRules::forMeeting($meeting);
+        $quorumRequired = $rules->quorumRequired($activeMemberUserIds->count());
         $quorumPresent = $present->whereIn('user_id', $activeMemberUserIds)->count();
 
         return [
@@ -93,7 +128,10 @@ class MeetingMinutesCompiler
             'absent' => $absent->map(fn (MeetingAttendee $attendee) => $this->attendeeInfo($attendee, $membersByUserId))->values()->all(),
             'quorum_required' => $quorumRequired,
             'quorum_present' => $quorumPresent,
-            'quorum_met' => $quorumPresent >= $quorumRequired,
+            'quorum_met' => $quorumRequired === null ? null : $quorumPresent >= $quorumRequired,
+            // The rule itself, printed beside the count it produced — an
+            // unrecorded rule reads as unrecorded, not as "no quorum needed".
+            'quorum_rule' => $rules->toArray(),
         ];
     }
 
@@ -143,6 +181,11 @@ class MeetingMinutesCompiler
             'votes' => $this->voteTally($item),
             'dissenting_opinions' => $this->dissentingOpinions($item),
             'decision' => $item->decision ? [
+                // Stage 70 — Art. 89: "يخصص داخل المحضر لكل معاملة قرار أو نتيجة
+                // مستقلة" whose first listed element is رقم القرار, so the
+                // number has to be part of the frozen snapshot, not only of
+                // the live decisions row.
+                'decision_number' => $item->decision->decision_number,
                 'outcome' => $item->decision->outcome,
                 'comment' => $item->decision->comment,
                 'referral_authority' => $item->decision->referral_authority,

@@ -68,7 +68,6 @@ function removeRequest(request) {
 
 const details = ref({
   committee_id: '',
-  meeting_number: '',
   title: '',
   meeting_type: 'regular',
   scheduled_at: '',
@@ -135,7 +134,6 @@ async function submit() {
     submitPhase.value = t('meetings.wizard.creatingMeeting')
     const payload = {
       committee_id: details.value.committee_id,
-      meeting_number: details.value.meeting_number || null,
       title: details.value.title,
       meeting_type: details.value.meeting_type,
       scheduled_at: details.value.scheduled_at,
@@ -256,9 +254,12 @@ function goBack() {
           </select>
           <small v-if="detailErrors.committee_id" class="field-error">{{ t('meetings.chooseCommittee') }}</small>
         </label>
-        <label>
+        <!-- Stage 70 — the meeting number is no longer typed here: the
+             server mints [D] Appendix 15's PM-MTG code on creation, so the
+             wizard shows the rule instead of an input the API would ignore. -->
+        <label class="readonly-note">
           {{ t('meetings.meetingNumber') }}
-          <input v-model="details.meeting_number" type="text" />
+          <small>{{ t('meetings.meetingNumberAuto') }}</small>
         </label>
         <label>
           {{ t('meetings.meetingTitle') }} *
@@ -420,7 +421,7 @@ input[type='text'], input[type='number'], input[type='datetime-local'], select, 
   font: inherit;
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
-.field-error { color: var(--color-danger-fg); font-size: .78rem; }
+.field-error { color: var(--color-danger-fg); font-size: .78rem; }.readonly-note small { color: var(--color-muted); font-size: .76rem; }
 
 .results, .selected { display: grid; gap: .4rem; padding: 0; margin: .5rem 0 1rem; list-style: none; }
 .selected.ordered { list-style: none; }

@@ -14,7 +14,17 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/** Stage 52 — the non-blocking, per-stage soft-SLA escalation indicator. */
+/**
+ * Stage 52 — the non-blocking, per-stage soft-SLA escalation indicator.
+ *
+ * Stage 71 rewrote every expectation below, deliberately rather than as a
+ * regression fix: the seeded targets now come from [D] Appendix 37 (so
+ * requirements_check is 2 days, not 3), and Appendix 38's buckets mean
+ * something different from Stage 52's invented ratio scheme — أصفر is now
+ * "قرب تجاوز المدة", i.e. still WITHIN the target, where the old yellow began
+ * only after it had been exceeded. حرج likewise stops being "twice the
+ * target" and becomes the source's own qualitative condition.
+ */
 class StageTimelinessTest extends TestCase
 {
     use RefreshDatabase;
@@ -23,7 +33,7 @@ class StageTimelinessTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         $employee = $this->userWithRole('R01');
-        // requirements_check: target_days_min/max = 3/3.
+        // requirements_check: Appendix 37's فحص المقرر = يومان.
         $requestRecord = $this->requestAtStage($employee, 'requirements_check', 'in_review', now());
 
         $this->actingAs($employee, 'sanctum')
@@ -31,16 +41,18 @@ class StageTimelinessTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.stage_timeliness.level', 'green')
             ->assertJsonPath('data.stage_timeliness.elapsed_days', 0)
-            ->assertJsonPath('data.stage_timeliness.target_days_min', 3)
-            ->assertJsonPath('data.stage_timeliness.target_days_max', 3);
+            ->assertJsonPath('data.stage_timeliness.target_days_min', 2)
+            ->assertJsonPath('data.stage_timeliness.target_days_max', 2)
+            ->assertJsonPath('data.stage_timeliness.escalation', null);
     }
 
-    public function test_a_request_past_target_but_within_one_and_a_half_times_reads_yellow(): void
+    public function test_the_final_day_of_the_allowance_reads_yellow_before_the_target_is_exceeded(): void
     {
         $this->seed(DatabaseSeeder::class);
         $employee = $this->userWithRole('R01');
-        // 4 days elapsed against a target of 3: ratio 1.33.
-        $requestRecord = $this->requestAtStage($employee, 'requirements_check', 'in_review', now()->subDays(4));
+        // 2 days elapsed against a 2-day target: the allowance is fully
+        // consumed but not yet exceeded — Appendix 38's قرب تجاوز المدة.
+        $requestRecord = $this->requestAtStage($employee, 'requirements_check', 'in_review', now()->subDays(2));
 
         $this->actingAs($employee, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")
@@ -48,12 +60,12 @@ class StageTimelinessTest extends TestCase
             ->assertJsonPath('data.stage_timeliness.level', 'yellow');
     }
 
-    public function test_a_request_past_one_and_a_half_times_target_reads_red(): void
+    public function test_a_request_past_the_target_reads_red(): void
     {
         $this->seed(DatabaseSeeder::class);
         $employee = $this->userWithRole('R01');
-        // 5 days elapsed against a target of 3: ratio 1.67.
-        $requestRecord = $this->requestAtStage($employee, 'requirements_check', 'in_review', now()->subDays(5));
+        // One day past the 2-day target — متأخرة, with no further gradation.
+        $requestRecord = $this->requestAtStage($employee, 'requirements_check', 'in_review', now()->subDays(3));
 
         $this->actingAs($employee, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")
@@ -61,17 +73,18 @@ class StageTimelinessTest extends TestCase
             ->assertJsonPath('data.stage_timeliness.level', 'red');
     }
 
-    public function test_a_request_past_double_target_reads_critical(): void
+    public function test_being_far_past_the_target_is_still_only_red_without_a_legal_deadline(): void
     {
         $this->seed(DatabaseSeeder::class);
         $employee = $this->userWithRole('R01');
-        // 7 days elapsed against a target of 3: ratio 2.33.
-        $requestRecord = $this->requestAtStage($employee, 'requirements_check', 'in_review', now()->subDays(7));
+        // Under Stage 52's ratio scheme 7 days against a 3-day target read
+        // `critical`. Appendix 38's حرج is a condition, not more elapsed time.
+        $requestRecord = $this->requestAtStage($employee, 'requirements_check', 'in_review', now()->subDays(30));
 
         $this->actingAs($employee, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")
             ->assertOk()
-            ->assertJsonPath('data.stage_timeliness.level', 'critical');
+            ->assertJsonPath('data.stage_timeliness.level', 'red');
     }
 
     public function test_a_stage_with_no_sourced_target_reports_no_indicator(): void
@@ -91,7 +104,7 @@ class StageTimelinessTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         $employee = $this->userWithRole('R01');
-        $this->requestAtStage($employee, 'requirements_check', 'in_review', now()->subDays(4));
+        $this->requestAtStage($employee, 'requirements_check', 'in_review', now()->subDays(2));
 
         $this->actingAs($employee, 'sanctum')
             ->getJson('/api/requests')

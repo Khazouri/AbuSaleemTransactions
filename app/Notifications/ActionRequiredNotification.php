@@ -25,7 +25,7 @@ class ActionRequiredNotification extends SystemNotification
     public function __construct(Request $requestRecord, ?WorkflowStage $stage)
     {
         $this->requestId = $requestRecord->id;
-        $this->reference = (string) $requestRecord->reference_number;
+        $this->reference = (string) $requestRecord->trackingNumber();
         $this->title = (string) $requestRecord->title;
         $this->stage = $stage?->name_ar;
     }

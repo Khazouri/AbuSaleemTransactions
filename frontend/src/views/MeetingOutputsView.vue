@@ -62,14 +62,19 @@ async function load({ quiet = false } = {}) {
   }
 }
 
-async function complete(output) {
-  if (!window.confirm(t('meetingsUnit.outputs.completeConfirm'))) return
+// Stage 69 — [D] Art. 38 keeps 19 (منفذة) and 20 (مغلقة ومؤرشفة) apart, so a
+// row offers one of two actions: record the effect, then close the file.
+async function runAction(output, action) {
+  const confirmKey = action === 'execute'
+    ? 'meetingsUnit.outputs.executeConfirm'
+    : 'meetingsUnit.outputs.closeConfirm'
+  if (!window.confirm(t(confirmKey))) return
 
   completingId.value = output.agenda_item_id
   actionError.value = ''
   try {
     const { data } = await api.post(
-      `/meetings/${meetingId.value}/outputs/${output.agenda_item_id}/complete`,
+      `/meetings/${meetingId.value}/outputs/${output.agenda_item_id}/${action}`,
     )
     tracker.value = data.data
   } catch (requestError) {
@@ -85,14 +90,15 @@ watch(meetingId, load)
 
 const summaryCards = computed(() => {
   if (!tracker.value) return []
-  return ['total_items', 'decisions', 'advanced', 'awaiting_action', 'in_execution', 'completed_closed']
+  return ['total_items', 'decisions', 'advanced', 'awaiting_action', 'in_execution', 'executed', 'completed_closed']
     .map((key) => ({ key, value: tracker.value.summary[key] }))
 })
 
 function statusClass(code) {
-  if (['completed_closed', 'archived', 'final_approved'].includes(code)) return 'good'
-  if (['in_execution', 'approved', 'decided', 'approved_with_conditions'].includes(code)) return 'info'
-  if (['rejected', 'cancelled'].includes(code)) return 'bad'
+  if (['completed_closed', 'archived', 'final_approved', 'executed'].includes(code)) return 'good'
+  if (['in_execution', 'approved', 'decided', 'approved_with_conditions',
+    'awaiting_municipal_approval', 'awaiting_central_approval'].includes(code)) return 'info'
+  if (['rejected', 'cancelled', 'not_approved'].includes(code)) return 'bad'
   return 'pending'
 }
 
@@ -214,16 +220,28 @@ onUnmounted(() => window.clearInterval(refreshTimer))
                 </td>
                 <td>
                   <button
-                    v-if="output.can_complete"
+                    v-if="output.can_mark_executed"
                     v-can="'meeting_outputs.edit'"
                     class="primary compact"
                     type="button"
                     :disabled="completingId === output.agenda_item_id"
-                    @click="complete(output)"
+                    @click="runAction(output, 'execute')"
                   >
                     {{ completingId === output.agenda_item_id
                       ? t('common.saving')
-                      : t('meetingsUnit.outputs.complete') }}
+                      : t('meetingsUnit.outputs.markExecuted') }}
+                  </button>
+                  <button
+                    v-else-if="output.can_close"
+                    v-can="'meeting_outputs.edit'"
+                    class="primary compact"
+                    type="button"
+                    :disabled="completingId === output.agenda_item_id"
+                    @click="runAction(output, 'close')"
+                  >
+                    {{ completingId === output.agenda_item_id
+                      ? t('common.saving')
+                      : t('meetingsUnit.outputs.closeRequest') }}
                   </button>
                   <span v-else class="muted">{{ t('common.none') }}</span>
                 </td>

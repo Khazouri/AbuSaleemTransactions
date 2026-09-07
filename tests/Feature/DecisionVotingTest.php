@@ -51,7 +51,10 @@ class DecisionVotingTest extends TestCase
         $stageEight = WorkflowStage::where('code', 'approval_by_authority')->firstOrFail();
 
         $this->assertSame($stageEight->id, $requestRecord->current_stage_id);
-        $this->assertSame('decided', $requestRecord->status->code);
+        // Stage 69 — Art. 38 code 15 (بانتظار اعتماد البلدية): the decision
+        // and the referral to the البلدية are one act here, so the arrival
+        // status is the more specific of Art. 38's 12/15 pair.
+        $this->assertSame('awaiting_municipal_approval', $requestRecord->status->code);
         $this->assertDatabaseHas('approvals', [
             'request_id' => $requestRecord->id,
             'level' => 2,

@@ -43,7 +43,20 @@ const editingCommitteeId = ref(null)
 const showCommitteeForm = ref(false)
 const savingCommittee = ref(false)
 
-const blankCommitteeForm = () => ({ name_ar: '', name_en: '', description: '', is_active: true, rapporteur_votes: false })
+// Stage 73 — [D] Appendix 65's بطاقة تعريف اللجنة. Blank means "not
+// transcribed yet", which the readiness screen reports as a missing quorum
+// rather than filling in a figure of its own (Appendix 64).
+const CARD_FIELDS = [
+  'formation_decision_number', 'formation_decision_date', 'term_note', 'legal_basis',
+  'minutes_approval_body', 'voting_rights_note', 'minutes_signature_rule', 'recusal_rules',
+  'quorum_type', 'quorum_count', 'quorum_numerator', 'quorum_denominator', 'quorum_comparator', 'quorum_text',
+  'majority_type', 'majority_basis', 'majority_numerator', 'majority_denominator', 'majority_comparator', 'majority_text',
+  'tie_break', 'tie_break_text',
+]
+
+const blankCard = () => Object.fromEntries(CARD_FIELDS.map((key) => [key, '']))
+
+const blankCommitteeForm = () => ({ name_ar: '', name_en: '', description: '', is_active: true, rapporteur_votes: false, ...blankCard() })
 const committeeForm = ref(blankCommitteeForm())
 
 async function loadCommittees() {
@@ -79,6 +92,7 @@ function startEditCommittee(committee) {
     description: committee.description ?? '',
     is_active: committee.is_active,
     rapporteur_votes: committee.rapporteur_votes ?? false,
+    ...Object.fromEntries(CARD_FIELDS.map((key) => [key, committee[key] ?? ''])),
   }
   committeeErrors.value = {}
   committeeFormError.value = null
@@ -97,7 +111,14 @@ async function saveCommittee() {
   committeeErrors.value = {}
   committeeFormError.value = null
 
-  const payload = { ...committeeForm.value, name_en: committeeForm.value.name_en || null, description: committeeForm.value.description || null }
+  // An empty card field is sent as null, not '': the backend treats null as
+  // "not transcribed", while '' would fail the integer/enum rules.
+  const payload = {
+    ...committeeForm.value,
+    name_en: committeeForm.value.name_en || null,
+    description: committeeForm.value.description || null,
+    ...Object.fromEntries(CARD_FIELDS.map((key) => [key, committeeForm.value[key] === '' ? null : committeeForm.value[key]])),
+  }
 
   try {
     if (editingCommitteeId.value === null) {
@@ -268,6 +289,138 @@ onMounted(async () => {
         <input v-model="committeeForm.rapporteur_votes" type="checkbox" />
         {{ t('committees.rapporteurVotes') }}
       </label>
+
+      <!-- Stage 73 — Appendix 65's بطاقة تعريف اللجنة. Appendix 64 forbids the
+           system supplying a quorum or a majority of its own, so these are
+           transcribed from the committee's قرار التشكيل and left blank when
+           it has not been read yet. -->
+      <fieldset class="card-fields">
+        <legend>{{ t('committees.card.title') }}</legend>
+        <p class="hint">{{ t('committees.card.hint') }}</p>
+        <div class="grid">
+          <label>
+            {{ t('committees.card.formationDecisionNumber') }}
+            <input v-model="committeeForm.formation_decision_number" type="text" />
+          </label>
+          <label>
+            {{ t('committees.card.formationDecisionDate') }}
+            <input v-model="committeeForm.formation_decision_date" type="date" />
+          </label>
+          <label>
+            {{ t('committees.card.termNote') }}
+            <input v-model="committeeForm.term_note" type="text" />
+          </label>
+          <label>
+            {{ t('committees.card.minutesApprovalBody') }}
+            <input v-model="committeeForm.minutes_approval_body" type="text" />
+          </label>
+          <label class="span-2">
+            {{ t('committees.card.legalBasis') }}
+            <textarea v-model="committeeForm.legal_basis" rows="2" />
+          </label>
+          <label class="span-2">
+            {{ t('committees.card.votingRightsNote') }}
+            <textarea v-model="committeeForm.voting_rights_note" rows="2" />
+          </label>
+          <label class="span-2">
+            {{ t('committees.card.minutesSignatureRule') }}
+            <textarea v-model="committeeForm.minutes_signature_rule" rows="2" />
+          </label>
+          <label class="span-2">
+            {{ t('committees.card.recusalRules') }}
+            <textarea v-model="committeeForm.recusal_rules" rows="2" />
+          </label>
+
+          <label>
+            {{ t('committees.card.quorumType') }}
+            <select v-model="committeeForm.quorum_type">
+              <option value="">{{ t('committees.card.notRecorded') }}</option>
+              <option value="count">{{ t('committees.card.types.count') }}</option>
+              <option value="fraction">{{ t('committees.card.types.fraction') }}</option>
+            </select>
+          </label>
+          <label v-if="committeeForm.quorum_type === 'count'">
+            {{ t('committees.card.quorumCount') }}
+            <input v-model="committeeForm.quorum_count" type="number" min="1" />
+          </label>
+          <template v-if="committeeForm.quorum_type === 'fraction'">
+            <label>
+              {{ t('committees.card.numerator') }}
+              <input v-model="committeeForm.quorum_numerator" type="number" min="1" />
+            </label>
+            <label>
+              {{ t('committees.card.denominator') }}
+              <input v-model="committeeForm.quorum_denominator" type="number" min="1" />
+            </label>
+            <label>
+              {{ t('committees.card.comparator') }}
+              <select v-model="committeeForm.quorum_comparator">
+                <option value="">{{ t('committees.card.notRecorded') }}</option>
+                <option value="at_least">{{ t('committees.card.comparators.at_least') }}</option>
+                <option value="more_than">{{ t('committees.card.comparators.more_than') }}</option>
+              </select>
+            </label>
+          </template>
+          <label class="span-2">
+            {{ t('committees.card.quorumText') }}
+            <input v-model="committeeForm.quorum_text" type="text" />
+          </label>
+
+          <label>
+            {{ t('committees.card.majorityType') }}
+            <select v-model="committeeForm.majority_type">
+              <option value="">{{ t('committees.card.notRecorded') }}</option>
+              <option value="plurality">{{ t('committees.card.majorityTypes.plurality') }}</option>
+              <option value="fraction">{{ t('committees.card.majorityTypes.fraction') }}</option>
+            </select>
+          </label>
+          <template v-if="committeeForm.majority_type === 'fraction'">
+            <label>
+              {{ t('committees.card.majorityBasis') }}
+              <select v-model="committeeForm.majority_basis">
+                <option value="">{{ t('committees.card.notRecorded') }}</option>
+                <option value="votes_cast">{{ t('committees.card.bases.votes_cast') }}</option>
+                <option value="present">{{ t('committees.card.bases.present') }}</option>
+                <option value="members">{{ t('committees.card.bases.members') }}</option>
+              </select>
+            </label>
+            <label>
+              {{ t('committees.card.numerator') }}
+              <input v-model="committeeForm.majority_numerator" type="number" min="1" />
+            </label>
+            <label>
+              {{ t('committees.card.denominator') }}
+              <input v-model="committeeForm.majority_denominator" type="number" min="1" />
+            </label>
+            <label>
+              {{ t('committees.card.comparator') }}
+              <select v-model="committeeForm.majority_comparator">
+                <option value="">{{ t('committees.card.notRecorded') }}</option>
+                <option value="at_least">{{ t('committees.card.comparators.at_least') }}</option>
+                <option value="more_than">{{ t('committees.card.comparators.more_than') }}</option>
+              </select>
+            </label>
+          </template>
+          <label class="span-2">
+            {{ t('committees.card.majorityText') }}
+            <input v-model="committeeForm.majority_text" type="text" />
+          </label>
+
+          <label>
+            {{ t('committees.card.tieBreak') }}
+            <select v-model="committeeForm.tie_break">
+              <option value="">{{ t('committees.card.notRecorded') }}</option>
+              <option value="chair_casting_vote">{{ t('committees.card.tieBreaks.chair_casting_vote') }}</option>
+              <option value="no_decision">{{ t('committees.card.tieBreaks.no_decision') }}</option>
+            </select>
+          </label>
+          <label class="span-2">
+            {{ t('committees.card.tieBreakText') }}
+            <input v-model="committeeForm.tie_break_text" type="text" />
+          </label>
+        </div>
+      </fieldset>
+
       <div class="actions">
         <button class="primary" type="submit" :disabled="savingCommittee">
           {{ savingCommittee ? t('common.saving') : t('common.save') }}
@@ -286,6 +439,9 @@ onMounted(async () => {
               <td>
                 <strong>{{ name(committee) }}</strong>
                 <span v-if="!committee.is_active" class="pill">{{ t('common.inactive') }}</span>
+                <!-- Stage 73 — a committee with no transcribed quorum cannot have a
+                     meeting convened without an override, so the list flags it. -->
+                <span v-if="committee.rules_recorded === false" class="pill warn">{{ t('committees.card.missing') }}</span>
               </td>
               <td class="meta">
                 <span>{{ committee.members_count }} {{ t('committees.members') }}</span>
@@ -406,6 +562,9 @@ onMounted(async () => {
 .form h3 { margin: 0 0 1rem; font-size: 1rem; color: var(--color-brand-text); }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
 .span-2 { grid-column: 1 / -1; }
+.card-fields { margin: 1.25rem 0 0; padding: 1rem; border: 1px dashed var(--color-border-hover); border-radius: 10px; }
+.card-fields legend { padding: 0 .4rem; font-size: .85rem; color: var(--color-brand-text); }
+.card-fields .hint { margin: 0 0 .85rem; color: var(--color-muted); font-size: .78rem; line-height: 1.6; }
 label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); }
 label.checkbox { flex-direction: row; align-items: center; gap: .5rem; margin-top: 1rem; }
 input[type='text'], input[type='datetime-local'], select, textarea {
@@ -428,6 +587,7 @@ tr.dimmed { opacity: .55; }
 .row-actions { text-align: end; white-space: nowrap; }
 .pill { margin-inline-start: .5rem; padding: .1rem .5rem; background: var(--color-surface-hover); color: var(--color-muted); border-radius: 999px; font-size: .72rem; }
 .pill.status { background: var(--color-success-bg); color: var(--color-success-fg); }
+.pill.warn { background: var(--color-warning-bg); color: var(--color-warning-fg); }
 .state { padding: .5rem; color: var(--color-muted); font-size: .9rem; margin: 0; }
 .alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: 0 0 1rem; }
 button { cursor: pointer; border-radius: 8px; font-size: .85rem; }

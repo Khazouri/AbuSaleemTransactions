@@ -133,6 +133,13 @@ const routes = [
         meta: { screenCode: 'committee_candidates' },
       },
       {
+        // Stage 68 — [D] Art. 21 / [E] stage 08: pre-meeting legal review.
+        path: 'meetings/legal-review',
+        name: 'legal_review',
+        component: () => import('../views/LegalReviewView.vue'),
+        meta: { screenCode: 'legal_review' },
+      },
+      {
         // Stage 28 — meetings-unit navigation shell: agenda builder.
         path: 'meetings/agenda',
         name: 'meeting_agenda',

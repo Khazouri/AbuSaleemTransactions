@@ -22,10 +22,10 @@ use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\ApprovalSignatureStorage;
+use App\Services\ArtifactNumberGenerator;
 use App\Services\NotificationDispatcher;
 use App\Services\ReopenReasonCatalog;
 use App\Services\RequestDeadlineService;
-use App\Services\RequestReferenceGenerator;
 use App\Services\RequestVisibility;
 use App\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
@@ -54,7 +54,7 @@ class RequestController extends Controller
      * being executed hasn't concluded yet (Stage 37's own tracker owns its
      * eventual close), so re-presenting it mid-execution doesn't make sense.
      */
-    private const REOPENABLE_STATUS_CODES = ['cancelled', 'archived', 'completed_closed', 'decision_withdrawn', 'decision_amended'];
+    private const REOPENABLE_STATUS_CODES = ['cancelled', 'archived', 'not_approved', 'completed_closed', 'decision_withdrawn', 'decision_amended'];
 
     public function index(IndexRequest $request, RequestVisibility $visibility): AnonymousResourceCollection
     {
@@ -130,7 +130,7 @@ class RequestController extends Controller
 
     public function store(
         StoreRequest $request,
-        RequestReferenceGenerator $references,
+        ArtifactNumberGenerator $numbers,
         RequestDeadlineService $deadlines,
         NotificationDispatcher $notifications,
         WorkflowService $workflow,
@@ -139,7 +139,7 @@ class RequestController extends Controller
         $storedPaths = [];
 
         try {
-            $requestRecord = DB::transaction(function () use ($data, $request, $references, $deadlines, $workflow, &$storedPaths) {
+            $requestRecord = DB::transaction(function () use ($data, $request, $numbers, $deadlines, $workflow, &$storedPaths) {
                 $department = Department::query()->findOrFail($data['department_id']);
                 $type = RequestType::query()->findOrFail($data['request_type_id']);
                 $newStatus = RequestStatus::query()->where('code', 'new')->firstOrFail();
@@ -147,7 +147,14 @@ class RequestController extends Controller
                 $submittedAt = now();
 
                 $requestRecord = Request::create([
-                    'reference_number' => $references->nextFor($department),
+                    // Stage 70 — [D] Art. 15: handing a request to the direct
+                    // manager "لا يعد ... قيدًا للموضوع لدى لجنة شؤون الموظفين",
+                    // and Art. 20 grants the رقم إشاري only "بعد ثبوت اكتمال
+                    // الملف". So intake mints NO reference_number at all; the
+                    // employee gets a receipt instead, and WorkflowService
+                    // allocates the real reference when the file reaches
+                    // Art. 38's status 06.
+                    'intake_receipt_number' => $numbers->nextIntakeReceipt(),
                     'title' => $data['title'],
                     'description' => $data['description'] ?? null,
                     'department_id' => $department->id,
@@ -405,7 +412,7 @@ class RequestController extends Controller
             'department:id,name_ar,name_en,code',
             // Stage 56 — default_administrative_route feeds the SPA's
             // suggested-route badge on the administrative_routing screen.
-            'requestType:id,code,name_ar,name_en,decision_grade_threshold,default_administrative_route',
+            'requestType:id,code,name_ar,name_en,decision_grade_threshold,default_administrative_route,required_documents',
             'status:id,code,name_ar,name_en,color',
             // Stage 52 — target_days_* feed stageTimeliness(); latestStageLog
             // gives it the current-stage entry timestamp without re-deriving
@@ -440,7 +447,12 @@ class RequestController extends Controller
             // Stage 51 — the latest agenda appearance drives committee_summary.
             'meetingRequests.meeting:id,meeting_number,scheduled_at',
             'meetingRequests.decision:id,meeting_request_id,outcome,decided_at',
+            // Stage 68 — no column restriction, same latestOfMany join reason
+            // as latestStageLog above.
+            'latestLegalReview',
+            'latestLegalReview.reviewedBy:id,name',
         ]);
+        $requestRecord->loadCount('legalReviews');
         $availableTransitions = $workflow->availableTransitions($requestRecord, $actor)
             ->filter(fn ($rule) => $rule->action !== 'approve'
                 || $this->actorCanApproveCurrentLevel($requestRecord, $actor))

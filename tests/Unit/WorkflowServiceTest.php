@@ -48,15 +48,20 @@ class WorkflowServiceTest extends TestCase
             ['receive_from_municipality', 'direct_manager_review', 'submit', 'R01', 'in_review'],
             ['direct_manager_review', 'administrative_routing', 'forward', 'MANAGER', 'in_review'],
             ['administrative_routing', 'receive_and_register', 'route_to_hr', 'MANAGER', 'routed_to_hr'],
-            ['receive_and_register', 'requirements_check', 'register', 'R05', 'registered'],
-            ['requirements_check', 'reviewer_review', 'approve', 'R02', 'in_review'],
+            // Stage 70 — these two statuses swapped places so the seeded map
+            // matches [D] Art. 38's own order: arriving to be checked is code
+            // 04 (in_review, تحت فحص الاكتمال), and passing the check is code 06
+            // (registered, مستوفية ومقيدة) — which is also where Art. 20 grants
+            // the reference number.
+            ['receive_and_register', 'requirements_check', 'register', 'R05', 'in_review'],
+            ['requirements_check', 'reviewer_review', 'approve', 'R02', 'registered'],
             ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
             // Stage 57 collapsed the old two-hop observations ->
             // ministry_endorsement -> forward_to_committee into one.
             ['observations', 'forward_to_committee', 'forward', 'R02', 'ready'],
             ['forward_to_committee', 'receive_from_committee', 'forward', 'R05', 'in_meeting'],
-            ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'decided'],
-            ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'approved'],
+            ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'awaiting_municipal_approval'],
+            ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'awaiting_central_approval'],
             // Stage 57 removed competent_authority: ministry approval is now
             // the literal last gate before final_approval_archiving.
             ['local_governance_ministry', 'final_approval_archiving', 'approve', 'R06', 'final_approved'],

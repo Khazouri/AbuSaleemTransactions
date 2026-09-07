@@ -73,6 +73,49 @@ class CommitteeStatusService
             'to' => 'under_discussion',
             'requires_comment' => false,
         ],
+
+        // --- Stage 68: [D] Art. 21's pre-meeting legal review ---------------
+        // Art. 38's code 07 (تحت المراجعة القانونية) is status-only for the
+        // same reason every action above is: the review happens inside the
+        // `receive_from_committee` stage as agenda preparation, between
+        // completeness (Art. 20) and the presentation memo (Art. 22), so it
+        // is not a workflow stage and must not move current_stage_id.
+        //
+        // The two verdict actions are called by RequestLegalReviewController
+        // inside the same transaction that writes the RequestLegalReview row,
+        // so a recorded review and the status it implies cannot disagree.
+        // Stage 69 — `completion_required` added to the origin list after
+        // validating the map against Appendix 5. Its status-05 rule is that a
+        // file waiting on missing material "تعاد إلى (تحت فحص الاكتمال) ولا
+        // تقفز مباشرة إلى جدول الأعمال"; for a file parked here by
+        // fail_legal_review the analogue is re-review, which Art. 21 and [E]
+        // stage 08 both spell out ("استكمال أو تصحيح ثم إعادة المراجعة").
+        // Without it the only exit was resume_discussion → under_discussion,
+        // i.e. exactly the jump ahead the rule forbids, and the loop Stage 68
+        // documented was reachable only by writing status_id by hand.
+        'send_to_legal_review' => [
+            'from' => ['ready', 'in_meeting', 'nominated_for_committee', 'completion_required'],
+            'to' => 'under_legal_review',
+            'requires_comment' => false,
+        ],
+        // A permitting verdict returns the file to Art. 38's own code 08
+        // (جاهزة للعرض) — `ready` here — which is also `nominate`'s origin, so
+        // the file rejoins the candidate pool exactly where it left it.
+        'pass_legal_review' => [
+            'from' => ['under_legal_review'],
+            'to' => 'ready',
+            'requires_comment' => false,
+        ],
+        // A blocking verdict lands on Art. 38's code 05 (بانتظار استكمال
+        // النواقص) — the same status `require_completion` uses, since [E]
+        // stage 08's own routing for a flagged file is "استكمال أو تصحيح ثم
+        // إعادة المراجعة". The comment is the legal member's own note, which
+        // StoreRequestLegalReviewRequest already requires.
+        'fail_legal_review' => [
+            'from' => ['under_legal_review'],
+            'to' => 'completion_required',
+            'requires_comment' => true,
+        ],
     ];
 
     private const COMMITTEE_STAGE_CODE = 'receive_from_committee';
@@ -84,8 +127,19 @@ class CommitteeStatusService
      * candidate-requests worklist and the meetings dashboard's funnel/KPIs
      * both read, so a request the worklist lists is always one the dashboard
      * is already counting.
+     *
+     * Stage 68 deliberately did NOT add `under_legal_review` here, preserving
+     * that invariant: a file sitting with the legal member is on *their* queue
+     * (legalReviewQueueQuery() below, and the `legal_review` screen), not the
+     * rapporteur's candidate worklist — which is exactly Appendix 6's RACI
+     * split for المراجعة القانونية. MeetingsDashboardMetrics::funnel() gained
+     * its own `legal_review` bucket instead, so nothing vanishes from the
+     * dashboard while the review is in progress.
      */
     public const CANDIDATE_STATUSES = ['ready', 'in_meeting', 'nominated_for_committee'];
+
+    /** Stage 68 — Art. 38's code 07: with the legal member right now. */
+    public const LEGAL_REVIEW_STATUS = 'under_legal_review';
 
     /**
      * @throws CommitteeStatusTransitionException
@@ -163,6 +217,20 @@ class CommitteeStatusService
             ->whereHas('status', fn ($query) => $query->whereIn('code', self::CANDIDATE_STATUSES));
     }
 
+    /**
+     * Stage 68 — the legal member's own queue: files handed to them and not
+     * yet reviewed back out. Deliberately narrower than candidatesQuery(),
+     * which is the rapporteur's worklist; the two sets are disjoint.
+     *
+     * @return Builder<Request>
+     */
+    public function legalReviewQueueQuery(): Builder
+    {
+        return Request::query()
+            ->whereHas('currentStage', fn ($query) => $query->where('code', self::COMMITTEE_STAGE_CODE))
+            ->whereHas('status', fn ($query) => $query->where('code', self::LEGAL_REVIEW_STATUS));
+    }
+
     private function hasTerminalStatus(Request $requestRecord): bool
     {
         // Stage 64, Track J — decision_withdrawn/decision_amended mirror
@@ -170,7 +238,7 @@ class CommitteeStatusService
         // overturned or amended a decision leaves no further committee
         // sub-status move to make either.
         return $requestRecord->status()
-            ->whereIn('code', ['cancelled', 'archived', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
+            ->whereIn('code', ['cancelled', 'archived', 'not_approved', 'executed', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
             ->exists();
     }
 }

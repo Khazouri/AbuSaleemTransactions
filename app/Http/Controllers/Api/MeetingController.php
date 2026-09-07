@@ -23,10 +23,12 @@ use App\Models\Meeting;
 use App\Models\MeetingAttendee;
 use App\Models\MeetingMinutes;
 use App\Models\MeetingRequest;
+use App\Models\Request;
 use App\Models\RequestStageLog;
+use App\Services\ArtifactNumberGenerator;
 use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -65,15 +67,25 @@ class MeetingController extends Controller
      * committee membership can change later and the meeting's attendee list
      * for a given sitting must stay fixed to who was actually invited to it.
      */
-    public function store(StoreMeetingRequest $request, NotificationDispatcher $notifications): JsonResponse
-    {
+    public function store(
+        StoreMeetingRequest $request,
+        NotificationDispatcher $notifications,
+        ArtifactNumberGenerator $numbers,
+    ): JsonResponse {
         $data = $request->validated();
 
-        [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request) {
+        [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request, $numbers) {
             $committee = Committee::query()->findOrFail($data['committee_id']);
 
             $meeting = Meeting::create([
                 ...$data,
+                // Stage 70 — [D] Appendix 15 numbers the meeting itself
+                // (PM-MTG/YEAR/NN), and Appendix 8 refuses to send a محضر for
+                // approval without "تطابق رقم الاجتماع". Server-minted rather
+                // than typed into the scheduling wizard as it was from Stage
+                // 30: a number a human retypes can neither be guaranteed
+                // unique nor guaranteed to match.
+                'meeting_number' => $numbers->nextMeetingNumber(),
                 'created_by_user_id' => $request->user()->id,
             ]);
 
@@ -195,12 +207,41 @@ class MeetingController extends Controller
     {
         $validated = $request->validated();
 
-        if (($validated['item_type'] ?? 'employee_request') === 'appeal') {
+        $itemType = $validated['item_type'] ?? 'employee_request';
+
+        if ($itemType === 'appeal') {
             $appeal = Appeal::query()->with('status:id,code')->findOrFail($validated['appeal_id']);
 
             if ($appeal->status?->code !== 'legal_review') {
                 throw ValidationException::withMessages([
                     'appeal_id' => ['لا يمكن عرض التظلم على اللجنة إلا بعد اجتياز المراجعة القانونية.'],
+                ]);
+            }
+        }
+
+        // Stage 68 — [D] Art. 21 / Appendix 2's file-readiness rule ("مراجعًا
+        // قانونيًا") and Appendix 7's own checklist question ("هل تمت المراجعة
+        // القانونية المطلوبة؟"). Art. 24 lists المراجعة أو الرأي القانوني as
+        // component 7 of the ملف العرض, so a file with no completed review is
+        // simply not presentable.
+        //
+        // The gate lives here rather than in CommitteeStatusService's
+        // place_on_agenda because Stage 44 established that an item can be
+        // inserted without that action ever firing — gating the service alone
+        // would be trivially bypassable through this very endpoint.
+        //
+        // Two of Art. 21's five verdicts permit insertion: سليم قانونيًا, and
+        // مسألة قانونية تستوجب العرض مع بيانها (whose whole point is that the
+        // matter IS presented, with the issue stated). See
+        // RequestLegalReview::PERMITTING_VERDICTS.
+        if ($itemType === 'employee_request') {
+            $subject = Request::query()
+                ->with('latestLegalReview')
+                ->findOrFail($validated['request_id']);
+
+            if (! $subject->latestLegalReview?->permitsAgenda()) {
+                throw ValidationException::withMessages([
+                    'request_id' => ['لا يمكن إدراج الطلب في جدول الأعمال قبل استكمال المراجعة القانونية بنتيجة تجيز العرض.'],
                 ]);
             }
         }
@@ -310,7 +351,7 @@ class MeetingController extends Controller
             ->orderBy('acted_at')
             ->get();
 
-        $previousRequests = \App\Models\Request::query()
+        $previousRequests = Request::query()
             ->where('created_by_user_id', $requestRecord->created_by_user_id)
             ->where('id', '!=', $requestRecord->id)
             ->with('status:id,code,name_ar,name_en,color')
@@ -451,7 +492,7 @@ class MeetingController extends Controller
      * always lands in the null-type bucket, mirroring how a department-less
      * item already lands in the null-department bucket today.
      */
-    public function agendaStats(Request $request, Meeting $meeting): JsonResponse
+    public function agendaStats(HttpRequest $request, Meeting $meeting): JsonResponse
     {
         $groupBy = $request->query('group_by', 'department');
         abort_unless(in_array($groupBy, ['department', 'request_type'], true), 422);
@@ -603,7 +644,7 @@ class MeetingController extends Controller
      * later "resend" from the meeting detail screen, both go through the
      * same explicit action rather than only ever firing once at creation.
      */
-    public function sendInvitations(Meeting $meeting, NotificationDispatcher $notifications, Request $request): MeetingResource
+    public function sendInvitations(Meeting $meeting, NotificationDispatcher $notifications, HttpRequest $request): MeetingResource
     {
         $attendeeUserIds = $meeting->attendees()->pluck('user_id');
 

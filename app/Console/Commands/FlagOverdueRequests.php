@@ -34,7 +34,7 @@ class FlagOverdueRequests extends Command
             ->whereDate('due_date', '<', today())
             ->whereDoesntHave('status', fn (Builder $query) => $query->whereIn(
                 'code',
-                ['cancelled', 'archived', 'completed_closed'],
+                ['cancelled', 'archived', 'not_approved', 'completed_closed'],
             ))
             ->orderBy('id')
             ->chunkById(100, function ($requests) use (&$flagged, $notifications) {

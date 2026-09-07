@@ -44,6 +44,10 @@ class NotificationSetting extends Model
         // of the appeal's final result. A final outcome, same defaults as
         // `decision_recorded`.
         'appeal_decided' => ['in_app' => true, 'email' => true, 'sms' => false],
+        // Stage 71 — [D] Appendix 38's delay ladder. One event for all three
+        // rungs (see RequestDelayEscalationNotification for why), same
+        // defaults as `request_overdue`: it is the same class of news.
+        'delay_escalation' => ['in_app' => true, 'email' => true, 'sms' => false],
     ];
 
     /** The preference columns, in the order the preferences screen shows them. */

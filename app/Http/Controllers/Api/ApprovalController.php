@@ -62,7 +62,7 @@ class ApprovalController extends Controller
             // nothing left to approve here.
             ->whereDoesntHave('status', fn ($query) => $query->whereIn(
                 'code',
-                ['cancelled', 'archived', 'in_execution', 'completed_closed', 'decision_withdrawn', 'decision_amended'],
+                ['cancelled', 'archived', 'not_approved', 'in_execution', 'executed', 'completed_closed', 'decision_withdrawn', 'decision_amended'],
             ))
             ->latest('submitted_at')
             ->paginate(20)

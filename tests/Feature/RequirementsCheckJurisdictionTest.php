@@ -115,7 +115,9 @@ class RequirementsCheckJurisdictionTest extends TestCase
             ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.current_stage.code', 'reviewer_review')
-            ->assertJsonPath('data.status.code', 'in_review');
+            // Stage 70 — passing the completeness check is the قيد (Art. 20),
+            // Art. 38's code 06.
+            ->assertJsonPath('data.status.code', 'registered');
 
         $referred = $this->requestAt('requirements_check', 'in_review', jurisdictionTest: $this->answers());
         $this->actingAs($reviewer, 'sanctum')

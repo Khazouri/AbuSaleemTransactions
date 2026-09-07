@@ -46,6 +46,14 @@ class MeetingReadinessController extends Controller
             'convened_at' => now(),
             'convened_by_user_id' => $request->user()->id,
             'readiness_override_reason' => $verdict['ready'] ? null : $reason,
+            // Stage 73 — freeze the committee's quorum/majority rules as they
+            // stand at the moment the sitting opens. Art. 84 makes صحة
+            // الانعقاد a fact about *this* sitting, so a later edit to the
+            // بطاقة تعريف اللجنة must not retroactively change whether a
+            // meeting already held was validly convened. Null when nothing
+            // was ever transcribed — an absent rule stays absent rather than
+            // being frozen as an empty one.
+            'voting_rules_snapshot' => $meeting->committee?->votingRules()->toArray(),
         ]);
 
         return new MeetingResource($meeting->fresh()->load(['committee:id,name_ar,name_en', 'convenedBy:id,name']));

@@ -13,6 +13,9 @@ class RequestResource extends JsonResource
         return [
             'id' => $this->id,
             'reference_number' => $this->reference_number,
+            // Stage 70 — null once the قيد grants a real reference; before that
+            // it is the only handle the employee has (see Request::trackingNumber).
+            'intake_receipt_number' => $this->intake_receipt_number,
             'title' => $this->title,
             'department' => $this->department ? [
                 'id' => $this->department->id,

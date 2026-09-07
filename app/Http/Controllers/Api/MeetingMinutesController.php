@@ -10,6 +10,7 @@ use App\Models\Meeting;
 use App\Models\MeetingMinutes;
 use App\Models\MeetingMinuteSignature;
 use App\Services\ApprovalSignatureStorage;
+use App\Services\ArtifactNumberGenerator;
 use App\Services\MeetingMinutesCompiler;
 use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
@@ -49,8 +50,12 @@ class MeetingMinutesController extends Controller
      * `changes_requested` outcome reopens that door, and it leaves status
      * exactly where this method expects to find it.
      */
-    public function generate(Meeting $meeting, MeetingMinutesCompiler $compiler, Request $request): MeetingMinutesResource|JsonResponse
-    {
+    public function generate(
+        Meeting $meeting,
+        MeetingMinutesCompiler $compiler,
+        Request $request,
+        ArtifactNumberGenerator $numbers,
+    ): MeetingMinutesResource|JsonResponse {
         $existing = $meeting->meetingMinutes()->first();
         if ($existing !== null && $existing->status !== MeetingMinutes::STATUS_DRAFT) {
             return response()->json([
@@ -61,6 +66,12 @@ class MeetingMinutesController extends Controller
         $minutes = MeetingMinutes::updateOrCreate(
             ['meeting_id' => $meeting->id],
             [
+                // Stage 70 — [D] Appendix 15 numbers the محضر itself
+                // (PM-MIN/YEAR/NN). Minted once, on the document's first
+                // generate, and deliberately preserved across regenerates: the
+                // number identifies the document, not any one compilation of
+                // it, and a reviewer who sent a draft back has already seen it.
+                'minutes_number' => $existing?->minutes_number ?? $numbers->nextMinutesNumber(),
                 'content' => $compiler->compile($meeting),
                 'status' => MeetingMinutes::STATUS_DRAFT,
                 'generated_by_user_id' => $request->user()->id,

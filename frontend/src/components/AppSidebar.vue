@@ -54,6 +54,7 @@ const ICON_BY_CODE = {
   // Stage 28 — meetings management group.
   meetings_dashboard: 'grid',
   committee_candidates: 'file-plus',
+  legal_review: 'scale',
   meeting_agenda: 'file-text',
   meeting_readiness: 'check-square',
   meeting_live: 'video',

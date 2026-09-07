@@ -1182,7 +1182,9 @@ onMounted(() => load())
                       <span class="pill">{{ minutesStatusLabel(fileData.meeting_minutes.status) }}</span>
                       <dl class="info-grid" v-if="fileData.meeting_minutes.attendance">
                         <dt>{{ t('appeals.file.minutes.quorum') }}</dt>
-                        <dd>{{ fileData.meeting_minutes.attendance.quorum_present }} / {{ fileData.meeting_minutes.attendance.quorum_required }}</dd>
+                        <!-- Stage 73 — a محضر compiled for a committee with no
+                             transcribed quorum rule carries no required figure. -->
+                        <dd>{{ fileData.meeting_minutes.attendance.quorum_present }} / {{ fileData.meeting_minutes.attendance.quorum_required ?? t('meetingsUnit.readiness.quorum.notRecorded') }}</dd>
                       </dl>
                       <template v-if="fileData.meeting_minutes.agenda_item">
                         <p v-if="fileData.meeting_minutes.agenda_item.facts_summary"><strong>{{ t('appeals.file.minutes.factsSummary') }}:</strong> {{ fileData.meeting_minutes.agenda_item.facts_summary }}</p>

@@ -21,6 +21,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $agenda_deadline
  * @property Carbon|null $convened_at
  * @property string|null $readiness_override_reason
+ * @property array|null $voting_rules_snapshot Stage 73 — the committee's quorum/majority rules
+ *                                             frozen at convene time, so editing the committee
+ *                                             card later cannot rewrite a sitting already held.
  */
 class Meeting extends Model
 {
@@ -43,6 +46,7 @@ class Meeting extends Model
         'convened_at',
         'convened_by_user_id',
         'readiness_override_reason',
+        'voting_rules_snapshot',
     ];
 
     protected function casts(): array
@@ -52,6 +56,7 @@ class Meeting extends Model
             'agenda_deadline' => 'datetime',
             'expected_duration_minutes' => 'integer',
             'convened_at' => 'datetime',
+            'voting_rules_snapshot' => 'array',
         ];
     }
 

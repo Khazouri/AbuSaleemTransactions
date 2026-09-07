@@ -21,6 +21,7 @@ class Request extends Model
 
     protected $fillable = [
         'reference_number',
+        'intake_receipt_number',
         'title',
         'description',
         'department_id',
@@ -41,6 +42,11 @@ class Request extends Model
             'submitted_at' => 'datetime',
             'due_date' => 'date',
             'overdue_at' => 'datetime',
+            // Stage 71 — Appendix 38's delay ladder. Deliberately NOT
+            // fillable: only the nightly sweep writes it (same discipline as
+            // `overdue_at`, which a mass-assigned fixture must also set by
+            // direct property assignment).
+            'escalation_notified_at' => 'datetime',
             'has_financial_impact' => 'boolean',
             // Stage 54 — [D] Art. 45's 6-question jurisdiction test, recorded
             // once at requirements_check and gating that stage's approve/
@@ -96,6 +102,28 @@ class Request extends Model
         return $this->hasMany(RequestStatusHistory::class);
     }
 
+    /**
+     * Stage 68 — every round of [D] Art. 21's pre-meeting legal review, oldest
+     * first. Kept as history rather than a single overwritten record because
+     * Art. 21 requires the opinion to stay readable in the file for the
+     * committee's own study, and [E] stage 08 routes a blocking verdict back
+     * for correction and then re-review.
+     */
+    public function legalReviews(): HasMany
+    {
+        return $this->hasMany(RequestLegalReview::class);
+    }
+
+    /**
+     * The only review that gates anything: the agenda-insertion check in
+     * MeetingController::addAgendaItem() and MeetingReadinessService both read
+     * this one, so a re-review always supersedes whatever came before it.
+     */
+    public function latestLegalReview(): HasOne
+    {
+        return $this->hasOne(RequestLegalReview::class)->latestOfMany();
+    }
+
     public function attachments(): HasMany
     {
         return $this->hasMany(Attachment::class);
@@ -136,6 +164,22 @@ class Request extends Model
     }
 
     /**
+     * Stage 70 — the number to quote at the reader, whichever half of the
+     * lifecycle the request is in.
+     *
+     * [D] Art. 20 grants the committee's رقم إشاري only after completeness is
+     * established, so a request in the intake/routing half genuinely has no
+     * reference number and the intake receipt is the only handle that exists.
+     * Every notification reads this rather than `reference_number` directly,
+     * which each of them used to cast to string — rendering an empty gap
+     * mid-sentence for exactly those early moves.
+     */
+    public function trackingNumber(): ?string
+    {
+        return $this->reference_number ?? $this->intake_receipt_number;
+    }
+
+    /**
      * Stage 51 — [A] §7's "المستندات الناقصة" flag, derived from status
      * rather than a separate structured checklist: `incomplete` (Stage 16's
      * return_missing_docs) and `completion_required` (Stage 29's committee
@@ -152,9 +196,26 @@ class Request extends Model
      * no sourced target (see WorkflowStageSeeder) — the absence of a target
      * is never rendered as "on target".
      *
-     * The four-bucket ratio scheme (elapsed / target_days_max) is a
-     * documented judgment call — the source names the four buckets
-     * (أخضر/أصفر/أحمر/حرج) but not their boundaries. See AGENT_NOTES.md.
+     * Stage 71 — the bucket boundaries are now [D] **Appendix 38**'s own,
+     * replacing the ratio scheme (≤1.0 / ≤1.5 / ≤2.0) Stage 52 invented while
+     * the appendix was unavailable and flagged for outright replacement. That
+     * is a change of meaning, not of labels: Appendix 38's **أصفر is "قرب
+     * تجاوز المدة"** — approaching the target, i.e. BEFORE it is exceeded —
+     * where the old yellow began at 1.0–1.5× the target, already over it.
+     *
+     *   elapsed <  target_days_min         green    — ضمن المدة
+     *   min <= elapsed <= target_days_max  yellow   — قرب تجاوز المدة
+     *   elapsed >  target_days_max         red      — متأخرة
+     *   red AND legallyTimeBound()         critical — حرج
+     *
+     * No invented constant survives: every boundary is one of the stage's own
+     * seeded Appendix 37 figures, and `target_days_min` — display-only until
+     * now — is what marks the tail of the allowance. Most stages seed
+     * min == max, so their warning window is the final day.
+     *
+     * **حرج is a qualitative condition in the source, not a further time
+     * bucket**: "إذا ارتبط التأخير بمدة قانونية أو حق وظيفي" — so it is
+     * layered on top of red rather than measured past it.
      */
     public function stageTimeliness(): ?array
     {
@@ -171,13 +232,13 @@ class Request extends Model
         }
 
         $elapsedDays = max(0, $enteredAt->copy()->startOfDay()->diffInDays(now()->startOfDay()));
-        $ratio = $elapsedDays / $stage->target_days_max;
+        // A stage may seed a max without a min; treat the max as both.
+        $warnFrom = $stage->target_days_min ?? $stage->target_days_max;
 
         $level = match (true) {
-            $ratio <= 1.0 => 'green',
-            $ratio <= 1.5 => 'yellow',
-            $ratio <= 2.0 => 'red',
-            default => 'critical',
+            $elapsedDays > $stage->target_days_max => $this->legallyTimeBound() ? 'critical' : 'red',
+            $elapsedDays >= $warnFrom => 'yellow',
+            default => 'green',
         };
 
         return [
@@ -185,6 +246,59 @@ class Request extends Model
             'elapsed_days' => $elapsedDays,
             'target_days_min' => $stage->target_days_min,
             'target_days_max' => $stage->target_days_max,
+            // Stage 71 — how far up Appendix 38's ladder this request has
+            // already been escalated at its current stage; null once a
+            // transition restarts the clock (see escalatedLevel()).
+            'escalation' => $this->escalatedLevel() === null ? null : [
+                'level' => $this->escalatedLevel(),
+                'notified_at' => $this->escalation_notified_at,
+            ],
         ];
+    }
+
+    /**
+     * Stage 71 — the first limb of Appendix 38's حرج condition ("إذا ارتبط
+     * التأخير بمدة قانونية أو حق وظيفي").
+     *
+     * Answered from Stage 68's `request_legal_reviews.legal_deadline`, which
+     * is Appendix 22's own "هل توجد مدة قانونية؟" field: the legal officer
+     * fills it in when a statutory deadline exists and leaves it blank when
+     * one does not, so a non-empty answer IS the recorded fact. Free text, so
+     * "non-empty" is the whole test — worth structuring if a later stage needs
+     * to reason about the deadline itself rather than its existence.
+     *
+     * The condition's second limb (حق وظيفي) has no field anywhere in this
+     * schema. It is deliberately left unrepresented rather than proxied off
+     * `has_financial_impact` or a request type, which would report a guess as
+     * something a human recorded.
+     */
+    public function legallyTimeBound(): bool
+    {
+        return trim((string) $this->latestLegalReview?->legal_deadline) !== '';
+    }
+
+    /**
+     * Stage 71 — the escalation level already announced for the CURRENT
+     * stage, or null if none is.
+     *
+     * A recorded level goes stale the moment the file moves: escalation is
+     * per-stage, and every transition (a self-loop included) writes a stage
+     * log whose `acted_at` restarts the clock stageTimeliness() measures from.
+     * Comparing against that same timestamp resets the ladder with no column
+     * of its own and no hook in WorkflowService.
+     */
+    public function escalatedLevel(): ?string
+    {
+        if ($this->escalation_level === null || $this->escalation_notified_at === null) {
+            return null;
+        }
+
+        $enteredAt = $this->latestStageLog?->acted_at;
+
+        if ($enteredAt !== null && $this->escalation_notified_at->lt($enteredAt)) {
+            return null;
+        }
+
+        return $this->escalation_level;
     }
 }

@@ -17,6 +17,7 @@ use App\Notifications\FinancialImpactReviewNotification;
 use App\Notifications\MeetingMinutesApprovedNotification;
 use App\Notifications\MeetingScheduledNotification;
 use App\Notifications\RequestCreatedNotification;
+use App\Notifications\RequestDelayEscalationNotification;
 use App\Notifications\RequestOverdueNotification;
 use App\Notifications\RequestStageChangedNotification;
 use App\Notifications\SystemNotification;
@@ -97,6 +98,52 @@ class NotificationDispatcher
             ->unique('id');
 
         $this->send($recipients, new RequestOverdueNotification($requestRecord));
+    }
+
+    /**
+     * Stage 71 — [D] Appendix 38 names an escalation target per delay level,
+     * which until now nothing acted on; the bucket only coloured a dot.
+     *
+     *   أصفر  → the current owner.
+     *   أحمر  → مقرر اللجنة + مدير الموارد البشرية.
+     *   حرج   → رئيس اللجنة + السلطة المختصة.
+     *
+     * "The current owner" is Appendix 17's المسؤول الحالي, and this class
+     * already resolves it: actorsForStage() reads the very
+     * `workflow_transitions` rows WorkflowService enforces, so the escalation
+     * and the button that would clear it can never name different people.
+     *
+     * The other two rungs name bodies, not this app's roles, so the mapping is
+     * a documented judgment call (see AGENT_NOTES.md): مقرر اللجنة → R02,
+     * whose RoleSeeder name is literally "المقرر"; مدير الموارد البشرية → R05
+     * مدير إدارة الشؤون الإدارية, since no HR-director role exists here;
+     * رئيس اللجنة → R03, its literal name; and السلطة المختصة → R07 المدير
+     * العام / العميد, the local competent authority left after Stage 57
+     * deleted the `competent_authority` stage.
+     *
+     * Escalation is cumulative: red also tells the owner, and حرج also tells
+     * everyone red would have — the lower rungs are still the people who can
+     * actually move the file, and Appendix 38 raises the alarm rather than
+     * handing it over.
+     */
+    public function delayEscalated(Request $requestRecord, string $level, int $elapsedDays): void
+    {
+        $roleCodes = match ($level) {
+            'red' => ['R02', 'R05'],
+            'critical' => ['R02', 'R05', 'R03', 'R07'],
+            default => [],
+        };
+
+        $recipients = $this->actorsForStage($requestRecord, $requestRecord->current_stage_id)
+            ->concat($this->activeUsersWithRoles($roleCodes))
+            ->unique('id');
+
+        $this->send($recipients, new RequestDelayEscalationNotification(
+            $requestRecord,
+            $level,
+            $elapsedDays,
+            $requestRecord->currentStage,
+        ));
     }
 
     /**
@@ -292,6 +339,29 @@ class NotificationDispatcher
         }
 
         return User::query()->whereKey($managerId)->where('is_active', true)->first();
+    }
+
+    /**
+     * Stage 71 — active holders of any of the given role codes.
+     *
+     * Resolved by code rather than by id for the same reason
+     * salariesAndBenefitsDepartment() resolves a department by code: the
+     * escalation targets are named in [D], and a code keeps the mapping
+     * readable at the call site instead of hiding it behind a seeded id.
+     *
+     * @param  array<int, string>  $roleCodes
+     * @return Collection<int, User>
+     */
+    private function activeUsersWithRoles(array $roleCodes): Collection
+    {
+        if ($roleCodes === []) {
+            return collect();
+        }
+
+        return User::query()
+            ->where('is_active', true)
+            ->whereHas('roles', fn ($query) => $query->whereIn('roles.code', $roleCodes))
+            ->get();
     }
 
     /**

@@ -124,7 +124,7 @@ class MeetingAgendaBuilderTest extends TestCase
             ->assertCreated();
 
         // ...a leave request, a different type...
-        $leaveRequest = Request::create([
+        $leaveRequest = $this->withPassingLegalReview(Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
             'title' => 'طلب إجازة',
             'department_id' => $admId,
@@ -132,7 +132,7 @@ class MeetingAgendaBuilderTest extends TestCase
             'status_id' => RequestStatus::where('code', 'new')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
             'submitted_at' => now(),
-        ]);
+        ]));
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $leaveRequest->id])
             ->assertCreated();
@@ -262,7 +262,7 @@ class MeetingAgendaBuilderTest extends TestCase
 
     private function request(string $suffix, ?int $departmentId): Request
     {
-        return Request::create([
+        return $this->withPassingLegalReview(Request::create([
             'reference_number' => now()->format('Y')."-ADM-{$suffix}".fake()->unique()->numberBetween(1000, 9999),
             'title' => "طلب {$suffix}",
             'department_id' => $departmentId,
@@ -270,12 +270,12 @@ class MeetingAgendaBuilderTest extends TestCase
             'status_id' => RequestStatus::where('code', 'new')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
             'submitted_at' => now(),
-        ]);
+        ]));
     }
 
     private function requestAtCommitteeStage(): Request
     {
-        return Request::create([
+        return $this->withPassingLegalReview(Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
             'title' => 'طلب معروض على اللجنة',
             'department_id' => Department::where('code', 'ADM')->value('id'),
@@ -283,7 +283,24 @@ class MeetingAgendaBuilderTest extends TestCase
             'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
+        ]));
+    }
+
+    /**
+     * Stage 68 — [D] Art. 21's legal review now gates agenda insertion, so
+     * every fixture request these tests put on an agenda needs one. Seeded
+     * directly rather than through the endpoint so these tests stay about the
+     * agenda-builder mechanics they were written for; the gate itself has its
+     * own coverage in RequestLegalReviewTest.
+     */
+    private function withPassingLegalReview(Request $requestRecord): Request
+    {
+        $requestRecord->legalReviews()->create([
+            'verdict' => 'sound_ready',
+            'reviewed_at' => now(),
         ]);
+
+        return $requestRecord;
     }
 
     private function userWithRole(string $roleCode): User

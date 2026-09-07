@@ -133,7 +133,7 @@ class CommitteeMeetingTest extends TestCase
 
     private function request(string $suffix): Request
     {
-        return Request::create([
+        $requestRecord = Request::create([
             'reference_number' => now()->format('Y')."-ADM-{$suffix}".fake()->unique()->numberBetween(1000, 9999),
             'title' => "طلب {$suffix}",
             'department_id' => Department::where('code', 'ADM')->value('id'),
@@ -142,6 +142,17 @@ class CommitteeMeetingTest extends TestCase
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
             'submitted_at' => now(),
         ]);
+
+        // Stage 68 — [D] Art. 21's legal review now gates agenda insertion.
+        // Seeded here so these tests stay about the agenda/attendance
+        // mechanics they were written for rather than becoming confounded by
+        // a gate that has its own coverage in RequestLegalReviewTest.
+        $requestRecord->legalReviews()->create([
+            'verdict' => 'sound_ready',
+            'reviewed_at' => now(),
+        ]);
+
+        return $requestRecord;
     }
 
     private function userWithRole(string $roleCode): User

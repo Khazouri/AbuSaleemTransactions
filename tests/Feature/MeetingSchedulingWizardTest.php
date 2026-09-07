@@ -29,6 +29,9 @@ class MeetingSchedulingWizardTest extends TestCase
         $response = $this->actingAs($head, 'sanctum')
             ->postJson('/api/meetings', [
                 'committee_id' => $committee->id,
+                // Stage 70 — meeting_number is deliberately still POSTed here to
+                // prove it is now IGNORED: the server mints Appendix 15's own
+                // PM-MTG code and a client value can no longer override it.
                 'meeting_number' => '3/2026',
                 'title' => 'الاجتماع الدوري الثالث',
                 'meeting_type' => 'extraordinary',
@@ -41,7 +44,7 @@ class MeetingSchedulingWizardTest extends TestCase
                 'description' => 'مراجعة طلبات الترقية.',
             ])
             ->assertCreated()
-            ->assertJsonPath('data.meeting_number', '3/2026')
+            ->assertJsonPath('data.meeting_number', 'PM-MTG/'.now()->format('Y').'/01')
             ->assertJsonPath('data.meeting_type', 'extraordinary')
             ->assertJsonPath('data.expected_duration_minutes', 90)
             ->assertJsonPath('data.description', 'مراجعة طلبات الترقية.')
@@ -54,7 +57,7 @@ class MeetingSchedulingWizardTest extends TestCase
 
         $this->assertDatabaseHas('meetings', [
             'id' => $response->json('data.id'),
-            'meeting_number' => '3/2026',
+            'meeting_number' => 'PM-MTG/'.now()->format('Y').'/01',
             'meeting_type' => 'extraordinary',
             'chairman_user_id' => $head->id,
             'rapporteur_user_id' => $rapporteur->id,

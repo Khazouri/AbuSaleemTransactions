@@ -74,6 +74,17 @@ class ScreenRolePermissionSeeder extends Seeder
         // CommitteeStatusService, not by a fixed WorkflowService role.
         'meetings_dashboard' => ['view' => '*', 'add' => ['R03', 'R04', 'R09'], 'edit' => ['R03', 'R09'], 'print' => '*'],
         'committee_candidates' => ['view' => '*', 'add' => ['R03', 'R04', 'R09'], 'edit' => ['R03', 'R09'], 'print' => '*'],
+        // Stage 68 — [D] Art. 21's pre-meeting legal review. The two write
+        // tiers split by Appendix 6's RACI row for المراجعة القانونية, where
+        // the legal member is مسؤول and the rapporteur only منسق:
+        //   add  = record a review (create a RequestLegalReview row) — R11 only,
+        //          because Art. 14 (ب) makes the legal opinion the legal
+        //          member's own act.
+        //   edit = dispatch a file TO review — the coordinating act, so the
+        //          rapporteur roles (R02 case officer, R09 committee secretary).
+        // `view` is '*' because Art. 21 requires the recorded opinion to be
+        // readable by the committee's own members at study time.
+        'legal_review' => ['view' => '*', 'add' => ['R11'], 'edit' => ['R02', 'R09'], 'print' => '*'],
         'meetings' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
         'meeting_agenda' => ['view' => '*', 'add' => ['R03', 'R04', 'R09'], 'edit' => ['R03', 'R09'], 'print' => '*'],
         'meeting_readiness' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],

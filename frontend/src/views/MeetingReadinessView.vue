@@ -194,11 +194,19 @@ onMounted(loadMeetings)
           <h3>{{ t('meetingsUnit.readiness.quorum.title') }}</h3>
           <p class="quorum-line">
             {{ t('meetingsUnit.readiness.quorum.confirmed') }}: <strong>{{ readiness.quorum_confirmed }}</strong>
-            / {{ t('meetingsUnit.readiness.quorum.required') }}: <strong>{{ readiness.quorum_required }}</strong>
+            / {{ t('meetingsUnit.readiness.quorum.required') }}:
+            <!-- Stage 73 — a committee whose قرار التشكيل has not been
+                 transcribed has no quorum, and the screen says so rather than
+                 showing a figure the system made up. -->
+            <strong>{{ readiness.quorum_required ?? t('meetingsUnit.readiness.quorum.notRecorded') }}</strong>
           </p>
-          <span class="pill" :class="readiness.quorum_met ? 'good' : 'bad'">
+          <p v-if="readiness.quorum_rule?.quorum_text" class="quorum-source">
+            {{ t('meetingsUnit.readiness.quorum.perText') }}: {{ readiness.quorum_rule.quorum_text }}
+          </p>
+          <span v-if="readiness.quorum_required !== null" class="pill" :class="readiness.quorum_met ? 'good' : 'bad'">
             {{ readiness.quorum_met ? t('meetingsUnit.readiness.quorum.met') : t('meetingsUnit.readiness.quorum.notMet') }}
           </span>
+          <span v-else class="pill bad">{{ t('meetingsUnit.readiness.quorum.notRecorded') }}</span>
         </section>
 
         <section class="card panel">
@@ -285,6 +293,7 @@ select, textarea {
 .pill.bad { background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); }
 
 .quorum-line { margin: 0 0 .5rem; font-size: .9rem; color: var(--color-black-700); }
+.quorum-source { margin: 0 0 .5rem; font-size: .78rem; color: var(--color-muted); }
 
 .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
 .bars li { display: grid; grid-template-columns: minmax(90px, 40%) 1fr auto; align-items: center; gap: .6rem; }

@@ -33,14 +33,39 @@ use Illuminate\Support\Facades\DB;
  *
  * Stage 52 — `target_days_min`/`target_days_max` are a non-binding, soft-SLA
  * target duration per stage (never blocking — see App\Models\Request::
- * stageTimeliness()). Sourced from [A] §12's 10-step timeframe list, which
- * `docs/employee-committee-lifecycle/official-process-summary.md` cross-
- * references as the same figures [D]'s own appendix uses. [A]'s 10 steps and
- * this table's 12 stages don't share granularity, so the mapping below is a
- * judgment call — recorded in full in AGENT_NOTES.md's Stage 52 plan entry,
- * not re-derived here. A stage left `null, null` genuinely has no sourced
- * target (either it postdates [A]'s text — the diagram-alignment redesign's
- * stages 2–3 — or [A] gives it no day count at all, e.g. "أول اجتماع متاح").
+ * stageTimeliness()).
+ *
+ * Stage 71 — those figures now come from [D]'s own **Appendix 37** (مدد العمل
+ * التشغيلية المقترحة), replacing outright the [A] §12 substitute Stage 52
+ * adopted while the appendix was unavailable — which that stage's own note
+ * said to do rather than layer a second interpretation on top.
+ *
+ * Appendix 37 measures the turnaround of WHOEVER IS HOLDING THE FILE, one row
+ * per action, so each stage below takes the row naming the action performed
+ * at that stage. A stage stays `null, null` when its row carries no day count
+ * ("الاجتماع التالي") or when Appendix 37 names no action for it at all — the
+ * honest gap Stage 52 established, never a fabricated target. The 14 rows map
+ * onto these 12 stages as:
+ *
+ *   2  direct_manager_review     استلام الطلب من الرئيس المباشر  يوم عمل
+ *   3  administrative_routing    إحالة الطلب للجهة المعنية       يومان
+ *   4  receive_and_register      تجهيز الملف الإداري             3 أيام
+ *   5  requirements_check        فحص المقرر                     يومان
+ *   6  reviewer_review           المراجعة القانونية              3 أيام
+ *   7  observations              إعداد مذكرة العرض               يومان
+ *   9  receive_from_committee    إعداد المحضر بعد الاجتماع        3 أيام
+ *   10 approval_by_authority     إحالة المحضر للاعتماد           يومان
+ *   12 final_approval_archiving  إحالة القرار للتنفيذ / إشعار النتيجة  يوم / يومان
+ *
+ * `reviewer_review` keeps المراجعة القانونية even though Stage 68 built Art.
+ * 21's pre-meeting legal review as a status-only substate of
+ * `receive_from_committee`: that substate has no `workflow_stages` row and so
+ * nowhere to carry a target, and this stage's own name ("مراجعة المقرر وفق
+ * اللوائح") is still the only one that IS a regulatory-conformance review.
+ *
+ * The min/max pair is a range the source states, never a sum this seeder
+ * computes: stage 12 is the only row using it, because Appendix 37 gives that
+ * stage two counted actions (1 day and 2 days) rather than one figure.
  */
 class WorkflowStageSeeder extends Seeder
 {
@@ -67,21 +92,21 @@ class WorkflowStageSeeder extends Seeder
         // [order, code, Arabic name, English name, role usually holding it (or null — see docblock), target_days_min, target_days_max]
         $stages = [
             [1,  'receive_from_municipality', 'استلام الطلب من البلدية',        'Receive from municipality',     'R01', null, null],
-            [2,  'direct_manager_review',     'مراجعة الطلب من المدير المباشر',    'Direct manager review',         null, null, null],
-            [3,  'administrative_routing',    'إحالة الطلب لأحد المسارات الإدارية', 'Administrative routing',        null, null, null],
-            [4,  'receive_and_register',      'الاستلام والتسجيل',                'Receive and register',          null, 1, 1],
-            [5,  'requirements_check',        'فحص استيفاء المتطلبات',           'Requirements check',           'R02', 3, 3],
-            [6,  'reviewer_review',           'مراجعة المقرر وفق اللوائح',        'Reviewer review',              'R02', 5, 5],
-            [7,  'observations',              'إبداء الملاحظات (إن وجدت)',        'Observations (if any)',        'R02', 5, 10],
+            [2,  'direct_manager_review',     'مراجعة الطلب من المدير المباشر',    'Direct manager review',         null, 1, 1],
+            [3,  'administrative_routing',    'إحالة الطلب لأحد المسارات الإدارية', 'Administrative routing',        null, 2, 2],
+            [4,  'receive_and_register',      'الاستلام والتسجيل',                'Receive and register',          null, 3, 3],
+            [5,  'requirements_check',        'فحص استيفاء المتطلبات',           'Requirements check',           'R02', 2, 2],
+            [6,  'reviewer_review',           'مراجعة المقرر وفق اللوائح',        'Reviewer review',              'R02', 3, 3],
+            [7,  'observations',              'إبداء الملاحظات (إن وجدت)',        'Observations (if any)',        'R02', 2, 2],
             [8,  'forward_to_committee',      'تحويل الطلب للجنة القائمة',     'Forward to committee',         'R05', null, null],
             // Display role only (see docblock): R03 -> R09. The R03
             // decision-action `required_role_id` on vote/decision transitions
             // is seeded separately in WorkflowTransitionSeeder and is
             // unaffected by this indicative field.
             [9,  'receive_from_committee',    'استلام الطلب من اللجنة',        'Receive from committee',       'R09', 3, 3],
-            [10, 'approval_by_authority',     'اعتماد (حسب الصلاحيات)',          'Approval (per permissions)',   'R05', 5, 5],
+            [10, 'approval_by_authority',     'اعتماد (حسب الصلاحيات)',          'Approval (per permissions)',   'R05', 2, 2],
             [11, 'local_governance_ministry', 'وزارة الحكم المحلي',              'Local Governance Ministry',    'R06', null, null],
-            [12, 'final_approval_archiving',  'الاعتماد النهائي والأرشفة',        'Final approval & archiving',   'R07', 5, 5],
+            [12, 'final_approval_archiving',  'الاعتماد النهائي والأرشفة',        'Final approval & archiving',   'R07', 1, 2],
         ];
 
         foreach ($stages as [$order, $code, $nameAr, $nameEn, $roleCode, $targetMin, $targetMax]) {

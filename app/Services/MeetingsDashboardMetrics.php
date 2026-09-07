@@ -53,10 +53,22 @@ class MeetingsDashboardMetrics
     {
         return [
             'candidates' => $this->committeeStatus->candidatesQuery()->count(),
+            // Stage 68 — its own bucket rather than being folded into
+            // `candidates`: CommitteeStatusService::CANDIDATE_STATUSES
+            // deliberately excludes `under_legal_review` (a file with the
+            // legal member is on their queue, not the rapporteur's), so
+            // without this the request would silently vanish from the funnel
+            // for the whole duration of Art. 21's review.
+            'legal_review' => $this->statusCount([CommitteeStatusService::LEGAL_REVIEW_STATUS]),
             'on_agenda' => $this->statusCount(['on_agenda']),
             'in_discussion' => $this->statusCount(['under_discussion', 'awaiting_recommendation_approval', 'completion_required']),
-            'decided' => $this->statusCount(['decided']),
-            'closed' => $this->statusCount(['approved', 'final_approved', 'archived', 'completed_closed']),
+            // Stage 69 — Art. 38's 12/15/16: the committee has resolved the
+            // matter and it is now waiting on an approving authority. Legacy
+            // `decided`/`approved` sit here too; `approved` used to be counted
+            // as closed, which inverted its actual meaning (an approval still
+            // pending).
+            'decided' => $this->statusCount(['decided', 'approved', 'awaiting_municipal_approval', 'awaiting_central_approval']),
+            'closed' => $this->statusCount(['final_approved', 'archived', 'executed', 'completed_closed']),
         ];
     }
 
