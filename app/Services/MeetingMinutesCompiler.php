@@ -187,6 +187,29 @@ class MeetingMinutesCompiler
                 // the live decisions row.
                 'decision_number' => $item->decision->decision_number,
                 'outcome' => $item->decision->outcome,
+                // Stage 74 — the rest of Art. 89's own list: موضوعها and
+                // منطوق النتيجة are two of its six elements, so a محضر that
+                // omitted them would not satisfy the article the decision
+                // number above was added for. Art. 90's instrument travels
+                // with them because the article forbids the three terms
+                // being used interchangeably, which is only checkable if the
+                // frozen record says which one was issued.
+                'instrument' => $item->decision->instrument,
+                'subject' => $item->decision->decision_subject,
+                'facts' => $item->decision->decision_facts,
+                'basis' => $item->decision->decision_basis,
+                'operative' => $item->decision->decision_operative,
+                // Stage 74 — Appendix 28 requires the refusal reason to be
+                // "مثبتًا في الملف", and Art. 34 requires the five deferral
+                // fields to be recorded "في المحضر" specifically.
+                'refusal_reason_code' => $item->decision->refusal_reason_code,
+                'deferral' => $item->decision->outcome === 'defer' ? [
+                    'reason' => $item->decision->deferral_reason,
+                    'required_completion' => $item->decision->deferral_required_completion,
+                    'responsible_body' => $item->decision->deferral_responsible_body,
+                    'required_document' => $item->decision->deferral_required_document,
+                    'legal_period' => $item->decision->deferral_legal_period,
+                ] : null,
                 'comment' => $item->decision->comment,
                 'referral_authority' => $item->decision->referral_authority,
                 'decided_by' => $item->decision->decidedBy?->name,

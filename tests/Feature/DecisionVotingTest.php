@@ -15,11 +15,13 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /** Stage 21 — committee voting and decision recording drives WorkflowService directly. */
 class DecisionVotingTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     public function test_a_majority_approve_vote_and_recorded_decision_advances_the_request(): void
@@ -40,9 +42,9 @@ class DecisionVotingTest extends TestCase
         $signature = UploadedFile::fake()->image('signature.png', 10, 10);
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
                 'signature' => $signature,
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'approve')
             ->assertJsonPath('data.votes_approve_count', 2);
@@ -94,9 +96,9 @@ class DecisionVotingTest extends TestCase
             ->assertJsonPath('data.vote', 'abstain');
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
                 'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'approve')
             ->assertJsonPath('data.votes_approve_count', 2)
@@ -123,9 +125,9 @@ class DecisionVotingTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('defer', [
                 'comment' => 'الملف غير مكتمل، يؤجل للاجتماع القادم',
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'defer');
 
@@ -151,9 +153,9 @@ class DecisionVotingTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
                 'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ])
+            ]))
             ->assertStatus(422)
             ->assertJsonPath('message', 'لا يجوز للمستخدم اعتماد طلبه الخاص.');
 
@@ -176,7 +178,7 @@ class DecisionVotingTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'تعادل'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', ['comment' => 'تعادل']))
             ->assertStatus(422);
 
         $this->assertDatabaseMissing('decisions', ['meeting_request_id' => $agendaItem->id]);
@@ -215,7 +217,7 @@ class DecisionVotingTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'defer'])
             ->assertCreated();
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'تأجيل'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('defer', ['comment' => 'تأجيل']))
             ->assertCreated();
 
         $admin = $this->userWithRole('R08');

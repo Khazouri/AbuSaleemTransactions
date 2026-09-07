@@ -15,6 +15,7 @@ use App\Models\WorkflowStage;
 use App\Services\DecisionEligibility;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -23,6 +24,7 @@ use Tests\TestCase;
  */
 class DecisionRegisterTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -241,9 +243,9 @@ class DecisionRegisterTest extends TestCase
         }
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('defer', [
                 'comment' => 'الملف غير مكتمل، يؤجل للاجتماع القادم',
-            ])
+            ]))
             ->assertCreated();
     }
 

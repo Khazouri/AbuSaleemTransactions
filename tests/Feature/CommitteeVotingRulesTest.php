@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,7 @@ use Tests\TestCase;
  */
 class CommitteeVotingRulesTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     public function test_a_committee_with_no_transcribed_rules_has_no_quorum_and_blocks_convening(): void
@@ -218,7 +220,7 @@ class CommitteeVotingRulesTest extends TestCase
 
         // defer leads with 2 of 4 votes cast; the transcribed rule needs 3.
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'تأجيل'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('defer', ['comment' => 'تأجيل']))
             ->assertStatus(422);
 
         $this->assertSame(0, Decision::count());
@@ -242,7 +244,7 @@ class CommitteeVotingRulesTest extends TestCase
         $this->castVote($members[3], $meeting, $agendaItem, 'reject');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'تأجيل'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('defer', ['comment' => 'تأجيل']))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'defer');
     }
@@ -259,7 +261,7 @@ class CommitteeVotingRulesTest extends TestCase
         $this->castVote($members[0], $meeting, $agendaItem, 'reject');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'قرار'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('defer', ['comment' => 'قرار']))
             ->assertStatus(422);
 
         $meeting->committee->update([
@@ -268,7 +270,7 @@ class CommitteeVotingRulesTest extends TestCase
         ]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'قرار'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('defer', ['comment' => 'قرار']))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'defer');
     }

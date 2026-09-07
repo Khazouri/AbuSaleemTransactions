@@ -45,6 +45,18 @@ class MeetingRequestResource extends JsonResource
                     'name_en' => $this->request->status->name_en,
                     'color' => $this->request->status->color,
                 ] : null,
+                // Stage 74 — Appendix 22's "اختصاص اللجنة في هذا الموضوع",
+                // recorded by the legal officer before the sitting (Stage
+                // 68). Art. 90 forbids قرار/توصية/رأي being used
+                // interchangeably, so the recording screen pre-selects the
+                // instrument the legal card expected instead of asking the
+                // same question twice with no link between the answers. A
+                // hint only: the committee is not bound by the legal
+                // member's opinion (Art. 14 (ب)), so the recorder can change
+                // it and nothing server-side compares the two.
+                'expected_instrument' => $this->request->relationLoaded('latestLegalReview')
+                    ? $this->request->latestLegalReview?->committee_mandate
+                    : null,
             ] : null),
             // Stage 63 — the appeal riding an `appeal` item, mirroring the
             // `request` block above.

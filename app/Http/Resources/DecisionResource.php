@@ -39,7 +39,30 @@ class DecisionResource extends JsonResource
             // leader: DecisionController::record never lets it drive a
             // workflow transition, so it stays outside the outcome list.
             'votes_abstain_count' => $this->votes_abstain_count,
+            // Art. 89's الملاحظات اللازمة — since Stage 74 gave the four
+            // drafting parts columns of their own, this is genuinely notes
+            // again rather than the place all of them were crammed.
             'comment' => $this->comment,
+            // Stage 74 — Art. 90's قرار/توصية/رأي, which the article forbids
+            // using interchangeably.
+            'instrument' => $this->instrument,
+            // Stage 74 — Appendix 27's four parts, which together with the
+            // decision number, the request number and the outcome are Art.
+            // 89's six per-decision elements.
+            'decision_subject' => $this->decision_subject,
+            'decision_facts' => $this->decision_facts,
+            'decision_basis' => $this->decision_basis,
+            'decision_operative' => $this->decision_operative,
+            // Stage 74 — Appendix 28's professional refusal reason; null
+            // except on the outcomes Art. 91 requires reasoning for.
+            'refusal_reason_code' => $this->refusal_reason_code,
+            // Stage 74 — Art. 34's five deferral fields; null except on a
+            // `defer`, where the first four are mandatory.
+            'deferral_reason' => $this->deferral_reason,
+            'deferral_required_completion' => $this->deferral_required_completion,
+            'deferral_responsible_body' => $this->deferral_responsible_body,
+            'deferral_required_document' => $this->deferral_required_document,
+            'deferral_legal_period' => $this->deferral_legal_period,
             // Stage 50 — [D] Art. 28's minutes-content list: which body a
             // referral was made to, distinct from the free-text comment.
             'referral_authority' => $this->referral_authority,

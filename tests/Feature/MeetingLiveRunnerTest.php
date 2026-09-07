@@ -15,6 +15,7 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -26,6 +27,7 @@ use Tests\TestCase;
  */
 class MeetingLiveRunnerTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     public function test_advancing_item_state_persists_and_stamps_state_changed_at(): void
@@ -83,7 +85,7 @@ class MeetingLiveRunnerTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'تأجيل'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('defer', ['comment' => 'تأجيل']))
             ->assertCreated();
 
         $agendaItem->refresh();
@@ -122,9 +124,9 @@ class MeetingLiveRunnerTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
             ->assertCreated();
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
                 'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ])
+            ]))
             ->assertCreated();
 
         // Both agenda items resolved, but the minutes haven't even been

@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -28,6 +29,7 @@ use Tests\TestCase;
  */
 class AppealCommitteePresentationTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -135,7 +137,7 @@ class AppealCommitteePresentationTest extends TestCase
         [$head, $member, , $meeting, $agendaItem] = $this->committeeMeetingWithAppealAgendaItem();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'سبب'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('appeal_accept', ['comment' => 'سبب']))
             ->assertStatus(422);
 
         $this->actingAs($head, 'sanctum')
@@ -146,7 +148,7 @@ class AppealCommitteePresentationTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'سبب'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('appeal_accept', ['comment' => 'سبب']))
             ->assertStatus(422);
 
         $this->assertDatabaseMissing('decisions', ['meeting_request_id' => $agendaItem->id]);
@@ -164,13 +166,13 @@ class AppealCommitteePresentationTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('appeal_accept'))
             ->assertStatus(422);
 
         $this->assertDatabaseMissing('decisions', ['meeting_request_id' => $agendaItem->id]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'سبب القرار'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('appeal_accept', ['comment' => 'سبب القرار']))
             ->assertCreated();
     }
 
@@ -220,7 +222,7 @@ class AppealCommitteePresentationTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'سبب القرار'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload($outcome, ['comment' => 'سبب القرار']))
             ->assertCreated()
             ->assertJsonPath('data.outcome', $outcome)
             ->assertJsonPath("data.{$countColumn}", 2);
@@ -260,7 +262,7 @@ class AppealCommitteePresentationTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'appeal_accept'])
             ->assertCreated();
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'سبب القرار'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('appeal_accept', ['comment' => 'سبب القرار']))
             ->assertCreated();
 
         $register = $this->actingAs($head, 'sanctum')

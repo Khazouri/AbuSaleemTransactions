@@ -15,6 +15,7 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -26,6 +27,7 @@ use Tests\TestCase;
  */
 class CommitteeSeatRosterTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     public function test_a_committees_five_seats_are_individually_identifiable(): void
@@ -204,9 +206,9 @@ class CommitteeSeatRosterTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($chair, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
                 'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'approve');
 

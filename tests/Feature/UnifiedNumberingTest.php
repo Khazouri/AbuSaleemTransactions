@@ -19,6 +19,7 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -31,6 +32,7 @@ use Tests\TestCase;
  */
 class UnifiedNumberingTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     /**
@@ -218,9 +220,9 @@ class UnifiedNumberingTest extends TestCase
         $expected = 'PM-DEC/'.now()->format('Y').'/001';
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
                 'signature' => UploadedFile::fake()->image('signature.png', 960, 330),
-            ], ['Accept' => 'application/json'])
+            ]), ['Accept' => 'application/json'])
             ->assertCreated()
             ->assertJsonPath('data.decision_number', $expected);
 

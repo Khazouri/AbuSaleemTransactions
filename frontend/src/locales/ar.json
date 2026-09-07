@@ -879,6 +879,46 @@
       "drafting": "جارٍ صياغة المسودة…",
       "draftError": "تعذّرت صياغة المسودة من القالب."
     },
+    "notesLabel": "الملاحظات اللازمة",
+    "instrument": {
+      "label": "نوع ما أصدرته اللجنة",
+      "choose": "اختر: قرار أو توصية أو رأي",
+      "expected": "بطاقة السند القانوني تتوقع: {value}",
+      "decision": "قرار",
+      "recommendation": "توصية",
+      "opinion": "رأي"
+    },
+    "parts": {
+      "subject": "موضوع القرار",
+      "facts": "الوقائع",
+      "basis": "السند",
+      "operative": "المنطوق",
+      "operativeHint": "يجب أن يكون واضحاً وقابلاً للتنفيذ — ولا تقبل عبارات غير قابلة للقياس مثل (اتخاذ اللازم) أو (النظر في الموضوع) أو (حسب الإجراءات) دون ربطها بإجراء محدد."
+    },
+    "refusal": {
+      "label": "سبب عدم الموافقة",
+      "choose": "اختر السبب المهني",
+      "hint": "لا يكتفى بعبارة (لم توافق اللجنة) — ويجب أن يكون السبب مثبتاً في الملف.",
+      "reasons": {
+        "period_condition_unmet": "عدم استيفاء شرط المدة",
+        "position_unavailable": "عدم توفر الوظيفة المطلوبة",
+        "legal_text_inapplicable": "عدم انطباق النص القانوني",
+        "essential_condition_missing": "نقص شرط أساسي لا يمكن استكماله",
+        "outside_jurisdiction": "عدم اختصاص اللجنة",
+        "document_invalid": "عدم صحة المستند المؤثر",
+        "legal_impediment": "وجود مانع قانوني",
+        "other": "سبب آخر مبين في الملف"
+      }
+    },
+    "deferral": {
+      "legend": "بيانات التأجيل",
+      "hint": "يمنع التأجيل للمراجعة دون بيان المطلوب — تبقى المعاملة (مؤجلة — تحت الاستكمال) ولا تقفل بانتهاء الاجتماع.",
+      "deferral_reason": "سبب التأجيل",
+      "deferral_required_completion": "المطلوب استكماله",
+      "deferral_responsible_body": "الجهة المسؤولة عن الاستكمال",
+      "deferral_required_document": "المستند أو الإفادة المطلوبة",
+      "deferral_legal_period": "المدة المقررة قانوناً (إن وجدت)"
+    },
     "commentPlaceholder": "سبب القرار (اختياري للموافقة، مطلوب لبقية النتائج)",
     "appealLabel": "تظلم",
     "appealSubject": "تظلم من {appellant} — {title}",

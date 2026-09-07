@@ -24,6 +24,7 @@ use App\Services\ArtifactNumberGenerator;
 use App\Services\CommitteeVotingRules;
 use App\Services\DecisionDraftComposer;
 use App\Services\DecisionEligibility;
+use App\Services\DecisionStructureRules;
 use App\Services\NotificationDispatcher;
 use App\Services\Reports\ReportDocument;
 use App\Services\Reports\ReportExporter;
@@ -84,12 +85,32 @@ class DecisionController extends Controller
                 'appeal_refer' => 'إحالة التظلم',
                 'appeal_redo' => 'إعادة الإجراءات',
             ],
+            // Stage 74 — Art. 90's three instruments and Appendix 28's seven
+            // refusal reasons, transcribed from the appendix's own wording.
+            'instruments' => [
+                'decision' => 'قرار',
+                'recommendation' => 'توصية',
+                'opinion' => 'رأي',
+            ],
+            'refusal_reasons' => [
+                'period_condition_unmet' => 'عدم استيفاء شرط المدة',
+                'position_unavailable' => 'عدم توفر الوظيفة المطلوبة',
+                'legal_text_inapplicable' => 'عدم انطباق النص القانوني',
+                'essential_condition_missing' => 'نقص شرط أساسي لا يمكن استكماله',
+                'outside_jurisdiction' => 'عدم اختصاص اللجنة',
+                'document_invalid' => 'عدم صحة المستند المؤثر',
+                'legal_impediment' => 'وجود مانع قانوني',
+                'other' => 'سبب آخر مبين في الملف',
+            ],
             'columns' => [
                 // Stage 70 — Appendix 12's سجل القرارات opens with
                 // الرقم المتسلسل للقرار · رقم الاجتماع · رقم المعاملة.
                 'رقم القرار', 'رقم الاجتماع',
                 'الرقم المرجعي', 'الموضوع', 'اللجنة', 'الاجتماع', 'تاريخ الاجتماع',
-                'النتيجة', 'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة', 'عدم اختصاص',
+                // Stage 74 — Art. 90's instrument, Appendix 27's منطوق and
+                // Appendix 28's reason sit beside the outcome they qualify.
+                'النتيجة', 'نوع الإصدار', 'المنطوق', 'سبب عدم الموافقة',
+                'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة', 'عدم اختصاص',
                 'قبول التظلم', 'قبول جزئي', 'رفض التظلم', 'إحالة التظلم', 'إعادة الإجراءات', 'ممتنع',
                 'القالب', 'صاحب القرار', 'تاريخ القرار', 'الملاحظات',
             ],
@@ -121,10 +142,28 @@ class DecisionController extends Controller
                 'appeal_refer' => 'Appeal Referred',
                 'appeal_redo' => 'Procedures Redone',
             ],
+            // Stage 74 — Art. 90's three instruments and Appendix 28's seven
+            // refusal reasons.
+            'instruments' => [
+                'decision' => 'Decision',
+                'recommendation' => 'Recommendation',
+                'opinion' => 'Opinion',
+            ],
+            'refusal_reasons' => [
+                'period_condition_unmet' => 'Service-period condition not met',
+                'position_unavailable' => 'Required position unavailable',
+                'legal_text_inapplicable' => 'Legal text not applicable',
+                'essential_condition_missing' => 'Essential condition missing and uncompletable',
+                'outside_jurisdiction' => "Outside the committee's jurisdiction",
+                'document_invalid' => 'Governing document invalid',
+                'legal_impediment' => 'Legal impediment',
+                'other' => 'Other reason stated in the file',
+            ],
             'columns' => [
                 'Decision no.', 'Meeting no.',
                 'Reference', 'Subject', 'Committee', 'Meeting', 'Meeting date',
-                'Outcome', 'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred', 'No jurisdiction',
+                'Outcome', 'Instrument', 'Operative clause', 'Refusal reason',
+                'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred', 'No jurisdiction',
                 'Appeal accepted', 'Appeal partial', 'Appeal rejected', 'Appeal referred', 'Appeal redo', 'Abstain',
                 'Template', 'Decided by', 'Decided at', 'Comment',
             ],
@@ -221,6 +260,7 @@ class DecisionController extends Controller
         ApprovalSignatureStorage $signatureStorage,
         NotificationDispatcher $notifications,
         ArtifactNumberGenerator $numbers,
+        DecisionStructureRules $structure,
     ): JsonResponse {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
@@ -229,7 +269,7 @@ class DecisionController extends Controller
         // "commit" step are different enough to live in their own method
         // rather than being threaded through the branches below.
         if ($agendaItem->item_type === 'appeal') {
-            return $this->recordAppealDecision($request, $agendaItem, $numbers);
+            return $this->recordAppealDecision($request, $agendaItem, $numbers, $structure);
         }
 
         // Stage 31 — an admin/emerging item has no request for
@@ -265,6 +305,19 @@ class DecisionController extends Controller
             return response()->json(['message' => $refusal], 422);
         }
 
+        // Stage 74 — [D] Appendix 27's four parts, Art. 90's instrument and,
+        // per outcome, Art. 34's deferral fields or Appendix 28's refusal
+        // reason. Checked here rather than in the FormRequest because which
+        // of them is required depends on the outcome the tally just
+        // produced; DecisionStructureRules is shared with
+        // recordAppealDecision() so the same محضر cannot hold two different
+        // drafting standards.
+        $structured = $this->structuredPayload($request);
+
+        if ($problem = $structure->firstProblem($outcome, $structured)) {
+            return response()->json(['message' => $problem], 422);
+        }
+
         $action = self::ACTIONS[$outcome];
         $comment = $request->validated('comment');
         $templateId = $request->validated('template_id');
@@ -277,7 +330,7 @@ class DecisionController extends Controller
 
         try {
             $decision = DB::transaction(function () use (
-                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally, $abstainCount, $referralAuthority, $numbers,
+                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally, $abstainCount, $referralAuthority, $numbers, $structured,
             ) {
                 $workflow->transition($agendaItem->request, $action, $actor, $comment, $signaturePath);
 
@@ -314,6 +367,11 @@ class DecisionController extends Controller
                     'votes_appeal_redo_count' => 0,
                     'votes_abstain_count' => $abstainCount,
                     'comment' => $comment,
+                    // Stage 74 — Appendix 27's four parts, Art. 90's
+                    // instrument, and whichever of the deferral/refusal
+                    // structures this outcome carries; already validated
+                    // against the outcome above.
+                    ...$structured,
                     'referral_authority' => $referralAuthority,
                     'decided_by_user_id' => $actor->id,
                     'decided_at' => now(),
@@ -333,6 +391,42 @@ class DecisionController extends Controller
         return (new DecisionResource($decision->load('decidedBy:id,name', 'template:id,code,name_ar,name_en')))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * Stage 74 — the structured half of a recorded decision, in the shape
+     * both DecisionStructureRules validates and Decision::create() stores.
+     *
+     * Empty strings are normalised to null so a box someone tabbed through
+     * is stored as "not recorded" rather than as blank text — the validator
+     * above trims the same way, so a field cannot pass its check and then be
+     * persisted as whitespace.
+     *
+     * @return array<string, string|null>
+     */
+    private function structuredPayload(StoreDecisionRequest $request): array
+    {
+        $fields = [
+            'instrument',
+            'decision_subject',
+            'decision_facts',
+            'decision_basis',
+            'decision_operative',
+            'refusal_reason_code',
+            'deferral_reason',
+            'deferral_required_completion',
+            'deferral_responsible_body',
+            'deferral_required_document',
+            'deferral_legal_period',
+        ];
+
+        return collect($fields)
+            ->mapWithKeys(function (string $field) use ($request) {
+                $value = trim((string) $request->validated($field));
+
+                return [$field => $value === '' ? null : $value];
+            })
+            ->all();
     }
 
     /**
@@ -444,7 +538,7 @@ class DecisionController extends Controller
      * decisionRecorded() now would blur into that stage's "final result"
      * semantics and risk notifying the appellant twice.
      */
-    private function recordAppealDecision(StoreDecisionRequest $request, MeetingRequest $agendaItem, ArtifactNumberGenerator $numbers): JsonResponse
+    private function recordAppealDecision(StoreDecisionRequest $request, MeetingRequest $agendaItem, ArtifactNumberGenerator $numbers, DecisionStructureRules $structure): JsonResponse
     {
         if ($agendaItem->decision()->exists()) {
             return response()->json([
@@ -488,12 +582,22 @@ class DecisionController extends Controller
             ], 422);
         }
 
+        // Stage 74 — the same drafting rules as an ordinary decision: Art. 89
+        // asks the same six elements of every per-matter result recorded in a
+        // محضر, and Art. 91 names رفض تظلم among the outcomes whose reasons
+        // must be derivable from the file.
+        $structured = $this->structuredPayload($request);
+
+        if ($problem = $structure->firstProblem($outcome, $structured)) {
+            return response()->json(['message' => $problem], 422);
+        }
+
         $templateId = $request->validated('template_id');
         $referralAuthority = $request->validated('referral_authority');
         $actor = $request->user();
 
         $decision = DB::transaction(function () use (
-            $appeal, $agendaItem, $outcome, $tally, $abstainCount, $comment, $referralAuthority, $templateId, $actor, $numbers,
+            $appeal, $agendaItem, $outcome, $tally, $abstainCount, $comment, $referralAuthority, $templateId, $actor, $numbers, $structured,
         ) {
             $appeal->update([
                 'appeal_status_id' => AppealStatus::where('code', 'committee_presentation')->value('id'),
@@ -525,6 +629,8 @@ class DecisionController extends Controller
                 'votes_appeal_redo_count' => $tally['appeal_redo'],
                 'votes_abstain_count' => $abstainCount,
                 'comment' => $comment,
+                // Stage 74 — see record()'s matching block.
+                ...$structured,
                 'referral_authority' => $referralAuthority,
                 'decided_by_user_id' => $actor->id,
                 'decided_at' => now(),
@@ -760,6 +866,13 @@ class DecisionController extends Controller
             $meeting?->title ?? $labels['none'],
             $meeting?->scheduled_at?->format('Y-m-d') ?? $labels['none'],
             $labels['outcomes'][$decision->outcome] ?? $decision->outcome,
+            // Stage 74 — Appendix 12's register is the file a reader takes
+            // away, so it carries the instrument and the منطوق rather than
+            // only the outcome word, which Art. 90 says is not enough on its
+            // own to know what the committee actually issued.
+            $labels['instruments'][$decision->instrument] ?? $decision->instrument ?? $labels['none'],
+            $decision->decision_operative ?? $labels['none'],
+            $labels['refusal_reasons'][$decision->refusal_reason_code] ?? $decision->refusal_reason_code ?? $labels['none'],
             $decision->votes_approve_count,
             $decision->votes_reject_count,
             $decision->votes_defer_count,

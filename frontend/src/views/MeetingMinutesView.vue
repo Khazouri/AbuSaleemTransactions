@@ -10,6 +10,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { VOTE_OPTIONS } from '../lib/decisionOutcomes'
+import { DEFERRAL_FIELDS } from '../lib/decisionStructure'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import SignaturePad from '../components/SignaturePad.vue'
@@ -330,6 +331,24 @@ onMounted(loadMeetings)
                 <template v-if="item.decision.comment">: {{ item.decision.comment }}</template>
               </p>
               <p v-if="item.legal_basis" class="item-field"><strong>{{ t('meetingsUnit.minutes.item.legalBasis') }}:</strong> {{ item.legal_basis }}</p>
+              <!-- Stage 74 — the rest of Art. 89's own six elements, plus
+                   Art. 90's instrument: a محضر that recorded only the outcome
+                   word would not say what the committee actually issued, nor
+                   on what basis. -->
+              <p v-if="item.decision?.instrument" class="item-field"><strong>{{ t('decisions.instrument.label') }}:</strong> {{ t(`decisions.instrument.${item.decision.instrument}`) }}</p>
+              <p v-if="item.decision?.subject" class="item-field"><strong>{{ t('decisions.parts.subject') }}:</strong> {{ item.decision.subject }}</p>
+              <p v-if="item.decision?.facts" class="item-field"><strong>{{ t('decisions.parts.facts') }}:</strong> {{ item.decision.facts }}</p>
+              <p v-if="item.decision?.basis" class="item-field"><strong>{{ t('decisions.parts.basis') }}:</strong> {{ item.decision.basis }}</p>
+              <p v-if="item.decision?.operative" class="item-field"><strong>{{ t('decisions.parts.operative') }}:</strong> {{ item.decision.operative }}</p>
+              <p v-if="item.decision?.refusal_reason_code" class="item-field"><strong>{{ t('decisions.refusal.label') }}:</strong> {{ t(`decisions.refusal.reasons.${item.decision.refusal_reason_code}`) }}</p>
+              <template v-if="item.decision?.deferral">
+                <p v-for="field in DEFERRAL_FIELDS" :key="field" class="item-field">
+                  <template v-if="item.decision.deferral[field.replace('deferral_', '')]">
+                    <strong>{{ t(`decisions.deferral.${field}`) }}:</strong>
+                    {{ item.decision.deferral[field.replace('deferral_', '')] }}
+                  </template>
+                </p>
+              </template>
               <p v-if="item.decision?.referral_authority" class="item-field"><strong>{{ t('meetingsUnit.minutes.item.referralAuthority') }}:</strong> {{ item.decision.referral_authority }}</p>
               <ul v-if="item.dissenting_opinions?.length" class="notes">
                 <strong>{{ t('meetingsUnit.minutes.item.dissentingOpinions') }}:</strong>

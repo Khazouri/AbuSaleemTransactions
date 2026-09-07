@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -32,6 +33,7 @@ use Tests\TestCase;
  */
 class AppealOutcomeExecutionTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -258,7 +260,7 @@ class AppealOutcomeExecutionTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'سبب القرار'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload($outcome, ['comment' => 'سبب القرار']))
             ->assertCreated()
             ->assertJsonPath('data.outcome', $outcome);
 

@@ -18,6 +18,7 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,7 @@ use Tests\TestCase;
  */
 class MeetingMinutesTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     public function test_generate_compiles_content_and_is_blocked_once_review_moves_past_draft(): void
@@ -247,10 +249,10 @@ class MeetingMinutesTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
                 'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
                 'referral_authority' => 'ديوان البلدية',
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'approve')
             ->assertJsonPath('data.referral_authority', 'ديوان البلدية');

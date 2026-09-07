@@ -184,6 +184,13 @@ class MeetingController extends Controller
     private const AGENDA_ITEM_WITH = [
         'request:id,reference_number,title,status_id',
         'request.status:id,code,name_ar,name_en,color',
+        // Stage 74 — the recording panel pre-selects Art. 90's instrument
+        // from Appendix 22's own answer; see MeetingRequestResource.
+        // NOTE: no column list. A latestOfMany relation's generated
+        // subquery join collides with a restricted select and fails with
+        // "ambiguous column name: request_id" — the same gotcha Stage 52
+        // hit eager-loading latestStageLog.
+        'request.latestLegalReview',
         'appeal:id,appellant_user_id,original_request_id,appeal_status_id',
         'appeal.appellant:id,name',
         'appeal.originalRequest:id,reference_number,title',
@@ -667,6 +674,9 @@ class MeetingController extends Controller
             'attendees.user:id,name',
             'agendaItems.request:id,reference_number,title,status_id',
             'agendaItems.request.status:id,code,name_ar,name_en,color',
+            // Stage 74 — see AGENDA_ITEM_WITH (including why there is
+            // no column list).
+            'agendaItems.request.latestLegalReview',
             // Stage 63 — the appeal riding an `appeal` item, mirroring the
             // request block above.
             'agendaItems.appeal:id,appellant_user_id,original_request_id,appeal_status_id',

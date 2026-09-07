@@ -18,6 +18,7 @@ use App\Notifications\AppealDecidedNotification;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -32,6 +33,7 @@ use Tests\TestCase;
  */
 class AppealClosureTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -284,7 +286,7 @@ class AppealClosureTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", ['comment' => 'سبب القرار'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload($outcome, ['comment' => 'سبب القرار']))
             ->assertCreated();
 
         return [$appeal->fresh(), $verifier];

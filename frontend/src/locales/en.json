@@ -879,6 +879,46 @@
       "drafting": "Drafting…",
       "draftError": "Couldn't draft the decision text from this template."
     },
+    "notesLabel": "Notes",
+    "instrument": {
+      "label": "What the committee issued",
+      "choose": "Choose: decision, recommendation or opinion",
+      "expected": "The legal-basis card expects: {value}",
+      "decision": "Decision",
+      "recommendation": "Recommendation",
+      "opinion": "Opinion"
+    },
+    "parts": {
+      "subject": "Subject of the decision",
+      "facts": "Facts",
+      "basis": "Legal basis",
+      "operative": "Operative clause",
+      "operativeHint": "Must be clear and executable — unmeasurable wording such as \"take the necessary action\", \"consider the matter\" or \"as per procedure\" is not accepted unless tied to a specific action."
+    },
+    "refusal": {
+      "label": "Reason for refusal",
+      "choose": "Choose the professional reason",
+      "hint": "\"The committee did not approve\" is not sufficient on its own — the reason must be evidenced in the file.",
+      "reasons": {
+        "period_condition_unmet": "Service-period condition not met",
+        "position_unavailable": "Required position unavailable",
+        "legal_text_inapplicable": "Legal text not applicable",
+        "essential_condition_missing": "Essential condition missing and uncompletable",
+        "outside_jurisdiction": "Outside the committee's jurisdiction",
+        "document_invalid": "Governing document invalid",
+        "legal_impediment": "Legal impediment",
+        "other": "Other reason stated in the file"
+      }
+    },
+    "deferral": {
+      "legend": "Deferral details",
+      "hint": "A deferral \"for review\" with nothing stated as required is not accepted — the request stays deferred pending completion and does not close when the meeting ends.",
+      "deferral_reason": "Reason for deferral",
+      "deferral_required_completion": "What must be completed",
+      "deferral_responsible_body": "Body responsible for completing it",
+      "deferral_required_document": "Document or statement required",
+      "deferral_legal_period": "Statutory period (if any)"
+    },
     "commentPlaceholder": "Reason for the decision (optional for approve, required for the other outcomes)",
     "appealLabel": "Appeal",
     "appealSubject": "Appeal by {appellant} — {title}",

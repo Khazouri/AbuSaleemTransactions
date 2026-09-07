@@ -276,6 +276,9 @@ onMounted(async () => {
                 <th>{{ t('decisions.columns.committee') }}</th>
                 <th>{{ t('decisions.columns.meeting') }}</th>
                 <th>{{ t('decisions.columns.outcome') }}</th>
+                <!-- Stage 74 — Art. 90: the outcome word alone does not say whether
+                     a decision, a recommendation or an opinion was issued. -->
+                <th>{{ t('decisions.instrument.label') }}</th>
                 <th>{{ t('decisions.columns.tally') }}</th>
                 <th>{{ t('decisions.columns.template') }}</th>
                 <th>{{ t('decisions.columns.decidedBy') }}</th>
@@ -316,6 +319,13 @@ onMounted(async () => {
                 </td>
                 <td>
                   <span class="outcome" :class="row.outcome">{{ t(`decisions.outcome.${row.outcome}`) }}</span>
+                </td>
+                <td>
+                  <span v-if="row.instrument">{{ t(`decisions.instrument.${row.instrument}`) }}</span>
+                  <span v-else class="muted">{{ t('common.none') }}</span>
+                  <small v-if="row.refusal_reason_code" class="muted">
+                    {{ t(`decisions.refusal.reasons.${row.refusal_reason_code}`) }}
+                  </small>
                 </td>
                 <td class="ltr nowrap">
                   {{ row.votes_approve_count }} / {{ row.votes_reject_count }} / {{ row.votes_defer_count }}

@@ -22,6 +22,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Storage;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -35,6 +36,7 @@ use Tests\TestCase;
  */
 class AppealFileTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -320,10 +322,10 @@ class AppealFileTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
                 'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
                 'referral_authority' => 'ديوان البلدية',
-            ])
+            ]))
             ->assertCreated();
 
         if ($withMinutes) {

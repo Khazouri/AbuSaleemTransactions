@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
 /**
@@ -23,6 +24,7 @@ use Tests\TestCase;
  */
 class DecisionOutcomeTemplateTest extends TestCase
 {
+    use RecordsStructuredDecisions;
     use RefreshDatabase;
 
     public function test_conditional_approval_advances_the_request_without_a_signature(): void
@@ -39,9 +41,9 @@ class DecisionOutcomeTemplateTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('conditional_approval', [
                 'comment' => 'يشترط استكمال التصاريح خلال أسبوع',
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'conditional_approval')
             ->assertJsonPath('data.votes_conditional_approval_count', 2);
@@ -70,14 +72,14 @@ class DecisionOutcomeTemplateTest extends TestCase
         // No comment supplied: the underlying `request_legal_opinion` exception
         // requires one, the same way `defer` already does.
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('legal_opinion'))
             ->assertStatus(422);
         $this->assertDatabaseMissing('decisions', ['meeting_request_id' => $agendaItem->id]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('legal_opinion', [
                 'comment' => 'بانتظار رأي الإدارة القانونية',
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'legal_opinion');
 
@@ -102,9 +104,9 @@ class DecisionOutcomeTemplateTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('refer_other_body', [
                 'comment' => 'تحال إلى الجهاز المختص',
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'refer_other_body');
 
@@ -137,14 +139,14 @@ class DecisionOutcomeTemplateTest extends TestCase
         // No comment supplied: the underlying `declare_no_jurisdiction`
         // exception requires one, same as `defer`/`refer_other_body`.
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [])
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('legal_opinion'))
             ->assertStatus(422);
         $this->assertDatabaseMissing('decisions', ['meeting_request_id' => $agendaItem->id]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('no_jurisdiction', [
                 'comment' => 'الموضوع من اختصاص قسم المرتبات والمزايا',
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'no_jurisdiction')
             ->assertJsonPath('data.votes_no_jurisdiction_count', 2);
@@ -178,10 +180,10 @@ class DecisionOutcomeTemplateTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('defer', [
                 'comment' => 'تأجيل',
                 'template_id' => $template->id,
-            ])
+            ]))
             ->assertCreated()
             ->assertJsonPath('data.template.id', $template->id)
             ->assertJsonPath('data.template.name_ar', 'اعتماد مشروط');
@@ -213,10 +215,10 @@ class DecisionOutcomeTemplateTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", [
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('defer', [
                 'comment' => 'تأجيل',
                 'template_id' => $inactive->id,
-            ])
+            ]))
             ->assertStatus(422);
 
         $this->assertDatabaseMissing('decisions', ['meeting_request_id' => $agendaItem->id]);
@@ -257,7 +259,15 @@ class DecisionOutcomeTemplateTest extends TestCase
         $templateIds = collect($response->json('data.templates'))->pluck('id');
 
         $this->assertTrue($templateIds->contains($decisionTemplate->id));
-        $this->assertCount(1, $templateIds);
+
+        // Stage 74 — this used to assert a count of exactly 1, back when the
+        // templates table shipped empty. TemplateSeeder now seeds Appendix
+        // 59's seven official formulas, so the meaningful assertion is which
+        // templates are excluded, not how many are listed.
+        $codes = collect($response->json('data.templates'))->pluck('code');
+        $this->assertFalse($codes->contains('decision_template_inactive'));
+        $this->assertFalse($codes->contains('general_template'));
+        $this->assertCount(8, $templateIds);
     }
 
     /**

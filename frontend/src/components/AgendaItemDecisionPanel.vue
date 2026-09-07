@@ -28,7 +28,7 @@
  * appeals (Stage 42's DecisionDraftComposer has no appeal equivalent), so
  * the template picker is hidden for that item type.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   APPEAL_DECISION_OUTCOMES,
@@ -37,6 +37,13 @@ import {
   SIGNATURE_OUTCOMES,
   VOTE_OPTIONS,
 } from '../lib/decisionOutcomes'
+import {
+  DECISION_INSTRUMENTS,
+  DEFERRAL_FIELDS,
+  REFUSAL_REASON_CODES,
+  isSubstantiveOutcome,
+  needsRefusalReason,
+} from '../lib/decisionStructure'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import SignaturePad from './SignaturePad.vue'
@@ -56,6 +63,10 @@ const votingError = ref('')
 const votingBusy = ref(false)
 const decisionComment = ref('')
 const referralAuthority = ref('')
+// Stage 74 — Appendix 27's four parts, Art. 90's instrument, Appendix 28's
+// refusal reason and Art. 34's five deferral fields. One flat object so the
+// form, the reset and the submit all read the same list of keys.
+const structure = ref(emptyStructure())
 const decisionError = ref('')
 const decidingBusy = ref(false)
 const signatureReady = ref(false)
@@ -72,6 +83,43 @@ const myConflictDeclaration = computed(() => (props.item.conflict_declarations ?
 
 const isNonVotingRapporteur = computed(() => props.meeting?.rapporteur?.id === auth.user?.id
   && !props.meeting?.committee?.rapporteur_votes)
+
+function emptyStructure() {
+  return {
+    instrument: '',
+    decision_subject: '',
+    decision_facts: '',
+    decision_basis: '',
+    decision_operative: '',
+    refusal_reason_code: '',
+    ...Object.fromEntries(DEFERRAL_FIELDS.map((field) => [field, ''])),
+  }
+}
+
+// Stage 74 — which parts of the structure this item's vote is heading
+// towards needing. The server (DecisionStructureRules) is the enforcement;
+// showing only the relevant fields is what keeps the form from asking for a
+// سند on a تأجيل, which is exactly the distinction [D] draws.
+const pendingOutcome = computed(() => predictedOutcome(props.item))
+const needsFactsAndBasis = computed(() => isSubstantiveOutcome(pendingOutcome.value))
+const needsRefusal = computed(() => needsRefusalReason(pendingOutcome.value))
+const needsDeferral = computed(() => pendingOutcome.value === 'defer')
+
+/**
+ * Stage 74 — Appendix 22's own answer, recorded by the legal officer before
+ * the sitting (Stage 68). A pre-selection only: Art. 14 (ب) leaves the
+ * decision to the committee, so the recorder can change it, and `study_only`
+ * (دراسة فقط) is not one of Art. 90's three instruments so it pre-fills
+ * nothing.
+ */
+const expectedInstrument = computed(() => {
+  const expected = props.item.request?.expected_instrument
+  return DECISION_INSTRUMENTS.includes(expected) ? expected : ''
+})
+
+watch(expectedInstrument, (expected) => {
+  if (expected && !structure.value.instrument) structure.value.instrument = expected
+}, { immediate: true })
 
 // Stage 63 — which of the two, entirely independent, outcome vocabularies
 // this item's votes/decision are drawn from.
@@ -113,7 +161,11 @@ async function useTemplate() {
     const { data } = await api.get(`/meetings/${props.meetingId}/agenda/${props.item.id}/decision-draft`, {
       params: { template_id: selectedTemplateId.value, locale: locale.value },
     })
-    decisionComment.value = data.data.body
+    // Stage 74 — Appendix 59's formulas are single flowing "قررت اللجنة…"
+    // statements, i.e. Appendix 27's منطوق; dropping one into the notes box
+    // (where Stage 42 put it, before there was anywhere better) would leave
+    // the operative clause the محضر actually needs empty.
+    structure.value.decision_operative = data.data.body
   } catch (requestError) {
     templateDraftError.value = requestError.response?.data?.message ?? t('common.none')
   } finally {
@@ -170,6 +222,12 @@ async function recordDecision() {
     if (comment) form.append('comment', comment)
     const referral = referralAuthority.value.trim()
     if (referral) form.append('referral_authority', referral)
+    // Stage 74 — blanks are simply omitted; the server decides which of them
+    // this outcome actually required and says so in Arabic if one is missing.
+    for (const [field, value] of Object.entries(structure.value)) {
+      const trimmed = String(value ?? '').trim()
+      if (trimmed) form.append(field, trimmed)
+    }
     if (selectedTemplateId.value) form.append('template_id', selectedTemplateId.value)
     if (SIGNATURE_OUTCOMES.includes(predictedOutcome(props.item))) {
       const signature = await signaturePad?.toFile()
@@ -178,6 +236,7 @@ async function recordDecision() {
     await api.post(`/meetings/${props.meetingId}/agenda/${props.item.id}/decision`, form)
     decisionComment.value = ''
     referralAuthority.value = ''
+    structure.value = emptyStructure()
     selectedTemplateId.value = ''
     signatureReady.value = false
     emit('refresh')
@@ -197,6 +256,32 @@ async function recordDecision() {
         — {{ t('decisions.decidedBy') }} {{ item.decision.decided_by?.name }}
         ({{ new Intl.DateTimeFormat(locale === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.decision.decided_at)) }})
       </p>
+      <p v-if="item.decision.instrument" class="decision-instrument">
+        {{ t('decisions.instrument.label') }}: {{ t(`decisions.instrument.${item.decision.instrument}`) }}
+      </p>
+      <dl v-if="item.decision.decision_subject || item.decision.decision_operative" class="decision-parts">
+        <template v-if="item.decision.decision_subject">
+          <dt>{{ t('decisions.parts.subject') }}</dt><dd>{{ item.decision.decision_subject }}</dd>
+        </template>
+        <template v-if="item.decision.decision_facts">
+          <dt>{{ t('decisions.parts.facts') }}</dt><dd>{{ item.decision.decision_facts }}</dd>
+        </template>
+        <template v-if="item.decision.decision_basis">
+          <dt>{{ t('decisions.parts.basis') }}</dt><dd>{{ item.decision.decision_basis }}</dd>
+        </template>
+        <template v-if="item.decision.decision_operative">
+          <dt>{{ t('decisions.parts.operative') }}</dt><dd>{{ item.decision.decision_operative }}</dd>
+        </template>
+        <template v-if="item.decision.refusal_reason_code">
+          <dt>{{ t('decisions.refusal.label') }}</dt>
+          <dd>{{ t(`decisions.refusal.reasons.${item.decision.refusal_reason_code}`) }}</dd>
+        </template>
+        <template v-for="field in DEFERRAL_FIELDS" :key="field">
+          <template v-if="item.decision[field]">
+            <dt>{{ t(`decisions.deferral.${field}`) }}</dt><dd>{{ item.decision[field] }}</dd>
+          </template>
+        </template>
+      </dl>
       <p v-if="item.decision.template" class="decision-template">{{ t('decisions.template.usedLabel') }}: {{ templateLabel(item.decision.template) }}</p>
       <p v-if="item.decision.comment" class="decision-comment">{{ item.decision.comment }}</p>
       <p v-if="item.decision.referral_authority" class="decision-comment">{{ t('decisions.referralAuthorityLabel') }}: {{ item.decision.referral_authority }}</p>
@@ -261,12 +346,79 @@ async function recordDecision() {
           </button>
         </div>
         <p v-if="templateDraftError" class="alert">{{ templateDraftError }}</p>
-        <textarea
-          v-model="decisionComment"
-          :placeholder="t('decisions.commentPlaceholder')"
-          :aria-label="t('decisions.commentPlaceholder')"
-          rows="2"
-        />
+
+        <!-- Stage 74 - Art. 90: which of the three the committee is issuing,
+             pre-selected from the legal card but always the recorder's own
+             choice. -->
+        <label class="field">
+          <span>{{ t('decisions.instrument.label') }}</span>
+          <select v-model="structure.instrument" :aria-label="t('decisions.instrument.label')">
+            <option value="">{{ t('decisions.instrument.choose') }}</option>
+            <option v-for="option in DECISION_INSTRUMENTS" :key="option" :value="option">
+              {{ t(`decisions.instrument.${option}`) }}
+            </option>
+          </select>
+          <small v-if="expectedInstrument" class="hint">
+            {{ t('decisions.instrument.expected', { value: t(`decisions.instrument.${expectedInstrument}`) }) }}
+          </small>
+        </label>
+
+        <!-- Stage 74 - Appendix 27's four parts. The subject and operative
+             clause are asked of every outcome (Art. 89); facts and basis only
+             of the ones that actually dispose of the matter. -->
+        <label class="field">
+          <span>{{ t('decisions.parts.subject') }}</span>
+          <textarea v-model="structure.decision_subject" :aria-label="t('decisions.parts.subject')" rows="2" />
+        </label>
+        <template v-if="needsFactsAndBasis">
+          <label class="field">
+            <span>{{ t('decisions.parts.facts') }}</span>
+            <textarea v-model="structure.decision_facts" :aria-label="t('decisions.parts.facts')" rows="2" />
+          </label>
+          <label class="field">
+            <span>{{ t('decisions.parts.basis') }}</span>
+            <textarea v-model="structure.decision_basis" :aria-label="t('decisions.parts.basis')" rows="2" />
+          </label>
+        </template>
+        <label class="field">
+          <span>{{ t('decisions.parts.operative') }}</span>
+          <textarea v-model="structure.decision_operative" :aria-label="t('decisions.parts.operative')" rows="3" />
+          <small class="hint">{{ t('decisions.parts.operativeHint') }}</small>
+        </label>
+
+        <!-- Stage 74 - Appendix 28's professional reason, on the outcomes
+             Art. 91 names. -->
+        <label v-if="needsRefusal" class="field">
+          <span>{{ t('decisions.refusal.label') }}</span>
+          <select v-model="structure.refusal_reason_code" :aria-label="t('decisions.refusal.label')">
+            <option value="">{{ t('decisions.refusal.choose') }}</option>
+            <option v-for="code in REFUSAL_REASON_CODES" :key="code" :value="code">
+              {{ t(`decisions.refusal.reasons.${code}`) }}
+            </option>
+          </select>
+          <small class="hint">{{ t('decisions.refusal.hint') }}</small>
+        </label>
+
+        <!-- Stage 74 - Art. 34's five fields; the last one is conditional in
+             the source itself ("if any"), so only the first four are gates. -->
+        <fieldset v-if="needsDeferral" class="deferral">
+          <legend>{{ t('decisions.deferral.legend') }}</legend>
+          <p class="hint">{{ t('decisions.deferral.hint') }}</p>
+          <label v-for="field in DEFERRAL_FIELDS" :key="field" class="field">
+            <span>{{ t(`decisions.deferral.${field}`) }}</span>
+            <input v-model="structure[field]" type="text" :aria-label="t(`decisions.deferral.${field}`)">
+          </label>
+        </fieldset>
+
+        <label class="field">
+          <span>{{ t('decisions.notesLabel') }}</span>
+          <textarea
+            v-model="decisionComment"
+            :placeholder="t('decisions.commentPlaceholder')"
+            :aria-label="t('decisions.commentPlaceholder')"
+            rows="2"
+          />
+        </label>
         <input
           v-model="referralAuthority"
           type="text"
@@ -322,6 +474,16 @@ async function recordDecision() {
   background: var(--color-surface); color: var(--color-foreground); resize: vertical; font: inherit; box-sizing: border-box;
 }
 .record-decision .actions { margin: 0; display: flex; justify-content: flex-end; }
+.field { display: grid; gap: .25rem; }
+.field > span { color: var(--color-muted); font-size: .76rem; font-weight: 600; }
+.hint { color: var(--color-muted); font-size: .72rem; margin: 0; }
+.deferral { display: grid; gap: .45rem; margin: 0; padding: .55rem .65rem; border: 1px solid var(--color-warning-border); background: var(--color-warning-bg); border-radius: 8px; }
+.deferral legend { padding: 0 .3rem; color: var(--color-warning-fg); font-size: .78rem; font-weight: 600; }
+.deferral input { width: 100%; padding: .45rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px; background: var(--color-surface); color: var(--color-foreground); font: inherit; box-sizing: border-box; }
+.decision-instrument { margin: 0; color: var(--color-muted); font-size: .78rem; }
+.decision-parts { display: grid; grid-template-columns: auto 1fr; gap: .15rem .6rem; margin: 0; font-size: .78rem; }
+.decision-parts dt { color: var(--color-muted); font-weight: 600; }
+.decision-parts dd { margin: 0; color: var(--color-foreground); }
 button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
 button:disabled { cursor: not-allowed; opacity: .55; }
 .primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }

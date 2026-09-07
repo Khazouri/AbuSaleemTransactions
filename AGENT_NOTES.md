@@ -14,6 +14,303 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-08 06:40 EET — Claude — Stage 74 complete (structured decisions, deferrals and refusals)
+
+Built per the plan below, from the verbatim sources — [D] **Appendices 27, 28, 29 and 59** and **Arts.
+34, 89, 90, 91** read directly. One migration (eleven nullable columns on `decisions`), applied to the
+real MySQL/Homestead database, plus the repo's **first `TemplateSeeder`**. The single free-text
+`decisions.comment` was the thing this stage replaced, and each of the four Build bullets turned out to
+be a different structure that one column had been standing in for.
+
+**Appendix 27's four parts are four columns**, and they complete **Art. 89** at the same time — a
+consequence not spelled out in the Build bullet but worth recording. Art. 89's six per-decision
+elements are رقم القرار (Stage 70), رقم المعاملة (already), موضوعها (`decision_subject`), منطوق
+النتيجة (`decision_operative`), ما انتهت إليه اللجنة (`outcome`) and الملاحظات اللازمة — which is what
+`comment` now genuinely is, rather than the box all four parts were being crammed into. So Art. 89 went
+from ✅-on-the-number to ✅-on-all-six, and Art. 28's محتوى المحضر row closed too: its outstanding
+"نتيجة دراسة اللجنة" element is the الوقائع/السند/المنطوق triple, distinct from both the tally and the
+outcome word.
+
+**Requiredness splits substantive from procedural outcomes, and that is the judgment call not to
+re-litigate.** موضوع and منطوق bind on all twelve outcomes, because Art. 89 asks them of *every*
+per-request result in a محضر unconditionally. Appendix 27's other two parts bind only on the seven that
+dispose of the matter (`approve`, `conditional_approval`, `reject`, `no_jurisdiction`, and the three
+substantive appeal outcomes) — a تأجيل or a referral carries its own structured fields instead (Art.
+34's five, or Stage 50's `referral_authority`), and asking for the **سند of a resolution nobody has
+reached** would be a requirement the source does not make. A dedicated test proves the split rather
+than only documenting it: a `refer_other_body` records with `decision_facts` null while an `approve`
+is refused for exactly that field.
+
+**Art. 90 is a required `instrument`, and it deliberately reuses a vocabulary already in the schema.**
+The article does not merely describe قرار/توصية/رأي, it forbids interchanging them — unenforceable
+while nothing recorded which was issued. The three values are Stage 68's
+`RequestLegalReview::COMMITTEE_MANDATES` (Appendix 22's بطاقة السند القانوني) **minus `study_only`**,
+which is the *absence* of an instrument, not a fourth one — so a card recording دراسة فقط pre-fills
+nothing. The pre-fill itself (`request.expected_instrument` on the agenda payload) is a UI hint and
+nothing compares the two afterwards: Art. 14 (ب) leaves the decision to the committee, not to the legal
+member. Proven live in the smoke run, where a card expecting `recommendation` pre-filled and the
+recorder still stored what they chose.
+
+**Art. 34's five deferral fields honour the source's own qualifiers exactly** — the first four are
+refused if blank because the article bullets them plainly, and the fifth is optional because it alone
+carries "إن وجدت". That requirement **is** Appendix 29's rule: "تأجيل للمراجعة" with nothing stated as
+required is no longer recordable rather than merely discouraged, which the smoke run demonstrated
+against the real database (a bare deferral 422'd, the full one recorded). Deferral fields are
+`defer`-only and employee_request-only — no appeal outcome is a تأجيل. Art. 34's other half (the file
+stays مؤجلة — تحت الاستكمال and does not close when the meeting ends) was **already true** — `defer` is
+a self-loop at `receive_from_committee` setting `deferred` — so it was verified, not rebuilt.
+
+**Refusal reasoning is a code plus the four parts, not a second free-text field.** New
+`refusal_reason_code` on the three of Art. 91's seven cases this vocabulary has (`reject` = عدم
+الموافقة, `no_jurisdiction` = عدم الاختصاص, `appeal_reject` = رفض تظلم); the other four (الاستبعاد،
+التوصية بإنهاء الخدمة، الترجيح بين عدة موظفين، مخالفة رأي سابق) have no distinct outcome here and were
+**not invented into one**. `App\Services\DecisionReasoningRules` carries Appendix 28's seven verbatim
+**plus `other`** — the appendix introduces its list with "مثل", i.e. examples, so an exhaustive enum
+would close a list the source deliberately leaves open. `other` is not a loophole: all three outcomes
+are substantive, so الوقائع and السند are required alongside it and the phrase test still applies.
+
+**The generic-phrase check is two lists on two different fields, and it tests insufficiency rather than
+prohibition — the distinction that keeps it from over-blocking.** Every source states the rule that
+way: "لا تكفي عبارات مثل…" (Art. 91), "عدم الاكتفاء بعبارة (عدم الاستحقاق)" (Appendix 59's fourth
+formula), "لا يكتب: (لم توافق اللجنة) **فقط**" (Appendix 28), and "**إلا إذا** كانت مرتبطة بإجراء محدد
+وواضح" (Appendix 27). So the rule is **"remove every listed phrase; does a word remain?"** — no minimum
+word count and no similarity scoring, since a threshold would be an invented number of exactly the kind
+Stage 73 spent its whole scope deleting. Appendix 27's three unmeasurable phrases are checked against
+the **منطوق** (that appendix's own subject); Art. 91's two plus Appendix 28's "لم توافق اللجنة" against
+the **reasoning** (وقائع + سند) of the three reasoned outcomes. Tests pin both directions: "اتخاذ
+اللازم." alone is refused while "اتخاذ اللازم نحو إحالة الملف إلى الإدارة القانونية خلال أسبوع." passes,
+and "لعدم الاستحقاق"/"لمصلحة العمل" alone is refused while the same phrase followed by the real reason
+records. The one refinement worth knowing: a remainder made only of single-character tokens counts as
+empty, because every one-letter Arabic word (و، ف، ل، ب، ك) is a particle — that is a fact about the
+language, not a threshold, and it closes the trivial "phrase + و" bypass.
+
+**One `App\Services\DecisionStructureRules`** validates a structure against the resolved outcome and is
+read by **both** `record()` and `recordAppealDecision()` — the `CommitteeVotingRules`/
+`DecisionEligibility` precedent, and necessary because `StoreDecisionRequest` is format-only by
+documented design (requiredness depends on a tally the FormRequest cannot see). It returns one message
+at a time, in the order [D] presents the requirements, so a recorder is told what to fix rather than
+handed a wall.
+
+**Appendix 59's seven formulas are seeded**, closing the "entirely inert until an R08 admin creates
+one" gap Stage 35's own note left — `TemplateSeeder`, `category=decision`, `updateOrCreate` on `code`,
+wired into `DatabaseSeeder`. Transcribed verbatim with **one deliberate exception**: where a blank's own
+surrounding words name exactly what a Stage 42 `{{token}}` supplies ("المعاملة رقم ..............." in
+formulas 3 and 6), `{{reference_number}}` replaces the dots so `DecisionDraftComposer` does real work;
+every other blank stays the source's own dots, because no token exists for what it asks (the subject of
+the approval, the body consulted, the condition unmet) and inventing one would be filling in the
+committee's own words. **Bodies are Arabic-only on purpose** — an invented English rendering of an
+official Libyan administrative formula would be worse than none, the same call Stage 68 made for
+Appendix 21's citations, and `DecisionDraftComposer` already falls back across languages. The formulas
+are flowing "قررت اللجنة…" statements, i.e. منطوق, so **the draft now lands in `decision_operative`
+rather than the notes box** where Stage 42 put it before there was anywhere better.
+
+Frontend: `AgendaItemDecisionPanel.vue`'s record form gained the instrument select (pre-filled), the
+four parts, and — shown only when `predictedOutcome()` says they apply — the refusal select and the
+deferral fieldset; the recorded display and `MeetingMinutesCompiler`'s per-item block carry all of it
+(Art. 89 puts these *inside* the محضر, and Art. 34 says the deferral fields specifically). New shared
+`lib/decisionStructure.js` mirrors the code lists once (the `decisionOutcomes.js` precedent), the
+register gained an instrument column, and the export gained instrument + منطوق + refusal reason with
+their own label maps.
+
+**One real bug caught by the suite, not by inspection**: eager-loading `latestLegalReview` with a
+restricted column list (`'request.latestLegalReview:id,request_id,committee_mandate'`) fails with
+"ambiguous column name: request_id" — a `latestOfMany` relation's generated subquery join collides with
+a restricted select. **This is exactly the gotcha Stage 52 recorded for `latestStageLog`**, hit again
+in a different relation; the fix is the same (no column list) and is commented in place in
+`MeetingController::AGENDA_ITEM_WITH`. Worth knowing before adding a third such eager-load.
+
+Verification: new `tests/Feature/DecisionStructureTest.php` (12 tests — the subject/operative gate on
+every outcome and the facts/basis gate on substantive ones only, proven in both directions; the
+unmeasurable-منطوق refusal *and* the same phrase tied to a real action passing; the instrument recorded,
+pre-filled from the legal card and refused when it is `study_only`; a deferral walked field by field
+through all four mandatory refusals then recording without the optional fifth; a refusal refused for a
+missing code, refused again for bare "لعدم الاستحقاق"/"لمصلحة العمل" with `Decision::count()` still 0,
+then recording once specifics are added; `no_jurisdiction` reasoned on the same terms; the appeal path
+held to the same rules through `recordAppealDecision()`; the seven formulas seeded, active and offered
+through `/decisions/filters`; formula 3 drafting with the request's real reference number; the whole
+structure reaching the compiled محضر). Full suite **373 tests / 2375 assertions** green (was 361/2275),
+Pint clean **repo-wide** (`--test` reports zero diffs), `npm run build` passes (then reverted
+`frontend/dist`, tracked in git, per every prior stage's note), locale key-parity verified
+programmatically (1262 keys each side, zero on-one-side-only), and the migration plus the new seeder ran
+clean against the real MySQL/Homestead database.
+
+**Thirteen pre-existing test files needed legitimate fixture updates, not regression fixes** — every
+decision POST now has to carry a valid structure to reach the thing it was written to test. Rather than
+restate Appendix 27's four parts at thirty-five call sites, a new `Tests\RecordsStructuredDecisions`
+trait supplies one complete payload per outcome, so a later stage that changes what a decision must
+carry updates one helper. Two "a comment is required" refusals were deliberately left **without** a
+comment while gaining the structure, so they still fail on the comment rather than newly passing for the
+wrong reason — the ordering was checked (`record()` validates the structure before the workflow's
+`requires_comment`; `recordAppealDecision()` checks the comment first), not assumed.
+`DecisionOutcomeTemplateTest`'s filters assertion had hardcoded a count of exactly 1, back when the
+templates table shipped empty; it now asserts which templates are *excluded*, which is the meaningful
+property, plus the new total. `MeetingAgendaBuilderTest` was deliberately left alone — its administrative
+item can never carry a decision structure at all, so supplying one would misrepresent the test.
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r03.head@`/`r04.member1@`
+accounts and a bootstrapped fixture: the Appendix 22 card's `recommendation` reached the agenda payload
+as `expected_instrument`; a bare "تأجيل للمراجعة" was refused with "يجب إثبات سبب التأجيل."; the full
+Art. 34 deferral recorded with the instrument and responsible body intact; all seven Appendix 59
+templates came back from `/decisions/filters`; formula 3's draft named the real request number rather
+than a row of dots; and the generated محضر carried the instrument, the موضوع and the deferral block.
+Deleted every fixture row afterward (request, legal review, meeting, agenda item, votes, decision,
+minutes, committee — hard-deleted, since `Committee` soft-deletes), revoked both tokens and purged the
+run's queued jobs and audit rows; counts confirmed back to zero. **The four soft-deleted committees
+earlier sessions left behind (ids 1–4) were left alone** — they are not this stage's residue, and
+earlier notes describing them as live rows were slightly off: they are already soft-deleted.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Arts. **28**, **34**, **90** and **91**
+⚠→✅, Appendices **27**, **28** and **29** ⚠→✅ and Appendix **59** ❌→✅, and rewrote Art. **89**'s row
+to record that all six of its elements now exist rather than only the number. Headline counts adjusted
+by this stage's own delta (articles 76→81 ✅ / 21→16 ⚠; appendices 43→47 ✅ / 17→13 ⚠ / 2→1 ❌).
+`source-detailed-flow-verbatim.md`'s 13A/B/C/D row flipped to compliant, since 13B's five required
+fields were its only divergence.
+
+**Open items for whoever builds Stage 75+.** (1) **The four parts are required but their *content* is
+only checked against the phrase lists** — nothing verifies that `decision_basis` cites a real statute,
+and nothing links it to Stage 68's `request_legal_reviews.primary_legislation`, which holds the legal
+officer's own answer to almost the same question. Whichever stage wants the two to agree should decide
+that deliberately rather than by accident, the same open item Stage 68 left for `approving_body`. (2)
+**A recorded decision is immutable** — there is no amend endpoint, matching every one-shot action since
+Stage 26; Art. 94's "فلا يعدل المحضر المعتمد بصورة غير رسمية" is the governing instinct, and correcting
+a decision means the reopen mechanism Stage 66 built. (3) **Art. 91's other four reasoned cases**
+(الاستبعاد، التوصية بإنهاء الخدمة، الترجيح بين عدة موظفين، مخالفة رأي سابق) still have no outcome of
+their own; if a later stage adds one, add it to `DecisionStructureRules::REASONED_OUTCOMES` at the same
+time or it will silently escape the reasoning requirement. (4) **`instrument` drives nothing
+downstream** — Art. 90 says the three have different administrative effects, and a توصية arguably should
+not reach the same approval chain a قرار does, but wiring that is a workflow change this stage's Build
+bullet never asked for. (5) The seven Appendix 59 templates are **drafting aids, not enforced wording**:
+nothing checks that a recorded منطوق resembles the formula it was drafted from, deliberately, since the
+formulas' blanks are exactly where the committee's own judgment goes.
+
+---
+
+### 2026-09-08 04:30 EET — Claude — Stage 74 implementation plan (structured decisions, deferrals and refusals)
+
+Building Stage 74 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Appendix 27**
+(ضوابط صياغة القرار — the four parts, plus its own ban on unmeasurable phrases), **Appendix 28**
+(ضوابط صياغة عدم الموافقة — seven professional reasons, "لا يكتب: (لم توافق اللجنة) فقط"),
+**Appendix 29** (ضوابط التأجيل — "يمنع استخدام عبارة (تأجيل للمراجعة) دون بيان المطلوب"),
+**Appendix 59** (بنك صيغ قرارات — the seven formulas), and **Arts. 34** (المعاملة المؤجلة — five
+fields), **89** (القرار المستقل — six per-decision elements), **90** (القرار والتوصية — "يمنع
+استخدام هذه المصطلحات بصورة متبادلة") and **91** (تسبيب النتيجة — seven cases, and the
+"لمصلحة العمل"/"لعدم الاستحقاق" insufficiency rule).
+
+**The single free-text `decisions.comment` is what this stage replaces**, and every one of the four
+Build bullets is a different structure that column was standing in for. One migration, eleven
+nullable columns on `decisions`; the real database holds **0 decisions, 0 templates, 0 minutes and 0
+votes** (confirmed before designing), so there is no backfill question and nullable-at-DB with
+outcome-dependent requiredness enforced in code is safe.
+
+**Appendix 27's four parts become four columns**, `decision_subject` / `decision_facts` /
+`decision_basis` / `decision_operative` — not a JSON blob, the same precedent Stage 68 set for
+Appendix 22's card and Stage 73 for Appendix 65's. This also completes **Art. 89** at the same time:
+its six per-decision elements are رقم القرار (Stage 70), رقم المعاملة (already), موضوعها
+(`decision_subject`), منطوق النتيجة (`decision_operative`), ما انتهت إليه اللجنة (`outcome`) and
+الملاحظات اللازمة — which is what `comment` becomes, a genuine notes field rather than the place all
+four parts were being crammed.
+
+**Requiredness splits substantive from procedural outcomes, and that is the judgment call worth
+recording.** Art. 89 requires موضوعها and منطوق النتيجة for *every* per-request decision in the
+محضر, unconditionally — so `decision_subject` and `decision_operative` are required for all twelve
+outcomes (seven ordinary + five appeal). Appendix 27's other two parts (الوقائع، السند) describe a
+قرار that *resolves* a موضوع, so they are required only for the outcomes that dispose of the matter
+substantively — `approve`, `conditional_approval`, `reject`, `no_jurisdiction`, `appeal_accept`,
+`appeal_partial_accept`, `appeal_reject` — and not for the procedural ones (`defer`,
+`legal_opinion`, `refer_other_body`, `appeal_refer`, `appeal_redo`), which carry their own
+structured fields instead: the deferral five for `defer`, `referral_authority` (Stage 50) for the
+referrals. Demanding a سند for a تأجيل would be asking for the legal basis of a resolution that has
+not been reached.
+
+**Art. 90 becomes a required `instrument` column** (`decision|recommendation|opinion`) — the article
+does not merely describe the difference, it forbids interchange ("لكل منها أثرًا إداريًا مختلفًا"),
+which is unenforceable while nothing records which one was issued. The vocabulary is deliberately
+**the one already in the schema**: Stage 68's `RequestLegalReview::COMMITTEE_MANDATES` (Appendix
+22's بطاقة السند القانوني) is `decision|recommendation|opinion|study_only`, so the legal officer's
+pre-meeting answer and the committee's recorded instrument speak the same three words instead of two
+near-synonymous enums. `study_only` is **not** an instrument value — it is Appendix 22's "the
+committee only studies", i.e. issues none — so a card recording it simply pre-fills nothing. The
+pre-fill is a UI hint read off the request's `latestLegalReview`, never enforced: Art. 92 wants the
+approving body determined *before* the sitting, but Art. 90 is about what the committee actually
+issued, and the committee is not bound by the legal officer's expectation (Art. 14 (ب)).
+
+**Art. 34's five deferral fields, with the source's own qualifiers honoured exactly.** Five columns
+(`deferral_reason`, `deferral_required_completion`, `deferral_responsible_body`,
+`deferral_required_document`, `deferral_legal_period`); the first four are required on a `defer`
+because Art. 34 bullets them plainly, and the fifth is optional because it alone carries "إن وجدت".
+That requirement *is* Appendix 29's rule — "تأجيل للمراجعة" with no المطلوب stated becomes
+impossible to record, rather than merely discouraged. Deferral fields are `defer`-only and
+employee_request-only: no appeal outcome is a تأجيل. Art. 34's other half (the request stays
+مؤجلة — تحت الاستكمال and does not close when the meeting ends) is **already true** — `defer` is a
+self-loop at `receive_from_committee` setting the `deferred` status — so it is verified here, not
+rebuilt.
+
+**Refusal reasoning is a code plus the four parts, not a second free-text field.** New
+`refusal_reason_code`, required for the outcomes Art. 91 names that exist in this vocabulary —
+`reject` (عدم الموافقة), `no_jurisdiction` (عدم الاختصاص) and `appeal_reject` (رفض تظلم); Art. 91's
+other four cases (الاستبعاد، التوصية بإنهاء الخدمة، الترجيح بين عدة موظفين، مخالفة رأي سابق) have no
+distinct outcome here and are not invented. A new `App\Services\DecisionReasoningRules` owns
+Appendix 28's seven codes verbatim (`period_condition_unmet`, `position_unavailable`,
+`legal_text_inapplicable`, `essential_condition_missing`, `outside_jurisdiction`,
+`document_invalid`, `legal_impediment`) **plus `other`** — because Appendix 28 introduces its list
+with "مثل", i.e. examples, and an exhaustive enum would close a list the source deliberately leaves
+open. `other` is not a loophole: every code requires the substantiation to be present anyway, since
+these three outcomes are all substantive and therefore already require الوقائع and السند.
+
+**The generic-phrase check is two lists applied to two different fields, each directly sourced —
+and it tests insufficiency, not prohibition.** Appendix 27's three unmeasurable phrases
+(اتخاذ اللازم / النظر في الموضوع / حسب الإجراءات) are checked against `decision_operative` for every
+outcome, because that appendix's own ban is on the المنطوق and is explicitly conditional ("إلا إذا
+كانت مرتبطة بإجراء محدد وواضح"). Art. 91's two (لمصلحة العمل / لعدم الاستحقاق) plus Appendix 28's
+"لم توافق اللجنة" are checked against the reasoning (`decision_facts` + `decision_basis`) for the
+three reasoned outcomes. **The rule is: refuse when, after removing every listed phrase, no letters
+remain at all** — which literally implements "لا تكفي عبارات مثل…" (Art. 91), "عدم الاكتفاء بعبارة
+(عدم الاستحقاق)" (Appendix 59's fourth formula) and "لا يكتب: (لم توافق اللجنة) **فقط**" (Appendix
+28's own word). No minimum word count, no similarity scoring: a threshold would be an invented
+number of exactly the kind Stage 73 spent its whole scope removing, and the phrase *plus* specifics
+is what all three sources say is acceptable. The structure is the primary enforcement; the phrase
+list is the backstop for someone who fills a required box with the banned phrase.
+
+**One `App\Services\DecisionStructureRules`** validates a submitted structure against the resolved
+outcome and returns Arabic messages, read by **both** `record()` and `recordAppealDecision()` — the
+`CommitteeVotingRules`/`DecisionEligibility` precedent, and necessary here because
+`StoreDecisionRequest` is format-only by documented design (requiredness depends on the tally, which
+is not known until the controller has resolved it).
+
+**Appendix 59's seven formulas become a new `TemplateSeeder`** (`category = decision`), closing the
+"entirely inert until an R08 admin creates one" gap Stage 35's own note left. Transcribed verbatim
+with one deliberate exception: where a blank's own surrounding words name exactly what a Stage 42
+`{{token}}` supplies ("المعاملة رقم ..............." in formulas 3 and 6 → `{{reference_number}}`),
+the token replaces the blank so `DecisionDraftComposer` does real work; every other blank stays the
+source's own `...............` for the recorder to fill. The formulas are single flowing "قررت
+اللجنة …" statements, i.e. منطوق, so the draft endpoint's result now lands in `decision_operative`
+rather than the comment box.
+
+**Frontend**: `AgendaItemDecisionPanel.vue`'s record-decision form gains the instrument select
+(pre-filled from the legal card), the four parts, a refusal-reason select and a deferral fieldset —
+the last two shown only when `predictedOutcome()` says they apply, mirroring how the signature pad
+is already gated; the server is the enforcement either way. The recorded-decision display and
+`MeetingMinutesCompiler`'s per-item decision block both carry the new fields (Art. 89 puts them
+*inside* the محضر). New shared `lib/decisionStructure.js` for the code lists (the
+`decisionOutcomes.js` precedent), `DecisionsView.vue`'s register gains an instrument column, and the
+export gains the same. One narrow eager-load addition (`request.latestLegalReview`) feeds the
+pre-fill.
+
+**Verification plan**: new `tests/Feature/DecisionStructureTest.php` — subject/operative required on
+every outcome and facts/basis only on the substantive ones; a `defer` refused without Art. 34's four
+mandatory fields and accepted without the optional fifth; a `reject` refused without a
+`refusal_reason_code` and refused again when its reasoning is nothing but "لعدم الاستحقاق", then
+accepted once specifics are added; an operative clause of "اتخاذ اللازم" alone refused while the
+same phrase tied to a concrete action passes; `instrument` required and round-tripping; the appeal
+path enforcing the same rules through `recordAppealDecision()`; the seven Appendix 59 templates
+seeded, active, `category=decision` and reachable through `/decisions/filters`; the new fields
+reaching the compiled محضر. Plus updating the pre-existing decision tests whose fixtures now need a
+structure (a legitimate expectation update, commented in place), the full PHPUnit suite, Pint,
+`npm run build`, locale key-parity, and the migration plus the new seeder against the real
+MySQL/Homestead database.
+
+---
+
 ### 2026-09-08 02:15 EET — Claude — Stage 73 complete (⚠ committee identity card + configurable quorum)
 
 Built per the plan below, from the verbatim sources — [D] **Appendices 64 and 65** and **Arts. 84, 87**
