@@ -1263,8 +1263,6 @@
       "awaitingDecision": "بانتظار قرار اللجنة",
       "markExecuted": "تسجيل التنفيذ",
       "executeConfirm": "هل تؤكد تنفيذ الأثر الإداري أو المالي المطلوب؟",
-      "closeRequest": "إقفال وأرشفة",
-      "closeConfirm": "هل تؤكد اكتمال التوثيق وإقفال هذه المعاملة وأرشفتها؟",
       "summary": {
         "title": "ملخص مخرجات الاجتماع",
         "total_items": "بنود جدول الأعمال",
@@ -1359,6 +1357,56 @@
     "legal_status_change": "تغيّر الحالة القانونية",
     "returned_by_approving_body": "إعادتها من الجهة المعتمِدة",
     "competent_authority_restudy": "توجيه جهة مختصة بإعادة الدراسة"
+  },
+  "requestClosure": {
+    "title": "إقفال المعاملة",
+    "action": "إقفال المعاملة",
+    "formNote": "لا تقفل المعاملة قبل استكمال بطاقة الإقفال (النموذج 18).",
+    "auditTitle": "قائمة التدقيق النهائية قبل الإقفال",
+    "auditNote": "لا يغلق المقرر أي معاملة إلا بعد الإجابة بنعم على ما ينطبق منها.",
+    "confirm": "إثبات الإقفال",
+    "cancel": "إلغاء",
+    "saving": "جارٍ الحفظ…",
+    "error": "تعذر إقفال المعاملة.",
+    "closedAt": "تاريخ الإقفال",
+    "closedBy": "مسؤول الإقفال",
+    "fields": {
+      "final_result_code": "النتيجة النهائية",
+      "final_decision_number": "رقم القرار النهائي",
+      "approving_body": "جهة الاعتماد",
+      "execution_date": "تاريخ التنفيذ",
+      "executing_body": "الجهة المنفذة",
+      "notice_status": "حالة الإشعار",
+      "file_storage_location": "موقع حفظ الملف"
+    },
+    "checks": {
+      "final_result_issued": "هل صدرت نتيجة نهائية؟",
+      "minutes_approved": "هل المحضر معتمد؟",
+      "authority_approval_complete": "هل تم استكمال اعتماد السلطة المختصة؟",
+      "employee_notified": "هل تم إشعار الموظف؟",
+      "executed": "هل تم التنفيذ؟",
+      "service_file_updated": "هل تم تحديث ملف الخدمة؟",
+      "electronic_record_updated": "هل تم تحديث السجل الإلكتروني؟",
+      "decision_copy_attached": "هل أرفقت نسخة القرار؟",
+      "execution_document_attached": "هل أرفق مستند التنفيذ؟",
+      "appeal_path_concluded": "هل انتهى مسار التظلم المفتوح إن وجد؟",
+      "no_party_awaiting_action": "هل لا توجد جهة تنتظر إجراءً؟",
+      "archive_location_set": "هل تم تحديد مكان الأرشفة؟"
+    },
+    "answers": {
+      "yes": "نعم",
+      "no": "لا",
+      "not_applicable": "لا ينطبق"
+    },
+    "notice": {
+      "notified": "تم الإشعار",
+      "requester_unreachable": "تعذر الوصول إلى صاحب المعاملة"
+    },
+    "results": {
+      "executed": "منفذة ومغلقة",
+      "not_approved": "غير موافق عليها ومغلقة",
+      "outside_jurisdiction": "عدم اختصاص ومغلقة"
+    }
   },
   "workflow": {
     "actions": {

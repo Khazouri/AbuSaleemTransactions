@@ -96,7 +96,12 @@ class ScreenRolePermissionSeeder extends Seeder
         'meeting_minutes' => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R03'], 'edit' => ['R03'], 'print' => '*'],
         // Stage 37: everyone may follow live outputs; only the head certifies
         // execution completion through `edit`.
-        'meeting_outputs' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        // Stage 75 — R02 joins `edit`: Appendix 47 addresses closure to المقرر
+        // ("لا يغلق المقرر أي معاملة إلا بعد الإجابة بنعم على الآتي"), and R02's
+        // RoleSeeder name is literally المقرر. Additive rather than a swap — the
+        // source removes nothing from the chair, and this grant also gates the
+        // Stage 75 request-closure route.
+        'meeting_outputs' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R02', 'R03'], 'print' => '*'],
 
         // One approval screen per authority — single-role by design, so no one
         // can approve at a level that isn't theirs.

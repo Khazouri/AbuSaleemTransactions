@@ -89,6 +89,26 @@ class RequestDetailResource extends RequestResource
             // Stage 16 — metadata lets the SPA require reasons and visually
             // distinguish exception commands from normal forward progress.
             'available_transitions' => $this->available_transitions ?? [],
+            // Stage 75 — [D] Art. 37's closure record, and Appendix 47's
+            // twelve-point audit answered when it was written. Both null until
+            // the request is actually closed.
+            'closure' => $this->closure === null ? null : [
+                ...$this->closure,
+                'closed_at' => $this->closed_at?->toIso8601String(),
+                'closed_by' => $this->closedBy ? [
+                    'id' => $this->closedBy->id,
+                    'name' => $this->closedBy->name,
+                ] : null,
+            ],
+            'closure_audit' => $this->closure_audit,
+            // Appendix 48's refusal, computed once here so the screen's "why
+            // this cannot be closed" and the endpoint's own 422 are the same
+            // sentence. Deliberately on the detail resource only — list
+            // payloads stay unchanged, per Stage 72's precedent.
+            'closure_eligibility' => [
+                'can_close' => $this->closure_refusal === null,
+                'reason' => $this->closure_refusal,
+            ],
         ];
     }
 }

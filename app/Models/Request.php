@@ -34,6 +34,13 @@ class Request extends Model
         'decision_grade',
         'has_financial_impact',
         'jurisdiction_test',
+        // Stage 75 — [D] Art. 37's closure record. Written only by
+        // RequestClosureService (and cleared by RequestController::reopen),
+        // but fillable so both write it through one update() call.
+        'closure',
+        'closure_audit',
+        'closed_by_user_id',
+        'closed_at',
     ];
 
     protected function casts(): array
@@ -52,6 +59,11 @@ class Request extends Model
             // once at requirements_check and gating that stage's approve/
             // declare_no_jurisdiction/reject_formally outcomes.
             'jurisdiction_test' => 'array',
+            // Stage 75 — Art. 37's eight closure fields and Appendix 47's
+            // twelve-point pre-closure audit.
+            'closure' => 'array',
+            'closure_audit' => 'array',
+            'closed_at' => 'datetime',
         ];
     }
 
@@ -78,6 +90,12 @@ class Request extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /** Stage 75 — النموذج 18's مسؤول الإقفال. */
+    public function closedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'closed_by_user_id');
     }
 
     public function stageLogs(): HasMany

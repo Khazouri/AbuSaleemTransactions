@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Request\CloseRequest;
 use App\Http\Requests\Request\IndexRequest;
 use App\Http\Requests\Request\RecordJurisdictionTestRequest;
 use App\Http\Requests\Request\ReopenRequest;
@@ -25,6 +26,7 @@ use App\Services\ApprovalSignatureStorage;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\NotificationDispatcher;
 use App\Services\ReopenReasonCatalog;
+use App\Services\RequestClosureService;
 use App\Services\RequestDeadlineService;
 use App\Services\RequestVisibility;
 use App\Services\WorkflowService;
@@ -403,6 +405,58 @@ class RequestController extends Controller
             throw ValidationException::withMessages(['target_stage_id' => [$exception->getMessage()]]);
         }
 
+        // Stage 75 — a reopened request must not keep carrying the previous
+        // lap's Art. 37 closure card, or Stage 75's own one-shot gate would
+        // stay stuck refusing a second, genuine closure. Same clearing
+        // AppealController::reopen() already does for Stage 65's bookkeeping.
+        if ($requestRecord->closed_at !== null) {
+            $requestRecord->update([
+                'closure' => null,
+                'closure_audit' => null,
+                'closed_by_user_id' => null,
+                'closed_at' => null,
+            ]);
+        }
+
+        return $this->detailResource($requestRecord, $workflow, $actor);
+    }
+
+    /**
+     * Stage 75 — [D] Art. 37's الإقفال.
+     *
+     * The sole entry point for Art. 38's code 20. Stage 37/69's meeting-scoped
+     * close was removed in favour of this one: Art. 37's second and third final
+     * paths (عدم الموافقة، عدم الاختصاص) close requests that may never have
+     * ridden a committee agenda at all, so a meeting-scoped action cannot serve
+     * them, and two writers of the same terminal status is the dual-path trap
+     * Stage 54's jurisdiction gate had to design around.
+     *
+     * The refusal check runs here and again inside the service's own lock —
+     * an appeal can be filed between the two.
+     */
+    public function close(
+        CloseRequest $request,
+        Request $requestRecord,
+        RequestClosureService $closure,
+        WorkflowService $workflow,
+    ): RequestDetailResource|JsonResponse {
+        $actor = $request->user();
+
+        $requestRecord->loadMissing('status:id,code');
+
+        $validated = $request->validated();
+        $audit = $validated['audit'];
+
+        if (($reason = $closure->refusalReason($requestRecord, $audit)) !== null) {
+            return response()->json(['message' => $reason], 422);
+        }
+
+        try {
+            $requestRecord = $closure->close($requestRecord, $actor, $validated, $audit);
+        } catch (\DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
         return $this->detailResource($requestRecord, $workflow, $actor);
     }
 
@@ -451,8 +505,17 @@ class RequestController extends Controller
             // as latestStageLog above.
             'latestLegalReview',
             'latestLegalReview.reviewedBy:id,name',
+            // Stage 75 — النموذج 18's مسؤول الإقفال, named on the closure card.
+            'closedBy:id,name',
         ]);
         $requestRecord->loadCount('legalReviews');
+        // Stage 75 — Appendix 48's refusal, computed by the same service the
+        // close endpoint enforces with, so the screen can never offer a button
+        // that endpoint would refuse.
+        $requestRecord->setAttribute(
+            'closure_refusal',
+            app(RequestClosureService::class)->refusalReason($requestRecord),
+        );
         $availableTransitions = $workflow->availableTransitions($requestRecord, $actor)
             ->filter(fn ($rule) => $rule->action !== 'approve'
                 || $this->actorCanApproveCurrentLevel($requestRecord, $actor))

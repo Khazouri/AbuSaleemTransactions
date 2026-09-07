@@ -11,7 +11,14 @@ use App\Services\MeetingOutputService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
-/** Stage 37 — meeting-to-request outputs tracking through execution and close. */
+/**
+ * Stage 37 — meeting-to-request outputs tracking through execution.
+ *
+ * Stage 75 moved closure off this screen's own routes: Art. 37's الإقفال is a
+ * request-level act (two of its four final paths close requests that never
+ * reached an agenda), so it lives at PATCH requests/{requestRecord}/close. The
+ * outputs screen still offers the button; it posts there.
+ */
 class MeetingOutputsController extends Controller
 {
     public function show(Meeting $meeting): MeetingOutputsResource
@@ -27,20 +34,6 @@ class MeetingOutputsController extends Controller
         MeetingOutputService $outputs,
     ): MeetingOutputsResource {
         return $this->apply($meeting, $agendaItem, fn () => $outputs->markExecuted($agendaItem, $request->user()));
-    }
-
-    /**
-     * Stage 69 — Art. 38 code 19 → 20. Kept a separate call from execute()
-     * because Appendix 5 refuses to let the two collapse: "منفذة … لكنها لا
-     * تصبح مغلقة إلا بعد التحقق من اكتمال التوثيق".
-     */
-    public function close(
-        Request $request,
-        Meeting $meeting,
-        MeetingRequest $agendaItem,
-        MeetingOutputService $outputs,
-    ): MeetingOutputsResource {
-        return $this->apply($meeting, $agendaItem, fn () => $outputs->close($agendaItem, $request->user()));
     }
 
     private function apply(Meeting $meeting, MeetingRequest $agendaItem, callable $move): MeetingOutputsResource

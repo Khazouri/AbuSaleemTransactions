@@ -6,6 +6,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
+import RequestClosurePanel from '../components/RequestClosurePanel.vue'
 import api from '../lib/api'
 
 const route = useRoute()
@@ -64,17 +65,19 @@ async function load({ quiet = false } = {}) {
 
 // Stage 69 — [D] Art. 38 keeps 19 (منفذة) and 20 (مغلقة ومؤرشفة) apart, so a
 // row offers one of two actions: record the effect, then close the file.
-async function runAction(output, action) {
-  const confirmKey = action === 'execute'
-    ? 'meetingsUnit.outputs.executeConfirm'
-    : 'meetingsUnit.outputs.closeConfirm'
-  if (!window.confirm(t(confirmKey))) return
+//
+// Stage 75 — only the first is a meeting-output action. Closure carries Art.
+// 37's card and Appendix 47's audit, and is a request-level act (two of that
+// article's four final paths close requests that never reached an agenda), so
+// it runs through the shared RequestClosurePanel against the request itself.
+async function markExecuted(output) {
+  if (!window.confirm(t('meetingsUnit.outputs.executeConfirm'))) return
 
   completingId.value = output.agenda_item_id
   actionError.value = ''
   try {
     const { data } = await api.post(
-      `/meetings/${meetingId.value}/outputs/${output.agenda_item_id}/${action}`,
+      `/meetings/${meetingId.value}/outputs/${output.agenda_item_id}/execute`,
     )
     tracker.value = data.data
   } catch (requestError) {
@@ -225,24 +228,17 @@ onUnmounted(() => window.clearInterval(refreshTimer))
                     class="primary compact"
                     type="button"
                     :disabled="completingId === output.agenda_item_id"
-                    @click="runAction(output, 'execute')"
+                    @click="markExecuted(output)"
                   >
                     {{ completingId === output.agenda_item_id
                       ? t('common.saving')
                       : t('meetingsUnit.outputs.markExecuted') }}
                   </button>
-                  <button
-                    v-else-if="output.can_close"
-                    v-can="'meeting_outputs.edit'"
-                    class="primary compact"
-                    type="button"
-                    :disabled="completingId === output.agenda_item_id"
-                    @click="runAction(output, 'close')"
-                  >
-                    {{ completingId === output.agenda_item_id
-                      ? t('common.saving')
-                      : t('meetingsUnit.outputs.closeRequest') }}
-                  </button>
+                  <RequestClosurePanel
+                    v-else-if="output.can_close && output.request"
+                    :request-id="output.request.id"
+                    @closed="() => load({ quiet: true })"
+                  />
                   <span v-else class="muted">{{ t('common.none') }}</span>
                 </td>
               </tr>

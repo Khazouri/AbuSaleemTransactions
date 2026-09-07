@@ -1263,8 +1263,6 @@
       "awaitingDecision": "Awaiting committee decision",
       "markExecuted": "Record execution",
       "executeConfirm": "Confirm that the required administrative or financial effect has been carried out?",
-      "closeRequest": "Close and archive",
-      "closeConfirm": "Confirm that documentation is complete, then close and archive this request?",
       "summary": {
         "title": "Meeting output summary",
         "total_items": "Agenda items",
@@ -1359,6 +1357,56 @@
     "legal_status_change": "A change in legal status",
     "returned_by_approving_body": "Returned by the approving body",
     "competent_authority_restudy": "A competent authority directed a re-study"
+  },
+  "requestClosure": {
+    "title": "Request closure",
+    "action": "Close the request",
+    "formNote": "A request is not closed until its closure card (Form 18) is complete.",
+    "auditTitle": "Final pre-closure audit",
+    "auditNote": "The rapporteur closes nothing until every applicable check is answered yes.",
+    "confirm": "Record the closure",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "error": "The request could not be closed.",
+    "closedAt": "Closure date",
+    "closedBy": "Closed by",
+    "fields": {
+      "final_result_code": "Final result",
+      "final_decision_number": "Final decision number",
+      "approving_body": "Approving body",
+      "execution_date": "Execution date",
+      "executing_body": "Executing body",
+      "notice_status": "Notification status",
+      "file_storage_location": "File storage location"
+    },
+    "checks": {
+      "final_result_issued": "Has a final result been issued?",
+      "minutes_approved": "Have the minutes been approved?",
+      "authority_approval_complete": "Is the competent authority's approval complete?",
+      "employee_notified": "Has the employee been notified?",
+      "executed": "Has it been executed?",
+      "service_file_updated": "Has the service file been updated?",
+      "electronic_record_updated": "Has the electronic record been updated?",
+      "decision_copy_attached": "Is a copy of the decision attached?",
+      "execution_document_attached": "Is the execution document attached?",
+      "appeal_path_concluded": "Has any open appeal concluded?",
+      "no_party_awaiting_action": "Is no party still awaiting action?",
+      "archive_location_set": "Has the archive location been set?"
+    },
+    "answers": {
+      "yes": "Yes",
+      "no": "No",
+      "not_applicable": "Not applicable"
+    },
+    "notice": {
+      "notified": "Notified",
+      "requester_unreachable": "Requester unreachable"
+    },
+    "results": {
+      "executed": "Executed and closed",
+      "not_approved": "Not approved and closed",
+      "outside_jurisdiction": "Outside jurisdiction and closed"
+    }
   },
   "workflow": {
     "actions": {

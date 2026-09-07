@@ -279,6 +279,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:appeals,edit')
         ->patch('requests/{requestRecord}/reopen', [RequestController::class, 'reopen']);
 
+    // Stage 75 — [D] Art. 37's الإقفال. Rides `meeting_outputs,edit`, the
+    // grant that already owned the one existing closure action (Stage 37/69):
+    // that screen's declared domain is following a decision through execution
+    // and close, and gating the second and third of Art. 37's final paths
+    // differently would put two closure actions behind two permissions.
+    // Appendix 47 addresses closure to المقرر ("لا يغلق المقرر أي معاملة
+    // إلا بعد…"), which is why that grant gained R02 alongside R03.
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->patch('requests/{requestRecord}/close', [RequestController::class, 'close']);
+
     /*
      * Stage 20 — committees & meetings. Neither has a screen of its own on the
      * 22/23-screen sheet, so both ride the `meetings` screen's permissions
@@ -457,16 +467,17 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
      * Stage 37 — the live, meeting-scoped decision/output tracker. Reading is
-     * broad like the screen; only the head's `edit` grant may certify that an
-     * in-execution request is complete and closed.
+     * broad like the screen; the `edit` grant records that an in-execution
+     * request's effect has been carried out.
+     *
+     * Stage 75 — Art. 38's code 20 is no longer reachable here: closure moved
+     * to PATCH requests/{requestRecord}/close, since two of Art. 37's four
+     * final paths close requests that never reached an agenda.
      */
     Route::middleware('screen.permission:meeting_outputs,view')
         ->get('meetings/{meeting}/outputs', [MeetingOutputsController::class, 'show']);
-    // Stage 69 — Art. 38's codes 19 and 20 are two acts, so two endpoints.
-    Route::middleware('screen.permission:meeting_outputs,edit')->group(function () {
-        Route::post('meetings/{meeting}/outputs/{agendaItem}/execute', [MeetingOutputsController::class, 'execute']);
-        Route::post('meetings/{meeting}/outputs/{agendaItem}/close', [MeetingOutputsController::class, 'close']);
-    });
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->post('meetings/{meeting}/outputs/{agendaItem}/execute', [MeetingOutputsController::class, 'execute']);
 
     /*
      * Stage 21 — committee voting and decision recording. These ride the

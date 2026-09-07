@@ -6,11 +6,14 @@ import { useRoute } from 'vue-router'
 import ApprovalTrail from '../components/ApprovalTrail.vue'
 import FileUpload from '../components/FileUpload.vue'
 import SignaturePad from '../components/SignaturePad.vue'
+import RequestClosurePanel from '../components/RequestClosurePanel.vue'
 import RequestNotes from '../components/RequestNotes.vue'
 import api from '../lib/api'
 // Stage 72 — [D] Appendix 57's grouped document matrix, shared with the intake
 // screen so both read the same list the same way.
 import { documentCondition, documentLabel, groupDocuments } from '../lib/requiredDocuments'
+// Stage 75 — [D] Appendix 47's twelve checks, mirrored once for every screen.
+import { AUDIT_CHECKS } from '../lib/requestClosure'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
@@ -65,6 +68,9 @@ const date = (value) => value
   ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
   : t('common.none')
 const actionLabel = (action) => t(`workflow.actions.${action}`)
+// Stage 75 — the close endpoint answers with the full detail resource, so the
+// screen swaps in the closed request rather than refetching it.
+const onClosed = (updated) => { request.value = updated }
 // Stage 52 — "3" for a single-day target, "5–10" for a range.
 const stageTargetLabel = (st) => st.target_days_min === st.target_days_max
   ? String(st.target_days_max)
@@ -654,6 +660,67 @@ onBeforeUnmount(clearAttachmentPreview)
             </button>
           </div>
         </template>
+      </section>
+
+      <!-- Stage 75 — [D] Art. 37's الإقفال. Shown once the request has reached
+           one of the article's final paths, or as the recorded card afterwards;
+           the refusal reason comes from the same service the endpoint enforces
+           with, so the screen never offers a button the API would refuse. -->
+      <section v-if="request.closure || request.closure_eligibility?.can_close" class="card summary closure">
+        <h3>{{ t('requestClosure.title') }}</h3>
+        <template v-if="request.closure">
+          <dl>
+            <div>
+              <span>{{ t('requestClosure.fields.final_result_code') }}</span>
+              <strong>{{ t(`requestClosure.results.${request.closure.final_result_code}`) }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.closedAt') }}</span>
+              <strong>{{ dateTime(request.closure.closed_at) }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.closedBy') }}</span>
+              <strong>{{ request.closure.closed_by?.name ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.approving_body') }}</span>
+              <strong>{{ request.closure.approving_body ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.final_decision_number') }}</span>
+              <strong>{{ request.closure.final_decision_number ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.execution_date') }}</span>
+              <strong>{{ request.closure.execution_date ? date(request.closure.execution_date) : '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.executing_body') }}</span>
+              <strong>{{ request.closure.executing_body ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.notice_status') }}</span>
+              <strong>{{ t(`requestClosure.notice.${request.closure.notice_status}`) }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.file_storage_location') }}</span>
+              <strong>{{ request.closure.file_storage_location ?? '—' }}</strong>
+            </div>
+          </dl>
+          <h4>{{ t('requestClosure.auditTitle') }}</h4>
+          <ul class="audit-record">
+            <li v-for="check in AUDIT_CHECKS" :key="check">
+              <span>{{ t(`requestClosure.checks.${check}`) }}</span>
+              <strong>{{ t(`requestClosure.answers.${request.closure_audit?.[check] ?? 'no'}`) }}</strong>
+            </li>
+          </ul>
+        </template>
+        <RequestClosurePanel
+          v-else
+          :request-id="request.id"
+          :refusal="request.closure_eligibility?.reason"
+          @closed="onClosed"
+        />
       </section>
 
       <div class="columns">

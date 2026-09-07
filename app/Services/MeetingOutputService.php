@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Exceptions\MeetingOutputTransitionException;
-use App\Models\Appeal;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStatus;
@@ -12,18 +11,23 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Closes the execution loop for a decided meeting request.
+ * Records that a decided meeting request's administrative or financial effect
+ * has actually been carried out.
  *
  * This boundary intentionally changes status only. WorkflowService remains the
- * sole owner of stage movement; completion records that work at the final stage
- * has actually been carried out, rather than inventing a twelfth stage.
+ * sole owner of stage movement; execution records that work at the final stage
+ * has been done, rather than inventing a twelfth stage.
  *
  * Stage 69 (Track K) split Stage 37's single `complete()` in two, because [D]
  * Art. 38 has two codes here and Appendix 5 refuses to let them collapse:
  * "الحالة 19 — منفذة. تم تطبيق الأثر الإداري أو المالي. **لكنها لا تصبح مغلقة
- * إلا بعد التحقق من اكتمال التوثيق**." Recording that the effect was carried
- * out (19) and certifying that the file is documented and may be archived (20)
- * are two distinct acts, so they are two distinct calls.
+ * إلا بعد التحقق من اكتمال التوثيق**."
+ *
+ * Stage 75 then moved the second half out of this class entirely. Art. 37's
+ * four final paths include two (عدم الموافقة، عدم الاختصاص) that close requests
+ * which may never have reached a committee agenda at all, so closure cannot be
+ * a meeting-output concern; it lives in RequestClosureService, which is now the
+ * sole writer of code 20. This class owns 18 → 19 and nothing further.
  */
 class MeetingOutputService
 {
@@ -39,53 +43,6 @@ class MeetingOutputService
      */
     public function markExecuted(MeetingRequest $output, User $actor): Request
     {
-        return $this->move(
-            $output,
-            $actor,
-            fromStatus: 'in_execution',
-            toStatus: 'executed',
-            reason: 'تم تنفيذ الأثر الإداري أو المالي المطلوب.',
-            onWrongStatus: MeetingOutputTransitionException::notInExecution(...),
-            enforceAppealHold: false,
-        );
-    }
-
-    /**
-     * [D] Art. 38 code 19 → 20, the formal end of the request's life cycle.
-     *
-     * The appeal hold lives here and not on markExecuted(): Arts. 34–37 keep
-     * the *file* open until every تظلم path against it has concluded, which is
-     * a statement about closure, not about whether the effect was carried out.
-     *
-     * @throws MeetingOutputTransitionException
-     */
-    public function close(MeetingRequest $output, User $actor): Request
-    {
-        return $this->move(
-            $output,
-            $actor,
-            fromStatus: 'executed',
-            toStatus: 'completed_closed',
-            reason: 'تم التحقق من اكتمال التوثيق وإقفال المعاملة وأرشفتها.',
-            onWrongStatus: MeetingOutputTransitionException::notExecuted(...),
-            enforceAppealHold: true,
-        );
-    }
-
-    /**
-     * @param  callable(): MeetingOutputTransitionException  $onWrongStatus
-     *
-     * @throws MeetingOutputTransitionException
-     */
-    private function move(
-        MeetingRequest $output,
-        User $actor,
-        string $fromStatus,
-        string $toStatus,
-        string $reason,
-        callable $onWrongStatus,
-        bool $enforceAppealHold,
-    ): Request {
         if (! $output->exists) {
             throw MeetingOutputTransitionException::outputNotPersisted();
         }
@@ -102,9 +59,7 @@ class MeetingOutputService
             throw MeetingOutputTransitionException::decisionRequired();
         }
 
-        return DB::transaction(function () use (
-            $output, $actor, $fromStatus, $toStatus, $reason, $onWrongStatus, $enforceAppealHold
-        ) {
+        return DB::transaction(function () use ($output, $actor) {
             $requestRecord = Request::query()
                 ->with(['currentStage:id,code', 'status:id,code'])
                 ->lockForUpdate()
@@ -114,18 +69,11 @@ class MeetingOutputService
                 throw MeetingOutputTransitionException::wrongStage();
             }
 
-            if ($requestRecord->status?->code !== $fromStatus) {
-                throw $onWrongStatus();
+            if ($requestRecord->status?->code !== 'in_execution') {
+                throw MeetingOutputTransitionException::notInExecution();
             }
 
-            // Stage 59, Track J — [D] Arts. 34–37: the file stays open until
-            // every تظلم path against it has concluded. Stage 65 is the one
-            // that releases this hold once an appeal reaches notified_closed.
-            if ($enforceAppealHold && Appeal::openAgainst($requestRecord->id)) {
-                throw MeetingOutputTransitionException::appealOpen();
-            }
-
-            $target = RequestStatus::query()->where('code', $toStatus)->firstOrFail();
+            $target = RequestStatus::query()->where('code', 'executed')->firstOrFail();
 
             $fromStatusId = $requestRecord->status_id;
             $requestRecord->update(['status_id' => $target->id]);
@@ -134,7 +82,7 @@ class MeetingOutputService
                 'request_id' => $requestRecord->id,
                 'from_status_id' => $fromStatusId,
                 'to_status_id' => $target->id,
-                'reason' => $reason,
+                'reason' => 'تم تنفيذ الأثر الإداري أو المالي المطلوب.',
                 'changed_by_user_id' => $actor->id,
                 'changed_at' => now(),
             ]);

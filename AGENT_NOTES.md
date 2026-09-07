@@ -14,6 +14,298 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-08 09:55 EET — Claude — Stage 75 complete (request closure record)
+
+Built per the plan below, from the verbatim sources — [D] **Art. 37**, **Appendices 47 and 48** and
+**النموذج 18** read directly, plus Art. 38's code 20 and Stage 65's appeal-closure implementation. One
+migration (four columns on `requests`), applied to the real MySQL/Homestead database, plus one seeder
+grant widening. Ordinary requests now get the closure record Stage 65 built for appeals and explicitly
+declined to retrofit here.
+
+**Art. 37's four final paths are the substantive half, and they close Stage 69's own open item (2).**
+The article does not merely list fields — it says a request "لا تعتبر مقفلة إلا بعد تحقق أحد المسارات
+النهائية الآتية" and names four. Only the first (اعتماد + تنفيذ + تحديث الملف + الإشعارات) existed:
+Stage 37/69's `executed` → `completed_closed`. **Paths 2 and 3 had no closure at all** — a `not_approved`
+(code 13) or `outside_jurisdiction` (code 14) request simply stopped, which is exactly what Stage 69
+flagged for this stage to decide. Art. 37 decides it: both close. `RequestClosureService::CLOSABLE_STATUSES`
+is those three. Path 4 (انتهاء أي مسار تظلم) is **not a fourth origin status** but the rule that the file
+stays open until every تظلم concludes — already `Appeal::openAgainst()` and also Appendix 48's sixth
+condition — so it gates the other three rather than being invented into a status of its own.
+
+All three land on **`completed_closed`**; the final result survives in the card's computed
+`final_result_code` and in `request_status_history`, the same reasoning Stage 65 used for appeals.
+**`referred_to_other_body` is deliberately NOT closable** despite النموذج 18 listing "أحيلت نهائيًا لجهة
+أخرى" among its final states: in this system that status is Stage 35's *self-loop* asking another body
+for input, which Art. 26 lists among التأجيل's reasons — a pending state. The genuinely final referral is
+`outside_jurisdiction` carrying Stage 50's `referral_authority`, so no new status was invented.
+
+**This stage removed a closure path rather than adding a second one, and that is the design decision not
+to re-litigate.** Closure is a property of the *request*, not of a meeting — a Stage 54 pre-committee
+عدم اختصاص request never rode an agenda, so a meeting-scoped action cannot serve Paths 2/3.
+`MeetingOutputService::close()`, `MeetingOutputsController::close()` and their route were **deleted**;
+`MeetingOutputService` now owns 18 → 19 and nothing further (its `move()` helper collapsed back inline,
+since it had one caller and a dead parameter), and `MeetingOutputTransitionException` lost its two
+now-unreachable closure factories. New `PATCH requests/{requestRecord}/close` is the sole writer of code
+20. The outputs screen keeps its close button — it posts there, carrying the card. The meeting-scoped
+guards are not lost: `executed` is reachable only through `markExecuted()`, which already requires a
+persisted item with a decision.
+
+**Appendix 47 is the closer's attestation; Appendix 48 is the system's refusal list; where they overlap
+the system's fact wins and the question is not asked** — the split Stage 60 established for appeal formal
+verification. Ten of Appendix 47's twelve checks are answered by the closer; **two are server-derived**
+(`appeal_path_concluded` from `Appeal::openAgainst()`, `archive_location_set` from the card's required
+`file_storage_location`), because asking a human for an answer the system holds — and would then have to
+override — is worse than not asking. All twelve are stored, so the record reads as the appendix's own list.
+
+**Twelve, not thirteen.** STAGE_PLAN's Build bullet calls Appendix 47 a "thirteen-point" audit; the
+verbatim appendix has **twelve** bullets. The source text wins, the precedent Stage 68 set when Appendix
+22's verbatim "دراسة فقط" beat its paraphrase.
+
+**The ten closer checks are tri-state (`yes|no|not_applicable`), and that is the judgment call worth
+recording.** Appendix 47's preamble is "إلا بعد الإجابة بنعم على الآتي", but Art. 37's four paths make
+some questions genuinely inapplicable: a Path 3 عدم اختصاص closed before any sitting has no محضر to
+approve, no قرار to attach and nothing to execute. Requiring "نعم" there would have the system forbid
+what Art. 37 explicitly permits — the error Stage 74 avoided by not asking for the سند of a resolution
+nobody has reached — and النموذج 18's own final-state list (منفذة ومغلقة · غير موافق عليها ومغلقة · عدم
+اختصاص ومغلقة) shows the source contemplating closures that are not executions. A single `no` refuses,
+quoting the failed question back. `not_applicable` is not a loophole: Appendix 48's refusals are read from
+real state and cannot be ticked away.
+
+**Appendix 48's eight conditions, seven enforced and one recorded as an honest gap.** (1) بانتظار اعتماد
+→ `awaiting_municipal_approval`/`approved`/`awaiting_recommendation_approval`; (2) بانتظار رد الوزارة →
+`awaiting_central_approval`; (3) تحت التنفيذ → `in_execution`; (4) مؤجلة → `deferred`; (5) بانتظار مستند
+طلبته اللجنة → `completion_required`/`incomplete`; (6) مرتبطة بتظلم مفتوح → `Appeal::openAgainst()`;
+(8) صدر قرارها ولم يتم تحديث ملف الموظف → enforced **against the audit's own `service_file_updated`
+answer**, which must be `yes` (not `not_applicable`) whenever the request carries a recorded decision.
+**(7) أعيدت من جهة الاعتماد has no representation anywhere in this schema** — that is Stage 77's scope,
+and it is left unbuilt rather than proxied off a status meaning something else. Conditions 1–5 are
+mechanically redundant against the three-status whitelist, but each is checked first and by name so a
+closer reads "لا يجوز إقفال معاملة مؤجلة" rather than a generic refusal — the one-message-at-a-time
+discipline `DecisionStructureRules` set. Condition (8) is also **why the audit must be recorded rather
+than merely displayed**: without a stored answer that condition is unenforceable, since Track K's scope
+decision (1) puts ملف الخدمة outside this app.
+
+**Schema mirrors Stage 65's appeal columns exactly**: `requests.closure` (json), `closed_by_user_id`
+(FK, nullOnDelete), `closed_at` — plus `closure_audit` (json), which the appeal side has no equivalent
+of. `closed_at` **is** Art. 37's تاريخ الإقفال and `closed_by_user_id` is النموذج 18's مسؤول الإقفال, so
+the JSON carries the other seven fields under Stage 65's own key names. Requiredness mirrors Stage 65
+literally (`approving_body` + `file_storage_location` required; `final_decision_number`/`execution_date`/
+`executing_body` optional — Art. 37 qualifies only رقم القرار النهائي with "إن وجد", but two of its four
+paths involve no execution at all, so those two cannot bind). `final_result_code` and `notice_status` are
+**computed, never client-supplied**, exactly as Stage 65 argued — proven by a test that spoofs both and
+gets the real values back. The real database held **0 requests** going in, so there was no backfill.
+
+**Reopening clears the closure**, matching `AppealController::reopen()`'s own clearing of Stage 65's
+bookkeeping — otherwise Stage 75's one-shot gate would stay stuck refusing a second, genuine closure on a
+request Stage 66 had legitimately reopened.
+
+**One real correctness gap found and closed, not deferred — the third instance of the same class.**
+`RequestVisibility::apply()` excludes every terminal status from a non-creator's assignment-based
+visibility, and Art. 37's three closable statuses are all in that list; a Stage 54 pre-committee
+عدم اختصاص additionally appears on no meeting screen at all. So the closer would have 404'd on the very
+file Appendix 47 puts in front of them. Fixed with one bounded clause (a `meeting_outputs,can_edit` holder
+sees a request in one of the three closable states, or one already closed so the card stays readable) —
+the same shape Stage 47 used for قسم المرتبات and Stage 68 for R11, and **verified live over HTTP**, not
+merely unit-tested. The Stage 60/68 gotcha held again: `hasScreenPermission()` needs the `can_` prefix.
+
+**Permissions**: `meeting_outputs,edit` widened `['R03']` → `['R02','R03']`. Appendix 47 addresses closure
+to المقرر ("**لا يغلق المقرر** أي معاملة إلا بعد…") and R02's RoleSeeder name is literally المقرر; today
+only the chair could close. Additive rather than a swap — the source removes nothing from the chair, and
+swapping would break Stage 37/69's behaviour for no sourced reason. R08 gets it automatically.
+
+**No notification, deliberately.** Art. 101's twelve moments are Stage 79's scope, and Appendix 47 puts
+إشعار الموظف *before* closure as a precondition (check #4), not at it — so firing one here would be both
+out of scope and out of order.
+
+Frontend: new shared `RequestClosurePanel.vue` (the `AgendaItemDecisionPanel.vue` precedent — two screens
+need the same twelve-check form) plus `lib/requestClosure.js` mirroring the check list once. `RequestDetailView`
+gained a closure card that shows the recorded card and audit once closed, or the panel plus Appendix 48's
+refusal when it cannot close; `MeetingOutputsView`'s close button became that panel and its `runAction()`
+collapsed to `markExecuted()`. New top-level `requestClosure.*` locale block in both files; the outputs
+screen's now-unused `closeRequest`/`closeConfirm` keys were removed.
+
+Verification: new `tests/Feature/RequestClosureTest.php` (11 tests — all three of Art. 37's paths closing
+with the card recorded and the stage untouched; Appendix 48's five status conditions each refusing in its
+own words plus the generic fall-through; the appeal hold blocking then releasing; a single `no` refusing
+while `not_applicable` passes, and an unanswered check refused by validation; condition 8 refusing
+`not_applicable` once a decision exists; the two required card fields; the one-shot gate and a reopen
+clearing the card; `final_result_code`/`notice_status` computed against spoofed input; the R04 403 and
+R03 200; the detail screen reporting the endpoint's own refusal). Full suite **384 tests / 2449
+assertions** green (was 373/2375), Pint clean **repo-wide** (`--test` reports zero diffs), `npm run build`
+passes (then reverted `frontend/dist`, tracked in git, per every prior stage's note), locale key-parity
+verified programmatically (1298 keys each side, zero on-one-side-only), and the migration plus the
+`ScreenRolePermissionSeeder` reseed ran clean against the real MySQL/Homestead database.
+
+**One pre-existing test file needed a legitimate endpoint update, not a regression fix** —
+`MeetingOutputsTest`'s four close calls now go through `PATCH /requests/{id}/close` with a card, since
+this stage deliberately moves that action. A new `Tests\ClosesRequests` trait supplies one complete
+payload so those tests say "a properly filled closure card" once (the `RecordsStructuredDecisions`
+precedent); tests whose subject *is* the closure rules build their own deliberately incomplete payloads.
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r02.reviewer@` account and two
+bootstrapped fixtures: a `deferred` request was refused with Appendix 48's own "لا يجوز إقفال معاملة
+مؤجلة."; the closer opened a `outside_jurisdiction` request they did not create (HTTP 200 — the visibility
+fix, proven live) and its `closure_eligibility` read `can_close: true`; a single `no` was refused quoting
+"هل تم إشعار الموظف؟"; the full Path 3 closure recorded the card with `final_result_code:
+outside_jurisdiction`, `notice_status: notified`, both server-derived audit checks `yes` and the stage
+still at `requirements_check`; and a second attempt 422'd with "المعاملة مقفلة بالفعل.". Deleted both
+fixture requests plus their status-history/stage-log/audit rows, revoked every token and purged the queue
+— counts confirmed back to 0 requests / 0 tokens / 0 jobs. **Smoke-test gotcha worth recording**: a
+`curl -d` body containing an em dash (—) arrived at the server empty in this Git-Bash session, surfacing
+as a "every field is required" 422 that looks like a validation bug; writing the JSON to a file and using
+`--data-binary @file` is reliable, and is the safer default for Arabic payloads generally (the 2026-09-02
+note recorded a related mangling).
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Art. **37** ⚠→✅, Appendix **47** ❌→✅ and
+**النموذج 18** ❌→✅, and rewrote Appendix **48**'s row, which **stays ⚠ on purpose** — seven of its eight
+conditions are enforced and the eighth has nothing to read. Headline counts adjusted by this stage's own
+delta (articles 81→82 ✅ / 16→15 ⚠; appendices 47→48 ✅ / 1→0 ❌ — النموذج 18 folds under appendix 3, which
+stays ⚠ while forms 01/03/08 do).
+
+**Open items for whoever builds Stage 76+.** (1) **Appendix 48's seventh condition (أعيدت من جهة
+الاعتماد) is unenforced** because no status or column records a return from the approving body; Stage 77
+owns that, and whichever stage adds it should add the status to `RequestClosureService::BLOCKING_STATUSES`
+at the same time or closure will silently accept a returned file. (2) **Appendix 47's `execution_document_attached`
+is an attestation, not a check against a real attachment** — Stage 76's execution evidence is the thing
+that could make it verifiable, and that stage should decide deliberately whether closure then reads the
+evidence instead of the tick. (3) `service_file_updated` is the one audit answer that *binds*, and it
+binds only when a decision exists — a request closed on Path 3 with no decision can honestly answer
+`not_applicable`, which is correct today but would need revisiting if ملف الخدمة ever moves inside this
+app (Track K scope decision (1)). (4) **A closed request is not immutable in the way an approved محضر is**
+— Stage 66's reopen clears the card, deliberately, since Arts. 34–37 provide re-presentation; there is no
+"amend a closure" endpoint, matching every one-shot action since Stage 26. (5) Closure fires **no
+notification**; Stage 79 (Art. 101) owns whether إقفال المعاملة is one of the twelve moments, and Stage 69's
+own open item about whether a *refusal* notifies is still open there too.
+
+---
+
+### 2026-09-08 08:10 EET — Claude — Stage 75 implementation plan (request closure record)
+
+Building Stage 75 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Art. 37**
+(الإقفال — its **four final paths** and its eight recorded fields), **Appendix 47** (قائمة التدقيق
+النهائية قبل الإقفال), **Appendix 48** (حالات لا يجوز فيها إغلاق المعاملة) and **النموذج 18**
+(بطاقة إقفال المعاملة), plus Art. 38's code 20 and Stage 65's appeal-closure implementation, which
+this stage's own Build bullet says to mirror rather than reinvent.
+
+**A source-vs-paraphrase discrepancy, resolved the way Stages 68/70 resolved theirs.** STAGE_PLAN's
+Build bullet says Appendix 47 is a "thirteen-point" audit; the verbatim appendix has **twelve**
+bullets. The verbatim text wins, as it did when Appendix 22's "دراسة فقط" beat STAGE_PLAN's
+paraphrase. Twelve checks, transcribed in order.
+
+**Art. 37's four paths are the substantive half, and they close Stage 69's own open item (2).** The
+article does not merely list fields — it says a request "لا تعتبر مقفلة إلا بعد تحقق أحد المسارات
+النهائية الآتية" and then names four. Path 1 (اعتماد + تنفيذ + تحديث الملف + الإشعارات) is the only
+one this system implements today: `MeetingOutputService::close()` moves `executed` → `completed_closed`.
+**Paths 2 and 3 have no closure at all** — a `not_approved` (Art. 38 code 13) or `outside_jurisdiction`
+(code 14) request is terminal-ish and simply stops, which is exactly the gap Stage 69 flagged
+("**Stage 75** should decide whether closure applies to refused requests too"). Art. 37 answers it
+explicitly: yes. Path 4 (انتهاء أي مسار تظلم) is **not a fourth origin status** but the rule that the
+file stays open until every تظلم concludes — which is already `Appeal::openAgainst()` and is also
+Appendix 48's sixth condition, so it is honoured as a gate on the other three rather than invented
+into a status of its own.
+
+So `CLOSABLE_STATUSES` is exactly three: `executed` (Path 1), `not_approved` (Path 2),
+`outside_jurisdiction` (Path 3). All three land on **`completed_closed`** (code 20) — the final result
+is preserved in the closure card's `final_result_code` and in `request_status_history`, so nothing is
+lost, the same reasoning Stage 65 used for appeals and Stage 69 used for retaining legacy statuses.
+**`referred_to_other_body` is deliberately NOT closable** even though النموذج 18's final-state list
+includes "أحيلت نهائيًا لجهة أخرى": in this system that status is Stage 35's *self-loop* asking another
+body for input (Art. 26 lists it among التأجيل's reasons), i.e. a pending state, not a final one. The
+final referral flavour is `outside_jurisdiction` carrying Stage 50's `referral_authority`.
+
+**One endpoint, not two — this stage removes a closure path rather than adding a second one.**
+Closure is a property of the *request*, not of a meeting: a Stage 54 pre-committee `outside_jurisdiction`
+request never rode an agenda at all, so a meeting-scoped close cannot serve Paths 2/3. Rather than leave
+`MeetingOutputsController::close()` as a second, card-less way to write `completed_closed` — the exact
+dual-path trap Stage 54's jurisdiction gate hit and Stage 70's numbering hook had to design around —
+`MeetingOutputService::close()` and its route are **deleted**, `MeetingOutputService` keeps
+`markExecuted()` only, and a new `PATCH requests/{requestRecord}/close` becomes the sole writer of code
+20. The outputs screen keeps its close button; it posts to the new endpoint (it already carries
+`request.id` in its payload). The meeting-scoped guards are not lost: `executed` is only reachable
+through `markExecuted()`, which itself already requires a persisted item with a decision.
+
+**Appendix 47 is the closer's attestation; Appendix 48 is the system's refusal list. Where they
+overlap, the system's fact wins and the question is not asked** — the split Stage 60 established for
+appeal formal verification (three human booleans plus one server-computed deadline). Ten of the twelve
+checks are answered by the closer; **two are server-derived** because asking a human and then overriding
+them would be worse than not asking: `appeal_path_concluded` (#10, from `Appeal::openAgainst()`) and
+`archive_location_set` (#12, from the card's required `file_storage_location`).
+
+**The ten human checks are tri-state (`yes|no|not_applicable`), not booleans, and that is the judgment
+call worth recording.** Appendix 47's preamble is "إلا بعد الإجابة بنعم على الآتي", but Art. 37's four
+paths make some questions genuinely inapplicable: a Path 3 عدم اختصاص closed before any committee
+sitting has no محضر to approve, no قرار to attach and nothing to execute. Requiring "yes" there would
+make the system forbid what Art. 37 explicitly permits — the same error Stage 74 avoided by not asking
+for the سند of a resolution nobody has reached. النموذج 18's own "الحالة النهائية" list (منفذة ومغلقة ·
+غير موافق عليها ومغلقة · عدم اختصاص ومغلقة · …) shows the source itself contemplating closures that are
+not executions. Closure requires every check to be `yes` **or** `not_applicable`; a single `no` refuses.
+`not_applicable` is not a loophole, because Appendix 48's refusals are enforced from real state and
+cannot be ticked away.
+
+**Appendix 48's eight conditions, mapped one by one.** (1) بانتظار اعتماد → status
+`awaiting_municipal_approval` / `approved` (legacy) / `awaiting_recommendation_approval`; (2) بانتظار رد
+الوزارة → `awaiting_central_approval`; (3) تحت التنفيذ → `in_execution`; (4) مؤجلة → `deferred`;
+(5) بانتظار مستند طلبته اللجنة → `completion_required` / `incomplete`; (6) مرتبطة بتظلم مفتوح →
+`Appeal::openAgainst()`; (7) **أعيدت من جهة الاعتماد → no representation anywhere in this schema — that
+is Stage 77's own scope (return from the approving body), recorded as an honest gap rather than proxied
+off something else**; (8) صدر قرارها ولم يتم تحديث ملف الموظف → enforced **against the audit's own
+`service_file_updated` answer**, which must be `yes` (not `not_applicable`) whenever the request carries
+a recorded decision. Conditions 1–5 are mechanically redundant against the three-status whitelist, but
+each is checked first and by name so a closer is told "لا تغلق المعاملة وهي مؤجلة" in the appendix's own
+words rather than a generic refusal — the one-message-at-a-time discipline `DecisionStructureRules`
+already set. Condition (8) is also why the audit must be *recorded* and not merely displayed: without it
+that condition is unenforceable, since Track K's scope decision (1) puts ملف الخدمة outside this app.
+
+**Schema mirrors Stage 65's appeal columns exactly**, one migration: `requests.closure` (json),
+`closed_by_user_id` (FK users, nullOnDelete), `closed_at` (timestamp) — plus `closure_audit` (json) for
+Appendix 47, which the appeal side has no equivalent of. `closed_at` **is** Art. 37's تاريخ الإقفال and
+`closed_by_user_id` is النموذج 18's مسؤول الإقفال, so the `closure` JSON carries the other seven fields
+under Stage 65's own key names: `final_result_code`, `final_decision_number`, `approving_body`,
+`execution_date`, `executing_body`, `notice_status`, `file_storage_location`. Requiredness mirrors Stage
+65 literally (`approving_body` and `file_storage_location` required; the other three optional — Art. 37
+qualifies only رقم القرار النهائي with "إن وجد", but two of its four paths have no execution at all, so
+تاريخ التنفيذ/الجهة المنفذة cannot bind). `final_result_code` and `notice_status` are **computed, never
+client-supplied**, exactly as Stage 65 argued: the first is the status at closure, the second a plain
+fact about whether the requester's account is still active. The real database holds **0 requests**
+(confirmed before designing), so there is no backfill question.
+
+**One `App\Services\RequestClosureService`** owns `refusalReason()` (Appendix 48 + the audit gate,
+returning one Arabic message at a time or null) and `close()` (locks the row, re-checks, writes the card,
+the audit, the two columns, the status and a `RequestStatusHistory` row in one transaction) — the
+`DecisionStructureRules`/`CommitteeVotingRules` precedent, and what keeps the screen's "why not" and the
+endpoint's refusal from disagreeing.
+
+**Reopening clears the closure**, matching `AppealController::reopen()`'s own clearing of Stage 65's
+bookkeeping: `RequestController::reopen()` nulls `closure`/`closure_audit`/`closed_by_user_id`/`closed_at`
+so a reopened request is not still carrying the previous lap's closure card.
+
+**No notification.** Art. 101's twelve moments are **Stage 79's** scope, and Appendix 47 puts إشعار
+الموظف *before* closure as a precondition (check #4), not at it — so firing one here would be both out
+of scope and out of order.
+
+**Frontend**: a new shared `RequestClosurePanel.vue` (the `AgendaItemDecisionPanel.vue` precedent, since
+two screens need the same twelve-check form) used by `RequestDetailView.vue` — which gains a closure card
+showing the recorded closure, or the form plus the refusal reason when it cannot close — and by
+`MeetingOutputsView.vue`, whose existing close button opens it instead of posting an empty body.
+`RequestDetailResource` gains `closure`, `closure_audit` and `closure_eligibility` (`can_close` + the
+`reason`), deliberately not the shared `RequestResource`, so list payloads stay untouched.
+
+**Permissions**: `meeting_outputs,edit` is widened from `['R03']` to `['R02','R03']`. Appendix 47's own
+sentence is "**لا يغلق المقرر** أي معاملة إلا بعد…" — closure is المقرر's act (R02, whose RoleSeeder name
+is literally المقرر), and today only the chair can close. Additive rather than a swap: nothing in the
+source removes the chair, and swapping would break Stage 37/69's existing behaviour for no sourced reason.
+
+**Verification plan**: new `tests/Feature/RequestClosureTest.php` — all three paths close and land on
+code 20 with the card recorded; each of Appendix 48's six representable conditions refuses by name; a
+single `no` refuses while `not_applicable` passes; `service_file_updated: not_applicable` is refused when
+a decision exists; the appeal hold blocks then releases; `final_result_code`/`notice_status` are computed
+and ignore client input; a reopen clears the closure; the two write tiers' 403s. Plus updating
+`MeetingOutputsTest`'s four close calls (a legitimate fixture update — this stage deliberately moves that
+endpoint), the full PHPUnit suite, Pint, `npm run build`, locale key-parity, and the migration plus the
+`ScreenRolePermissionSeeder` reseed against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-08 06:40 EET — Claude — Stage 74 complete (structured decisions, deferrals and refusals)
 
 Built per the plan below, from the verbatim sources — [D] **Appendices 27, 28, 29 and 59** and **Arts.

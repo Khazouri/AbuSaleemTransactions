@@ -18,11 +18,13 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Tests\ClosesRequests;
 use Tests\TestCase;
 
 /** Stage 37 — meeting decisions followed through approval, execution, and close. */
 class MeetingOutputsTest extends TestCase
 {
+    use ClosesRequests;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -106,11 +108,14 @@ class MeetingOutputsTest extends TestCase
             ->assertForbidden();
 
         // Stage 69 — Appendix 5 refuses to let 19 and 20 collapse, so closing
-        // straight out of `in_execution` is not a legal move.
+        // straight out of `in_execution` is not a legal move. Stage 75 moved
+        // the close itself onto the request (Art. 37's other two final paths
+        // close requests that never reached an agenda), so the refusal now
+        // comes from RequestClosureService and reads as Appendix 48's own
+        // "لا يجوز إقفال معاملة تحت التنفيذ".
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('action');
+            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
+            ->assertStatus(422);
 
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute")
@@ -124,7 +129,12 @@ class MeetingOutputsTest extends TestCase
             ->assertJsonPath('data.outputs.0.can_close', true);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
+            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
+            ->assertOk()
+            ->assertJsonPath('data.status.code', 'completed_closed');
+
+        $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/outputs")
             ->assertOk()
             ->assertJsonPath('data.summary.executed', 0)
             ->assertJsonPath('data.summary.completed_closed', 1)
@@ -150,7 +160,7 @@ class MeetingOutputsTest extends TestCase
         ]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
+            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertStatus(422);
     }
 
@@ -179,18 +189,17 @@ class MeetingOutputsTest extends TestCase
             ->assertJsonPath('data.outputs.0.execution_status.code', 'executed');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('action');
+            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
+            ->assertStatus(422);
 
         $this->assertSame('executed', $requestRecord->fresh()->status->code);
 
         $appeal->update(['appeal_status_id' => AppealStatus::where('code', 'notified_closed')->value('id')]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
+            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertOk()
-            ->assertJsonPath('data.outputs.0.execution_status.code', 'completed_closed');
+            ->assertJsonPath('data.status.code', 'completed_closed');
     }
 
     public function test_completion_requires_the_output_to_belong_to_the_selected_meeting(): void
@@ -221,9 +230,8 @@ class MeetingOutputsTest extends TestCase
             ->assertJsonValidationErrors('action');
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/close")
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('action');
+            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
+            ->assertStatus(422);
 
         $this->assertSame('final_approved', $requestRecord->fresh()->status->code);
         $this->assertDatabaseCount('request_status_history', 0);
