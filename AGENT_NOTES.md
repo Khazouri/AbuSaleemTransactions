@@ -14,6 +14,352 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-08 21:40 EET — Claude — Stage 78 complete (the four mandatory control gates)
+
+Built per the plan below, from the verbatim sources — [D] **Appendices 63, 20, 8, 7, 46, 61, 62, 66** and
+**Arts. 103 (الثانية), 104, 105** read directly. One migration (six columns across `requests`, one on
+`meeting_minutes`, and a new `request_suspensions` table), applied to the real MySQL/Homestead database, plus
+one new `RequestStatus` row. **No permission change anywhere** — every new endpoint rides a grant that already
+fits, which is the check that this stage sits inside the domains prior stages already drew.
+
+**Two of the four gates were already built, and this stage verified rather than rebuilt them — which is the
+scope decision not to re-litigate.** STAGE_PLAN's Build bullet says "Stage 33 built gate 2 only" and asks for
+gates 1, **3 and 4**; that bullet predates Stage 75, which built gate 4 in full (`RequestClosureService` **is**
+Appendix 47's twelve-point audit plus Appendix 48's eight refusals, i.e. Appendix 63's "بوابة 4 — قبل الإقفال:
+هل القرار اعتمد ونفذ ووثق؟"). Gate 2 is Stage 33's `MeetingReadinessService` plus Stage 68's agenda gate. A
+second gate 4 would have been the dual-path trap Stages 54/70/77 each had to design around. So the buildable
+scope was **gates 1 and 3**, plus the two articles Appendix 63 does not itemise but that sit between its gates.
+
+**Gate 1 — قبل القيد, and it closes Stage 72's own open item (1).** Appendix 63 asks "هل الملف صالح للدخول إلى
+مسار اللجنة؟" and Appendix 20 gives the same gate its question, "هل الوقائع والوثائق صحيحة ومكتملة؟". In this
+system the قيد is the `requirements_check → approve` hop (Stage 70), and **half of that gate already existed** —
+Stage 54's Art. 45 test is refused-until-answered on exactly that hop. The missing half was the documents: Stage
+72 seeded Appendix 57's real per-type matrix onto `request_types.required_documents` and enforced **nothing**
+with it, which its own note flagged as unbuilt. `IntakeGateService` now takes one answer per seeded document plus
+Appendix 20's own attestation, and **the requiredness comes from Stage 72's data rather than an invented rule**:
+Appendix 57 writes its conditional items as an inline qualifier ("بحسب الموضوع"، "عند الحاجة"), so an entry
+carrying a `condition` may honestly be `not_applicable` and an unconditional one may not. Refusing does not
+strand a file — `return_missing_docs` at the same stage is Art. 19's استكمال loop, which is exactly where
+Appendix 63 wants an incomplete file to go. **Only the قيد hop is gated**, deliberately: `declare_no_jurisdiction`
+and `reject_formally` grant no قيد, so neither should have to wait for documents, and a test pins that.
+
+**Gate 3 — قبل الاعتماد, hosted on the محضر's own review, and its real value is catching a stale compile.**
+Appendix 8 says it outright: "**لا يحال محضر اللجنة للاعتماد قبل التحقق من**" sixteen things. `MinutesQualityRules`
+gates `MeetingMinutesController::review()`'s approve branch — the act that ends the draft's life and sends it to
+signature and اعتماد. **Fourteen are derived, one is attested, one is deliberately not asked.** The five
+snapshot-comparison checks (رقم الاجتماع، التاريخ، أسماء الأعضاء، البنود، أرقام المعاملات) read the **frozen
+`content` against the meeting's current data**, and that closes a real hole nothing caught before: generate →
+change the agenda → approve was a clean path to an approved محضر describing a sitting that did not happen — which
+is Appendix 63's gate-3 question verbatim, and Appendix 66's seventh prohibition (توقيع محضر لا يعكس الاجتماع).
+The rest re-assert Stage 73's quorum and Stage 74's decision structure per item; تحديد جهة الاعتماد التالية reads
+Stage 54's **required** `jurisdiction_test.final_approval_authority` rather than Stage 68's nullable
+`approving_body`. Attested: **خلو المحضر من تعارضات داخلية**, which is judgment about prose. **استكمال التوقيعات
+is deliberately not asked** — Stage 36's lifecycle is approve-then-sign, so at review time no signatures exist,
+and the check is already *enforced* by that lifecycle; it is recorded as `enforced_by_signature_lifecycle` rather
+than as a tick, which is the honest value.
+
+**Appendix 8 splits "إثبات الحضور" from "إثبات صحة الانعقاد" because they are two lines, so they mean two
+things** — the first is that attendance was recorded at all (present or absent), the second is the quorum. That
+reading is what keeps each check meaning what its name says.
+
+**This stage deliberately changes one pre-existing behaviour, and it is sourced rather than incidental.** Stage 36
+let a meeting nobody attended skip straight to `approved` because there was nobody to sign. Appendix 8 refuses
+that: a sitting with no recorded attendance proves neither حضور nor صحة انعقاد, and Art. 84 says the same from the
+other end. `MeetingMinutesTest`'s own test for that case was rewritten to assert the refusal, with the reasoning
+in place. **Consequence worth knowing: `review()`'s vacuous auto-approve branch is now unreachable through the
+gate** — left in place as defensive rather than deleted, and flagged below.
+
+**Art. 103's twelve-point قائمة فحص سلامة القرار, at the moment the article names.** "قبل إحالة النتيجة للتنفيذ"
+is the `final_approval_archiving → in_execution` hop. **Eight of the twelve derive from real state** — موضوع
+القرار (Stage 74), اختصاص اللجنة (Stage 54), صحة انعقاد الاجتماع (Stage 73's quorum on the deciding meeting),
+استكمال التصويت, وجود المستندات, صحة السند القانوني (Stage 74), توقيع المحضر (the meeting's minutes are
+`approved`), and اعتماد السلطة المختصة (`final_approved` with no open Stage 77 return). **Art. 104 is why**:
+"صحة المستند والاختصاص ليستا إجراءات شكلية، بل عنصران جوهريان في سلامة القرار", and that article lists قرار صدر
+من جهة غير مختصة أو استند إلى معلومات غير صحيحة among the grounds of outright nullity — a checklist whose every
+line is an attestation would be the شكلية it rules out. **Proven live rather than asserted**: a payload spoofing
+`minutes_signed: "no"` and `documents_present: "no"` came back recorded as `yes` from real state. The remaining
+four are attested and tri-state; two of them (صحة اسم الموظف، الرقم الوظيفي) have no employment record to read
+because Track K's scope decision (1) puts ملف الخدمة outside this application, صحة تاريخ النفاذ is Stage 76's
+execution card and is genuinely not known yet at this moment, and the last is judgment.
+
+**The certifier is deliberately the مقرر, not the approving authority.** `meeting_outputs,edit` (R02 + R03), not
+R07's own `final_approval` grant: the file is prepared by one hand and referred to execution by another, which is
+the principle behind Appendix 9's third and ninth prohibited practices. Appendix 9 gains two more structurally
+prevented entries this way — **#2** (إدراج ملف ناقص) via gate 1 and **#12** (تنفيذ موافقة اللجنة قبل استكمال
+الاعتماد اللازم) via Art. 103's derived توقيع المحضر and اعتماد السلطة المختصة.
+
+**Art. 105's suspension, which did not exist in any form.** New `request_suspensions` table on Stage 77's
+`approval_returns` shape — a two-moment history, not a column, because the article names a cause and a consequence
+nobody knows at the same time and a file can hit it more than once — plus the non-terminal `execution_suspended`
+status and a window of exactly the statuses the article names ("قبل الاعتماد أو التنفيذ": Stage 77's approval
+cycle plus `final_approved` and `in_execution`; `executed` is deliberately absent, since by then the effect has
+been arranged and undoing one is Stage 66's reopen). Three things make the article real rather than narrated:
+- **"يوقف فورًا من الناحية الإجرائية"** — status-only, stage untouched, a `RequestStatusHistory` row and
+  deliberately **no stage log**, because nothing moved. Stage 77's shape.
+- **"ويحال الموضوع للمراجعة القانونية"** — a suspended request enters `RequestLegalReviewController`'s queue, and
+  `lift()` **refuses until a `RequestLegalReview` recorded after the suspension exists**. A review from months ago
+  says nothing about the doubt raised today; without this, a suspension could be raised and dropped by the same
+  hand with nothing examined in between, which is the شكلية Art. 104 rules out.
+- **"قبل ترتيب أثر جديد عليه"** — `approve` is refused at every checkpoint while one is open, at all three sites.
+
+**`CommitteeStatusService::legalReviewQueueQuery()` now has two disjoint sources, and that is the substantive
+find.** Art. 21's pre-meeting review is a status-only substate of `receive_from_committee`; Art. 105's fires
+**past the committee**, at whatever approval stage the doubt surfaced, so the stage condition cannot apply to it.
+Without the second branch the article's own referral would be a sentence in a status history that never reached
+the person it names. `RequestLegalReviewController::store()` skips the `CommitteeStatusService::move()` call for a
+suspended request for the same reason — that review does not decide whether the matter reaches an agenda, and the
+lift is what moves the file.
+
+**Closure and execution need no new guard, and that is stated rather than assumed.**
+`RequestClosureService::CLOSABLE_STATUSES` and `RequestExecutionService::EXECUTABLE_STATUS` are status whitelists
+that `execution_suspended` is simply not on, so Appendix 48 needs no ninth condition and `markExecuted()` needs no
+change.
+
+**One real correctness gap found and closed — the sixth instance of the same class.** `RequestVisibility`'s
+`$isCloser` clause admitted Stage 75's three closable statuses, Stage 76's `in_execution` and Stage 77's approval
+cycle, but **not `final_approved`** — so the R02/R03 who must certify Art. 103 would have 404'd on the very file
+they are meant to certify. Extended by `final_approved` and `execution_suspended`; the `$isLegalReviewer` clause
+gained the latter too, or R11 would have been listed a queue row they could not open. **Verified live in both
+directions**: R02 opened a `final_approved` request they did not create, and R04 got 404 on the same file.
+
+**Reopening clears the two gate records but NOT the suspension register.** `new_document` and
+`material_error_correction` are two of `ReopenReasonCatalog`'s own six reasons and each is precisely a claim that
+a gate-1 or Art. 103 answer has changed, so a stale card would let a fresh lap through on the previous lap's
+answers — Stage 75/76's clearing precedent. The suspensions stay, on Stage 77's opposite precedent: a register's
+whole value is that earlier rounds stay readable, and an open one cannot survive a reopen in practice since
+`execution_suspended` is not a `REOPENABLE_STATUS_CODES` entry.
+
+**Appendix 7's last two questions were scoped rather than half-built.** Its ⚠ row said "الرأي القانوني، جهة
+الاعتماد المتوقعة، المدد القانونية → Stages 68, 78"; Stage 68 closed the first, and the other two are per-item
+**agenda** fields — Appendix 24's list, which is **Stage 82's** own Build bullet — so they are recorded as
+belonging there.
+
+Frontend: three new panels (`IntakeGatePanel.vue`, `RequestSoundnessPanel.vue`, `RequestSuspensionPanel.vue`)
+plus a shared `lib/controlGates.js` mirroring the check lists once (the Stage 75/76/77 precedent). The intake
+panel offers "لا ينطبق" only for a document the source conditions, so the form cannot present a combination the
+server refuses; the soundness panel renders the eight derived checks **read-only**, since rendering them as inputs
+would invite an answer that cannot change anything. `RequestDetailView.vue` gained a control-gates card rendering
+Appendix 63's matrix for the request; `MeetingMinutesView.vue` gained Appendix 8's attestation on the review form
+and the recorded sixteen once the محضر leaves draft. New top-level `controlGates.*` locale block in both files.
+
+Verification: new `tests/Feature/ControlGateTest.php` (19 tests — the قيد refused through **both** entry points
+and passing once recorded; a missing document, a waived unconditional one and an unanswered attestation each
+refused in their own words while a waived *conditional* one passes; the non-registration outcomes at the same
+stage proven ungated; a محضر whose agenda changed after it was compiled refused then cleared by a regenerate; the
+one reviewer check refusing on `false`; all sixteen recorded with the sixteenth carrying its honest value;
+execution refused until certified, refused on a single `no`, and a derived check proven unspoofable; a suspension
+status-only with zero stage logs; the approve block through both entry points with **no `Approval` row written**;
+the lift refused before a legal review and the suspended file reaching the legal queue; both lift branches; two
+rounds accumulating; the suspension refused outside the window; the non-creator certifier's 200 and R04's 404;
+and a reopen clearing both cards while the register survives). Full suite **427 tests / 2703 assertions** green
+(was 408/2610). Pint clean **repo-wide** (`--test` over `app/`, `database/`, `tests/`, `routes/` reports zero
+diffs), `npm run build` passes (then reverted `frontend/dist`, tracked in git, per every prior stage's note),
+locale key-parity verified programmatically (**1460 keys each side, zero on-one-side-only**), and the migration
+plus the `RequestStatusSeeder` reseed ran clean against the real MySQL/Homestead database — 39 statuses, and
+**0 requests** going in, so there was no backfill.
+
+**Five pre-existing test files needed legitimate fixture updates, not regression fixes** — every one is a fixture
+that now has to satisfy a gate this stage deliberately added. A new `Tests\PassesControlGates` trait supplies the
+payloads and the "build a complete file" helpers once (the `ClosesRequests`/`ExecutesRequests` precedent).
+`ApprovalChainTest` and `RequirementsCheckJurisdictionTest` pass gate 1 so their scenarios stay about the approval
+chain and Art. 45 respectively; `MeetingMinutesTest` and `MeetingLiveRunnerTest` carry Appendix 8's attestation
+and their fixture committees now record a quorum rule (the same update Stage 73 made to `MeetingReadinessTest`,
+and for the same reason); `MeetingOutputsTest`'s fixture builds the complete file Art. 103's eight derived checks
+read. **One test's subject genuinely changed** — the zero-attendee auto-approve, rewritten as described above.
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r02.reviewer@`/`r07.director@`/
+`r11.legal@` accounts and two bootstrapped fixtures: gate 1 refused the قيد through **both** the generic endpoint
+and the reviewer queue, quoted the missing document (البيانات الوظيفية) back by name, refused waiving it, refused
+the missing facts attestation, then granted `PM-COM/2026/9079` on `registered` once satisfied; Art. 103 refused
+the final approval until certified, refused a single `no` quoting صحة اسم الموظف, and **overwrote a spoofed
+`minutes_signed: no` with the real `yes`**; Art. 105 suspended status-only with the stage untouched and the
+frozen status recorded, blocked the approval through both entry points, refused the lift until R11 recorded a
+review, put the file in R11's own queue, restored `final_approved` on `fact_confirmed`, and on a second round
+reached `receive_from_committee` on `reopened_for_representation` with an `article_105_restudy` stage log. Deleted
+every fixture row (2 requests, committee, meeting, minutes + signatures, agenda item, decision, attachment, 2
+suspensions, 2 legal reviews, stage logs, status history, audit rows), revoked all three tokens and purged the
+queue — counts confirmed back to 0 requests / 0 suspensions / 0 meetings / 0 legal reviews / 0 stage logs / 0 jobs
+/ 0 tokens. The four soft-deleted committees earlier sessions left behind were left alone, as in Stages 74/76.
+
+**A repo-hygiene incident worth recording, because it destroyed two files.** A `preg_replace` whose pattern failed
+to compile returned `null`, and the script wrote that null straight to disk — truncating `MeetingMinutesTest.php`
+and `MeetingLiveRunnerTest.php` to zero bytes. Both were restored from HEAD (safe here, unlike the Stage 73
+incident, because Track K is committed through Stage 77) and redone with plain string replacement. **If you edit
+files with a PHP script in this repo, check the result is non-empty before writing it** — the fix is one guard,
+and `str_replace` with a match count is the safer default over `preg_replace` for anything that is not genuinely
+a pattern.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Arts. **103-second** and **105** ❌→✅ and
+Appendices **8** and **63** ⚠→✅, and rewrote the rows for Art. **104** and Appendices **7**, **9**, **46**,
+**61**, **62** and **66** so the next stage is not misled about what Stage 78 did and did not touch. **The
+outright-missing Articles list is now empty** — Stages 68, 77 and 78 closed all five. Headline counts adjusted by
+this stage's own delta (articles 84→86 ✅ / 2→0 ❌; appendices 51→53 ✅ / 11→9 ⚠), with a new banner saying the
+appendices' ❌ column is still the drifted 0 the existing note warns about.
+
+**Open items for whoever builds Stage 79+.** (1) **Appendix 46 is the biggest thing left and has no owner** —
+"يجب حفظ نسخة نهائية غير قابلة للتعديل من المحضر المعتمد" and "لا يسمح بتعديل القرار النهائي دون إصدار نسخة معدلة
+موثقة" are both unbuilt, and Appendix 66's tenth prohibition (تغيير نتيجة بعد التصويت) needs exactly that
+mechanism. Stage 78 made the *freeze* load-bearing but built no immutable copy and no versioned amendment; that is
+document versioning, not a gate, and it deserves its own stage rather than being tacked onto one. (2) **Appendix
+62's risk register is deliberately not built** — its nine fields are a general register, not a control gate, and
+nothing in Track K reads one; it needs an owner or an explicit decision to drop it. (3) **`review()`'s vacuous
+auto-approve branch is now unreachable** through the Appendix 8 gate (a meeting with no attendance fails إثبات
+الحضور first); left as defensive rather than deleted, but a stage that touches that method should decide
+deliberately. (4) **Art. 105 fires no notification**, and this one is squarely Stage 79's to decide: Art. 101's
+twelve moments do not include a procedural suspension, and an employee whose file is frozen arguably should be
+told — but inventing a thirteenth moment is that stage's call, not this one's, exactly as Stage 77 left the same
+question about a return. (5) **Appendix 7's جهة الاعتماد المتوقعة and المدد القانونية are Stage 82's**, per
+Appendix 24's per-item field list. (6) **The intake gate's document keys are index+label-hash**, so a future
+change to a type's seeded `required_documents` produces *unanswered* items (which the gate refuses) rather than
+wrong ones — deliberate, but it means editing that seeder invalidates existing intake-gate records, which is the
+correct behaviour and worth knowing before someone treats it as a bug.
+
+---
+
+### 2026-09-08 19:30 EET — Claude — Stage 78 implementation plan (the four mandatory control gates)
+
+Building Stage 78 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Appendix 63**
+(مصفوفة الرقابة الداخلية — the four gates and the sentence that makes them the system's job:
+"**وتمنع المنظومة الإلكترونية الانتقال إذا كانت متطلبات البوابة غير مكتملة**"), **Appendix 20**
+(خريطة المسؤولية النهائية — the same four gates, named by their question and their responsible
+party), **Art. 103 (الثانية)** (قائمة فحص سلامة القرار — "قبل إحالة النتيجة للتنفيذ يتم التحقق من"
+plus twelve items), **Art. 104** (القرارات المعرضة للبطلان — "صحة المستند والاختصاص ليستا إجراءات
+شكلية، بل عنصران جوهريان في سلامة القرار"), **Art. 105** (قاعدة منع القرار المبني على معلومات ناقصة
+— "يوقف التنفيذ فورًا من الناحية الإجرائية ويحال الموضوع للمراجعة القانونية والجهة المختصة قبل
+ترتيب أثر جديد عليه"), plus **Appendix 8** (ضوابط جودة المحضر — its sixteen checks and its own
+"لا يحال محضر اللجنة للاعتماد قبل التحقق من"), **Appendix 7**, **Appendices 47/48** and **Appendix 61**.
+
+**Two of the four gates are already built, and this stage verifies rather than rebuilds them.**
+STAGE_PLAN's Build bullet says "Stage 33 built gate 2 only" and asks for gates 1, **3 and 4** — but
+that bullet predates Stage 75, which built gate 4 in full: `RequestClosureService` is Appendix 47's
+twelve-point audit plus Appendix 48's eight refusals, i.e. Appendix 63's "بوابة 4 — قبل الإقفال: هل
+القرار اعتمد ونفذ ووثق؟" exactly. Gate 2 is Stage 33's `MeetingReadinessService` plus Stage 68's
+agenda gate. Building a second gate 4 would be the dual-path trap Stages 54/70/77 each had to design
+around. So the buildable scope is **gates 1 and 3**, plus Art. 103's pre-execution checklist (which
+Appendix 63 does not itemise as a gate but Art. 103 places at its own moment, between اعتماد and
+تنفيذ) and Art. 105's suspension.
+
+**Gate 1 — قبل القيد, and it closes Stage 72's own open item (1).** Appendix 63 asks "هل الملف صالح
+للدخول إلى مسار اللجنة؟"; Appendix 20 gives the same gate its question — "هل الوقائع والوثائق صحيحة
+ومكتملة؟" — and its owners (الموظف + الرئيس المباشر + الموارد البشرية / شؤون الموظفين). In this
+system the قيد is the `requirements_check → approve` hop (Stage 70), and **half of that gate already
+exists**: Stage 54's Art. 45 jurisdiction test is refused-until-answered on exactly that hop. The
+missing half is the documents. Stage 72 seeded Appendix 57's real per-type matrix onto
+`request_types.required_documents` and enforced **nothing** — its own note says so ("informational
+everywhere and enforced nowhere… whichever stage wants 'the officer ticked each required document'
+needs" a record of its own). This is that stage.
+
+New `requests.intake_gate` (json) + `intake_gate_checked_by_user_id` + `intake_gate_checked_at`,
+the Stage 75/76 column shape. One answer per seeded required document plus Appendix 20's own
+attestation (`facts_verified` — هل الوقائع والبيانات صحيحة؟), and **the requiredness comes from
+Stage 72's own data rather than an invented rule**: an entry the source qualifies with a `condition`
+("بحسب الموضوع"، "عند الحاجة") may honestly be answered `not_applicable`; an unconditional entry may
+not, and `missing` refuses on either. That is Appendix 63's own sentence applied literally, and
+`return_missing_docs` is the escape hatch Art. 19 already provides — the gate does not strand a file,
+it routes it back into the استكمال loop. Recorded through a new `PATCH requests/{r}/intake-gate`
+riding the existing `notes_attachments,edit` grant (R01/R02), the same grant Stage 54's jurisdiction
+test and Stage 47's financial-impact correction already ride; **no seeder change**.
+
+**Gate 3 — قبل الاعتماد, hosted on the محضر's own review, and its real value is catching a stale
+compile.** Appendix 63 asks "هل المحضر والقرار يعكسان ما انتهت إليه اللجنة؟" and Appendix 8 says in
+so many words "**لا يحال محضر اللجنة للاعتماد قبل التحقق من**" sixteen things. The host is
+`MeetingMinutesController::review()`'s approve branch: that is the act that ends the محضر's draft
+life and sends it to signature and اعتماد. **Fourteen of the sixteen are derived, one is attested,
+and one is enforced elsewhere** — the Stage 60/75/76 split (ask a human only what the system cannot
+answer). Derived: تطابق رقم الاجتماع، صحة التاريخ، تطابق أسماء الأعضاء، تطابق البنود مع جدول الأعمال
+and تطابق أرقام المعاملات are all read by comparing the **frozen `content` snapshot against the
+meeting's current data**, which is the one failure nothing in this system catches today — minutes
+generated, agenda then changed, minutes then approved. إثبات الحضور and إثبات صحة الانعقاد come from
+Stage 73's recorded quorum rule; وجود نتيجة لكل بند from `MeetingRequest::isResolved()`; and فصل
+القرارات عن التوصيات، وضوح حالات التأجيل، تحديد النواقص المطلوبة، وضوح حالات عدم الموافقة and تسبيب
+النتائج الحساسة re-assert Stage 74's own structure per decision. تحديد جهة الاعتماد التالية is read
+from Stage 54's **required** `jurisdiction_test.final_approval_authority` rather than Stage 68's
+nullable `approving_body`. Attested: **خلو المحضر من تعارضات داخلية**, which is judgment and has no
+system fact. **استكمال التوقيعات is deliberately not asked**: Stage 36's lifecycle is
+approve-then-sign, so at review time there are no signatures yet — and the check is already
+*enforced* by that lifecycle (a محضر cannot reach `approved` until every signature row is signed),
+so asking for it here would be asking a human to attest to something that has not happened and that
+the system will refuse to skip anyway. Stored as `meeting_minutes.quality_checks` (json), written by
+`review()` alongside `reviewed_at`/`reviewed_by_user_id`, which already are the who and when.
+
+**Art. 103's twelve-point قائمة فحص سلامة القرار, at the moment the article names.** "قبل إحالة
+النتيجة للتنفيذ" is the `final_approval_archiving → in_execution` hop (the R07 self-loop). **Eight
+of the twelve derive from real state**: موضوع القرار (Stage 74's `decision_subject`), اختصاص اللجنة
+(Stage 54's jurisdiction test), صحة انعقاد الاجتماع (Stage 73's quorum on the deciding meeting),
+استكمال التصويت (the decision's own tally), وجود المستندات (the request's attachments), صحة السند
+القانوني (Stage 74's `decision_basis`), توقيع المحضر (the meeting's minutes are `approved`), and
+اعتماد السلطة المختصة (the request is on `final_approved` with no open approval return). **Four are
+attested** and tri-state (`yes|no|not_applicable`, Stage 75's reasons): صحة اسم الموظف and الرقم
+الوظيفي have no employment data to read — Track K's scope decision (1) puts ملف الخدمة outside this
+application — صحة تاريخ النفاذ is Stage 76's execution card and is not known yet at this moment, and
+عدم وجود تعارض بين منطوق القرار والمرفقات is judgment. Art. 104 is why the derived eight are derived
+rather than ticked: "صحة المستند والاختصاص ليستا إجراءات شكلية، بل عنصران جوهريان في سلامة القرار".
+Recorded through `PATCH requests/{r}/execution-soundness` into `requests.execution_soundness` (json)
++ who/when columns, then read by the gate — the two-step Stage 54 established, and **deliberately
+the مقرر's preparation rather than R07's own tick** (`meeting_outputs,edit`, R02/R03), so the file is
+prepared by one hand and referred to execution by another; Appendix 9's third and ninth prohibited
+practices are the same principle. Enforced at **all three sites**, the Stage 54/77 rule:
+`RequestController::transition()`, `ApprovalController::store()`'s `final` level, and
+`detailResource()`'s preview filter.
+
+**Art. 105 — the suspend action, which does not exist today in any form.** New `request_suspensions`
+table (the Stage 77 `approval_returns` shape: a two-moment history, not a column, because Art. 105
+describes an *action* with a cause and a consequence and a file can hit it more than once), new
+non-terminal status `execution_suspended`, and a window of exactly the statuses Art. 105 names
+("قبل الاعتماد أو التنفيذ") — the approval cycle plus `final_approved` and `in_execution`.
+`suspend()` records the ground (Art. 105's own two: **معلومة جوهرية غير صحيحة** / **مستند أساسي محل
+شك**), the detail, and the status it froze, then moves status-only with a `RequestStatusHistory` row
+and deliberately **no stage log**, because nothing moved. The article's "ويحال الموضوع للمراجعة
+القانونية" is made real rather than narrated: a suspended request enters
+`RequestLegalReviewController`'s queue, and `lift()` **refuses until a `RequestLegalReview` has been
+recorded after the suspension began**. Lifting then routes per the review's own outcome:
+`fact_confirmed` restores the frozen status where it stood, `referred_to_committee` goes through
+`WorkflowService::reopenAtStage()` to `receive_from_committee` on `reopened_for_representation` —
+the Stage 77 substantive branch verbatim, which keeps WorkflowService the sole owner of stage
+movement. While a suspension is open, `approve` is refused at the same three sites as Stage 77's
+return gate; closure and `markExecuted()` need **no** new guard and that is stated rather than
+assumed — `RequestClosureService::CLOSABLE_STATUSES` and
+`RequestExecutionService::EXECUTABLE_STATUS` are both status whitelists that `execution_suspended`
+is simply not on, so Appendix 48 needs no ninth condition.
+
+**Visibility — the sixth instance of the same class, closed rather than deferred.** `RequestVisibility`'s
+`$isCloser` clause admits Stage 75's three closable statuses, Stage 76's `in_execution` and Stage
+77's approval-cycle statuses, but **not `final_approved`** — so the R02/R03 who must record Art.
+103's checklist would 404 on the very file they are meant to certify. Extended by `final_approved`
+and `execution_suspended`, bounded to files actually inside the approval/execution cycle, the same
+shape Stages 47/68/75/76/77 used.
+
+**Gates 2 and 4 are verified, not rebuilt, and Appendix 7's remaining questions are honestly
+scoped.** Appendix 7's fifteen readiness questions are ⚠ in the matrix with "الرأي القانوني، جهة
+الاعتماد المتوقعة، المدد القانونية → Stages 68, 78" — Stage 68 closed the first; the other two are
+per-item agenda fields that **Stage 82** owns (Appendix 24's per-item field list is that stage's own
+Build bullet), so they are recorded as belonging there rather than half-built here.
+
+Schema: one migration — three `requests` columns for gate 1, three for Art. 103, one
+`meeting_minutes.quality_checks`, and the `request_suspensions` table — plus one new `RequestStatus`
+row. No permission change anywhere: every new endpoint rides a grant that already fits.
+
+Frontend: `IntakeGatePanel.vue` + `RequestSoundnessPanel.vue` + `RequestSuspensionPanel.vue` with
+their shared `lib/controlGates.js` mirroring the check lists once (the Stage 75/76/77 precedent), a
+control-gates card on `RequestDetailView.vue` rendering Appendix 63's four-gate matrix for the
+request, the Appendix 8 result surfaced on `MeetingMinutesView.vue`'s review panel, and a new
+top-level `controlGates.*` locale block in both files.
+
+Verification plan: new `tests/Feature/ControlGateTest.php` — the قيد refused while a required
+document is unanswered or `missing`, `not_applicable` accepted only on a conditional entry, and the
+gate refused through **both** entry points; Appendix 8 refusing a محضر whose agenda changed after it
+was compiled, refusing one whose decision lacks Stage 74's structure, and passing a clean one with
+all sixteen recorded; Art. 103 refusing execution while unrecorded, refusing on a single `no`,
+refusing when a derived check fails against real state, and passing once satisfied — again through
+both entry points; Art. 105 suspending status-only with no stage log, refusing an approve while
+open, refusing a lift before a legal review exists, restoring the frozen status on `fact_confirmed`
+and reaching the committee on `referred_to_committee`, and a second round accumulating; plus the
+non-creator recorder opening a `final_approved` file. Then the full PHPUnit suite, Pint,
+`npm run build`, locale key-parity, and the migration plus the `RequestStatusSeeder` reseed against
+the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-08 17:30 EET — Claude — Stage 77 complete (return from the approving body)
 
 Built per the plan below, from the verbatim sources — [D] **Arts. 30, 78, 94** and **Appendices 5, 34, 48** read

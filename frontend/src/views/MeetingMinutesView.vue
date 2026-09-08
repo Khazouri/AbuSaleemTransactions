@@ -12,6 +12,7 @@ import { useRoute } from 'vue-router'
 import { VOTE_OPTIONS } from '../lib/decisionOutcomes'
 import { DEFERRAL_FIELDS } from '../lib/decisionStructure'
 import api from '../lib/api'
+import { MINUTES_QUALITY_CHECKS, MINUTES_REVIEWER_CHECK } from '../lib/controlGates'
 import { useAuthStore } from '../stores/auth'
 import SignaturePad from '../components/SignaturePad.vue'
 
@@ -85,6 +86,10 @@ async function generate() {
 
 // --- Review (head) ---------------------------------------------------------------
 
+// Stage 78 — approving is also [D] Appendix 63's بوابة 3. Fourteen of
+// Appendix 8's sixteen controls are derived server-side and the sixteenth is
+// enforced by the signature lifecycle, so only this one is asked here.
+const noInternalContradictions = ref(false)
 const reviewBusy = ref(false)
 const reviewError = ref('')
 const changesComment = ref('')
@@ -96,6 +101,9 @@ async function review(decision) {
   try {
     const payload = { decision }
     if (decision === 'changes_requested') payload.comment = changesComment.value.trim()
+    if (decision === 'approve') {
+      payload.quality_checks = { [MINUTES_REVIEWER_CHECK]: noInternalContradictions.value }
+    }
     const { data } = await api.post(`/meetings/${meetingId.value}/minutes/review`, payload)
     minutes.value = data.data
     changesComment.value = ''
@@ -367,8 +375,17 @@ onMounted(loadMeetings)
 
         <section v-if="minutes.status === 'draft'" v-can="'meeting_minutes.approve'" class="card review">
           <h3>{{ t('meetingsUnit.minutes.review.title') }}</h3>
+          <!-- Stage 78 — [D] Appendix 8: the محضر is not referred for اعتماد
+               until sixteen controls are verified. Only this one is a human
+               judgement; the rest are checked server-side against the
+               meeting's own data, and the refusal names whichever fails. -->
+          <p class="quality-note">{{ t('controlGates.minutesQuality.note') }}</p>
+          <label class="quality-check">
+            <input v-model="noInternalContradictions" type="checkbox">
+            <span>{{ t('controlGates.minutesQuality.reviewerCheck') }}</span>
+          </label>
           <div class="actions">
-            <button class="primary" type="button" :disabled="reviewBusy" @click="review('approve')">
+            <button class="primary" type="button" :disabled="reviewBusy || !noInternalContradictions" @click="review('approve')">
               {{ t('meetingsUnit.minutes.review.approve') }}
             </button>
             <button class="ghost" type="button" :disabled="reviewBusy" @click="showChangesForm = !showChangesForm">
@@ -387,6 +404,20 @@ onMounted(loadMeetings)
             </button>
           </div>
           <p v-if="reviewError" class="alert">{{ reviewError }}</p>
+        </section>
+
+        <!-- Stage 78 — the sixteen as answered at review time, so a later
+             reader sees Appendix 8's own list rather than only that it passed. -->
+        <section v-if="minutes.quality_checks" class="card review">
+          <h3>{{ t('controlGates.minutesQuality.title') }}</h3>
+          <ul class="quality-record">
+            <li v-for="key in MINUTES_QUALITY_CHECKS" :key="key">
+              <span>{{ t(`controlGates.minutesQuality.checks.${key}`) }}</span>
+              <span :class="['answer', minutes.quality_checks[key]]">
+                {{ t(`controlGates.minutesQuality.answers.${minutes.quality_checks[key]}`) }}
+              </span>
+            </li>
+          </ul>
         </section>
 
         <section v-if="minutes.status !== 'draft'" class="card signatures">
@@ -480,4 +511,12 @@ button:disabled { cursor: not-allowed; opacity: .6; }
 .primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
 .ghost { padding: .4rem .65rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); }
 .ghost:hover { background: var(--color-surface-hover); }
+.quality-note { margin: 0 0 .5rem; color: var(--color-muted); font-size: .8rem; }
+.quality-check { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; font-size: .85rem; }
+.quality-record { display: grid; gap: .3rem; padding: 0; margin: .5rem 0 0; list-style: none; font-size: .82rem; }
+.quality-record li { display: flex; justify-content: space-between; gap: .75rem; }
+.quality-record .answer { font-weight: 600; }
+.quality-record .answer.yes { color: var(--color-success-fg); }
+.quality-record .answer.no { color: var(--color-danger-fg); }
+.quality-record .answer.enforced_by_signature_lifecycle { color: var(--color-muted); }
 </style>

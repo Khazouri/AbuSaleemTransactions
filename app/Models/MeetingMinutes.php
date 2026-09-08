@@ -35,6 +35,9 @@ class MeetingMinutes extends Model
         'reviewed_by_user_id',
         'reviewed_at',
         'review_comment',
+        // Stage 78 — [D] Appendix 8's sixteen ضوابط جودة المحضر, answered
+        // at the moment the head reviews the draft.
+        'quality_checks',
         'approved_at',
     ];
 
@@ -42,6 +45,7 @@ class MeetingMinutes extends Model
     {
         return [
             'content' => 'array',
+            'quality_checks' => 'array',
             'generated_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'approved_at' => 'datetime',

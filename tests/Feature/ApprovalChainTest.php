@@ -14,10 +14,12 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\PassesControlGates;
 use Tests\TestCase;
 
 class ApprovalChainTest extends TestCase
 {
+    use PassesControlGates;
     use RefreshDatabase;
 
     public function test_reviewer_queue_only_lists_its_checkpoint_and_approval_is_recorded(): void
@@ -206,7 +208,7 @@ class ApprovalChainTest extends TestCase
 
     private function requestAt(string $stageCode, string $statusCode, ?User $creator = null): Request
     {
-        return Request::create([
+        $requestRecord = Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
             'title' => 'طلب في سلسلة الاعتماد',
             'department_id' => Department::where('code', 'ADM')->value('id'),
@@ -229,6 +231,12 @@ class ApprovalChainTest extends TestCase
                 'requires_central_approval' => false,
             ],
         ]);
+
+        // Stage 78 gates the same hop on Appendix 63's بوابة 1 as well, for the
+        // same reason: this file's scenarios are about the approval chain's
+        // mechanics, not about the intake gate (which has its own coverage in
+        // ControlGateTest).
+        return $this->passIntakeGate($requestRecord);
     }
 
     private function userWithRole(string $roleCode): User

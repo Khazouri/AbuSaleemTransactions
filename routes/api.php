@@ -271,6 +271,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:notes_attachments,edit')
         ->patch('requests/{requestRecord}/jurisdiction-test', [RequestController::class, 'recordJurisdictionTest']);
 
+    // Stage 78 — [D] Appendix 63's بوابة 1 (قبل القيد). The other half of the
+    // same gate the jurisdiction test above already guards: Art. 45 answers
+    // "is this the committee's business?", this answers Appendix 20's "هل
+    // الوقائع والوثائق صحيحة ومكتملة؟". Same actor, same moment, same grant.
+    Route::middleware('screen.permission:notes_attachments,edit')
+        ->patch('requests/{requestRecord}/intake-gate', [RequestController::class, 'recordIntakeGate']);
+
     // Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path for a
     // concluded request, independent of any Appeal. Rides the same
     // appeals,edit grant (R02 + R08) Track J's other post-decision
@@ -305,6 +312,28 @@ Route::middleware('auth:sanctum')->group(function () {
         ->patch('requests/{requestRecord}/approval-return', [RequestController::class, 'recordApprovalReturn']);
     Route::middleware('screen.permission:meeting_outputs,edit')
         ->patch('requests/{requestRecord}/approval-return/resolve', [RequestController::class, 'resolveApprovalReturn']);
+
+    /*
+     * Stage 78 — [D] Art. 103's قائمة فحص سلامة القرار, verified "قبل إحالة
+     * النتيجة للتنفيذ", and Art. 105's إيقاف إجرائي.
+     *
+     * All three ride the same `meeting_outputs,edit` grant (R02 + R03) the
+     * closure, execution and approval-return registers already use — that
+     * screen's declared domain is following a decision through approval,
+     * execution and close, which is exactly the stretch of a file's life
+     * Arts. 103 and 105 govern.
+     *
+     * The soundness checklist is deliberately NOT on R07's own
+     * `final_approval` grant: the file is prepared by the مقرر who holds it
+     * and referred to execution by the authority who approves it, so
+     * preparation and decision stay in different hands.
+     */
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->patch('requests/{requestRecord}/execution-soundness', [RequestController::class, 'recordExecutionSoundness']);
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->patch('requests/{requestRecord}/suspend', [RequestController::class, 'suspend']);
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->patch('requests/{requestRecord}/suspend/lift', [RequestController::class, 'liftSuspension']);
 
     /*
      * Stage 20 — committees & meetings. Neither has a screen of its own on the

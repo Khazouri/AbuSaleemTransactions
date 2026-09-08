@@ -1699,5 +1699,110 @@
     "exportPdf": "Export PDF",
     "exporting": "Exporting…",
     "exportFailed": "Could not generate the export file."
+  },
+  "controlGates": {
+    "title": "Internal control gates",
+    "intro": "The system blocks progression while a gate’s requirements are incomplete (Appendix 63).",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "error": "The action could not be completed.",
+    "intake": {
+      "title": "Gate 1 — before registration",
+      "question": "Are the facts and documents correct and complete?",
+      "action": "Record the file check",
+      "reviseAction": "Revise the file check",
+      "formNote": "Answer for every document the request type’s mandatory-document matrix requires.",
+      "noDocuments": "This type has no required documents.",
+      "conditional": "(conditional)",
+      "choose": "Choose…",
+      "factsVerified": "I certify the facts and data submitted are correct.",
+      "passed": "The file has cleared gate 1.",
+      "answers": {
+        "present": "Attached",
+        "not_applicable": "Not applicable",
+        "missing": "Missing"
+      }
+    },
+    "soundness": {
+      "title": "Decision soundness checklist (Art. 103)",
+      "question": "Has the decision’s soundness been verified before referring it to execution?",
+      "action": "Record the soundness check",
+      "reviseAction": "Revise the soundness check",
+      "formNote": "Eight of the twelve points are read from the request’s own data and are not asked; answer the remaining four.",
+      "passed": "The file has cleared the soundness checklist.",
+      "checks": {
+        "employee_name_correct": "Employee name is correct",
+        "employee_number_correct": "Employee number",
+        "decision_subject_present": "Subject of the decision",
+        "committee_jurisdiction": "Committee jurisdiction",
+        "convening_valid": "The sitting was validly convened",
+        "voting_complete": "Voting is complete",
+        "documents_present": "Documents are present",
+        "legal_basis_sound": "The legal basis is sound",
+        "minutes_signed": "The minutes are signed",
+        "competent_authority_approved": "The competent authority has approved",
+        "effective_date_correct": "The effective date is correct",
+        "no_conflict_with_attachments": "No conflict between the operative clause and the attachments"
+      },
+      "answers": {
+        "yes": "Yes",
+        "no": "No",
+        "not_applicable": "Not applicable",
+        "pending": "Not answered yet"
+      }
+    },
+    "suspension": {
+      "title": "Procedural suspension (Art. 105)",
+      "question": "Has a material fact been found incorrect, or an essential document put in doubt?",
+      "action": "Suspend execution",
+      "formNote": "Execution stops immediately and the matter goes to legal review before any new effect is arranged.",
+      "liftAction": "Lift the suspension",
+      "liftNote": "A suspension is lifted only once a legal review dated after it has reported back.",
+      "pendingLift": "The request is suspended pending the legal review’s result.",
+      "stillOpen": "This suspension is still open.",
+      "fields": {
+        "ground": "Ground for the suspension",
+        "detail": "The fact or document in doubt",
+        "resolution_action": "Legal review result",
+        "resolution_note": "Notes"
+      },
+      "grounds": {
+        "incorrect_material_fact": "A material fact is incorrect",
+        "document_in_doubt": "An essential document is in doubt"
+      },
+      "resolutions": {
+        "fact_confirmed": "The fact or document was confirmed; the request resumes",
+        "referred_to_committee": "The matter goes back to the committee for re-presentation"
+      }
+    },
+    "minutesQuality": {
+      "title": "Minutes quality controls (Appendix 8)",
+      "note": "Minutes are not referred for approval until sixteen controls are verified; fourteen are read from the meeting’s own data.",
+      "reviewerCheck": "I certify the minutes contain no internal contradictions.",
+      "checks": {
+        "meeting_number_matches": "The meeting number matches",
+        "date_correct": "The date is correct",
+        "member_names_match": "Member names match",
+        "attendance_recorded": "Attendance is recorded",
+        "convening_validity_recorded": "Valid convening is evidenced",
+        "items_match_agenda": "Items match the agenda",
+        "every_item_has_a_result": "Every discussed item has a result",
+        "decisions_separated_from_recommendations": "Decisions are separated from recommendations",
+        "deferrals_clear": "Deferrals are clear",
+        "required_completions_named": "Required completions are named",
+        "refusals_clear": "Non-approvals are clear",
+        "sensitive_results_reasoned": "Sensitive results are reasoned",
+        "next_approving_body_named": "The next approving body is named",
+        "request_numbers_match": "Request numbers match",
+        "no_internal_contradictions": "No internal contradictions",
+        "signatures_complete": "Signatures are complete"
+      },
+      "answers": {
+        "yes": "Met",
+        "no": "Not met",
+        "enforced_by_signature_lifecycle": "Enforced by the signature lifecycle"
+      }
+    }
   }
 }

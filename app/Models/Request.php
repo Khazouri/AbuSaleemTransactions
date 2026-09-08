@@ -34,7 +34,12 @@ class Request extends Model
         'decision_grade',
         'has_financial_impact',
         'jurisdiction_test',
-        // Stage 75 — [D] Art. 37's closure record. Written only by
+        // Stage 78 — [D] Appendix 63's بوابة 1 (قبل القيد). Written only by
+        // RequestController::recordIntakeGate() and cleared by reopen(),
+        // fillable for the same reason the closure/execution cards below are.
+        'intake_gate',
+        'intake_gate_checked_by_user_id',
+        'intake_gate_checked_at',        // Stage 75 — [D] Art. 37's closure record. Written only by
         // RequestClosureService (and cleared by RequestController::reopen),
         // but fillable so both write it through one update() call.
         'closure',
@@ -49,6 +54,11 @@ class Request extends Model
         'execution_checklist',
         'executed_by_user_id',
         'executed_at',
+        // Stage 78 — [D] Art. 103's قائمة فحص سلامة القرار, recorded before
+        // the result may be referred to execution.
+        'execution_soundness',
+        'execution_soundness_checked_by_user_id',
+        'execution_soundness_checked_at',
     ];
 
     protected function casts(): array
@@ -67,6 +77,10 @@ class Request extends Model
             // once at requirements_check and gating that stage's approve/
             // declare_no_jurisdiction/reject_formally outcomes.
             'jurisdiction_test' => 'array',
+            'intake_gate' => 'array',
+            'intake_gate_checked_at' => 'datetime',
+            'execution_soundness' => 'array',
+            'execution_soundness_checked_at' => 'datetime',
             // Stage 75 — Art. 37's eight closure fields and Appendix 47's
             // twelve-point pre-closure audit.
             'closure' => 'array',
@@ -115,6 +129,18 @@ class Request extends Model
     public function executedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'executed_by_user_id');
+    }
+
+    /** Stage 78 — who answered [D] Appendix 63's بوابة 1 for this file. */
+    public function intakeGateCheckedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'intake_gate_checked_by_user_id');
+    }
+
+    /** Stage 78 — who certified Art. 103's قائمة فحص سلامة القرار. */
+    public function executionSoundnessCheckedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'execution_soundness_checked_by_user_id');
     }
 
     public function stageLogs(): HasMany
@@ -194,6 +220,32 @@ class Request extends Model
     public function openApprovalReturn(): HasOne
     {
         return $this->hasOne(ApprovalReturn::class)
+            ->whereNull('resolved_at')
+            ->latestOfMany();
+    }
+
+    /**
+     * Stage 78 — [D] Art. 105's procedural suspensions, newest last.
+     *
+     * A history for the same reason approvalReturns() is one: the article
+     * names a cause and a consequence recorded at two different moments, and
+     * a file can be suspended more than once over its life.
+     */
+    public function suspensions(): HasMany
+    {
+        return $this->hasMany(RequestSuspension::class);
+    }
+
+    /**
+     * The unresolved suspension this request is being held by, if any.
+     *
+     * Read by the approve gate in RequestController/ApprovalController and by
+     * the detail screen's preview filter — while this is non-null, Art. 105
+     * forbids arranging any new effect on the matter.
+     */
+    public function openSuspension(): HasOne
+    {
+        return $this->hasOne(RequestSuspension::class)
             ->whereNull('resolved_at')
             ->latestOfMany();
     }

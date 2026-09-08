@@ -15,6 +15,7 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Tests\PassesControlGates;
 use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
@@ -27,6 +28,9 @@ use Tests\TestCase;
  */
 class MeetingLiveRunnerTest extends TestCase
 {
+    // Stage 78 — approving a محضر is now [D] Appendix 63's بوابة 3, so every
+    // approve here carries Appendix 8's one reviewer-answered check.
+    use PassesControlGates;
     use RecordsStructuredDecisions;
     use RefreshDatabase;
 
@@ -139,7 +143,7 @@ class MeetingLiveRunnerTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
             ->assertOk();
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])
+            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
             ->assertOk()
             ->assertJsonPath('data.status', 'pending_signatures');
 
@@ -172,7 +176,19 @@ class MeetingLiveRunnerTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
-        $committee = Committee::create(['name_ar' => 'لجنة بلا جدول أعمال']);
+        // Stage 78 — [D] Appendix 8's إثبات صحة الانعقاد is now checked before
+        // a محضر may be approved, and Stage 73 stopped the system from
+        // inventing a quorum for a committee whose قرار التشكيل was never
+        // transcribed, so a fixture meant to produce an approvable محضر has to
+        // record one and mark the sitting attended.
+        $committee = Committee::create([
+            'name_ar' => 'لجنة بلا جدول أعمال',
+            'quorum_type' => 'fraction',
+            'quorum_numerator' => 1,
+            'quorum_denominator' => 2,
+            'quorum_comparator' => 'more_than',
+            'quorum_text' => 'أكثر من نصف الأعضاء',
+        ]);
         $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
         $meeting = Meeting::create([
             'committee_id' => $committee->id,
@@ -181,8 +197,12 @@ class MeetingLiveRunnerTest extends TestCase
             'created_by_user_id' => $head->id,
         ]);
 
-        // No agenda items and nobody attended: the minutes still need to be
-        // generated and reviewed, but review auto-approves with no signers.
+        // Stage 78 — the محضر now needs a recorded, quorate sitting behind it
+        // ([D] Appendix 8), so the head attends and signs before it is approved.
+        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
+
+        // No agenda items: the close gate still holds until the minutes exist,
+        // are reviewed and are signed.
         $this->actingAs($head, 'sanctum')
             ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])
             ->assertStatus(422);
@@ -191,7 +211,11 @@ class MeetingLiveRunnerTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
             ->assertOk();
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])
+            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
+            ->assertOk()
+            ->assertJsonPath('data.status', 'pending_signatures');
+        $this->actingAs($head, 'sanctum')
+            ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
             ->assertOk()
             ->assertJsonPath('data.status', 'approved');
 
@@ -237,7 +261,19 @@ class MeetingLiveRunnerTest extends TestCase
         $head = $this->userWithRole('R03');
         $member = $this->userWithRole('R04');
 
-        $committee = Committee::create(['name_ar' => 'لجنة مباشرة الاجتماع']);
+        // Stage 78 — [D] Appendix 8's إثبات صحة الانعقاد is now checked before
+        // a محضر may be approved, and Stage 73 stopped the system from
+        // inventing a quorum for a committee whose قرار التشكيل was never
+        // transcribed, so a fixture meant to produce an approvable محضر has to
+        // record one and mark the sitting attended.
+        $committee = Committee::create([
+            'name_ar' => 'لجنة مباشرة الاجتماع',
+            'quorum_type' => 'fraction',
+            'quorum_numerator' => 1,
+            'quorum_denominator' => 2,
+            'quorum_comparator' => 'more_than',
+            'quorum_text' => 'أكثر من نصف الأعضاء',
+        ]);
         $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
         $committee->members()->create(['user_id' => $member->id]);
 
@@ -275,6 +311,18 @@ class MeetingLiveRunnerTest extends TestCase
             'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
+            // Stage 78 — [D] Appendix 8's "تحديد جهة الاعتماد التالية" is read
+            // per agenda item from Stage 54's Art. 45 test, which every request
+            // registered after that stage carries. A fixture that skips the
+            // pipeline has to supply it, or the محضر cannot be approved.
+            'jurisdiction_test' => [
+                'has_legal_basis' => true,
+                'employee_covered' => true,
+                'within_municipal_jurisdiction' => true,
+                'committee_decides' => true,
+                'final_approval_authority' => 'عميد البلدية',
+                'requires_central_approval' => false,
+            ],
         ]);
     }
 

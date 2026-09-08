@@ -170,6 +170,21 @@ class RequestStatusSeeder extends Seeder
             // its resolve() back to the awaiting status or forward to Art.
             // 78's إعادة عرض.
             ['returned_by_approving_body', 'أعيدت من جهة الاعتماد', 'Returned by Approving Body', '#c2410c'],
+
+            // --- Track K, Stage 78: Art. 105's procedural suspension --------
+            // "إذا ظهر قبل الاعتماد أو التنفيذ أن معلومة جوهرية غير صحيحة أو أن
+            // مستندًا أساسيًا محل شك: يوقف التنفيذ فورًا من الناحية الإجرائية
+            // ويحال الموضوع للمراجعة القانونية والجهة المختصة قبل ترتيب أثر
+            // جديد عليه." Art. 38 has no code for this either — like Stage
+            // 77's status above it is named by its own article rather than by
+            // the dictionary, and for the same reason: [D] enumerates the
+            // twenty ordinary states, not every procedural hold it also
+            // mandates elsewhere.
+            //
+            // Deliberately NOT terminal — the whole point of Art. 105 is that
+            // the matter is reviewed and then resumes or goes back to the
+            // committee. Written only by App\Services\RequestSuspensionService.
+            ['execution_suspended', 'موقوفة لمراجعة قانونية', 'Suspended for Legal Review', '#7f1d1d'],
         ];
 
         foreach ($statuses as [$code, $nameAr, $nameEn, $color]) {

@@ -1699,5 +1699,110 @@
     "exportPdf": "تصدير PDF",
     "exporting": "جارٍ التصدير…",
     "exportFailed": "تعذّر إنشاء ملف التصدير."
+  },
+  "controlGates": {
+    "title": "بوابات الرقابة الداخلية",
+    "intro": "تمنع المنظومة الانتقال إذا كانت متطلبات البوابة غير مكتملة (الملحق 63).",
+    "save": "حفظ",
+    "saving": "جارٍ الحفظ…",
+    "cancel": "إلغاء",
+    "error": "تعذر إتمام العملية.",
+    "intake": {
+      "title": "البوابة الأولى — قبل القيد",
+      "question": "هل الوقائع والوثائق صحيحة ومكتملة؟",
+      "action": "تسجيل التحقق من الملف",
+      "reviseAction": "تعديل التحقق من الملف",
+      "formNote": "أجب عن كل مستند تشترطه مصفوفة المستندات الإلزامية لنوع المعاملة.",
+      "noDocuments": "لا توجد مستندات مشترطة لهذا النوع.",
+      "conditional": "(مشروط)",
+      "choose": "اختر…",
+      "factsVerified": "أقر بصحة الوقائع والبيانات المقدمة.",
+      "passed": "استوفت المعاملة متطلبات البوابة الأولى.",
+      "answers": {
+        "present": "مرفق",
+        "not_applicable": "لا ينطبق",
+        "missing": "ناقص"
+      }
+    },
+    "soundness": {
+      "title": "قائمة فحص سلامة القرار (المادة 103)",
+      "question": "هل تم التحقق من سلامة القرار قبل إحالته للتنفيذ؟",
+      "action": "تسجيل فحص سلامة القرار",
+      "reviseAction": "تعديل فحص سلامة القرار",
+      "formNote": "ثمانية من البنود الاثني عشر تُستخرج من بيانات المعاملة نفسها ولا تُسأل؛ أجب عن الأربعة المتبقية.",
+      "passed": "استوفت المعاملة قائمة فحص سلامة القرار.",
+      "checks": {
+        "employee_name_correct": "صحة اسم الموظف",
+        "employee_number_correct": "الرقم الوظيفي",
+        "decision_subject_present": "موضوع القرار",
+        "committee_jurisdiction": "اختصاص اللجنة",
+        "convening_valid": "صحة انعقاد الاجتماع",
+        "voting_complete": "استكمال التصويت",
+        "documents_present": "وجود المستندات",
+        "legal_basis_sound": "صحة السند القانوني",
+        "minutes_signed": "توقيع المحضر",
+        "competent_authority_approved": "اعتماد السلطة المختصة",
+        "effective_date_correct": "صحة تاريخ النفاذ",
+        "no_conflict_with_attachments": "عدم وجود تعارض بين منطوق القرار والمرفقات"
+      },
+      "answers": {
+        "yes": "نعم",
+        "no": "لا",
+        "not_applicable": "لا ينطبق",
+        "pending": "لم يُجب بعد"
+      }
+    },
+    "suspension": {
+      "title": "الإيقاف الإجرائي (المادة 105)",
+      "question": "هل ظهر أن معلومة جوهرية غير صحيحة أو أن مستنداً أساسياً محل شك؟",
+      "action": "إيقاف التنفيذ إجرائياً",
+      "formNote": "يوقف التنفيذ فوراً ويحال الموضوع للمراجعة القانونية قبل ترتيب أثر جديد عليه.",
+      "liftAction": "رفع الإيقاف",
+      "liftNote": "لا يرفع الإيقاف إلا بعد إثبات مراجعة قانونية لاحقة لتاريخ الإيقاف.",
+      "pendingLift": "المعاملة موقوفة إجرائياً بانتظار نتيجة المراجعة القانونية.",
+      "stillOpen": "ما زال الإيقاف قائماً.",
+      "fields": {
+        "ground": "سبب الإيقاف",
+        "detail": "بيان المعلومة أو المستند محل الشك",
+        "resolution_action": "نتيجة المراجعة القانونية",
+        "resolution_note": "ملاحظات"
+      },
+      "grounds": {
+        "incorrect_material_fact": "معلومة جوهرية غير صحيحة",
+        "document_in_doubt": "مستند أساسي محل شك"
+      },
+      "resolutions": {
+        "fact_confirmed": "ثبتت صحة المعلومة أو المستند، وتستأنف المعاملة مسارها",
+        "referred_to_committee": "أعيد الموضوع إلى اللجنة لإعادة العرض"
+      }
+    },
+    "minutesQuality": {
+      "title": "ضوابط جودة المحضر (الملحق 8)",
+      "note": "لا يحال المحضر للاعتماد قبل التحقق من ستة عشر ضابطاً؛ أربعة عشر منها تُستخرج من بيانات الاجتماع.",
+      "reviewerCheck": "أقر بخلو المحضر من تعارضات داخلية.",
+      "checks": {
+        "meeting_number_matches": "تطابق رقم الاجتماع",
+        "date_correct": "صحة التاريخ",
+        "member_names_match": "تطابق أسماء الأعضاء",
+        "attendance_recorded": "إثبات الحضور",
+        "convening_validity_recorded": "إثبات صحة الانعقاد",
+        "items_match_agenda": "تطابق البنود مع جدول الأعمال",
+        "every_item_has_a_result": "وجود نتيجة لكل بند نوقش",
+        "decisions_separated_from_recommendations": "فصل القرارات عن التوصيات",
+        "deferrals_clear": "وضوح حالات التأجيل",
+        "required_completions_named": "تحديد النواقص المطلوبة",
+        "refusals_clear": "وضوح حالات عدم الموافقة",
+        "sensitive_results_reasoned": "تسبيب النتائج الحساسة",
+        "next_approving_body_named": "تحديد جهة الاعتماد التالية",
+        "request_numbers_match": "تطابق أرقام المعاملات",
+        "no_internal_contradictions": "خلو المحضر من تعارضات داخلية",
+        "signatures_complete": "استكمال التوقيعات"
+      },
+      "answers": {
+        "yes": "مستوفٍ",
+        "no": "غير مستوفٍ",
+        "enforced_by_signature_lifecycle": "يُستوفى بدورة التوقيع"
+      }
+    }
   }
 }

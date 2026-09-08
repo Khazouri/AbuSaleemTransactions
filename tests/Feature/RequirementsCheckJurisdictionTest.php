@@ -13,6 +13,7 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\PassesControlGates;
 use Tests\TestCase;
 
 /**
@@ -22,6 +23,7 @@ use Tests\TestCase;
  */
 class RequirementsCheckJurisdictionTest extends TestCase
 {
+    use PassesControlGates;
     use RefreshDatabase;
 
     public function test_recording_the_jurisdiction_test_round_trips_through_the_detail_resource(): void
@@ -107,7 +109,12 @@ class RequirementsCheckJurisdictionTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $reviewer = $this->userWithRole('R02');
 
-        $approved = $this->requestAt('requirements_check', 'in_review', jurisdictionTest: $this->answers());
+        // Stage 78 — the قيد hop is gated on Appendix 63's بوابة 1 too, and
+        // only that hop is: declaring عدم اختصاص or refusing formally does not
+        // grant a قيد, so neither needs the documents complete first.
+        $approved = $this->passIntakeGate(
+            $this->requestAt('requirements_check', 'in_review', jurisdictionTest: $this->answers()),
+        );
         $this->actingAs($reviewer, 'sanctum')
             ->post("/api/requests/{$approved->id}/transition", [
                 'action' => 'approve',
@@ -157,6 +164,9 @@ class RequirementsCheckJurisdictionTest extends TestCase
         $this->actingAs($reviewer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/jurisdiction-test", $this->answers())
             ->assertOk();
+        // Stage 78 — approve additionally needs Appendix 63's بوابة 1, which the
+        // preview filter reads from the same predicate the endpoint does.
+        $this->passIntakeGate($requestRecord);
 
         $after = $this->actingAs($reviewer, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")

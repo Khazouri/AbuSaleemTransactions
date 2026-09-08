@@ -93,7 +93,15 @@ class RequestVisibility
                     $underReview->whereIn(
                         'requests.status_id',
                         RequestStatus::query()
-                            ->where('code', CommitteeStatusService::LEGAL_REVIEW_STATUS)
+                            ->whereIn('code', [
+                                CommitteeStatusService::LEGAL_REVIEW_STATUS,
+                                // Stage 78 — Art. 105's referral puts a file in
+                                // front of the same person at a completely
+                                // different point in its life, and the queue
+                                // that lists it (legalReviewQueueQuery) would
+                                // otherwise offer a row this gate 404s.
+                                RequestSuspensionService::SUSPENDED_STATUS,
+                            ])
                             ->select('id'),
                     );
                 })->orWhereExists(function ($reviewed) {
@@ -112,6 +120,14 @@ class RequestVisibility
                                 ...RequestClosureService::CLOSABLE_STATUSES,
                                 RequestExecutionService::EXECUTABLE_STATUS,
                                 ...ApprovalReturnService::APPROVAL_CYCLE_STATUSES,
+                                // Stage 78 — the Art. 103 certifier and
+                                // the Art. 105 suspender need the same
+                                // reach: `final_approved` is the origin
+                                // of the execution referral they gate,
+                                // and a suspended file is one they must
+                                // be able to open to lift the hold.
+                                'final_approved',
+                                RequestSuspensionService::SUSPENDED_STATUS,
                             ])
                             ->select('id'),
                     )->orWhereNotNull('requests.closed_at');

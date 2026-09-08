@@ -20,6 +20,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\ClosesRequests;
 use Tests\ExecutesRequests;
+use Tests\PassesControlGates;
 use Tests\TestCase;
 
 /** Stage 37 — meeting decisions followed through approval, execution, and close. */
@@ -27,6 +28,7 @@ class MeetingOutputsTest extends TestCase
 {
     use ClosesRequests;
     use ExecutesRequests;
+    use PassesControlGates;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -72,6 +74,12 @@ class MeetingOutputsTest extends TestCase
     {
         [$head, $member, , $meeting, $agendaItem, $requestRecord] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
         $finalApprover = $this->userWithRole('R07');
+
+        // Stage 78 — Art. 103's قائمة فحص سلامة القرار is verified before the
+        // result may be referred to execution. Recorded by the مقرر, not the
+        // approving authority, so preparation and decision stay in different
+        // hands; ControlGateTest exercises the endpoint and the refusals.
+        $this->certifySoundness($requestRecord);
 
         $this->actingAs($finalApprover, 'sanctum')
             ->post("/api/approvals/final/{$requestRecord->id}", [
@@ -246,7 +254,20 @@ class MeetingOutputsTest extends TestCase
         $member = $this->userWithRole('R04');
         $employee = $this->userWithRole('R01');
 
-        $committee = Committee::create(['name_ar' => 'لجنة متابعة المخرجات']);
+        // Stage 78 — Art. 103's checklist is verified before a result may be
+        // referred to execution, and eight of its twelve points read real
+        // state rather than a tick. A fixture that skips the pipeline has to
+        // build the file those points describe: a quorum rule that can prove
+        // صحة الانعقاد, a structured decision, a document, and an approved
+        // محضر.
+        $committee = Committee::create([
+            'name_ar' => 'لجنة متابعة المخرجات',
+            'quorum_type' => 'fraction',
+            'quorum_numerator' => 1,
+            'quorum_denominator' => 2,
+            'quorum_comparator' => 'more_than',
+            'quorum_text' => 'أكثر من نصف الأعضاء',
+        ]);
         $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
         $committee->members()->create(['user_id' => $member->id]);
         $meeting = Meeting::create([
@@ -256,6 +277,8 @@ class MeetingOutputsTest extends TestCase
             'scheduled_at' => now(),
             'created_by_user_id' => $head->id,
         ]);
+        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
+        $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
 
         $requestRecord = Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
@@ -266,6 +289,22 @@ class MeetingOutputsTest extends TestCase
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'created_by_user_id' => $employee->id,
             'submitted_at' => now(),
+            'jurisdiction_test' => [
+                'has_legal_basis' => true,
+                'employee_covered' => true,
+                'within_municipal_jurisdiction' => true,
+                'committee_decides' => true,
+                'final_approval_authority' => 'عميد البلدية',
+                'requires_central_approval' => false,
+            ],
+        ]);
+        $requestRecord->attachments()->create([
+            'disk' => 'local',
+            'path' => 'attachments/fixture.pdf',
+            'original_name' => 'مستند مؤيد.pdf',
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 1024,
+            'uploaded_by_user_id' => $employee->id,
         ]);
         $agendaItem = $meeting->agendaItems()->create([
             'request_id' => $requestRecord->id,
@@ -275,11 +314,20 @@ class MeetingOutputsTest extends TestCase
         Decision::create([
             'meeting_request_id' => $agendaItem->id,
             'outcome' => 'approve',
+            'instrument' => 'decision',
             'votes_approve_count' => 2,
             'comment' => 'اعتمدت اللجنة الطلب.',
+            // Stage 74's Appendix 27 structure, which Art. 103's موضوع القرار
+            // and صحة السند القانوني both read.
+            'decision_subject' => 'ترقية الموظف إلى الدرجة التالية.',
+            'decision_facts' => 'استوفى الموظف مدة البقاء في الدرجة الحالية.',
+            'decision_basis' => 'المادة 135 من قانون علاقات العمل.',
+            'decision_operative' => 'قررت اللجنة الموافقة على ترقية الموظف.',
             'decided_by_user_id' => $head->id,
             'decided_at' => now(),
         ]);
+
+        $this->approveMinutes($meeting, $head, [$head, $member]);
 
         return [$head, $member, $employee, $meeting, $agendaItem, $requestRecord];
     }

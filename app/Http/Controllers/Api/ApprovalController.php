@@ -116,6 +116,17 @@ class ApprovalController extends Controller
             ]);
         }
 
+        // Stage 78 — [D] Appendix 63's control gates and Arts. 103/105, read
+        // from the one predicate RequestController::transition() and the
+        // detail screen's preview filter also read. The queue is the primary
+        // way `requirements_check` and `final_approval_archiving` get
+        // approved, so gating only the generic endpoint would leave both this
+        // stage's new gates wide open here — the same reason the jurisdiction
+        // and approval-return checks above are repeated.
+        if (($gateRefusal = RequestController::controlGateRefusal($requestRecord, 'approve')) !== null) {
+            throw ValidationException::withMessages(['request' => [$gateRefusal]]);
+        }
+
         $signaturePath = $signatureStorage->store($request->file('signature'), $requestRecord);
 
         try {

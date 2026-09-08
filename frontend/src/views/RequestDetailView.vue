@@ -4,6 +4,9 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import ApprovalReturnPanel from '../components/ApprovalReturnPanel.vue'
+import IntakeGatePanel from '../components/IntakeGatePanel.vue'
+import RequestSoundnessPanel from '../components/RequestSoundnessPanel.vue'
+import RequestSuspensionPanel from '../components/RequestSuspensionPanel.vue'
 import ApprovalTrail from '../components/ApprovalTrail.vue'
 import FileUpload from '../components/FileUpload.vue'
 import SignaturePad from '../components/SignaturePad.vue'
@@ -76,6 +79,9 @@ const onClosed = (updated) => { request.value = updated }
 // Stage 77 — the two approval-return endpoints answer with the same full detail
 // resource, so the card swaps in the updated request rather than refetching.
 const onApprovalReturnUpdated = (updated) => { request.value = updated }
+// Stage 78 — every control-gate endpoint answers with the same full detail
+// resource, so each card swaps in the updated request rather than refetching.
+const onGateUpdated = (updated) => { request.value = updated }
 // The round still waiting on Art. 94's "الإجراء الذي اتخذ بشأنها". Resolved
 // against the id the server computed rather than re-deriving "unresolved" here,
 // so the panel and the endpoint agree on which round is open.
@@ -729,6 +735,67 @@ onBeforeUnmount(clearAttachmentPreview)
           :open-return="openApprovalReturn"
           @updated="onApprovalReturnUpdated"
         />
+      </section>
+
+      <!-- Stage 78 — [D] Appendix 63's مصفوفة الرقابة الداخلية for this one
+           file. Gate 2 (قبل جدول الأعمال) is meeting-scoped and lives on the
+           readiness screen; gate 4 (قبل الإقفال) is the closure card below.
+           Each refusal here comes from the same service the matching endpoint
+           enforces with, so a gate the screen shows as passed can never be one
+           an endpoint refuses. -->
+      <section v-if="request.control_gates" class="card summary closure">
+        <h3>{{ t('controlGates.title') }}</h3>
+        <p class="hint">{{ t('controlGates.intro') }}</p>
+
+        <!-- بوابة 1 — قبل القيد. Shown only while the file is still standing
+             on the hop that grants Art. 20's قيد, or once it has been
+             answered, so a file long past registration is not asked again. -->
+        <div
+          v-if="request.current_stage?.code === 'requirements_check' || request.control_gates.intake.record"
+          class="gate-block"
+        >
+          <h4>{{ t('controlGates.intake.title') }}</h4>
+          <p class="hint">{{ t('controlGates.intake.question') }}</p>
+          <IntakeGatePanel
+            :request-id="request.id"
+            :required-documents="request.control_gates.intake.required_documents"
+            :record="request.control_gates.intake.record"
+            :refusal="request.control_gates.intake.refusal"
+            @updated="onGateUpdated"
+          />
+        </div>
+
+        <!-- Art. 103 — قبل إحالة النتيجة للتنفيذ. -->
+        <div
+          v-if="request.current_stage?.code === 'final_approval_archiving' || request.control_gates.execution_soundness.record"
+          class="gate-block"
+        >
+          <h4>{{ t('controlGates.soundness.title') }}</h4>
+          <p class="hint">{{ t('controlGates.soundness.question') }}</p>
+          <RequestSoundnessPanel
+            :request-id="request.id"
+            :record="request.control_gates.execution_soundness.record"
+            :derived="request.control_gates.execution_soundness.derived"
+            :refusal="request.control_gates.execution_soundness.refusal"
+            @updated="onGateUpdated"
+          />
+        </div>
+
+        <!-- Art. 105 — the hold that sits across all of them. -->
+        <div
+          v-if="request.suspensions?.length || !request.control_gates.suspension.refusal"
+          class="gate-block"
+        >
+          <h4>{{ t('controlGates.suspension.title') }}</h4>
+          <p class="hint">{{ t('controlGates.suspension.question') }}</p>
+          <RequestSuspensionPanel
+            :request-id="request.id"
+            :suspensions="request.suspensions ?? []"
+            :refusal="request.control_gates.suspension.refusal"
+            :open-id="request.control_gates.suspension.open_id"
+            @updated="onGateUpdated"
+          />
+        </div>
       </section>
 
       <!-- Stage 76 — [D] النموذج 17's recorded execution card, read-only here.

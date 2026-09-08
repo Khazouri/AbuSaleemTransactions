@@ -18,6 +18,7 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Tests\PassesControlGates;
 use Tests\RecordsStructuredDecisions;
 use Tests\TestCase;
 
@@ -30,6 +31,9 @@ use Tests\TestCase;
  */
 class MeetingMinutesTest extends TestCase
 {
+    // Stage 78 — approving a محضر is now [D] Appendix 63's بوابة 3, so every
+    // approve here carries Appendix 8's one reviewer-answered check.
+    use PassesControlGates;
     use RecordsStructuredDecisions;
     use RefreshDatabase;
 
@@ -47,7 +51,7 @@ class MeetingMinutesTest extends TestCase
         $this->assertCount(2, $response->json('data.content.attendance.present'));
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])
+            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
             ->assertOk();
 
         $this->actingAs($head, 'sanctum')
@@ -86,14 +90,25 @@ class MeetingMinutesTest extends TestCase
         $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
 
         $response = $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])
+            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
             ->assertOk()
             ->assertJsonPath('data.status', 'pending_signatures');
 
         $this->assertCount(2, $response->json('data.signatures'));
     }
 
-    public function test_a_meeting_with_no_attended_attendees_auto_approves_on_review(): void
+    /**
+     * Stage 78 deliberately changes what this case does, and the change is
+     * sourced rather than incidental.
+     *
+     * Stage 36 let a meeting nobody attended skip straight to `approved`,
+     * because there was nobody to sign. [D] Appendix 8 refuses that outright:
+     * a محضر is not sent for اعتماد before "إثبات الحضور" and "إثبات صحة
+     * الانعقاد", and a sitting with no recorded attendance proves neither.
+     * Art. 84 says the same thing from the other end — the deliberations do
+     * not begin until صحة الانعقاد is verified.
+     */
+    public function test_a_meeting_with_no_attended_attendees_cannot_have_its_minutes_approved(): void
     {
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
@@ -109,10 +124,11 @@ class MeetingMinutesTest extends TestCase
         $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])
-            ->assertOk()
-            ->assertJsonPath('data.status', 'approved')
-            ->assertJsonCount(0, 'data.signatures');
+            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'لا يحال المحضر للاعتماد قبل التحقق من: إثبات الحضور');
+
+        $this->assertSame('draft', $meeting->meetingMinutes()->value('status'));
     }
 
     public function test_signing_rejects_a_non_signer_and_a_double_sign_then_the_last_signature_approves(): void
@@ -122,7 +138,7 @@ class MeetingMinutesTest extends TestCase
         $outsider = $this->userWithRole('R04');
 
         $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
-        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])->assertOk();
+        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())->assertOk();
 
         $this->actingAs($outsider, 'sanctum')
             ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
@@ -150,7 +166,19 @@ class MeetingMinutesTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
-        $committee = Committee::create(['name_ar' => 'لجنة إغلاق الاجتماع']);
+        // Stage 78 — [D] Appendix 8's إثبات صحة الانعقاد is now checked before
+        // a محضر may be approved, and Stage 73 stopped the system from
+        // inventing a quorum for a committee whose قرار التشكيل was never
+        // transcribed, so a fixture meant to produce an approvable محضر has to
+        // record one and mark the sitting attended.
+        $committee = Committee::create([
+            'name_ar' => 'لجنة إغلاق الاجتماع',
+            'quorum_type' => 'fraction',
+            'quorum_numerator' => 1,
+            'quorum_denominator' => 2,
+            'quorum_comparator' => 'more_than',
+            'quorum_text' => 'أكثر من نصف الأعضاء',
+        ]);
         $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
         $meeting = Meeting::create([
             'committee_id' => $committee->id,
@@ -158,6 +186,9 @@ class MeetingMinutesTest extends TestCase
             'scheduled_at' => now()->addDay(),
             'created_by_user_id' => $head->id,
         ]);
+        // Stage 78 — the محضر now needs a recorded, quorate sitting behind it
+        // ([D] Appendix 8), so the head attends and signs before it is approved.
+        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
 
         $this->actingAs($head, 'sanctum')
             ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])
@@ -169,7 +200,10 @@ class MeetingMinutesTest extends TestCase
             ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])
             ->assertStatus(422);
 
-        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])->assertOk();
+        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())->assertOk();
+        $this->actingAs($head, 'sanctum')
+            ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
+            ->assertOk();
 
         $this->actingAs($head, 'sanctum')
             ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])
@@ -187,10 +221,10 @@ class MeetingMinutesTest extends TestCase
             ->assertOk();
 
         $this->actingAs($member, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])
+            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
             ->assertStatus(403);
 
-        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/review", ['decision' => 'approve'])->assertOk();
+        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())->assertOk();
 
         $this->actingAs($member, 'sanctum')
             ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
@@ -338,7 +372,19 @@ class MeetingMinutesTest extends TestCase
         $head = $this->userWithRole('R03');
         $member = $this->userWithRole('R04');
 
-        $committee = Committee::create(['name_ar' => 'لجنة محضر الاجتماع']);
+        // Stage 78 — [D] Appendix 8's "إثبات صحة الانعقاد" is checked before a
+        // محضر may be approved, and Stage 73 stopped the system from inventing
+        // a quorum for a committee whose قرار التشكيل was never transcribed —
+        // so a fixture meant to produce an *approvable* محضر has to record one.
+        // The same fixture update Stage 73 made to MeetingReadinessTest.
+        $committee = Committee::create([
+            'name_ar' => 'لجنة محضر الاجتماع',
+            'quorum_type' => 'fraction',
+            'quorum_numerator' => 1,
+            'quorum_denominator' => 2,
+            'quorum_comparator' => 'more_than',
+            'quorum_text' => 'أكثر من نصف الأعضاء',
+        ]);
         $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
         $committee->members()->create(['user_id' => $member->id]);
 

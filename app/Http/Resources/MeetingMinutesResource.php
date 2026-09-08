@@ -26,6 +26,9 @@ class MeetingMinutesResource extends JsonResource
             ] : null),
             'reviewed_at' => $this->reviewed_at?->toIso8601String(),
             'review_comment' => $this->review_comment,
+            // Stage 78 — Appendix 8's sixteen ضوابط جودة المحضر as answered at
+            // review time; null on a draft nobody has reviewed yet.
+            'quality_checks' => $this->quality_checks,
             'approved_at' => $this->approved_at?->toIso8601String(),
             'signatures' => MeetingMinuteSignatureResource::collection($this->whenLoaded('signatures')),
         ];

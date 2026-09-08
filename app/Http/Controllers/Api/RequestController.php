@@ -6,11 +6,15 @@ use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Request\CloseRequest;
 use App\Http\Requests\Request\IndexRequest;
+use App\Http\Requests\Request\LiftSuspensionRequest;
 use App\Http\Requests\Request\RecordApprovalReturnRequest;
+use App\Http\Requests\Request\RecordExecutionSoundnessRequest;
+use App\Http\Requests\Request\RecordIntakeGateRequest;
 use App\Http\Requests\Request\RecordJurisdictionTestRequest;
 use App\Http\Requests\Request\ReopenRequest;
 use App\Http\Requests\Request\ResolveApprovalReturnRequest;
 use App\Http\Requests\Request\StoreRequest;
+use App\Http\Requests\Request\SuspendRequest;
 use App\Http\Requests\Request\TransitionRequest;
 use App\Http\Requests\Request\UpdateFinancialImpactRequest;
 use App\Http\Resources\RequestDetailResource;
@@ -27,12 +31,16 @@ use App\Models\WorkflowStage;
 use App\Services\ApprovalReturnService;
 use App\Services\ApprovalSignatureStorage;
 use App\Services\ArtifactNumberGenerator;
+use App\Services\ExecutionSoundnessService;
+use App\Services\IntakeGateService;
 use App\Services\NotificationDispatcher;
 use App\Services\ReopenReasonCatalog;
 use App\Services\RequestClosureService;
 use App\Services\RequestDeadlineService;
+use App\Services\RequestSuspensionService;
 use App\Services\RequestVisibility;
 use App\Services\WorkflowService;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -58,6 +66,50 @@ class RequestController extends Controller
      * endpoint behind it can never disagree about an open return.
      */
     public const APPROVAL_RETURN_BLOCK_MESSAGE = 'لا يعتمد المحضر المعاد من جهة الاعتماد قبل إثبات إجراء إعادة المعالجة.';
+
+    /**
+     * Stage 78 — [D] Appendix 63's own sentence, enforced: "وتمنع المنظومة
+     * الإلكترونية الانتقال إذا كانت متطلبات البوابة غير مكتملة".
+     *
+     * One predicate, read by all three sites that must agree — this
+     * controller's transition(), ApprovalController::store() (the other way
+     * the same `approve` reaches WorkflowService) and detailResource()'s
+     * preview filter, so the SPA can never offer a button either endpoint
+     * refuses. The dual-path trap Stages 54, 70 and 77 each had to close the
+     * same way.
+     *
+     * Returns null when the action may proceed, else the Arabic reason it may
+     * not, one message at a time in the order the file meets the gates.
+     */
+    public static function controlGateRefusal(Request $requestRecord, string $action): ?string
+    {
+        if ($action !== 'approve') {
+            return null;
+        }
+
+        // Art. 105 first, and at every checkpoint rather than one: "قبل ترتيب
+        // أثر جديد عليه" means a suspended file arranges no new effect
+        // anywhere, not merely at the stage where the doubt surfaced.
+        if ($requestRecord->openSuspension()->exists()) {
+            return RequestSuspensionService::BLOCK_MESSAGE;
+        }
+
+        $stageCode = $requestRecord->currentStage()->value('code');
+
+        // بوابة 1 — قبل القيد. This hop is where Art. 20's رقم إشاري is minted
+        // (Stage 70), so it is the entry to the committee track Appendix 63
+        // guards.
+        if ($stageCode === IntakeGateService::GATED_STAGE) {
+            return app(IntakeGateService::class)->refusalReason($requestRecord);
+        }
+
+        // Art. 103 — "قبل إحالة النتيجة للتنفيذ يتم التحقق من" twelve things.
+        if ($stageCode === ExecutionSoundnessService::GATED_STAGE) {
+            return app(ExecutionSoundnessService::class)->refusalReason($requestRecord);
+        }
+
+        return null;
+    }
 
     /**
      * Stage 66, Track J — [D] Arts. 34–37/78–79: only a request that has
@@ -305,6 +357,13 @@ class RequestController extends Controller
                 'action' => [self::APPROVAL_RETURN_BLOCK_MESSAGE],
             ]);
         }
+        // Stage 78 — Appendix 63's four control gates, plus Arts. 103 and 105.
+        // Repeated verbatim in ApprovalController::store() and in the preview
+        // filter below; see controlGateRefusal() for why all three read one
+        // predicate.
+        if (($gateRefusal = self::controlGateRefusal($requestRecord, $action)) !== null) {
+            throw ValidationException::withMessages(['action' => [$gateRefusal]]);
+        }
 
         // Stage 19 — only an approval writes signature evidence; ordinary
         // forwards and exception commands remain compact JSON/form commands.
@@ -461,6 +520,29 @@ class RequestController extends Controller
             ]);
         }
 
+        // Stage 78 — a reopened file re-walks whichever gates lie ahead of the
+        // stage it lands on, and the previous lap's answers say nothing about
+        // this one: `new_document` and `material_error_correction` are two of
+        // ReopenReasonCatalog's own six reasons, and each is precisely a claim
+        // that a gate 1 or Art. 103 answer has changed. Cleared for the same
+        // reason the closure and execution cards above are.
+        //
+        // The Art. 105 suspensions are deliberately NOT cleared: like Stage
+        // 77's returns they are a register whose whole value is that earlier
+        // rounds stay readable, and an open one cannot survive a reopen in
+        // practice — `execution_suspended` is not a REOPENABLE_STATUS_CODES
+        // entry, so a reopened request only ever carries resolved rounds.
+        if ($requestRecord->intake_gate !== null || $requestRecord->execution_soundness !== null) {
+            $requestRecord->update([
+                'intake_gate' => null,
+                'intake_gate_checked_by_user_id' => null,
+                'intake_gate_checked_at' => null,
+                'execution_soundness' => null,
+                'execution_soundness_checked_by_user_id' => null,
+                'execution_soundness_checked_at' => null,
+            ]);
+        }
+
         return $this->detailResource($requestRecord, $workflow, $actor);
     }
 
@@ -496,7 +578,7 @@ class RequestController extends Controller
 
         try {
             $requestRecord = $closure->close($requestRecord, $actor, $validated, $audit);
-        } catch (\DomainException $exception) {
+        } catch (DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
@@ -539,7 +621,7 @@ class RequestController extends Controller
 
         try {
             $returns->record($requestRecord, $actor, $validated);
-        } catch (\DomainException $exception) {
+        } catch (DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
@@ -578,7 +660,142 @@ class RequestController extends Controller
                 $actor,
                 $request->validated('resolution_action'),
             );
-        } catch (WorkflowTransitionException|\DomainException $exception) {
+        } catch (WorkflowTransitionException|DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return $this->detailResource($requestRecord, $workflow, $actor);
+    }
+
+    /**
+     * Stage 78 — record [D] Appendix 63's بوابة 1 (قبل القيد): one answer per
+     * document Appendix 57 requires for this request's type, plus Appendix
+     * 20's own attestation that the facts themselves are sound.
+     *
+     * Rides the same `notes_attachments,edit` grant (R01/R02) Stage 54's
+     * jurisdiction test and Stage 47's financial-impact correction already
+     * use, and carries no stage restriction of its own for the same reason
+     * those two don't: it is a working record the officer builds while the
+     * file is being checked, and `requirements_check → approve` is what reads
+     * it.
+     */
+    public function recordIntakeGate(
+        RecordIntakeGateRequest $request,
+        Request $requestRecord,
+        IntakeGateService $gate,
+        WorkflowService $workflow,
+        RequestVisibility $visibility,
+    ): RequestDetailResource {
+        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
+
+        $requestRecord->loadMissing('requestType:id,required_documents');
+
+        $requestRecord->update([
+            'intake_gate' => $gate->record(
+                $requestRecord,
+                $request->validated('documents'),
+                $request->boolean('facts_verified'),
+            ),
+            'intake_gate_checked_by_user_id' => $request->user()->id,
+            'intake_gate_checked_at' => now(),
+        ]);
+
+        return $this->detailResource($requestRecord, $workflow, $request->user());
+    }
+
+    /**
+     * Stage 78 — record [D] Art. 103's قائمة فحص سلامة القرار, the twelve
+     * things verified "قبل إحالة النتيجة للتنفيذ".
+     *
+     * Only the four attested checks are accepted from the caller; the other
+     * eight are read from real state by the service, so a spoofed answer to
+     * one of them never reaches the record — Art. 104's "صحة المستند
+     * والاختصاص ليستا إجراءات شكلية" is the reason.
+     *
+     * Rides `meeting_outputs,edit` (R02 + R03) rather than R07's own
+     * `final_approval` grant, deliberately: the file is prepared by the مقرر
+     * who holds it and referred to execution by the authority who approves it,
+     * which keeps preparation and decision in different hands — Appendix 9's
+     * third and ninth prohibited practices are the same principle.
+     */
+    public function recordExecutionSoundness(
+        RecordExecutionSoundnessRequest $request,
+        Request $requestRecord,
+        ExecutionSoundnessService $soundness,
+        WorkflowService $workflow,
+    ): RequestDetailResource {
+        $actor = $request->user();
+        $requestRecord->loadMissing('status:id,code');
+
+        $requestRecord->update([
+            'execution_soundness' => $soundness->record($requestRecord, $request->validated('checks')),
+            'execution_soundness_checked_by_user_id' => $actor->id,
+            'execution_soundness_checked_at' => now(),
+        ]);
+
+        return $this->detailResource($requestRecord->refresh(), $workflow, $actor);
+    }
+
+    /**
+     * Stage 78 — [D] Art. 105: "يوقف التنفيذ فورًا من الناحية الإجرائية ويحال
+     * الموضوع للمراجعة القانونية والجهة المختصة قبل ترتيب أثر جديد عليه".
+     *
+     * Status-only, exactly like Stage 77's return: nothing has moved, the file
+     * is held where it stands. Rides `meeting_outputs,edit` (R02 + R03), the
+     * grant that already owns every post-decision follow-up register.
+     */
+    public function suspend(
+        SuspendRequest $request,
+        Request $requestRecord,
+        RequestSuspensionService $suspensions,
+        WorkflowService $workflow,
+    ): RequestDetailResource|JsonResponse {
+        $actor = $request->user();
+        $requestRecord->loadMissing('status:id,code');
+
+        if (($reason = $suspensions->refusalReason($requestRecord)) !== null) {
+            return response()->json(['message' => $reason], 422);
+        }
+
+        try {
+            $suspensions->suspend($requestRecord, $actor, $request->validated());
+        } catch (DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return $this->detailResource($requestRecord->refresh(), $workflow, $actor);
+    }
+
+    /**
+     * Stage 78 — lift an Art. 105 suspension once the legal review it mandates
+     * has actually reported back.
+     *
+     * Where the file goes is not a parameter, for Stage 77's reason: the two
+     * outcomes carry their own routing, so "the doubt was cleared" cannot be
+     * paired with a move to the committee, nor the reverse.
+     */
+    public function liftSuspension(
+        LiftSuspensionRequest $request,
+        Request $requestRecord,
+        RequestSuspensionService $suspensions,
+        WorkflowService $workflow,
+    ): RequestDetailResource|JsonResponse {
+        $actor = $request->user();
+        $open = $suspensions->openSuspension($requestRecord);
+
+        if (($reason = $suspensions->liftRefusalReason($requestRecord, $open)) !== null) {
+            return response()->json(['message' => $reason], 422);
+        }
+
+        try {
+            $requestRecord = $suspensions->lift(
+                $requestRecord,
+                $open,
+                $actor,
+                $request->validated('resolution_action'),
+                $request->validated('resolution_note'),
+            );
+        } catch (WorkflowTransitionException|DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
@@ -645,6 +862,14 @@ class RequestController extends Controller
             'approvalReturns.resolutionTargetStage:id,code,name_ar,name_en',
             'approvalReturns.recordedBy:id,name',
             'approvalReturns.resolvedBy:id,name',
+            // Stage 78 — every round of Art. 105's إيقاف إجرائي, oldest
+            // first, for the same reason approvalReturns is a history.
+            'suspensions' => fn ($query) => $query->orderBy('id'),
+            'suspensions.suspendedFromStatus:id,code,name_ar,name_en',
+            'suspensions.suspendedBy:id,name',
+            'suspensions.resolvedBy:id,name',
+            'intakeGateCheckedBy:id,name',
+            'executionSoundnessCheckedBy:id,name',
         ]);
         $requestRecord->loadCount('legalReviews');
         // Stage 75 — Appendix 48's refusal, computed by the same service the
@@ -663,6 +888,10 @@ class RequestController extends Controller
         );
         $openApprovalReturn = $approvalReturns->openReturn($requestRecord);
         $requestRecord->setAttribute('open_approval_return_id', $openApprovalReturn?->id);
+        // Stage 78 — Appendix 63's four-gate matrix, rendered for this one
+        // file. Every value here comes from the same services the endpoints
+        // enforce with, so the screen and the refusal can never disagree.
+        $requestRecord->setAttribute('control_gates', $this->controlGateState($requestRecord));
         $availableTransitions = $workflow->availableTransitions($requestRecord, $actor)
             ->filter(fn ($rule) => $rule->action !== 'approve'
                 || $this->actorCanApproveCurrentLevel($requestRecord, $actor))
@@ -675,6 +904,9 @@ class RequestController extends Controller
             // ApprovalController::store() about an open return, or the SPA
             // would offer an approve button both of them refuse.
             ->filter(fn ($rule) => $rule->action !== 'approve' || $openApprovalReturn === null)
+            // Stage 78 — the same three-site rule, one stage later: the SPA
+            // must not offer an approve that Appendix 63's gates refuse.
+            ->filter(fn ($rule) => self::controlGateRefusal($requestRecord, $rule->action) === null)
             ->values();
         $requestRecord->setAttribute('available_actions', $availableTransitions->pluck('action')->all());
         $requestRecord->setAttribute('available_transitions', $availableTransitions->map(fn ($rule) => [
@@ -684,6 +916,70 @@ class RequestController extends Controller
         ])->values()->all());
 
         return new RequestDetailResource($requestRecord);
+    }
+
+    /**
+     * Stage 78 — [D] Appendix 63's مصفوفة الرقابة الداخلية, per request.
+     *
+     * The four gates are answered from four different owners because they
+     * genuinely live in four different places, and two of them predate this
+     * stage: gate 2 is Stage 33's MeetingReadinessService (meeting-scoped, so
+     * it is reported here only as the agenda placement that reached it) and
+     * gate 4 is Stage 75's RequestClosureService in full. Building a second
+     * copy of either would be the dual-path trap the rest of this stage is
+     * careful to avoid.
+     *
+     * @return array<string, mixed>
+     */
+    private function controlGateState(Request $requestRecord): array
+    {
+        $intake = app(IntakeGateService::class);
+        $soundness = app(ExecutionSoundnessService::class);
+
+        return [
+            // بوابة 1 — قبل القيد: هل الملف صالح للدخول إلى مسار اللجنة؟
+            'intake' => [
+                'recorded_at' => $requestRecord->intake_gate_checked_at?->toIso8601String(),
+                'recorded_by' => $requestRecord->intakeGateCheckedBy ? [
+                    'id' => $requestRecord->intakeGateCheckedBy->id,
+                    'name' => $requestRecord->intakeGateCheckedBy->name,
+                ] : null,
+                'record' => $requestRecord->intake_gate,
+                'required_documents' => $intake->requiredDocuments($requestRecord),
+                'refusal' => $intake->refusalReason($requestRecord),
+                // Art. 45's test is the other half of this same gate, and it
+                // has been enforced on the same hop since Stage 54.
+                'jurisdiction_test_recorded' => $requestRecord->jurisdiction_test !== null,
+            ],
+            // بوابة 3 — قبل الاعتماد lives on the محضر, not on the request:
+            // Appendix 8's checks are meeting-wide. Reported as the decision's
+            // own meeting so the screen can link to it.
+            'minutes' => [
+                'checked' => $requestRecord->meetingRequests
+                    ->contains(fn ($item) => $item->meeting?->meetingMinutes?->status === 'approved'),
+            ],
+            // Art. 103 — قبل إحالة النتيجة للتنفيذ.
+            'execution_soundness' => [
+                'recorded_at' => $requestRecord->execution_soundness_checked_at?->toIso8601String(),
+                'recorded_by' => $requestRecord->executionSoundnessCheckedBy ? [
+                    'id' => $requestRecord->executionSoundnessCheckedBy->id,
+                    'name' => $requestRecord->executionSoundnessCheckedBy->name,
+                ] : null,
+                'record' => $requestRecord->execution_soundness,
+                'derived' => $soundness->derive($requestRecord),
+                'refusal' => $soundness->refusalReason($requestRecord),
+            ],
+            // بوابة 4 — قبل الإقفال, already Stage 75's in full.
+            'closure' => [
+                'closed_at' => $requestRecord->closed_at?->toIso8601String(),
+                'refusal' => $requestRecord->getAttribute('closure_refusal'),
+            ],
+            // Art. 105's hold, which sits across all of them.
+            'suspension' => [
+                'refusal' => app(RequestSuspensionService::class)->refusalReason($requestRecord),
+                'open_id' => $requestRecord->suspensions->firstWhere('resolved_at', null)?->id,
+            ],
+        ];
     }
 
     /** Approval screen paired with each of Stage 18's six checkpoints. */

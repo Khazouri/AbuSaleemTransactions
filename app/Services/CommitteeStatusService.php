@@ -224,11 +224,31 @@ class CommitteeStatusService
      *
      * @return Builder<Request>
      */
+    /**
+     * The legal member's own worklist.
+     *
+     * Two disjoint sources, deliberately, because [D] puts a legal review at
+     * two different points in a file's life. Art. 21's pre-meeting review is a
+     * status-only substate of `receive_from_committee` (Stage 68). Art. 105's
+     * is not: "ويحال الموضوع للمراجعة القانونية" fires **قبل الاعتماد أو
+     * التنفيذ**, long past the committee, and the file sits on
+     * `execution_suspended` at whatever approval stage the doubt surfaced —
+     * so the stage condition above cannot apply to it. Without this second
+     * branch the article's own referral would be a sentence in a status
+     * history that never reached the person it names.
+     */
     public function legalReviewQueueQuery(): Builder
     {
-        return Request::query()
-            ->whereHas('currentStage', fn ($query) => $query->where('code', self::COMMITTEE_STAGE_CODE))
-            ->whereHas('status', fn ($query) => $query->where('code', self::LEGAL_REVIEW_STATUS));
+        return Request::query()->where(function (Builder $queue) {
+            $queue->where(function (Builder $preMeeting) {
+                $preMeeting
+                    ->whereHas('currentStage', fn ($query) => $query->where('code', self::COMMITTEE_STAGE_CODE))
+                    ->whereHas('status', fn ($query) => $query->where('code', self::LEGAL_REVIEW_STATUS));
+            })->orWhereHas(
+                'status',
+                fn ($query) => $query->where('code', RequestSuspensionService::SUSPENDED_STATUS),
+            );
+        });
     }
 
     private function hasTerminalStatus(Request $requestRecord): bool

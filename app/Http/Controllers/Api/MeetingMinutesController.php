@@ -12,6 +12,7 @@ use App\Models\MeetingMinuteSignature;
 use App\Services\ApprovalSignatureStorage;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\MeetingMinutesCompiler;
+use App\Services\MinutesQualityRules;
 use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -98,9 +99,18 @@ class MeetingMinutesController extends Controller
      * was marked attended, there is nothing to sign and the document is
      * approved outright, the same vacuous-pass pattern the readiness/close
      * gates already use for an empty agenda.
+     *
+     * Stage 78 — approving is also [D] Appendix 63's بوابة 3, and Appendix 8
+     * says what that gate checks: "لا يحال محضر اللجنة للاعتماد قبل التحقق
+     * من" sixteen things. Refused here, before any signature row is created,
+     * so a محضر that no longer matches its own meeting cannot start the
+     * approval it would otherwise finish.
      */
-    public function review(ReviewMeetingMinutesRequest $request, Meeting $meeting): MeetingMinutesResource|JsonResponse
-    {
+    public function review(
+        ReviewMeetingMinutesRequest $request,
+        Meeting $meeting,
+        MinutesQualityRules $quality,
+    ): MeetingMinutesResource|JsonResponse {
         $minutes = $meeting->meetingMinutes()->first();
         if ($minutes === null) {
             return response()->json(['message' => 'لم يتم إنشاء محضر لهذا الاجتماع بعد.'], 404);
@@ -117,7 +127,20 @@ class MeetingMinutesController extends Controller
             return new MeetingMinutesResource($minutes);
         }
 
-        $minutes = DB::transaction(function () use ($minutes, $meeting, $actor, $request) {
+        // Stage 78 — Appendix 8, checked against the meeting's *current* data
+        // rather than the snapshot alone. That comparison is the whole point:
+        // `content` freezes at generate() time, so generate → change the
+        // agenda → approve was, until this gate, a clean path to an approved
+        // document describing a sitting that did not happen.
+        $refusal = $quality->refusalReason($meeting, $minutes, $request->validated('quality_checks') ?? []);
+
+        if ($refusal !== null) {
+            return response()->json(['message' => $refusal], 422);
+        }
+
+        $qualityRecord = $quality->record($meeting, $minutes, $request->validated('quality_checks') ?? []);
+
+        $minutes = DB::transaction(function () use ($minutes, $meeting, $actor, $request, $qualityRecord) {
             $signerUserIds = $meeting->attendees()->where('attended', true)->pluck('user_id');
 
             foreach ($signerUserIds as $userId) {
@@ -132,6 +155,7 @@ class MeetingMinutesController extends Controller
                 'reviewed_by_user_id' => $actor->id,
                 'reviewed_at' => now(),
                 'review_comment' => $request->validated('comment'),
+                'quality_checks' => $qualityRecord,
             ]);
 
             if ($signerUserIds->isEmpty()) {

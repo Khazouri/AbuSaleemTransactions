@@ -10,6 +10,7 @@ use App\Http\Resources\RequestResource;
 use App\Models\Request;
 use App\Models\RequestLegalReview;
 use App\Services\CommitteeStatusService;
+use App\Services\RequestSuspensionService;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
@@ -128,21 +129,35 @@ class RequestLegalReviewController extends Controller
 
         $permits = in_array($validated['verdict'], RequestLegalReview::PERMITTING_VERDICTS, strict: true);
 
+        // Stage 78 — Art. 105's referral is the other reason a file can be in
+        // front of the legal member, and it is not Art. 21's. A suspended
+        // request is not at `receive_from_committee` and not on
+        // `under_legal_review`, so `move()` would refuse it — and rightly:
+        // this review does not decide whether the matter reaches an agenda,
+        // it reports on a doubt raised قبل الاعتماد أو التنفيذ. Lifting the
+        // suspension (RequestController::liftSuspension) is the act that
+        // moves the file, and it refuses until this row exists.
+        $isSuspensionReview = $requestRecord->status()->value('code')
+            === RequestSuspensionService::SUSPENDED_STATUS;
+
         try {
-            $review = DB::transaction(function () use ($requestRecord, $validated, $actor, $committeeStatus, $permits) {
+            $review = DB::transaction(function () use ($requestRecord, $validated, $actor, $committeeStatus, $permits, $isSuspensionReview) {
                 // move() locks the request row and enforces that it is
                 // actually at `under_legal_review`; running it FIRST means a
                 // request that was never handed over never gets a review row
                 // written for it either.
-                $committeeStatus->move(
-                    $requestRecord,
-                    $permits ? 'pass_legal_review' : 'fail_legal_review',
-                    $actor,
-                    // fail_legal_review requires a comment; the legal member's
-                    // own note is that comment, and the FormRequest has already
-                    // guaranteed it is present for every blocking verdict.
-                    $validated['legal_note'] ?? null,
-                );
+                if (! $isSuspensionReview) {
+                    $committeeStatus->move(
+                        $requestRecord,
+                        $permits ? 'pass_legal_review' : 'fail_legal_review',
+                        $actor,
+                        // fail_legal_review requires a comment; the legal
+                        // member's own note is that comment, and the
+                        // FormRequest has already guaranteed it is present for
+                        // every blocking verdict.
+                        $validated['legal_note'] ?? null,
+                    );
+                }
 
                 return $requestRecord->legalReviews()->create([
                     ...$validated,

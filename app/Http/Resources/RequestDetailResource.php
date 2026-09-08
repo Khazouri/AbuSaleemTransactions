@@ -137,6 +137,15 @@ class RequestDetailResource extends RequestResource
                 'reason' => $this->approval_return_refusal,
                 'open_return_id' => $this->open_approval_return_id,
             ],
+            // Stage 78 — [D] Appendix 63's four-gate matrix for this file, plus
+            // Art. 105's hold. Every refusal here comes from the same service
+            // the matching endpoint enforces with, so a gate the screen shows
+            // as passed can never be one an endpoint refuses. Detail resource
+            // only — list payloads stay unchanged, per Stage 72's precedent.
+            'control_gates' => $this->control_gates,
+            // Every round of Art. 105's إيقاف إجرائي, oldest first — a history
+            // for the same reason approval_returns above is one.
+            'suspensions' => RequestSuspensionResource::collection($this->whenLoaded('suspensions')),
         ];
     }
 }
