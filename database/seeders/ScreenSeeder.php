@@ -10,7 +10,8 @@ use Illuminate\Database\Seeder;
  * screen-permissions sheet — originally 29 from that sheet (Stage 28 adds 7
  * to the original 22 for the meetings-unit redesign; Stage 57 later removes
  * one, `authority_approval`), plus `departments` (see the note beside it
- * below), Stage 58's `appeals` and Stage 68's `legal_review` = 31 total.
+ * below), Stage 58's `appeals`, Stage 68's `legal_review` and Stage 80's
+ * `registers` = 32 total.
  *
  * Two consumers:
  *   - the sidebar (Stage 5) renders these rows, filtered by can_view
@@ -98,6 +99,11 @@ class ScreenSeeder extends Seeder
 
             // --- Oversight and support -----------------------------------------
             ['reports',                  'التقارير والإحصائيات',       'Reports & Statistics',         '/reports',                  'bar-chart',    null],
+            // Stage 80 — [D] Art. 98's twelve official registers. Top-level
+            // and ungrouped beside `reports`/`audit_log`: a register is a
+            // system-wide oversight record, not committee administration, so
+            // it does NOT sit inside meetings_management.
+            ['registers',                'السجلات الرسمية',            'Official Registers',           '/registers',                'book',         null],
             ['audit_log',                'سجل التدقيق',               'Audit Log',                    '/audit-log',                'clipboard',    null],
             ['notifications',            'الإشعارات',                 'Notifications',                '/notifications',            'bell',         null],
             ['templates',                'القوالب والنماذج',           'Templates & Forms',            '/templates',                'layout',       null],

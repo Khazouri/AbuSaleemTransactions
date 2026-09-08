@@ -17,6 +17,10 @@ class AttachmentResource extends JsonResource
             'mime_type' => $this->mime_type,
             'size_bytes' => $this->size_bytes,
             'label' => $this->label,
+            // Stage 80 — [D] Appendix 14's هيكل الملف الإلكتروني. Null on a
+            // row written before that classification existed, which the SPA
+            // renders as غير مصنف rather than inventing a folder for it.
+            'file_section' => $this->file_section,
             // Stage 76 — non-null marks this document as Appendix 70's
             // دليل التنفيذ and records which of its kinds it is.
             'execution_evidence_type' => $this->execution_evidence_type,

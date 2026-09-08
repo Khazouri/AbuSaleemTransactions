@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Request\CloseRequest;
 use App\Http\Requests\Request\IndexRequest;
 use App\Http\Requests\Request\LiftSuspensionRequest;
+use App\Http\Requests\Request\RecordApprovalReferralRequest;
+use App\Http\Requests\Request\RecordApprovalReferralResultRequest;
 use App\Http\Requests\Request\RecordApprovalReturnRequest;
 use App\Http\Requests\Request\RecordExecutionSoundnessRequest;
 use App\Http\Requests\Request\RecordIntakeGateRequest;
@@ -19,6 +21,7 @@ use App\Http\Requests\Request\TransitionRequest;
 use App\Http\Requests\Request\UpdateFinancialImpactRequest;
 use App\Http\Resources\RequestDetailResource;
 use App\Http\Resources\RequestResource;
+use App\Models\ApprovalReferral;
 use App\Models\Attachment;
 use App\Models\Department;
 use App\Models\Request;
@@ -28,6 +31,7 @@ use App\Models\RequestStatusHistory;
 use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Services\ApprovalReferralService;
 use App\Services\ApprovalReturnService;
 use App\Services\ApprovalSignatureStorage;
 use App\Services\ArtifactNumberGenerator;
@@ -38,6 +42,7 @@ use App\Services\ReopenReasonCatalog;
 use App\Services\RequestClosureService;
 use App\Services\RequestDeadlineService;
 use App\Services\RequestSuspensionService;
+use App\Services\RequestTimelineCompiler;
 use App\Services\RequestVisibility;
 use App\Services\WorkflowService;
 use DomainException;
@@ -669,6 +674,70 @@ class RequestController extends Controller
     }
 
     /**
+     * Stage 80 — [D] Art. 30's outward register entry: the committee's result
+     * has been referred to an approving body, and the مقرر records تاريخ
+     * الإحالة · رقم كتاب الإحالة · الجهة المحال إليها.
+     *
+     * Deliberately a record, never a gate. The article says "ويسجل مقرر
+     * اللجنة", not "ولا يحال قبل" — nothing refuses the approval transition
+     * because this has not been entered, and Appendix 63's four control gates
+     * are Stage 78's own scope.
+     *
+     * Rides `meeting_outputs,edit` (R02 + R03), the same grant Stage 77's
+     * return register uses and for the same reason: Art. 30 addresses this
+     * register to مقرر اللجنة, which is R02's own RoleSeeder name.
+     */
+    public function recordApprovalReferral(
+        RecordApprovalReferralRequest $request,
+        Request $requestRecord,
+        ApprovalReferralService $referrals,
+        WorkflowService $workflow,
+    ): RequestDetailResource|JsonResponse {
+        $actor = $request->user();
+        $requestRecord->loadMissing(['status:id,code']);
+
+        if (($reason = $referrals->refusalReason($requestRecord)) !== null) {
+            return response()->json(['message' => $reason], 422);
+        }
+
+        try {
+            $referrals->record($requestRecord, $actor, $request->validated());
+        } catch (DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return $this->detailResource($requestRecord->refresh(), $workflow, $actor);
+    }
+
+    /**
+     * Stage 80 — [D] Art. 30's inward register entry: what the approving body
+     * answered, recorded against the referral it answered.
+     *
+     * A second write rather than three more fields on the first form, because
+     * nobody knows تاريخ ورود النتيجة or رقم قرار الاعتماد at the moment the
+     * file leaves — the same two-moment shape Stage 77's return register has.
+     */
+    public function recordApprovalReferralResult(
+        RecordApprovalReferralResultRequest $request,
+        Request $requestRecord,
+        ApprovalReferral $referral,
+        ApprovalReferralService $referrals,
+        WorkflowService $workflow,
+    ): RequestDetailResource|JsonResponse {
+        abort_unless($referral->request_id === $requestRecord->id, 404);
+
+        $actor = $request->user();
+
+        try {
+            $referrals->recordResult($referral, $actor, $request->validated());
+        } catch (DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return $this->detailResource($requestRecord->refresh(), $workflow, $actor);
+    }
+
+    /**
      * Stage 78 — record [D] Appendix 63's بوابة 1 (قبل القيد): one answer per
      * document Appendix 57 requires for this request's type, plus Appendix
      * 20's own attestation that the facts themselves are sound.
@@ -826,9 +895,19 @@ class RequestController extends Controller
             // unmarked on the one screen that shows the execution record.
             'attachments:id,request_id,original_name,mime_type,size_bytes,label,execution_evidence_type,uploaded_by_user_id,created_at',
             'stageLogs' => fn ($query) => $query->orderBy('acted_at')->orderBy('id'),
-            'stageLogs.fromStage:id,order_no,code,name_ar,name_en',
-            'stageLogs.toStage:id,order_no,code,name_ar,name_en',
-            'stageLogs.actedBy:id,name',
+            // `responsible_role_id` is in these column lists because the
+            // nested responsibleRole eager-load below cannot resolve without
+            // its own foreign key — the restricted-select gotcha Stage 52 and
+            // Stage 74 both recorded.
+            'stageLogs.fromStage:id,order_no,code,name_ar,name_en,responsible_role_id',
+            'stageLogs.toStage:id,order_no,code,name_ar,name_en,responsible_role_id',
+            // Stage 80 — Art. 100's الجهة: the acting user's own department,
+            // with the stage's seeded responsible role as the fallback for a
+            // system move that has no actor at all.
+            'stageLogs.actedBy:id,name,department_id',
+            'stageLogs.actedBy.department:id,name_ar,name_en',
+            'stageLogs.fromStage.responsibleRole:id,name_ar,name_en',
+            'stageLogs.toStage.responsibleRole:id,name_ar,name_en',
             'approvals' => fn ($query) => $query
                 ->select([
                     'id',
@@ -863,6 +942,12 @@ class RequestController extends Controller
             'approvalReturns.resolutionTargetStage:id,code,name_ar,name_en',
             'approvalReturns.recordedBy:id,name',
             'approvalReturns.resolvedBy:id,name',
+            // Stage 80 — every entry in Art. 30's سجل الإحالات للاعتماد,
+            // oldest first, for the same reason approvalReturns is a history.
+            'approvalReferrals' => fn ($query) => $query->orderBy('id'),
+            'approvalReferrals.referredFromStage:id,code,name_ar,name_en',
+            'approvalReferrals.recordedBy:id,name',
+            'approvalReferrals.resultRecordedBy:id,name',
             // Stage 78 — every round of Art. 105's إيقاف إجرائي, oldest
             // first, for the same reason approvalReturns is a history.
             'suspensions' => fn ($query) => $query->orderBy('id'),
@@ -889,6 +974,18 @@ class RequestController extends Controller
         );
         $openApprovalReturn = $approvalReturns->openReturn($requestRecord);
         $requestRecord->setAttribute('open_approval_return_id', $openApprovalReturn?->id);
+        // Stage 80 — Art. 30's own refusal and the referral still awaiting
+        // an answer, from the same service the two referral endpoints
+        // enforce with.
+        $approvalReferrals = app(ApprovalReferralService::class);
+        $requestRecord->setAttribute(
+            'approval_referral_refusal',
+            $approvalReferrals->refusalReason($requestRecord),
+        );
+        $requestRecord->setAttribute(
+            'open_approval_referral_id',
+            $approvalReferrals->openReferral($requestRecord)?->id,
+        );
         // Stage 78 — Appendix 63's four-gate matrix, rendered for this one
         // file. Every value here comes from the same services the endpoints
         // enforce with, so the screen and the refusal can never disagree.
@@ -900,6 +997,13 @@ class RequestController extends Controller
         // way. Email and SMS keep no delivery log anywhere in this system, so
         // this register is honestly the in-app half and says so on screen.
         $requestRecord->setAttribute('employee_notices', $this->employeeNotices($requestRecord));
+        // Stage 80 — [D] Art. 100's six-column السجل الزمني. Computed here
+        // rather than in the resource because the linked-document column is
+        // derived from three other tables; see RequestTimelineCompiler.
+        $requestRecord->setAttribute(
+            'art_100_timeline',
+            app(RequestTimelineCompiler::class)->compile($requestRecord),
+        );
         $availableTransitions = $workflow->availableTransitions($requestRecord, $actor)
             ->filter(fn ($rule) => $rule->action !== 'approve'
                 || $this->actorCanApproveCurrentLevel($requestRecord, $actor))

@@ -59,30 +59,11 @@ class RequestDetailResource extends RequestResource
             // Stage 18 — the authoritative approval chain, separate from the
             // broader timeline that also contains forwards and exceptions.
             'approvals' => ApprovalResource::collection($this->whenLoaded('approvals')),
-            'timeline' => $this->whenLoaded('stageLogs', function () {
-                return $this->stageLogs->map(fn ($log) => [
-                    'id' => $log->id,
-                    'action' => $log->action,
-                    'comment' => $log->comment,
-                    'from_stage' => $log->fromStage ? [
-                        'order_no' => $log->fromStage->order_no,
-                        'code' => $log->fromStage->code,
-                        'name_ar' => $log->fromStage->name_ar,
-                        'name_en' => $log->fromStage->name_en,
-                    ] : null,
-                    'to_stage' => $log->toStage ? [
-                        'order_no' => $log->toStage->order_no,
-                        'code' => $log->toStage->code,
-                        'name_ar' => $log->toStage->name_ar,
-                        'name_en' => $log->toStage->name_en,
-                    ] : null,
-                    'acted_by' => $log->actedBy ? [
-                        'id' => $log->actedBy->id,
-                        'name' => $log->actedBy->name,
-                    ] : null,
-                    'acted_at' => $log->acted_at?->toIso8601String(),
-                ])->values();
-            }),
+            // Stage 80 — [D] Art. 100's six columns: التاريخ — الإجراء —
+            // المسؤول — **الجهة** — الملاحظة — **المستند المرتبط**. The last two
+            // are what this stage added; RequestTimelineCompiler explains why
+            // the linked document is derived rather than stored on the log row.
+            'timeline' => $this->art_100_timeline ?? [],
             // This is calculated for the signed-in actor by the controller;
             // the service remains the final authority when it executes it.
             'available_actions' => $this->available_actions ?? [],
@@ -136,6 +117,15 @@ class RequestDetailResource extends RequestResource
                 'can_record' => $this->approval_return_refusal === null,
                 'reason' => $this->approval_return_refusal,
                 'open_return_id' => $this->open_approval_return_id,
+            ],
+            // Stage 80 — [D] Art. 30's سجل الإحالات للاعتماد (Art. 98's
+            // register 7), oldest first. Detail resource only — list payloads
+            // stay unchanged, per Stage 72's precedent.
+            'approval_referrals' => ApprovalReferralResource::collection($this->whenLoaded('approvalReferrals')),
+            'approval_referral_eligibility' => [
+                'can_record' => $this->approval_referral_refusal === null,
+                'reason' => $this->approval_referral_refusal,
+                'open_referral_id' => $this->open_approval_referral_id,
             ],
             // Stage 78 — [D] Appendix 63's four-gate matrix for this file, plus
             // Art. 105's hold. Every refusal here comes from the same service

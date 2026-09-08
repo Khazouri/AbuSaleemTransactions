@@ -512,7 +512,10 @@
     "preview": "Preview",
     "download": "Download",
     "previewFailed": "The file could not be previewed. Please try again.",
-    "downloadFailed": "The file could not be downloaded. Please try again."
+    "downloadFailed": "The file could not be downloaded. Please try again.",
+    "fileSection": "File section (Appendix 14)",
+    "chooseFileSection": "Choose a section…",
+    "fileSectionHint": "Documents may not be stored without a classification."
   },
   "notes": {
     "title": "Notes",
@@ -631,6 +634,13 @@
       "send": "Send to legal review",
       "sending": "Sending…",
       "sendFailed": "Could not send the file to legal review."
+    },
+    "linkedDocuments": {
+      "kinds": {
+        "attachment": "Attached document",
+        "approval_signature": "Approval signature",
+        "decision": "Decision"
+      }
     }
   },
   "committees": {
@@ -1810,5 +1820,64 @@
         "enforced_by_signature_lifecycle": "Enforced by the signature lifecycle"
       }
     }
+  },
+  "registers": {
+    "title": "Official Registers",
+    "subtitle": "The twelve registers Art. 98 requires the committee to keep.",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "search": "Search",
+    "searchPlaceholder": "Search this register…",
+    "apply": "Apply",
+    "clear": "Clear",
+    "empty": "This register has no entries.",
+    "total": "Entries: {total}",
+    "exportExcel": "Export Excel",
+    "exportPdf": "Export PDF",
+    "exporting": "Exporting…",
+    "exportFailed": "The register could not be exported. Try again."
+  },
+  "approvalReferral": {
+    "title": "Referrals for Approval Register",
+    "action": "Record a referral for approval",
+    "formNote": "Art. 30 records the referral date, its letter number and the body it went to.",
+    "confirm": "Record referral",
+    "resultAction": "Record the result",
+    "confirmResult": "Record result",
+    "pendingResult": "Referral {letter} to {body} is still awaiting a result.",
+    "awaitingResult": "Awaiting result",
+    "referredFrom": "Referred from",
+    "recordedBy": "Recorded by",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "error": "The referral could not be saved. Try again.",
+    "fields": {
+      "referred_at": "Referral date",
+      "letter_number": "Referral letter no.",
+      "referred_to_body": "Referred to",
+      "result_outcome": "Result",
+      "result_received_at": "Result received on",
+      "approval_decision_number": "Approval decision or final document no.",
+      "result_note": "Approving body notes or directions"
+    },
+    "outcomes": {
+      "approved": "Approved",
+      "returned": "Returned by the approving body"
+    }
+  },
+  "fileSections": {
+    "request": "Request",
+    "referrals": "Referrals",
+    "service_file": "Service file",
+    "supporting_documents": "Supporting documents",
+    "legal_review": "Legal review",
+    "presentation_memo": "Presentation memo",
+    "meeting_agenda": "Meeting & agenda",
+    "minutes_decision": "Minutes & decision",
+    "approval": "Approval",
+    "execution": "Execution",
+    "notices": "Notices",
+    "closure": "Closure documents",
+    "unclassified": "Unclassified"
   }
 }

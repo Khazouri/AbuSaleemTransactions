@@ -72,6 +72,10 @@ class RequestWorkspaceVisibilityTest extends TestCase
         $this->actingAs($reviewer, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('blocked.pdf', 5, 'application/pdf'),
+                // Stage 80 — a valid payload, deliberately: the point of this
+                // case is the 404 from RequestVisibility, and an invalid one
+                // would 422 in the FormRequest before that check ever runs.
+                'file_section' => 'supporting_documents',
             ], ['Accept' => 'application/json'])
             ->assertNotFound();
         $this->actingAs($reviewer, 'sanctum')

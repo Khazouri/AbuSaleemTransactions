@@ -573,7 +573,7 @@ onMounted(() => load())
     <div v-if="newAppealId" v-can="'appeals.add'" class="card create">
       <h3>{{ t('appeals.create.attachmentsHeading') }}</h3>
       <p v-if="createMessage" class="notice success">{{ createMessage }}</p>
-      <FileUpload :upload-url="`/appeals/${newAppealId}/attachments`" />
+      <FileUpload :upload-url="`/appeals/${newAppealId}/attachments`" :require-section="false" />
       <button class="ghost" type="button" @click="finishAttachments">
         {{ t('appeals.create.finish') }}
       </button>

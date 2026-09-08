@@ -37,6 +37,8 @@ class AttachmentController extends Controller
                 'mime_type' => $file->getMimeType(),
                 'size_bytes' => $file->getSize(),
                 'label' => $request->validated('label'),
+                // Stage 80 — Appendix 14's folder for this document.
+                'file_section' => $request->validated('file_section'),
                 'uploaded_by_user_id' => $request->user()->id,
             ]);
         } catch (Throwable $exception) {

@@ -186,6 +186,13 @@ const routes = [
         meta: { screenCode: 'reports' },
       },
       {
+        // Stage 80 — [D] Art. 98's twelve official registers.
+        path: 'registers',
+        name: 'registers',
+        component: () => import('../views/RegistersView.vue'),
+        meta: { screenCode: 'registers' },
+      },
+      {
         // Stage 23 — notification history and channel preferences.
         path: 'notifications',
         name: 'notifications',

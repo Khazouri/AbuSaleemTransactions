@@ -14,6 +14,300 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-09 05:40 EET — Claude — Stage 80 complete (Art. 98's twelve official registers)
+
+Built per the plan below, from the verbatim sources — [D] **Arts. 30, 98, 99, 100** and **Appendices 12,
+13, 14** read directly. One migration (a new `approval_referrals` table plus one column on `attachments`),
+applied to the real MySQL/Homestead database, plus one new screen and its grants. All twelve of Art. 98's
+registers now exist, on one screen.
+
+**A register in [D] is a named, exportable VIEW, not a table, and that is the scope decision not to
+re-litigate.** Art. 98's own preamble is "تعتمد اللجنة **على الأقل** السجلات التالية" — it lists the records
+the committee must be able to *produce*, not storage the system must duplicate. Eleven of the twelve read
+data prior stages already write, and giving each of those a table of its own would hand the same fact two
+sources of truth that can disagree, which is precisely what Art. 100's own "**غير قابل للطمس**" exists to
+prevent. So the deliverable is an abstract `Register` owning the shared contract (a date column, a search
+column list, the three filters, and the `ReportDocument` assembly), twelve small subclasses, and a
+`RegisterCatalog` — with Stage 24's `ReportDocument`/`ReportExporter` reused **unchanged**, the same "a new
+document, not a new writer" split Stage 25 established. The screen and the export call one `query()`, so a
+forwarded file can never describe a different population than the table it came from.
+
+**Two registers deliberately read history rather than current status, and that is what makes them
+registers.** **(2) الناقصة** is built on `request_status_history` reaching `incomplete`/`completion_required`,
+not on the current status: a register of نواقص whose rows vanish the moment a file is completed is a
+worklist, not a register, and Art. 19's استكمال loop is a thing that *happened* to the file. Each row
+carries the recorded reason and a `still_incomplete` column, so the two readings stay distinguishable — a
+test walks a shortfall that has since been completed and the smoke run showed the same row live, reading
+"لا" against a file already at بانتظار اعتماد البلدية. **(11) المؤجلة** is built on Stage 74's `defer`
+decisions rather than the `deferred` status, for the same reason plus a sharper one: the status says a file
+is deferred, the *decision* says why and what must be completed, which is Art. 34's own five fields and
+exactly what Appendix 29 refuses to let a deferral omit. A register on the status alone would print a
+column where the appendix's whole requirement goes.
+
+**Register 6 is Appendix 12's thirteen columns, and Stage 25's `/decisions` screen is deliberately left
+alone.** Those are two documents over one table, not a duplicate: Stage 25's is the committee's *working*
+view — the per-outcome tally, Art. 90's instrument, Appendix 27's منطوق, Appendix 28's refusal reason, and
+the "awaiting my vote" worklist — while Appendix 12's is a central reference register whose stated purpose
+is "**وسيلة للرجوع إلى السوابق الإدارية**" and whose last six columns are the file's *administrative* trail
+after the vote (جهة الاعتماد، تاريخ الاعتماد، رقم القرار النهائي، حالة التنفيذ، تاريخ التنفيذ، حالة الإقفال).
+Bolting eight more columns onto an already 27-column operational export would serve neither reader. The
+approval trio reads the referral that actually came back **approved** — an open or returned one has no
+اعتماد to report and must not be read as though it did — falling back to Stage 75's closure card, since
+those are two honest sources for the same fact recorded at two different moments. A test pins the column
+count at thirteen.
+
+**Art. 30's four unbuilt fields, which is the one genuinely new record this stage adds, and it closes Stage
+77's own handoff.** That stage recorded تاريخ ورود النتيجة and الملاحظات but **only on the return path** — a
+file that comes back approved travels the ordinary `approve` transition and records nothing at all, so رقم
+قرار الاعتماد had no home anywhere in the schema and neither did the three outward fields. Its note asked
+whichever stage built سجل الإحالات للاعتماد to take all four together rather than fragment the article. New
+`approval_referrals` on Stage 77's `approval_returns` shape — many rows per request, because the البلدية →
+وزارة path is two referrals by itself and a corrected formal return re-referred is literally a second
+إحالة, and two write moments because nobody knows the result at the moment of the referral. Rides
+`meeting_outputs,edit` (R02+R03) — **no permission change** — since Art. 30 addresses the register to مقرر
+اللجنة, which is R02's own RoleSeeder name. Visibility needed nothing either: Stages 77/78 already extended
+`RequestVisibility`'s closer clause over the whole approval cycle.
+
+**Deliberately a register entry, not a gate.** Nothing refuses the approval transition because no referral
+was recorded. Art. 30 says "**ويسجل** مقرر اللجنة", not "ولا يحال قبل"; Appendix 63's control gates are
+Stage 78's and there are four of them, and inventing a fifth would both add a requirement the source does
+not state and break every existing approval-path test for no sourced reason. **Zero pre-existing tests
+needed changing for the referral work**, which is the check that it is additive.
+
+**رقم قرار الاعتماد binds only on an approval**, by `required_if` — a file the body sent back has no اعتماد
+number, and demanding one would make the honest answer unrecordable. A returned outcome writes nothing
+beyond closing the referral: the return's own reason and its re-processing stay in Stage 77's
+`approval_returns`, which is Art. 98's separate register 8, so a return never has two sources of truth.
+
+**Art. 100's two missing columns, and the linked document is DERIVED on purpose.** The timeline already
+carried التاريخ، الإجراء، المسؤول، الملاحظة from Stage 14. **الجهة** is the acting user's own department,
+falling back to the stage's seeded responsible role when there is no actor at all (a system move such as
+Stage 70's intake auto-hop) — both recorded facts, neither guessed. **المستند المرتبط is a new
+`RequestTimelineCompiler`, never a nullable column on `request_stage_logs`**: setting one would mean
+threading optional metadata through `WorkflowService::transition()`, which Stage 77 already declined to do
+to the application's highest-consequence write path, and a column nothing ever populates would be worse
+than a derivation anyone can check. Three kinds, each because the link is a fact: the `approvals` row this
+entry's own actor signed inside this entry's own window (the signature *is* the document that action
+produced), a `Decision` recorded in that window, and every attachment uploaded while the file stood where
+this entry put it. The window is `[acted_at, next.acted_at)` — inclusive below, exclusive above — so an
+artifact written in the same transaction as a move belongs to that move and never to both it and the next,
+and a document that arrived under the next holder is attributed to *them*. Each item carries its own
+`kind`, so a signature is never rendered as something someone attached, and an entry with no document
+reports an empty list rather than borrowing its neighbour's. All four properties are pinned by tests.
+
+**Appendix 14's folders, because Art. 100's new column needed a vocabulary and the appendix assigns one.**
+New `attachments.file_section`, **required on every new upload** — that is what "**ويمنع حفظ الملفات بصورة
+عشوائية دون تصنيف**" says, and a default would be a classification the uploader never made. Nullable at the
+database layer *only*, so rows written before this stage read honestly as غير مصنف rather than being
+retro-assigned a folder nobody chose. Folder 12 (التظلمات) has no code of its own because Stage 59 already
+stores an appeal's documents on their own parent — the same classification by another means — so
+`FileUpload.vue` takes a `require-section` prop that the appeals caller switches off rather than being asked
+a question with one answer.
+
+**Appendix 13 is deliberately NOT built, and it now has no owner.** Its own text opens "ينشأ سجل داخلي
+**اختياري**", and a precedents register needs a curation workflow — deciding what counts as a سابقة and
+classifying each entry by the appendix's own ten subjects — that nothing in Track K asks for and no screen
+would drive. Recorded as an open item with the same standing Stage 78 gave Appendix 62's risk register,
+rather than half-built.
+
+**One real bug the HTTP smoke test caught that the suite did not, worth knowing for any future
+`belongsTo`.** `ApprovalReferral::requestRecord()` was declared without its foreign key, so Laravel derived
+`request_record_id` from the *method name*, found no such column, and resolved **every** row to null —
+register 7 printed blank reference and subject columns for a request that plainly existed. It fails
+silently (an empty column, not an error), and neither `php -l` nor Pint nor any assertion I had written
+touched it. Stage 77's `ApprovalReturn::requestRecord()` states `'request_id'` explicitly for exactly this
+reason. Fixed, commented in place, and `RegisterTest` gained an assertion that register 7 names its own
+file so the same slip cannot recur silently.
+
+Frontend: new `RegistersView.vue` (a twelve-tab strip, one **generic** table driven by the server-declared
+columns, the shared filters and both exports) — a thirteenth register is a new backend class and no change
+to this screen at all. New `ApprovalReferralPanel.vue` plus `lib/approvalReferral.js` mirroring the outcome
+list once (the Stage 77 precedent), and a referral card on `RequestDetailView.vue` above the returns
+register, since it is the outward leg of the same cycle. The timeline now renders الجهة and its linked
+documents; each attachment shows its Appendix 14 folder; `lib/fileSections.js` mirrors that vocabulary once
+for the picker, the attachment list and the timeline. New top-level `registers.*`, `approvalReferral.*` and
+`fileSections.*` locale blocks. **The rows themselves are rendered server-side** (folder names, outcome
+labels, نعم/لا), so switching locale re-fetches rather than reformatting — deliberate, and it is what keeps
+the screen and the exported file saying the same words.
+
+Verification: new `tests/Feature/RegisterTest.php` (17 tests — the catalogue listing Art. 98's twelve codes
+in order with their own columns; register 1 carrying both of Stage 70's numbers; the نواقص register keeping
+a shortfall the file has since cleared; Appendix 12's thirteen columns with the approval/execution/closure
+trio from real state; Art. 34's five deferral fields; each register listing only its own population and the
+genuinely empty ones reporting zero; register 7 naming its own request; the date and search filters; an
+unknown register 404ing; both export signatures; and export refused without the grant),
+`tests/Feature/ApprovalReferralTest.php` (9 tests) and `tests/Feature/RequestTimelineTest.php` (5 tests).
+Full suite **464 tests / 2947 assertions** green (was 440/2791). Pint clean **repo-wide** (`--test` over
+`app/`, `database/`, `tests/`, `routes/` reports zero diffs), `npm run build` passes with `RegistersView` as
+its own 5.3 kB lazy chunk (then reverted `frontend/dist`, tracked in git, per every prior stage's note),
+locale key-parity verified programmatically (**1519 keys each side, zero on-one-side-only, and a diff
+against HEAD confirms 55 added and none lost**), and the migration plus the `ScreenSeeder`/
+`ScreenRolePermissionSeeder` reseed ran clean against the real MySQL/Homestead database — 32 screens, the
+`registers` row ungrouped at `/registers`, 11 view grants and 3 export grants, the table present with all
+fifteen columns, and `attachments.file_section` in place.
+
+**Three pre-existing tests needed a legitimate fixture update, not a regression fix** — every one is an
+attachment upload that now has to name its Appendix 14 folder. `RequestWorkspaceVisibilityTest`'s is worth
+a word: it asserts a **404** from `RequestVisibility` for a stranger, and an invalid payload would 422 in
+the FormRequest *before* that check ever runs, so it now sends a valid `file_section` deliberately. That
+ordering is pre-existing (a POST with no file at all already behaved this way) and unchanged by this stage.
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r02.reviewer@`/`r06.ministry@`
+accounts and a bootstrapped fixture: the catalogue returned Art. 98's twelve in order; **all twelve
+registers** answered with their own column sets and an unknown code 404'd; a referral recorded the outward
+three without moving the stage or the status and appeared in register 7; the result recorded رقم قرار
+الاعتماد separately; register 1 showed both of Stage 70's numbers and register 2 showed the نواقص round
+still readable with `still_incomplete: لا`; R02 was refused the export with a real 403 while R06 got a 7 kB
+xlsx and a 56 kB Arabic PDF. Deleted every fixture row (request, referral, status-history, audit rows),
+purged the two Stage 79 notice jobs the fixture's own status row queued, and revoked every token — counts
+confirmed back to **0 requests / 0 referrals / 0 status history / 0 stage logs / 0 jobs / 0 tokens / 0
+notifications**.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Arts. **30**, **98** and **100** ⚠→✅ and
+appendices **12** and **14** ⚠→✅, and rewrote appendix **13**'s row to record that this stage declined it
+deliberately. Headline counts adjusted by this stage's own delta (articles 87→90 ✅ / 13→10 ⚠; appendices
+53→55 ✅ / 9→7 ⚠), with a new banner repeating that the appendices' ❌ column is still the drifted 0 the
+existing note warns about.
+
+**Open items for whoever builds Stage 81+.** (1) **Appendix 13 has no owner** — see above; it is optional in
+the source, so dropping it is a legitimate decision, but it should be made rather than inherited. (2) **The
+registers are a read surface with no per-row visibility scoping** — `registers,view` is `'*'`, mirroring
+`reports`, which already lists the same population to everyone; if a later stage narrows who may see whose
+file, both screens need it together or they will disagree. (3) **Register 4 (جدول الأعمال) is ordered by
+`created_at`, not by the meeting's own date**, because an agenda row has no date of its own — Stage 82's
+Art. 83 agenda-ordering work is the natural place to decide whether that register should sort by sitting
+instead. (4) **Art. 100's linked documents are computed per request on the detail endpoint**, which costs
+three extra queries there; that is fine at this scale, but a register-wide timeline export (nobody has asked
+for one) would need the same derivation batched. (5) **Appendix 11's dashboard (لوحة متابعة أعمال اللجنة)
+is still ⚠ and belongs to Stage 81**, not here — its ten buckets are KPI work, not a register, and Stage
+32's dashboard still uses different ones.
+
+---
+
+### 2026-09-09 03:05 EET — Claude — Stage 80 implementation plan (Art. 98's twelve official registers)
+
+Building Stage 80 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Art. 98**
+(السجلات الأساسية — "تعتمد اللجنة **على الأقل** السجلات التالية" plus twelve named registers),
+**Art. 99** (رقم المعاملة — one number for life, with sub-numbers hung off it), **Art. 100**
+(السجل الزمني — "خط زمني **غير قابل للطمس** يثبت: التاريخ — الإجراء — المسؤول — **الجهة** —
+الملاحظة — **المستند المرتبط**", and its own purpose: "أين توجد المعاملة؟ · منذ متى؟ · لدى من؟ ·
+وما الإجراء المطلوب التالي؟"), **Appendix 12** (سجل القرارات — thirteen named columns),
+**Appendix 13** (سجل السوابق — "سجل داخلي **اختياري**"), **Appendix 14** (هيكل الملف الإلكتروني —
+thirteen fixed folders and "**ويمنع حفظ الملفات بصورة عشوائية دون تصنيف**") and **Art. 30**
+(الاعتماد داخل البلدية — its six recorded fields), whose four unbuilt ones Stage 77's own note
+assigns to this stage.
+
+**A register in [D] is a *named, exportable view*, not twelve new tables — and that is the scope
+decision not to re-litigate.** Art. 98's own preamble ("تعتمد اللجنة على الأقل السجلات التالية")
+lists the records the committee must be able to produce, not storage the system must duplicate.
+Eleven of the twelve read data prior stages already write; building a parallel table per register
+would give every one of them two sources of truth that can disagree, which is the exact failure
+Art. 100's own "غير قابل للطمس" is guarding against. So the deliverable is one `registers` screen
+holding twelve definitions, each with its own query, its own column list and its own export —
+reusing Stage 24's `ReportDocument`/`ReportExporter` unchanged, the same "a new document, not a new
+writer" split Stage 25 established for the decisions register.
+
+**Shape**: an abstract `App\Services\Registers\Register` owning the shared contract (a date column,
+a search column list, `date_from`/`date_to`/`search` filtering, and the `ReportDocument` assembly),
+twelve small subclasses, and a `RegisterCatalog` resolving a code to an instance. One
+`RegisterController` with `catalog()` (the twelve codes + names, so the tab strip renders before any
+row does), `index()` (paginated `{columns, rows}` of plain register-shaped arrays — the rows are
+register rows, not models, so no API Resource) and `export()`. New `registers` screen, top-level and
+ungrouped beside `reports`/`audit_log`, granted `view => '*'`, `print => '*'`,
+`export => ['R06','R07']` — the `reports` screen's own shape verbatim, since these are the same
+population that screen already lists to everyone.
+
+**The twelve, and what each actually reads.** (1) **الواردة** — every request, by `submitted_at`,
+carrying both numbers (Stage 70's `PM-RCV` receipt and the `PM-COM` قيد) so Art. 99's "one number
+for life" is visible as the fact it is. (2) **الناقصة** — requests that have *ever* reached
+`incomplete`/`completion_required`, read from `request_status_history` rather than from the current
+status, since a register of نواقص whose rows vanish the moment they are fixed is not a register;
+each row carries the latest such event's date and recorded reason and whether the file is still
+incomplete. (3) **الاجتماعات** — `meetings`, with agenda/attendee counts and the محضر's own status.
+(4) **جدول الأعمال** — `meeting_requests`, i.e. Stage 31's typed agenda rows. (5) **المحاضر** —
+`meeting_minutes` with Stage 36's lifecycle and its signature tally. (6) **القرارات والتوصيات** —
+**Appendix 12's thirteen columns exactly**, which is what closes that appendix's own warning row.
+(7) **الإحالات للاعتماد** — the new `approval_referrals` below. (8) **المعادة من جهة الاعتماد** —
+Stage 77's `approval_returns`. (9) **التنفيذ** — Stage 76's execution card plus its Appendix 70
+evidence count. (10) **التظلمات** — Track J's `appeals`. (11) **المؤجلة** — Stage 74's `defer`
+decisions, carrying Art. 34's own five fields, rather than the `deferred` status: the status says a
+file is deferred, the decision says *why* and *what must be completed*, and Appendix 29 is explicit
+that the second is the point. (12) **الإقفال والأرشفة** — Stage 75's closure record.
+
+**Register 6 is Appendix 12's register, and Stage 25's `/decisions` screen is deliberately left
+alone.** Those are two different documents over one table: Stage 25's is the committee's *working*
+view (the per-outcome tally, the instrument, the منطوق, the refusal reason, and the "awaiting my
+vote" worklist), while Appendix 12's is a central reference register whose stated purpose is
+"وسيلة للرجوع إلى السوابق الإدارية" and whose columns are the file's *administrative* trail —
+اسم الموظف، نوع الموضوع، جهة الاعتماد، تاريخ الاعتماد، رقم القرار النهائي، حالة التنفيذ، تاريخ
+التنفيذ، حالة الإقفال. Bolting eight more columns onto a 27-column operational export would serve
+neither. The split is documented in both places so it does not read as duplication.
+
+**Art. 30's four unbuilt fields, which is the one genuinely new record this stage adds.** Stage 77
+recorded تاريخ ورود النتيجة and أي ملاحظات — but only on the *return* path, and its own note says
+رقم قرار الاعتماد and the three outward fields (تاريخ الإحالة · رقم كتاب الإحالة · الجهة المحال
+إليها) "should be taken all four together" here rather than fragmenting the article further. New
+`approval_referrals` table on Stage 77's `approval_returns` shape — a two-moment history, not a
+column, because a file can be referred more than once (a formal return corrected and re-referred is
+literally a second إحالة) and because nobody knows the result at the moment of the referral.
+`record()` writes the outward three; `recordResult()` writes تاريخ ورود النتيجة، رقم قرار الاعتماد
+أو المستند النهائي، الملاحظات and an outcome. Rides `meeting_outputs,edit` (R02+R03) — **no seeder
+change** — because Art. 30 addresses the register to **مقرر اللجنة**, which is R02's own RoleSeeder
+name, exactly as Stage 77 argued for the return register. Visibility needs nothing either: Stage
+77/78 already extended RequestVisibility's own closer clause over the whole approval cycle.
+
+**Deliberately a register entry, not a gate.** Nothing refuses the approval transition because no
+referral was recorded. Appendix 63's control gates are Stage 78's and there are four of them; adding
+a fifth here would be inventing a requirement Art. 30 does not state (it says "**ويسجل** مقرر
+اللجنة", not "ولا يحال قبل"), and it would break every existing approval-path test for a reason the
+source does not give.
+
+**Art. 100's two missing columns.** The timeline already carries التاريخ (`acted_at`), الإجراء
+(`action`), المسؤول (`acted_by`) and الملاحظة (`comment`). **الجهة** becomes the acting user's own
+department, falling back to the stage's own responsible role when there is no actor (a system
+transition such as Stage 70's intake auto-hop) — both are real recorded facts, neither is invented.
+**المستند المرتبط** is **derived, never a new nullable column on `request_stage_logs`**: threading
+optional metadata through `WorkflowService::transition()` is the thing Stage 77 already declined to
+do to the app's highest-consequence write path, and a column nothing sets would be worse than a
+derivation that is checkable. A new `App\Services\RequestTimelineCompiler` attaches, per entry: the
+`Approval` row whose request/stage/actor match that entry (its signature *is* the document that
+action produced), any `Decision` recorded in the window that entry opened, and every `Attachment`
+uploaded in that same window — which is the literal answer to "which document belongs to this step",
+since a document uploaded while the file stood where this entry put it belongs to that step. Each
+item says its own kind, so nothing is presented as a document of a type it is not.
+
+**Appendix 14's thirteen folders, because Art. 100's new column needs a vocabulary and the appendix
+assigns one.** New nullable `attachments.file_section` over the appendix's own thirteen codes
+(الطلب · الإحالات · الملف الوظيفي · المستندات المؤيدة · المراجعة القانونية · مذكرة العرض · الاجتماع
+وجدول الأعمال · المحضر والقرار · الاعتماد · التنفيذ · الإشعارات · التظلمات · مستندات الإقفال),
+**required on new uploads** — that is what "يمنع حفظ الملفات بصورة عشوائية دون تصنيف" says, and a
+default would be a classification the uploader never made. Nullable at the DB layer so rows written
+before this stage read honestly as غير مصنف rather than being retro-assigned a folder nobody chose.
+Appeal attachments keep their own table and get no picker: Appendix 14 already places them in folder
+12 by definition.
+
+**Appendix 13 is deliberately not built, and that is recorded rather than skipped.** Its own text
+opens "ينشأ سجل داخلي **اختياري**", and a precedents register needs a curation workflow (classifying
+each entry by subject, deciding what counts as a سابقة) that nothing in Track K asks for and no
+screen would drive. Flagged as an open item with an owner to be chosen, the same treatment Stage 78
+gave Appendix 62's risk register.
+
+Verification plan: new `tests/Feature/RegisterTest.php` — the catalog listing exactly twelve codes;
+each register returning its own columns and only its own population, against one hand-built fixture
+that walks a request through intake, a نواقص loop, a meeting, a decision, a referral, an execution
+and a closure; the نواقص register keeping a row whose file has since been completed; the deferral
+register carrying Art. 34's own fields; register 6 carrying Appendix 12's thirteen columns with the
+approval/execution/closure trio read from real state; date and search filters narrowing a register;
+an unknown register code 404ing; both export formats' signatures; and the `export` permission
+refused to a role without it. Plus a new `tests/Feature/ApprovalReferralTest.php` (the outward
+record, its required fields, the result recorded separately, two rounds accumulating, refusal
+outside the approval cycle, the R04 403), timeline assertions for الجهة and the three
+linked-document kinds, the file-section requirement on upload, then the full PHPUnit suite, Pint,
+`npm run build`, locale key-parity, and the migration plus the ScreenSeeder/
+ScreenRolePermissionSeeder reseed against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-09 01:10 EET — Claude — Stage 79 complete (Art. 101's twelve notification moments)
 
 Built per the plan below, from the verbatim sources — [D] **Arts. 101 and 102** and **النماذج 16 and 04**

@@ -124,6 +124,11 @@ class ScreenRolePermissionSeeder extends Seeder
 
         // Oversight: visible to all, exportable only by the senior roles.
         'reports' => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],
+        // Stage 80 — [D] Art. 98's twelve registers. `reports`' shape
+        // verbatim: everyone may read a register (it lists the same
+        // population that screen already shows to everyone), far fewer may
+        // carry one out of the system as a file.
+        'registers' => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],
         'audit_log' => ['view' => '*', 'export' => ['R06', 'R07']],
         // Stage 23: `edit` is granted to everyone because on this screen it
         // means "mark my own notifications read / set my own channel

@@ -69,6 +69,8 @@ const ICON_BY_CODE = {
   roles_permissions: 'shield',
   settings: 'settings',
   reports: 'bar-chart',
+  // Stage 80 — Art. 98's official registers.
+  registers: 'book',
   audit_log: 'history',
   notifications: 'bell',
   templates: 'copy',

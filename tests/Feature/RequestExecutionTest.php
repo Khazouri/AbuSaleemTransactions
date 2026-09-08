@@ -286,6 +286,8 @@ class RequestExecutionTest extends TestCase
         $this->actingAs($executor, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('execution.pdf', 40, 'application/pdf'),
+                // Stage 80 — Appendix 14's folder for a دليل التنفيذ document.
+                'file_section' => 'execution',
             ])
             ->assertCreated();
     }

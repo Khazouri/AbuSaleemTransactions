@@ -512,7 +512,10 @@
     "preview": "معاينة",
     "download": "تنزيل",
     "previewFailed": "تعذّرت معاينة الملف. حاول مرة أخرى.",
-    "downloadFailed": "تعذّر تنزيل الملف. حاول مرة أخرى."
+    "downloadFailed": "تعذّر تنزيل الملف. حاول مرة أخرى.",
+    "fileSection": "قسم الملف (الملحق 14)",
+    "chooseFileSection": "اختر القسم…",
+    "fileSectionHint": "يمنع حفظ الملفات بصورة عشوائية دون تصنيف."
   },
   "notes": {
     "title": "الملاحظات",
@@ -631,6 +634,13 @@
       "send": "إحالة إلى المراجعة القانونية",
       "sending": "جارٍ الإحالة…",
       "sendFailed": "تعذرت إحالة الملف إلى المراجعة القانونية."
+    },
+    "linkedDocuments": {
+      "kinds": {
+        "attachment": "مستند مرفق",
+        "approval_signature": "توقيع اعتماد",
+        "decision": "قرار"
+      }
     }
   },
   "committees": {
@@ -1810,5 +1820,64 @@
         "enforced_by_signature_lifecycle": "يُستوفى بدورة التوقيع"
       }
     }
+  },
+  "registers": {
+    "title": "السجلات الرسمية",
+    "subtitle": "السجلات الاثنا عشر التي توجب المادة 98 اعتمادها.",
+    "dateFrom": "من تاريخ",
+    "dateTo": "إلى تاريخ",
+    "search": "بحث",
+    "searchPlaceholder": "ابحث في السجل…",
+    "apply": "تطبيق",
+    "clear": "مسح",
+    "empty": "لا توجد قيود في هذا السجل.",
+    "total": "إجمالي القيود: {total}",
+    "exportExcel": "تصدير Excel",
+    "exportPdf": "تصدير PDF",
+    "exporting": "جارٍ التصدير…",
+    "exportFailed": "تعذّر تصدير السجل. حاول مرة أخرى."
+  },
+  "approvalReferral": {
+    "title": "سجل الإحالات للاعتماد",
+    "action": "إثبات إحالة للاعتماد",
+    "formNote": "تثبت المادة 30 تاريخ الإحالة ورقم كتابها والجهة المحال إليها.",
+    "confirm": "إثبات الإحالة",
+    "resultAction": "إثبات نتيجة الإحالة",
+    "confirmResult": "إثبات النتيجة",
+    "pendingResult": "إحالة قائمة بالكتاب رقم {letter} إلى {body} لم تثبت نتيجتها بعد.",
+    "awaitingResult": "بانتظار النتيجة",
+    "referredFrom": "مرحلة الإحالة",
+    "recordedBy": "أثبتها",
+    "saving": "جارٍ الحفظ…",
+    "cancel": "إلغاء",
+    "error": "تعذّر حفظ الإحالة. حاول مرة أخرى.",
+    "fields": {
+      "referred_at": "تاريخ الإحالة",
+      "letter_number": "رقم كتاب الإحالة",
+      "referred_to_body": "الجهة المحال إليها",
+      "result_outcome": "نتيجة الإحالة",
+      "result_received_at": "تاريخ ورود النتيجة",
+      "approval_decision_number": "رقم قرار الاعتماد أو المستند النهائي",
+      "result_note": "ملاحظات أو توجيهات جهة الاعتماد"
+    },
+    "outcomes": {
+      "approved": "اعتُمد",
+      "returned": "أُعيد من جهة الاعتماد"
+    }
+  },
+  "fileSections": {
+    "request": "الطلب",
+    "referrals": "الإحالات",
+    "service_file": "الملف الوظيفي",
+    "supporting_documents": "المستندات المؤيدة",
+    "legal_review": "المراجعة القانونية",
+    "presentation_memo": "مذكرة العرض",
+    "meeting_agenda": "الاجتماع وجدول الأعمال",
+    "minutes_decision": "المحضر والقرار",
+    "approval": "الاعتماد",
+    "execution": "التنفيذ",
+    "notices": "الإشعارات",
+    "closure": "مستندات الإقفال",
+    "unclassified": "غير مصنف"
   }
 }

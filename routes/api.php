@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PresentationMemoController;
+use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RequestController;
 use App\Http\Controllers\Api\RequestLegalReviewController;
@@ -312,6 +313,22 @@ Route::middleware('auth:sanctum')->group(function () {
         ->patch('requests/{requestRecord}/approval-return', [RequestController::class, 'recordApprovalReturn']);
     Route::middleware('screen.permission:meeting_outputs,edit')
         ->patch('requests/{requestRecord}/approval-return/resolve', [RequestController::class, 'resolveApprovalReturn']);
+
+    /*
+     * Stage 80 — [D] Art. 30's سجل الإحالات للاعتماد, i.e. Art. 98's register
+     * 7. Two endpoints for the same reason the return register above has two:
+     * the article records an outward moment (تاريخ الإحالة · رقم كتاب الإحالة ·
+     * الجهة المحال إليها) and an inward one (تاريخ ورود النتيجة · رقم قرار
+     * الاعتماد · الملاحظات) that nobody can answer at the same time.
+     *
+     * Same `meeting_outputs,edit` grant (R02 + R03), because Art. 30 addresses
+     * the register to مقرر اللجنة. Deliberately NOT a gate on the approval
+     * transition: the article says "ويسجل", not "ولا يحال قبل".
+     */
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->post('requests/{requestRecord}/approval-referrals', [RequestController::class, 'recordApprovalReferral']);
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->patch('requests/{requestRecord}/approval-referrals/{referral}/result', [RequestController::class, 'recordApprovalReferralResult']);
 
     /*
      * Stage 78 — [D] Art. 103's قائمة فحص سلامة القرار, verified "قبل إحالة
@@ -645,6 +662,26 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::middleware('screen.permission:reports,export')
         ->get('reports/requests/export', [ReportController::class, 'export']);
+
+    /*
+     * Stage 80 — [D] Art. 98's twelve official registers.
+     *
+     * `registers` (the catalogue) is declared before `registers/{register}` so
+     * the literal path can never be read as a register code, per the ordering
+     * convention elsewhere in here. The `{register}/export` path is a segment
+     * deeper and cannot collide either way.
+     *
+     * Grants mirror `reports` exactly: everyone may read a register, far fewer
+     * may carry one out of the system as a file. That is the same population
+     * the reports screen already lists to everyone, so nothing here widens who
+     * can see whose file.
+     */
+    Route::middleware('screen.permission:registers,view')->group(function () {
+        Route::get('registers', [RegisterController::class, 'catalog']);
+        Route::get('registers/{register}', [RegisterController::class, 'index']);
+    });
+    Route::middleware('screen.permission:registers,export')
+        ->get('registers/{register}/export', [RegisterController::class, 'export']);
 
     /*
      * Stage 23 — notifications. Reads sit behind `notifications,view`, and the

@@ -3,6 +3,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
+import ApprovalReferralPanel from '../components/ApprovalReferralPanel.vue'
 import ApprovalReturnPanel from '../components/ApprovalReturnPanel.vue'
 import IntakeGatePanel from '../components/IntakeGatePanel.vue'
 import RequestSoundnessPanel from '../components/RequestSoundnessPanel.vue'
@@ -16,6 +17,7 @@ import api from '../lib/api'
 // Stage 72 — [D] Appendix 57's grouped document matrix, shared with the intake
 // screen so both read the same list the same way.
 import { documentCondition, documentLabel, groupDocuments } from '../lib/requiredDocuments'
+import { fileSectionLabel } from '../lib/fileSections'
 // Stage 75 — [D] Appendix 47's twelve checks, mirrored once for every screen.
 import { AUDIT_CHECKS } from '../lib/requestClosure'
 import { TRACKING_CHECKS } from '../lib/requestExecution'
@@ -72,6 +74,9 @@ const name = (item) => {
   if (!item) return t('common.none')
   return locale.value === 'ar' ? item.name_ar || item.name_en : item.name_en || item.name_ar
 }
+// Stage 80 — [D] Appendix 14's folder name for a linked document, or the
+// honest "unclassified" label for a row written before that column existed.
+const fileSectionName = (code) => fileSectionLabel(t, code)
 const dateTime = (value) => value
   ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
   : t('common.none')
@@ -85,6 +90,13 @@ const onClosed = (updated) => { request.value = updated }
 // Stage 77 — the two approval-return endpoints answer with the same full detail
 // resource, so the card swaps in the updated request rather than refetching.
 const onApprovalReturnUpdated = (updated) => { request.value = updated }
+// Stage 80 — the referral still awaiting Art. 30's تاريخ ورود النتيجة,
+// resolved against the id the server computed rather than re-deriving
+// "unanswered" here, so the panel and the endpoint agree on which one it is.
+const openApprovalReferral = computed(() => {
+  const openId = request.value?.approval_referral_eligibility?.open_referral_id
+  return openId ? request.value.approval_referrals?.find((entry) => entry.id === openId) ?? null : null
+})
 // Stage 78 — every control-gate endpoint answers with the same full detail
 // resource, so each card swaps in the updated request rather than refetching.
 const onGateUpdated = (updated) => { request.value = updated }
@@ -686,6 +698,63 @@ onBeforeUnmount(clearAttachmentPreview)
         </template>
       </section>
 
+      <!-- Stage 80 — [D] Art. 30's سجل الإحالات للاعتماد, i.e. Art. 98's
+           register 7. Sits above the returns register because it is the
+           outward leg of the same cycle: the file goes out under a letter
+           number, and either an اعتماد or an إعادة comes back. A register
+           entry, never a gate — Art. 30 says "ويسجل", not "ولا يحال قبل". -->
+      <section
+        v-if="request.approval_referrals?.length || request.approval_referral_eligibility?.can_record"
+        class="card summary closure"
+      >
+        <h3>{{ t('approvalReferral.title') }}</h3>
+        <ol v-if="request.approval_referrals?.length" class="return-list">
+          <li v-for="entry in request.approval_referrals" :key="entry.id">
+            <div class="return-head">
+              <span class="return-kind">{{ entry.letter_number }}</span>
+              <span>{{ entry.referred_to_body }}</span>
+              <span class="muted">{{ date(entry.referred_at) }}</span>
+            </div>
+            <dl>
+              <div>
+                <span>{{ t('approvalReferral.referredFrom') }}</span>
+                <strong>{{ entry.referred_from_stage ? name(entry.referred_from_stage) : '—' }}</strong>
+              </div>
+              <div>
+                <span>{{ t('approvalReferral.recordedBy') }}</span>
+                <strong>{{ entry.recorded_by?.name ?? '—' }}</strong>
+              </div>
+              <div>
+                <span>{{ t('approvalReferral.fields.result_outcome') }}</span>
+                <strong>
+                  {{ entry.result_outcome
+                    ? t(`approvalReferral.outcomes.${entry.result_outcome}`)
+                    : t('approvalReferral.awaitingResult') }}
+                </strong>
+              </div>
+              <div v-if="entry.result_received_at">
+                <span>{{ t('approvalReferral.fields.result_received_at') }}</span>
+                <strong>{{ date(entry.result_received_at) }}</strong>
+              </div>
+              <div v-if="entry.approval_decision_number">
+                <span>{{ t('approvalReferral.fields.approval_decision_number') }}</span>
+                <strong>{{ entry.approval_decision_number }}</strong>
+              </div>
+              <div v-if="entry.result_note" class="wide">
+                <span>{{ t('approvalReferral.fields.result_note') }}</span>
+                <strong>{{ entry.result_note }}</strong>
+              </div>
+            </dl>
+          </li>
+        </ol>
+        <ApprovalReferralPanel
+          :request-id="request.id"
+          :refusal="request.approval_referral_eligibility?.reason"
+          :open-referral="openApprovalReferral"
+          @updated="onApprovalReturnUpdated"
+        />
+      </section>
+
       <!-- Stage 77 — [D] Art. 94's إعادة المحضر من جهة الاعتماد. Shown while the
            file is inside the approval cycle, and afterwards as the register of
            every round it went through — Art. 98's own سجل القرارات المعادة من
@@ -1032,7 +1101,24 @@ onBeforeUnmount(clearAttachmentPreview)
                   <strong>{{ actionLabel(entry.action) }}</strong>
                   <p v-if="entry.to_stage">{{ timelineMovement(entry) }}</p>
                   <p v-if="entry.comment" class="entry-comment">{{ entry.comment }}</p>
-                  <small>{{ entry.acted_by?.name || t('common.none') }} · {{ dateTime(entry.acted_at) }}</small>
+                  <small>
+                    {{ entry.acted_by?.name || t('common.none') }}
+                    <!-- Stage 80 — Art. 100's الجهة, which the article names
+                         alongside المسؤول rather than instead of it. -->
+                    <template v-if="entry.body"> · {{ name(entry.body) }}</template>
+                    · {{ dateTime(entry.acted_at) }}
+                  </small>
+                  <!-- Stage 80 — Art. 100's المستند المرتبط. Each item states
+                       its own kind, so a signature is never read as a document
+                       someone attached. -->
+                  <ul v-if="entry.documents?.length" class="entry-documents">
+                    <li v-for="(doc, docIndex) in entry.documents" :key="docIndex">
+                      <span class="doc-kind">{{ t(`requestDetail.linkedDocuments.kinds.${doc.kind}`) }}</span>
+                      <span class="doc-label">{{ doc.label }}</span>
+                      <span v-if="doc.reference" class="doc-reference ltr">{{ doc.reference }}</span>
+                      <span v-if="doc.section" class="doc-section">{{ fileSectionName(doc.section) }}</span>
+                    </li>
+                  </ul>
                 </div>
               </li>
             </ol>
@@ -1049,6 +1135,10 @@ onBeforeUnmount(clearAttachmentPreview)
               <li v-for="attachment in request.attachments" :key="attachment.id">
                 <strong class="file-name ltr">{{ attachment.original_name }}</strong>
                 <small>{{ attachment.label || attachment.mime_type }} · {{ fileSize(attachment.size_bytes) }}</small>
+                <!-- Stage 80 — [D] Appendix 14's folder. A row written before
+                     that classification existed reads as غير مصنف rather than
+                     being shown under a folder nobody chose for it. -->
+                <small class="doc-section">{{ fileSectionName(attachment.file_section) }}</small>
                 <!-- Stage 76 — this document is Appendix 70's دليل التنفيذ,
                      so it is not merely one of the file's attachments. -->
                 <small v-if="attachment.execution_evidence_type" class="evidence-tag">

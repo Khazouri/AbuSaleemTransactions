@@ -225,6 +225,20 @@ class Request extends Model
     }
 
     /**
+     * Stage 80 — [D] Art. 30's referrals of a committee result to an approving
+     * body, newest last. Art. 98's register 7 (سجل الإحالات للاعتماد).
+     *
+     * A history for the same reason approvalReturns() is one: the البلدية →
+     * وزارة path is two referrals by itself, a corrected formal return is
+     * re-referred, and the article names an outward moment and an inward one
+     * that nobody can answer at the same time.
+     */
+    public function approvalReferrals(): HasMany
+    {
+        return $this->hasMany(ApprovalReferral::class);
+    }
+
+    /**
      * Stage 78 — [D] Art. 105's procedural suspensions, newest last.
      *
      * A history for the same reason approvalReturns() is one: the article
