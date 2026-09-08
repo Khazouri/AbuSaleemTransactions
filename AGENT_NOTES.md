@@ -14,6 +14,359 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-09 09:55 EET — Claude — Stage 81 complete (Art. 106's performance indicators)
+
+Built per the plan below, from the verbatim sources — [D] **Arts. 106, 107** and **Appendices 10, 11, 39,
+40, 71** read directly. **No migration, no seeder change and no new screen**, which is the check that this
+stage sits entirely inside domains prior stages already drew: Art. 106/107/39/40 ride the existing
+`reports` screen, Appendices 10 and 11 ride `meetings_dashboard`, and Appendix 71's card rides the request
+detail endpoint.
+
+**Twelve indicators, not thirteen, and the source text wins.** STAGE_PLAN's own heading is "The thirteen
+official KPIs"; Art. 106's verbatim table has **twelve** rows (counted: one header plus twelve). Exactly
+the discrepancy Stage 75 hit when STAGE_PLAN called Appendix 47 a "thirteen-point" audit and the verbatim
+appendix listed twelve, and it is resolved the same way — the transcription is the authority, the
+paraphrase is not.
+
+**Appendix 71's T1–T10 is the PRIMITIVE and Art. 106's durations are averages over it. This is the design
+decision not to re-litigate.** Five of the twelve are literally the mean of one segment — متوسط مدة الفحص
+الأولي is T3, استكمال النواقص is T4, الاعتماد is T8, التنفيذ is T9, الدورة الكاملة is T10 — so
+`PerformanceIndicatorService` averages `RequestTimeCard`'s own output rather than deriving the same
+durations a second way. Building them independently would hand one fact two derivations free to disagree,
+which is the failure the codebase's one-predicate-two-consumers discipline exists to prevent (Stage 25's
+`DecisionEligibility`, Stage 33's `MeetingReadinessService`, Stage 80's single `query()` behind both the
+screen and the export). **Proven live rather than asserted**: the smoke fixture's card read
+`t3=3, t4=7, t8=6` and the indicators came back `initial_examination_days=3`,
+`shortfall_completion_days=7`, `approval_days=6` — the same three numbers, from the same derivation.
+
+**T10 is deliberately NOT the sum of T1–T9**, and that is the appendix's own point rather than an
+omission: its stated purpose is "**وبذلك تستطيع البلدية معرفة أين يقع التأخير فعليًا بدل اعتبار اللجنة
+مسؤولة عن كامل مدة المعاملة**" — it locates a delay, it does not total one. A file can sit idle between
+two measured segments, and presenting the parts as adding to the whole would hide exactly the gap the
+appendix exists to find.
+
+**T4 and T5 sum every round rather than reporting the first**, because Art. 19's استكمال loop and Art.
+21's re-review loop are both explicitly repeatable — a file returned twice was blocked twice. The
+interval accumulator also guards re-entry into a status already held: `WorkflowService` stamps a status
+row on **every** move even when adjacent stages share one (its own comment says so), so an unguarded
+start would restart a running interval and silently lose its elapsed time. A test walks two shortfall
+rounds (3 days then 5) and pins the sum at 8; the live fixture's two rounds summed to 7 against the real
+database.
+
+**A segment whose endpoints have not both happened is null, never zero.** A file that has not been
+executed has no execution duration, and averaging a zero in would report unstarted work as instantaneous —
+`segmentAverages()` excludes nulls rather than counting them, and a test pins all three of the fixture's
+unfinished segments.
+
+**Batched, never per-request — this closes Stage 80's own open item (4).** That stage flagged that Art.
+100's linked documents cost three extra queries per request and that a register-wide derivation "would
+need the same derivation batched". `TimeCardCompiler` loads the whole population's stage logs, status
+history, first sitting and referral pair in a fixed number of queries regardless of population size,
+groups them in PHP and hands each card its own pre-loaded slices. **A time card never queries.** Both
+histories are read as plain joined rows rather than as Eloquent models: the card needs a code and a
+timestamp per row, and hydrating thousands of models to read two attributes each would undo the batching
+it just bought.
+
+**The other seven indicators, and the two worth not re-deriving later.** نسبة الملفات الناقصة reads
+*history*, not the current status — a rate that falls the moment a shortfall is cleared measures nothing
+about "جودة تقديم الطلبات", which is what Art. 106 says it measures; the same reading Stage 80's register
+2 made, and a test walks a file that has since been completed and still counts it. **نسبة التأجيل بسبب
+نقص مستندات is answerable only because Stage 74 structured Art. 34's deferral**: it reads
+`deferral_required_document` rather than guessing from prose, and its denominator is the *deferrals*, not
+the population, because the article asks for the share **of** deferrals with that cause. نسبة القرارات
+المعادة is measured against **referrals**, not decisions — a decision never sent for approval cannot be
+returned, and counting it would dilute an indicator Art. 106 says measures the approving body's own
+judgement of the minutes. عدد المعاملات المفتوحة المتأخرة reuses
+`ReportMetricsService::overdueQuery()` verbatim rather than re-deriving it, so a file cannot be late on
+one screen and not on another. An indicator with nothing to measure returns **null, not a confident zero**.
+
+**Appendix 11 REPLACED Stage 32's funnel rather than sitting beside it.** Those six buckets were that
+stage's own invention; Appendix 11's ten are the sourced version of the same question, and Track K exists
+to make the system identical to [D]. Rendering both would show one request twice under two groupings,
+which is worse than either. Two honesty points the appendix forces, and the payload states both rather
+than letting the screen imply a partition the source never claims: bucket 1 (المعاملات الجديدة) is
+**period-bounded** ("التي وردت **خلال الفترة**") while 2–8 and 10 are live, and bucket 9 (متأخرة)
+**cross-cuts** every other bucket — a late file is still in whatever state it is in, so it is counted
+twice on purpose. The bars are scaled against the largest *live* bucket only, or either of those two
+would squash the buckets that actually partition the pipeline. Bucket 7 splits into اعتماد البلدية /
+اعتماد مركزي exactly as written, and bucket 6 carries its average deferral duration because the appendix
+says "**مع بيان مدة التأجيل**". Note the count discrepancy, resolved the same way as Art. 106's: the
+matrix row said "12 خانة", the verbatim list has ten numbered items.
+
+**Appendix 10's ten warnings, all derived, and every row names the party the file is waiting on.** The
+appendix closes by requiring exactly that — "يجب أن يركز التقرير الإداري على سبب التعطل **والجهة التي
+يتطلب منها الإجراء التالي**، لا على مجرد عدد الأيام" — so an alert list reporting elapsed days and leaving
+the reader to work out whose move it is would be the report the appendix rules out. The responsible party
+is resolved from the **outbound `workflow_transitions` rows `WorkflowService` itself enforces**, the same
+source Stage 71's ladder reads, so the alert and the button that would clear it can never name different
+people; it falls back to the stage's own seeded responsible role rather than reporting nobody, since
+"unknown" is the one answer the appendix refuses. **Appendix 17's own stored المسؤول الحالي field stays
+Stage 83's** — this reads the live rule rather than adding a second, unreconciled record of the same fact.
+Warning 9 (اقتربت) opens at Stage 71's **yellow**, not only its critical: "approaching" is not "past".
+Proven live — the smoke fixture raised four warnings naming "المدير العام / العميد", the role that
+actually holds the outbound rule at `final_approval_archiving`.
+
+**Warning 8 needed a guard that is load-bearing rather than defensive.** "لم يتم إشعار صاحبها" fires only
+for a file that has actually reached a state Art. 101 owes a notice for, read from a newly-exposed
+`EmployeeNoticeService::notifyingStatusCodes()`. Without it the alert would fire on every freshly
+submitted request — which has not been notified because nothing notifiable has happened to it yet — and an
+alert true of everything tells the reader nothing. A test pins both directions.
+
+**Art. 107, Appendix 39 and Appendix 40 are three documents over one period, not three services**, all
+emitted through Stage 24's `ReportDocument`/`ReportExporter` **unchanged** — the "a new document, not a new
+writer" split Stage 25 established and Stage 80 reused for all twelve registers. **Art. 107's privacy rule
+is satisfied by construction, not by review**: the article ends "ولا يتضمن التقرير العام بيانات شخصية لا
+تستلزمها أغراض المتابعة", and every section is a count, a share or an average — no employee name,
+reference number or subject is ever read, so none can reach any of the three. Appendix 39's **أسباب
+التعطيل is genuinely derived rather than attested**: its seven named categories each map onto statuses
+this system already has, so the report says where work is actually stuck instead of asking for an
+estimate.
+
+**Three narrative items are deliberately NOT fabricated, and one of them has a reason worth recording so
+nobody "fixes" it wrongly.** Art. 107's توصيات تحسين الإجراءات, Appendix 39's أبرز الملاحظات and Appendix
+40's item 15 are the rapporteur's own writing; an authored-report store with its own review lifecycle is
+real work nothing in Track K asks for, the same call Stage 80 made about Appendix 13. **Appendix 40's item
+10 (أكثر أسباب النقص) is unbuilt because it has no structured source**: the only recorded shortfall reason
+is the free-text `request_status_history.reason` (Stage 80's register 2 prints it), and grouping free text
+would report a guess as a statistic. **Stage 78's `intake_gate` looks like the structured source and is
+not** — that gate *refuses* a `missing` answer, so a registered file never carries one; I checked this
+before designing around it rather than after. A structured shortfall vocabulary is the prerequisite and
+does not exist. All four are **named in the document** with an explicit placeholder rather than omitted,
+so a reader can see what is missing instead of assuming the report is whole.
+
+**One widening that is a correctness fix rather than scope creep.** `ReportCacheObserver` was bound to
+`Request` alone, on the documented reasoning that "every KPI ultimately depends on a `requests` row". That
+stopped being true: Stage 80's referral is recorded **without moving the stage or the status**, so a new
+referral would have left نسبة القرارات المعادة stale for the whole five-minute TTL with nothing to
+invalidate it. The observer is now model-agnostic and registered on Decision, Meeting, MeetingRequest,
+ApprovalReferral and ApprovalReturn alongside Request. `ReportMetricsService::query()`/`overdueQuery()`
+became public and gained a `remember()` helper for the same reason in the other direction — the indicators
+must narrow to the same population the reports screen does and go stale on the same generation counter,
+and a second copy of that five-clause filter would have been free to drift from it.
+
+Frontend: `ReportsView.vue` gained a tab strip over **one shared filter bar** (the detailed report · Art.
+106's twelve · the three periodic reports) — one bar because all three describe one population, and a
+screen whose tabs narrowed differently under one date range would be showing two things and calling them
+one; the two new tabs load lazily, since the indicators scan every request's history and should not be
+computed for a reader who only wanted the listing. `MeetingsDashboardView.vue` swapped its funnel for
+Appendix 11's board and gained an Appendix 10 card. `RequestDetailView.vue` gained Appendix 71's card.
+New `lib/performance.js` is deliberately thin — **every label is rendered server-side and travels beside
+its number** (Stage 80's own call), so switching locale re-fetches rather than reformatting and the screen
+and an exported copy name one indicator identically.
+
+Verification: new `tests/Feature/PerformanceIndicatorTest.php` (24 tests — each of Appendix 71's segments
+against a hand-walked fixture whose hops are a known number of days apart; T4 summing two rounds; an
+unfinished segment reporting null; the card reaching the detail endpoint; Art. 106's twelve in the
+article's order with their purposes; the duration indicators proven to be the mean of the matching
+segment; the incomplete rate counting a since-completed file; the two deferral indicators against Stage
+74's structured fields with the right denominators; the return rate measured against referrals with a
+never-referred decision excluded from both sides; the overdue predicate; every indicator null when there
+is nothing to measure; seven of Appendix 10's conditions firing in isolation plus the notice guard, the
+responsible-party requirement and a settled file raising nothing; Appendix 11's eleven rows with their
+scopes and the funnel gone; the cross-cutting overdue bucket; the three reports' shapes; Appendix 39's
+seven derived delay causes; the narrative sections named; an unknown report 404ing; both export
+signatures; and the export refused without the grant). Full suite **488 tests / 3035 assertions** green
+(was 464/2947). Pint clean **repo-wide** (`--test` over `app/`, `database/`, `tests/`, `routes/` reports
+zero diffs), `npm run build` passes (then reverted `frontend/dist`, tracked in git, per every prior
+stage's note), locale key-parity verified programmatically (**1538 keys each side, zero
+on-one-side-only**), and `php artisan migrate` reports **nothing to migrate** — as designed, since this
+stage adds no schema.
+
+**One pre-existing test needed a legitimate update, not a regression fix.**
+`CommitteeCandidatesDashboardTest`'s funnel assertions describe a funnel this stage deliberately replaced;
+they now assert Appendix 11's eleven rows instead, including that `data.funnel` is gone and that the
+overdue bucket cross-cuts the others. Renamed accordingly and commented in place.
+
+**A local-tooling note worth knowing.** The locale JSON files are indented **two** spaces and
+`JSON_PRETTY_PRINT` emits four — re-encoding them without halving the indentation reformats all ~1900
+lines and buries the real diff. Caught it by checking the diff size (3697 lines changed) rather than
+trusting the key-parity check, which was clean either way; after fixing the encoder the diff is 51 lines
+per file. Verified the corrected encoder round-trips an untouched file byte-for-byte before re-applying.
+Also: the Bash tool's working directory persists across calls in this session, so a relative path in a
+script invoked by absolute path resolved against the wrong directory and silently made zero edits — the
+script reported which replacements it could not find, which is what caught it.
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r06.ministry@`/`r01.employee@`
+accounts and a bootstrapped fixture: all twelve indicators returned in Art. 106's own order with their
+purposes; the time card matched them segment for segment; Appendix 10 raised four warnings on the fixture
+each naming the responsible role; all three periodic reports returned their own sections with the
+narrative headings named and an unknown report 404'd; Appendix 11's board returned eleven rows with
+`funnel` gone and the correct scope markers; R01 read the indicators (200) and was refused the export
+(403); and the exports produced a 7.4 kB xlsx and a 61 kB Arabic PDF. Deleted every fixture row (request,
+referral, status history, stage logs, audit rows), purged the queue and the notifications the fixture's
+status rows generated, and revoked both tokens — counts confirmed back to **0 requests / 0 referrals / 0
+status history / 0 stage logs / 0 tokens / 0 jobs / 0 notifications**.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Arts. **106** and **107** ⚠→✅ and
+appendices **10** ❌→✅, **11** ⚠→✅, **39** ❌→✅ and **71** ⚠→✅, with appendix **40** moving **❌→⚠ rather
+than to ✅** — thirteen of its fifteen items are built and the other two are deliberately not fabricated.
+Headline counts adjusted by this stage's own delta (articles 90→92 ✅ / 10→8 ⚠; appendices 55→59 ✅ / 7→6
+⚠), and the existing drift banner was updated to say that **appendix 13 is now the last row the ❌ column
+under-reports**.
+
+**Open items for whoever builds Stage 82+.** (1) **Appendix 40's item 10 needs a structured shortfall
+vocabulary before it can be built** — see above for why `intake_gate` is not it; whichever stage
+introduces one should take that item at the same time. (2) **The three narrative sections have no owner** —
+an authored periodic-report store is a real, well-defined piece of work (it would look like Stage 46's
+presentation memo: derived fields recomputed, authored fields preserved), but nothing asks for one and it
+should be decided rather than inherited. (3) **The indicators are cached on a five-minute generation
+counter that now several models bump**, so a busy system flushes them often; if that becomes a cost, the
+fix is a coarser key rather than fewer observers, since dropping an observer re-opens the staleness this
+stage closed. (4) **T2's endpoint assumes `requirements_check` is the rapporteur's own arrival**, per
+Appendix 37 naming that stage's action فحص المقرر — if Stage 82's agenda work moves where the rapporteur
+first touches a file, that mapping needs revisiting rather than being left to drift. (5) **Appendix 10's
+alert list is capped at 100 rows and is not paginated**, deliberately — it is a triage list, and the
+appendix's own point is to surface where work is stuck rather than enumerate every file; a municipality
+with more than 100 simultaneously-warning files should probably narrow by department rather than page
+through them.
+
+---
+
+### 2026-09-09 07:30 EET — Claude — Stage 81 implementation plan (Art. 106's performance indicators)
+
+Building Stage 81 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Art. 106**
+(مؤشرات الأداء الأساسية — a two-column table of indicator + purpose), **Art. 107** (تقرير اللجنة
+الدوري — fourteen named elements plus "**ولا يتضمن التقرير العام بيانات شخصية لا تستلزمها أغراض
+المتابعة**"), **Appendix 10** (مؤشرات الإنذار المبكر — ten conditions and its own closing rule
+"**يجب أن يركز التقرير الإداري على سبب التعطل والجهة التي يتطلب منها الإجراء التالي، لا على مجرد عدد
+الأيام**"), **Appendix 11** (لوحة متابعة أعمال اللجنة — ten numbered buckets, the seventh splitting
+in two), **Appendix 39** (التقرير الشهري — حركة المعاملات / أسباب التعطيل / أبرز الملاحظات),
+**Appendix 40** (التقرير السنوي — fifteen items) and **Appendix 71** (بطاقة قياس زمن المعاملة —
+T1–T10, and its own purpose: "**وبذلك تستطيع البلدية معرفة أين يقع التأخير فعليًا بدل اعتبار اللجنة
+مسؤولة عن كامل مدة المعاملة**"), which Stage 71's own note assigned to this stage.
+
+**Twelve indicators, not thirteen — the source text wins.** STAGE_PLAN's own heading says "The
+thirteen official KPIs"; Art. 106's verbatim table has **twelve** rows (counted: one header plus
+twelve). Same discrepancy Stage 75 hit when STAGE_PLAN called Appendix 47 a "thirteen-point" audit
+and the verbatim appendix had twelve, and it is resolved the same way — the transcription is the
+authority, the paraphrase is not.
+
+**Appendix 71's T1–T10 is the PRIMITIVE and Art. 106's indicators are averages over it — this is
+the design decision not to re-litigate.** Five of the twelve are literally the mean of one of the
+appendix's own segments: متوسط مدة الفحص الأولي is T3, متوسط مدة استكمال النواقص is T4, متوسط مدة
+الاعتماد is T8, متوسط مدة التنفيذ بعد الاعتماد is T9, and متوسط الدورة الكاملة is T10. Computing the
+indicators independently of the time card would hand the same fact two derivations that can
+disagree — the exact failure the whole codebase's one-predicate-two-consumers discipline exists to
+prevent (Stage 25's DecisionEligibility, Stage 33's MeetingReadinessService, Stage 80's single
+query() behind both the screen and the export). So: RequestTimeCard computes T1–T10 for one
+request, and PerformanceIndicatorService averages the relevant segment across the filtered
+population. It also means the per-request card the user sees and the municipality-wide average
+cannot tell two different stories about the same file.
+
+**Batched, never per-request — this closes Stage 80's own open item (4).** That stage flagged that
+Art. 100's linked documents cost three extra queries per request and that a register-wide export
+would need the same derivation batched. TimeCardCompiler loads the whole population's stage logs
+and status history in a fixed number of queries regardless of how many requests are in it, groups
+them in PHP, and hands each RequestTimeCard its own pre-loaded slices. A time card never queries.
+
+**T1–T10 mapped onto this system, segment by segment.** T1 = submitted_at → arrival at
+administrative_routing (Art. 15's إحالتها للجهة المعنية is the direct manager's own forward).
+T2 = that arrival → arrival at requirements_check (Appendix 37 names that stage's action فحص
+المقرر, so it is the arrival *at* the rapporteur). T3 = the requirements_check dwell, i.e. arrival
+→ departure, which is Stage 70's قيد hop. T4 = the **sum** of every interval spent on
+incomplete/completion_required, not the first one: a file returned twice was blocked twice, and
+Art. 19's loop is explicitly repeatable. T5 = the same sum over under_legal_review (Stage 68's own
+loop, likewise repeatable). T6 = reaching ready → the sitting it was first placed on. T7 = that
+sitting → its minutes generated_at. T8 = Stage 80's approval_referrals.referred_at →
+result_received_at, falling back to the first awaiting status → final_approved for a file that
+predates the referral register. T9 = final_approved → executed_at. T10 = submitted_at → closed_at.
+A segment whose endpoints have not both happened reports **null**, never zero — a file that has not
+been executed has no execution duration, and averaging a zero in would understate every number in
+the column.
+
+**The remaining seven indicators, and what each actually counts.** نسبة الملفات الناقصة = requests
+that have *ever* reached a shortfall status, read from request_status_history — the same reading
+Stage 80's register 2 made and for the same reason: a percentage that falls when a shortfall is
+fixed measures nothing. نسبة الملفات الجاهزة قبل الاجتماع = of the agenda items in the period, the
+share whose request had actually reached ready before its sitting (Art. 106's own قياس كفاءة
+المقرر). عدد المعاملات بكل اجتماع = mean employee_request agenda items per held meeting. نسبة
+المعاملات المؤجلة = the share carrying at least one defer decision. نسبة التأجيل بسبب نقص مستندات
+= of those, the share whose Stage 74 deferral_required_document is filled — **that field exists
+precisely because Art. 34 required it**, so this indicator is answerable only because Stage 74
+structured the deferral instead of leaving it as prose. نسبة القرارات المعادة من جهة الاعتماد =
+Stage 77's approval_returns over the referrals made. عدد المعاملات المفتوحة المتأخرة = Stage 17's
+overdue_at set and the file still open, which is ReportMetricsService::overdueQuery() verbatim —
+reused, not re-derived.
+
+**Appendix 11 REPLACES Stage 32's funnel rather than sitting beside it.** That funnel's six buckets
+are Stage 32's own invention; Appendix 11's ten are the sourced version of the same question, and
+Track K's whole purpose is identity with [D]. Rendering both would show the same requests twice
+under two groupings, which is worse than either. Two honesty points the appendix forces: bucket 1
+(المعاملات الجديدة — التي وردت **خلال الفترة**) is period-bounded while buckets 2–8 and 10 are
+where things stand now, and bucket 9 (متأخرة) is Stage 52/71's soft SLA, which **cross-cuts** every
+other bucket rather than being disjoint from them. The payload says which buckets are live-disjoint
+and which are not, so the screen cannot imply a partition the appendix never claims. Bucket 7 splits
+into اعتماد البلدية / اعتماد مركزي, exactly as written, and bucket 6 carries the average time since
+deferral because the appendix says "**مع بيان مدة التأجيل**".
+
+**Appendix 10's ten warnings, each derived from real state, and each naming the party the file is
+waiting on.** The appendix's closing sentence is explicit that a delay report must say **who owes the
+next action**, not merely how many days have passed — so every alert row carries the stage's own
+responsible role, resolved the way Stage 71's escalation already resolves it (from the
+workflow_transitions rows WorkflowService itself enforces, so the alert and the button that would
+clear it can never name different people). **Appendix 17's own stored المسؤول الحالي field stays
+Stage 83's** and is not half-built here. The ten: an unusual dwell (Stage 71's red/critical level);
+returned for completion more than once; deferred more than once; referred for approval with no
+result recorded; approved but not executed; executed but the Stage 76 checklist's
+employee_file_updated is not yes; an unresolved Stage 77 return; no Art. 101 notice recorded despite
+the file having reached a notifying state; a Stage 68 legal_deadline recorded with the stage already
+at yellow or worse (**اقتربت** — approaching, so not only Stage 71's critical); and an open appeal.
+
+**Art. 107, Appendix 39 and Appendix 40 are three documents over one period, not three services.**
+All three read the same computations and are emitted through Stage 24's ReportDocument/
+ReportExporter **unchanged** — the "a new document, not a new writer" split Stage 25 established and
+Stage 80 reused for all twelve registers. Appendix 39's أسباب التعطيل is genuinely derivable: its
+seven named categories (انتظار موظف · انتظار إدارة · مراجعة قانونية · انتظار اجتماع · انتظار اعتماد ·
+انتظار الوزارة · انتظار تنفيذ) map onto this system's statuses, so the report states where work is
+actually stuck rather than asking someone to guess. Art. 107's own privacy rule (**ولا يتضمن التقرير
+العام بيانات شخصية**) is satisfied by construction: all three documents are counts and averages, and
+no employee name or request reference appears in any of them.
+
+**Three narrative items are deliberately NOT fabricated, and that is recorded rather than skipped.**
+Art. 107's توصيات تحسين الإجراءات, Appendix 39's أبرز الملاحظات and Appendix 40's item 15 are the
+rapporteur's own writing, not a computation; an authored-report store with its own review lifecycle
+is real work nothing in Track K asks for, and it is the same call Stage 80 made about Appendix 13.
+**Appendix 40's item 10 (أكثر أسباب النقص) is also left unbuilt, and the reason is worth stating so
+nobody fixes it wrongly**: the only recorded shortfall reason is the free-text
+request_status_history.reason (Stage 80's register 2 prints it), and grouping free text would report
+a guess as a statistic. Stage 78's intake_gate looks like a structured source but is not — the gate
+*refuses* a missing answer, so a registered file never carries one. A structured shortfall
+vocabulary is the prerequisite, and it does not exist.
+
+**No migration, no seeder change, no new screen** — which is the check that this stage sits inside
+domains already drawn. Art. 106/107/39/40 ride the existing reports screen (view for everyone,
+export for R06/R07), Appendix 11 and Appendix 10 ride meetings_dashboard, whose own declared subject
+they are and which Appendix 10 addresses to مقرر اللجنة — R02's own RoleSeeder name. Appendix 71's
+card rides the request detail endpoint, per Stage 72/77/79's precedent that a detail-only field
+leaves list payloads untouched.
+
+**One widening that is a correctness fix rather than scope creep.** ReportCacheObserver is bound to
+Request alone, on the documented reasoning that every KPI ultimately depends on a requests row.
+That is no longer true: Stage 80's referral is recorded **without moving the stage or the status**, so
+a new referral would leave نسبة القرارات المعادة stale for the whole cache TTL. The observer becomes
+model-agnostic and is registered on the models the new indicators read (Decision, Meeting,
+MeetingRequest, ApprovalReferral, ApprovalReturn) alongside Request.
+
+Frontend: ReportsView.vue gains a tab strip (the existing detailed report · Art. 106's indicators ·
+the three periodic reports), MeetingsDashboardView.vue swaps its funnel for Appendix 11's board and
+gains an Appendix 10 alerts card, RequestDetailView.vue gains Appendix 71's time card, and a shared
+lib/performance.js mirrors the indicator/bucket/warning vocabularies once (the Stage 75/76/77/80
+precedent). Indicator and warning labels are rendered **server-side** in the payload, matching Stage
+80's own call, so the screen and the exported file say the same words.
+
+Verification plan: new tests/Feature/PerformanceIndicatorTest.php — each of Appendix 71's ten
+segments against a hand-walked fixture, including a null for a segment whose endpoints have not both
+happened and a T4 that **sums** two shortfall rounds rather than reporting the first; each of the
+twelve indicators against a population whose expected value is checkable by reading the fixture;
+نسبة الملفات الناقصة counting a file that has since been completed; Appendix 11's board including
+the period-bounded first bucket and the cross-cutting ninth; each of Appendix 10's ten warnings
+firing in isolation and a clean file firing none; each warning naming a responsible party; the three
+periodic reports' own shapes; both export signatures; the export refused without the grant; and the
+time card reaching the detail endpoint. Then the full PHPUnit suite, Pint, npm run build, locale
+key-parity, and a smoke run against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-09 05:40 EET — Claude — Stage 80 complete (Art. 98's twelve official registers)
 
 Built per the plan below, from the verbatim sources — [D] **Arts. 30, 98, 99, 100** and **Appendices 12,

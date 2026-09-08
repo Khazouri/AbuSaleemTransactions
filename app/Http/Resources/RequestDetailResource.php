@@ -141,6 +141,12 @@ class RequestDetailResource extends RequestResource
             // Detail resource only, per Stage 72's precedent — list payloads
             // stay unchanged.
             'employee_notices' => $this->employee_notices ?? [],
+            // Stage 81 — [D] Appendix 71's ten measured segments for this
+            // file. Detail resource only, per the same precedent: a list
+            // payload has no room for ten durations per row, and computing
+            // them per row is exactly the N+1 TimeCardCompiler exists to
+            // avoid.
+            'time_card' => $this->time_card ?? [],
         ];
     }
 }

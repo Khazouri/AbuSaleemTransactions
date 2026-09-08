@@ -135,10 +135,16 @@ class ReportMetricsService
     /**
      * Apply the filter set shared by the dashboard, the report and the export.
      *
+     * Public since Stage 81: Art. 106's indicators describe the same filtered
+     * population these KPIs do, and a second copy of this five-clause filter
+     * would be free to drift from it — the reports screen and the indicators
+     * screen must narrow to the same requests or they are describing two
+     * different things under one date range.
+     *
      * @param  array<string, mixed>  $filters
      * @return Builder<Request>
      */
-    private function query(array $filters): Builder
+    public function query(array $filters): Builder
     {
         // Every column is table-qualified: the breakdowns join this query onto
         // workflow_stages and departments, which carry their own created_at.
@@ -159,10 +165,14 @@ class ReportMetricsService
      * A request that blew its deadline but has since been completed or
      * cancelled is history, not an outstanding breach someone must act on.
      *
+     * Public since Stage 81 — Art. 106's عدد المعاملات المفتوحة المتأخرة is
+     * this exact predicate, and reusing it is what stops the indicator and the
+     * reports tile from counting different things.
+     *
      * @param  array<string, mixed>  $filters
      * @return Builder<Request>
      */
-    private function overdueQuery(array $filters): Builder
+    public function overdueQuery(array $filters): Builder
     {
         return $this->query($filters)
             ->whereNotNull('overdue_at')
@@ -361,6 +371,24 @@ class ReportMetricsService
                 'completed' => (int) ($completed[$month] ?? 0),
             ];
         })->all();
+    }
+
+    /**
+     * Memoise a computation on the same generation counter these KPIs use.
+     *
+     * Stage 81 — the indicators are as expensive as these aggregates and go
+     * stale on the same writes, so they share one invalidation rather than
+     * inventing a second scheme that could outlive a flush.
+     *
+     * @template TValue
+     *
+     * @param  array<string, mixed>  $filters
+     * @param  callable(): TValue  $compute
+     * @return TValue
+     */
+    public function remember(string $bucket, array $filters, callable $compute): mixed
+    {
+        return $this->cached($bucket, $filters, $compute);
     }
 
     /**

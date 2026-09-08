@@ -126,6 +126,21 @@ class EmployeeNoticeService
     ];
 
     /**
+     * The statuses whose arrival Art. 101 says the employee must hear about.
+     *
+     * Exposed for Stage 81's Appendix 10 warning "لم يتم إشعار صاحبها": that
+     * alert has to know whether a file has passed a notifying state at all, and
+     * reading this map is what stops it from asserting silence about a file
+     * that was never owed a notice in the first place.
+     *
+     * @return list<string>
+     */
+    public static function notifyingStatusCodes(): array
+    {
+        return array_keys(self::STATUS_MOMENTS);
+    }
+
+    /**
      * The moment a `completion_required` file re-entering the flow represents.
      *
      * `resume_discussion` and the re-review loop both mean the same thing the

@@ -1,17 +1,25 @@
 <script setup>
 // Stage 32 — the meetings-unit command dashboard: live KPIs, the committee
-// request funnel, and a lightweight next-meeting preview. Bars are plain CSS,
-// same precedent as the Stage 24 general dashboard — no chart dependency for
-// a handful of small breakdowns.
+// board, and a lightweight next-meeting preview. Bars are plain CSS, same
+// precedent as the Stage 24 general dashboard — no chart dependency for a
+// handful of small breakdowns.
+//
+// Stage 81 replaced this screen's own six-bucket funnel with [D] Appendix
+// 11's ten buckets, and added Appendix 10's early warnings — the appendix
+// addresses those alerts to مقرر اللجنة, whose screen this is. Bucket names
+// and warning labels come from the server, so switching locale re-fetches
+// rather than re-formatting; see lib/performance.js.
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import api from '../lib/api'
+import { bucketScopeClass, timelinessClass } from '../lib/performance'
 
 const { t, locale } = useI18n()
 
 const kpis = ref(null)
-const funnel = ref(null)
+const board = ref([])
+const warnings = ref({ summary: [], top: [] })
 const nextMeeting = ref(null)
 const loading = ref(false)
 const loadError = ref('')
@@ -45,32 +53,31 @@ const tiles = computed(() => {
   ]
 })
 
-const FUNNEL_KEYS = [
-  ['candidates', 'candidates'],
-  ['onAgenda', 'on_agenda'],
-  ['inDiscussion', 'in_discussion'],
-  ['decided', 'decided'],
-  ['closed', 'closed'],
-]
-
-const funnelRows = computed(() => {
-  if (!funnel.value) return []
-  return FUNNEL_KEYS.map(([labelKey, apiKey]) => ({ key: labelKey, total: funnel.value[apiKey] }))
-})
-
-function funnelShare(total) {
-  if (!funnelRows.value.length) return '0%'
-  const max = Math.max(...funnelRows.value.map((row) => row.total), 1)
-  return `${Math.round((total / max) * 100)}%`
+/**
+ * The bar is scaled against the largest LIVE bucket only.
+ *
+ * Bucket 1 counts arrivals during the period and bucket 9 cross-cuts every
+ * other bucket, so letting either set the scale would squash the buckets
+ * that actually partition the pipeline — the appendix never claims all ten
+ * are slices of one whole, and the bars must not imply it either.
+ */
+function bucketShare(row) {
+  const live = board.value.filter((bucket) => bucket.scope === 'live')
+  const max = Math.max(...live.map((bucket) => bucket.total), 1)
+  return `${Math.min(100, Math.round((row.total / max) * 100))}%`
 }
+
+/** Ten zeroes say nothing; only the conditions actually firing are shown. */
+const firingWarnings = computed(() => warnings.value.summary.filter((row) => row.total > 0))
 
 async function load() {
   loading.value = true
   loadError.value = ''
   try {
-    const { data } = await api.get('/meetings/dashboard')
+    const { data } = await api.get('/meetings/dashboard', { params: { locale: locale.value } })
     kpis.value = data.data.kpis
-    funnel.value = data.data.funnel
+    board.value = data.data.board ?? []
+    warnings.value = data.data.early_warnings ?? { summary: [], top: [] }
     nextMeeting.value = data.data.next_meeting
   } catch (error) {
     loadError.value = error.response?.data?.message ?? t('meetingsUnit.dashboard.error')
@@ -101,13 +108,26 @@ onMounted(load)
       </div>
 
       <div class="panels">
+        <!-- Stage 81 — [D] Appendix 11's ten buckets. The labels are the
+             appendix's own, rendered server-side. -->
         <section class="card panel">
-          <h3>{{ t('meetingsUnit.dashboard.funnel.title') }}</h3>
+          <h3>{{ t('meetingsUnit.dashboard.board.title') }}</h3>
+          <p class="source">{{ t('meetingsUnit.dashboard.board.source') }}</p>
           <ul class="bars">
-            <li v-for="row in funnelRows" :key="row.key">
-              <span class="bar-label">{{ t(`meetingsUnit.dashboard.funnel.${row.key}`) }}</span>
+            <li v-for="row in board" :key="row.key" :class="bucketScopeClass(row.scope)">
+              <span class="bar-label">
+                {{ row.label }}
+                <!-- Bucket 1 is period-bounded and bucket 9 cross-cuts the
+                     rest; both say so rather than reading as a slice. -->
+                <em v-if="row.scope !== 'live'" class="scope-note">
+                  {{ t(`meetingsUnit.dashboard.board.scope.${row.scope}`) }}
+                </em>
+                <em v-if="row.average_days !== undefined && row.average_days !== null" class="scope-note">
+                  {{ t('meetingsUnit.dashboard.board.averageDays', { days: number(row.average_days) }) }}
+                </em>
+              </span>
               <span class="bar-track">
-                <span class="bar-fill" :style="{ inlineSize: funnelShare(row.total) }" />
+                <span class="bar-fill" :style="{ inlineSize: bucketShare(row) }" />
               </span>
               <span class="bar-value">{{ number(row.total) }}</span>
             </li>
@@ -139,6 +159,36 @@ onMounted(load)
               </RouterLink>
             </div>
           </div>
+        </section>
+
+        <!-- Stage 81 — [D] Appendix 10's early warnings. Every row names the
+             party the file is waiting on, which the appendix requires
+             outright: a delay report must say who owes the next action, not
+             merely how many days have passed. -->
+        <section class="card panel warnings">
+          <h3>{{ t('meetingsUnit.dashboard.warnings.title') }}</h3>
+          <p class="source">{{ t('meetingsUnit.dashboard.warnings.source') }}</p>
+          <p v-if="firingWarnings.length === 0" class="state">{{ t('meetingsUnit.dashboard.warnings.none') }}</p>
+          <template v-else>
+            <ul class="warning-tally">
+              <li v-for="row in firingWarnings" :key="row.key">
+                <span>{{ row.label }}</span>
+                <strong>{{ number(row.total) }}</strong>
+              </li>
+            </ul>
+            <ul v-if="warnings.top.length" class="warning-files">
+              <li v-for="row in warnings.top" :key="row.request_id">
+                <RouterLink
+                  class="reference"
+                  :to="{ name: 'request_details', params: { id: row.request_id } }"
+                >{{ row.reference_number ?? `#${row.request_id}` }}</RouterLink>
+                <span class="muted">{{ row.responsible ?? t('common.none') }}</span>
+                <span class="warning-count" :class="timelinessClass(row.timeliness_level)">
+                  {{ row.warnings.length }}
+                </span>
+              </li>
+            </ul>
+          </template>
         </section>
       </div>
     </template>
@@ -182,6 +232,19 @@ onMounted(load)
 .bar-fill { display: block; block-size: 100%; border-radius: 999px; background: var(--color-brand); }
 .bar-value { font-size: .8rem; color: var(--color-muted); font-variant-numeric: tabular-nums; }
 
+.source { margin: -.6rem 0 .9rem; color: var(--color-muted); font-size: .74rem; }
+.scope-note { display: block; color: var(--color-muted); font-size: .7rem; font-style: normal; }
+.bars li.scope-cross .bar-fill { background: var(--color-danger-fg); }
+.bars li.scope-period .bar-fill { background: var(--color-info-fg); }
+.warnings { grid-column: 1 / -1; }
+.warning-tally, .warning-files { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+.warning-tally li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: .35rem .55rem; border-radius: 8px; background: var(--color-warning-bg); color: var(--color-warning-fg); font-size: .8rem; }
+.warning-files { margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--color-border); }
+.warning-files li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: .6rem; font-size: .8rem; }
+.reference { font-family: var(--font-mono); font-size: .76rem; color: var(--color-brand-text); }
+.warning-count { min-inline-size: 1.5rem; text-align: center; padding: .1rem .4rem; border-radius: 999px; background: var(--color-surface-hover); color: var(--color-muted); font-size: .74rem; }
+.warning-count.level-red, .warning-count.level-critical { background: var(--color-danger-bg); color: var(--color-danger-fg); }
+.warning-count.level-yellow { background: var(--color-warning-bg); color: var(--color-warning-fg); }
 .next-meeting { display: grid; gap: .3rem; font-size: .88rem; }
 .next-meeting strong { color: var(--color-brand-text); font-size: 1rem; }
 .muted { color: var(--color-muted); font-size: .82rem; }

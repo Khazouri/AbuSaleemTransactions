@@ -641,6 +641,12 @@
         "approval_signature": "Approval signature",
         "decision": "Decision"
       }
+    },
+    "timeCard": {
+      "title": "Request time card",
+      "source": "Appendix 71 — each segment is measured on its own; the full cycle is not their sum.",
+      "days": "{days} days",
+      "pending": "not finished yet"
     }
   },
   "committees": {
@@ -988,14 +994,6 @@
         "overdueItems": "Overdue committee items",
         "decisionsThisMonth": "Decisions this month"
       },
-      "funnel": {
-        "title": "Committee request pipeline",
-        "candidates": "Candidates",
-        "onAgenda": "On agenda",
-        "inDiscussion": "In discussion",
-        "decided": "Decided",
-        "closed": "Closed"
-      },
       "nextMeeting": {
         "title": "Next meeting",
         "none": "No upcoming meeting is scheduled.",
@@ -1005,7 +1003,21 @@
         "open": "Open meeting",
         "checkReadiness": "Check readiness"
       },
-      "error": "Could not load the dashboard data."
+      "error": "Could not load the dashboard data.",
+      "board": {
+        "title": "Committee monitoring board",
+        "source": "Appendix 11.",
+        "averageDays": "Average deferral: {days} days",
+        "scope": {
+          "period": "during the period",
+          "cross_cutting": "cross-cuts the other buckets"
+        }
+      },
+      "warnings": {
+        "title": "Early warnings",
+        "source": "Appendix 10 — each row names the party the next action is required from.",
+        "none": "No requests currently raise a warning."
+      }
     },
     "candidates": {
       "title": "Committee Candidates",
@@ -1714,7 +1726,26 @@
     "exportExcel": "Export Excel",
     "exportPdf": "Export PDF",
     "exporting": "Exporting…",
-    "exportFailed": "Could not generate the export file."
+    "exportFailed": "Could not generate the export file.",
+    "tabs": {
+      "requests": "Detailed report",
+      "indicators": "Performance indicators",
+      "periodic": "Periodic reports"
+    },
+    "performance": {
+      "indicatorsSource": "Art. 106 — core performance indicators.",
+      "warningsTitle": "Early-warning indicators",
+      "warningsSource": "Appendix 10 — only the conditions currently firing.",
+      "noWarnings": "No early warnings in this period.",
+      "narrativeTitle": "Sections completed by the rapporteur",
+      "narrativeNote": "These sections are written, not computed, so they are named rather than omitted.",
+      "noPersonalData": "This report contains no personal data.",
+      "reports": {
+        "periodic": "Periodic report",
+        "monthly": "Monthly report",
+        "annual": "Annual report"
+      }
+    }
   },
   "controlGates": {
     "title": "Internal control gates",

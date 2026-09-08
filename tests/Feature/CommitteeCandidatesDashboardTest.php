@@ -180,7 +180,7 @@ class CommitteeCandidatesDashboardTest extends TestCase
             ->assertJsonPath('data.status.code', 'completion_required');
     }
 
-    public function test_dashboard_kpis_and_funnel_count_a_hand_built_fixture(): void
+    public function test_dashboard_kpis_and_board_count_a_hand_built_fixture(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -259,13 +259,30 @@ class CommitteeCandidatesDashboardTest extends TestCase
         $this->assertSame(1, $response->json('data.kpis.overdue_committee_items'));
         $this->assertSame(1, $response->json('data.kpis.decisions_this_month'));
 
-        $this->assertSame(3, $response->json('data.funnel.candidates'));
-        $this->assertSame(1, $response->json('data.funnel.on_agenda'));
-        // Art. 38's 12/15/16 all mean "resolved, waiting on an approving
-        // authority": the `decided` fixture plus the `awaiting_central_approval`
-        // one, which before Stage 69 was `approved` and wrongly counted closed.
-        $this->assertSame(2, $response->json('data.funnel.decided'));
-        $this->assertSame(1, $response->json('data.funnel.closed'));
+        // Stage 81 — [D] Appendix 11's ten buckets replaced Stage 32's own
+        // six-bucket funnel here: those buckets were this stage's invention
+        // and the appendix is the sourced version of the same question, so
+        // this is a legitimate update to what the screen reports rather than
+        // a regression fix.
+        $this->assertNull($response->json('data.funnel'));
+        $board = collect($response->json('data.board'))->keyBy('key');
+
+        // The seventh bucket split in two, exactly as the appendix writes it.
+        $this->assertCount(11, $board);
+        $this->assertSame(1, $board['ready']['total']);       // nominated_for_committee
+        $this->assertSame(3, $board['on_agenda']['total']);   // on_agenda + two in_meeting
+        $this->assertSame(1, $board['awaiting_municipal_approval']['total']); // legacy `decided`
+        $this->assertSame(1, $board['awaiting_central_approval']['total']);
+        $this->assertSame(1, $board['in_execution']['total']); // `executed`, approved but not closed
+        $this->assertSame(0, $board['closed']['total']);
+        // Bucket 9 cross-cuts the rest: the overdue file is counted here AND
+        // in whichever live bucket its status puts it.
+        $this->assertSame(1, $board['overdue']['total']);
+        $this->assertSame(7, $board['new']['total']);
+
+        // Stage 81 — Appendix 10's warning tally rides the same screen,
+        // because the appendix addresses those alerts to مقرر اللجنة.
+        $this->assertCount(10, $response->json('data.early_warnings.summary'));
 
         $this->assertSame($meeting->id, $response->json('data.next_meeting.id'));
         $this->assertSame(2, $response->json('data.next_meeting.agenda_items_count'));

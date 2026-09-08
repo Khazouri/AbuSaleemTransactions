@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\MeetingReadinessController;
 use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PerformanceController;
 use App\Http\Controllers\Api\PresentationMemoController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\ReportController;
@@ -662,6 +663,25 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::middleware('screen.permission:reports,export')
         ->get('reports/requests/export', [ReportController::class, 'export']);
+
+    /*
+     * Stage 81 — [D] Art. 106's twelve performance indicators, Appendix 10's
+     * ten early-warning conditions, and the three periodic reports (Art. 107,
+     * Appendices 39 and 40).
+     *
+     * On the `reports` screen rather than one of their own: these describe the
+     * same population that screen already lists to everyone, so a new screen
+     * would be a new grant for a narrower view of already-visible data. The
+     * literal `reports/performance/...` paths are declared before the
+     * `{report}` wildcard for the ordering reason the registers block records.
+     */
+    Route::middleware('screen.permission:reports,view')->group(function () {
+        Route::get('reports/performance/indicators', [PerformanceController::class, 'indicators']);
+        Route::get('reports/performance/warnings', [PerformanceController::class, 'warnings']);
+        Route::get('reports/performance/periodic/{report}', [PerformanceController::class, 'report']);
+    });
+    Route::middleware('screen.permission:reports,export')
+        ->get('reports/performance/periodic/{report}/export', [PerformanceController::class, 'exportReport']);
 
     /*
      * Stage 80 — [D] Art. 98's twelve official registers.

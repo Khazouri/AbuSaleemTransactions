@@ -5,7 +5,8 @@ namespace App\Services;
 use App\Models\Decision;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
-use App\Models\Request;
+use App\Services\Performance\CommitteeBoardService;
+use App\Services\Performance\EarlyWarningService;
 
 /**
  * Stage 32 — the numbers behind the meetings-unit command dashboard.
@@ -20,6 +21,8 @@ class MeetingsDashboardMetrics
     public function __construct(
         private readonly CommitteeStatusService $committeeStatus,
         private readonly MeetingReadinessService $readiness,
+        private readonly CommitteeBoardService $committeeBoard,
+        private readonly EarlyWarningService $warnings,
     ) {}
 
     public function kpis(): array
@@ -45,30 +48,38 @@ class MeetingsDashboardMetrics
     }
 
     /**
-     * Five buckets a committee-bound request currently sits in, by its
-     * CURRENT status — a request is counted exactly once, in whichever
-     * bucket its live status maps to right now.
+     * Stage 81 — [D] Appendix 11's لوحة متابعة أعمال اللجنة.
+     *
+     * This REPLACES Stage 32's own six-bucket funnel. Those buckets were that
+     * stage's invention; Appendix 11's ten are the sourced version of the same
+     * question, and Track K exists to make the system identical to [D].
+     * Rendering both would show one request twice under two groupings.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return list<array<string, mixed>>
      */
-    public function funnel(): array
+    public function board(array $filters = [], string $locale = 'ar'): array
+    {
+        return $this->committeeBoard->board($filters, $locale);
+    }
+
+    /**
+     * Stage 81 — [D] Appendix 10's ten early-warning conditions, as a tally
+     * plus the worst few files.
+     *
+     * On this screen because the appendix addresses those alerts to مقرر
+     * اللجنة, whose own screen this is.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, mixed>
+     */
+    public function earlyWarnings(array $filters = [], string $locale = 'ar'): array
     {
         return [
-            'candidates' => $this->committeeStatus->candidatesQuery()->count(),
-            // Stage 68 — its own bucket rather than being folded into
-            // `candidates`: CommitteeStatusService::CANDIDATE_STATUSES
-            // deliberately excludes `under_legal_review` (a file with the
-            // legal member is on their queue, not the rapporteur's), so
-            // without this the request would silently vanish from the funnel
-            // for the whole duration of Art. 21's review.
-            'legal_review' => $this->statusCount([CommitteeStatusService::LEGAL_REVIEW_STATUS]),
-            'on_agenda' => $this->statusCount(['on_agenda']),
-            'in_discussion' => $this->statusCount(['under_discussion', 'awaiting_recommendation_approval', 'completion_required']),
-            // Stage 69 — Art. 38's 12/15/16: the committee has resolved the
-            // matter and it is now waiting on an approving authority. Legacy
-            // `decided`/`approved` sit here too; `approved` used to be counted
-            // as closed, which inverted its actual meaning (an approval still
-            // pending).
-            'decided' => $this->statusCount(['decided', 'approved', 'awaiting_municipal_approval', 'awaiting_central_approval']),
-            'closed' => $this->statusCount(['final_approved', 'archived', 'executed', 'completed_closed']),
+            'summary' => $this->warnings->summary($filters, $locale),
+            // A dashboard card, not the full triage list — the reports screen
+            // carries that.
+            'top' => $this->warnings->alerts($filters, $locale, 5),
         ];
     }
 
@@ -110,12 +121,5 @@ class MeetingsDashboardMetrics
                 'exceptions_count' => count($readiness['exceptions']),
             ],
         ];
-    }
-
-    private function statusCount(array $codes): int
-    {
-        return Request::query()
-            ->whereHas('status', fn ($query) => $query->whereIn('code', $codes))
-            ->count();
     }
 }

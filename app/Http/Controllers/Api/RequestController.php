@@ -38,6 +38,7 @@ use App\Services\ArtifactNumberGenerator;
 use App\Services\ExecutionSoundnessService;
 use App\Services\IntakeGateService;
 use App\Services\NotificationDispatcher;
+use App\Services\Performance\TimeCardCompiler;
 use App\Services\ReopenReasonCatalog;
 use App\Services\RequestClosureService;
 use App\Services\RequestDeadlineService;
@@ -1003,6 +1004,16 @@ class RequestController extends Controller
         $requestRecord->setAttribute(
             'art_100_timeline',
             app(RequestTimelineCompiler::class)->compile($requestRecord),
+        );
+        // Stage 81 — [D] Appendix 71's بطاقة قياس زمن المعاملة, T1–T10.
+        // The appendix's own purpose is to locate a delay rather than total
+        // one ("بدل اعتبار اللجنة مسؤولة عن كامل مدة المعاملة"), so the card
+        // is ten independent segments and T10 is not their sum. Same
+        // derivation Art. 106's averages read, so this file's card and the
+        // municipality-wide indicator cannot disagree about it.
+        $requestRecord->setAttribute(
+            'time_card',
+            app(TimeCardCompiler::class)->forRequest($requestRecord)->toArray(app()->getLocale() === 'en' ? 'en' : 'ar'),
         );
         $availableTransitions = $workflow->availableTransitions($requestRecord, $actor)
             ->filter(fn ($rule) => $rule->action !== 'approve'

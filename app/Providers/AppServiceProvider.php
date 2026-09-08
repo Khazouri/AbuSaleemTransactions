@@ -4,7 +4,12 @@ namespace App\Providers;
 
 use App\Contracts\DatabaseDumper;
 use App\Contracts\SmsSender;
+use App\Models\ApprovalReferral;
+use App\Models\ApprovalReturn;
 use App\Models\AuditLog;
+use App\Models\Decision;
+use App\Models\Meeting;
+use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStatusHistory;
 use App\Observers\AuditObserver;
@@ -81,9 +86,16 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // Stage 24 — invalidate the cached dashboard aggregates on any
-        // request write. See ReportCacheObserver for why this one model
-        // covers every KPI.
-        Request::observe(ReportCacheObserver::class);
+        // request write.
+        //
+        // Stage 81 widened this beyond `Request`: Art. 106's indicators also
+        // read decisions, sittings, agenda items and Stage 80's approval
+        // referrals, and a referral is recorded WITHOUT moving the request's
+        // stage or status — so watching requests alone would leave نسبة
+        // القرارات المعادة stale with nothing to invalidate it.
+        foreach ([Request::class, Decision::class, Meeting::class, MeetingRequest::class, ApprovalReferral::class, ApprovalReturn::class] as $model) {
+            $model::observe(ReportCacheObserver::class);
+        }
 
         // Stage 79 — [D] Art. 101's twelve notification moments. The
         // article describes states ("بحسب مرحلة المعاملة"), and

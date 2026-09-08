@@ -1091,6 +1091,27 @@ onBeforeUnmount(clearAttachmentPreview)
             </div>
           </section>
 
+          <!-- Stage 81 — [D] Appendix 71's بطاقة قياس زمن المعاملة.
+               Ten independent segments, and T10 is deliberately NOT their
+               sum: the appendix's own purpose is to locate a delay rather
+               than total one, and a file can sit idle between two measured
+               segments. A segment with no value has not finished yet. -->
+          <section v-if="request.time_card?.length" class="card time-card">
+            <h3>{{ t('requestDetail.timeCard.title') }}</h3>
+            <p class="source">{{ t('requestDetail.timeCard.source') }}</p>
+            <ul class="segments">
+              <li v-for="segment in request.time_card" :key="segment.key">
+                <span class="segment-code">T{{ segment.number }}</span>
+                <span class="segment-label">{{ segment.label }}</span>
+                <span class="segment-days" :class="{ pending: segment.days === null }">
+                  {{ segment.days === null
+                    ? t('requestDetail.timeCard.pending')
+                    : t('requestDetail.timeCard.days', { days: segment.days }) }}
+                </span>
+              </li>
+            </ul>
+          </section>
+
           <section class="card timeline">
             <h3>{{ t('requestDetail.timeline') }}</h3>
             <p v-if="!request.timeline?.length" class="state">{{ t('requestDetail.noTimeline') }}</p>
@@ -1286,4 +1307,11 @@ onBeforeUnmount(clearAttachmentPreview)
   font-size: 0.8rem;
   color: var(--color-black-500);
 }
+.time-card .source { margin: -.4rem 0 .8rem; color: var(--color-muted); font-size: .74rem; }
+.segments { list-style: none; margin: 0; padding: 0; display: grid; gap: .3rem; }
+.segments li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .6rem; padding: .35rem .55rem; border-radius: var(--radius-lg); background: var(--color-surface-hover); font-size: .8rem; }
+.segment-code { font-family: var(--font-mono); font-size: .72rem; color: var(--color-muted); }
+.segment-label { min-width: 0; }
+.segment-days { color: var(--color-brand-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.segment-days.pending { color: var(--color-muted); }
 </style>
