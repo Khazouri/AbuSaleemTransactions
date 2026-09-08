@@ -48,6 +48,14 @@ class NotificationSetting extends Model
         // rungs (see RequestDelayEscalationNotification for why), same
         // defaults as `request_overdue`: it is the same class of news.
         'delay_escalation' => ['in_app' => true, 'email' => true, 'sms' => false],
+        // Stage 79 — [D] Art. 101's twelve notification moments, carried by
+        // ONE event rather than twelve. Art. 101 is a single policy ("سياسة
+        // الإشعار") addressed to one audience about one file, so twelve mute
+        // switches for a person's own request would be a preferences screen
+        // nobody uses — the same call Stage 71 made for the three delay rungs.
+        // Same defaults as `decision_recorded`: this is news about the
+        // reader's own request, which is what email is for.
+        'request_notice' => ['in_app' => true, 'email' => true, 'sms' => false],
     ];
 
     /** The preference columns, in the order the preferences screen shows them. */

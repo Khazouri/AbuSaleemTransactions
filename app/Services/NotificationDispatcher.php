@@ -18,6 +18,7 @@ use App\Notifications\MeetingMinutesApprovedNotification;
 use App\Notifications\MeetingScheduledNotification;
 use App\Notifications\RequestCreatedNotification;
 use App\Notifications\RequestDelayEscalationNotification;
+use App\Notifications\RequestNoticeNotification;
 use App\Notifications\RequestOverdueNotification;
 use App\Notifications\RequestStageChangedNotification;
 use App\Notifications\SystemNotification;
@@ -164,20 +165,29 @@ class NotificationDispatcher
         $this->send($recipients, new MeetingScheduledNotification($meeting));
     }
 
-    /** Stage 21 — the outcome matters to the requester and to the committee that voted. */
+    /**
+     * Stage 21 — the committee's own record of what it decided.
+     *
+     * Stage 79 narrowed the audience to the committee, and that is [D] Art.
+     * 102 rather than tidying: this message carries the vote tally, and the
+     * article's exclusion list for a notice to صاحب العلاقة names "مداولات
+     * اللجنة" and "كيفية تصويت كل عضو" among the things it must not contain.
+     * النموذج 16's own approved wording for the employee has no tally in it
+     * either — it says "للأسباب المثبتة في القرار المعتمد" and stops. The
+     * employee now hears the result through Art. 101's own notice, in [D]'s
+     * words, fired by the status the decision lands the file on; sending both
+     * would also have been the same news twice.
+     */
     public function decisionRecorded(Request $requestRecord, Decision $decision, Meeting $meeting, User $actor): void
     {
         $memberIds = $meeting->committee?->members()->pluck('user_id') ?? collect();
 
-        $recipients = $this->creatorOf($requestRecord, [$actor->id])
-            ->concat(
-                User::query()
-                    ->whereIn('id', $memberIds->all())
-                    ->where('is_active', true)
-                    ->whereKeyNot($actor->id)
-                    ->get(),
-            )
-            ->unique('id');
+        $recipients = User::query()
+            ->whereIn('id', $memberIds->all())
+            ->where('is_active', true)
+            ->whereKeyNot($actor->id)
+            ->whereKeyNot($requestRecord->created_by_user_id ?? 0)
+            ->get();
 
         $this->send($recipients, new DecisionRecordedNotification($requestRecord, $decision));
     }
@@ -210,6 +220,26 @@ class NotificationDispatcher
     public function appealDecided(Appeal $appeal, User $actor): void
     {
         $this->send($this->appellantOf($appeal, [$actor->id]), new AppealDecidedNotification($appeal));
+    }
+
+    /**
+     * Stage 79 — [D] Art. 101's notice to صاحب العلاقة.
+     *
+     * The audience is exactly one person: the employee whose file this is.
+     * Art. 101's own preamble is "يتم إشعار **الموظف**", and Art. 102 narrows
+     * the content to "المعلومات التي يحتاجها **صاحب العلاقة**" — so this is
+     * deliberately the one dispatch method that resolves no roles, no committee
+     * and no department. The actor is excluded through creatorOf(), so an
+     * employee acting on their own file is never told what they just did.
+     *
+     * @param  array{meeting_number: ?string, required_completion: ?string, detail: ?string}  $context
+     */
+    public function requestNotice(Request $requestRecord, string $moment, array $context = [], ?int $actorId = null): void
+    {
+        $this->send(
+            $this->creatorOf($requestRecord, $actorId === null ? [] : [$actorId]),
+            new RequestNoticeNotification($requestRecord, $moment, $context),
+        );
     }
 
     /**

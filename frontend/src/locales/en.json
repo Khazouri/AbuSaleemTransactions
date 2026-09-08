@@ -1651,8 +1651,14 @@
       "minutes_approved": "Meeting minutes approved",
       "financial_impact_review": "Financial impact review",
       "appeal_decided": "Appeal result",
-      "delay_escalation": "Request delay escalation"
+      "delay_escalation": "Request delay escalation",
+      "request_notice": "Request notice (Art. 101)"
     }
+  },
+  "employeeNotices": {
+    "title": "Notices sent to the employee",
+    "intro": "Notices sent to the employee about this request under Art. 101, limited in content by Art. 102. Only in-app delivery is recorded here; this system keeps no email or SMS delivery log.",
+    "moment": "Moment {number}"
   },
   "dashboard": {
     "title": "Dashboard",

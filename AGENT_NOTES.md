@@ -14,6 +14,293 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-09 01:10 EET — Claude — Stage 79 complete (Art. 101's twelve notification moments)
+
+Built per the plan below, from the verbatim sources — [D] **Arts. 101 and 102** and **النماذج 16 and 04**
+read directly. **No migration and no seeder change**: this stage adds no schema and no permission, which is
+the check that it sits entirely inside domains prior stages already drew. One new event type, one
+notification class, one service, one observer.
+
+**The mechanism is the stage, and it is worth not re-litigating.** Art. 101's own preamble is "يتم إشعار
+الموظف، **بحسب مرحلة المعاملة**، عند" followed by twelve moments — the article is a statement about
+**states**, not about call sites. Every one of the twelve is a state this system already has a status code
+for, and grep confirms that **all eight** services that can move a status (`WorkflowService`,
+`CommitteeStatusService`, `MeetingOutputService`, `RequestClosureService`, `RequestSuspensionService`,
+`ApprovalReturnService`, `AppealOutcomeExecutor`, `RequestController::reopen()`) write a
+`RequestStatusHistory` row. So the Build bullet's complaint — "status-only moves fire **nothing**;
+`stage_changed` only ever fires from `WorkflowService::transition()`" — was not eight missing call sites but
+one missing hook. New `RequestStatusNoticeObserver` on `RequestStatusHistory::created` is the faithful
+reading of the article **and** the thing that makes the complaint structurally unrepeatable: a future status
+writer cannot forget to notify, because the row it must write is the trigger. `AuditObserver` (Stage 22) is
+the same shape for the same reason, and it is registered beside it.
+
+**Two guards on that observer, both load-bearing rather than defensive.** (1) It fires only when
+`from_status_id !== to_status_id`. `WorkflowService` deliberately stamps a status row on **every** move
+"even when adjacent stages share a broad status such as `in_review`" (its own comment), so an unguarded
+observer would announce a state the file never left — a test pins it. (2) The actor is excluded through
+`creatorOf()`, so an employee acting on their own file is never told what they just did.
+
+**Moment 1 versus moment 3 is the one genuine ambiguity, and it is resolved from real history rather than
+guessed.** Art. 20 grants the قيد once (Art. 99; Stage 70 enforces it by only ever minting a reference
+number when there is none) — but a file returned on `return_missing_docs` re-walks the chain and reaches
+`registered` a **second** time. That second arrival is not a second استلام; it is literally اكتمال النواقص,
+the completeness re-check passing. `EmployeeNoticeService::momentFor()` reads `request_status_history` for a
+prior `incomplete`/`completion_required` row, so the same status code says two different, correct things
+depending on what the file has been through. The committee's own side of the same loop
+(`completion_required →` `under_discussion`/`under_legal_review`/`ready`) reads as moment 3 too. Moments 2
+(نواقص at Art. 18's completeness check) and 8 (the matter sent back by the committee, the legal member or a
+stage return) stay distinct because [D] lists them as two moments and this system already keeps `incomplete`
+and `completion_required`/`returned` apart.
+
+**Moment 4 needed the one explicit hook, and finding out why is a fact worth recording.**
+`CommitteeStatusService::place_on_agenda` — the action that would set `on_agenda` — has **no caller anywhere
+in the application**, confirmed by grep. Stage 44 already recorded that an item is inserted through
+`MeetingController::addAgendaItem()` without that action ever firing, which is why Stage 68 put its own
+legal-review gate on the controller rather than the service. So the agenda notice is dispatched from
+`addAgendaItem()`, reusing the `Request` row the Stage 68 gate has already loaded. The `on_agenda` rule
+stays in the map anyway (it is the correct mapping should that action ever gain a caller) and cannot
+double-fire today precisely because nothing sets it. Only an `employee_request` item notifies — an
+administrative or emerging item has no employee, and an appeal has Track J's own notice.
+
+**Art. 102 turned out to be tagged ✅ while being satisfied by accident, and this stage found a real breach
+of it.** `DecisionRecordedNotification` carries the vote tally and was going **to the request's creator** —
+and Art. 102's exclusion list for a notice to صاحب العلاقة names "مداولات اللجنة" and "كيفية تصويت كل عضو"
+outright. النموذج 16's own approved wording to the employee has no tally in it either; its عدم الموافقة
+formula says "**للأسباب المثبتة في القرار المعتمد**" and stops. So `NotificationDispatcher::decisionRecorded()`
+now excludes the creator: the committee keeps the full tally, and the employee hears the result through Art.
+101's own notice, in [D]'s words. That also removes a duplicate — the creator would otherwise have received
+both. Enforcement of the rest is structural rather than reviewed: `RequestNoticeNotification` can only see a
+tracking number, a moment and three quoted facts, so it has no access to a tally, a member's opinion or
+another employee's record and cannot leak one.
+
+**The wording is [D]'s wherever [D] gives it, and two of its dotted blanks are now filled from real data.**
+النموذج 16's four formulas are the bodies for moments 6, 7, 5 and 9 — moment 6 keeping its own Art.
+32-shaped caution ("**هذه النتيجة لا تعتبر نهائية قابلة للتنفيذ إلا بعد استكمال الاعتماد المطلوب**"), which
+a test pins so it cannot be trimmed for brevity later. Its موافقة formula names the sitting, read from the
+request's latest decided agenda item; its تأجيل formula's "(1) … (2) … (3) …" is filled from **Stage 74's own
+`decisions.deferral_required_completion`** (Art. 34's second field), so the employee is told what to
+complete rather than shown a row of dots. Moment 2 carries النموذج 04's wording including its last line
+("**ولا يعتبر هذا الإشعار رفضًا للطلب أو نتيجة نهائية بشأنه**"). **Only moments 2 and 8 quote the recorded
+reason** — النموذج 04 requires stating what is missing and Art. 102 admits "الإجراء المطلوب منه", while every
+other moment withholds internal text; a test proves both directions on the same request.
+
+**One event type, not twelve.** `request_notice` (in_app + email, SMS opt-in — `decision_recorded`'s
+defaults, since this is news about the reader's own file). Art. 101 is a single policy ("سياسة الإشعار")
+addressed to one audience about one file, so twelve mute switches for a person's own request would be a
+preferences screen nobody uses — the Stage 71 precedent, where one `delay_escalation` covers three rungs.
+
+**Six statuses are deliberately NOT moments, and two of those are open items from earlier stages answered
+rather than skipped.** **Stage 78's open item (4)** asked whether Art. 105's procedural suspension is a
+thirteenth moment: **no** — Art. 101 enumerates twelve, this track's whole purpose is identity with [D]
+rather than addition, and the suspension's own trigger (معلومة جوهرية غير صحيحة أو مستند أساسي محل شك) is
+exactly the internal, unconcluded material Art. 102 excludes; the lift restores a status that **is** a
+moment, so the employee hears the outcome either way. **Stage 77's open item (5)** asked the same of
+`returned_by_approving_body`: **no**, for the same reason and because that return is a re-processing between
+the مقرر and the approving body while the file's outward state is still بانتظار الاعتماد. Also unmapped:
+`reopened_for_representation` and the Track J appeal statuses (the appellant already has Art. 75 pt 6's
+`appeal_decided` from Stage 65), `executed` (Art. 101's eleventh moment is بدء التنفيذ, not its completion,
+and moment 12 follows), and `cancelled` (withdrawal is Appendices 68/69, i.e. Stage 83). A test walks all
+six and asserts silence.
+
+**Stage 76's open item (2) is answered deliberately, and the answer is "leave it".** That stage asked
+whichever stage built Art. 101 to decide which of النموذج 17's six executor checks become derived.
+`employee_notified` is the only candidate — but moment 11 (بدء التنفيذ) fires on entering `in_execution`,
+which is `markExecuted()`'s **only** legal origin, so a derived check would read `yes` in every normal case
+(vacuous) and `no` only when the employee's account is inactive, where it would then **refuse the
+execution** — blocking an administrative act for a reason that has nothing to do with it. So it stays an
+attestation, and the recorded notices are surfaced on the request instead, so the executor can see what was
+actually sent rather than attest blind.
+
+**Surfacing: no new table.** `RequestDetailResource` gained `employee_notices`, read back from Laravel's own
+`notifications` rows by `data->event_type` + `data->request_id` — the same query shape Stage 61's
+`AppealFileCompiler` already uses for إثبات التبليغ. The stored payload carries the moment, so nothing
+re-derives it: a notice says what it said when it was sent, even if the mapping later changes.
+`RequestDetailView.vue` renders Art. 101's register for the file, and the card's own copy states that only
+in-app delivery is recorded, since no channel in this system keeps an email or SMS delivery log. Detail
+resource only, per Stage 72's precedent — list payloads are untouched.
+
+Verification: new `tests/Feature/EmployeeNoticeTest.php` (13 tests — all seventeen mapped statuses firing
+their own moment with the right number; `registered` reading as moment 1 then as moment 3 after a نواقص
+loop; the committee-side completion loop; a no-op status row notifying nobody; the actor never told about
+their own act; the six unmapped statuses silent; agenda insertion firing moment 4 while an administrative
+item fires nothing; the tally reaching a committee member and **not** the employee, whose own notice quotes
+النموذج 16's "للأسباب المثبتة في القرار المعتمد" and contains no tally; the deferral notice carrying Stage
+74's own required-completion text; the referral notice naming the meeting and keeping the not-yet-final
+caution; the reason quoted on an act-on-it moment and withheld on another; a muted event delivering nothing;
+and the register reaching the detail endpoint). Full suite **440 tests / 2791 assertions** green (was
+427/2703) with **no pre-existing test needing a change**, which is the check that this stage is additive.
+Pint clean **repo-wide** (`--test` over `app/`, `database/`, `tests/`, `routes/` reports zero diffs),
+`npm run build` passes (then reverted `frontend/dist`, tracked in git, per every prior stage's note), locale
+key-parity verified programmatically (**1638 keys each side, zero on-one-side-only**), and
+`php artisan migrate` reports **nothing to migrate** — as designed, since this stage adds no schema.
+
+Smoke-tested against the real MySQL/Homestead database and over real HTTP: a fixture request driven through
+`CommitteeStatusService` — **the very service the Build bullet says fires nothing today** — produced Art.
+101's moment 8 then moment 3; `queue:work --stop-when-empty` drained four real jobs and both notices landed
+in `notifications` with النموذج 04's wording, the missing-documents reason on moment 8 and no reason on
+moment 3; a grep of the stored payloads for the tally string came back clean; and `GET /api/requests/{id}`
+as the seeded `r01.employee@` returned both notices in `employee_notices` with their moment numbers. Deleted
+every fixture row (request, status-history, audit rows), purged the notifications and the queue, and revoked
+the token — counts confirmed back to **0 requests / 0 notifications / 0 jobs / 0 tokens / 0 status-history
+rows**.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Art. **101** and appendix 3·**النموذج 16**
+⚠→✅ and **rewrote Art. 102's row**, which was already tagged ✅ but was being satisfied by accident and had
+one real breach. Headline article counts adjusted by this stage's own delta (86→87 ✅ / 14→13 ⚠); the
+appendices' are deliberately unchanged, since النموذج 16 folds under appendix 3, which stays ⚠ while other
+forms do.
+
+**Open items for whoever builds Stage 80+.** (1) **Re-entering a mapped status re-notifies, deliberately** —
+a formal return corrected and re-referred fires moment 6 again, and a suspension lifted back onto
+`final_approved` fires moment 7 again. Both are truthful (the file genuinely re-entered that state) and the
+alternative would be per-moment dedupe state nobody asked for, but a stage that finds it chatty should
+decide explicitly rather than assume it was an oversight. (2) **Email and SMS have no delivery log
+anywhere**, so the register — and Stage 61's own إثبات التبليغ — are honestly the in-app half; building a
+real per-channel delivery log is separate, unbuilt work, and Stage 80's سجل الإشعارات is the natural place
+to decide whether it is wanted. (3) **The notice is fired by the status, so a status writer that
+deliberately wants silence has no way to ask for it** — nothing needs that today, but a future action that
+moves a mapped status for a purely internal reason would notify, and the fix would be an explicit
+suppression flag rather than removing the status from the map. (4) **Art. 101's own moment 1 is mapped to
+the قيد (`registered`), not to intake** — Art. 15 is explicit that handing the request to the direct manager
+"لا يعد قيدًا", and Stage 70's intake receipt is shown on screen to the person who just submitted, so no
+notice fires there; a stage that wants an intake acknowledgement should treat it as an addition to [D]
+rather than as this moment.
+
+---
+
+### 2026-09-08 23:30 EET — Claude — Stage 79 implementation plan (Art. 101's twelve notification moments)
+
+Building Stage 79 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Art. 101**
+(الحالات التي يرسل فيها إشعار — "يتم إشعار الموظف، **بحسب مرحلة المعاملة**، عند" plus twelve
+numbered moments), **Art. 102** (محتوى الإشعار — the five things a notice must **not** contain, and
+its own limiting rule "ويقتصر على المعلومات التي يحتاجها صاحب العلاقة لمعرفة حالة معاملته ونتيجتها
+والإجراء المطلوب منه"), **النموذج 16** (إشعار نتيجة اللجنة — four ready Arabic formulas) and
+**النموذج 04** (إشعار استكمال نواقص).
+
+**Art. 101 is a statement about STATES, not about call sites, and that decides the mechanism.** The
+article's own preamble is "بحسب **مرحلة** المعاملة", and every one of its twelve moments is a state
+this system already has a status code for. The Build bullet's complaint — "status-only moves fire
+**nothing**; `stage_changed` only ever fires from `WorkflowService::transition()`" — is therefore
+not eight missing call sites but one missing hook. Grep confirms **every** status change in this
+system, from all eight writers (`WorkflowService`, `CommitteeStatusService`, `MeetingOutputService`,
+`RequestClosureService`, `RequestSuspensionService`, `ApprovalReturnService`, `AppealOutcomeExecutor`,
+`RequestController::reopen()`), writes a `RequestStatusHistory` row — that table **is** the
+append-only record of "the request reached state X". So a new `RequestStatusNoticeObserver` on
+`RequestStatusHistory::created` is the faithful implementation, and it structurally guarantees the
+Stage 79 complaint can never recur: a future status writer cannot forget to notify, because the row
+it must write is the notification trigger. The `AuditObserver` precedent (Stage 22) is the same
+shape for the same reason.
+
+**Two guards on that observer, both load-bearing.** (1) It fires only when `from_status_id !==
+to_status_id` — `WorkflowService` deliberately stamps a status row on **every** move "even when
+adjacent stages share a broad status such as `in_review`" (its own comment), so an unguarded
+observer would announce a state the file never left. (2) The actor is excluded, so an employee who
+acts on their own file is not told what they just did.
+
+**The twelve moments, mapped to this system's statuses.** A first-match-wins rule table, most
+qualified first:
+
+| # | Art. 101 | status |
+|---|---|---|
+| 1 | استلام طلبه في المسار الرسمي | `registered` |
+| 2 | وجود نواقص | `incomplete` |
+| 3 | اكتمال النواقص | `registered` after a prior نواقص; `completion_required` → `under_discussion` / `under_legal_review` / `ready` |
+| 4 | إدراج الطلب بجدول الأعمال | `on_agenda`, plus an explicit hook — see below |
+| 5 | صدور نتيجة اللجنة | `deferred`, `legal_opinion_requested`, `referred_to_other_body` |
+| 6 | إحالة القرار للاعتماد | `awaiting_municipal_approval`, `awaiting_central_approval`, `approved_with_conditions`, legacy `approved` |
+| 7 | ورود الاعتماد النهائي | `final_approved` |
+| 8 | إعادة الموضوع للاستكمال | `completion_required`, `returned` |
+| 9 | عدم الموافقة | `not_approved`, `rejected` |
+| 10 | عدم الاختصاص | `outside_jurisdiction` |
+| 11 | بدء التنفيذ | `in_execution` |
+| 12 | إقفال المعاملة | `completed_closed`, legacy `archived` |
+
+**Moment 1 versus moment 3 is the one place a bare status is ambiguous, and the ambiguity is
+resolved from real history rather than by guessing.** Art. 20 grants the قيد once (Art. 99, Stage
+70), but a file returned on `return_missing_docs` re-walks and reaches `registered` a second time.
+Reaching it having previously held `incomplete`/`completion_required` is not a second استلام — it is
+literally اكتمال النواقص, the completeness re-check passing. The observer reads
+`request_status_history` for that prior state, so the same status code says two different, correct
+things depending on what the file has been through. Moment 2 (نواقص found at Art. 18's own
+completeness check) and moment 8 (the matter sent back for completion by the committee, the legal
+member or a stage return) stay distinct because [D] lists them as two moments and this system
+already keeps `incomplete` and `completion_required`/`returned` apart.
+
+**Moment 4 needs the one explicit hook, because nothing sets `on_agenda`.** Grep confirms
+`CommitteeStatusService`'s `place_on_agenda` has **no caller anywhere in the app** — Stage 44 already
+recorded that an item is inserted through `MeetingController::addAgendaItem()` without that action
+ever firing, which is why Stage 68 put its own legal-review gate on the controller rather than the
+service. So the agenda notice is dispatched from `addAgendaItem()` for an `employee_request` item.
+The `on_agenda` rule stays in the table anyway (it is the correct mapping if that action ever gains a
+caller) and cannot double-fire today precisely because nothing sets it.
+
+**Art. 102 is enforced two ways, and the second is a real behaviour change.** The new notice carries
+only the tracking number, the moment, and — where [D] supplies one — its own formula; never a tally,
+a member's opinion, or another employee's data. But `DecisionRecordedNotification` **already sends
+the vote counts to the request's creator**, which is exactly the مداولات-adjacent content Art. 102
+excludes and which النموذج 16's own approved wording to the employee does not contain. So
+`NotificationDispatcher::decisionRecorded()` stops sending to the creator: the employee now hears the
+result through the Art. 101 notice, in [D]'s own words, while the committee members keep the full
+tally. That also removes a duplicate — the creator would otherwise get both.
+
+**The wording is [D]'s, not invented, wherever [D] gives it.** النموذج 16's four formulas map onto
+moments 6 (صيغة الموافقة بانتظار الاعتماد — including its own Art. 32-shaped caution "هذه النتيجة لا
+تعتبر نهائية قابلة للتنفيذ إلا بعد استكمال الاعتماد المطلوب"), 7 (صيغة الاعتماد النهائي), 5 (صيغة
+التأجيل) and 9 (صيغة عدم الموافقة). النموذج 16's تأجيل formula has "(1)…(2)…(3)…" blanks for what
+must be completed, and **Stage 74 already records exactly that** as
+`decisions.deferral_required_completion` — so the blanks are filled from the decision rather than
+left as dots. Its موافقة formula names the meeting number, read from the request's own latest decided
+agenda item. **عدم الموافقة deliberately does not repeat the reasons**: النموذج 16 says "للأسباب
+المثبتة في القرار المعتمد", which is Art. 102 in action. The two moments where the employee must
+*do* something (2 and 8) carry the recorded reason, because النموذج 04 requires stating what is
+missing and Art. 102 explicitly admits "الإجراء المطلوب منه".
+
+**One event type, not twelve.** `NotificationSetting::EVENT_TYPES` gains `request_notice` (in_app +
+email, SMS opt-in — the same defaults as `decision_recorded`, since this is the employee's own file).
+Art. 101 is one policy ("سياسة الإشعار") addressed to one audience about one file, and twelve mute
+switches for a person's own request would be a preferences screen nobody uses — the Stage 71
+precedent, where one `delay_escalation` covers three rungs.
+
+**Three statuses are deliberately NOT moments, and each closes an open item rather than being skipped
+silently.** `execution_suspended` — Stage 78's open item (4) asked this stage to decide whether Art.
+105's procedural suspension is a thirteenth moment: **no**. Art. 101 enumerates twelve, this track's
+whole purpose is identity with [D] rather than addition, and the suspension's own trigger (معلومة
+جوهرية غير صحيحة أو مستند أساسي محل شك) is precisely the internal, unconcluded material Art. 102
+excludes; the lift restores a status that **is** a moment, so the employee hears the outcome.
+`returned_by_approving_body` — Stage 77's open item (5) asked the same question: **no**, for the same
+reason, and because that return is a re-processing between the مقرر and the approving body while the
+file's outward state is still بانتظار الاعتماد. `reopened_for_representation` and the Track J appeal
+statuses — not in Art. 101, and the appellant already has Art. 75 pt 6's own `appeal_decided` notice
+from Stage 65.
+
+**Stage 76's open item (2) is answered deliberately and the answer is "leave it".** That stage asked
+whichever stage built Art. 101 to decide which of النموذج 17's six executor checks become derived.
+`employee_notified` is the candidate — but moment 11 (بدء التنفيذ) fires on entering `in_execution`,
+which is `markExecuted()`'s *only* legal origin, so a derived check would read `yes` in every normal
+case (vacuous) and `no` only when the employee's account is inactive — where it would then **refuse
+the execution**, blocking an administrative act for a reason that has nothing to do with it. So it
+stays an attestation, and instead the recorded notices are surfaced on the request so the executor
+can see what was actually sent.
+
+**Surfacing: no new table.** The delivered notices are read back from Laravel's own `notifications`
+rows (`data->event_type` + `data->request_id`), the same query shape Stage 61's `AppealFileCompiler`
+already uses for إثبات التبليغ. `RequestDetailResource` gains `employee_notices`; `RequestDetailView`
+renders Art. 101's register for the file, which is also the honest answer to "was the employee
+told?" and a natural input to Stage 80's own registers.
+
+Verification plan: new `tests/Feature/EmployeeNoticeTest.php` — each of the twelve moments fires on
+its own status with the right moment code and no forbidden content; the same `registered` status
+reading as moment 1 the first time and moment 3 after a نواقص loop; a no-op status row (from === to)
+notifying nobody; the actor never notified about their own act; agenda insertion firing moment 4
+while an administrative item fires nothing; `execution_suspended` and `returned_by_approving_body`
+firing nothing; the committee's tally reaching members but **not** the employee; النموذج 16's
+deferral formula carrying Stage 74's own required-completion text; a muted `request_notice`
+delivering nothing; and the notices reaching the detail resource. Then the full PHPUnit suite, Pint,
+`npm run build`, locale key-parity, and the seeder/migration checks against the real MySQL/Homestead
+database (no migration is expected — this stage adds no schema).
+
+---
+
 ### 2026-09-08 21:40 EET — Claude — Stage 78 complete (the four mandatory control gates)
 
 Built per the plan below, from the verbatim sources — [D] **Appendices 63, 20, 8, 7, 46, 61, 62, 66** and

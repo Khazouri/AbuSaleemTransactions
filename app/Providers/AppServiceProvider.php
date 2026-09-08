@@ -6,8 +6,10 @@ use App\Contracts\DatabaseDumper;
 use App\Contracts\SmsSender;
 use App\Models\AuditLog;
 use App\Models\Request;
+use App\Models\RequestStatusHistory;
 use App\Observers\AuditObserver;
 use App\Observers\ReportCacheObserver;
+use App\Observers\RequestStatusNoticeObserver;
 use App\Services\Backup\MysqlDumper;
 use App\Services\Sms\LogSmsSender;
 use Illuminate\Support\ServiceProvider;
@@ -82,5 +84,13 @@ class AppServiceProvider extends ServiceProvider
         // request write. See ReportCacheObserver for why this one model
         // covers every KPI.
         Request::observe(ReportCacheObserver::class);
+
+        // Stage 79 — [D] Art. 101's twelve notification moments. The
+        // article describes states ("بحسب مرحلة المعاملة"), and
+        // request_status_history is the append-only record that a request
+        // reached one — written by every service that can move a status.
+        // Observing the row rather than the eight writers is what makes
+        // "status-only moves fire nothing" structurally unrepeatable.
+        RequestStatusHistory::observe(RequestStatusNoticeObserver::class);
     }
 }

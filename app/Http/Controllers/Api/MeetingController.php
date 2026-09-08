@@ -210,9 +210,13 @@ class MeetingController extends Controller
      * "cannot reach Stage 63 without both records present" done-when, read
      * as a nomination-time gate).
      */
-    public function addAgendaItem(StoreMeetingAgendaRequest $request, Meeting $meeting): JsonResponse
-    {
+    public function addAgendaItem(
+        StoreMeetingAgendaRequest $request,
+        Meeting $meeting,
+        NotificationDispatcher $notifications,
+    ): JsonResponse {
         $validated = $request->validated();
+        $subject = null;
 
         $itemType = $validated['item_type'] ?? 'employee_request';
 
@@ -242,6 +246,8 @@ class MeetingController extends Controller
         // matter IS presented, with the issue stated). See
         // RequestLegalReview::PERMITTING_VERDICTS.
         if ($itemType === 'employee_request') {
+            // Reused below for the Art. 101 notice, so the gate and the
+            // notice speak about the same loaded row.
             $subject = Request::query()
                 ->with('latestLegalReview')
                 ->findOrFail($validated['request_id']);
@@ -260,6 +266,23 @@ class MeetingController extends Controller
             'item_type' => $validated['item_type'] ?? 'employee_request',
             'agenda_order' => $nextOrder,
         ]);
+
+        // Stage 79 — [D] Art. 101's fourth moment (إدراج الطلب بجدول
+        // الأعمال). This is the one moment with no status behind it:
+        // CommitteeStatusService's `place_on_agenda` (which would set
+        // `on_agenda`) has no caller anywhere, because Stage 44 established
+        // that an item is inserted through this endpoint without that action
+        // ever firing — the same reason Stage 68 put its legal-review gate
+        // here rather than on the service. Only a request item has an
+        // employee to tell; an administrative or emerging item has none, and
+        // an appeal has its own Track J notice.
+        if ($item->item_type === 'employee_request' && $item->request_id !== null) {
+            $subject = $subject ?? Request::query()->find($item->request_id);
+
+            if ($subject !== null) {
+                $notifications->requestNotice($subject, 'placed_on_agenda', [], $request->user()?->id);
+            }
+        }
 
         return (new MeetingRequestResource($item->load(self::AGENDA_ITEM_WITH)))
             ->response()->setStatusCode(201);

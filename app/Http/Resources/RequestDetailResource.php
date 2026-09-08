@@ -146,6 +146,11 @@ class RequestDetailResource extends RequestResource
             // Every round of Art. 105's إيقاف إجرائي, oldest first — a history
             // for the same reason approval_returns above is one.
             'suspensions' => RequestSuspensionResource::collection($this->whenLoaded('suspensions')),
+            // Stage 79 — [D] Art. 101's register for this file: which of its
+            // twelve moments the employee was actually told about, and when.
+            // Detail resource only, per Stage 72's precedent — list payloads
+            // stay unchanged.
+            'employee_notices' => $this->employee_notices ?? [],
         ];
     }
 }
