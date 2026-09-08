@@ -23,6 +23,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Storage;
 use Tests\RecordsStructuredDecisions;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -38,6 +39,7 @@ class AppealFileTest extends TestCase
 {
     use RecordsStructuredDecisions;
     use RefreshDatabase;
+    use RunsStudySequence;
 
     protected function setUp(): void
     {
@@ -301,6 +303,9 @@ class AppealFileTest extends TestCase
             'submitted_at' => now()->subMonth(),
         ]);
         $agendaItem = $meeting->agendaItems()->create(['request_id' => $target->id, 'agenda_order' => 2]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
 
         if ($withMemo) {
             $this->actingAs($head, 'sanctum')

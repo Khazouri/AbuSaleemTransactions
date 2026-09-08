@@ -16,6 +16,7 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\RecordsStructuredDecisions;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,7 @@ class CommitteeSeatRosterTest extends TestCase
 {
     use RecordsStructuredDecisions;
     use RefreshDatabase;
+    use RunsStudySequence;
 
     public function test_a_committees_five_seats_are_individually_identifiable(): void
     {
@@ -197,6 +199,9 @@ class CommitteeSeatRosterTest extends TestCase
             'decision_grade' => $decisionGrade,
         ]);
         $agendaItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
 
         $this->actingAs($delegate, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])

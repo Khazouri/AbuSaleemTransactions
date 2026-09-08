@@ -96,6 +96,19 @@ abstract class Register
             });
         }
 
+        return $this->applyOrdering($query);
+    }
+
+    /**
+     * Newest first, tie-broken by key. A register whose rows have a natural
+     * order of their own (Stage 82 — an agenda reads in agenda order, not
+     * backwards) overrides this rather than the whole of query().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function applyOrdering(Builder $query): Builder
+    {
         return $query->orderByDesc($this->dateColumn())->orderByDesc($this->keyColumn());
     }
 

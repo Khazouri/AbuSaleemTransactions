@@ -16,6 +16,7 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\RecordsStructuredDecisions;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -26,6 +27,7 @@ class DecisionOutcomeTemplateTest extends TestCase
 {
     use RecordsStructuredDecisions;
     use RefreshDatabase;
+    use RunsStudySequence;
 
     public function test_conditional_approval_advances_the_request_without_a_signature(): void
     {
@@ -400,6 +402,9 @@ class DecisionOutcomeTemplateTest extends TestCase
 
         $requestRecord = $this->requestAtCommitteeStage();
         $agendaItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
 
         return [$head, $member, $committee, $meeting, $agendaItem];
     }

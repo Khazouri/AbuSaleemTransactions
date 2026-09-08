@@ -25,6 +25,9 @@ class MeetingResource extends JsonResource
             'expected_duration_minutes' => $this->expected_duration_minutes,
             'agenda_deadline' => $this->agenda_deadline?->toIso8601String(),
             'description' => $this->description,
+            // Stage 82 — Appendix 24's "مبرر إداري موثق" for an agenda that
+            // departs from Art. 83's own ordering.
+            'agenda_order_justification' => $this->agenda_order_justification,
             'status' => $this->status,
             'convened_at' => $this->convened_at?->toIso8601String(),
             'readiness_override_reason' => $this->readiness_override_reason,

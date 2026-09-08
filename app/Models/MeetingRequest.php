@@ -14,7 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * department (Stage 31).
  *
  * @property string $item_type employee_request|administrative|emerging|appeal
- * @property string|null $priority high|medium|low
+ * @property string|null $priority Stage 82 — Appendix 24's two levels: high|normal
+ * @property string|null $priority_reason Appendix 24's "مبرر إداري موثق" for a declared high priority
+ * @property array|null $study_sequence Stage 82 — Art. 85's attested steps, keyed by step code
  * @property string $item_state presented|discussion|voting|deciding|complete
  */
 class MeetingRequest extends Model
@@ -34,11 +36,14 @@ class MeetingRequest extends Model
         'agenda_order',
         'item_type',
         'priority',
+        'priority_reason',
         'estimated_minutes',
         'subject',
         'department_id',
         'item_state',
         'state_changed_at',
+        'study_sequence',
+        'study_sequence_completed_at',
     ];
 
     protected function casts(): array
@@ -46,7 +51,25 @@ class MeetingRequest extends Model
         return [
             'estimated_minutes' => 'integer',
             'state_changed_at' => 'datetime',
+            'study_sequence' => 'array',
+            'study_sequence_completed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Stage 82 — [D] Appendix 25's fifth stage: "ولا يجوز استمرار تعديل
+     * الوقائع أو المستندات بعد بدء التصويت". Deliberately bounded to an item
+     * whose vote is still *open*: once the decision is recorded the item is
+     * finished and the request moves on to execution, where Stage 76 needs
+     * new documents uploaded — a permanent freeze would break that.
+     */
+    public static function openVoteExistsFor(int $requestId): bool
+    {
+        return static::query()
+            ->where('request_id', $requestId)
+            ->whereHas('votes')
+            ->whereDoesntHave('decision')
+            ->exists();
     }
 
     /**

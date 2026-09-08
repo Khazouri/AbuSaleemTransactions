@@ -448,9 +448,15 @@ Route::middleware('auth:sanctum')->group(function () {
      */
     Route::middleware('screen.permission:meeting_agenda,view')
         ->get('meetings/{meeting}/agenda/stats', [MeetingController::class, 'agendaStats']);
+    // Stage 82 — [D] Art. 83's ordering and Appendix 24's per-item profile.
+    // Registered before the `{agendaItem}` wildcards below for the same
+    // reason `meetings/department-options` precedes `meetings/{meeting}`.
+    Route::middleware('screen.permission:meeting_agenda,view')
+        ->get('meetings/{meeting}/agenda/ordering', [MeetingController::class, 'agendaOrdering']);
     Route::middleware('screen.permission:meeting_agenda,edit')->group(function () {
         Route::post('meetings/{meeting}/agenda', [MeetingController::class, 'addAgendaItem']);
         Route::put('meetings/{meeting}/agenda/reorder', [MeetingController::class, 'reorderAgenda']);
+        Route::post('meetings/{meeting}/agenda/apply-order', [MeetingController::class, 'applyAgendaOrder']);
         Route::patch('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'updateAgendaItem']);
         Route::delete('meetings/{meeting}/agenda/{agendaItem}', [MeetingController::class, 'removeAgendaItem']);
     });
@@ -490,6 +496,13 @@ Route::middleware('auth:sanctum')->group(function () {
      */
     Route::middleware('screen.permission:meeting_live,edit')
         ->patch('meetings/{meeting}/agenda/{agendaItem}/state', [MeetingController::class, 'updateItemState']);
+    // Stage 82 — النموذج 11's card, i.e. [D] Art. 85's per-item sequence.
+    // Read by everyone who can watch the sitting; ticked by the chair, the
+    // same split the runner's own state controls already use.
+    Route::middleware('screen.permission:meeting_live,view')
+        ->get('meetings/{meeting}/agenda/{agendaItem}/study-sequence', [MeetingController::class, 'studySequence']);
+    Route::middleware('screen.permission:meeting_live,edit')
+        ->patch('meetings/{meeting}/agenda/{agendaItem}/study-sequence', [MeetingController::class, 'updateStudySequence']);
     Route::middleware('screen.permission:meeting_live,view')
         ->get('meetings/{meeting}/agenda/{agendaItem}/notes', [MeetingDiscussionNoteController::class, 'index']);
     Route::middleware('screen.permission:meeting_live,add')

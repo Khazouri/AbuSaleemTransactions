@@ -47,7 +47,11 @@ class StoreMeetingAgendaRequest extends FormRequest
                 'nullable', 'string', 'max:255',
             ],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
-            'priority' => ['nullable', Rule::in(['high', 'medium', 'low'])],
+            // Stage 82 — [D] Appendix 24 defines exactly two levels
+            // (أولوية عالية / أولوية عادية); Stage 31's high/medium/low was
+            // this system's own invention.
+            'priority' => ['nullable', Rule::in(['high', 'normal'])],
+            'priority_reason' => ['nullable', 'string', 'max:500'],
             'estimated_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
         ];
     }

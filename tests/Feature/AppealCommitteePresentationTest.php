@@ -17,6 +17,7 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\RecordsStructuredDecisions;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -31,6 +32,7 @@ class AppealCommitteePresentationTest extends TestCase
 {
     use RecordsStructuredDecisions;
     use RefreshDatabase;
+    use RunsStudySequence;
 
     protected function setUp(): void
     {
@@ -310,6 +312,9 @@ class AppealCommitteePresentationTest extends TestCase
         $appeal = $this->appealAt($appellant, 'legal_review');
 
         $agendaItem = $meeting->agendaItems()->create(['appeal_id' => $appeal->id, 'item_type' => 'appeal', 'agenda_order' => 1]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
 
         return [$head, $member, $committee, $meeting, $agendaItem, $appeal];
     }

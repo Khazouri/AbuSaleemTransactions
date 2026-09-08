@@ -14,6 +14,319 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-09 14:20 EET — Claude — Stage 82 complete (agenda ordering and item fields)
+
+Built per the plan below, from the verbatim sources — [D] **Arts. 82–85** and **Appendices 7, 24, 25**
+plus **النموذج 08** and **النموذج 11** read directly. One migration (three columns on `meeting_requests`,
+one on `meetings`), applied to the real MySQL/Homestead database. **No new screen and no permission
+change** — ordering rides `meeting_agenda,view/edit` and the study card rides `meeting_live,view/edit`,
+which is the check that this stage sits inside domains prior stages already drew.
+
+**Three of [D]'s texts describe the same thing at three grains, and only one of them became a
+vocabulary — this is the design decision not to re-litigate.** Art. 85 gives nine steps ("يتبع في كل بند
+التسلسل الآتي"), النموذج 11 gives seven ticks, Appendix 25 gives five إلزامية stages, and the runner has
+had five `item_state` values since Stage 34. Replacing `item_state` with any of them would have
+re-opened Stage 34's close-gate/`isResolved()` blast radius for nothing, so `item_state` stays the
+runner's coarse phase and Art. 85 became a **per-item checklist** — the Build bullet's own words ("Art.
+85's nine-step per-item sequence **as the live runner's checklist**"). النموذج 11's seven are the same
+nine minus its own header (عرض الموضوع *is* the card's header block) and its own result line
+(إثبات النتيجة *is* the نتيجة التصويت field); Appendix 25's five are the grouping over them, carried on
+every step. One vocabulary, three sourced views of it, in `StudySequenceRules`.
+
+**Two of the nine are derived, one is conditional, one is optional, five bind.** التصويت is "votes exist
+on this item" and إثبات النتيجة is "a decision exists" — asking a human to tick either would invite an
+answer that contradicts the record, the split every gate since Stage 60 has used. عرض الرأي القانوني
+carries the article's own qualifier **عند وجوده**, so it binds only when the item actually has a legal
+opinion (Stage 68's card for a request, Stage 62's for an appeal) and is `not_applicable` otherwise —
+proven live on an administrative item, which has neither. طلب الإيضاحات is optional, exactly as النموذج
+11 lists it.
+
+**The sequence is enforced as a sequence, not as a set**, which is what stops the card becoming a row of
+ticks applied afterwards: a step is refused until every binding step before it is marked. Proven live —
+`discussion_closed` first 422'd naming the missing «عرض الموضوع», then all six went through in order.
+Unticking is refused once a vote exists, because Appendix 25's fifth stage forbids continuing to change
+the material after voting begins and un-ticking إقفال المناقشة mid-vote is exactly that.
+
+**The gate is on voting, not only on recording, and it needed a denormalised column to stay honest.**
+Art. 85 puts إقفال المناقشة *before* التصويت, so the faithful gate is that a vote cannot be cast until
+the sequence completes. That has to be visible to **both** halves of `DecisionEligibility` — its
+per-item guard and its worklist SQL — or the worklist would offer an item the endpoint refuses, the one
+failure that service exists to prevent. A JSON predicate in SQL is fragile across sqlite/MySQL, so
+completion is denormalised into `study_sequence_completed_at` and both halves read that one column;
+smoke-tested live, where the refused vote and a **zero-row** worklist agreed, then both flipped together.
+`record()`/`recordAppealDecision()` re-check it rather than trusting that votes imply it — a test rolls
+the flag back with votes already cast and the decision is still refused, which is the one case that
+inference would get wrong.
+
+**Appendix 25's freeze is enforced at exactly two write points, both narrow.** Once a vote exists on an
+item and no decision has been recorded yet, `AttachmentController::store()` and
+`PresentationMemoController::generate()/update()` refuse — those two are the الوقائع and المستندات the
+appendix names. **Deliberately bounded to an item with an *open* vote**: Stage 76's execution evidence is
+uploaded long after the decision, and a permanent freeze would break it. Proven in both directions live —
+the same upload 422'd on the file being voted on and 201'd on the one that was not.
+
+**Art. 83's five rules became a computed rank, and rule 5 is why the manual order survives.** Rank 1 =
+deferred from a previous sitting (an earlier agenda appearance whose decision outcome is `defer`); rank 2
+= tied to a legal deadline (Stage 68's `legal_deadline`, the same limb Stage 71's حرج reads); rank 3 =
+urgent, or high on Appendix 24's own remaining ground (returned from the approving body — Stage 77's
+register — or the rapporteur's declared urgency); rank 4 = complete, **ordered by readiness date**; rank
+5 = everything Art. 83 does not categorise. All four derivable ranks were verified against the real
+database in one agenda: `deferred → deadline → ready`, inserted deliberately in the wrong order.
+
+**Rank 5 is NOT Art. 83's rule 5** — it is the article's complement, the items it never ranks (an
+administrative or emerging item, a file with no readiness date), which keep their existing relative
+order. Rule 5 itself is honoured as the permission it is: **`apply-order` is offered, never imposed**,
+Stage 39's drag-and-drop is untouched, and Appendix 24's "ولا يجوز استخدام الأولوية لتجاوز ترتيب
+المعاملات دون مبرر إداري موثق" is what makes a departure accountable — a new
+`agenda_order_departs_from_rule` readiness exception fires only when the order differs from the computed
+one **and** no justification is recorded. Ties inside a rank fall back to the current `agenda_order`, so
+applying the rule never reshuffles items the article ranks equally.
+
+**Readiness is the LATEST entry into `ready`, not the first** — a file sent back for completion and later
+re-readied is ready as of the later date, and crediting it with a readiness it subsequently lost would
+let a stalled file jump ahead of one that has been ready continuously.
+
+**Appendix 24's two levels replaced Stage 31's invented three, rather than sitting beside them** — the
+Stage 81 precedent, where Appendix 11's buckets replaced Stage 32's funnel. `high|medium|low` was that
+stage's own invention; the appendix defines exactly عالية and عادية. Three of its four عالية conditions
+are **derived**; the fourth (ضرر وظيفي واضح) is judgment, so it stays the rapporteur's declaration and
+carries a recorded `priority_reason`. **Appendix 33's five enumerated urgent reasons are Stage 83's** and
+were deliberately not invented here — a free-text مبرر is what Appendix 24 itself asks for, and that is
+the honest split between the two appendices.
+
+**Appendix 24's twelve fields are a read model, not twelve columns.** Six already existed; الرأي القانوني،
+نوع القرار المطلوب (Appendix 22's `committee_mandate`) and **جهة الاعتماد المتوقعة** are Stage 68's own
+recorded answers — which is also what **closes Appendix 7's last two readiness questions**, recorded by
+Stage 78 as belonging here; هل سبق عرضه؟ and رقم الاجتماع السابق are derived. One batched
+`AgendaOrderingService` computes the whole profile in a fixed number of queries (Stage 81's batching
+discipline). **Nothing is fabricated** — an item with no request reports null for all three legal fields.
+
+**Register 4 became النموذج 08 + Appendix 24, and Stage 80's own open item (3) is answered.** It now
+orders by the sitting's own `scheduled_at` then by `agenda_order` ascending (a new `applyOrdering()` hook
+on the base `Register`, so the rest of the twelve are untouched), and its columns gained اسم الموظف، نوع
+المعاملة، حالة الجاهزية، الرأي القانوني، نوع القرار المطلوب، جهة الاعتماد المتوقعة، هل سبق عرضه، رقم
+الاجتماع السابق، تسلسل الدراسة, with the vocabularies this stage owns rendered server-side like every
+other register's rows.
+
+**One real bug the smoke run caught that the suite did not.** `AgendaOrderingService::priorAppearances()`
+excluded every row being profiled from the prior-appearance lookup — correct for one meeting's agenda,
+wrong for the register, which pages across every meeting at once, so a sitting and the earlier one it was
+deferred from routinely land on the same page. The register reported **"لم يسبق عرضه" for a file it was
+listing twice**, and the derived priority went with it (أولوية عادية instead of عالية). Fixed by dropping
+the exclusion — `latestPriorAppearance()` already drops the item itself, since no row is scheduled
+strictly before itself — and `AgendaOrderingTest` gained a regression test that puts both sittings on one
+register page. Also fixed while there: the register printed `required_instrument` as the raw
+`decision`/`recommendation` code; it now renders Appendix 22's own four words.
+
+**Art. 84's other five opening checks are deliberately NOT built here**, despite the compliance matrix
+having routed them to this stage: Art. 84 is not in Stage 82's own Source line, and a sequenced
+sitting-opening act (إثبات الحاضرين والغائبين، اعتماد جدول الأعمال، إثبات المؤجلة أو المسحوبة) is a
+meeting-level ritual with its own record, not agenda work. Recorded as an open item **with no owner**
+rather than half-built.
+
+Frontend: `MeetingAgendaBuilderView.vue` gained an ordering panel (the rule-match verdict, the apply
+button, the justification box) plus each item's Art. 83 rank and Appendix 24 profile inline, and its
+priority picker dropped to two levels with a reason field shown only for a declared high;
+`MeetingLiveView.vue` gained النموذج 11's card on the current item, with the two derived steps rendered
+read-only. New shared `lib/agenda.js` mirrors the rank/ground/step vocabularies once (the Stage
+75/76/77/80/81 precedent); every label is a locale key on both sides.
+
+Verification: new `tests/Feature/AgendaOrderingTest.php` (10 tests — each of Art. 83's four derivable
+ranks in one agenda; readiness-date ordering within rank 4; the uncategorised tail keeping the chair's
+own arrangement; apply-order rewriting the order and clearing the justification; Appendix 24's profile
+including a null-legal-review item; a previous appearance named with its meeting number; the register
+regression above; the readiness exception firing then clearing; the two priority levels with `medium`
+refused; a declared high recording its مبرر and reporting `declared` as its only ground) and
+`tests/Feature/StudySequenceTest.php` (7 tests — the nine steps with their modes; a step refused before
+its predecessor; the conditional step not applicable without a legal opinion and refused when marked
+anyway; voting refused until the sequence completes with the worklist agreeing; unticking refused once a
+vote exists; the attachment and memo freeze in both directions; recording refused on a rolled-back
+sequence; the read/tick permission split). Full suite **506 tests / 3153 assertions** green (was
+488/3035). Pint clean **repo-wide** (`--test` over `app/`, `database/`, `routes/`, `tests/` reports zero
+diffs), `npm run build` passes (then reverted `frontend/dist`, tracked in git, per every prior stage's
+note), locale key-parity verified programmatically (**1576 keys each side, zero on-one-side-only**), and
+the migration ran clean against the real MySQL/Homestead database — **0 agenda items** going in, so the
+priority fold-down had nothing to migrate.
+
+**Sixteen pre-existing test files needed a legitimate fixture update, not a regression fix** — every one
+is a fixture that now has to satisfy Art. 85 before it can vote. A new `Tests\RunsStudySequence` trait
+supplies the marks once (the `RecordsStructuredDecisions`/`PassesControlGates` precedent), written
+directly rather than through the endpoint because those tests are mid-walk through a different story.
+`MeetingAgendaBuilderTest` additionally had two assertions rewritten for the priority vocabulary this
+stage deliberately replaced.
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r03.head@`/`r04.member1@`/
+`r01.employee@`/`r06.ministry@` accounts and a three-item fixture: the ordering endpoint ranked
+deferred/deadline/ready 1-2-4 and reported `matches_rule: false`; readiness listed
+`agenda_order_departs_from_rule`; apply-order rewrote the agenda and that exception disappeared; a vote
+was refused with Art. 85's own message while the member's worklist showed **zero** rows; an out-of-order
+tick was refused naming the missing step; the six binding steps went through in order and the card read
+complete; the vote then succeeded and `vote_taken` flipped to done **derived**, `material_frozen` to
+true; unticking 422'd; the memo regenerate and an attachment upload on the voted file both 422'd while
+the same upload on an unvoted file returned 201; and register 4 listed both sittings in agenda order with
+Appendix 24's columns filled. Deleted every fixture row (3 requests, 2 meetings, 4 agenda items, 1
+committee, decisions, votes, legal reviews, status history, attachments and their stored files) and
+revoked all five tokens — counts confirmed back to **0 requests / 0 meetings / 0 agenda items / 0
+attachments / 0 tokens / 0 jobs**. The four soft-deleted committees earlier sessions left behind were
+left alone, as in Stages 74/76/78.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved Arts. **83** and **85** ⚠→✅ and
+appendices **7**, **24** and **25** ⚠→✅, closed **النموذج 08** and **النموذج 11**, and recorded that
+appendix **61**'s سجل الأولوية now exists. Art. **84**'s row was rewritten to say this stage declined its
+remaining five checks **deliberately** and that they now have no owner. Headline counts adjusted by this
+stage's own delta (articles 92→94 ✅ / 8→6 ⚠; appendices 59→62 ✅ / 6→3 ⚠); appendix 3 stays ⚠ while
+other forms do.
+
+**Open items for whoever builds Stage 83+.** (1) **Art. 84's remaining five opening checks have no
+owner** — see above; a sitting-opening act with its own record is a small, well-defined piece of work,
+but it should be decided rather than inherited. (2) **`priority_reason` is free text**, which is what
+Appendix 24 asks for; **Appendix 33's five enumerated urgent reasons are Stage 83's**, and that stage
+should structure this column rather than add a second one beside it. (3) **Art. 83's rank 3 folds
+"العاجلة المعتمدة" together with Appendix 24's أعيدت من جهة الاعتماد**, which the article's own list has
+no rank for — a documented judgment call bridging two sources, worth revisiting if a later reading
+separates them. (4) **The readiness exception blocks convening**, with Stage 33's R03 override as the
+escape hatch; that is faithful to "لا يجوز" but it does mean a chair who genuinely wants a different
+order must write one sentence first. (5) **The study sequence is per agenda item, so a request
+re-presented at a later sitting starts a fresh card** — correct (it is a new deliberation), but it means
+the register's تسلسل الدراسة column answers per sitting, not per file. (6) **`AgendaRegister` now joins
+`meetings`**, which is the first register to join at all; the base gained an `applyOrdering()` hook for
+it, and a future register that needs its own natural order should override that rather than `query()`.
+
+---
+
+### 2026-09-09 11:40 EET — Claude — Stage 82 implementation plan (agenda ordering and item fields)
+
+Building Stage 82 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Art. 83**
+(ترتيب جدول الأعمال — five ordering rules, the fifth being "أي ترتيب يقرره رئيس اللجنة **بما لا يخل
+بالمساواة وسلامة الإجراءات**"), **Art. 85** (آلية دراسة البند — a nine-step sequence, "يتبع في كل بند
+التسلسل الآتي"), **Appendix 24** (ضوابط إعداد جدول الأعمال الاحترافي — twelve per-item fields, **two**
+priority levels with their own definitions, and "**ولا يجوز استخدام الأولوية لتجاوز ترتيب المعاملات دون
+مبرر إداري موثق**"), **Appendix 25** (قواعد دراسة المعاملة — five إلزامية stages ending with "**ولا يجوز
+استمرار تعديل الوقائع أو المستندات بعد بدء التصويت**"), **النموذج 11** (بطاقة مباشرة بند — seven ticks
+plus the result) and **النموذج 08** (جدول الأعمال's own six columns, including حالة الجاهزية).
+
+**Three decompositions of one thing, and only one of them becomes a state machine.** Art. 85 gives nine
+steps, النموذج 11 seven ticks, Appendix 25 five إلزامية stages, and the runner already has five
+`item_state` values from Stage 34. Replacing `item_state` with any of them would re-open Stage 34's
+close-gate/`isResolved()` blast radius for no gain, so `item_state` stays the runner's coarse phase and
+Art. 85 becomes a **per-item checklist** — the Build bullet's own wording ("Art. 85's nine-step per-item
+sequence **as the live runner's checklist**"). النموذج 11's seven ticks are the same nine steps minus its
+own header (عرض الموضوع) and its own result field (إثبات النتيجة); Appendix 25's five stages are the
+grouping over them. One vocabulary, three sourced views of it, in `App\Services\StudySequenceRules`.
+
+**Two of the nine are derived, one is conditional, one is optional, five are attested.** التصويت is
+"votes exist on this item" and إثبات النتيجة is "the decision exists" — asking a human to tick either
+would be asking them to attest to something the system already knows and could contradict (the Stage
+60/75/76/78 split). عرض الرأي القانوني carries the source's own qualifier **عند وجوده**, so it is
+required only when the request actually has a Stage 68 legal review and is `not_applicable` otherwise.
+طلب الإيضاحات is optional by its nature (النموذج 11 lists it as a thing that may or may not have
+happened). The remaining five bind.
+
+**The sequence is enforced as a sequence, not as a set.** A step cannot be marked until every mandatory
+step before it is marked — that is literally "يتبع في كل بند التسلسل الآتي", and it is what stops the
+checklist becoming a row of ticks applied at the end. Unmarking is allowed (a correction) **until a vote
+has been cast**, after which it is refused: Appendix 25's stage 5 forbids continuing to change the
+material after voting begins, and un-ticking إقفال المناقشة mid-vote would be exactly that.
+
+**The gate is on voting, not only on recording — and it needs a derived column to stay honest.** Art. 85
+puts إقفال المناقشة *before* التصويت, so the faithful gate is that a vote cannot be cast until the
+sequence is complete. That has to be visible to **both** halves of `DecisionEligibility` — its
+`reasonBlockingVote()` guard and its `pendingVotesQuery()` worklist SQL — or the worklist would offer an
+item the vote endpoint refuses, which is the one failure that service exists to prevent. A JSON
+predicate in SQL is fragile across sqlite/MySQL, so completion is denormalised into a
+`study_sequence_completed_at` timestamp maintained beside the JSON, and both halves read that one
+column. `record()`/`recordAppealDecision()` re-check it rather than trusting that votes imply it.
+
+**Appendix 25's freeze is enforced at exactly two write points, both narrow.** Once a vote exists on an
+item and no decision has been recorded yet, `AttachmentController::store()` and
+`PresentationMemoController::generate()/update()` refuse — those two are the وقائع and المستندات the
+appendix names. Deliberately bounded to an item with an *open* vote: Stage 76's execution evidence is
+uploaded long after the decision, and a permanent block would break it.
+
+**Art. 83's five rules become a computed rank, and rule 5 is why the manual order survives.** Rank 1 =
+deferred from a previous sitting (derived: an earlier agenda appearance of the same request whose
+decision outcome is `defer`); rank 2 = tied to a legal deadline (derived: Stage 68's
+`request_legal_reviews.legal_deadline`, the same limb Stage 71's حرج already reads); rank 3 = urgent, or
+high-priority on Appendix 24's own other grounds (returned from the approving body — Stage 77's
+`approval_returns` — or the rapporteur's declared urgency); rank 4 = complete, **ordered by readiness
+date** (the latest `request_status_history` entry into `ready`); rank 5 = everything Art. 83 does not
+categorise (administrative/emerging items, a file with no readiness date), keeping its existing relative
+order. Ties inside a rank fall back to the current `agenda_order`, so the chair's rule-5 discretion
+inside a bucket is preserved rather than reshuffled. **Readiness is the latest entry into `ready`, not
+the first**, because a file that was sent back and re-readied should not be credited for a readiness it
+subsequently lost.
+
+**Rule 5 is a permission, so ordering is offered, never imposed — but a departure must be justified.**
+New `POST meetings/{meeting}/agenda/apply-order` rewrites `agenda_order` to the computed sequence;
+Stage 39's drag-and-drop stays exactly as it is. The enforcement of Appendix 24's "لا يجوز... دون مبرر
+إداري موثق" is a new **readiness** exception (`agenda_order_departs_from_rule`) that fires only when the
+current order differs from the computed one **and** no justification is recorded — so the sitting cannot
+open on an unexplained out-of-rule agenda, with Stage 33's R03 override still the escape hatch. The
+justification is a new nullable `meetings.agenda_order_justification`, written through the existing
+meeting update endpoint rather than a new one.
+
+**Appendix 24's two priority levels replace Stage 31's invented three.** `high|medium|low` was that
+stage's own invention; Appendix 24 defines exactly عالية and عادية, so the column's vocabulary becomes
+`high|normal` (the Stage 81 precedent, where Appendix 11's buckets replaced Stage 32's funnel rather
+than sitting beside it). Existing `medium`/`low` rows migrate to `normal` — the real database holds **0
+agenda items**, so this is a correctness statement rather than a live migration. Three of Appendix 24's
+four عالية conditions are **derived** (legal deadline, returned from the approving body, deferred from a
+previous sitting); the fourth — ضرر وظيفي واضح — is judgment, so it stays the human's own declaration
+and, per the appendix's closing rule, **a declared `high` with no derived ground behind it requires a
+recorded reason** (`priority_reason`). Appendix 33's five enumerated urgent reasons are **Stage 83's**
+and are deliberately not invented here; a free-text مبرر is what Appendix 24 itself asks for.
+
+**Appendix 24's twelve fields are a read model, not twelve columns.** رقم البند / رقم المعاملة / اسم
+الموظف / نوع المعاملة / الموضوع المختصر / حالة الجاهزية all already exist; الرأي القانوني، نوع القرار
+المطلوب (Appendix 22's `committee_mandate`) and **جهة الاعتماد المتوقعة** (`approving_body`) are Stage
+68's own recorded answers — which is also what closes **Appendix 7's** last two open readiness questions,
+recorded by Stage 78 as belonging here; هل سبق عرضه؟ and رقم الاجتماع السابق are derived from the item's
+earlier agenda appearances. So one batched `App\Services\AgendaOrderingService` computes the whole
+profile per item in a fixed number of queries (Stage 81's batching discipline), served by a new
+`GET meetings/{meeting}/agenda/ordering` and reused by the register below. **Nothing is fabricated**: an
+item with no legal review reports null for the three legal fields rather than a guess.
+
+**Register 4 becomes النموذج 08 + Appendix 24, and Stage 80's own open item (3) is answered.** That
+stage flagged that سجل جدول الأعمال orders by `created_at` rather than by the sitting; it now orders by
+the meeting's own `scheduled_at` and then by `agenda_order` ascending, so a register of agendas reads in
+agenda order. Its columns gain اسم الموظف، نوع المعاملة، حالة الجاهزية، الرأي القانوني، نوع القرار
+المطلوب، جهة الاعتماد المتوقعة، هل سبق عرضه، رقم الاجتماع السابق, and the vocabularies this stage owns
+(item type, priority, item state) are rendered server-side like every other register's rows.
+
+**One migration, no new screen and no permission change** — `meeting_requests` gains `priority_reason`,
+`study_sequence` (json) and `study_sequence_completed_at`; `meetings` gains
+`agenda_order_justification`. Ordering rides `meeting_agenda,view/edit` and the checklist rides
+`meeting_live,view/edit`, which is the check that this stage sits inside domains prior stages already
+drew.
+
+**Art. 84's other five opening checks are deliberately NOT built here**, despite the compliance matrix
+having routed them to this stage: Art. 84 is not in Stage 82's own Source line, and a sequenced
+sitting-opening act (إثبات الحاضرين والغائبين، اعتماد جدول الأعمال، إثبات المؤجلة أو المسحوبة) is a
+meeting-level ritual with its own record, not agenda work. Recorded as an open item with no owner rather
+than half-built.
+
+Frontend: `MeetingAgendaBuilderView.vue` gains an ordering panel (each item's Art. 83 rank and its
+Appendix 24 profile, an apply-order button, the departure warning and the justification box) and its
+priority picker drops to two levels with a reason field; `MeetingLiveView.vue` gains النموذج 11's card as
+a checklist on the current item; a new shared `lib/agenda.js` mirrors the rank/step/stage vocabularies
+once (the Stage 75/76/77/80/81 precedent).
+
+Verification plan: new `tests/Feature/AgendaOrderingTest.php` (each of Art. 83's four derivable ranks in
+isolation; the uncategorised bucket keeping its manual order; readiness-date ordering within rank 4;
+apply-order rewriting `agenda_order`; the readiness exception firing on a departure and clearing with a
+justification; Appendix 24's profile fields including a null-legal-review item; the two priority levels
+with the reason required only when no derived ground holds) and `tests/Feature/StudySequenceTest.php`
+(a step refused before its predecessor; the conditional legal step required only when a review exists;
+the optional step skippable; voting refused until the sequence completes and the worklist agreeing;
+unmarking refused once a vote exists; an attachment upload and a memo edit refused mid-vote and
+permitted before and after; recording refused on an incomplete sequence). Plus a new
+`Tests\RunsStudySequence` trait for the many existing tests whose subject is something else, the full
+PHPUnit suite, Pint, `npm run build`, locale key-parity, and `php artisan migrate` against the real
+MySQL/Homestead database.
+
+---
+
+
 ### 2026-09-09 09:55 EET — Claude — Stage 81 complete (Art. 106's performance indicators)
 
 Built per the plan below, from the verbatim sources — [D] **Arts. 106, 107** and **Appendices 10, 11, 39,

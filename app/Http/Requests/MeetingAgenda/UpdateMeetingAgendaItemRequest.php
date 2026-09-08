@@ -25,7 +25,9 @@ class UpdateMeetingAgendaItemRequest extends FormRequest
         return [
             'subject' => ['sometimes', 'nullable', 'string', 'max:255'],
             'department_id' => ['sometimes', 'nullable', 'integer', 'exists:departments,id'],
-            'priority' => ['sometimes', 'nullable', Rule::in(['high', 'medium', 'low'])],
+            // Stage 82 — Appendix 24's two levels; see StoreMeetingAgendaRequest.
+            'priority' => ['sometimes', 'nullable', Rule::in(['high', 'normal'])],
+            'priority_reason' => ['sometimes', 'nullable', 'string', 'max:500'],
             'estimated_minutes' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:600'],
         ];
     }

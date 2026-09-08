@@ -41,6 +41,9 @@ class Meeting extends Model
         'expected_duration_minutes',
         'agenda_deadline',
         'description',
+        // Stage 82 — Appendix 24's "مبرر إداري موثق" for an agenda that
+        // departs from Art. 83's own ordering.
+        'agenda_order_justification',
         'status',
         'created_by_user_id',
         'convened_at',

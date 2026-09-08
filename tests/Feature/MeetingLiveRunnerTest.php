@@ -17,6 +17,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\PassesControlGates;
 use Tests\RecordsStructuredDecisions;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -33,6 +34,7 @@ class MeetingLiveRunnerTest extends TestCase
     use PassesControlGates;
     use RecordsStructuredDecisions;
     use RefreshDatabase;
+    use RunsStudySequence;
 
     public function test_advancing_item_state_persists_and_stamps_state_changed_at(): void
     {
@@ -288,6 +290,9 @@ class MeetingLiveRunnerTest extends TestCase
 
         $requestRecord = $this->requestAtCommitteeStage();
         $agendaItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
 
         $adminItem = null;
         if ($withAdminItem) {

@@ -129,6 +129,19 @@ class MeetingReadinessService
                 'item_ids' => $itemsMissingLegalReview->pluck('id')->values(),
             ];
         }
+        // Stage 82 — Art. 83 orders the agenda by rule and leaves the chair
+        // free to depart from it (rule 5), but Appendix 24 refuses an
+        // undocumented departure: "ولا يجوز استخدام الأولوية لتجاوز ترتيب
+        // المعاملات دون مبرر إداري موثق". So a sitting cannot open on an
+        // out-of-rule agenda with nothing recorded to explain it — either
+        // apply the rule, or write down why not.
+        if ($agendaItems->isNotEmpty() && blank($meeting->agenda_order_justification)) {
+            $ordering = app(AgendaOrderingService::class);
+
+            if (! $ordering->matchesRule($agendaItems, $ordering->profiles($agendaItems))) {
+                $exceptions[] = ['code' => 'agenda_order_departs_from_rule'];
+            }
+        }
 
         return [
             'file_percentage' => $filePercentage,

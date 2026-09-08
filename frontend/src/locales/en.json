@@ -779,10 +779,46 @@
         "appeal": "Appeal"
       },
       "priority": {
-        "label": "Priority",
-        "high": "High",
-        "medium": "Medium",
-        "low": "Low"
+        "label": "Priority level",
+        "high": "High priority",
+        "normal": "Normal priority",
+        "none": "Not set",
+        "reason": "Administrative justification for high priority",
+        "reasonHint": "Priority may not be used to jump the agenda order without a documented administrative justification (Appendix 24)."
+      },
+      "priorityGround": {
+        "legal_deadline": "Tied to a legal deadline",
+        "returned_from_approving_body": "Returned by the approving body",
+        "deferred_from_previous": "Deferred from a previous sitting",
+        "declared": "Clear job harm — declared by the rapporteur"
+      },
+      "rank": {
+        "deferred_from_previous": "Deferred from a previous sitting",
+        "legal_deadline": "Tied to a legal deadline",
+        "urgent": "Approved as urgent",
+        "ready_by_date": "Complete, by readiness date",
+        "chair_order": "By the chair's own arrangement"
+      },
+      "ordering": {
+        "title": "Agenda order (Art. 83)",
+        "apply": "Apply the mandated order",
+        "applying": "Applying…",
+        "matches": "The current order already follows the mandated order.",
+        "departs": "The current order departs from the mandated order and needs a recorded justification.",
+        "justification": "Justification for departing from the order",
+        "saveJustification": "Save justification",
+        "readyAt": "Readiness date",
+        "previouslyPresented": "Previously presented",
+        "previousMeeting": "Previous meeting",
+        "legalOpinion": "Legal opinion",
+        "requiredInstrument": "Instrument sought",
+        "expectedApprovingBody": "Expected approving body",
+        "readinessStatus": "Readiness",
+        "employee": "Employee",
+        "requestType": "Request type",
+        "fields": "Item fields (Appendix 24)",
+        "none": "Not recorded",
+        "notPresented": "No"
       }
     },
     "attendance": {
@@ -1120,7 +1156,9 @@
         "unconfirmed_members": "{count} committee member(s) were not invited to this meeting.",
         "incomplete_agenda_items": "Some agenda items are missing a priority or estimated time.",
         "pending_invitations": "Some attendees have not responded to their invitation.",
-        "committee_rules_not_recorded": "The committee card records no quorum rule, and the system may not assume one."
+        "committee_rules_not_recorded": "The committee card records no quorum rule, and the system may not assume one.",
+        "missing_legal_review": "Some request items have not completed the required legal review.",
+        "agenda_order_departs_from_rule": "The agenda departs from the order Art. 83 mandates, with no documented administrative justification."
       },
       "convene": {
         "title": "Convene meeting",
@@ -1157,6 +1195,14 @@
         "voting": "Voting",
         "deciding": "Deciding",
         "complete": "Complete"
+      },
+      "studySequence": {
+        "title": "Item study sequence (Art. 85)",
+        "incomplete": "Voting does not open until the study steps are done and the discussion is closed.",
+        "frozen": "Voting has begun: the facts and documents may not be changed before the result is recorded (Appendix 25).",
+        "derived": "Recorded automatically",
+        "optional": "Optional",
+        "notApplicable": "Not applicable"
       },
       "timer": "Elapsed",
       "discussion": {

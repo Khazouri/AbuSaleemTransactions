@@ -16,6 +16,7 @@ use App\Services\DecisionEligibility;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\RecordsStructuredDecisions;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -26,6 +27,7 @@ class DecisionRegisterTest extends TestCase
 {
     use RecordsStructuredDecisions;
     use RefreshDatabase;
+    use RunsStudySequence;
 
     protected function setUp(): void
     {
@@ -226,6 +228,9 @@ class DecisionRegisterTest extends TestCase
             'request_id' => $this->requestAtCommitteeStage()->id,
             'agenda_order' => 1,
         ]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
 
         return [$head, $member, $committee, $meeting, $agendaItem];
     }

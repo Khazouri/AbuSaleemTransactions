@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Attachment\StoreAttachmentRequest;
 use App\Http\Resources\AttachmentResource;
 use App\Models\Attachment;
+use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Services\RequestVisibility;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,16 @@ class AttachmentController extends Controller
     public function store(StoreAttachmentRequest $request, Request $requestRecord, RequestVisibility $visibility): JsonResponse
     {
         abort_unless($visibility->canView($request->user(), $requestRecord), 404);
+
+        // Stage 82 — [D] Appendix 25's fifth stage: "ولا يجوز استمرار تعديل
+        // الوقائع أو المستندات بعد بدء التصويت". Only while a vote on this
+        // request is actually open — see MeetingRequest::openVoteExistsFor(),
+        // which is deliberately not a permanent freeze.
+        if (MeetingRequest::openVoteExistsFor($requestRecord->id)) {
+            return response()->json([
+                'message' => 'بدأ التصويت على هذا الموضوع في اللجنة، ولا يجوز إضافة مستندات قبل إثبات النتيجة.',
+            ], 422);
+        }
 
         $file = $request->file('file');
         $disk = 'local';

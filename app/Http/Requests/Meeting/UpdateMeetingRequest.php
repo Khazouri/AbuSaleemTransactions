@@ -28,6 +28,9 @@ class UpdateMeetingRequest extends FormRequest
             'expected_duration_minutes' => ['nullable', 'integer', 'min:1'],
             'agenda_deadline' => ['nullable', 'date'],
             'description' => ['nullable', 'string'],
+            // Stage 82 — Appendix 24's documented justification for an agenda
+            // that departs from Art. 83's ordering; see AgendaOrderingService.
+            'agenda_order_justification' => ['nullable', 'string'],
             'status' => ['sometimes', 'required', Rule::in(['scheduled', 'completed', 'cancelled'])],
         ];
     }

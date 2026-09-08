@@ -21,6 +21,7 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\RecordsStructuredDecisions;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -37,6 +38,7 @@ class DecisionStructureTest extends TestCase
 {
     use RecordsStructuredDecisions;
     use RefreshDatabase;
+    use RunsStudySequence;
 
     // ---- Art. 89 / Appendix 27 ------------------------------------------
 
@@ -391,6 +393,9 @@ class DecisionStructureTest extends TestCase
             'submitted_at' => now(),
         ]);
         $agendaItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
 
         foreach ([$head, $member] as $voter) {
             $this->actingAs($voter, 'sanctum')
@@ -433,6 +438,9 @@ class DecisionStructureTest extends TestCase
             'appeal_id' => $appeal->id,
             'agenda_order' => 2,
         ]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
 
         foreach ([$head, $member] as $voter) {
             $this->actingAs($voter, 'sanctum')

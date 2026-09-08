@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -24,6 +25,7 @@ use Tests\TestCase;
 class RapporteurVoteConflictOfInterestTest extends TestCase
 {
     use RefreshDatabase;
+    use RunsStudySequence;
 
     public function test_the_meetings_rapporteur_cannot_vote_unless_the_committees_tashkil_grants_it(): void
     {
@@ -162,6 +164,9 @@ class RapporteurVoteConflictOfInterestTest extends TestCase
 
         $requestRecord = $this->requestAtCommitteeStage();
         $agendaItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
 
         return [$head, $member, $committee, $meeting, $agendaItem];
     }

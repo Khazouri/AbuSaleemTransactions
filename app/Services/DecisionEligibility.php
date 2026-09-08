@@ -24,13 +24,21 @@ use Illuminate\Database\Eloquent\Builder;
  *   2. the actor holds a seat on the meeting's committee,
  *   3. the actor is marked as having attended that meeting,
  *   4. the actor has not declared a conflict of interest on this item (Stage 48),
- *   5. the actor is not this meeting's non-voting rapporteur (Stage 48).
+ *   5. the actor is not this meeting's non-voting rapporteur (Stage 48),
+ *   6. the item's Art. 85 study sequence is complete (Stage 82).
  *
  * (2) and (3) are separate on purpose: committee membership is standing, but a
  * member who did not attend the sitting does not get a vote on what it decided.
  */
 class DecisionEligibility
 {
+    /**
+     * Stage 82 — shared with DecisionController::record(), which re-checks the
+     * same condition before it writes a decision rather than trusting that
+     * existing votes imply it.
+     */
+    public const INCOMPLETE_STUDY_SEQUENCE = 'لا يجوز التصويت قبل استكمال تسلسل دراسة البند وإقفال المناقشة (المادة 85).';
+
     /**
      * Why this user may not vote on this item, or null if they may.
      *
@@ -77,6 +85,15 @@ class DecisionEligibility
 
         if ($this->isNonVotingRapporteur($agendaItem, $user)) {
             return 'مقرر الاجتماع لا يشارك في التصويت إلا إذا نص قرار تشكيل اللجنة على خلاف ذلك.';
+        }
+
+        // Stage 82 — [D] Art. 85 puts إقفال المناقشة *before* التصويت, so a
+        // vote cast on an item whose study sequence is incomplete is a vote
+        // taken out of the article's own order. The predicate is the
+        // denormalised timestamp rather than the JSON beside it precisely so
+        // pendingVotesQuery() below can read the same fact in SQL.
+        if ($agendaItem->study_sequence_completed_at === null) {
+            return self::INCOMPLETE_STUDY_SEQUENCE;
         }
 
         return null;
@@ -131,6 +148,8 @@ class DecisionEligibility
             // a declared conflict of interest, or being this meeting's
             // rapporteur without a tashkil-granted vote.
             ->whereDoesntHave('conflictDeclarations', fn (Builder $declaration) => $declaration->where('user_id', $user->id))
+            // Stage 82 — the SQL half of reasonBlockingVote()'s Art. 85 check.
+            ->whereNotNull('meeting_requests.study_sequence_completed_at')
             ->whereHas('meeting', function (Builder $meeting) use ($user) {
                 $meeting
                     ->whereHas('committee.members', fn (Builder $member) => $member->where('user_id', $user->id))

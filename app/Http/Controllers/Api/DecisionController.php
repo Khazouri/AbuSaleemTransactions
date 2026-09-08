@@ -286,6 +286,16 @@ class DecisionController extends Controller
             ], 422);
         }
 
+        // Stage 82 — Art. 85's ninth step (إثبات النتيجة) is this method, and
+        // the article puts the other eight before it. DecisionEligibility
+        // already refuses a vote on an incomplete sequence; re-checked here
+        // rather than trusting that existing votes imply it, since a sequence
+        // can only have been completed and then never un-ticked once voting
+        // began — the belt to that braces.
+        if ($agendaItem->study_sequence_completed_at === null) {
+            return response()->json(['message' => DecisionEligibility::INCOMPLETE_STUDY_SEQUENCE], 422);
+        }
+
         $counts = Vote::query()
             ->where('meeting_request_id', $agendaItem->id)
             ->selectRaw('vote, count(*) as total')
@@ -557,6 +567,12 @@ class DecisionController extends Controller
             return response()->json([
                 'message' => 'لا يمكن تسجيل قرار على تظلم لم يجتز المراجعة القانونية بعد.',
             ], 422);
+        }
+
+        // Stage 82 — an appeal item is studied under the same Art. 85
+        // sequence; see record()'s own copy of this check.
+        if ($agendaItem->study_sequence_completed_at === null) {
+            return response()->json(['message' => DecisionEligibility::INCOMPLETE_STUDY_SEQUENCE], 422);
         }
 
         $counts = Vote::query()

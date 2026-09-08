@@ -11,9 +11,16 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
 import api from '../lib/api'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const { t, locale } = useI18n()
+const auth = useAuthStore()
+
+// Stage 82 — the same gate the runner's own state controls use, needed here as
+// a script-side boolean because a checkbox's `disabled` can't be set by the
+// v-can directive (which only toggles display).
+const canRunItems = computed(() => auth.can('meeting_live', 'edit'))
 
 const name = (item) => {
   if (!item) return t('common.none')
@@ -192,11 +199,53 @@ watch(() => currentItem.value?.id, (id) => {
   if (id) {
     loadContext(currentItem.value)
     loadMemo(currentItem.value)
+    loadStudySequence(currentItem.value)
   } else {
     context.value = null
     memo.value = null
+    studySequence.value = null
   }
 })
+
+// --- Stage 82: [D] Art. 85's per-item sequence (النموذج 11's card) -------------
+//
+// Its own fetch rather than a field on the agenda payload: two of the nine
+// steps are derived from the item's votes and decision, and a resource has no
+// business querying for those.
+
+const studySequence = ref(null)
+const stepBusy = ref('')
+const stepError = ref('')
+
+async function loadStudySequence(item) {
+  studySequence.value = null
+  if (!item) return
+  try {
+    const { data } = await api.get(`/meetings/${meeting.value.id}/agenda/${item.id}/study-sequence`)
+    studySequence.value = data.data
+  } catch {
+    studySequence.value = null
+  }
+}
+
+async function toggleStep(step) {
+  if (step.mode === 'derived' || !step.applicable) return
+  stepError.value = ''
+  stepBusy.value = step.code
+  try {
+    const { data } = await api.patch(
+      `/meetings/${meeting.value.id}/agenda/${currentItem.value.id}/study-sequence`,
+      { step: step.code, done: !step.done },
+    )
+    studySequence.value = data.data
+    // The completion flag opens voting, so the agenda payload has to catch up.
+    await load()
+  } catch (requestError) {
+    stepError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    stepBusy.value = ''
+  }
+}
 
 function fullDate(value) {
   if (!value) return t('common.none')
@@ -469,6 +518,42 @@ onMounted(async () => {
             </button>
           </div>
           <p v-if="stateError" class="alert">{{ stateError }}</p>
+
+          <!-- Stage 82 — النموذج 11's card: [D] Art. 85's nine-step sequence,
+               grouped by Appendix 25's five إلزامية stages. The last two steps
+               are read from the item's own votes and decision, so they render
+               read-only rather than as ticks. -->
+          <section v-if="studySequence" class="study-sequence">
+            <h3>{{ t('meetingsUnit.live.studySequence.title') }}</h3>
+            <p v-if="studySequence.material_frozen" class="alert">
+              {{ t('meetingsUnit.live.studySequence.frozen') }}
+            </p>
+            <p v-else-if="!studySequence.is_complete" class="state">
+              {{ t('meetingsUnit.live.studySequence.incomplete') }}
+            </p>
+            <ol class="steps">
+              <li
+                v-for="step in studySequence.steps"
+                :key="step.code"
+                :class="{ done: step.done, na: !step.applicable, derived: step.mode === 'derived' }"
+              >
+                <label>
+                  <input
+                    type="checkbox"
+                    :checked="step.done"
+                    :disabled="step.mode === 'derived' || !step.applicable || stepBusy === step.code || !canRunItems"
+                    @change="toggleStep(step)"
+                  />
+                  <span class="step-name">{{ locale === 'ar' ? step.name_ar : step.name_en }}</span>
+                  <span class="pill small">{{ locale === 'ar' ? step.stage_name_ar : step.stage_name_en }}</span>
+                  <span v-if="step.mode === 'derived'" class="pill small">{{ t('meetingsUnit.live.studySequence.derived') }}</span>
+                  <span v-else-if="step.mode === 'optional'" class="pill small">{{ t('meetingsUnit.live.studySequence.optional') }}</span>
+                  <span v-else-if="!step.applicable" class="pill small">{{ t('meetingsUnit.live.studySequence.notApplicable') }}</span>
+                </label>
+              </li>
+            </ol>
+            <p v-if="stepError" class="alert" role="alert">{{ stepError }}</p>
+          </section>
 
           <AgendaItemDecisionPanel
             v-if="['employee_request', 'appeal'].includes(currentItem.item_type)"
@@ -775,6 +860,15 @@ select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-ho
 .attachment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
 .attachment-list li { display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem; background: var(--color-surface-hover); border-radius: 8px; flex-wrap: wrap; }
 .attachment-list .muted { color: var(--color-muted); font-size: .78rem; }
+
+/* Stage 82 — النموذج 11's card on the current item. */
+.study-sequence { padding-top: .6rem; margin-bottom: .8rem; border-top: 1px dashed var(--color-border-hover); }
+.study-sequence h3 { margin: 0 0 .4rem; font-size: .9rem; color: var(--color-brand-text); }
+.study-sequence .steps { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .3rem; }
+.study-sequence .steps li label { display: flex; align-items: center; gap: .45rem; font-size: .84rem; }
+.study-sequence .steps li.done .step-name { font-weight: 600; }
+.study-sequence .steps li.na .step-name,
+.study-sequence .steps li.derived .step-name { color: var(--color-black-600); }
 
 .discussion { padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
 .discussion h4 { margin: 0 0 .5rem; font-size: .88rem; color: var(--color-black-800); }

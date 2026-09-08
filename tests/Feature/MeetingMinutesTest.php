@@ -20,6 +20,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\PassesControlGates;
 use Tests\RecordsStructuredDecisions;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -36,6 +37,7 @@ class MeetingMinutesTest extends TestCase
     use PassesControlGates;
     use RecordsStructuredDecisions;
     use RefreshDatabase;
+    use RunsStudySequence;
 
     public function test_generate_compiles_content_and_is_blocked_once_review_moves_past_draft(): void
     {
@@ -362,6 +364,9 @@ class MeetingMinutesTest extends TestCase
             'submitted_at' => now()->subDays(3),
         ]);
         $agendaItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
 
         return [$head, $approvingMember, $dissentingMember, $meeting, $agendaItem, $requestRecord];
     }

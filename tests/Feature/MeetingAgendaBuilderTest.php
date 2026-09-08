@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -23,6 +24,7 @@ use Tests\TestCase;
 class MeetingAgendaBuilderTest extends TestCase
 {
     use RefreshDatabase;
+    use RunsStudySequence;
 
     public function test_an_administrative_item_can_be_added_without_a_request(): void
     {
@@ -77,7 +79,7 @@ class MeetingAgendaBuilderTest extends TestCase
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", [
                 'request_id' => $requestRecord->id,
-                'priority' => 'medium',
+                'priority' => 'normal',
                 'estimated_minutes' => 20,
             ])
             ->assertCreated();
@@ -87,7 +89,7 @@ class MeetingAgendaBuilderTest extends TestCase
                 'item_type' => 'administrative',
                 'subject' => 'بند إداري',
                 'department_id' => $admId,
-                'priority' => 'low',
+                'priority' => 'high',
                 'estimated_minutes' => 10,
             ])
             ->assertCreated();
@@ -98,8 +100,8 @@ class MeetingAgendaBuilderTest extends TestCase
 
         $this->assertSame(2, $response->json('data.total_items'));
         $this->assertSame(30, $response->json('data.total_estimated_minutes'));
-        $this->assertSame(1, $response->json('data.by_priority.medium'));
-        $this->assertSame(1, $response->json('data.by_priority.low'));
+        $this->assertSame(1, $response->json('data.by_priority.normal'));
+        $this->assertSame(1, $response->json('data.by_priority.high'));
         $this->assertSame(1, $response->json('data.by_type.employee_request'));
         $this->assertSame(1, $response->json('data.by_type.administrative'));
 
@@ -230,6 +232,9 @@ class MeetingAgendaBuilderTest extends TestCase
 
         $requestRecord = $this->requestAtCommitteeStage();
         $requestItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($requestItem);
         $meeting->agendaItems()->create(['item_type' => 'administrative', 'subject' => 'بند إداري', 'agenda_order' => 2]);
 
         $response = $this->actingAs($head, 'sanctum')

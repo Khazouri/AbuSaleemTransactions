@@ -58,6 +58,10 @@ class PresentationMemoController extends Controller
             ], 422);
         }
 
+        if ($problem = $this->frozenByVoting($agendaItem)) {
+            return $problem;
+        }
+
         $existing = $agendaItem->presentationMemo()->first();
 
         $authored = $existing?->content['authored'] ?? [
@@ -91,6 +95,10 @@ class PresentationMemoController extends Controller
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
+        if ($problem = $this->frozenByVoting($agendaItem)) {
+            return $problem;
+        }
+
         $memo = $agendaItem->presentationMemo()->first();
         if ($memo === null) {
             return response()->json(['message' => 'لم يتم إنشاء مذكرة عرض لهذا البند بعد.'], 404);
@@ -105,5 +113,24 @@ class PresentationMemoController extends Controller
         ]);
 
         return new PresentationMemoResource($memo->load(['generatedBy:id,name', 'updatedBy:id,name']));
+    }
+
+    /**
+     * Stage 82 — [D] Appendix 25's fifth stage closes with "ولا يجوز استمرار
+     * تعديل الوقائع أو المستندات بعد بدء التصويت", and the memo's authored
+     * half IS the الوقائع the committee is voting on. Bounded to an item whose
+     * vote is still open: once the decision is recorded the item is finished,
+     * and Art. 94's own rule about not quietly editing an approved محضر takes
+     * over from there.
+     */
+    private function frozenByVoting(MeetingRequest $agendaItem): ?JsonResponse
+    {
+        if (! $agendaItem->votes()->exists() || $agendaItem->decision()->exists()) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => 'بدأ التصويت على هذا البند، ولا يجوز تعديل وقائع مذكرة العرض قبل إثبات النتيجة.',
+        ], 422);
     }
 }

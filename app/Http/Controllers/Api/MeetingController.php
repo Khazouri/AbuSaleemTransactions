@@ -10,6 +10,7 @@ use App\Http\Requests\MeetingAgenda\ReorderMeetingAgendaRequest;
 use App\Http\Requests\MeetingAgenda\StoreMeetingAgendaRequest;
 use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemRequest;
 use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemStateRequest;
+use App\Http\Requests\MeetingAgenda\UpdateStudySequenceRequest;
 use App\Http\Requests\MeetingAttendee\StoreMeetingAttendeeRequest;
 use App\Http\Requests\MeetingAttendee\UpdateMeetingAttendeeRequest;
 use App\Http\Resources\MeetingAttendeeResource;
@@ -25,8 +26,10 @@ use App\Models\MeetingMinutes;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStageLog;
+use App\Services\AgendaOrderingService;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\NotificationDispatcher;
+use App\Services\StudySequenceRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -512,6 +515,88 @@ class MeetingController extends Controller
     }
 
     /**
+     * Stage 82 — [D] Art. 83's ordering and Appendix 24's per-item profile,
+     * read-only. The builder screen shows each item's rank and the twelve
+     * fields the appendix requires of an agenda ("يجب ألا يكون جدول الأعمال
+     * مجرد قائمة أسماء، بل وثيقة إدارة قرار"), plus whether the agenda as it
+     * stands already follows the article's own order.
+     */
+    public function agendaOrdering(Meeting $meeting, AgendaOrderingService $ordering): JsonResponse
+    {
+        return response()->json(['data' => $ordering->forMeeting($meeting)]);
+    }
+
+    /**
+     * Stage 82 — rewrite `agenda_order` to Art. 83's computed sequence.
+     *
+     * Offered, never imposed: the article's fifth rule leaves the ordering to
+     * the chair "بما لا يخل بالمساواة وسلامة الإجراءات", so Stage 39's manual
+     * reorder stays exactly as it was and this is one more way to arrive at an
+     * order. Applying the rule clears any recorded departure justification —
+     * it justified a departure that no longer exists.
+     */
+    public function applyAgendaOrder(Meeting $meeting, AgendaOrderingService $ordering): AnonymousResourceCollection
+    {
+        $items = $meeting->agendaItems()->orderBy('agenda_order')->get();
+        $sequence = $ordering->orderedIds($items, $ordering->profiles($items));
+
+        DB::transaction(function () use ($meeting, $sequence) {
+            foreach ($sequence as $index => $id) {
+                MeetingRequest::query()->where('id', $id)->update(['agenda_order' => $index + 1]);
+            }
+
+            $meeting->update(['agenda_order_justification' => null]);
+        });
+
+        return MeetingRequestResource::collection(
+            $meeting->agendaItems()->with(self::AGENDA_ITEM_WITH)->get(),
+        );
+    }
+
+    /**
+     * Stage 82 — النموذج 11's card for one agenda item: Art. 85's nine-step
+     * sequence with its two derived steps read from the item's own votes and
+     * decision rather than attested.
+     */
+    public function studySequence(Meeting $meeting, MeetingRequest $agendaItem, StudySequenceRules $sequence): JsonResponse
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        $agendaItem->loadMissing(['request.latestLegalReview', 'appeal:id,legal_review']);
+
+        return response()->json(['data' => $sequence->card($agendaItem)]);
+    }
+
+    /**
+     * Stage 82 — tick (or untick) one step of Art. 85's sequence.
+     *
+     * The order is enforced, because the article states one: "يتبع في كل بند
+     * التسلسل الآتي". Unticking is refused once voting has begun, per Appendix
+     * 25's own closing rule.
+     */
+    public function updateStudySequence(
+        UpdateStudySequenceRequest $request,
+        Meeting $meeting,
+        MeetingRequest $agendaItem,
+        StudySequenceRules $sequence,
+    ): JsonResponse {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        $agendaItem->loadMissing(['request.latestLegalReview', 'appeal:id,legal_review']);
+
+        $step = $request->validated('step');
+        $done = $request->boolean('done');
+
+        if ($problem = $sequence->firstProblemMarking($agendaItem, $step, $done)) {
+            return response()->json(['message' => $problem], 422);
+        }
+
+        $sequence->mark($agendaItem, $step, $done, $request->user());
+
+        return response()->json(['data' => $sequence->card($agendaItem)]);
+    }
+
+    /**
      * Stage 31 — totals and a "group similar" view over the agenda, so the
      * builder screen can show a computed total time and cluster items either
      * by effective department (the item's own for an admin item, its
@@ -536,7 +621,9 @@ class MeetingController extends Controller
             'appeal.originalRequest:id,title',
         ])->get();
 
-        $byPriority = ['high' => 0, 'medium' => 0, 'low' => 0, 'none' => 0];
+        // Stage 82 — Appendix 24's two levels replace Stage 31's invented
+        // three; `none` is an item whose level has not been declared yet.
+        $byPriority = ['high' => 0, 'normal' => 0, 'none' => 0];
         // Stage 63 — a fourth bucket for appeal items, alongside Stage 31's
         // original three.
         $byType = ['employee_request' => 0, 'administrative' => 0, 'emerging' => 0, 'appeal' => 0];

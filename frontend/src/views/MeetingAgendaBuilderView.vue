@@ -10,6 +10,9 @@ import { useRoute } from 'vue-router'
 import api from '../lib/api'
 import AppIcon from '../components/AppIcon.vue'
 import { useAuthStore } from '../stores/auth'
+// Stage 82 — [D] Art. 83's ranks and Appendix 24's priority grounds, mirrored
+// once so this screen and the live runner name them identically.
+import { PRIORITY_LEVELS, agendaRankLabel, priorityGroundLabel } from '../lib/agenda'
 
 const route = useRoute()
 const { t, locale } = useI18n()
@@ -83,6 +86,7 @@ async function loadMeeting() {
     const [{ data: meetingData }] = await Promise.all([
       api.get(`/meetings/${meetingId.value}`),
       loadStats(),
+      loadOrdering(),
     ])
     meeting.value = meetingData.data
   } catch (requestError) {
@@ -94,6 +98,61 @@ async function loadMeeting() {
 
 watch(meetingId, loadMeeting)
 watch(groupBy, loadStats)
+
+// --- Stage 82: Art. 83's ordering + Appendix 24's per-item profile -------------
+
+const ordering = ref(null)
+const orderingBusy = ref(false)
+const orderingError = ref('')
+const justification = ref('')
+
+const profileFor = computed(() => {
+  const map = new Map()
+  for (const entry of ordering.value?.items ?? []) map.set(entry.id, entry)
+  return map
+})
+
+async function loadOrdering() {
+  if (!meetingId.value) {
+    ordering.value = null
+    return
+  }
+  try {
+    const { data } = await api.get(`/meetings/${meetingId.value}/agenda/ordering`)
+    ordering.value = data.data
+    justification.value = data.data.justification ?? ''
+  } catch {
+    ordering.value = null
+  }
+}
+
+async function applyRuleOrder() {
+  orderingError.value = ''
+  orderingBusy.value = true
+  try {
+    await api.post(`/meetings/${meeting.value.id}/agenda/apply-order`)
+    await loadMeeting()
+  } catch (requestError) {
+    orderingError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    orderingBusy.value = false
+  }
+}
+
+async function saveJustification() {
+  orderingError.value = ''
+  orderingBusy.value = true
+  try {
+    await api.put(`/meetings/${meeting.value.id}`, {
+      agenda_order_justification: justification.value || null,
+    })
+    await loadMeeting()
+  } catch (requestError) {
+    orderingError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    orderingBusy.value = false
+  }
+}
 
 // --- Department options (for admin items) ---------------------------------------
 
@@ -354,8 +413,8 @@ onMounted(async () => {
           <span>{{ t('meetingsUnit.agenda.stats.byPriority') }}</span>
           <strong>
             {{ t('meetings.agenda.priority.high') }} {{ stats.by_priority.high }}
-            · {{ t('meetings.agenda.priority.medium') }} {{ stats.by_priority.medium }}
-            · {{ t('meetings.agenda.priority.low') }} {{ stats.by_priority.low }}
+            · {{ t('meetings.agenda.priority.normal') }} {{ stats.by_priority.normal }}
+            · {{ t('meetings.agenda.priority.none') }} {{ stats.by_priority.none }}
           </strong>
         </div>
         <div class="stat">
@@ -370,6 +429,40 @@ onMounted(async () => {
         <button class="ghost" type="button" @click="showGroups = !showGroups">
           {{ showGroups ? t('meetingsUnit.agenda.stats.hideGroups') : t('meetingsUnit.agenda.stats.showGroups') }}
         </button>
+      </section>
+
+      <!-- Stage 82 — [D] Art. 83's ordering. Offered, not imposed: the
+           article's fifth rule leaves the arrangement to the chair, and
+           Appendix 24 only requires a departure to be written down. -->
+      <section v-if="ordering" class="card ordering">
+        <h3>{{ t('meetings.agenda.ordering.title') }}</h3>
+        <p :class="ordering.matches_rule ? 'state' : 'alert'">
+          {{ ordering.matches_rule ? t('meetings.agenda.ordering.matches') : t('meetings.agenda.ordering.departs') }}
+        </p>
+        <p v-if="orderingError" class="alert" role="alert">{{ orderingError }}</p>
+        <div v-can="'meeting_agenda.edit'" class="ordering-actions">
+          <button
+            class="primary"
+            type="button"
+            :disabled="orderingBusy || ordering.matches_rule"
+            @click="applyRuleOrder"
+          >
+            {{ orderingBusy ? t('meetings.agenda.ordering.applying') : t('meetings.agenda.ordering.apply') }}
+          </button>
+          <label v-if="!ordering.matches_rule" class="wide">
+            {{ t('meetings.agenda.ordering.justification') }}
+            <textarea v-model="justification" rows="2"></textarea>
+          </label>
+          <button
+            v-if="!ordering.matches_rule"
+            class="ghost"
+            type="button"
+            :disabled="orderingBusy"
+            @click="saveJustification"
+          >
+            {{ t('meetings.agenda.ordering.saveJustification') }}
+          </button>
+        </div>
       </section>
 
       <section v-if="showGroups && stats" class="card groups">
@@ -427,9 +520,9 @@ onMounted(async () => {
             {{ t('meetings.agenda.priority.label') }}
             <select v-model="newPriority">
               <option value="">{{ t('common.none') }}</option>
-              <option value="high">{{ t('meetings.agenda.priority.high') }}</option>
-              <option value="medium">{{ t('meetings.agenda.priority.medium') }}</option>
-              <option value="low">{{ t('meetings.agenda.priority.low') }}</option>
+              <option v-for="level in PRIORITY_LEVELS" :key="level" :value="level">
+                {{ t(`meetings.agenda.priority.${level}`) }}
+              </option>
             </select>
           </label>
           <label>
@@ -566,9 +659,9 @@ onMounted(async () => {
                   @change="updateItem(item, { priority: $event.target.value || null })"
                 >
                   <option value="">{{ t('common.none') }}</option>
-                  <option value="high">{{ t('meetings.agenda.priority.high') }}</option>
-                  <option value="medium">{{ t('meetings.agenda.priority.medium') }}</option>
-                  <option value="low">{{ t('meetings.agenda.priority.low') }}</option>
+                  <option v-for="level in PRIORITY_LEVELS" :key="level" :value="level">
+                    {{ t(`meetings.agenda.priority.${level}`) }}
+                  </option>
                 </select>
               </label>
               <label>
@@ -581,7 +674,60 @@ onMounted(async () => {
                   @change="updateItem(item, { estimated_minutes: $event.target.value || null })"
                 />
               </label>
+              <!-- Stage 82 — Appendix 24: "ولا يجوز استخدام الأولوية لتجاوز
+                   ترتيب المعاملات دون مبرر إداري موثق". -->
+              <label v-if="item.priority === 'high'" class="wide">
+                {{ t('meetings.agenda.priority.reason') }}
+                <input
+                  type="text"
+                  :value="item.priority_reason ?? ''"
+                  :placeholder="t('meetings.agenda.priority.reasonHint')"
+                  :disabled="itemSaving[item.id]"
+                  @change="updateItem(item, { priority_reason: $event.target.value || null })"
+                />
+              </label>
             </div>
+
+            <!-- Stage 82 — Appendix 24's own item fields, plus the Art. 83
+                 rank this item falls under. -->
+            <dl v-if="profileFor.get(item.id)" class="appendix24">
+              <div>
+                <dt>{{ t('meetings.agenda.ordering.title') }}</dt>
+                <dd>
+                  {{ agendaRankLabel(t, profileFor.get(item.id).rank) }}
+                  <span
+                    v-for="ground in profileFor.get(item.id).priority_grounds"
+                    :key="ground"
+                    class="pill"
+                  >{{ priorityGroundLabel(t, ground) }}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>{{ t('meetings.agenda.ordering.readinessStatus') }}</dt>
+                <dd>{{ name(profileFor.get(item.id).fields.readiness_status) }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('meetings.agenda.ordering.legalOpinion') }}</dt>
+                <dd>{{ profileFor.get(item.id).fields.legal_opinion?.verdict ?? t('meetings.agenda.ordering.none') }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('meetings.agenda.ordering.requiredInstrument') }}</dt>
+                <dd>{{ profileFor.get(item.id).fields.required_instrument ?? t('meetings.agenda.ordering.none') }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('meetings.agenda.ordering.expectedApprovingBody') }}</dt>
+                <dd>{{ profileFor.get(item.id).fields.expected_approving_body ?? t('meetings.agenda.ordering.none') }}</dd>
+              </div>
+              <div>
+                <dt>{{ t('meetings.agenda.ordering.previouslyPresented') }}</dt>
+                <dd>
+                  <template v-if="profileFor.get(item.id).fields.previously_presented">
+                    {{ profileFor.get(item.id).fields.previous_meeting?.meeting_number ?? t('meetings.agenda.ordering.none') }}
+                  </template>
+                  <template v-else>{{ t('meetings.agenda.ordering.notPresented') }}</template>
+                </dd>
+              </div>
+            </dl>
             <p v-if="itemError[item.id]" class="alert">{{ itemError[item.id] }}</p>
           </li>
         </ol>
@@ -647,6 +793,14 @@ label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; c
 .item-actions { white-space: nowrap; }
 .edit-row { display: flex; gap: 1rem; flex-wrap: wrap; }
 .edit-row label { margin-bottom: 0; }
+.edit-row label.wide { flex: 1 1 100%; }
+
+/* Stage 82 — Art. 83's ordering panel and Appendix 24's per-item fields. */
+.ordering-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .75rem; }
+.ordering-actions label.wide { flex: 1 1 22rem; margin-bottom: 0; }
+.appendix24 { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .4rem .9rem; margin: .6rem 0 0; padding-block-start: .6rem; border-block-start: 1px dashed var(--color-border); }
+.appendix24 dt { color: var(--color-black-600); font-size: .72rem; }
+.appendix24 dd { margin: 0; font-size: .82rem; }
 
 .actions { display: flex; justify-content: flex-end; }
 button { cursor: pointer; border-radius: 8px; font-size: .85rem; }

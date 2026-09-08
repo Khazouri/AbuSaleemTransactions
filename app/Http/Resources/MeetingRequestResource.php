@@ -20,7 +20,11 @@ class MeetingRequestResource extends JsonResource
             // item; subject/department are the admin-item's own, since it has
             // no request to read them from.
             'item_type' => $this->item_type,
+            // Stage 82 — Appendix 24's two levels (high/normal) and, when the
+            // rapporteur declared one that nothing derived supports, the
+            // appendix's own required "مبرر إداري موثق".
             'priority' => $this->priority,
+            'priority_reason' => $this->priority_reason,
             'estimated_minutes' => $this->estimated_minutes,
             'subject' => $this->subject,
             // Stage 34 — the runner's own progress tracker; is_resolved is the
@@ -29,6 +33,11 @@ class MeetingRequestResource extends JsonResource
             'item_state' => $this->item_state,
             'state_changed_at' => $this->state_changed_at?->toIso8601String(),
             'is_resolved' => $this->isResolved(),
+            // Stage 82 — whether Art. 85's study sequence is complete, which
+            // is what opens voting on this item. The card itself (النموذج 11)
+            // comes from its own endpoint, since two of its nine steps are
+            // derived from votes/decision and a resource should not query.
+            'study_sequence_complete' => $this->study_sequence_completed_at !== null,
             'notes' => $this->whenLoaded('notes', fn () => MeetingDiscussionNoteResource::collection($this->notes)),
             'department' => $this->whenLoaded('department', fn () => $this->department ? [
                 'id' => $this->department->id,

@@ -20,6 +20,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\RecordsStructuredDecisions;
+use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -34,6 +35,7 @@ class UnifiedNumberingTest extends TestCase
 {
     use RecordsStructuredDecisions;
     use RefreshDatabase;
+    use RunsStudySequence;
 
     /**
      * Art. 15 + Art. 20 — intake produces a receipt and NO reference; the
@@ -304,12 +306,17 @@ class UnifiedNumberingTest extends TestCase
             'reviewed_at' => now(),
         ]);
 
-        return MeetingRequest::create([
+        $agendaItem = MeetingRequest::create([
             'meeting_id' => $meeting->id,
             'request_id' => $requestRecord->id,
             'item_type' => 'employee_request',
             'agenda_order' => 1,
         ]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($agendaItem);
+
+        return $agendaItem;
     }
 
     private function userWithRole(string $roleCode): User
