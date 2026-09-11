@@ -784,7 +784,16 @@
         "normal": "أولوية عادية",
         "none": "غير محددة",
         "reason": "المبرر الإداري للأولوية العالية",
-        "reasonHint": "لا يجوز استخدام الأولوية لتجاوز ترتيب المعاملات دون مبرر إداري موثق (الملحق 24)."
+        "reasonHint": "لا يجوز استخدام الأولوية لتجاوز ترتيب المعاملات دون مبرر إداري موثق (الملحق 24).",
+        "reasonCode": "سبب الاستعجال المعتمد",
+        "chooseReason": "اختر سبب الاستعجال",
+        "reasons": {
+          "legal_period": "ترتبط بمدة قانونية",
+          "serious_job_harm": "يترتب على تأخيرها ضرر وظيفي جسيم",
+          "returned_with_deadline": "أعيدت من جهة اعتماد بمدة محددة",
+          "official_directive": "صدر توجيه رسمي بسرعة البت",
+          "statutory_urgency": "حالة تستوجب سرعة المعالجة وفق التشريع"
+        }
       },
       "priorityGround": {
         "legal_deadline": "مرتبطة بمدة قانونية",
@@ -1158,7 +1167,8 @@
         "pending_invitations": "بعض المدعوين لم يردوا على الدعوة بعد.",
         "committee_rules_not_recorded": "لم تُثبت قواعد النصاب في بطاقة تعريف اللجنة، ولا يجوز للنظام افتراضها.",
         "missing_legal_review": "بعض بنود الطلبات لم تستكمل المراجعة القانونية المطلوبة.",
-        "agenda_order_departs_from_rule": "ترتيب جدول الأعمال يخالف الترتيب المقرر في المادة 83 دون مبرر إداري موثق."
+        "agenda_order_departs_from_rule": "ترتيب جدول الأعمال يخالف الترتيب المقرر في المادة 83 دون مبرر إداري موثق.",
+        "unresolved_document_conflict": "يوجد تعارض بين مستندات إحدى المعاملات لم يعالج بعد."
       },
       "convene": {
         "title": "مباشرة الاجتماع",
@@ -1956,5 +1966,218 @@
     "notices": "الإشعارات",
     "closure": "مستندات الإقفال",
     "unclassified": "غير مصنف"
+  },
+  "lifecycle": {
+    "title": "الحالات الاستثنائية للمعاملة",
+    "intro": "التعارض في المستندات، والتحقق من صحتها، ومذكرات التصحيح، والحالات الخاصة، وطلبات السحب.",
+    "loading": "جارٍ التحميل…",
+    "error": "تعذر تنفيذ العملية.",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "responsibility": {
+      "label": "المسؤول الحالي",
+      "nextAction": "الإجراء التالي المطلوب",
+      "parties": {
+        "employee": "الموظف",
+        "direct_manager": "الرئيس المباشر",
+        "diwan_deputy": "وكيل الديوان",
+        "hr_department": "إدارة الموارد البشرية",
+        "staff_affairs": "قسم شؤون الموظفين",
+        "committee_rapporteur": "مقرر اللجنة",
+        "legal_member": "العضو القانوني",
+        "committee": "لجنة شؤون الموظفين",
+        "mayor": "عميد البلدية",
+        "ministry": "وزارة الحكم المحلي",
+        "other_central": "جهة مركزية أخرى",
+        "payroll": "قسم المرتبات",
+        "execution_body": "جهة التنفيذ",
+        "archive": "الأرشيف"
+      },
+      "actions": {
+        "complete_documents": "استكمال المستندات المطلوبة",
+        "legal_review": "مراجعة قانونية",
+        "place_on_agenda": "إدراج في جدول الأعمال",
+        "await_meeting": "انتظار اجتماع",
+        "prepare_minutes": "إعداد محضر",
+        "send_for_approval": "إرسال للاعتماد",
+        "await_ministry_reply": "انتظار رد الوزارة",
+        "issue_execution_order": "إصدار قرار تنفيذ",
+        "update_employee_file": "تحديث ملف الموظف",
+        "close_request": "إقفال المعاملة",
+        "manager_review": "مراجعة الرئيس المباشر وإحالة الطلب",
+        "administrative_routing": "إحالة الطلب للجهة المعنية",
+        "register_request": "تجهيز الملف الإداري وقيده",
+        "completeness_check": "فحص اكتمال الملف",
+        "regulatory_review": "مراجعة المقرر وفق اللوائح",
+        "prepare_presentation_memo": "إعداد مذكرة العرض",
+        "reprocess_approval_return": "إثبات إجراء إعادة المعالجة",
+        "closed": "لا إجراء مطلوب — المعاملة مقفلة"
+      }
+    },
+    "duplicate": {
+      "openPrior": "يوجد ملف مفتوح لنفس الموضوع ({title})؛ لا تنشأ معاملة جديدة، بل تلحق المستندات بالمعاملة القائمة.",
+      "classify": "سبق قيد معاملة لنفس الموضوع وأقفلت — يحدد وصف الطلب الجديد",
+      "choose": "اختر صفة الطلب",
+      "redirectedNote": "التظلم وإعادة العرض لا يقدمان كمعاملة جديدة؛ لكل منهما مساره الخاص.",
+      "relations": {
+        "appeal": "تظلم من نتيجة سابقة",
+        "re_presentation": "إعادة عرض للموضوع نفسه",
+        "new_incident": "طلب جديد بسبب واقعة جديدة",
+        "completion_of_previous": "استكمال لقرار سابق"
+      }
+    },
+    "conflicts": {
+      "title": "التعارض بين المستندات",
+      "action": "إثبات تعارض",
+      "resolveAction": "معالجة التعارض",
+      "resolveNote": "لا يجوز للجنة اختيار أحد المستندين بناءً على تقدير شخصي؛ تحدد الجهة المختصة المستند المعتمد.",
+      "blocking": "لا تعرض المعاملة على اللجنة قبل معالجة التعارض بين مستنداتها.",
+      "stillOpen": "لم تتم المعالجة بعد",
+      "none": "لا يوجد تعارض مثبت.",
+      "kinds": {
+        "appointment_date": "اختلاف تاريخ التعيين",
+        "grade": "اختلاف الدرجة",
+        "name": "اختلاف الاسم",
+        "qualification": "اختلاف المؤهل",
+        "promotion_date": "اختلاف تاريخ الترقية",
+        "service_period": "اختلاف مدة الخدمة",
+        "other": "اختلاف آخر بين مستندين رسميين"
+      },
+      "fields": {
+        "conflict_kind": "نوع التعارض",
+        "detail": "المستندات المتعارضة ووجه الاختلاف",
+        "authority_consulted": "الجهة المختصة التي خوطبت",
+        "authoritative_document": "المستند المعتمد",
+        "correction_note": "تصحيح البيانات في ملف الموظف"
+      }
+    },
+    "validity": {
+      "title": "التحقق من صحة المستندات",
+      "note": "يجوز تعليق دراسة المعاملة عند وجود شك جدي في صحة مستند جوهري إلى حين التحقق منه رسمياً.",
+      "action": "تحقق من المستند",
+      "recheckAction": "إعادة التحقق",
+      "unchecked": "لم يتم التحقق",
+      "verdicts": {
+        "sound": "سليم",
+        "doubtful": "محل شك"
+      },
+      "answers": {
+        "yes": "مستوفٍ",
+        "no": "غير مستوفٍ",
+        "not_applicable": "غير منطبق"
+      },
+      "checks": {
+        "issuing_body": "الجهة المصدرة",
+        "document_number": "رقم المستند",
+        "document_date": "تاريخ المستند",
+        "signature": "التوقيع",
+        "stamp": "الختم عند الحاجة",
+        "copy_integrity": "سلامة النسخة",
+        "copy_matches_original": "مطابقة الصورة للأصل عند اشتراطها",
+        "no_unapproved_alteration": "عدم وجود تعديل أو كشط غير معتمد",
+        "linked_to_employee": "ارتباط المستند بالموظف المعني"
+      }
+    },
+    "specialCases": {
+      "title": "الحالات الخاصة والاستثنائية",
+      "action": "إثبات حالة خاصة",
+      "resolveAction": "إثبات المعالجة",
+      "resolvePrompt": "ما انتهت إليه معالجة الحالة الخاصة:",
+      "none": "لا توجد حالات خاصة مثبتة.",
+      "halted": "موقوف الانتقال للمرحلة التالية",
+      "haltProgress": "يوقف الانتقال للمرحلة التالية",
+      "lostDocumentRule": "لا يعاد إنشاء مستند من الذاكرة؛ يوثق البديل ومصدره.",
+      "kinds": {
+        "employee_death": "وفاة الموظف أثناء نظر المعاملة",
+        "service_ended": "انتهاء خدمة الموظف أثناء المعاملة",
+        "transferred_during_study": "نقل الموظف إلى جهة أخرى أثناء دراسة الطلب",
+        "legislation_changed": "تغير التشريع أثناء سير المعاملة",
+        "document_lost": "فقدان مستند من الملف",
+        "invalid_document_after_decision": "اكتشاف مستند غير صحيح بعد قرار اللجنة"
+      },
+      "fields": {
+        "case_kind": "نوع الحالة",
+        "detail": "ملاحظات",
+        "legal_effect": "الأثر القانوني",
+        "procedure_continues": "إمكانية استمرار الإجراء",
+        "transferable_rights": "الحقوق التي قد تنتقل إلى المستحقين",
+        "legal_review_reference": "مرجع الإحالة للمراجعة القانونية",
+        "legal_effect_note": "بيان الأثر القانوني",
+        "transfer_date": "تاريخ النقل",
+        "right_arose_date": "تاريخ نشوء الحق محل الطلب",
+        "competent_body_at_right": "الجهة صاحبة الاختصاص وقت نشوء الحق",
+        "body_completing_procedure": "الجهة التي تملك استكمال الإجراء",
+        "legislation_effective_date": "تاريخ نفاذ التشريع الجديد",
+        "impact_note": "أثر التشريع على المعاملة",
+        "applicable_law": "القانون الواجب التطبيق",
+        "document_note": "المستند المفقود",
+        "replacement_attempt": "محاولة استخراج بدل رسمي",
+        "replacement_source": "النسخة البديلة ومصدرها",
+        "material": "هل المستند مؤثر في القرار؟",
+        "referred_to": "الجهة القانونية والسلطة المختصة المحال إليها"
+      },
+      "options": {
+        "procedure_continues": {
+          "continues": "يستمر الإجراء",
+          "stops": "يتوقف الإجراء"
+        },
+        "legal_effect": {
+          "moot": "يجعل الطلب غير ذي موضوع",
+          "prior_effect_remains": "يبقي له أثراً مالياً أو وظيفياً سابقاً",
+          "completion_for_prior_period": "يستوجب استكمال القرار عن مدة سابقة"
+        },
+        "material": {
+          "yes": "مؤثر",
+          "no": "غير مؤثر"
+        }
+      }
+    },
+    "corrections": {
+      "title": "مذكرات تصحيح الخطأ المادي",
+      "action": "تحرير مذكرة تصحيح",
+      "approveAction": "اعتماد المذكرة",
+      "approved": "معتمدة",
+      "pending": "بانتظار الاعتماد",
+      "none": "لا توجد مذكرات تصحيح.",
+      "substantiveNote": "لا يعالج باعتباره خطأً مادياً الخطأ الذي يمس:",
+      "kinds": {
+        "name": "خطأ في الاسم",
+        "number": "خطأ في الرقم",
+        "date": "خطأ في التاريخ",
+        "reference_number": "خطأ في الرقم المرجعي",
+        "typographical": "خطأ طباعي لا يمس جوهر القرار",
+        "decision_reason": "سبب القرار",
+        "intended_employee": "الموظف المقصود",
+        "entitlement": "الاستحقاق",
+        "grade": "الدرجة",
+        "result": "النتيجة",
+        "approving_body": "جهة الاعتماد"
+      },
+      "fields": {
+        "error_kind": "نوع الخطأ",
+        "detail": "موضع الخطأ",
+        "incorrect_value": "البيان الخاطئ",
+        "corrected_value": "البيان الصحيح",
+        "memo_reference": "رقم مذكرة التصحيح"
+      }
+    },
+    "withdrawals": {
+      "title": "طلبات سحب المعاملة",
+      "action": "تقديم طلب سحب",
+      "determineAction": "البت في طلب السحب",
+      "pending": "بانتظار البت",
+      "none": "لا توجد طلبات سحب.",
+      "afterDecisionNote": "بعد صدور نتيجة اللجنة لا يحذف القرار ولا تمحى المعاملة؛ يسجل الطلب ويحدد أثره القانوني.",
+      "outcomes": {
+        "granted": "قبول السحب وإقفال المعاملة",
+        "refused_administrative_continuation": "استمرار الإجراء رغم طلب السحب",
+        "recorded_only": "تسجيل الطلب وتحديد أثره القانوني"
+      },
+      "fields": {
+        "reason": "طلب السحب وسببه",
+        "outcome": "نتيجة البت",
+        "determination_note": "بيان الأثر القانوني"
+      }
+    }
   }
 }

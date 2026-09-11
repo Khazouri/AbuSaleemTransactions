@@ -13,6 +13,8 @@ import { useAuthStore } from '../stores/auth'
 // Stage 82 — [D] Art. 83's ranks and Appendix 24's priority grounds, mirrored
 // once so this screen and the live runner name them identically.
 import { PRIORITY_LEVELS, agendaRankLabel, priorityGroundLabel } from '../lib/agenda'
+// Stage 83 — [D] Appendix 33's five enumerated grounds for عاجل.
+import { URGENCY_REASONS } from '../lib/lifecycle'
 
 const route = useRoute()
 const { t, locale } = useI18n()
@@ -674,8 +676,26 @@ onMounted(async () => {
                   @change="updateItem(item, { estimated_minutes: $event.target.value || null })"
                 />
               </label>
+              <!-- Stage 83 — [D] Appendix 33: "لا تعتبر المعاملة مستعجلة
+                   لمجرد طلب صاحبها ذلك. ويمنح وصف (عاجل) فقط إذا" one of five
+                   grounds. Shown only for a declared عالية, since that is the
+                   only level the appendix restricts. -->
+              <label v-if="item.priority === 'high'" class="wide">
+                {{ t('meetings.agenda.priority.reasonCode') }}
+                <select
+                  :value="item.priority_reason_code ?? ''"
+                  :disabled="itemSaving[item.id]"
+                  @change="updateItem(item, { priority_reason_code: $event.target.value || null })"
+                >
+                  <option disabled value="">{{ t('meetings.agenda.priority.chooseReason') }}</option>
+                  <option v-for="reason in URGENCY_REASONS" :key="reason" :value="reason">
+                    {{ t(`meetings.agenda.priority.reasons.${reason}`) }}
+                  </option>
+                </select>
+              </label>
               <!-- Stage 82 — Appendix 24: "ولا يجوز استخدام الأولوية لتجاوز
-                   ترتيب المعاملات دون مبرر إداري موثق". -->
+                   ترتيب المعاملات دون مبرر إداري موثق". Stage 83 — Appendix 33
+                   also requires it: "ويثبت سبب الاستعجال في النظام". -->
               <label v-if="item.priority === 'high'" class="wide">
                 {{ t('meetings.agenda.priority.reason') }}
                 <input

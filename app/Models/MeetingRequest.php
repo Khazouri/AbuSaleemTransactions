@@ -36,6 +36,11 @@ class MeetingRequest extends Model
         'agenda_order',
         'item_type',
         'priority',
+        // Stage 83 — [D] Appendix 33's five enumerated grounds for عاجل,
+        // structuring the free-text مبرر beside it rather than replacing it:
+        // the appendix restricts when the description may be granted *and*
+        // requires the reason itself to be recorded.
+        'priority_reason_code',
         'priority_reason',
         'estimated_minutes',
         'subject',

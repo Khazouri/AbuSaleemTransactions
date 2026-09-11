@@ -147,6 +147,11 @@ onMounted(async () => {
               <th>{{ t('requests.type') }}</th>
               <th>{{ t('requests.status') }}</th>
               <th>{{ t('requests.stage') }}</th>
+              <!-- Stage 83 — [D] Appendices 17/18. On the list, not only the
+                   detail screen: the appendix says files get lost between
+                   departments, and this is the screen where that shows. -->
+              <th>{{ t('lifecycle.responsibility.label') }}</th>
+              <th>{{ t('lifecycle.responsibility.nextAction') }}</th>
               <th>{{ t('requests.createdAt') }}</th>
               <th>{{ t('requests.details') }}</th>
               <th>{{ t('attachments.title') }}</th>
@@ -177,6 +182,8 @@ onMounted(async () => {
                   :title="t(`requestDetail.stageTimeliness.level.${request.stage_timeliness.level}`)"
                 />
               </td>
+              <td>{{ request.responsibility ? t(`lifecycle.responsibility.parties.${request.responsibility.responsible.code}`) : '' }}</td>
+              <td>{{ request.responsibility ? t(`lifecycle.responsibility.actions.${request.responsibility.next_action.code}`) : '' }}</td>
               <td>{{ date(request.created_at) }}</td>
               <td>
                 <RouterLink class="ghost details-link" :to="{ name: 'request_details', params: { id: request.id } }">

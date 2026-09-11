@@ -28,6 +28,8 @@ use App\Models\Request;
 use App\Models\RequestStageLog;
 use App\Services\AgendaOrderingService;
 use App\Services\ArtifactNumberGenerator;
+use App\Services\Lifecycle\DocumentConflictService;
+use App\Services\Lifecycle\UrgencyRules;
 use App\Services\NotificationDispatcher;
 use App\Services\StudySequenceRules;
 use Illuminate\Http\JsonResponse;
@@ -260,6 +262,23 @@ class MeetingController extends Controller
                     'request_id' => ['لا يمكن إدراج الطلب في جدول الأعمال قبل استكمال المراجعة القانونية بنتيجة تجيز العرض.'],
                 ]);
             }
+
+            // Stage 83 — [D] Appendix 30: "**فلا تعرض المعاملة قبل معالجة
+            // التعارض**". Here rather than in CommitteeStatusService for the
+            // same reason the legal-review gate above is — an item is inserted
+            // through this endpoint without `place_on_agenda` ever firing.
+            if (app(DocumentConflictService::class)->hasOpenConflict($subject)) {
+                throw ValidationException::withMessages([
+                    'request_id' => [DocumentConflictService::AGENDA_BLOCK_MESSAGE],
+                ]);
+            }
+        }
+
+        // Stage 83 — [D] Appendix 33: "لا تعتبر المعاملة مستعجلة لمجرد طلب
+        // صاحبها ذلك" plus "ويثبت سبب الاستعجال في النظام". A declared عالية
+        // needs one of the appendix's five grounds AND the recorded مبرر.
+        if (($urgency = app(UrgencyRules::class)->refusalReason($validated)) !== null) {
+            throw ValidationException::withMessages(['priority' => [$urgency]]);
         }
 
         $nextOrder = ($meeting->agendaItems()->max('agenda_order') ?? 0) + 1;
@@ -296,7 +315,23 @@ class MeetingController extends Controller
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
-        $agendaItem->update($request->validated());
+        $validated = $request->validated();
+
+        // Stage 83 — Appendix 33, checked against the values the write would
+        // leave behind rather than the payload alone: an update may raise the
+        // level without restating the ground, or clear the ground while the
+        // level stays عالية, and either would slip past a payload-only check.
+        $merged = [
+            'priority' => array_key_exists('priority', $validated) ? $validated['priority'] : $agendaItem->priority,
+            'priority_reason_code' => array_key_exists('priority_reason_code', $validated) ? $validated['priority_reason_code'] : $agendaItem->priority_reason_code,
+            'priority_reason' => array_key_exists('priority_reason', $validated) ? $validated['priority_reason'] : $agendaItem->priority_reason,
+        ];
+
+        if (($urgency = app(UrgencyRules::class)->refusalReason($merged)) !== null) {
+            throw ValidationException::withMessages(['priority' => [$urgency]]);
+        }
+
+        $agendaItem->update($validated);
 
         return new MeetingRequestResource($agendaItem->load(self::AGENDA_ITEM_WITH));
     }

@@ -38,7 +38,12 @@ class MeetingAgendaBuilderTest extends TestCase
                 'item_type' => 'administrative',
                 'subject' => 'مراجعة ميزانية القسم',
                 'department_id' => $departmentId,
+                // Stage 83 — Appendix 33: a declared عاجل names one of its five
+                // grounds and records the reason. This fixture is about
+                // administrative items, not urgency, so it simply satisfies it.
                 'priority' => 'high',
+                'priority_reason_code' => 'official_directive',
+                'priority_reason' => 'توجيه رسمي بسرعة البت في الميزانية.',
                 'estimated_minutes' => 15,
             ])
             ->assertCreated()
@@ -89,7 +94,10 @@ class MeetingAgendaBuilderTest extends TestCase
                 'item_type' => 'administrative',
                 'subject' => 'بند إداري',
                 'department_id' => $admId,
+                // Stage 83 — Appendix 33; see the administrative-item test above.
                 'priority' => 'high',
+                'priority_reason_code' => 'official_directive',
+                'priority_reason' => 'توجيه رسمي بسرعة البت.',
                 'estimated_minutes' => 10,
             ])
             ->assertCreated();
@@ -184,7 +192,10 @@ class MeetingAgendaBuilderTest extends TestCase
 
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}", [
+                // Stage 83 — Appendix 33; see the administrative-item test above.
                 'priority' => 'high',
+                'priority_reason_code' => 'legal_period',
+                'priority_reason' => 'مرتبطة بمدة قانونية.',
                 'estimated_minutes' => 45,
             ])
             ->assertOk()

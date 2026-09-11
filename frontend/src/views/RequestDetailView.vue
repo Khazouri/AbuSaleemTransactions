@@ -12,6 +12,7 @@ import ApprovalTrail from '../components/ApprovalTrail.vue'
 import FileUpload from '../components/FileUpload.vue'
 import SignaturePad from '../components/SignaturePad.vue'
 import RequestClosurePanel from '../components/RequestClosurePanel.vue'
+import RequestLifecyclePanel from '../components/RequestLifecyclePanel.vue'
 import RequestNotes from '../components/RequestNotes.vue'
 import api from '../lib/api'
 // Stage 72 — [D] Appendix 57's grouped document matrix, shared with the intake
@@ -485,6 +486,17 @@ onBeforeUnmount(clearAttachmentPreview)
           <span>{{ t('requestDetail.dueDate') }}</span>
           <strong>{{ date(request.due_date) }}</strong>
         </div>
+        <!-- Stage 83 — [D] Appendices 17 and 18. "يجب أن تظهر في كل معاملة
+             خانة إلزامية باسم: المسؤول الحالي. ولا يجوز تركها فارغة" — both
+             are derived, so neither can be blank. -->
+        <div v-if="request.responsibility">
+          <span>{{ t('lifecycle.responsibility.label') }}</span>
+          <strong>{{ t(`lifecycle.responsibility.parties.${request.responsibility.responsible.code}`) }}</strong>
+        </div>
+        <div v-if="request.responsibility">
+          <span>{{ t('lifecycle.responsibility.nextAction') }}</span>
+          <strong>{{ t(`lifecycle.responsibility.actions.${request.responsibility.next_action.code}`) }}</strong>
+        </div>
         <!-- Stage 51 — [A] §7's "المستندات الناقصة" flag, derived from status. -->
         <div>
           <span>{{ t('requestDetail.documentsComplete.label') }}</span>
@@ -871,6 +883,19 @@ onBeforeUnmount(clearAttachmentPreview)
             @updated="onGateUpdated"
           />
         </div>
+      </section>
+
+      <!-- Stage 83 — [D]'s lifecycle edge cases (Appendices 30, 31, 53, 60,
+           68/69). One card rather than five, because they are five answers to
+           the same question: what has happened to this file that the ordinary
+           pipeline does not describe? -->
+      <section class="card summary closure">
+        <h3>{{ t('lifecycle.title') }}</h3>
+        <p class="hint">{{ t('lifecycle.intro') }}</p>
+        <RequestLifecyclePanel
+          :request-id="request.id"
+          :is-requester="request.created_by?.id === auth.user?.id"
+        />
       </section>
 
       <!-- Stage 79 — [D] Art. 101's register for this file: which of its twelve

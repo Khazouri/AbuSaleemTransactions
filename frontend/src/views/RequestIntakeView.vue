@@ -6,6 +6,9 @@ import api from '../lib/api'
 // Stage 72 — [D] Appendix 57's grouped document matrix, shared with the
 // request workspace so both screens read the same list the same way.
 import { documentCondition, documentLabel, groupDocuments } from '../lib/requiredDocuments'
+// Stage 83 — [D] Appendix 16 classifies a new request raised after an
+// earlier one on the same subject; the two it routes elsewhere are greyed out.
+import { PRIOR_RELATIONS } from '../lib/lifecycle'
 
 const { t, locale } = useI18n()
 const options = ref({ departments: [], types: [] })
@@ -16,6 +19,10 @@ const submitting = ref(false)
 const errors = ref({})
 const error = ref('')
 const created = ref(null)
+// Stage 83 — Appendix 16's own search, run before the form is submitted so
+// the employee is shown the open file rather than a refusal after the fact.
+const duplicate = ref(null)
+const duplicateChecking = ref(false)
 
 const acceptedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png']
 const maxBytes = 20 * 1024 * 1024
@@ -27,7 +34,27 @@ const selectedType = computed(() => options.value.types.find(
 const documentSections = computed(() => groupDocuments(selectedType.value?.required_documents))
 
 function blankForm() {
-  return { title: '', description: '', department_id: '', request_type_id: '', decision_grade: '' }
+  return { title: '', description: '', department_id: '', request_type_id: '', decision_grade: '', prior_relation: '' }
+}
+
+/** Appendix 16 searches "برقم الموظف وموضوع المعاملة" — the type is the subject. */
+async function checkDuplicates() {
+  duplicate.value = null
+  form.value.prior_relation = ''
+  if (!form.value.request_type_id) return
+  duplicateChecking.value = true
+  try {
+    const { data } = await api.get('/requests/duplicate-check', {
+      params: { request_type_id: form.value.request_type_id },
+    })
+    duplicate.value = data.data
+  } catch {
+    // A failed lookup must not block intake: the server refuses a genuine
+    // duplicate on its own, so this panel is a courtesy, not the gate.
+    duplicate.value = null
+  } finally {
+    duplicateChecking.value = false
+  }
 }
 
 function name(item) {
@@ -94,6 +121,7 @@ async function submit() {
   payload.append('department_id', form.value.department_id)
   payload.append('request_type_id', form.value.request_type_id)
   if (form.value.decision_grade !== '') payload.append('decision_grade', form.value.decision_grade)
+  if (form.value.prior_relation !== '') payload.append('prior_relation', form.value.prior_relation)
   files.value.forEach(({ file, label }, index) => {
     payload.append(`attachments[${index}][file]`, file)
     if (label.trim()) payload.append(`attachments[${index}][label]`, label.trim())
@@ -116,6 +144,7 @@ function startAnother() {
   errors.value = {}
   error.value = ''
   created.value = null
+  duplicate.value = null
 }
 
 onMounted(loadOptions)
@@ -166,12 +195,34 @@ onMounted(loadOptions)
           </label>
           <label>
             {{ t('requests.type') }}
-            <select v-model="form.request_type_id" required>
+            <select v-model="form.request_type_id" required @change="checkDuplicates">
               <option disabled value="">{{ t('intake.chooseType') }}</option>
               <option v-for="type in options.types" :key="type.id" :value="type.id">{{ name(type) }}</option>
             </select>
             <small v-if="errors.request_type_id">{{ errors.request_type_id[0] }}</small>
           </label>
+          <!-- Stage 83 — [D] Appendix 16. An open file on the same subject is
+               shown before the form is filled: "لا تنشأ معاملة جديدة، بل تلحق
+               المستندات بالمعاملة القائمة". -->
+          <div v-if="duplicate?.open_prior" class="wide alert" role="alert">
+            {{ t('lifecycle.duplicate.openPrior', { title: duplicate.open_prior.title }) }}
+          </div>
+          <label v-else-if="duplicate?.prior_requests?.length" class="wide">
+            {{ t('lifecycle.duplicate.classify') }}
+            <select v-model="form.prior_relation" required>
+              <option disabled value="">{{ t('lifecycle.duplicate.choose') }}</option>
+              <option
+                v-for="relation in PRIOR_RELATIONS"
+                :key="relation"
+                :value="relation"
+                :disabled="duplicate.relations.find((entry) => entry.code === relation)?.redirected"
+              >
+                {{ t(`lifecycle.duplicate.relations.${relation}`) }}
+              </option>
+            </select>
+            <small>{{ t('lifecycle.duplicate.redirectedNote') }}</small>
+          </label>
+          <p v-else-if="duplicateChecking" class="wide state">{{ t('common.loading') }}</p>
           <label>
             {{ t('intake.decisionGrade') }}
             <input

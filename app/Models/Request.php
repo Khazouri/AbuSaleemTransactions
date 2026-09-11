@@ -34,6 +34,11 @@ class Request extends Model
         'decision_grade',
         'has_financial_impact',
         'jurisdiction_test',
+        // Stage 83 — [D] Appendix 16's classification of a request raised
+        // after an earlier file on the same subject closed. Written once, at
+        // intake; only its two "genuinely new" values ever reach the column.
+        'prior_relation',
+        'prior_request_id',
         // Stage 78 — [D] Appendix 63's بوابة 1 (قبل القيد). Written only by
         // RequestController::recordIntakeGate() and cleared by reopen(),
         // fillable for the same reason the closure/execution cards below are.
@@ -262,6 +267,46 @@ class Request extends Model
         return $this->hasOne(RequestSuspension::class)
             ->whereNull('resolved_at')
             ->latestOfMany();
+    }
+
+    /**
+     * Stage 83 — [D] Appendix 30's rounds of conflict handling, oldest first.
+     *
+     * A history rather than a flag: the appendix names six steps performed at
+     * two moments — تحديد المستندات المتعارضة, then the external determination
+     * that resolves it — and one file can carry more than one conflict.
+     */
+    public function documentConflicts(): HasMany
+    {
+        return $this->hasMany(RequestDocumentConflict::class);
+    }
+
+    /** Stage 83 — [D] Appendix 60's الحالات الخاصة raised against this file. */
+    public function specialCases(): HasMany
+    {
+        return $this->hasMany(RequestSpecialCase::class);
+    }
+
+    /** Stage 83 — [D] Appendix 53's مذكرات التصحيح, approved and pending. */
+    public function corrections(): HasMany
+    {
+        return $this->hasMany(RequestCorrection::class);
+    }
+
+    /** Stage 83 — [D] Appendices 68/69's withdrawal requests, oldest first. */
+    public function withdrawals(): HasMany
+    {
+        return $this->hasMany(RequestWithdrawal::class);
+    }
+
+    /**
+     * Stage 83 — [D] Appendix 16: the closed file this one was raised after,
+     * when the submitter classified the new request as arising from a new fact
+     * or as completing a previous decision. Null for an ordinary first request.
+     */
+    public function priorRequest(): BelongsTo
+    {
+        return $this->belongsTo(Request::class, 'prior_request_id');
     }
 
     /** Stage 44 — every agenda slot this request has ridden, across meetings. */

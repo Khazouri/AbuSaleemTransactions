@@ -58,4 +58,21 @@ class Attachment extends Model
     {
         return $this->belongsTo(User::class, 'uploaded_by_user_id');
     }
+
+    /** Stage 83 — who ran [D] Appendix 31's nine checks over this document. */
+    public function validityCheckedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'validity_checked_by_user_id');
+    }
+
+    protected function casts(): array
+    {
+        return [
+            // Stage 83 — [D] Appendix 31's التحقق من صحة المستندات. Null means
+            // the document has never been checked, which is a different thing
+            // from being checked and found doubtful.
+            'validity_checks' => 'array',
+            'validity_checked_at' => 'datetime',
+        ];
+    }
 }

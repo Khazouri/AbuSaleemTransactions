@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\MeetingAgenda;
 
+use App\Services\Lifecycle\UrgencyRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -51,6 +52,9 @@ class StoreMeetingAgendaRequest extends FormRequest
             // (أولوية عالية / أولوية عادية); Stage 31's high/medium/low was
             // this system's own invention.
             'priority' => ['nullable', Rule::in(['high', 'normal'])],
+            // Stage 83 — [D] Appendix 33's five enumerated grounds. Format
+            // only; UrgencyRules decides when one is required.
+            'priority_reason_code' => ['nullable', Rule::in(array_keys(UrgencyRules::REASONS))],
             'priority_reason' => ['nullable', 'string', 'max:500'],
             'estimated_minutes' => ['nullable', 'integer', 'min:1', 'max:600'],
         ];

@@ -16,6 +16,7 @@ use App\Observers\AuditObserver;
 use App\Observers\ReportCacheObserver;
 use App\Observers\RequestStatusNoticeObserver;
 use App\Services\Backup\MysqlDumper;
+use App\Services\Lifecycle\RequestResponsibilityService;
 use App\Services\Sms\LogSmsSender;
 use Illuminate\Support\ServiceProvider;
 
@@ -70,6 +71,14 @@ class AppServiceProvider extends ServiceProvider
 
             return $this->app->make($dumper);
         });
+
+        // Stage 83 — [D] Appendices 17/18. A singleton because the service
+        // memoises the seed data both derivations read (the non-exception
+        // workflow_transitions rows and the role codes), so a paginated list
+        // that answers "من صاحب الإجراء الآن؟" for every row costs two queries
+        // regardless of how many rows it holds. The container is per-request,
+        // so the memo can never outlive the data it was built from.
+        $this->app->singleton(RequestResponsibilityService::class);
     }
 
     /**

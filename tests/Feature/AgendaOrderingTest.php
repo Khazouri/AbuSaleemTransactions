@@ -267,6 +267,9 @@ class AgendaOrderingTest extends TestCase
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}", [
                 'priority' => 'high',
+                // Stage 83 — Appendix 33 now requires the ground as well as the
+                // مبرر Appendix 24 asks for, so a declared عالية names one.
+                'priority_reason_code' => 'serious_job_harm',
                 'priority_reason' => 'تأخير الملف يرتب ضرراً وظيفياً واضحاً على الموظف.',
             ])
             ->assertOk()
@@ -281,6 +284,86 @@ class AgendaOrderingTest extends TestCase
 
         $this->assertSame(['declared'], $grounds['priority_grounds']);
         $this->assertSame('high', $grounds['priority_level']);
+    }
+
+    /**
+     * Stage 83 — [D] Appendix 33: "**لا تعتبر المعاملة مستعجلة لمجرد طلب
+     * صاحبها ذلك**. ويمنح وصف (عاجل) فقط إذا: ..." five grounds, "**ويثبت سبب
+     * الاستعجال في النظام**". Both halves bind, and normal priority needs
+     * neither.
+     */
+    public function test_a_declared_urgency_needs_one_of_appendix_33s_five_grounds_and_a_recorded_reason(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, $meeting] = $this->committeeAndMeeting();
+        $item = $this->agendaItem($meeting, $this->request('URGENCY'), 1);
+        $url = "/api/meetings/{$meeting->id}/agenda/{$item->id}";
+
+        // The bare request, which the appendix's first sentence rules out.
+        $this->actingAs($head, 'sanctum')
+            ->patchJson($url, ['priority' => 'high'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('priority');
+
+        // A ground with nothing recorded to substantiate it.
+        $this->actingAs($head, 'sanctum')
+            ->patchJson($url, ['priority' => 'high', 'priority_reason_code' => 'legal_period'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('priority');
+
+        // A ground the appendix does not enumerate.
+        $this->actingAs($head, 'sanctum')
+            ->patchJson($url, [
+                'priority' => 'high',
+                'priority_reason_code' => 'requested_by_employee',
+                'priority_reason' => 'طلب الموظف الاستعجال.',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('priority_reason_code');
+
+        $this->actingAs($head, 'sanctum')
+            ->patchJson($url, [
+                'priority' => 'high',
+                'priority_reason_code' => 'legal_period',
+                'priority_reason' => 'ترتبط المعاملة بمدة قانونية تنتهي خلال أسبوعين.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.priority_reason_code', 'legal_period')
+            ->assertJsonPath('data.priority_reason_label', 'ترتبط بمدة قانونية');
+
+        // أولوية عادية needs neither half.
+        $this->actingAs($head, 'sanctum')
+            ->patchJson($url, ['priority' => 'normal', 'priority_reason_code' => null, 'priority_reason' => null])
+            ->assertOk();
+    }
+
+    /**
+     * The rule reads the values the write would leave behind, not the payload
+     * alone — otherwise clearing the ground while the level stays عالية would
+     * slip past it.
+     */
+    public function test_clearing_the_ground_on_an_already_urgent_item_is_refused(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, $meeting] = $this->committeeAndMeeting();
+        $item = $this->agendaItem($meeting, $this->request('MERGED'), 1, [
+            'priority' => 'high',
+            'priority_reason_code' => 'official_directive',
+            'priority_reason' => 'توجيه رسمي بسرعة البت.',
+        ]);
+
+        $this->actingAs($head, 'sanctum')
+            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}", ['priority_reason_code' => null])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('priority');
+
+        // And the same in reverse: raising the level without restating a
+        // ground the item already carries is fine.
+        $this->actingAs($head, 'sanctum')
+            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}", ['estimated_minutes' => 30])
+            ->assertOk();
     }
 
     // --- fixtures ----------------------------------------------------------

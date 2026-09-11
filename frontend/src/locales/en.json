@@ -784,7 +784,16 @@
         "normal": "Normal priority",
         "none": "Not set",
         "reason": "Administrative justification for high priority",
-        "reasonHint": "Priority may not be used to jump the agenda order without a documented administrative justification (Appendix 24)."
+        "reasonHint": "Priority may not be used to jump the agenda order without a documented administrative justification (Appendix 24).",
+        "reasonCode": "Approved urgency ground",
+        "chooseReason": "Choose an urgency ground",
+        "reasons": {
+          "legal_period": "Bound by a legal period",
+          "serious_job_harm": "Delay would cause serious job harm",
+          "returned_with_deadline": "Returned by an approving body with a set period",
+          "official_directive": "An official directive to decide quickly was issued",
+          "statutory_urgency": "A case the legislation requires be handled quickly"
+        }
       },
       "priorityGround": {
         "legal_deadline": "Tied to a legal deadline",
@@ -1158,7 +1167,8 @@
         "pending_invitations": "Some attendees have not responded to their invitation.",
         "committee_rules_not_recorded": "The committee card records no quorum rule, and the system may not assume one.",
         "missing_legal_review": "Some request items have not completed the required legal review.",
-        "agenda_order_departs_from_rule": "The agenda departs from the order Art. 83 mandates, with no documented administrative justification."
+        "agenda_order_departs_from_rule": "The agenda departs from the order Art. 83 mandates, with no documented administrative justification.",
+        "unresolved_document_conflict": "A document conflict on one of the agenda items has not been resolved."
       },
       "convene": {
         "title": "Convene meeting",
@@ -1956,5 +1966,218 @@
     "notices": "Notices",
     "closure": "Closure documents",
     "unclassified": "Unclassified"
+  },
+  "lifecycle": {
+    "title": "Exceptional situations",
+    "intro": "Document conflicts, document validity, correction memos, special cases and withdrawal requests.",
+    "loading": "Loading…",
+    "error": "The operation could not be completed.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "responsibility": {
+      "label": "Currently responsible",
+      "nextAction": "Next action required",
+      "parties": {
+        "employee": "The employee",
+        "direct_manager": "Direct manager",
+        "diwan_deputy": "Diwan deputy",
+        "hr_department": "Human resources department",
+        "staff_affairs": "Staff affairs section",
+        "committee_rapporteur": "Committee rapporteur",
+        "legal_member": "Legal member",
+        "committee": "Staff affairs committee",
+        "mayor": "Municipality mayor",
+        "ministry": "Ministry of Local Governance",
+        "other_central": "Another central body",
+        "payroll": "Payroll section",
+        "execution_body": "Executing body",
+        "archive": "Archive"
+      },
+      "actions": {
+        "complete_documents": "Complete the required documents",
+        "legal_review": "Legal review",
+        "place_on_agenda": "Place on the agenda",
+        "await_meeting": "Await the meeting",
+        "prepare_minutes": "Prepare the minutes",
+        "send_for_approval": "Send for approval",
+        "await_ministry_reply": "Await the ministry reply",
+        "issue_execution_order": "Issue the execution order",
+        "update_employee_file": "Update the employee file",
+        "close_request": "Close the request",
+        "manager_review": "Direct-manager review and referral",
+        "administrative_routing": "Route the request to the relevant body",
+        "register_request": "Prepare and register the file",
+        "completeness_check": "Check the file for completeness",
+        "regulatory_review": "Rapporteur review against the regulations",
+        "prepare_presentation_memo": "Prepare the presentation memo",
+        "reprocess_approval_return": "Record the re-processing action",
+        "closed": "No action required — the file is closed"
+      }
+    },
+    "duplicate": {
+      "openPrior": "An open file already exists on the same subject ({title}); no new request is created — attach the documents to it instead.",
+      "classify": "An earlier request on the same subject has closed — classify the new one",
+      "choose": "Choose a classification",
+      "redirectedNote": "An appeal and a re-presentation are not filed as new requests; each has its own route.",
+      "relations": {
+        "appeal": "Appeal against a previous result",
+        "re_presentation": "Re-presentation of the same matter",
+        "new_incident": "A new request arising from a new fact",
+        "completion_of_previous": "Completion of a previous decision"
+      }
+    },
+    "conflicts": {
+      "title": "Conflicting documents",
+      "action": "Record a conflict",
+      "resolveAction": "Resolve the conflict",
+      "resolveNote": "The committee may not choose between two documents on its own judgement; the competent body determines which is authoritative.",
+      "blocking": "The request is not presented to the committee before the conflict between its documents is resolved.",
+      "stillOpen": "Not yet resolved",
+      "none": "No conflict recorded.",
+      "kinds": {
+        "appointment_date": "Conflicting appointment date",
+        "grade": "Conflicting grade",
+        "name": "Conflicting name",
+        "qualification": "Conflicting qualification",
+        "promotion_date": "Conflicting promotion date",
+        "service_period": "Conflicting service period",
+        "other": "Another conflict between two official documents"
+      },
+      "fields": {
+        "conflict_kind": "Kind of conflict",
+        "detail": "The conflicting documents and how they differ",
+        "authority_consulted": "Competent body addressed",
+        "authoritative_document": "Authoritative document",
+        "correction_note": "Correction made to the employee record"
+      }
+    },
+    "validity": {
+      "title": "Document validity",
+      "note": "Study of the request may be suspended where there is serious doubt about an essential document, until it is officially verified.",
+      "action": "Verify the document",
+      "recheckAction": "Verify again",
+      "unchecked": "Not verified",
+      "verdicts": {
+        "sound": "Sound",
+        "doubtful": "In doubt"
+      },
+      "answers": {
+        "yes": "Satisfied",
+        "no": "Not satisfied",
+        "not_applicable": "Not applicable"
+      },
+      "checks": {
+        "issuing_body": "Issuing body",
+        "document_number": "Document number",
+        "document_date": "Document date",
+        "signature": "Signature",
+        "stamp": "Stamp, where required",
+        "copy_integrity": "Integrity of the copy",
+        "copy_matches_original": "Copy matches the original, where required",
+        "no_unapproved_alteration": "No unapproved alteration or erasure",
+        "linked_to_employee": "The document belongs to the employee concerned"
+      }
+    },
+    "specialCases": {
+      "title": "Special and exceptional cases",
+      "action": "Record a special case",
+      "resolveAction": "Record the outcome",
+      "resolvePrompt": "What the handling of the special case concluded:",
+      "none": "No special cases recorded.",
+      "halted": "Progress to the next stage is halted",
+      "haltProgress": "Halt progress to the next stage",
+      "lostDocumentRule": "A document is never recreated from memory; the substitute and its source are documented.",
+      "kinds": {
+        "employee_death": "The employee died while the request was under consideration",
+        "service_ended": "The employee’s service ended during the request",
+        "transferred_during_study": "The employee transferred to another body during the study",
+        "legislation_changed": "The legislation changed while the request was in progress",
+        "document_lost": "A document was lost from the file",
+        "invalid_document_after_decision": "An invalid document was discovered after the decision"
+      },
+      "fields": {
+        "case_kind": "Kind of case",
+        "detail": "Notes",
+        "legal_effect": "Legal effect",
+        "procedure_continues": "Whether the procedure may continue",
+        "transferable_rights": "Rights that may pass to the beneficiaries",
+        "legal_review_reference": "Reference of the referral to legal review",
+        "legal_effect_note": "Statement of the legal effect",
+        "transfer_date": "Transfer date",
+        "right_arose_date": "Date the claimed right arose",
+        "competent_body_at_right": "Body competent when the right arose",
+        "body_completing_procedure": "Body able to complete the procedure",
+        "legislation_effective_date": "Effective date of the new legislation",
+        "impact_note": "Its impact on the request",
+        "applicable_law": "The applicable law",
+        "document_note": "The lost document",
+        "replacement_attempt": "Attempt to obtain an official replacement",
+        "replacement_source": "The substitute copy and its source",
+        "material": "Is the document material to the decision?",
+        "referred_to": "The legal body and competent authority it was referred to"
+      },
+      "options": {
+        "procedure_continues": {
+          "continues": "The procedure continues",
+          "stops": "The procedure stops"
+        },
+        "legal_effect": {
+          "moot": "It makes the request moot",
+          "prior_effect_remains": "A prior financial or employment effect remains",
+          "completion_for_prior_period": "A decision for a prior period must still be completed"
+        },
+        "material": {
+          "yes": "Material",
+          "no": "Not material"
+        }
+      }
+    },
+    "corrections": {
+      "title": "Material-error correction memos",
+      "action": "Draft a correction memo",
+      "approveAction": "Approve the memo",
+      "approved": "Approved",
+      "pending": "Awaiting approval",
+      "none": "No correction memos.",
+      "substantiveNote": "An error touching the following is not handled as a material error:",
+      "kinds": {
+        "name": "Error in the name",
+        "number": "Error in a number",
+        "date": "Error in a date",
+        "reference_number": "Error in the reference number",
+        "typographical": "A typographical error not touching the substance",
+        "decision_reason": "The reason for the decision",
+        "intended_employee": "The employee concerned",
+        "entitlement": "The entitlement",
+        "grade": "The grade",
+        "result": "The result",
+        "approving_body": "The approving body"
+      },
+      "fields": {
+        "error_kind": "Kind of error",
+        "detail": "Where the error is",
+        "incorrect_value": "The incorrect entry",
+        "corrected_value": "The correct entry",
+        "memo_reference": "Correction memo number"
+      }
+    },
+    "withdrawals": {
+      "title": "Withdrawal requests",
+      "action": "File a withdrawal request",
+      "determineAction": "Determine the withdrawal request",
+      "pending": "Awaiting determination",
+      "none": "No withdrawal requests.",
+      "afterDecisionNote": "After the committee has decided, the decision is not deleted and the file is not erased; the request is recorded and its legal effect determined.",
+      "outcomes": {
+        "granted": "Withdrawal granted and the file closed",
+        "refused_administrative_continuation": "The procedure continues despite the withdrawal request",
+        "recorded_only": "The request is recorded and its legal effect determined"
+      },
+      "fields": {
+        "reason": "The withdrawal request and its reason",
+        "outcome": "Determination",
+        "determination_note": "Statement of the legal effect"
+      }
+    }
   }
 }

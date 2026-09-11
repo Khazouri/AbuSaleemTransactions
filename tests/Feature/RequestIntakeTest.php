@@ -215,14 +215,18 @@ class RequestIntakeTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
         $department = Department::where('code', 'ADM')->firstOrFail();
-        $type = RequestType::where('code', 'PROM')->firstOrFail();
+        // Stage 83 — two different types, deliberately: [D] Appendix 16 now
+        // refuses a second request while an open file on the *same* subject
+        // exists ("لا تنشأ معاملة جديدة"), and this test is about the receipt
+        // series, which is global per year rather than per type.
+        $types = RequestType::whereIn('code', ['PROM', 'LEAV'])->get()->keyBy('code');
 
-        foreach ([1, 2] as $sequence) {
+        foreach ([1 => 'PROM', 2 => 'LEAV'] as $sequence => $code) {
             $this->actingAs($admin, 'sanctum')
                 ->postJson('/api/requests', [
                     'title' => "طلب {$sequence}",
                     'department_id' => $department->id,
-                    'request_type_id' => $type->id,
+                    'request_type_id' => $types[$code]->id,
                     'decision_grade' => 9,
                 ])
                 ->assertCreated()

@@ -29,6 +29,11 @@ class RequestDetailResource extends RequestResource
             // Stage 54 — [D] Art. 45's 6-question jurisdiction test, recorded
             // at requirements_check; null until someone has answered it.
             'jurisdiction_test' => $this->jurisdiction_test,
+            // Stage 83 — [D] Appendix 16's classification, recorded when this
+            // request was raised after an earlier closed file on the same
+            // subject. Null for an ordinary first request.
+            'prior_relation' => $this->prior_relation,
+            'prior_request_id' => $this->prior_request_id,
             // Stage 68 — [D] Art. 21's pre-meeting legal review. Only the
             // latest round is surfaced here (it is the one that gates the
             // agenda); the full history lives behind

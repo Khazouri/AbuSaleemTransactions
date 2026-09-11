@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Request;
 
 use App\Models\RequestType;
+use App\Services\Lifecycle\DuplicatePolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -35,6 +36,13 @@ class StoreRequest extends FormRequest
                 'integer',
                 'between:1,100',
             ],
+            // Stage 83 — [D] Appendix 16. Format only: whether a classification
+            // is *required* (and whether the chosen one is refused as belonging
+            // to another mechanism) depends on this employee's own prior files,
+            // which is a lookup, so DuplicatePolicy answers it in the
+            // controller — the split StoreDecisionRequest's docblock already
+            // established for rules that depend on state.
+            'prior_relation' => ['nullable', Rule::in(array_keys(DuplicatePolicy::RELATIONS))],
             'attachments' => ['nullable', 'array', 'max:10'],
             'attachments.*.file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:20480'],
             'attachments.*.label' => ['nullable', 'string', 'max:255'],

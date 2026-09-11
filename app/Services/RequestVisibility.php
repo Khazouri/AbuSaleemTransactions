@@ -130,7 +130,31 @@ class RequestVisibility
                                 RequestSuspensionService::SUSPENDED_STATUS,
                             ])
                             ->select('id'),
-                    )->orWhereNotNull('requests.closed_at');
+                    )->orWhereNotNull('requests.closed_at')
+                        // Stage 83 — the seventh instance of the same gap, and
+                        // the first that a status list cannot bound, because
+                        // its records span a file's whole life: [D] Appendix 30
+                        // raises a document conflict before the agenda,
+                        // Appendix 60 a special case at any point, Appendix 53
+                        // a correction after the decision, Appendix 68 a
+                        // withdrawal wherever the employee files one. Picking a
+                        // status subset would have made المقرر able to record
+                        // some of them and 404 on the rest.
+                        //
+                        // Bounded instead by Art. 20's own line: a file that
+                        // has been granted its رقم إشاري is, in the article's
+                        // words, قيدت لدى لجنة شؤون الموظفين — the committee's
+                        // own file, which is exactly the population every one of
+                        // those appendices addresses to المقرر. Before the قيد
+                        // Art. 15 is explicit that the matter is not the
+                        // committee's yet, so the intake half stays private to
+                        // its creator and its own assignees.
+                        //
+                        // Not a new disclosure: the reports and registers
+                        // screens already list this same population to every
+                        // role. This only makes the detail workspace agree with
+                        // what those screens already show R02 and R03.
+                        ->orWhereNotNull('requests.reference_number');
                 });
             }
 

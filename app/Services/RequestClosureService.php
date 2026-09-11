@@ -7,6 +7,7 @@ use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
 use App\Models\User;
+use App\Services\Lifecycle\SpecialCaseRules;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -182,6 +183,15 @@ class RequestClosureService
         // releases this hold.
         if (Appeal::openAgainst($requestRecord->id)) {
             return 'لا يجوز إقفال معاملة مرتبطة بتظلم مفتوح.';
+        }
+
+        // Stage 83 — [D] Appendix 60's first two special cases, which are the
+        // only two of its six that forbid a closure: "**لا تغلق المعاملة
+        // تلقائيًا**" on a death, and "**ولا يغلق الملف دون تحديد الأثر
+        // القانوني**" on a service ending. Both lift when the case is resolved,
+        // which is when that legal effect has been determined.
+        if (($specialCase = app(SpecialCaseRules::class)->closureRefusal($requestRecord)) !== null) {
+            return $specialCase;
         }
 
         if ($audit === null) {

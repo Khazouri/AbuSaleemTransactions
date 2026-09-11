@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\MeetingAgenda;
 
+use App\Services\Lifecycle\UrgencyRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,6 +28,8 @@ class UpdateMeetingAgendaItemRequest extends FormRequest
             'department_id' => ['sometimes', 'nullable', 'integer', 'exists:departments,id'],
             // Stage 82 — Appendix 24's two levels; see StoreMeetingAgendaRequest.
             'priority' => ['sometimes', 'nullable', Rule::in(['high', 'normal'])],
+            // Stage 83 — [D] Appendix 33; see StoreMeetingAgendaRequest.
+            'priority_reason_code' => ['sometimes', 'nullable', Rule::in(array_keys(UrgencyRules::REASONS))],
             'priority_reason' => ['sometimes', 'nullable', 'string', 'max:500'],
             'estimated_minutes' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:600'],
         ];

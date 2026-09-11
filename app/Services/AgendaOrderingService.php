@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ApprovalReturn;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
+use App\Services\Lifecycle\UrgencyRules;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -130,6 +131,14 @@ class AgendaOrderingService
                 'rank' => $this->rankFor($grounds, $readyAt),
                 'priority_level' => $grounds === [] ? 'normal' : 'high',
                 'priority_declared' => $item->priority,
+                // Stage 83 — [D] Appendix 33's own ground, reported beside the
+                // derived grounds above rather than checked against them: a
+                // legal period can be known to the rapporteur before Stage 68's
+                // card records one, so refusing an uncorroborated declaration
+                // would make the true answer unrecordable. A reader can see
+                // both and judge.
+                'priority_reason_code' => $item->priority_reason_code,
+                'priority_reason_label' => app(UrgencyRules::class)->label($item->priority_reason_code),
                 'priority_reason' => $item->priority_reason,
                 'priority_grounds' => $grounds,
                 'ready_at' => $readyAt,

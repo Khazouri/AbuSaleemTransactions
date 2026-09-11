@@ -37,6 +37,8 @@ use App\Services\ApprovalSignatureStorage;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\ExecutionSoundnessService;
 use App\Services\IntakeGateService;
+use App\Services\Lifecycle\DuplicatePolicy;
+use App\Services\Lifecycle\SpecialCaseRules;
 use App\Services\NotificationDispatcher;
 use App\Services\Performance\TimeCardCompiler;
 use App\Services\ReopenReasonCatalog;
@@ -99,6 +101,15 @@ class RequestController extends Controller
         // anywhere, not merely at the stage where the doubt surfaced.
         if ($requestRecord->openSuspension()->exists()) {
             return RequestSuspensionService::BLOCK_MESSAGE;
+        }
+
+        // Stage 83 — [D] Appendix 60's two cases that stop the file moving on:
+        // an invalid document discovered after the decision *when the recorder
+        // answered مؤثر*, and a legislative change *when the recorder set the
+        // halt* — each qualified exactly as the appendix qualifies it. The
+        // other four special cases block nothing; see SpecialCaseRules.
+        if (($specialCase = app(SpecialCaseRules::class)->approveRefusal($requestRecord)) !== null) {
+            return $specialCase;
         }
 
         $stageCode = $requestRecord->currentStage()->value('code');
@@ -205,12 +216,29 @@ class RequestController extends Controller
         RequestDeadlineService $deadlines,
         NotificationDispatcher $notifications,
         WorkflowService $workflow,
+        DuplicatePolicy $duplicates,
     ): JsonResponse {
         $data = $request->validated();
         $storedPaths = [];
 
+        // Stage 83 — [D] Appendix 16. Checked before anything is written: an
+        // open file on the same subject means "لا تنشأ معاملة جديدة", and a
+        // closed one means the new request must be classified — with تظلم and
+        // إعادة عرض refused outright, because in this system those are an
+        // `appeals` row and Stage 66's reopen, not a second request.
+        if (($duplicate = $duplicates->refusalReason($request->user(), $data)) !== null) {
+            throw ValidationException::withMessages(['request_type_id' => [$duplicate]]);
+        }
+
+        // Only the two "genuinely new" classifications are ever stored; the
+        // other two never reach here.
+        $priorRelation = $data['prior_relation'] ?? null;
+        $priorRequestId = $priorRelation === null
+            ? null
+            : $duplicates->priorRequests($request->user(), (int) $data['request_type_id'])->first()?->getKey();
+
         try {
-            $requestRecord = DB::transaction(function () use ($data, $request, $numbers, $deadlines, $workflow, &$storedPaths) {
+            $requestRecord = DB::transaction(function () use ($data, $request, $numbers, $deadlines, $workflow, $priorRelation, $priorRequestId, &$storedPaths) {
                 $department = Department::query()->findOrFail($data['department_id']);
                 $type = RequestType::query()->findOrFail($data['request_type_id']);
                 $newStatus = RequestStatus::query()->where('code', 'new')->firstOrFail();
@@ -236,6 +264,10 @@ class RequestController extends Controller
                     'submitted_at' => $submittedAt,
                     'due_date' => $deadlines->dueDateFor($type, $submittedAt),
                     'decision_grade' => $data['decision_grade'] ?? null,
+                    // Stage 83 — Appendix 16's classification of a request
+                    // raised after an earlier file on the same subject closed.
+                    'prior_relation' => $priorRelation,
+                    'prior_request_id' => $priorRequestId,
                     // Stage 47 — starting value only; a study-stage reviewer
                     // can correct it later via updateFinancialImpact().
                     'has_financial_impact' => $type->default_has_financial_impact,

@@ -30,6 +30,9 @@ class MeetingReadinessService
             'attendees.user:id,name',
             'agendaItems.request.attachments:id,request_id',
             'agendaItems.request.latestLegalReview',
+            // Stage 83 — Appendix 30's unresolved conflicts, eager-loaded so
+            // the readiness check costs one query rather than one per item.
+            'agendaItems.request.documentConflicts:id,request_id,resolved_at',
         ]);
 
         $activeMemberUserIds = $meeting->committee->activeMembers->pluck('user_id');
@@ -54,6 +57,17 @@ class MeetingReadinessService
         // exception, and only when a legacy row actually breaches it.
         $itemsMissingLegalReview = $requestItems->reject(
             fn ($item) => $item->request?->latestLegalReview?->permitsAgenda() === true,
+        );
+
+        // --- Stage 83: Appendix 30's "فلا تعرض المعاملة قبل معالجة التعارض" --
+        // Reported the same way and for the same reason as the legal review
+        // above: the agenda gate makes it vacuous for anything inserted after
+        // Stage 83, so it exists for rows that predate the gate — and for a
+        // conflict raised *after* an item was already on the agenda, which the
+        // insertion gate by definition cannot catch.
+        $itemsWithDocumentConflict = $requestItems->filter(
+            fn ($item) => $item->request !== null
+                && $item->request->documentConflicts->whereNull('resolved_at')->isNotEmpty(),
         );
 
         // --- member % (roster coverage, not attendance) --------------------
@@ -127,6 +141,13 @@ class MeetingReadinessService
             $exceptions[] = [
                 'code' => 'missing_legal_review',
                 'item_ids' => $itemsMissingLegalReview->pluck('id')->values(),
+            ];
+        }
+        // Stage 83 — Appendix 30's own prohibition, asked at the sitting.
+        if ($itemsWithDocumentConflict->isNotEmpty()) {
+            $exceptions[] = [
+                'code' => 'unresolved_document_conflict',
+                'item_ids' => $itemsWithDocumentConflict->pluck('id')->values(),
             ];
         }
         // Stage 82 — Art. 83 orders the agenda by rule and leaves the chair

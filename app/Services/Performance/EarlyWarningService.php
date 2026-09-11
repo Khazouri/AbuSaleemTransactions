@@ -3,9 +3,8 @@
 namespace App\Services\Performance;
 
 use App\Models\Request;
-use App\Models\Role;
-use App\Models\WorkflowTransition;
 use App\Services\EmployeeNoticeService;
+use App\Services\Lifecycle\RequestResponsibilityService;
 use App\Services\ReportMetricsService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -226,58 +225,29 @@ class EarlyWarningService
     }
 
     /**
-     * Stage 71's own resolution, reused: the roles on the non-exception
-     * outbound rules for each request's current stage.
+     * Appendix 10's own closing requirement — "والجهة التي يتطلب منها الإجراء
+     * التالي" — answered through Stage 83's shared derivation rather than a
+     * second copy of it.
+     *
+     * Stage 81 resolved this here directly from the outbound
+     * workflow_transitions rows and explicitly reserved [D] Appendix 17's own
+     * vocabulary for Stage 83. That stage built it, so this now reads
+     * RequestResponsibilityService: an alert row and the request screen can
+     * never name different people, and both answer in the appendix's own
+     * fourteen values instead of a raw role name.
      *
      * @param  Collection<int, Request>  $requests
      * @return array<int, string|null>
      */
     private function responsibleParties(Collection $requests, string $locale): array
     {
-        $stageIds = $requests->pluck('current_stage_id')->filter()->unique()->all();
+        $responsibility = app(RequestResponsibilityService::class);
 
-        if ($stageIds === []) {
-            return [];
-        }
-
-        $rules = WorkflowTransition::query()
-            ->whereIn('from_stage_id', $stageIds)
-            ->where('is_exception', false)
-            ->get(['from_stage_id', 'request_type_id', 'required_role_id', 'requires_submitter_manager']);
-
-        $roles = Role::query()
-            ->whereIn('id', $rules->pluck('required_role_id')->filter()->unique()->all())
-            ->get(['id', 'name_ar', 'name_en'])
-            ->keyBy('id');
-
-        $parties = [];
-
-        foreach ($requests as $requestRecord) {
-            $applicable = $rules->filter(fn (WorkflowTransition $rule) => $rule->from_stage_id === $requestRecord->current_stage_id
-                && ($rule->request_type_id === null || $rule->request_type_id === $requestRecord->request_type_id));
-
-            $names = $applicable
-                ->pluck('required_role_id')
-                ->filter()
-                ->unique()
-                ->map(fn ($roleId) => $this->localName($roles[$roleId] ?? null, $locale))
-                ->filter()
-                ->values();
-
-            if ($applicable->contains(fn (WorkflowTransition $rule) => (bool) $rule->requires_submitter_manager)) {
-                $names->push($locale === 'ar' ? 'الرئيس المباشر' : 'Direct manager');
-            }
-
-            // Falling back to the stage's own seeded responsible role rather
-            // than reporting nobody: a stage with no outbound rule still has a
-            // named owner, and "unknown" would be the one answer Appendix 10
-            // explicitly refuses to accept.
-            $parties[$requestRecord->getKey()] = $names->isNotEmpty()
-                ? $names->unique()->implode(' / ')
-                : $this->localName($requestRecord->currentStage?->responsibleRole, $locale);
-        }
-
-        return $parties;
+        return $requests
+            ->mapWithKeys(fn (Request $requestRecord) => [
+                $requestRecord->getKey() => $responsibility->responsibleLabel($requestRecord, $locale),
+            ])
+            ->all();
     }
 
     /**

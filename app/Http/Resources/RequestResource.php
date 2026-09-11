@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\Lifecycle\RequestResponsibilityService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -57,6 +58,13 @@ class RequestResource extends JsonResource
             // Stage 52 — soft, non-blocking per-stage target; null when the
             // current stage has no sourced target duration.
             'stage_timeliness' => $this->stageTimeliness(),
+            // Stage 83 — [D] Appendices 17 and 18, on the *list* payload and
+            // not only the detail one: "يجب أن تظهر في كل معاملة خانة إلزامية
+            // باسم: المسؤول الحالي" is a rule about every file, and a list is
+            // where the appendix says files get lost between departments. The
+            // service memoises the seed data both derivations read, so this
+            // costs two queries for a whole page rather than two per row.
+            'responsibility' => app(RequestResponsibilityService::class)->for($this->resource),
             'created_at' => $this->created_at?->toIso8601String(),
             // Stage 44 — the requester ("الموظف"), only populated when a
             // caller explicitly eager-loads createdBy (e.g. the committee

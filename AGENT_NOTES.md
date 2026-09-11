@@ -14,6 +14,370 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-09 21:15 EET — Claude — Stage 83 complete (lifecycle edge cases) — Track K finished
+
+Built per the plan below, from the verbatim sources — [D] **Appendices 16, 17, 18, 30, 31, 33, 53, 60,
+68 and 69** read directly. Two migrations (four tables plus six columns across three existing tables),
+applied to the real MySQL/Homestead database. **No new screen and no permission change** — every
+endpoint rides a grant that already fits, which is the check that this stage sits inside domains prior
+stages already drew.
+
+**Appendix 17 is a DERIVATION, not the stored column its own wording might suggest — this is the design
+decision not to re-litigate.** The appendix requires the field to be *visible on every request and
+never empty* ("يجب أن تظهر في كل معاملة خانة إلزامية باسم: المسؤول الحالي. **ولا يجوز تركها فارغة**"),
+not a second record of a fact the state machine already determines. Stage 81 had already resolved the
+responsible party from the outbound `workflow_transitions` rows and explicitly reserved this appendix's
+own vocabulary for here, so the answer is one shared `Lifecycle\RequestResponsibilityService` and
+`EarlyWarningService::responsibleParties()` **refactored to read it** rather than keeping its copy — an
+alert row and the request screen can now never name different people. What was genuinely new is the
+**vocabulary**: a resolved role/manager/stage is mapped onto the appendix's own fourteen parties instead
+of a raw role name. Never empty by construction — a status that names its owner wins, else the stage's
+outbound rules, else the stage's own seeded responsible role.
+
+**Appendix 18 rides the same service because the appendix itself frames it that way** ("**إلى جانب حالة
+المعاملة**، يجب تحديد الإجراء التالي المطلوب"). Status-first, stage-fallback, so it always answers — and
+the fallback is the point: `in_review` is exactly the broad "قيد الإجراء" the appendix rules out, so it
+falls through to the stage, whose own name says what is being done. A dedicated test walks **every
+seeded status** and asserts both halves resolve to a named value with non-empty Arabic. Both fields are
+on `RequestResource`, so they reach the **list** as well as the detail — the appendix's own concern is
+files getting lost between departments, and a list is where that shows. The service memoises the seed
+data both derivations read, so a paginated page costs two queries regardless of length.
+
+**Appendix 16 refuses at intake, and two of its four classifications are refusals with a pointer.** An
+open file by the same creator on the same request type refuses outright and names the file to attach to
+— literally "لا تنشأ معاملة جديدة، بل تلحق المستندات بالمعاملة القائمة". The search is creator + type,
+the structured موضوع this system has (Track K scope decision (1) puts the employment record outside the
+app, so the creator *is* the رقم الموظف); matching free-text titles as well would report a similarity
+guess as a finding, the call Stage 81 made about free-text shortfall reasons. When every prior file is
+closed the four classifications are required, and **تظلم and إعادة عرض are refused** — in this system
+those are a Track J `appeals` row and Stage 66's reopen, neither of which is a new request. That refusal
+*is* "ثم يصنف وفق طبيعته الصحيحة"; letting a تظلم through as a fresh request would be the duplication the
+appendix exists to prevent wearing a different label.
+
+**Appendix 30's three resolution fields are required together, and that is what makes its prohibition
+enforceable rather than advisory.** "ولا يجوز للجنة اختيار أحد المستندين بناءً على تقدير شخصي" — a
+resolution cannot be recorded without naming the body addressed, the document that body determined
+authoritative, and the correction made, so choosing between two documents on nobody's authority is
+simply not a recordable act. Proven live: an empty resolve came back with all three refusals at once.
+The gate is the appendix's own "فلا تعرض المعاملة قبل معالجة التعارض" — an unresolved row refuses
+`addAgendaItem()` (the site Stage 68 established, because `place_on_agenda` has no caller) **and** raises
+a new `unresolved_document_conflict` readiness exception, which is not redundant: it catches a conflict
+raised *after* an item was already scheduled, which the insertion gate by definition cannot.
+
+**Appendix 31 is deliberately NOT a gate, and the reason is the appendix's own verb.** "و**يجوز** تعليق
+دراسة المعاملة عند وجود شك جدي" is permissive, and the hold it describes already exists — Art. 105's
+`document_in_doubt` ground (Stage 78) is that sentence, built. So this records the nine checks per
+document with a computed sound/doubtful verdict and points at the existing mechanism rather than
+inventing a second, unreconciled hold. **The two the appendix itself qualifies are the only two that may
+be answered غير منطبق** (الختم "عند الحاجة"، مطابقة الصورة للأصل "عند اشتراطها"); the other seven bind,
+and a live attempt to waive الجهة المصدرة was refused by name. A `no` records a finding and blocks
+nothing — proven by an agenda insertion succeeding on a doubtful document.
+
+**Appendix 33 structures Stage 82's own column rather than adding one beside it**, which is that stage's
+explicit handoff. A declared عالية now needs **both** a ground from the appendix's five and the recorded
+مبرر — "لا تعتبر المعاملة مستعجلة لمجرد طلب صاحبها ذلك" plus "ويثبت سبب الاستعجال في النظام" — and the
+rule reads the values the write would *leave behind*, not the payload alone, so clearing the ground while
+the level stays عالية cannot slip past (a dedicated test pins that). Three of the five have a derived
+counterpart in Stage 82's `priority_grounds` and are deliberately **not** cross-checked against it: a
+legal period can be known to the rapporteur before Stage 68's card records one, and refusing the
+declaration because the corroborating record has not been written yet would make the true answer
+unrecordable — the failure Stage 75 avoided when it let a closure answer `not_applicable`. The profile
+reports both so a reader can judge.
+
+**Appendix 53's six substantive kinds are offered by the API only to be refused, and that is why they
+are in the vocabulary at all.** Leaving them out would have made the refusal a generic "unknown kind";
+naming them lets the system say *why* this one cannot be a correction memo and point at the formal route
+— which is Stage 66's reopen, whose `ReopenReasonCatalog` code is already literally
+`material_error_correction` / تصحيح خطأ جوهري. **Nothing is rewritten**: "دون تغيير جوهر النتيجة" means
+the memo is a document on the file, so the incorrect and corrected values live on the memo and the
+original decision, minutes and reference number stand exactly as issued — a test asserts the request's
+own title and reference are untouched. Two moments, because "معتمدة" is the appendix's own word, and
+approval is refused to the memo's own author citing **Appendix 19**'s separation rule ("لا يكون … مراجع
+الملف هو صاحب القرار المنفرد بشأنه"); both refusals were proven live.
+
+**Appendix 60's blocks are each qualified exactly as the appendix qualifies them, and two of its six
+block nothing on purpose.** وفاة and انتهاء الخدمة refuse closure ("لا تغلق المعاملة تلقائيًا" / "ولا
+يغلق الملف دون تحديد الأثر القانوني") and lift when the case is resolved, which is when that legal effect
+has been determined. مستند غير صحيح refuses `approve` **only when the recorder answered مؤثر**, because
+"يوقف استكمال الإجراء **إذا كان المستند مؤثرًا**" is a condition, not a consequence of the case existing.
+تغير التشريع refuses **only when the recorder set the halt**, because its own wording is "يوقف الانتقال
+للمرحلة التالية **عند الحاجة**" — an unconditional halt would be stricter than the text. **النقل and
+فقدان مستند block nothing**: the appendix names determinations for both and no prohibition for either.
+The approve blocks ride `RequestController::controlGateRefusal()`, the one predicate Stage 78 gave all
+three sites, so the transition endpoint, the approval queue and the preview filter cannot disagree. The
+lost-document case's "عدم إعادة إنشاء مستند من الذاكرة" is on-screen guidance rather than a tick — it
+addresses people, not a system state, and a tick nobody could contradict would be worse than none.
+
+**Appendix 69 is enforced as a refusal, not as guidance, and Appendix 68's closure deliberately reuses
+`cancelled`.** Once any decision exists, `granted` is not an available outcome at all and the only one
+left is `recorded_only`, which changes **no status**, leaving "المحضر الأصلي محفوظًا باعتباره وثيقة رسمية
+لما وقع بالفعل" — a test asserts the decision row and the file's status both survive untouched. Which
+appendix applies is not a choice: `decision_existed_at_filing` is snapshotted when the employee files, so
+a later re-presentation cannot retroactively change what this round was. **No new status**: Art. 38 has
+no withdrawal code, Appendix 68 names a closure *reason* ("تقفل المعاملة بسبب **(سحب الطلب)**") rather
+than a state, and `cancelled` is already the "stopped without a decision" state every terminal-status
+consumer handles correctly — a fourteenth code would have re-opened Stage 69's eleven-site blast radius
+on the last stage of the track for no sourced gain. The reason is quoted into the status-history row,
+verified live. Appendix 68's step 3 is not a separate tick either: choosing between `granted` and
+`refused_administrative_continuation` **is** that check, and the second outcome is the appendix's own
+closing paragraph.
+
+**One real correctness gap found and closed — the seventh instance of the same class, and the first a
+status list could not bound.** `RequestVisibility` would 404 the R02 المقرر on the very files Appendices
+30/31/53/60 put in front of them. Every prior fix (Stages 47/68/75/76/77/78) bounded itself to a status
+subset, but Stage 83's records span a file's whole life — a conflict before the agenda, a special case at
+any point, a correction after the decision — so a subset would have let المقرر record some and 404 on the
+rest. Bounded instead by **Art. 20's own line**: a file that has been granted its رقم إشاري is the
+committee's own file, which is exactly the population those appendices address to المقرر; before the قيد
+Art. 15 is explicit the matter is not the committee's, so the intake half stays private. **Not a new
+disclosure** — the reports and registers screens already list this population to every role; this only
+makes the detail workspace agree with them for R02/R03. Proven both ways live and by test.
+
+**Two pre-existing privacy tests needed a fixture correction, and finding out why is worth recording.**
+`RequestWorkspaceVisibilityTest` asserts an unassigned R02 cannot open another user's file — and its
+fixture set a `reference_number` on requests sitting at `direct_manager_review`, in the
+`YYYY-DEPT-NNNNNN` scheme **Stage 70 deleted the generator for**. Post-Stage-70 that state cannot occur:
+the reference is minted only at the قيد hop. So the fixture was asserting privacy for a request the
+system would never produce. Corrected to a null reference plus an intake receipt, and a **new test added
+stating the other half explicitly** — R02 can open a registered file, cannot open one still in intake —
+so a behaviour change this stage deliberately made is visible in the suite rather than silently lost.
+
+**A test-fixture trap that masked the real finding for one round, worth knowing.** `User::factory()->create()`
+leaves `is_active` unset **in memory** (the column's `default(true)` applies at the database, not to the
+returned model), so `RequestVisibility::apply()`'s first branch returned `1 = 0` and every visibility
+check failed for reasons that had nothing to do with the code under test. It surfaced as a 404 that
+looked exactly like the gap I was about to fix. The house convention is `User::factory()->create(['is_active' => true])`
+— `RequestClosureTest` and `ControlGateTest` both do it. **The widening was then re-verified against a
+correctly-active user, with the change stashed and unstashed, before being kept**: 404 without it, 200
+with it. Same Eloquent class as the `$attributes` defaults `GuideArticle`/`MeetingRequest`/
+`RequestSpecialCase` declare.
+
+Frontend: new `RequestLifecyclePanel.vue` carries all five records on one card (one GET, refetched after
+any write, so the sections cannot disagree about the file's state) on `RequestDetailView.vue`, which also
+gained the Appendix 17/18 pair in its summary; `RequestsView.vue` gained the same two as columns;
+`RequestIntakeView.vue` gained Appendix 16's check, run on type selection so the employee sees the open
+file before filling a form the server would refuse, with the two redirected classifications greyed out;
+`MeetingAgendaBuilderView.vue` gained Appendix 33's ground picker. New shared `lib/lifecycle.js` mirrors
+every vocabulary once (the Stage 75/76/77/80/81/82 precedent); every label is a locale key on both sides.
+
+Verification: new `tests/Feature/DuplicateRequestTest.php` (6), `RequestResponsibilityTest.php` (7),
+`DocumentIntegrityTest.php` (7), `RequestCorrectionTest.php` (4), `SpecialCaseTest.php` (7) and
+`RequestWithdrawalTest.php` (6), plus 2 added to `AgendaOrderingTest.php` and 1 to
+`RequestWorkspaceVisibilityTest.php` — 40 new tests. Full suite **546 tests / 3511 assertions** green
+(was 506/3153). Pint clean **repo-wide** (`--test` over `app/`, `database/`, `routes/`, `tests/` reports
+zero diffs), `npm run build` passes (then reverted `frontend/dist`, tracked in git, per every prior
+stage's note), locale key-parity verified programmatically (**1745 keys each side, zero
+on-one-side-only**, and the diff is 225 added lines per file with only two touched — the trailing-comma
+lines), and both migrations ran clean against the real MySQL/Homestead database.
+
+**Five pre-existing tests needed legitimate fixture updates, not regression fixes** — four agenda items
+declared عالية without Appendix 33's now-required ground (each commented in place), and
+`RequestIntakeTest::test_intake_receipts_increment_within_the_year`, which filed two requests of the same
+type for the same employee: Appendix 16 now refuses the second, so it uses two different types, which is
+what that test is actually about (the receipt series is global per year, not per type).
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r01.employee@`/`r02.reviewer@`/
+`r03.head@` accounts and a fixture at `receive_from_committee`: R02 opened a file it did not create (the
+visibility fix, proven live) and its payload carried لجنة شؤون الموظفين / إدراج في جدول الأعمال; a
+recorded conflict refused agenda insertion in the appendix's own words; an empty resolve returned all
+three refusals and a complete one let the insertion through (201); a bare عاجل was refused and the ground
++ reason recorded with its label; waiving الجهة المصدرة was refused by name while the two conditional
+checks were accepted and the verdict read `doubtful`; a substantive correction kind was refused naming the
+reopen route; a material one recorded and its own author was refused approval while R03's succeeded; a
+death case refused without إمكانية استمرار الإجراء; انتهاء الخدمة blocked closure on a genuinely closable
+file and the resolved death case did not; a stranger was refused a withdrawal, the employee's was granted,
+and the file landed on `cancelled` with "سحب الطلب — …" in the status history. Deleted every fixture row
+(request, 2 conflicts, 2 special cases, correction, withdrawal, legal review, attachment, agenda item,
+meeting, committee, status/stage history, audit rows) and revoked all three tokens — counts confirmed back
+to **0 requests / 0 conflicts / 0 special cases / 0 corrections / 0 withdrawals / 0 meetings / 0
+attachments / 0 tokens / 0 jobs / 0 notifications**.
+
+**Smoke-test gotcha re-confirmed, and it nearly produced a false positive.** Arabic sent inline through
+`curl --data-binary '…'` in this Git-Bash session arrives as `????` — the same console-encoding artifact
+the 2026-09-02 and 2026-09-08 notes recorded. The gates and validations still exercised correctly (they
+do not depend on the text), but the Arabic round-trip was **not** proven until one write was redone with
+`--data-binary @file`, which stored and read back the full Arabic correctly. **Write the JSON to a file
+for any Arabic payload**; an inline one silently tests less than it appears to.
+
+**Docs**: `compliance-matrix.md` (git-ignored, local-only) moved appendices **17** and **33** ⚠→✅ and
+**16**, **18**, **30**, **31**, **53**, **60**, **68** and **69** ❌→✅. Headline counts adjusted by this
+stage's own delta (appendices 62→72 ✅ / 3→1 ⚠). **A claim in the existing drift banner was corrected
+rather than propagated**: it said appendix 13 was "the last one" the ❌ column under-reports, but counting
+Part B's own tags gives ✅ 60 · ⚠ 22 · ❌ 4 · ➖ 10, and the four ❌ are appendices **13, 42, 62 and 67** —
+those counted figures are now recorded so the next reader has a real number rather than only a delta
+chain.
+
+**Five provisions this matrix routed to Stage 83 were deliberately NOT built, and they now have no
+owner** — the Stage 82 precedent for Art. 84. None is in Stage 83's own Source line: appendices **43**
+(أمن المعلومات — a data-classification scheme, not a lifecycle edge case), **67** (الاجتماعات المؤجلة —
+a meeting-level record, not a request one) and **74** (فهرس النماذج — form codes for exported documents);
+and **two ARTICLE rows the matrix mis-routed by number**, Art. **53** and Art. **68**, whose numbers
+coincide with the *appendices* the Source line actually names. All five rows were rewritten to say so, so
+the next stage is not misled into thinking they were covered.
+
+**With this stage, Track K (Stages 67–83) is complete**, and with it every track in STAGE_PLAN.md.
+
+**Open items for whoever picks up next.** (1) **The five provisions above have no owner** — see the
+matrix rows; each is a small, well-defined piece of work, but it should be decided rather than inherited.
+(2) **Appendix 46's immutable post-approval copy and versioned amendment are still unbuilt**, which is
+also what Appendix 66's tenth prohibition needs; Stage 78 flagged it and nothing since has taken it — it
+is document versioning, not a gate, and deserves its own stage. (3) **Appendices 13, 42 and 62** (the
+precedents register, the preliminary-decisions register and the risk register) are the remaining ❌ and
+were each declined deliberately by an earlier stage; they need an owner or an explicit decision to drop
+them. (4) **Appendix 40's item 10 still needs a structured shortfall vocabulary** before it can be built
+(Stage 81's own open item); whichever stage introduces one should take that item at the same time.
+(5) **A granted withdrawal lands on `cancelled`** rather than a status of its own — sourced and
+deliberate (see above), but a stage that wants a distinct code should take Stage 69's own eleven-site
+blast-radius list rather than adding one ad hoc. (6) **Appendix 16 matches on creator + request type**,
+so an employee with two genuinely different promotion matters open at once cannot file the second; that
+is the appendix's own consequence as written, but a stage that introduces a finer subject field should
+revisit the match rather than loosen the rule.
+
+---
+
+### 2026-09-09 16:30 EET — Claude — Stage 83 implementation plan (lifecycle edge cases) — the last Track K stage
+
+Building Stage 83 per STAGE_PLAN.md Track K. Read the verbatim sources first: [D] **Appendix 16**
+(سياسة عدم ازدواجية المعاملات — "وعند وجود ملف مفتوح لنفس الموضوع: **لا تنشأ معاملة جديدة.** بل تلحق
+المستندات بالمعاملة القائمة", and its four classifications when the earlier file is closed),
+**Appendix 17** (قاعدة من صاحب الإجراء الآن؟ — "**يجب أن تظهر في كل معاملة خانة إلزامية باسم: المسؤول
+الحالي. ولا يجوز تركها فارغة**" plus its own fourteen values), **Appendix 18** (قاعدة الإجراء التالي —
+ten examples introduced with "مثال" and the rule "**وهذا يمنع وجود معاملة بحالة عامة مثل (قيد الإجراء)
+دون معرفة ما المطلوب فعليًا**"), **Appendix 30** (إدارة حالات التعارض في المستندات — six named conflict
+kinds, six steps, "**فلا تعرض المعاملة قبل معالجة التعارض**" and "**ولا يجوز للجنة اختيار أحد
+المستندين بناءً على تقدير شخصي**"), **Appendix 31** (التحقق من صحة المستندات — nine checks and
+"**ويجوز** تعليق دراسة المعاملة عند وجود شك جدي"), **Appendix 33** (آلية معالجة الطلبات المستعجلة —
+"**لا تعتبر المعاملة مستعجلة لمجرد طلب صاحبها ذلك**", five enumerated grounds, "**ويثبت سبب الاستعجال
+في النظام**"), **Appendix 53** (قواعد تصحيح الخطأ المادي — five material kinds fixed by a **مذكرة
+تصحيح معتمدة**, six substantive kinds that "**فلا يعالج باعتباره خطأً ماديًا، بل يعاد للمسار الرسمي
+للمراجعة**"), **Appendix 60** (الحالات الخاصة والاستثنائية — six cases), **Appendix 68** (سحب الموظف
+لطلبه — five steps ending "تقفل المعاملة بسبب **(سحب الطلب)**") and **Appendix 69** (انسحاب الطلب بعد
+صدور قرار اللجنة — "**بعد صدور نتيجة اللجنة لا يحذف القرار ولا تمحى المعاملة**").
+
+**Appendix 17 is a DERIVATION, not a stored column, and that is the design decision not to
+re-litigate.** The appendix requires the field to be *visible on every request and never empty*; it
+does not ask for a second record of a fact the state machine already determines. Stage 81 already
+resolves the responsible party from the outbound `workflow_transitions` rows `WorkflowService` itself
+enforces, and its own note reserved "Appendix 17's stored المسؤول الحالي field" for this stage
+specifically so a second, unreconciled record would not appear. So the answer is one shared
+`Lifecycle\RequestResponsibilityService`, and `EarlyWarningService::responsibleParties()` is
+**refactored to read it** rather than keeping its own copy — the same one-predicate-two-consumers
+discipline that produced `DecisionEligibility` and `MeetingReadinessService`. What is genuinely new is
+the **vocabulary**: the appendix names fourteen parties, so a resolved role/manager/stage is mapped
+onto one of those fourteen codes rather than reported as a raw role name.
+
+**Appendix 18 rides the same service, because they are two halves of one question.** The appendix
+itself says "إلى جانب حالة المعاملة، يجب تحديد الإجراء التالي المطلوب". Derivation is
+**status-first, stage-fallback**, so both always answer: a status that names its own next step wins
+(`incomplete`/`completion_required` → استكمال المستندات، `under_legal_review` → مراجعة قانونية،
+`awaiting_central_approval` → انتظار رد الوزارة، `in_execution` → تحديث ملف الموظف، …), and a request
+whose status is a broad one falls through to its stage's own step. A concluded file reports **مقفلة**
+rather than a fabricated action — the appendix's rule is against a live file with a generic status,
+not against a closed one. Both fields are exposed on `RequestResource` (so the list screen answers
+"من صاحب الإجراء الآن؟" for every row, which is where the appendix says files get lost) with the
+service memoising the whole `workflow_transitions`/`roles` seed data on first use, so a paginated page
+costs two queries regardless of length — Stage 81's batching discipline.
+
+**Appendix 16 refuses at intake, and two of its four classifications are refusals with a pointer.**
+`RequestController::store()` searches for an **open** request by the same creator and the same
+`request_type_id` (the structured موضوع this system has — Track K scope decision (1) puts the employment
+record outside this app, so the creator *is* the رقم الموظف) and refuses outright, naming the existing
+file's tracking number: that is literally "لا تنشأ معاملة جديدة، بل تلحق المستندات بالمعاملة القائمة",
+and the attachment endpoint on that existing file is the route the message points at. When every prior
+file is **closed**, the appendix requires the new one to be classified as one of four, so intake
+requires a `prior_relation` — and **تظلم and إعادة عرض are refused**, because in this system those are
+not new requests at all: a تظلم is Track J's `appeals` row and an إعادة عرض is Stage 66's reopen on the
+existing file. Refusing with the correct route named is the literal enforcement of "ثم يصنف وفق طبيعته
+الصحيحة"; the other two (واقعة جديدة، استكمال لقرار سابق) are legitimately new and are recorded with
+`prior_request_id`. A read-only `GET requests/duplicate-check` lets the intake screen show this before
+the submitter fills a form the server will reject.
+
+**Appendix 33 structures Stage 82's own column rather than adding one beside it**, which is that
+stage's explicit handoff. New `meeting_requests.priority_reason_code` over the appendix's five grounds,
+and a declared `high` now requires **both** a code and the recorded مبرر — "لا تعتبر المعاملة مستعجلة
+لمجرد طلب صاحبها ذلك" plus "ويثبت سبب الاستعجال في النظام". Stage 82 left the reason optional, so this
+is a new enforcement rather than a reversal. Appendix 24's `declared` ground and the ordering profile
+carry the code and its own label.
+
+**Appendix 30 is a real new record with a real gate.** New `request_document_conflicts` (many rows per
+request — a file can carry more than one conflict, and each is an action with two moments) over the
+appendix's six named kinds. Its six steps map onto the row's own fields rather than a checklist:
+تحديد المستندات المتعارضة is the recorded detail plus the attachment ids, مخاطبة الجهة المختصة /
+تحديد المستند المعتمد / تصحيح البيانات are **required on resolve** — which is what makes "ولا يجوز
+للجنة اختيار أحد المستندين بناءً على تقدير شخصي" enforceable, since a resolution cannot be recorded
+without naming the external authority that determined it — تسجيل الإجراء is the row itself, and إعادة
+الملف للفحص is the gate lifting. The gate is "فلا تعرض المعاملة قبل معالجة التعارض": an open conflict
+refuses `MeetingController::addAgendaItem()` (the same site as Stage 68's legal-review gate, for the
+same documented reason — `place_on_agenda` has no caller) and raises a new
+`unresolved_document_conflict` readiness exception.
+
+**Appendix 31 is a per-document record and deliberately NOT a gate.** Its own verb is "**يجوز** تعليق"
+— permissive — and the suspension it describes already exists: Art. 105's `document_in_doubt` ground
+(Stage 78). So this stage adds `attachments.validity_checks` (the nine, with the two the appendix's own
+qualifiers make conditional — الختم **عند الحاجة** and مطابقة الصورة للأصل **عند اشتراطها** — as
+`not_applicable`-capable) plus who/when, and a computed verdict, and points at the existing suspension
+rather than inventing a second hold. Recorded by `meeting_outputs,edit` (R02 المقرر + R03); the legal
+member's own half of "على المقرر والجهة القانونية" is Stage 68's Appendix 22 card, which already
+records `prohibiting_conditions` — a second attestation surface for R11 would duplicate it.
+
+**Appendix 53's two branches are a memo and an existing mechanism.** New `request_corrections` records
+a **مذكرة تصحيح معتمدة** over the five material kinds, two-moment (recorded then approved — "معتمدة" is
+the appendix's own word, so an unapproved memo corrects nothing), and **nothing is rewritten**: the
+correction is a document on the file, which is what "دون تغيير جوهر النتيجة" means. The six substantive
+kinds are offered by the API only to be **refused**, naming the formal route — which is Stage 66's
+reopen, whose `ReopenReasonCatalog` code is already literally `material_error_correction` / تصحيح خطأ
+جوهري. Approval is refused to the recorder themselves, citing Appendix 19's own separation rule.
+
+**Appendix 60's six cases carry per-case determinations, and only the ones the appendix actually
+prohibits block anything.** New `request_special_cases`, with `SpecialCaseRules` declaring each kind's
+required determination fields verbatim from the appendix (the death case's أثر/استمرار/حقوق المستحقين,
+the service-ended case's own three-way legal effect, the transfer case's four dates and bodies, the
+legislation case's نفاذ/أثر/القانون الواجب التطبيق, the lost-document case's بدل رسمي and النسخة
+البديلة ومصدرها, the invalid-document case's مؤثر flag and referral). Blocking is exactly what the text
+says and no more: **وفاة** and **انتهاء الخدمة** block closure ("لا تغلق المعاملة تلقائيًا" / "ولا يغلق
+الملف دون تحديد الأثر القانوني"), **مستند غير صحيح بعد القرار** blocks `approve` when the recorder
+answered مؤثر ("يوقف استكمال الإجراء **إذا كان المستند مؤثرًا**"), and **تغير التشريع** blocks `approve`
+only when the recorder sets `halt_progress` — because that case's own wording is "يوقف الانتقال للمرحلة
+التالية **عند الحاجة**", a qualifier, not an unconditional stop. **النقل and فقدان مستند block nothing**,
+deliberately: the appendix names determinations for them and no prohibition. The approve blocks ride
+`RequestController::controlGateRefusal()`, the one predicate Stage 78 already gave all three sites.
+
+**Appendices 68/69 are one record with three outcomes, and the withdrawal deliberately reuses
+`cancelled`.** New `request_withdrawals`: the employee (the request's own creator) files a written
+withdrawal through `notes_attachments,add`; the determination is `meeting_outputs,edit`'s. Outcomes:
+`granted` closes the file with the appendix's own reason written into the status-history row —
+**refused once any decision exists on the file**, which is the literal enforcement of Appendix 69's "لا
+يحذف القرار ولا تمحى المعاملة"; `refused_administrative_continuation` records Appendix 68's last
+paragraph (the matter became an administrative procedure that does not stop at the employee's wish) and
+the file continues; `recorded_only` is Appendix 69's path — available *only* once a decision exists,
+requiring the legal effect to be stated, and changing no status at all. **No new status**: Art. 38 has
+no withdrawal code, Appendix 68 names a closure *reason* rather than a state, and `cancelled` (ملغاة)
+is already the "stopped without a decision" state every terminal-status consumer in this codebase
+handles correctly — introducing a fourteenth code would re-open Stage 69's own blast radius on the last
+stage of the track for no sourced gain. The reason is recorded on the withdrawal row and quoted into
+`request_status_history`.
+
+**Schema:** four new tables (`request_document_conflicts`, `request_special_cases`, `request_corrections`,
+`request_withdrawals`), three columns on `attachments`, one on `meeting_requests`, and two on `requests`
+(`prior_relation`, `prior_request_id`). **No new screen and no permission change** — every endpoint
+rides a grant that already fits, which is the check that this stage sits inside domains prior stages
+already drew.
+
+Frontend: `RequestDetailView.vue` gains the Appendix 17/18 pair in its summary card and a lifecycle
+card for conflicts/special cases/corrections/withdrawal; `RequestsView.vue` gains the two columns;
+`RequestIntakeView.vue` gains the duplicate check and the prior-relation picker;
+`MeetingAgendaBuilderView.vue` gains the Appendix 33 code picker; the attachment list gains a validity
+badge and its recording panel. New shared `lib/lifecycle.js` mirrors every vocabulary once (the Stage
+75/76/77/80/81/82 precedent); every label is a locale key on both sides.
+
+Verification plan: new `tests/Feature/DuplicateRequestTest.php`, `RequestResponsibilityTest.php`,
+`DocumentIntegrityTest.php`, `RequestCorrectionTest.php`, `SpecialCaseTest.php` and
+`RequestWithdrawalTest.php`, plus Appendix 33 coverage added to `AgendaOrderingTest.php`; then the full
+PHPUnit suite, Pint, `npm run build`, locale key-parity, and `php artisan migrate` against the real
+MySQL/Homestead database.
+
+---
+
 ### 2026-09-09 14:20 EET — Claude — Stage 82 complete (agenda ordering and item fields)
 
 Built per the plan below, from the verbatim sources — [D] **Arts. 82–85** and **Appendices 7, 24, 25**

@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RequestController;
 use App\Http\Controllers\Api\RequestLegalReviewController;
+use App\Http\Controllers\Api\RequestLifecycleController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
@@ -197,6 +198,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Stage 13 — controlled request intake with locked reference allocation.
     Route::middleware('screen.permission:request_intake,view')
         ->get('requests/intake-options', [RequestController::class, 'intakeOptions']);
+    // Stage 83 — [D] Appendix 16's own search, so the intake screen can show
+    // an existing open file before the submitter fills a form the server would
+    // refuse. A literal path, registered here rather than beside the rest of
+    // Stage 83's routes so it precedes the `requests/{requestRecord}` wildcard.
+    Route::middleware('screen.permission:request_intake,view')
+        ->get('requests/duplicate-check', [RequestLifecycleController::class, 'duplicateCheck']);
     Route::middleware('screen.permission:request_intake,add')
         ->post('requests', [RequestController::class, 'store']);
 
@@ -352,6 +359,45 @@ Route::middleware('auth:sanctum')->group(function () {
         ->patch('requests/{requestRecord}/suspend', [RequestController::class, 'suspend']);
     Route::middleware('screen.permission:meeting_outputs,edit')
         ->patch('requests/{requestRecord}/suspend/lift', [RequestController::class, 'liftSuspension']);
+
+    /*
+     * Stage 83 — [D]'s lifecycle edge cases: document conflicts (Appendix 30),
+     * document validity (Appendix 31), material-error corrections (Appendix
+     * 53), the six special cases (Appendix 60), and withdrawal before and
+     * after a decision (Appendices 68/69).
+     *
+     * Reading rides `request_details,view` and is additionally scoped by
+     * RequestVisibility inside the controller, so the grant decides whether the
+     * screen works and never whose file is visible. Recording and determining
+     * ride `meeting_outputs,edit` (R02 المقرر + R03) — the same grant Stages
+     * 75/76/77/80 already use for the rapporteur's own determinations about a
+     * file, and the audience Appendices 30/53/60 address.
+     *
+     * Filing a withdrawal is the ONE exception, and deliberately: Appendix 68's
+     * first step is the employee putting a written request on their own file,
+     * so it rides `notes_attachments,add` (R01-R05) with the controller
+     * additionally requiring the actor to be the request's own creator.
+     *
+     * The literal `requests/duplicate-check` path is registered before the
+     * `{requestRecord}` wildcard routes above for the same reason
+     * `meetings/department-options` is — a wildcard would otherwise swallow it.
+     */
+    Route::middleware('screen.permission:request_details,view')
+        ->get('requests/{requestRecord}/lifecycle', [RequestLifecycleController::class, 'index']);
+
+    Route::middleware('screen.permission:meeting_outputs,edit')->group(function () {
+        Route::post('requests/{requestRecord}/document-conflicts', [RequestLifecycleController::class, 'storeDocumentConflict']);
+        Route::patch('requests/{requestRecord}/document-conflicts/{conflict}/resolve', [RequestLifecycleController::class, 'resolveDocumentConflict']);
+        Route::patch('requests/{requestRecord}/attachments/{attachment}/validity', [RequestLifecycleController::class, 'recordDocumentValidity']);
+        Route::post('requests/{requestRecord}/special-cases', [RequestLifecycleController::class, 'storeSpecialCase']);
+        Route::patch('requests/{requestRecord}/special-cases/{specialCase}/resolve', [RequestLifecycleController::class, 'resolveSpecialCase']);
+        Route::post('requests/{requestRecord}/corrections', [RequestLifecycleController::class, 'storeCorrection']);
+        Route::patch('requests/{requestRecord}/corrections/{correction}/approve', [RequestLifecycleController::class, 'approveCorrection']);
+        Route::patch('requests/{requestRecord}/withdrawals/{withdrawal}/determine', [RequestLifecycleController::class, 'determineWithdrawal']);
+    });
+
+    Route::middleware('screen.permission:notes_attachments,add')
+        ->post('requests/{requestRecord}/withdrawals', [RequestLifecycleController::class, 'storeWithdrawal']);
 
     /*
      * Stage 20 — committees & meetings. Neither has a screen of its own on the

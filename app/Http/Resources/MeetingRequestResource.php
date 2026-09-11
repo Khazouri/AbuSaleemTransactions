@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\Lifecycle\UrgencyRules;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,6 +25,10 @@ class MeetingRequestResource extends JsonResource
             // rapporteur declared one that nothing derived supports, the
             // appendix's own required "مبرر إداري موثق".
             'priority' => $this->priority,
+            // Stage 83 — Appendix 33's ground, and its own Arabic wording so
+            // the screen and an exported agenda name it identically.
+            'priority_reason_code' => $this->priority_reason_code,
+            'priority_reason_label' => app(UrgencyRules::class)->label($this->priority_reason_code),
             'priority_reason' => $this->priority_reason,
             'estimated_minutes' => $this->estimated_minutes,
             'subject' => $this->subject,
