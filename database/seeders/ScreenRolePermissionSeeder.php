@@ -9,7 +9,7 @@ use Illuminate\Database\Seeder;
 
 /**
  * Builds the starting permission matrix: every screen x every role
- * (30 x 8 = 240 rows), each with seven action flags.
+ * (33 x 11 rows), each with seven action flags.
  *
  * How the rules below are applied:
  *   - R08 (System Admin) is granted every action on every screen.
@@ -121,6 +121,12 @@ class ScreenRolePermissionSeeder extends Seeder
         'settings' => [],
         'templates' => [],
         'backup' => [],
+        // The maintenance console. Empty, i.e. R08-only on every action — and
+        // that includes `approve`, which here means "may run a command that
+        // destroys data" (migrate:fresh, migrate:rollback). Granting any of
+        // these to another role would hand it the ability to drop the whole
+        // database, so widen this only with that consequence in mind.
+        'maintenance' => [],
 
         // Oversight: visible to all, exportable only by the senior roles.
         'reports' => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],

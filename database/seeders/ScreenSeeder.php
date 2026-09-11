@@ -10,8 +10,8 @@ use Illuminate\Database\Seeder;
  * screen-permissions sheet — originally 29 from that sheet (Stage 28 adds 7
  * to the original 22 for the meetings-unit redesign; Stage 57 later removes
  * one, `authority_approval`), plus `departments` (see the note beside it
- * below), Stage 58's `appeals`, Stage 68's `legal_review` and Stage 80's
- * `registers` = 32 total.
+ * below), Stage 58's `appeals`, Stage 68's `legal_review`, Stage 80's
+ * `registers` and the maintenance console = 33 total.
  *
  * Two consumers:
  *   - the sidebar (Stage 5) renders these rows, filtered by can_view
@@ -108,6 +108,11 @@ class ScreenSeeder extends Seeder
             ['notifications',            'الإشعارات',                 'Notifications',                '/notifications',            'bell',         null],
             ['templates',                'القوالب والنماذج',           'Templates & Forms',            '/templates',                'layout',       null],
             ['backup',                   'النسخ الاحتياطي',            'Backup',                       '/backup',                   'database',     null],
+            // The maintenance console. Beside `backup` because it is the same
+            // kind of screen: a server operation an administrator performs on
+            // the deployment rather than on the committee's work. R08-only
+            // through an empty DEFAULTS entry in ScreenRolePermissionSeeder.
+            ['maintenance',              'الصيانة والنشر',             'Maintenance & Deployment',     '/maintenance',              'terminal',     null],
             ['user_guide',               'دليل الاستخدام',             'User Guide',                   '/guide',                    'book',         null],
         ];
 

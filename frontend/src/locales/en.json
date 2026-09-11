@@ -176,6 +176,92 @@
       "actions": "Actions"
     }
   },
+  "maintenance": {
+    "title": "Maintenance & Deployment",
+    "subtitle": "Run deployment commands on the server — migrations, caches, packages — without SSH access. Commands come from a fixed allowlist; there is no free-text command box.",
+    "refresh": "Re-run checks",
+    "disabledBanner": "The maintenance console is switched off in configuration. Set MAINTENANCE_CONSOLE_ENABLED=true in .env and clear the config cache to enable it.",
+    "run": "Run",
+    "running": "Running…",
+    "runningHint": "Running. Keep this page open — it can take minutes, and the server will cut it off if it exceeds the execution limit shown above.",
+    "runFailed": "The command could not be run.",
+    "noOutput": "The command finished with no output.",
+    "exitCode": "Exit code",
+    "destructive": "Destructive",
+    "confirmClear": "Delete the entire maintenance history?",
+    "clearFailed": "The history could not be cleared.",
+    "footnote": "On shared hosting: artisan commands run inside the PHP process itself, so they always work; composer and npm need a real subprocess, which is frequently forbidden. The reliable path for the frontend is to build it on your machine and upload only the contents of frontend/dist — see frontend/DEPLOYMENT.md.",
+    "kind": {
+      "artisan": "artisan",
+      "shell": "shell"
+    },
+    "groups": {
+      "database": "Database",
+      "cache": "Caches",
+      "app": "Application",
+      "dependencies": "Dependencies",
+      "diagnostics": "Diagnostics"
+    },
+    "status": {
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "stale": "Cut off"
+    },
+    "blocked": {
+      "disabled": "The maintenance console is switched off in configuration.",
+      "noShell": "This server does not allow subprocesses (proc_open is disabled).",
+      "binaryMissing": "Not found at the configured path.",
+      "needsApproval": "You do not have permission to run destructive commands."
+    },
+    "diagnostics": {
+      "title": "Server checks",
+      "hint": "What this server will actually allow. Highlighted cells are what blocks a command or deserves attention.",
+      "pendingMigrations": "Pending migrations",
+      "database": "Database",
+      "connected": "Connected",
+      "notConnected": "Cannot connect",
+      "shell": "Shell commands",
+      "shellOn": "Available",
+      "shellOff": "Unavailable",
+      "procOpenDisabled": "proc_open is disabled on this server, so composer and npm cannot run.",
+      "shellDisabledByConfig": "Turned off in configuration (MAINTENANCE_SHELL_ENABLED).",
+      "executionLimit": "Execution limit",
+      "executionLimitWarning": "Short: long commands such as composer install may be cut off before they finish.",
+      "php": "PHP version",
+      "environment": "Environment",
+      "debugOn": "Debug mode is on — it should be off in production.",
+      "caches": "Config cache",
+      "cached": "Cached",
+      "notCached": "Not cached",
+      "configCachedNote": "Any .env change takes effect only after clearing the caches.",
+      "queue": "Queued jobs",
+      "failedJobs": "Failed jobs: {count}",
+      "writable": "Writable paths",
+      "ok": "OK",
+      "notWritable": "Problem",
+      "freeSpace": "Free space: {size}",
+      "found": "Available",
+      "notFound": "Not found"
+    },
+    "history": {
+      "title": "Run history",
+      "clear": "Clear history",
+      "empty": "Nothing has been run yet.",
+      "command": "Command",
+      "status": "Status",
+      "duration": "Duration",
+      "ranBy": "Run by",
+      "at": "When",
+      "show": "Show output",
+      "hide": "Hide"
+    },
+    "confirm": {
+      "title": "Confirm a destructive command",
+      "prompt": "Type {phrase} to continue:",
+      "go": "Run the command"
+    }
+  },
   "appeals": {
     "title": "Appeals",
     "subtitle": "File an appeal against one of your own already-decided requests.",

@@ -75,6 +75,7 @@ const ICON_BY_CODE = {
   notifications: 'bell',
   templates: 'copy',
   backup: 'database',
+  maintenance: 'terminal',
   user_guide: 'book',
 }
 const iconFor = (code) => ICON_BY_CODE[code] || 'dot'

@@ -82,6 +82,26 @@ Key architectural facts worth knowing before changing things:
   `text-align: start`, etc.), not `left`/`right`, so the UI mirrors
   automatically when `vue-i18n` flips `dir` on `<html>`. Don't introduce
   physical-direction CSS in new components.
+- **Maintenance console**: the `maintenance` screen (`/maintenance`, R08-only)
+  runs deployment commands from the browser, because the production target is
+  cPanel shared hosting with no SSH — without it there is no way to run
+  `php artisan migrate` after uploading a release.
+  `App\Services\Maintenance\MaintenanceCommandCatalog` is a **fixed allowlist,
+  and that is the whole security model**: the client sends a command *code* and
+  nothing else, so no caller-supplied string ever reaches `Artisan::call()` or
+  `Symfony\Component\Process`. Never add a free-text command/arguments field —
+  that turns an operations screen into a remote shell. Adding a command means
+  adding an entry to that const array. Note the two kinds: `artisan` runs
+  in-process and therefore always works, while `shell` (composer/npm) needs
+  `proc_open`, which shared hosting frequently disables — `EnvironmentProbe`
+  reports which of the two this host can do. `GET|POST /api/maintenance/bootstrap`
+  is the **only unauthenticated endpoint that can change the database** — it
+  breaks the chicken-and-egg of a console that needs its own migration run,
+  is gated on a 24-character `MAINTENANCE_BOOTSTRAP_TOKEN`, 404s on every
+  failure, and **self-disables** once the console is reachable. It seeds
+  screen *definitions* only on an existing database; running the full
+  `DatabaseSeeder` there would reset the whole permission matrix and discard
+  anything customised through Roles & Permissions.
 - **Staged build-out**: [STAGE_PLAN.md](STAGE_PLAN.md) is the source of truth
   for what each stage number means (goal, what gets built, done-when) —
   consult it before starting or referencing a stage. In the code,

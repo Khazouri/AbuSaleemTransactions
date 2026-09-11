@@ -14,6 +14,296 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-10 01:30 EET — Claude — Maintenance console: the no-shell bootstrap (follow-up to the entry below)
+
+The console as built below still had a chicken-and-egg the user hit immediately: it needs its own
+`maintenance_runs` table and its `screens`/`screen_role_permissions` rows before it can be opened, and
+creating those means running a migration and a seeder — which is exactly what it exists to do on a host
+with **no SSH at all**. Something has to break that loop from outside. New
+`App\Services\Maintenance\MaintenanceBootstrapper` plus a token-gated page at
+`GET|POST /api/maintenance/bootstrap`, the **only unauthenticated endpoint in this system that can change
+the database**. Full suite **566 tests / 3658 assertions** green (was 558), Pint clean, no frontend change
+at all (so `frontend/dist` is untouched this round).
+
+**The safety property that actually has teeth: it does NOT run `db:seed` on an existing database.** That
+was the first design and it is wrong — `DatabaseSeeder` re-runs `ScreenRolePermissionSeeder`, whose whole
+job is to reset the matrix to its documented defaults, so bootstrapping one new screen would silently
+discard every grant an administrator had changed through the Stage 8 Roles & Permissions screen. So the
+run branches: a database with **zero users** has never been seeded and gets the full `db:seed` (nothing
+there to lose, and it needs `AdminUserSeeder` to produce a login at all); an **existing** database gets
+`migrate --force`, then `ScreenSeeder` alone (it upserts screen rows and touches no permission), then one
+**targeted** `updateOrCreate` granting R08 the seven flags on the `maintenance` screen and nothing else.
+A test seeds a customisation R01 does not hold by default (`users.view`), bootstraps, and asserts it
+survived — and the live smoke run against the real MySQL database did the same and reported **YES**.
+
+**It is self-disabling by construction, not by a cleanup step someone has to remember.**
+`isNeeded()` returns false as soon as the `maintenance` screen row exists *and* R08 holds `can_view` on
+it — i.e. as soon as the console is reachable the ordinary authenticated way — and every entry point
+calls it. Proven live in both directions: 404 with a correct token while the console was reachable, 200
+after the grant was revoked, 404 again the moment the bootstrap restored it. A *half*-finished run
+(migration applied, seeding failed) still reports true, which is what keeps it retryable.
+
+**Every refusal is a 404, never a 403** — `DevTestUserController`'s own reasoning, and it matters more
+here: a 403 would confirm to an unauthenticated stranger that a URL capable of migrating the database
+exists at this path. Missing token, wrong token, and **a configured token shorter than 24 characters** all
+return the same 404; the length floor is a refusal rather than a warning because a weak secret on this
+particular endpoint is the whole risk. `hash_equals`, and `throttle:10,1`.
+
+**It renders HTML, not JSON, and the markup is an inline string rather than a Blade view.** An
+administrator with no shell has no curl either, so this has to work from a browser's URL bar — GET shows
+a confirmation page, the button POSTs. Blade was rejected deliberately: it compiles into
+`storage/framework/views`, and on the broken deployment this page exists to rescue, that directory may not
+be writable. Each step reports ok/failed with its own output, and a failing step does not abort the rest,
+because "how far did it get" is the only useful information when there is no log to read.
+
+**One thing to know before touching `routes/web.php` again:** the earlier entry's fix (Closure →
+`Route::view`) is what makes `route:cache`/`optimize` work, and those are two commands the console offers.
+Re-introducing a Closure route there silently breaks both.
+
+Smoke-tested end to end over real HTTP against Homestead: wrong token 404; correct token rendered the
+bilingual confirmation page; the POST reported all three steps green ("Nothing to migrate" / "Permission
+matrix left untouched" / "Granted to role R08 (مدير النظام) on screen #34"); the grant came back; the
+customised permission survived; and the page then 404'd on the same token. Reverted the fake
+customisation, restored `.env` from a backup (the smoke token is gone), and confirmed **0
+maintenance_runs / 16 users / 33 screens** — no residue.
+
+Docs: `.env.example` gained `MAINTENANCE_BOOTSTRAP_TOKEN` with the visit URL written in;
+`frontend/DEPLOYMENT.md`'s backend section was rewritten as a complete **no-SSH deployment procedure**
+(build `vendor/` and `dist/` locally — **`vendor/` must be uploaded**, since without it Laravel does not
+boot and even the bootstrap page is unreachable — configure `.env`, bootstrap once from a browser, then
+caches; plus the `bootstrap/cache/config.php` gotcha where an edited `.env` appears to do nothing, and
+cPanel's Cron Jobs UI as the one-shot shell of last resort).
+
+**Open items.** (1) **The bootstrap grants R08 only.** If a deployment's admin is on some other role, they
+still cannot open the console — deliberate (R08 is the documented admin role and the seeders' own
+`[] = R08 only` convention), but a host with a renamed admin role would need the grant by hand. (2) **A
+token left in `.env` after the console is reachable is inert**, because `isNeeded()` closes the door
+regardless — worth knowing before anyone treats a leftover value as a live hole. (3) **The bootstrap does
+not clear the config cache**, so an administrator who has run `optimize` and then edits `.env` must delete
+`bootstrap/cache/config.php` themselves; doing it automatically from an unauthenticated endpoint felt like
+more reach than this page should have.
+
+---
+
+### 2026-09-10 00:40 EET — Claude — Maintenance console complete (cPanel shared hosting)
+
+Built per the plan below. One migration (`maintenance_runs`), one new screen (`maintenance`, R08-only
+through an empty `ScreenRolePermissionSeeder` entry — the `settings`/`backup` shape), and **no change to
+any existing behaviour**: the full suite went 546 → **558 tests / 3635 assertions** green with *zero*
+pre-existing tests needing an update, which is the check that this is purely additive.
+
+**The scope correction worth not re-litigating: of the three things asked for, only one reliably works on
+this host, and the screen is built around saying so rather than hiding it.** `php artisan migrate` runs
+**in-process** through `Artisan::call()`, so it needs no subprocess and works even where `proc_open` sits
+in `disable_functions` — that is the console's centre of gravity. `composer install`/`npm install` need a
+real subprocess and often cannot run at all, so `EnvironmentProbe` probes the host and the button explains
+itself instead of failing blank. And **`npm run build` on the server is close to pointless for this app**:
+`frontend/DEPLOYMENT.md` is explicit that only `dist/` is deployable and that `VITE_API_BASE_URL` is baked
+in at *build* time, so building on the server cannot change the API URL — that warning is written into the
+command's own on-screen description, not just here.
+
+**`MaintenanceCommandCatalog` is a fixed allowlist and that IS the security model.** The client sends a
+**code** and nothing else — no arguments, no flags, no paths. Nothing caller-supplied ever reaches
+`Artisan::call()` or `Symfony\Component\Process`; the argv is fixed in source, and an unknown code is a 422
+from the FormRequest before any executor is reached (a test walks `rm -rf /`, `migrate; whoami` and three
+more and asserts `MaintenanceRun::count()` is still 0). **Do not add a free-text command box** — that is
+the difference between an operations screen and a remote shell, and it is now recorded in AGENTS.md as a
+durable convention rather than only here. 22 commands across five groups (database / caches / application
+/ dependencies / diagnostics).
+
+**Three defence layers, each doing a different job.** (1) `screen.permission:maintenance,<action>` on every
+route. (2) A **destructive tier** — `migrate:fresh` and `migrate:rollback` additionally need
+`maintenance,approve` *and* the caller echoing back a phrase the API dictates (`CONFIRM`), checked in the
+controller rather than as middleware because it applies to some commands on that endpoint and not others;
+that split mirrors how `decisions` separates `add` (cast a vote) from `approve` (record one). Both halves
+are tested independently, including that a caller holding `add` but not `approve` is refused *with* the
+correct phrase while a safe command on the same account still works — otherwise the test would pass for a
+broken account rather than for the rule. (3) `MAINTENANCE_CONSOLE_ENABLED`, defaulting **true** on purpose:
+a console that ships off is useless on the exact host that has no shell to turn it on, which is the problem
+it exists to solve.
+
+**`index()` deliberately keeps answering while the console is switched off**, returning `enabled: false`
+and an empty command list. It is read-only diagnostics, and a screen that can say "this is disabled" beats
+a bare 403 the SPA renders as a generic failure.
+
+**The run row is written BEFORE the command starts, and that ordering is the point.** On this host the
+likeliest failure is PHP's own `max_execution_time` killing the worker mid-run — the live server reports
+**30 seconds** — which leaves no opportunity to write anything afterwards. Without the up-front `running`
+row, the one failure an administrator most needs to see would be the only one leaving no trace.
+`MaintenanceRun::isStale()` then reports a row still `running` past the lock window as cut off rather than
+as working forever.
+
+**`migrate:fresh` drops the table its own run row lives in, so `persist()` re-creates the row when it has
+vanished.** A plain `update()` would affect zero rows and the most destructive command in the catalogue
+would be the only one that left no record of itself. The lock release is guarded for the same reason — a
+database cache store keeps its locks in a table `migrate:fresh` also drops, and letting that throw would
+replace a successful run's result with a confusing error.
+
+**One run at a time**, via `Cache::lock('maintenance:run')` — two concurrent `composer install`s corrupt
+`vendor/`, two concurrent `migrate`s race on the migrations table. The second caller is refused outright
+rather than queued: a maintenance action that silently starts four minutes later is worse than one that
+says no.
+
+**Three environment fixes in the subprocess that are the difference between composer working and not**,
+since shared hosting runs PHP as a web user with no login shell: a writable `HOME`/`COMPOSER_HOME` under
+`storage/app/maintenance-home` (without one composer refuses to start with "COMPOSER_HOME could not be
+determined"), `COMPOSER_PROCESS_TIMEOUT` (composer's own timeout is separate from Symfony's and is what
+actually fires on a slow host), and **prepending the binary's own directory to `PATH`** — npm invokes
+`node` by name, and on cPanel both live in the same `nodevenv/bin` that is not on the web user's PATH.
+
+**One real bug found and fixed that was NOT this feature's own:** `routes/web.php` declared the unused
+Blade welcome page as a **Closure**, which cannot be serialized — so `php artisan route:cache`, and
+therefore `optimize`, failed outright with "Unable to prepare route [/] for serialization". Those are two
+of the commands this screen offers, and they are exactly the caches that matter most on shared hosting.
+Fixed by `Route::view('/', 'welcome')`, which is behaviourally identical and cacheable.
+
+**Output handling:** both stdout and stderr are captured (composer and npm write progress to stderr even on
+success, so stdout alone shows a working install as silence), truncated to 64 KB **keeping the tail** (a
+failure explains itself in its last lines), and the list endpoint sends only a six-line preview while the
+detail endpoint sends the whole thing — twenty rows at the cap would be a megabyte of JSON to render a
+table nobody expanded.
+
+Frontend: new `MaintenanceView.vue` — a diagnostics panel (pending migrations, database, shell
+availability with its reason, execution limit with a warning under 120s, PHP/env/debug, config-cache
+staleness, queue depth, writable paths, and each binary's probe result), the catalogue grouped with each
+command's **exact argv shown verbatim** (someone about to drop every table should read the command, not
+trust a label), a typed-confirmation modal for the destructive pair, the last run's output, and an
+expandable history. Command lines and log output are forced LTR — Arabic-mirroring a shell command makes
+it unreadable and uncopyable. New `terminal` glyph, `ICON_BY_CODE` entry, route, and a `maintenance.*`
+locale block in both files (key parity verified programmatically: **1815 keys each side, zero
+on-one-side-only**).
+
+**A test-writing gotcha worth knowing:** `Artisan::command()` cannot be used in a feature test to override
+a command with a throwing closure — it defers registration to an `Artisan::starting` callback that has
+already fired by the time `setUp()` seeds, so the override silently does nothing and the original command
+runs. `storage:link`, the other obvious way to force a failure, still exits **0** when the link already
+exists. The failure path is instead induced by pointing a configured binary at a nonexistent path, which
+is not contrived at all — it is the single likeliest real misconfiguration on cPanel — and it covers the
+shell branch nothing else reaches.
+
+Verification: new `tests/Feature/MaintenanceConsoleTest.php` (12 tests — the diagnostics shape; five
+non-catalogue strings each refused with nothing recorded; a real artisan run recorded complete with its
+actual output; a failure recorded rather than 500ing; the confirmation phrase; the `approve` tier; shell
+refused with a reason when the host forbids subprocesses; the kill switch closing commands while leaving
+diagnostics readable; the lock; every endpoint 403 for a role without the screen; the history/detail/clear
+cycle including that the list omits full output; and **a test asserting every artisan entry in the
+catalogue names a command that actually exists**, so a typo surfaces here rather than the first time
+someone clicks it on production). Full suite **558 tests / 3635 assertions** green, Pint clean on every
+touched file, `npm run build` passes with `MaintenanceView` as its own 13.2 kB lazy chunk (then reverted
+`frontend/dist`, tracked in git, per every prior stage's note), and the migration plus both seeder reseeds
+ran clean against the real MySQL/Homestead database — confirmed via tinker: **33 screens**, the
+`maintenance` row at `/maintenance`, R08 holding all four relevant grants and **zero non-R08 roles with
+any access**.
+
+Smoke-tested end to end over real HTTP against Homestead as the seeded admin: diagnostics returned PHP
+8.3.1/fpm-fcgi with `max_execution_time: 30` (the warning threshold, live), `proc_open` available, all
+four binaries found, 91/91 migrations run, config cache cold; `rm -rf /` was refused by name;
+`migrate:status` ran **in-process** and came back with the real migration table; `composer:version` ran as
+a **real subprocess** and returned Composer 2.8.3; and `migrate:fresh` was refused both with no phrase and
+with a wrong one. **Confirmed nothing was wiped afterwards** (33 screens / 16 users / 11 roles intact),
+then cleared the two fixture runs through the endpoint itself and revoked both minted tokens — counts back
+to **0 maintenance_runs / 0 tokens**.
+
+Docs: `.env.example` gained the five `MAINTENANCE_*` variables with the typical cPanel paths for php,
+composer and npm written in as comments; `frontend/DEPLOYMENT.md` gained a "The backend half: running
+migrations without SSH" section, since that file is where someone deploying actually looks; AGENTS.md
+gained the durable allowlist convention.
+
+**Open items for whoever picks up next.** (1) **The run is synchronous**, so a command outliving the host's
+`max_execution_time` is cut off with its row left at `running` (reported as "cut off", not as a hang).
+Queueing would need a worker, and a host with no worker is exactly the case this screen serves — `queue:drain`
+is one of its own commands — so this is a deliberate trade, not an oversight. A stage that wants long
+`composer install` runs to survive would need a `nohup`-style detached process plus polling, which is real
+new work. (2) **`npm run build` is offered but is nearly always the wrong tool here** for the baked-in-URL
+reason above; a future stage might reasonably drop it rather than keep explaining it. (3) **The catalogue
+has no per-command permission granularity** beyond safe/destructive — if a later stage wants, say, a
+deploy role that may clear caches but not seed, that is a third tier, not a widening of `add`. (4) **Nothing
+prunes `maintenance_runs`**; it grows until someone clears it from the screen. Output is capped at 64 KB per
+row, so it is slow growth, but `backup:run`'s retention sweep is the precedent if it ever needs one.
+
+---
+
+### 2026-09-09 23:10 EET — Claude — Maintenance console implementation plan (cPanel shared hosting)
+
+User request: an admin page that can run migrations, `npm i`, `composer i` and "other commands" on
+cPanel **shared hosting**. Read `frontend/DEPLOYMENT.md`, `config/backup.php`, `MysqlDumper`,
+`ScreenSeeder`/`ScreenRolePermissionSeeder` and `CheckScreenPermission` before designing, because
+three of the four things asked for behave very differently on that host.
+
+**The honest constraint, stated up front rather than discovered later.** On cPanel shared hosting
+`exec`/`shell_exec`/`proc_open` are routinely in `disable_functions`, `max_execution_time` is 30–120s
+for web requests, and Composer's memory appetite exceeds the usual limit. So:
+- **`php artisan migrate` is the one that genuinely works everywhere**, because it needs no shell at
+  all — `Artisan::call()` runs in-process, inside the same PHP worker already serving the request.
+  That is the design's centre of gravity.
+- **`composer install` / `npm install` need a shell**, so they are offered but may be structurally
+  impossible on a given host. The screen therefore *probes* the host and says which of the two
+  classes it can actually do, instead of presenting a button that fails with a blank 500.
+- **`npm run build` on the server is close to pointless for this app anyway** —
+  `frontend/DEPLOYMENT.md` is explicit that only `frontend/dist/` is deployable and that
+  `VITE_API_BASE_URL` is baked in at **build** time from `frontend/.env.production`, so building on
+  the server cannot change the API URL and the source tree usually is not even uploaded. It is
+  included for completeness with that warning written into the screen's own copy.
+
+**This is a fixed allowlist, NOT a web shell, and that is the load-bearing security property.** The
+client sends a **command code** and nothing else — no arguments, no flags, no free text ever reaches
+`Artisan::call()` or `Symfony\Component\Process`. `MaintenanceCommandCatalog` owns the whole
+vocabulary as a `const` array (code → kind, argv, working directory, destructive flag, bilingual
+label). A code not in that array is a 422 before anything runs. An "arbitrary command" box would be a
+remote shell reachable with one stolen admin session; the allowlist is what makes this an operations
+page instead. Recorded here so nobody later "improves" it into a free-text field.
+
+**Three defence layers on top of that**, each doing a different job:
+1. `screen.permission:maintenance,<action>` — a new `maintenance` screen seeded with **empty**
+   grants, which in `ScreenRolePermissionSeeder` already means R08-only (the `settings`/`backup`
+   precedent, no seeder rule needed).
+2. A **destructive tier**: `migrate:fresh`, `migrate:rollback` and `db:wipe` additionally require
+   `maintenance,approve` **and** the caller typing an exact confirmation phrase the API itself
+   dictates. One endpoint, one code path — the tier is checked in the controller, mirroring how
+   `decisions` splits `add` (vote) from `approve` (record).
+3. A config kill switch, `MAINTENANCE_CONSOLE_ENABLED` (default **true** — a console that ships off
+   is useless on the exact host that has no SSH to turn it on, which is the problem it exists to
+   solve). Documented in `.env.example`.
+
+**One run at a time, enforced with a cache lock.** Two concurrent `composer install`s corrupt
+`vendor/`, and two concurrent `migrate`s race on the migrations table. `Cache::lock('maintenance:run')`
+refuses the second with a plain message rather than serialising them.
+
+**A row is written before the command runs, not after** — `maintenance_runs` starts at `running` and
+is updated to `completed`/`failed`. That is `BackupService`'s own reasoning: a run killed by
+`max_execution_time` (the single most likely failure on this host) leaves evidence on the screen
+instead of vanishing, and the history table doubles as the audit trail — so `MaintenanceRun` is
+deliberately **not** added to `AuditLog::AUDITED_MODELS`, following Stage 68's precedent for
+`RequestLegalReview`.
+
+**Environment probe, because "why did nothing happen" is the real failure mode here.**
+`EnvironmentProbe` reports PHP version/SAPI/memory limit/`max_execution_time`, which of
+`proc_open`/`exec`/`shell_exec`/`symlink` are disabled, whether each configured binary
+(`php`/`composer`/`npm`/`node`) actually answers `--version`, pending-migration count, whether the
+config/route caches are warm, whether `storage/` and `bootstrap/cache/` are writable, the storage
+symlink, and free disk. Binary paths are **config**, not hardcoded: on cPanel `php` is
+`/opt/cpanel/ea-phpXX/root/usr/bin/php`, composer is often `/opt/cpanel/composer/bin/composer`, and
+npm lives under `~/nodevenv/...` — the same reasoning `config/backup.php` already applies to
+`mysqldump_path`.
+
+**Files**: `config/maintenance.php`; one migration (`maintenance_runs`); `MaintenanceRun` model;
+`App\Services\Maintenance\{MaintenanceCommandCatalog,EnvironmentProbe,MaintenanceRunner}`;
+`MaintenanceController` (`index` diagnostics+catalog, `runs`, `show`, `run`, `clearHistory`);
+`RunMaintenanceCommandRequest`; `MaintenanceRunResource`; routes; `ScreenSeeder` +
+`ScreenRolePermissionSeeder` (one new screen, empty grants); `MaintenanceView.vue` + route + a new
+`terminal` glyph in `AppIcon.vue` + `ICON_BY_CODE`; `maintenance.*` locale block in both files.
+
+**Verification plan**: new `tests/Feature/MaintenanceConsoleTest.php` — an unknown command code is
+refused before anything runs; a non-R08 role gets 403 on every verb; a safe artisan command runs and
+records a completed row with its output; a destructive command is refused without the confirmation
+phrase and again for a caller lacking `approve`; a shell command is refused with a clear message when
+the host has no `proc_open`; the kill switch closes every endpoint; the lock refuses a second
+concurrent run. Then the full PHPUnit suite, Pint, `npm run build`, locale key-parity, and
+`php artisan migrate` against the real MySQL/Homestead database.
+
+---
+
+
 ### 2026-09-09 21:15 EET — Claude — Stage 83 complete (lifecycle edge cases) — Track K finished
 
 Built per the plan below, from the verbatim sources — [D] **Appendices 16, 17, 18, 30, 31, 33, 53, 60,

@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DevTestUserController;
 use App\Http\Controllers\Api\GuideArticleController;
+use App\Http\Controllers\Api\MaintenanceController;
 use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\MeetingDiscussionNoteController;
 use App\Http\Controllers\Api\MeetingMinutesController;
@@ -69,6 +70,35 @@ Route::get('/ping', fn () => response()->json([
  * cached route table can't smuggle a local decision into production.
  */
 Route::get('/dev/test-users', [DevTestUserController::class, 'index']);
+
+/**
+ * The maintenance console's one-time bootstrap — the only unauthenticated
+ * endpoint in this system that can change the database.
+ *
+ * It exists because of a real chicken-and-egg on a host with no SSH: the
+ * console needs its own migration and screen row before it can be opened, and
+ * running migrations is the console's own job. Something has to break that
+ * loop from outside, and there is no shell to do it from.
+ *
+ * Four things keep it narrow, and none of them should be relaxed:
+ *   - it answers only when MAINTENANCE_BOOTSTRAP_TOKEN is set to at least 24
+ *     characters and the caller supplies it exactly (hash_equals);
+ *   - it 404s on every failure, so its existence is not confirmed to anyone
+ *     without the token (DevTestUserController's own reasoning);
+ *   - it SELF-DISABLES the moment the console becomes reachable through the
+ *     ordinary authenticated screen, so there is no cleanup step to forget;
+ *   - it does one fixed job — migrate, seed the screen row, grant it to R08 —
+ *     and takes no parameters describing what to run.
+ *
+ * GET renders a confirmation page and POST performs it: an administrator with
+ * no shell has no curl either, so this has to work from a browser's URL bar.
+ * Declared before the `maintenance/*` authenticated routes further down, which
+ * live behind auth:sanctum and could not shadow it in any case.
+ */
+Route::middleware('throttle:10,1')->group(function () {
+    Route::get('/maintenance/bootstrap', [MaintenanceController::class, 'bootstrapForm']);
+    Route::post('/maintenance/bootstrap', [MaintenanceController::class, 'bootstrap']);
+});
 
 Route::prefix('auth')->group(function () {
     /*
@@ -686,6 +716,38 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('backups/{backup}/download', [BackupController::class, 'download']);
     Route::middleware('screen.permission:backup,delete')
         ->delete('backups/{backup}', [BackupController::class, 'destroy']);
+
+    /*
+     * The maintenance console — deployment operations for a host with no
+     * shell (cPanel shared hosting), where there is otherwise no way to run
+     * `php artisan migrate` after uploading a release.
+     *
+     * R08-only through the `maintenance` screen's empty DEFAULTS entry, same
+     * as `backup` and `settings` above it. The action split:
+     *
+     *   view   diagnostics, the command catalogue, and the run history
+     *   add    run a command
+     *   delete clear the history
+     *
+     * `approve` is NOT a route here on purpose: it gates the destructive
+     * commands (migrate:fresh, migrate:rollback), which arrive at the same
+     * `add` endpoint as every other command, so the check belongs in the
+     * controller where the catalogue entry is known — see
+     * MaintenanceController::guardDestructive().
+     *
+     * `maintenance/runs` is declared before `maintenance/runs/{maintenanceRun}`
+     * for readability; the wildcard could not shadow it either way, but the
+     * ordering matches the convention used throughout this file.
+     */
+    Route::middleware('screen.permission:maintenance,view')->group(function () {
+        Route::get('maintenance', [MaintenanceController::class, 'index']);
+        Route::get('maintenance/runs', [MaintenanceController::class, 'runs']);
+        Route::get('maintenance/runs/{maintenanceRun}', [MaintenanceController::class, 'show']);
+    });
+    Route::middleware('screen.permission:maintenance,add')
+        ->post('maintenance/run', [MaintenanceController::class, 'run']);
+    Route::middleware('screen.permission:maintenance,delete')
+        ->delete('maintenance/runs', [MaintenanceController::class, 'clearHistory']);
 
     /*
      * Stage 22 — audit log. Read only by design (see AuditLogController), so

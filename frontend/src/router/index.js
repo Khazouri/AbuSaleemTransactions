@@ -244,6 +244,14 @@ const routes = [
         meta: { screenCode: 'backup' },
       },
       {
+        // The maintenance console — migrations, caches and dependency
+        // installs for a host with no shell (cPanel shared hosting).
+        path: 'maintenance',
+        name: 'maintenance',
+        component: () => import('../views/MaintenanceView.vue'),
+        meta: { screenCode: 'maintenance' },
+      },
+      {
         // Stage 27 — help articles, read by everyone and edited by R08.
         path: 'guide',
         name: 'user_guide',

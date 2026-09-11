@@ -107,3 +107,123 @@ export default defineConfig({
 | Login spins; console shows a CORS error | `FRONTEND_URL` not set in the Laravel `.env`. |
 | Login fails; console shows a mixed-content warning | `VITE_API_BASE_URL` is `http` on an `https` site. |
 | Old version persists after redeploy | `index.html` was cached; the `Cache-Control` rules in `.htaccess` prevent this. |
+
+
+## The backend half: deploying with no SSH at all
+
+Uploading `dist/` only deploys the SPA. If the release also changed the database
+schema, the migrations still have to run — and on cPanel shared hosting there is
+usually no shell to run them from. A migration that never ran reaches users as
+"column not found", not as a deployment error.
+
+The **Maintenance & Deployment** screen (`/maintenance`, System Admin only) is
+that missing step. But it needs its own table and screen row before it can be
+opened, which is a chicken-and-egg — so there is a one-time bootstrap page that
+breaks the loop from outside, and then closes itself.
+
+### Before you upload
+
+Do the two things that need a computer with a shell **on your own machine**, not
+on the server:
+
+```bash
+composer install --no-dev --optimize-autoloader   # produces vendor/
+cd frontend && npm ci && npm run build            # produces frontend/dist/
+```
+
+**Upload `vendor/` with the release.** `composer install` on shared hosting
+frequently cannot run at all — `proc_open` is disabled, or the memory limit
+kills it — and without `vendor/` Laravel will not boot, so *no* page works,
+including the bootstrap one. Shipping a prebuilt `vendor/` is the reliable path,
+not a workaround.
+
+### Upload
+
+| From | To |
+|---|---|
+| `frontend/dist/*` (contents, including `.htaccess`) | the SPA subdomain's docroot |
+| everything else, including `vendor/` | the API application directory |
+
+`transactions.scco.ly` is the Laravel app itself — that subdomain's docroot is
+Laravel's `public/`, and `/api/*` are its own routes. The SPA goes on a separate
+subdomain, which is why `FRONTEND_URL` matters (see below).
+
+### Configure `.env` (cPanel → File Manager → edit)
+
+```
+APP_ENV=production
+APP_DEBUG=false
+APP_KEY=base64:...            # must be set, or nothing decrypts
+APP_URL=https://transactions.scco.ly
+
+DB_DATABASE=...  DB_USERNAME=...  DB_PASSWORD=...
+
+FRONTEND_URL=https://<spa-subdomain>          # exact origin, no trailing slash
+MAINTENANCE_BOOTSTRAP_TOKEN=<24+ random characters>
+```
+
+`FRONTEND_URL` must match the browser's `Origin` header character for character
+or every request dies at CORS preflight.
+
+> **If an `.env` change appears to have no effect**, delete
+> `bootstrap/cache/config.php` through File Manager. A cached config is read
+> instead of `.env`, and that file is exactly what `optimize` writes.
+
+### Bootstrap, once, from a browser
+
+Open:
+
+```
+https://transactions.scco.ly/api/maintenance/bootstrap?token=<your token>
+```
+
+and press the button. It applies pending migrations, seeds the screen
+definitions, and grants the maintenance screen to the System Admin role. On a
+database that has never been seeded it seeds everything, including the
+administrator account.
+
+It reports each step and whether it succeeded, so a partial failure tells you
+how far it got. It is safe to retry.
+
+**It does not reset your permission matrix.** On a database that already has
+data it seeds screen *definitions* only and then grants exactly one screen to
+one role — re-running the full seeder would reset every grant to its defaults
+and silently discard anything customised through Roles & Permissions.
+
+Anything other than a correct token — no token, a wrong one, one shorter than 24
+characters — returns **404**, so the page's existence is not confirmed to anyone
+who does not already hold the token.
+
+### After bootstrapping
+
+1. Sign in to the SPA as the System Admin and open **الصيانة والنشر**
+   (`/maintenance`). Check the diagnostics panel: pending migrations, database
+   connection, writable paths, execution limit.
+2. Run **Clear all caches**, then **Optimise for production**.
+3. Remove `MAINTENANCE_BOOTSTRAP_TOKEN` from `.env`.
+
+The bootstrap page has already closed itself at this point — it refuses as soon
+as the console is reachable through a normal login — so step 3 is belt and
+braces rather than the thing standing between you and a stranger.
+
+### Every release after the first
+
+Upload the new files, then use the console: **Run migrations** → **Clear all
+caches** → **Optimise for production**. No bootstrap, no shell.
+
+Note that `npm run build` is offered by the console but **cannot change the API
+URL** — `VITE_API_BASE_URL` is baked in at build time from
+`frontend/.env.production`, as described above. Build locally and upload
+`dist/`.
+
+### If the bootstrap page will not load at all
+
+That means Laravel itself is not booting, so no route works. In order of
+likelihood: `vendor/` was not uploaded; `APP_KEY` is unset; the database
+credentials are wrong; or `storage/` and `bootstrap/cache/` are not writable
+(set them to 755 in File Manager).
+
+If you need a shell for one command and have no SSH, **cPanel → Cron Jobs** is
+one: schedule
+`/usr/local/bin/php /home/<account>/<app>/artisan migrate --force` for one
+minute from now, wait, then delete the job.
