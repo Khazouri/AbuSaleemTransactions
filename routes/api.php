@@ -454,8 +454,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
      * Stage 32 — the candidate-requests worklist. Rides the `committee_candidates`
-     * screen's own grants (add=[R03,R04] gates nominate, edit=[R03] gates the
-     * other three) rather than `meetings` — see CommitteeCandidateController's
+     * screen's own grants (`add` gates nominate, `edit` gates the other three)
+     * rather than `meetings` — see CommitteeCandidateController's
      * docblock for why defer/return-to-study run through WorkflowService while
      * nominate/request-completion run through CommitteeStatusService.
      */
@@ -518,9 +518,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
      * Stage 31 — agenda building rides the `meeting_agenda` screen's own
-     * permissions rather than `meetings` (grants are identical today, so no
-     * role's access actually changes) — building the agenda is that screen's
-     * declared domain, not the meeting record's.
+     * permissions rather than `meetings` — building the agenda is that
+     * screen's declared domain, not the meeting record's. The two screens'
+     * grants were identical when this moved; they are not any more (Stage 84
+     * seats R02/R03/R09 here and R02/R03 on `meetings`), so read the seeder
+     * rather than assuming they track each other.
      */
     Route::middleware('screen.permission:meeting_agenda,view')
         ->get('meetings/{meeting}/agenda/stats', [MeetingController::class, 'agendaStats']);
@@ -670,9 +672,14 @@ Route::middleware('auth:sanctum')->group(function () {
      * `pending` sits behind `view`, not `add` — reading your own worklist is
      * reading. Its vote buttons post back to the endpoint above, which
      * re-checks `add` and the eligibility rules, so nothing is decided here.
-     * Export is R08-only by default (the `decisions` grants seed `print` to
-     * everyone but not `export`): reading the register on screen and carrying
-     * it out as a file are different privileges.
+     * Stage 84 — `export` is the R06/R07 tier every other export in the app
+     * uses (registers, reports, audit_log), all of which share this
+     * controller's own ReportDocument/ReportExporter path. It was R08-only
+     * purely because the grant key was absent, which is not a policy: `view`
+     * is already '*', so both roles read these rows — vote tallies included —
+     * on screen today, and register 6 already exports the same population to
+     * them. Reading on screen and carrying a file out remain different
+     * privileges; everyone else still cannot export.
      */
     Route::middleware('screen.permission:decisions,view')->group(function () {
         Route::get('decisions/filters', [DecisionController::class, 'filters']);

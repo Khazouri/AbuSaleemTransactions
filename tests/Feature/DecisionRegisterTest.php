@@ -181,9 +181,15 @@ class DecisionRegisterTest extends TestCase
     }
 
     /**
-     * `decisions` seeds view/add/approve/print but not export, so exporting
-     * falls to R08 only — reading the register and carrying it out as a file
-     * are different privileges.
+     * Reading the register and carrying it out as a file stay different
+     * privileges — a committee member may do the first and not the second.
+     *
+     * Stage 84 — `export` now seeds the same R06/R07 tier `registers`,
+     * `reports` and `audit_log` already use, so the ministry and the director
+     * can export here too. That is a consistency fix, not a widening of what
+     * they may see: `decisions,view` is '*', so both already read these rows
+     * — vote tallies included — on screen, and register 6 already exports the
+     * same population to them.
      */
     public function test_export_requires_the_export_grant_while_viewing_does_not(): void
     {
@@ -193,6 +199,8 @@ class DecisionRegisterTest extends TestCase
         $this->actingAs($member, 'sanctum')->getJson('/api/decisions/pending')->assertOk();
         $this->actingAs($member, 'sanctum')->getJson('/api/decisions/export')->assertForbidden();
 
+        $this->actingAs($this->userWithRole('R06'), 'sanctum')->get('/api/decisions/export')->assertOk();
+        $this->actingAs($this->userWithRole('R07'), 'sanctum')->get('/api/decisions/export')->assertOk();
         $this->actingAs($this->admin(), 'sanctum')->get('/api/decisions/export')->assertOk();
     }
 

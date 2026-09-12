@@ -127,7 +127,10 @@ class PresentationMemoTest extends TestCase
             'decided_at' => now()->subWeek(),
         ]);
 
-        $response = $this->actingAs($member, 'sanctum')
+        // Stage 84 — drafted by the chair rather than the member: the memo is
+        // المقرر's under Appendix 6's RACI, and R04 no longer holds the tier.
+        // This test is about prior-decision scoping, not about the grant.
+        $response = $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/presentation-memo/generate")
             ->assertOk();
 
@@ -176,14 +179,26 @@ class PresentationMemoTest extends TestCase
             ->assertStatus(422);
     }
 
-    public function test_r04_can_generate_but_a_role_without_the_add_grant_is_refused(): void
+    /**
+     * Stage 84 — the memo is the rapporteur's, not any member's. [D] Appendix
+     * 6's RACI makes إعداد مذكرة العرض مقرر اللجنة's own responsibility and
+     * Art. 15 (أ) أولًا 11 lists تجهيز ملفات العرض ومذكرات العرض among the
+     * pre-meeting duties, so R02 drafts and R04 — who held this tier purely
+     * because Stage 46 read "a member acting as مقرر" into it — no longer can.
+     */
+    public function test_the_rapporteur_generates_a_memo_while_a_member_and_an_outsider_are_refused(): void
     {
         $this->seed(DatabaseSeeder::class);
         [, $member, , $meeting, $agendaItem] = $this->committeeMeetingWithRequestItem();
 
-        $this->actingAs($member, 'sanctum')
+        $rapporteur = $this->userWithRole('R02');
+        $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/presentation-memo/generate")
             ->assertOk();
+
+        $this->actingAs($member, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/presentation-memo/generate")
+            ->assertStatus(403);
 
         $outsider = $this->userWithRole('R01');
         $this->actingAs($outsider, 'sanctum')

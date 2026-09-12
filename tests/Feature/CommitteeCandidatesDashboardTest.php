@@ -103,20 +103,55 @@ class CommitteeCandidatesDashboardTest extends TestCase
         $this->assertSame('high', $row['proposed_meeting']['priority']);
     }
 
-    public function test_a_member_can_nominate_but_not_defer(): void
+    /**
+     * Stage 84 — the two tiers on this screen no longer split member-vs-chair;
+     * they split on whether the actor runs the committee's paperwork at all.
+     * [D] Appendix 45 gives القيد · الفحص · المتابعة to المقرر — which is
+     * exactly this worklist — while Art. 13 (أ) limits an ordinary member to
+     * studying, discussing and voting. So R04 now holds neither tier and R02
+     * holds both. Two fixtures so the defer assertion is about the grant, not
+     * about what status nominate happened to leave behind.
+     */
+    public function test_the_rapporteur_works_the_candidate_list_and_a_member_cannot(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $member = $this->userWithRole('R04');
-        $requestRecord = $this->committeeRequest('in_meeting');
+        $rapporteur = $this->userWithRole('R02');
+        $toNominate = $this->committeeRequest('in_meeting');
+        $toDefer = $this->committeeRequest('in_meeting');
+        $toComplete = $this->committeeRequest('in_meeting');
 
         $this->actingAs($member, 'sanctum')
-            ->postJson("/api/committee-candidates/{$requestRecord->id}/nominate")
-            ->assertOk();
-
-        $this->actingAs($member, 'sanctum')
-            ->postJson("/api/committee-candidates/{$requestRecord->id}/defer", ['comment' => 'سبب'])
+            ->postJson("/api/committee-candidates/{$toNominate->id}/nominate")
             ->assertStatus(403);
+
+        $this->actingAs($member, 'sanctum')
+            ->postJson("/api/committee-candidates/{$toComplete->id}/request-completion", ['comment' => 'سبب'])
+            ->assertStatus(403);
+
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson("/api/committee-candidates/{$toNominate->id}/nominate")
+            ->assertOk()
+            ->assertJsonPath('data.status.code', 'nominated_for_committee');
+
+        // طلب استكمال النواقص is المقرر's own act — Art. 15 (أ) أولًا 6 and
+        // Art. 16 (أ) both name it — so the widened `edit` tier really does
+        // give R02 something.
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson("/api/committee-candidates/{$toComplete->id}/request-completion", ['comment' => 'نواقص'])
+            ->assertOk()
+            ->assertJsonPath('data.status.code', 'completion_required');
+
+        // But NOT the deferral: that is the committee's own substantive
+        // decision, which Art. 16 (أ) 1 forbids المقرر from taking. The screen
+        // permission lets R02 through, and WorkflowService's own R03 role on
+        // the `defer` transition is what refuses — two independent layers, and
+        // this assertion is what stops a later pass "tidying" them into one.
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson("/api/committee-candidates/{$toDefer->id}/defer", ['comment' => 'سبب'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('action');
     }
 
     public function test_defer_requires_a_comment_and_keeps_the_request_at_the_committee_stage(): void

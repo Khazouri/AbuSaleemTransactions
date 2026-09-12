@@ -43,7 +43,17 @@ class ScreenRolePermissionSeeder extends Seeder
         'request_details' => ['view' => '*', 'print' => '*', 'export' => '*'],
 
         // Notes/attachments: broad read, narrower write.
-        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05'], 'edit' => ['R01', 'R02']],
+        //
+        // Stage 84 — R01 dropped from `edit`. [D] Appendix 45's صلاحية الموظف
+        // is "إنشاء طلب · رفع مستند · استكمال نقص · متابعة الحالة المسموحة":
+        // uploading is the employee's own listed capability, editing is not.
+        // This tier also gates Art. 45's jurisdiction test and Appendix 63's
+        // بوابة 1 — the completeness attestation the قيد hangs on — which
+        // Appendix 6's RACI gives to مقرر اللجنة with the الموظف column left
+        // empty, and which Appendix 19 forbids the submitter from signing off
+        // on ("لا يكون مقدم الطلب هو معتمد الطلب"). R01 loses Stage 47's
+        // financial-impact correction as a consequence; R02 keeps it.
+        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05'], 'edit' => ['R02']],
 
         // Stage 58 — appeals against an already-decided request. `view` is
         // broad (like `requests`): the controller scopes the query to the
@@ -73,7 +83,11 @@ class ScreenRolePermissionSeeder extends Seeder
         // placement is gated by this screen permission inside
         // CommitteeStatusService, not by a fixed WorkflowService role.
         'meetings_dashboard' => ['view' => '*', 'add' => ['R03', 'R04', 'R09'], 'edit' => ['R03', 'R09'], 'print' => '*'],
-        'committee_candidates' => ['view' => '*', 'add' => ['R03', 'R04', 'R09'], 'edit' => ['R03', 'R09'], 'print' => '*'],
+        // Stage 84 — R02 in, R04 out. [D] Appendix 45 gives المقرر القيد ·
+        // الفحص · المتابعة, which is precisely this worklist (nominate, defer,
+        // return to study, request completion), while Art. 13 (أ) limits
+        // ordinary members to studying, discussing and voting.
+        'committee_candidates' => ['view' => '*', 'add' => ['R02', 'R03', 'R09'], 'edit' => ['R02', 'R03', 'R09'], 'print' => '*'],
         // Stage 68 — [D] Art. 21's pre-meeting legal review. The two write
         // tiers split by Appendix 6's RACI row for المراجعة القانونية, where
         // the legal member is مسؤول and the rapporteur only منسق:
@@ -85,15 +99,59 @@ class ScreenRolePermissionSeeder extends Seeder
         // `view` is '*' because Art. 21 requires the recorded opinion to be
         // readable by the committee's own members at study time.
         'legal_review' => ['view' => '*', 'add' => ['R11'], 'edit' => ['R02', 'R09'], 'print' => '*'],
-        'meetings' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
-        'meeting_agenda' => ['view' => '*', 'add' => ['R03', 'R04', 'R09'], 'edit' => ['R03', 'R09'], 'print' => '*'],
+        // Stage 84 — R02 in, R04 out. [D] Appendix 45 gives المقرر إنشاء
+        // الاجتماع outright, and Art. 15 (أ) أولًا 12-13 / ثانيًا 1 give them
+        // توجيه الدعوات and تسجيل حضور الأعضاء, which is what `edit` gates
+        // here. Art. 13 (أ) gives ordinary members no convening role at all;
+        // الدعوة is the chair's under Art. 12 (أ) 1, so R03 keeps both tiers.
+        // This screen also carries committee CRUD (see routes/api.php), so
+        // R02 can maintain the committee record too — Appendix 45 has no
+        // committee-formation entry, so that coupling is recorded, not split.
+        'meetings' => ['view' => '*', 'add' => ['R02', 'R03'], 'edit' => ['R02', 'R03'], 'print' => '*'],
+        // Stage 84 — R02 in, R04 out. Appendix 45 gives المقرر إدارة جدول
+        // الأعمال, and Art. 15 (أ) أولًا 10-11 give them إعداد مشروع جدول
+        // الأعمال and تجهيز ملفات العرض ومذكرات العرض — the `add` tier here is
+        // the presentation memo. The chair keeps both tiers (Art. 12 (أ) 3 is
+        // مراجعة واعتماد جدول الأعمال) and R09 keeps them as this system's own
+        // agenda secretary.
+        'meeting_agenda' => ['view' => '*', 'add' => ['R02', 'R03', 'R09'], 'edit' => ['R02', 'R03', 'R09'], 'print' => '*'],
         'meeting_readiness' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
-        'meeting_live' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
-        'decisions' => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R03'], 'print' => '*'],
+        // Stage 84 — R02 joins `add` (the live discussion feed): Art. 15 (أ)
+        // ثانيًا 5 makes تدوين المناقشات المقرر's own duty. `edit` — advancing
+        // the item state and ticking Art. 85's study sequence — stays R03,
+        // since Art. 12 (أ) 9-10 give إقفال المناقشة and طرح الموضوعات
+        // للتصويت to the chair.
+        'meeting_live' => ['view' => '*', 'add' => ['R02', 'R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
+        // Stage 84 — two changes here.
+        //
+        // `approve` (recording the tallied result) gains R02: Appendix 45
+        // lists تسجيل النتيجة among المقرر's own capabilities and Art. 15 (أ)
+        // ثانيًا 6 is تسجيل نتيجة التصويت بدقة. The outcome is computed from
+        // the votes, so المقرر cannot record one the committee did not reach
+        // — the thing Art. 16 (أ) 4 actually forbids.
+        //
+        // `add` deliberately does NOT gain R02: that tier casts a vote, and
+        // Art. 16 (أ) 2 forbids المقرر voting unless قرار التشكيل says
+        // otherwise — which is Stage 73's `rapporteur_votes` flag on the
+        // committee record, not a permission.
+        //
+        // `export` joins the R06/R07 tier every other export in the app uses
+        // (registers, reports, audit_log), all of which share this screen's
+        // own ReportDocument/ReportExporter path. Not a new disclosure:
+        // `view` is already '*', so both roles read these rows — vote tallies
+        // included — on screen today, and register 6 already exports the same
+        // population to them. Art. 102's tally restriction is about صاحب
+        // العلاقة, whom Stage 79 excluded from DecisionRecordedNotification.
+        'decisions' => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R02', 'R03'], 'print' => '*', 'export' => ['R06', 'R07']],
         // Stage 36: `add` covers both generating a draft and casting one's
         // own signature (mirrors `decisions,add` covering vote-casting);
         // `approve` is the head's review decision, same split as `decisions`.
-        'meeting_minutes' => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R03'], 'edit' => ['R03'], 'print' => '*'],
+        // Stage 84 — R02 joins `add`. Appendix 45 lists المحاضر among المقرر's
+        // capabilities and Art. 15 (أ) ثانيًا 9 / ثالثًا 1 give them إعداد
+        // مسودة المحضر and إعداد المحضر بصورته النهائية. R04 stays because
+        // this tier also casts a member's own signature (Art. 13 (أ) 15).
+        // `approve` stays R03 — Art. 12 (أ) 13 is the chair's own اعتماد.
+        'meeting_minutes' => ['view' => '*', 'add' => ['R02', 'R03', 'R04'], 'approve' => ['R03'], 'edit' => ['R03'], 'print' => '*'],
         // Stage 37: everyone may follow live outputs; only the head certifies
         // execution completion through `edit`.
         // Stage 75 — R02 joins `edit`: Appendix 47 addresses closure to المقرر

@@ -53,6 +53,47 @@ class CommitteeMeetingTest extends TestCase
         $this->assertDatabaseHas('meetings', ['id' => $meetingId, 'committee_id' => $committee->id]);
     }
 
+    /**
+     * Stage 84 — you may not convene a committee you do not sit on. [D] Art.
+     * 12 (أ) 1 gives الدعوة إلى اجتماعات اللجنة to that committee's own chair
+     * and Appendix 45 gives إنشاء الاجتماع to its مقرر; neither is a
+     * capability over committees the actor has nothing to do with, and the
+     * `meetings,add` screen permission alone cannot express "which one".
+     */
+    public function test_scheduling_is_refused_for_a_committee_the_actor_does_not_sit_on(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $stranger = $this->userWithRole('R03');
+        $seatedHead = $this->userWithRole('R03');
+
+        $committee = Committee::create(['name_ar' => 'لجنة لا ينتمي إليها']);
+        $committee->members()->create(['user_id' => $seatedHead->id, 'is_head' => true]);
+
+        $payload = [
+            'committee_id' => $committee->id,
+            'title' => 'اجتماع غير مأذون',
+            'scheduled_at' => now()->addDay()->toDateTimeString(),
+        ];
+
+        $this->actingAs($stranger, 'sanctum')
+            ->postJson('/api/meetings', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('committee_id');
+
+        $this->assertDatabaseCount('meetings', 0);
+
+        // The seated chair may, and so may R08 — the same administrative
+        // fallback WorkflowService applies to manager-gated transitions.
+        $this->actingAs($seatedHead, 'sanctum')
+            ->postJson('/api/meetings', $payload)
+            ->assertCreated();
+
+        $this->actingAs($this->userWithRole('R08'), 'sanctum')
+            ->postJson('/api/meetings', [...$payload, 'title' => 'اجتماع بصلاحية إدارية'])
+            ->assertCreated();
+    }
+
     public function test_agenda_add_remove_and_reorder_and_attendance_marking(): void
     {
         $this->seed(DatabaseSeeder::class);

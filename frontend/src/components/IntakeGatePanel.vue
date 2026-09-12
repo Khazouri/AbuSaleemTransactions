@@ -19,6 +19,11 @@ const props = defineProps({
   record: { type: Object, default: null },
   // Why the قيد would be refused right now; null means the gate passes.
   refusal: { type: String, default: null },
+  // Stage 84 — who answered it and when. The payload has carried these since
+  // Stage 78 and nothing rendered them, so a reader could not tell whose
+  // attestation the قيد was resting on.
+  recordedBy: { type: Object, default: null },
+  recordedAt: { type: String, default: null },
 })
 
 const emit = defineEmits(['updated'])
@@ -37,6 +42,11 @@ const documents = computed(() => Object.entries(props.requiredDocuments))
 function label(document) {
   return (locale.value === 'ar' ? document.ar : document.en) || document.ar || document.en
 }
+
+const recordedAtLabel = computed(() => (props.recordedAt
+  ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+    .format(new Date(props.recordedAt))
+  : ''))
 
 // Seed the form from whatever is already recorded, so re-opening it shows the
 // previous answers rather than a blank slate the officer has to redo.
@@ -84,6 +94,13 @@ async function submit() {
   <div class="gate-panel">
     <p v-if="refusal" class="alert">{{ refusal }}</p>
     <p v-else class="ok">{{ t('controlGates.intake.passed') }}</p>
+
+    <!-- Stage 84 — whose attestation this is. [D] Appendix 19 makes the
+         author part of the record, not a detail: the gate is only meaningful
+         if a reader can see it was not signed by the file's own submitter. -->
+    <p v-if="recordedBy" class="recorded-by">
+      {{ t('controlGates.intake.recordedBy', { name: recordedBy.name, at: recordedAtLabel }) }}
+    </p>
 
     <!-- The recorded card, so a later reader sees Appendix 57's own list
          rather than only whether it passed. -->
@@ -218,6 +235,12 @@ async function submit() {
 }
 
 .hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-black-500);
+}
+
+.recorded-by {
   margin: 0;
   font-size: 0.8rem;
   color: var(--color-black-500);

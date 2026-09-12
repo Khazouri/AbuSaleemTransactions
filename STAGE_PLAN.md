@@ -1,10 +1,30 @@
 # Abu Saleem Request System — Staged Local Build Plan
 
-**How this works:** 24 stages, each small enough to build, run locally, and verify in one sitting.
+**How this works:** one stage per sitting — small enough to build, run locally, and verify in one go.
 You tell me which stage to work on; I produce the code for that stage only.
 Each stage lists: **Goal → What gets built → Done when**.
 
 Stages are ordered by dependency, not difficulty. Don't skip ahead unless the stage says it's independent.
+
+> **Status, as of 2026-09-12 — Tracks A through L (Stages 1–84) are all built.**
+> This file stays the reference for *what each stage number means*; it is not a
+> to-do list any more. Two things follow from that, and they matter when reading
+> any stage below:
+>
+> 1. **A stage's counts describe the system as it was when that stage was
+>    written**, not today. Stage 3 says "22 screens" because there were 22; there
+>    are now 33. Likewise "11 stages" (now 12, after Stage 57 cut two), "8 roles"
+>    (now 11) and several different status counts. These are deliberately left
+>    as written — they record what that stage actually faced. **Verify any figure
+>    against the seeders before quoting it**, never against a stage bullet.
+> 2. **Claims that would mislead someone building *now* have been corrected** in
+>    place (a named method that no longer exists, a miscounted source appendix),
+>    with the correction noted inline. See AGENT_NOTES.md's 2026-09-12 entry for
+>    the full audit.
+>
+> Ground truth at the time of that audit: **12** workflow stages · **11** roles ·
+> **33** screens · **41** request statuses · **11** notification event types ·
+> **5** approval levels · **15** seeded test accounts.
 
 ---
 
@@ -102,7 +122,11 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 ### Stage 13 — Request intake flow
 **Goal:** The full "create a request" journey (Image 6).
 **Build:**
-- Reference number generator (`YYYY-DEPT-000123`), race-safe inside a DB request
+- Reference number generator (`YYYY-DEPT-000123`), race-safe inside a database transaction
+  <!-- The Transaction->Request rename swept this word too; it means an ACID
+       transaction, not a request. Stage 70 later replaced this whole scheme
+       with Appendix 15's `PM-COM/YYYY/0001` and moved the قيد point. -->
+
 - Intake form: basic data → attachments → validation → submit
 - On submit: create request, assign reference number, set status `new` / stage 1
 - Notes component on the request detail page
@@ -1001,6 +1025,9 @@ several Track I decisions were made (§4's status reconciliation, §14's Stage
 but does not reproduce.
 **Done when:** every provision appears exactly once with a tag, and the
 divergent/missing rows are the ones Stages 68–83 close. No code change.
+**Source:** [D] in full (all 114 Articles, all 78 appendices) and [E] in full
+(21 stages, 7 supplementary diagrams) — this stage *is* the transcription, so
+it cites the two documents themselves rather than a provision within them.
 
 ### Stage 68 — Pre-meeting legal review (the largest missing mandated step)
 **Goal:** [E]'s numbered **stage 08** exists. Today `legal_review` lives only
@@ -1073,11 +1100,15 @@ never attach.
 **Source:** [D] Appendices 57, 4; Arts. 48–79's per-type chapters.
 
 ### Stage 73 — ⚠ Committee identity card + configurable quorum
-**Goal:** stop inventing a quorum. `MeetingReadinessService.php:65` and
-`MeetingMinutesCompiler.php:88` both hard-code `ceil(activeMembers/2)`, and the
-file's own comment admits it was invented for lack of a spec — but **Appendix
-64 forbids exactly that**: "ولا يجوز للدليل إنشاء نسبة نصاب أو أغلبية من تلقاء
+**Goal:** stop inventing a quorum. `MeetingReadinessService` and
+`MeetingMinutesCompiler` both hard-coded `ceil(activeMembers/2)`, and the file's
+own comment admitted it was invented for lack of a spec — but **Appendix 64
+forbids exactly that**: "ولا يجوز للدليل إنشاء نسبة نصاب أو أغلبية من تلقاء
 نفسه."
+<!-- This bullet used to cite two line numbers. Stage 73 removed the `ceil(` from
+     both files and left a past-tense comment where each one stood, so the
+     anchors now point at unrelated code — cite file + symbol, not file + line. -->
+
 **Build:** add Appendix 65's بطاقة تعريف اللجنة fields to `Committee` (قرار
 التشكيل رقم/تاريخ، من له حق التصويت، النصاب اللازم، الأغلبية اللازمة، معالجة
 تساوي الأصوات، قواعد توقيع المحضر، جهة اعتماد المحاضر، حالات التنحي) and make
@@ -1107,9 +1138,13 @@ and explicitly declined to retrofit here ("the same gap exists for ordinary
 requests, which this stage does not close").
 **Build:** Art. 37's eight closure fields (تاريخ الإقفال، النتيجة النهائية،
 رقم القرار النهائي، جهة الاعتماد، تاريخ التنفيذ، الجهة المنفذة، حالة الإشعار،
-موقع حفظ الملف); Appendix 47's thirteen-point pre-closure audit; and Appendix
+موقع حفظ الملف); Appendix 47's **twelve**-point pre-closure audit; and Appendix
 48's eight conditions under which closure must be refused. Mirror Stage 65's
 appeal-closure shape rather than inventing a second one.
+<!-- Said "thirteen-point" until the 2026-09-12 doc audit. The verbatim appendix
+     has twelve bullets; RequestClosureService's own docblock says so too. The
+     transcription wins over this paraphrase. -->
+
 **Source:** [D] Art. 37; Appendices 47, 48; النموذج 18.
 
 ### Stage 76 — Execution proof
@@ -1120,8 +1155,15 @@ is explicit: "لا يكفي أن تقول الجهة المنفذة (تم الت
 tracking checklist (تم إصدار القرار الإداري / تحديث ملف الموظف / تحديث النظام /
 إحالة الأثر المالي / إخطار التقسيم التنظيمي / إخطار الموظف / إرفاق مستند
 التنفيذ), with a required evidence attachment before
-`MeetingOutputService::complete()` will close the item. Per the Track K intro's
-scope decision (1), the ملف الخدمة update is *evidenced* here, not modelled.
+`MeetingOutputService::markExecuted()` will record the execution. Per the Track
+K intro's scope decision (1), the ملف الخدمة update is *evidenced* here, not
+modelled.
+<!-- This named `MeetingOutputService::complete()`, which no longer exists:
+     Stage 69 split it into markExecuted() (18->19) and close() (19->20), then
+     Stage 75 deleted close() outright and moved closure to
+     RequestClosureService. Appendix 70 verifies the EXECUTION claim, so the
+     gate belongs on markExecuted() — which is where Stage 76 actually built it. -->
+
 **Source:** [D] Arts. 95, 96, 97; Appendices 52, 70; النموذج 17.
 
 ### Stage 77 — Return from the approving body
@@ -1137,8 +1179,14 @@ quiet edit of an approved محضر.
 **Goal:** Appendix 63 requires the system itself to block progression at four
 points — قبل القيد / قبل جدول الأعمال / قبل الاعتماد / قبل الإقفال — "وتمنع
 المنظومة الإلكترونية الانتقال إذا كانت متطلبات البوابة غير مكتملة". Stage 33
-built gate 2 only.
-**Build:** gates 1, 3 and 4; Art. 103's twelve-point قائمة فحص سلامة القرار
+built gate 2.
+<!-- This said "gate 2 only", which was true when written but not by the time
+     Stage 78 ran: Stage 75's RequestClosureService IS gate 4 (Appendix 47's
+     audit + Appendix 48's refusals), and 75 comes first in the suggested order.
+     Stage 78's real scope was gates 1 and 3 — it verified 2 and 4 rather than
+     rebuilding them. -->
+**Build:** gates 1 and 3 (2 and 4 already exist — verify, don't rebuild);
+Art. 103's twelve-point قائمة فحص سلامة القرار
 before execution; and Art. 105's rule that a material fact discovered to be
 wrong **suspends execution immediately** and refers the matter back to legal
 review — there is no suspend action today.
@@ -1146,7 +1194,9 @@ review — there is no suspend action today.
 
 ### Stage 79 — Art. 101's twelve notification moments
 **Goal:** the employee is told at each of the twelve moments [D] enumerates.
-**Build:** `NotificationSetting::EVENT_TYPES` has nine events, and status-only
+**Build:** `NotificationSetting::EVENT_TYPES` had nine events when Track K was
+planned — eleven today, after Stage 71 added `delay_escalation` and this stage
+added `request_notice` — and status-only
 moves fire **nothing** — `stage_changed` only ever fires from
 `WorkflowService::transition()`, so إدراج الطلب بجدول الأعمال، بدء التنفيذ and
 إقفال المعاملة are currently silent. Add the missing events, make
@@ -1163,9 +1213,13 @@ data that already exists, plus Art. 100's "المستند المرتبط" column
 timeline entry.
 **Source:** [D] Arts. 98, 99, 100; Appendices 11, 12.
 
-### Stage 81 — The thirteen official KPIs
+### Stage 81 — The twelve official KPIs
 **Goal:** the dashboard measures what Art. 106 says to measure.
-**Build:** [D]'s own thirteen indicators (متوسط مدة الفحص الأولي، نسبة الملفات
+<!-- Heading and bullet both said "thirteen" until the 2026-09-12 doc audit.
+     Art. 106's verbatim table has TWELVE rows — and the parenthetical list
+     below has always enumerated exactly twelve, so the paraphrase contradicted
+     its own contents. Same class of error as Stage 75's Appendix 47 count. -->
+**Build:** [D]'s own twelve indicators (متوسط مدة الفحص الأولي، نسبة الملفات
 الناقصة، متوسط مدة استكمال النواقص، نسبة الملفات الجاهزة قبل الاجتماع، عدد
 المعاملات بكل اجتماع، نسبة المعاملات المؤجلة، نسبة التأجيل بسبب نقص مستندات،
 متوسط مدة الاعتماد، متوسط مدة التنفيذ بعد الاعتماد، نسبة القرارات المعادة من
@@ -1181,6 +1235,15 @@ per-item fields (الرأي القانوني، نوع القرار المطلو�
 سبق عرضه، رقم الاجتماع السابق) and its two priority levels; and Art. 85's
 nine-step per-item sequence as the live runner's checklist (النموذج 11).
 **Source:** [D] Arts. 82, 83, 85; Appendices 24, 25; النموذج 11.
+
+> **⚠ Unowned work — [D] Art. 84's session-opening acts.** The compliance
+> matrix routed Art. 84 here, but it is **not** in this stage's Source line and
+> Stage 82 deliberately declined it: a sequenced sitting-opening ritual
+> (إثبات الحاضرين والغائبين والمعتذرين، إثبات صحة الانعقاد، اعتماد جدول الأعمال،
+> إثبات تعارض المصالح، إثبات المؤجلة أو المسحوبة) is a **meeting-level** record,
+> not agenda work. Stage 73 covers only the صحة الانعقاد limb, via the quorum
+> rules. **The remaining acts belong to no stage.** They need an owner or an
+> explicit decision to drop them — do not assume Track K closed them.
 
 ### Stage 83 — Lifecycle edge cases
 **Goal:** the situations [D] anticipates but the system currently cannot
@@ -1199,7 +1262,54 @@ decision (Appendices 68, 69); and Appendix 60's six special cases (وفاة ال
 
 ---
 
+# TRACK L — permission-matrix corrections (Stage 84)
+
+Track K made the *process* identical to [D]. This track makes the **permission
+matrix** identical to it, which turned out to be a separate question: the
+compliance matrix had Appendices 6 and 45 tagged ✅ on a check that only
+confirmed the roles *existed*, never that each role's listed capabilities
+matched. [D] Appendix 45 (صلاحيات النظام الإلكتروني) is a per-party capability
+list written for exactly this table, and reading it against the seeder found
+one role attesting its own file and another convening committees it has no
+seat on.
+
+### Stage 84 — Role-matrix and gate-authorship corrections
+**Goal:** every seeded grant traceable to a clause, and nobody certifying their
+own file.
+**Build:** the creator refused on both halves of Appendix 63's gate 1 —
+Appendix 19's "لا يكون مقدم الطلب هو معتمد الطلب", enforced the way
+`AppealController::recordJurisdictionTest()` already enforces it on the appeal
+side — plus the who/when pair `requests.jurisdiction_test` never had, the only
+per-request control record in the table without one. R01 leaves
+`notes_attachments,edit` (Appendix 45's صلاحية الموظف has no editing
+capability). Ten grant cells reconciled against Appendix 45 and Arts. 12/13/15:
+R02 (المقرر) gains إنشاء الاجتماع، إدارة جدول الأعمال، تسجيل النتيجة and
+المحاضر, which it held none of; R04 loses convening and agenda authorship,
+which Art. 13 never gave it. `decisions,export` joins the R06/R07 tier every
+other export uses. Scheduling a meeting requires a seat on that committee.
+**Also fixes:** `RequestController::reopen()` cleared `intake_gate` and
+`execution_soundness` but never `jurisdiction_test`, so a reopened file
+satisfied the Art. 45 gate on the previous lap's answers.
+**Deliberately unchanged:** `decisions,add` (Art. 16 forbids المقرر voting —
+Stage 73's `rapporteur_votes` is the only sanctioned exception, and it is a
+committee-record flag, not a permission); `meeting_minutes,approve`,
+`meeting_live,edit`, `meeting_readiness,edit` (Art. 12 items 3, 9-10, 13 give
+these to the chair); R09 in `meetings` (الدعوة is the chair's, إنشاء الاجتماع
+المقرر's — the secretary is neither).
+**Done when:** an employee cannot record either half of gate 1 on their own
+request; both halves name their author; a reopened file must answer Art. 45
+again; R06/R07 can export the decisions register; a member cannot convene; and
+no one can schedule a meeting for a committee they do not sit on.
+**Source:** [D] Appendices 6, 19, 20, 45, 63 + Arts. 7, 12, 13, 15, 16, 45.
+
+---
+
 ## Suggested order
+
+**All of it is built** — Stages 1–84, Tracks A through L. This block is kept as
+the dependency record: it says which stage had to precede which, which is what
+you need when reading a stage's assumptions or judging whether a change to one
+stage's work disturbs another's. It is no longer a queue.
 
 ```
 1 → 2 → 3 → 4 → 5        (foundation — do these in order)
@@ -1221,17 +1331,39 @@ decision (Appendices 68, 69); and Appendix 60's six special cases (وفاة ال
 73                                                (Track K — quorum; needs a migration story for already-minuted meetings)
 75 → 76 → 77 → 78                                 (Track K — closure, execution proof, approval-return, the four gates)
 79 → 80 → 81 → 82 → 83                            (Track K — notifications, registers, KPIs, agenda rules, edge cases)
+84                                                (Track L — the permission matrix; independent of Track K, but reads its compliance matrix)
 ```
 
-**Stages you can pull forward if you want a break from the hard parts:** 10, 12, 22, 74 (seeding
-Appendix 59's seven decision formulas is self-contained and immediately useful).
-**Stages not to rush:** 9, 14, 16, 18, 57, 64, 69, 73 — these are where correctness bugs hide (57, 64,
-69 and 73 also carry real coupling/migration risk, per their own notes in Tracks I/J/K).
+**Stages that were independent** (buildable out of order): 10, 12, 22, 74.
+**Stages where correctness bugs hide** — read their own AGENT_NOTES entries in full before
+changing anything they built: 9, 14, 16, 18, 57, 64, 69, 73, 84. Stages 57, 64, 69 and 73 carry
+real coupling/migration risk, and 84 rewrote the seeded permission matrix — **re-running
+`ScreenRolePermissionSeeder` on a live install resets every grant an administrator changed
+through the Roles & Permissions screen.**
 
 ---
 
-## When you're ready
+## Work with no stage
 
-Tell me the stage number and I'll build it. Useful things to mention when you do:
-- Anything already deviating from the plan (different package choices, schema tweaks)
-- Whether you want the code as files you can drop in, or explained step by step
+Every stage above is built, but a handful of provisions were deliberately declined along the
+way and belong to nobody. They are listed here so they are decided rather than inherited:
+
+- **[D] Art. 84's session-opening acts** — see the note under Stage 82.
+- **[D] Appendix 46** — the immutable post-approval copy of an approved محضر and its versioned
+  amendment. Also what Appendix 66's tenth prohibition needs. Flagged by Stage 78, taken by
+  nothing since; it is document versioning, not a gate, and deserves its own stage.
+- **Appendices 13, 42 and 62** — the precedents, preliminary-decisions and risk registers.
+  Each was declined deliberately by an earlier stage (13 is "اختياري" in its own text).
+- **[D] Art. 54's seniority register** and its annual publication — still tagged ❌ in the
+  compliance matrix with no owner.
+- **Appendix 40 item 10** (أكثر أسباب النقص) — blocked on a structured shortfall vocabulary
+  that does not exist; whichever stage introduces one should take this at the same time.
+- **Appendices 43, 67 and 74** — routed to Stage 83 by the matrix but outside its Source line,
+  so that stage declined them explicitly.
+
+## Adding a stage
+
+Number it, put it in the track it belongs to, and give it the same
+**Goal → Build → Done when → Source** shape as everything above — the `Source:` line is what
+makes a claim checkable later. Record the plan in AGENT_NOTES.md before writing code, per
+AGENTS.md's conventions.

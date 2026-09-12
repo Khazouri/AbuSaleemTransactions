@@ -14,6 +14,353 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-12 11:10 EET — Claude — Documentation reconciliation plan (docs vs. code drift audit)
+
+Stage 84 found four `compliance-matrix.md` rows carrying a ✅ awarded on an under-verification.
+That is a class of bug rather than a one-off, so this pass audits **every doc in the repo against
+the code it describes** — three parallel surveys over (1) `AGENTS.md` + `.env.example` +
+`frontend/DEPLOYMENT.md` + count-asserting docblocks, (2) `STAGE_PLAN.md` + all four TEST_PLAN
+files, (3) the git-ignored `docs/` tree. **~60 mismatches found.**
+
+**Ground truth, re-counted from the seeders rather than trusted from any doc:** **12** workflow
+stages · **11** roles · **33** screens · **41** request statuses · **11** notification event types
+· **5** approval levels · **15** test accounts. Docs variously claim 11/14 stages, 8 roles, 22/23/30
+screens, 13/20/25/28 statuses, 6/9 events, 6 approval levels and 12 accounts.
+
+**The worst finding is not a count: `AGENTS.md` gives every agent an instruction that cannot be
+carried out.** It names `frontend/src/router/index.js`'s `placeholderScreens` list as the map of
+built-vs-stubbed screens — Stage 27 deleted that list *and* `PlaceholderView`, and both now survive
+only as a tombstone comment. That file is auto-loaded by both agents at session start.
+
+**Four scope decisions taken with the user, recorded so they are not re-litigated.** (1) All four
+doc sets are in scope, the git-ignored `docs/` tree included — those fixes stay local and will never
+appear in a commit, but they are the files Track K/L stages actually read. (2) **`STAGE_PLAN.md`
+gets a dated banner plus forward-looking fixes only** — the historical counts inside early stage
+bullets ("22 screens", "11 stages") were true when written and describe what that stage faced;
+rewriting 85 entries would erase that and drift again next stage. (3) **`TEST_PLAN.md`/`.ar.md` get
+a full rewrite**, staying feature/subsystem-organised so they complement rather than duplicate the
+role-organised `TEST_PLAN.roles.md` pair (audited clean this pass — 346 checkboxes each, Appendix A
+matching the seeders exactly). (4) **The diagram `.mmd` sources are fixed but the SVGs are NOT
+regenerated** — no Mermaid CLI is installed (`npx --no-install mmdc` fails, nothing in
+`frontend/node_modules/.bin`) and rendering needs a Puppeteer/Chromium download.
+
+**Notable substantive findings beyond the counts.** `docs/system-flow.md` §2 still draws the
+pre-Stage-57 11-stage pipeline — three Track I stages missing, two deleted stages still drawn, every
+stage number from 2 onward wrong. `compliance-matrix.md`'s headline tally is wrong in **every cell**
+(recounted: Articles ✅83/⚠21/❌1/➖14, Appendices ✅61/⚠21/❌4/➖10) and its drift banner contradicts a
+correction recorded 40 lines above it. **Art. 54 is still ❌** (no seniority register anywhere in the
+codebase) while two separate headline claims say the articles' ❌ column is genuinely 0. ~26 matrix
+rows route work to stages that are already complete, so they read "will be built by Stage N" when
+the true reading is "unowned". `STAGE_PLAN.md` Stage 76 names `MeetingOutputService::complete()`, a
+method Stage 69 split and Stage 75 deleted; Stage 81 says "thirteen KPIs" where Art. 106 has twelve;
+and L105 carries a sentence the Transaction→Request rename script mangled into "race-safe inside a
+DB request". **Art. 84's six session-opening acts have no owner in any stage's Build** — the plan
+reads as though Track K closed them.
+
+**Deliberately clean, verified rather than assumed:** all 32 classes and 36 `Class::member` citations
+across `docs/` resolve to real code; TEST_PLAN checkbox parity holds; the rename vocabulary is
+already clean in the tracked TEST_PLANs.
+
+Verification plan: Pint on every touched PHP file, the full PHPUnit suite expected **unchanged at
+572/3700** (a docblock edit that moves it has touched code, which it must not), checkbox parity
+counted programmatically on the rewritten pair, and a read-only script that re-derives every count
+from the seeders and greps the docs for survivors — the same method Stage 84 used for Appendix A,
+and what stops this drifting again.
+
+---
+
+### 2026-09-11 22:10 EET — Claude — Stage 84 complete (role-matrix and gate-authorship corrections) — Track L
+
+Built per the plan below, from the verbatim sources. One migration (two columns on `requests`),
+applied to the real MySQL/Homestead database, plus eleven grant cells in
+`ScreenRolePermissionSeeder`. Full suite **572 tests / 3700 assertions** green (was 566/3654).
+
+**[D] Appendix 45 (صلاحيات النظام الإلكتروني) is the governing spec for this table and nobody had
+read it against the seeder.** It is a per-party capability list — الموظف: إنشاء طلب · رفع مستند ·
+استكمال نقص · متابعة الحالة; المقرر: القيد · الفحص · **إنشاء الاجتماع** · **إدارة جدول الأعمال** ·
+تسجيل النتيجة · المحاضر · المتابعة; أعضاء اللجنة: الاطلاع · تسجيل الحضور · المشاركة. Checked cell by
+cell it found three mismatches, and the compliance matrix had it ✅ because an earlier pass confirmed
+the seven *roles existed* and never compared their capability lists. Appendix **6**'s RACI row was ✅
+on the same kind of under-verification. Both rows are rewritten; this is the standing warning that a
+✅ on a matrix-shaped appendix means "checked at the grain someone chose that day".
+
+**Finding 1 was a real defect and three sources agree.** Appendix 45's الموظف list has no editing
+capability at all; Appendix 6's RACI leaves the الموظف column literally `—` for both فحص اكتمال ملف
+اللجنة and القيد (both مقرر اللجنة **مسؤول**); Appendix 19 forbids مقدم الطلب from being معتمد
+الطلب. Appendix 20's gate-1 owners (الموظف + الرئيس المباشر + الموارد البشرية) is about who is
+responsible for the file *being* correct, not who performs the check — Art. 7 and Arts. 15/16 both
+put الفحص الشكلي and القيد under المقرر.
+
+**The fix already existed on the other side of the app, which is why it is small.**
+`AppealController::recordJurisdictionTest()` has done the self-action block, the precondition and the
+who/when write since Stage 62; `RequestController::recordJurisdictionTest()` did none of the four.
+Two layers now, because they catch different people: R01 left `notes_attachments,edit` (403), and a
+creator check on both endpoints additionally refuses an officer who filed on someone's behalf (422,
+proven live against a request created by the R02 account itself). Recorded in each docblock citing
+Appendix 19, the way `RequestLifecycleController::approveCorrection()` already does.
+
+**A bug found while tracing it that nobody had flagged.** `RequestController::reopen()` cleared
+`intake_gate` and `execution_soundness` with their who/when pairs but **never `jurisdiction_test`**,
+so a reopened file arrived already satisfying the `!== null` gate on `requirements_check → approve`
+using the previous lap's answers. Same class Stage 78 closed for the other two records, missed for
+this one. Fixed, with its own regression test.
+
+**`requests.jurisdiction_test` was also the only per-request control record in the table with no
+recorder and no timestamp** — `intake_gate`, `execution_soundness`, `execution` and `closure` all
+carry a pair, and Stage 78's migration states that convention in its own docblock while anchoring
+`intake_gate` with `->after('jurisdiction_test')`. The new columns copy the appeals-side shape
+column-for-column. Nullable with **no backfill**: a row recorded before this stage has no honest
+answer for who recorded it. `control_gates.intake.jurisdiction_test` is now a block with
+`recorded`/`recorded_at`/`recorded_by` instead of a bare boolean, and both halves of gate 1 render
+their author on screen — the intake half has carried `recorded_by` in the payload since Stage 78 and
+nothing displayed it.
+
+**Finding 2 was an absent key, not a policy.** `decisions` was the only export endpoint in the app
+whose screen had no `export` grant, while `registers`/`reports`/`audit_log` are all `['R06','R07']`
+and all four share the same `ReportDocument` → `ReportExporter` path. Not a new disclosure:
+`decisions,view` is `'*'`, so R06/R07 already read those rows — vote tallies included — on screen,
+and register 6 already exports the same population to them; Art. 102's tally restriction is about
+صاحب العلاقة, whom Stage 79 excluded from `DecisionRecordedNotification`. `DecisionRegisterTest`
+stayed green because it pins R04, who remains excluded; it gained R06/R07 assertions.
+
+**Finding 3's reported half was the smaller half.** R04 holding `meetings,add` is an over-grant
+(Art. 13 (أ) gives members study/discuss/vote; Art. 12 (أ) 1 gives الدعوة to the chair) — but the
+larger gap was that **R02, whose RoleSeeder name is literally المقرر, held no meeting, agenda,
+candidate or minutes grant at all**. Ten cells changed, each traceable to a clause; see the seeder's
+own comments, which now carry the citation per line. **R09 deliberately stays out of `meetings`** —
+their seeded description is agenda preparation, الدعوة is the chair's and إنشاء الاجتماع is
+المقرر's, so the test plan's "the secretary cannot schedule" check is correct and is now *sourced*
+rather than observed.
+
+**Three things deliberately not widened, recorded so a later "consistency" pass does not undo them.**
+`decisions,add` stays [R03,R04] — Art. 16 (أ) 2 forbids المقرر voting, and Stage 73's
+`rapporteur_votes` is a committee-record flag, not a permission. `meeting_minutes,approve`,
+`meeting_live,edit` and `meeting_readiness,edit` stay [R03] per Art. 12 (أ) 3, 9-10, 13.
+
+**A two-layer interaction the test run exposed, worth knowing before anyone "simplifies" it.** Giving
+R02 `committee_candidates,edit` does **not** give it `defer` or `return_to_study`: those run through
+`WorkflowService`, whose own R03 role on those transitions refuses with a **422** after the screen
+permission has already passed. That is correct — deferring is the committee's substantive decision,
+which Art. 16 (أ) 1 forbids المقرر from taking — so what R02 actually gains on that screen is
+`request_completion`, which Art. 15 (أ) أولًا 6 names as المقرر's own act. My first rewrite of that
+test asserted R02 could defer and failed; the assertion was wrong, not the behaviour, and the test
+now pins both halves on purpose.
+
+**Blast radius, measured rather than estimated.** Part A — including dropping R01 from the grant —
+broke **zero** existing tests: `RequirementsCheckJurisdictionTest`'s fixture sets no
+`created_by_user_id`, `ControlGateTest`'s creator is a separate R01 while the actor is R02, and
+`FinancialImpactReviewTest` only ever uses R01 as the creator. Exactly three tests failed on the
+first full run, all from Part C and all deliberate: `CommitteeCandidatesDashboardTest` (R04
+nominate), and **two** in `PresentationMemoTest` — the plan predicted one, the second
+(`test_prior_decisions_scoped...`) also used R04 as the generating actor and now uses the chair,
+since its subject is prior-decision scoping rather than the grant.
+
+Verification: new `tests/Feature/GateAuthorshipTest.php` (5 tests — the employee refused on both
+gates and on financial-impact with nothing written; the creator refused even holding the grant; a
+non-creator recording both halves with the recorder round-tripping through `control_gates`; and the
+reopen regression). Plus a new committee-membership test in `CommitteeMeetingTest`. Pint clean
+**repo-wide** (`--test` over `app/`, `database/`, `routes/`, `tests/` reports zero diffs),
+`npm run build` passes (then reverted `frontend/dist`, tracked in git, per every prior stage's note),
+locale key-parity verified programmatically (**1817 keys each side, zero on-one-side-only**), the
+migration ran clean against the real MySQL/Homestead database, and the seeder was re-run **twice**
+with all eleven cells confirmed by a bootstrapped script.
+
+Smoke-tested end to end over real HTTP against Homestead: R01 refused 403 on jurisdiction-test,
+intake-gate **and** financial-impact on their own file; R02 recorded both halves and the payload came
+back naming them; R04 refused 403 on scheduling and on nominating; R02 scheduled on a committee it
+sits on (201) and was refused on one it does not with "لا يجوز جدولة اجتماع للجنة لست عضوًا فيها."
+(422) while a seated R03 succeeded; R06 exported the decisions register (200, 7.5 kB xlsx) and R04
+was still refused (403); and an R02 that had **created** the request was refused both gates with the
+Appendix 19 messages. Deleted every fixture row (2 requests, 2 committees, 2 meetings, attendees,
+status/stage history, audit rows) and revoked all five tokens — counts confirmed back to **0 requests
+/ 0 committees / 0 meetings / 0 tokens / 0 jobs**.
+
+**A smoke-test ordering detail worth knowing:** the FormRequest validation runs *before* the creator
+block, so posting a wrong-shaped body to `/intake-gate` returns a validation 422 rather than the
+Appendix 19 one. Send a valid payload when testing that refusal, or you will conclude the block is
+missing when it is not.
+
+**Docs:** `compliance-matrix.md` (git-ignored, local-only) rewrote appendices **6**, **19**, **20**
+and **45** — **20** moved ⚠→✅ because its note was stale ("Gate 2 only → Stage 78" long after Stage
+75 and 78 built the other three), and the headline appendix counts were adjusted by that one move.
+`STAGE_PLAN.md` gained **Track L / Stage 84** and lists 84 among the stages not to rush.
+`TEST_PLAN.roles.md` and `.ar.md` had the ⚠ block turned into three positive/negative checks, R02's
+new capabilities added, R04's four moved from "can do" to "must be refused", R06's decisions export
+moved into the allowed list, and **Appendix A re-derived programmatically** from the live matrix
+rather than edited by hand, per that file's own instruction — the diff is exactly the seven screens
+this stage changed. Both files stay at **346 checkboxes each**. The per-role screen counts are
+**unchanged** (R01 21/19 · R02 22/20 · R03 22/20 · R04 21/19 · R05 22/20 · R06 22/20 · R07 21/19 ·
+R08 33/31 · R09 20/18 · R10 20/18 · R11 20/18), because no `view` grant moved.
+
+**⚠ Two files changed in the working tree that are NOT this stage's**, and I left them alone:
+`frontend/src/views/LoginView.vue` and `frontend/vite.config.js` gained a CORS-vs-unreachable login
+diagnostic and a `strictPort: 5173` pin. They appeared mid-session and are unrelated to Stage 84 —
+don't attribute them to it, and don't revert them assuming they are mine.
+
+**Open items for whoever picks up next.** (1) **Committee CRUD still rides the `meetings` screen**
+(`routes/api.php` says so deliberately), so `meetings,add/edit` also grants committee creation and
+membership editing — R02 can now maintain the committee record. Appendix 45 has no
+committee-formation entry, so splitting it onto its own screen is not required by this stage's
+source, but it is the one overload left. (2) **Seven seeded grants gate no route at all** —
+`meetings_dashboard,add`/`edit`, `meeting_readiness,add`, `meeting_minutes,edit`,
+`meeting_outputs,add`, `requests,export`, `request_details,export`. Left alone to keep the diff
+behavioural, but they render as live checkboxes on the Roles & Permissions grid that do nothing.
+(3) **`MeetingController::reorderAgenda()`/`applyAgendaOrder()` update `MeetingRequest` rows without
+scoping to `$meeting->id`** — the FormRequest's exact-set rule is the only thing keeping them
+meeting-bounded. (4) **`markAttendance()` has no self-scoping**, so a `meetings,edit` holder can set
+any attendee's RSVP; Art. 15 (أ) ثانيًا 1 puts attendance recording with المقرر, so this is probably
+correct — recorded, not changed. (5) **Re-running `ScreenRolePermissionSeeder` resets the entire
+matrix**, discarding anything an administrator changed through the Roles & Permissions screen (the
+hazard `MaintenanceBootstrapTest` guards for the bootstrap path). On a live install, either accept
+the reset deliberately or apply the eleven-cell delta by hand.
+
+---
+
+### 2026-09-11 20:47 EET — Claude — Stage 84 implementation plan (role-matrix and gate-authorship corrections)
+
+Building Stage 84 (a new **Track L**) to resolve the three permission findings the role-based test
+plan flagged earlier today. Read the verbatim sources before designing rather than the earlier
+analysis, and one of them turns out to be the governing spec for this exact problem: **[D] الملحق
+التنظيمي الخامس والأربعون — صلاحيات النظام الإلكتروني** is a per-party capability list for precisely
+this permission matrix (**الموظف**: إنشاء طلب · رفع مستند · استكمال نقص · متابعة الحالة المسموحة;
+**المقرر**: القيد · الفحص · **إنشاء الاجتماع** · **إدارة جدول الأعمال** · تسجيل النتيجة · المحاضر ·
+المتابعة; **أعضاء اللجنة**: الاطلاع على الملفات · الاطلاع على جدول الأعمال · تسجيل الحضور ·
+المشاركة في الاجتماع; **العضو القانوني**: الاطلاع · التعليق القانوني · اعتماد المراجعة القانونية;
+**جهة الاعتماد**: الاطلاع · اعتماد · إعادة · إضافة ملاحظة).
+
+**Finding 1 is a defect, not a judgment call, and three sources agree.** Appendix 45's الموظف list
+contains no فحص and no قيد; **Appendix 6**'s RACI has a literal `—` in the الموظف column for both
+فحص اكتمال ملف اللجنة and القيد (both are مقرر اللجنة **مسؤول**); and **Appendix 19**'s مصفوفة
+الفصل بين الصلاحيات forbids it outright — "لا يكون **مقدم الطلب هو معتمد الطلب**". Appendix 20's
+gate-1 owners (الموظف + الرئيس المباشر + الموارد البشرية) is about who is responsible for the file
+*being* correct, not who performs the check — Art. 7 and Arts. 15/16 put both الفحص الشكلي and القيد
+under المقرر. So R01 recording either gate on their own file is wrong on the source, and the fix is
+a permission/guard change exactly as the test plan said.
+
+**The fix already exists in this codebase, on the other side of the app.**
+`AppealController::recordJurisdictionTest()` does the self-action block
+(`'لا يجوز للمتظلم إجراء اختبار الاختصاص على تظلمه بنفسه.'`), the precondition, the one-shot check
+*and* writes `jurisdiction_tested_by_user_id`/`jurisdiction_tested_at`.
+`RequestController::recordJurisdictionTest()` does none of the four. So this stage makes the request
+side look like the appeal side rather than inventing a mechanism, and cites Appendix 19 in the
+docblock the way `RequestLifecycleController::approveCorrection()` already does — that method is the
+codebase's one existing recorder-vs-approver refusal and quotes the same appendix.
+
+**A bug found while tracing it that nobody had flagged.** `RequestController::reopen()` clears
+`intake_gate` and `execution_soundness` with their who/when pairs but **never `jurisdiction_test`**,
+so a reopened file satisfies the Art. 45 gate on the previous lap's answers. Same class of bug Stage
+78 closed for the other two gate records, missed for this one. Fixed here with its own regression
+test.
+
+**`requests.jurisdiction_test` is also the only per-request control record in the whole table with
+no recorder and no timestamp** — `intake_gate`, `execution_soundness`, `execution` and `closure` all
+carry a who/when pair, and Stage 78's own migration states that convention in its docblock while
+anchoring `intake_gate` with `->after('jurisdiction_test')`, i.e. directly beside the one that
+breaks it. One migration adds the pair, mirroring the appeals-side columns column-for-column.
+
+**Finding 2 is an inconsistency rather than a disclosure boundary.** `decisions` is the only export
+endpoint in the app whose screen has no seeded `export` grant, while `registers`, `reports` and
+`audit_log` are all `['R06','R07']` and all four share the same `ReportDocument` → `ReportExporter`
+path. It is not a new disclosure either: `decisions,view` is already `'*'`, so R06/R07 read the same
+rows — vote tallies included — on screen today, and register 6 already exports the same population
+to them. Art. 102's tally restriction is about صاحب العلاقة (Stage 79 excluded the *creator* from
+`DecisionRecordedNotification`), not the approving body. `DecisionRegisterTest`'s existing assertion
+stays green, since it pins R04, who remains excluded.
+
+**Finding 3 turned out to have a bigger half than the one reported.** R04 holding `meetings,add` is
+an over-grant (Art. 13 gives members study/discuss/vote and nothing else; Art. 12 (1) gives الدعوة
+to the chair), but the larger gap is that **R02 — whose RoleSeeder name is literally المقرر — holds
+no meeting, agenda, candidate or minutes grant at all**, while Appendix 45 gives المقرر إنشاء
+الاجتماع, إدارة جدول الأعمال, تسجيل النتيجة and المحاضر. Ten grant cells change, each traceable to a
+clause. **R09 deliberately stays out of `meetings`**: their own seeded description is agenda
+preparation, so the test plan's "the secretary cannot schedule" negative check is correct and
+becomes a *sourced* check rather than an observed one.
+
+**Three things deliberately not widened, recorded so a later consistency pass does not undo them:**
+`decisions,add` stays [R03,R04] because Art. 16 forbids المقرر voting (Stage 48's `rapporteur_votes`
+is the only sanctioned exception and it is a committee-record flag, not a permission);
+`meeting_minutes,approve`, `meeting_live,edit` and `meeting_readiness,edit` all stay [R03] per Art.
+12 items 3, 9–10 and 13.
+
+**Two claims in `compliance-matrix.md` are ✅ on an under-verification** and are corrected in the
+same pass: Appendix **6** ("Matches the role matrix" — it does not) and Appendix **45** ("All seven"
+— that checked role *existence*, never each role's capability list). Appendix **20**'s note is also
+stale ("Gate 2 only → Stage 78") when Stage 78 built gates 1 and 3 and Stage 75 built gate 4.
+
+**Also closing one adjacent hole, at the user's explicit request:** `MeetingController::store()` has
+no check that the caller belongs to the committee they are scheduling for — and that controller has
+**no in-method identity checks at all**, every guard in it is a data-state guard with authorization
+delegated wholly to route middleware.
+
+**Blast radius, measured rather than estimated.** Finding 1's full fix — including dropping R01 from
+`notes_attachments,edit` — breaks **zero** existing tests: `RequirementsCheckJurisdictionTest`'s
+fixture sets no `created_by_user_id` at all, `ControlGateTest`'s creator is a separate R01 while the
+actor is R02, and `FinancialImpactReviewTest` only ever uses R01 as the creator, never as the actor.
+Only two tests change, both from Part C and both deliberate: `CommitteeCandidatesDashboardTest`
+(R04 nominate) and `PresentationMemoTest` (R04 generate).
+
+Verification plan: one migration against the real MySQL/Homestead database; the
+`ScreenRolePermissionSeeder` reseed run twice for idempotence; a new
+`tests/Feature/GateAuthorshipTest.php`; the full PHPUnit suite; Pint on every touched file;
+`npm run build` (then reverting `frontend/dist`); locale key-parity; and an HTTP smoke run over the
+seeded test accounts. **Deployment note worth knowing before anyone reseeds a live install:**
+`ScreenRolePermissionSeeder` resets the *entire* matrix to its defaults, discarding anything an
+administrator changed through the Roles & Permissions screen — the hazard `MaintenanceBootstrapTest`
+already guards for the bootstrap path.
+
+---
+
+### 2026-09-11 — Claude — Role-based test plan added
+ (TEST_PLAN.roles.md / .ar.md) — docs only, no code
+
+User asked for a user test plan per role. Wrote two new root-level files, **[TEST_PLAN.roles.md](TEST_PLAN.roles.md)**
+and **[TEST_PLAN.roles.ar.md](TEST_PLAN.roles.ar.md)** (1282 / 1215 lines, **332 checkboxes each, verified
+equal**), organised one section per role R01–R11 rather than by feature. **No PHP, Vue, migration or seeder
+was touched.**
+
+**The existing [TEST_PLAN.md](TEST_PLAN.md)/[.ar.md](TEST_PLAN.ar.md) are now stale and the new files say so
+in their own header.** That pair covers Stages 1–27 only and predates the `Transaction`→`Request` rename,
+Stage 57's 14→12 stage reduction, roles R09–R11, and all of Tracks J and K. They were left in place rather
+than rewritten — a rewrite is its own task, and deleting the only record of the Stage 1–27 feature walk would
+lose more than it gains.
+
+**Everything asserted was derived from the code, not from the older plan.** The per-role screen counts,
+the `v/a/e/d/A/p/x` matrix in Appendix A, and the sidebar-vs-API split (two fewer, since `request_details`
+and `notes_attachments` carry `:id` in their route and `stores/screens.js` filters those out of `navItems`)
+were all computed by reflecting `ScreenRolePermissionSeeder::DEFAULTS` and parsing `ScreenSeeder`'s array —
+**re-derive them with the same method after any seeder change rather than editing Appendix A by hand.**
+Counts: R01 21/19 · R02 22/20 · R03 22/20 · R04 21/19 · R05 22/20 · R06 22/20 · R07 21/19 · R08 33/31 ·
+R09 20/18 · R10 20/18 · R11 20/18.
+
+**Three findings surfaced while writing it that are worth someone's decision, not silently fixed:**
+
+1. **⚠ R01 can record the Art. 45 jurisdiction test and the Appendix 63 intake gate on their own file.**
+   Both `PATCH requests/{id}/jurisdiction-test` and `.../intake-gate` ride `notes_attachments,edit`, which
+   `ScreenRolePermissionSeeder` grants to **R01 and R02**; neither controller method adds a stage or role
+   check beyond `RequestVisibility::canView()`, and a creator always sees their own request. So the submitter
+   can currently answer the completeness attestation that decides whether their own file may be registered.
+   The route comments only ever reason about R02. Flagged in the plan as a **⚠ confirm** item rather than
+   called a bug, because it may be intended — but if it is not, the fix is a permission/guard change, not UI.
+2. **`decisions,export` is R08-only.** The `decisions` screen seeds `print => '*'` but no `export` entry at
+   all, so R06/R07 — who hold `export` on requests, reports, registers *and* the audit log — get a 403 on
+   `GET /api/decisions/export` alone. Consistent with Stage 25's own note, so probably deliberate; the plan
+   asks the tester to confirm rather than assume.
+3. **R04 cannot add an agenda item.** `meeting_agenda,edit` is R03 + R09; R04's `add` on that screen only
+   reaches the presentation memo. Likewise R09 builds the agenda but cannot schedule the meeting
+   (`meetings,add`/`edit` exclude R09). Both look deliberate and are now written down as explicit negative
+   checks, since they are the kind of thing a future permission tweak could erase by accident.
+
+**One structural choice in the plan worth keeping if it is ever revised:** §1 is a 23-step relay walked by
+nine different accounts, and the plan states that **needing R08 to get past any step is itself a defect** —
+that is the check that the single-role approval screens and the three-way routing gates are real rather than
+decorative. Every role section then assumes REQ-A from that relay already exists.
+
+Also published a bilingual browsable copy as an Artifact (AR/EN toggle, per-role progress, ticks persisted in
+the reader's own browser). The two markdown files stay the source of truth — the artifact embeds their text
+verbatim and renders it with `marked`, so regenerating it after an edit is a re-inject, not a rewrite.
+
+---
+
 ### 2026-09-10 01:30 EET — Claude — Maintenance console: the no-shell bootstrap (follow-up to the entry below)
 
 The console as built below still had a chicken-and-egg the user hit immediately: it needs its own

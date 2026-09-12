@@ -19,6 +19,7 @@ use App\Http\Resources\MeetingResource;
 use App\Models\Appeal;
 use App\Models\Attachment;
 use App\Models\Committee;
+use App\Models\CommitteeMember;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\MeetingAttendee;
@@ -71,6 +72,14 @@ class MeetingController extends Controller
      * Attendance rows are seeded here rather than computed on the fly, since
      * committee membership can change later and the meeting's attendee list
      * for a given sitting must stay fixed to who was actually invited to it.
+     *
+     * Stage 84 — and only for a committee the actor actually sits on. [D]
+     * Art. 12 (أ) 1 gives الدعوة إلى اجتماعات اللجنة to that committee's own
+     * chair, and Appendix 45 gives إنشاء الاجتماع to its مقرر; neither is a
+     * capability over committees the actor has nothing to do with, and the
+     * `meetings,add` screen permission alone cannot express "which one". R08
+     * is exempt — the same administrative fallback WorkflowService::
+     * actorMayUse() already applies to manager-gated transitions.
      */
     public function store(
         StoreMeetingRequest $request,
@@ -78,6 +87,19 @@ class MeetingController extends Controller
         ArtifactNumberGenerator $numbers,
     ): JsonResponse {
         $data = $request->validated();
+        $actor = $request->user();
+
+        $isSystemAdmin = $actor->roles()->where('code', 'R08')->exists();
+        $isCommitteeMember = CommitteeMember::query()
+            ->where('committee_id', $data['committee_id'])
+            ->where('user_id', $actor->id)
+            ->exists();
+
+        if (! $isSystemAdmin && ! $isCommitteeMember) {
+            throw ValidationException::withMessages([
+                'committee_id' => ['لا يجوز جدولة اجتماع للجنة لست عضوًا فيها.'],
+            ]);
+        }
 
         [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request, $numbers) {
             $committee = Committee::query()->findOrFail($data['committee_id']);

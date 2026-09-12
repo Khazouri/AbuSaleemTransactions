@@ -14,12 +14,18 @@ use Illuminate\Http\Request;
 
 /**
  * Stage 46 — [D] Art. 22's compiled pre-meeting memo. Rides the
- * `meeting_agenda` screen's existing grants (view=*, add=[R03,R04],
- * edit=[R03]) rather than a new screen: drafting a memo sits in agenda-prep
- * territory (between Art. 21's legal review and Art. 23's agenda insertion),
- * and `add` already covers both the chair (R03) and a member acting as
- * مقرر (R04) — `edit`'s R03-only tier would wrongly shut the rapporteur out
- * of drafting their own memo.
+ * `meeting_agenda` screen's existing grants rather than a new screen:
+ * drafting a memo sits in agenda-prep territory, between Art. 21's legal
+ * review and Art. 23's agenda insertion.
+ *
+ * Stage 84 corrected who that means. The memo rode `add` so that a member
+ * acting as مقرر (R04) could draft one — but Appendix 6's RACI makes إعداد
+ * مذكرة العرض مقرر اللجنة's own responsibility, and Art. 15 (أ) أولًا 11
+ * lists تجهيز ملفات العرض ومذكرات العرض among the rapporteur's pre-meeting
+ * duties. So the drafting audience is now R02 (المقرر), R03 (chair, who
+ * reviews and approves the agenda under Art. 12 (أ) 3) and R09 (this
+ * system's own agenda secretary); an ordinary member no longer drafts.
+ * Read the seeder for the current tiers rather than trusting this comment.
  */
 class PresentationMemoController extends Controller
 {

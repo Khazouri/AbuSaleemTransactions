@@ -175,3 +175,1159 @@ stage 12 with status `معتمدة نهائياً`, and R06 must then see nothin
 the ministry-bypass branch, and it is easy to break without noticing.
 
 ---
+
+## 2. R01 — الموظف / Employee
+
+**Identity.** [D] Art. 9 (ب)'s الموظف صاحب الطلب. They start the file and they are its audience;
+they never move it. R01 owns exactly one workflow transition (`submit`), and the system fires that
+one for them at intake — so a correct R01 session has **no workflow buttons anywhere**.
+
+Sign in as `r01.employee@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **19 sidebar entries** (21 screens from `GET /api/screens`; `تفاصيل الطلب` and
+      `الملاحظات والمرفقات` are returned but hidden from the menu because they need a request id).
+- [ ] **No approval screen at all.**
+- [ ] No `المستخدمون`, `الإدارات والأقسام`, `الأدوار والصلاحيات`, `الإعدادات العامة`,
+      `القوالب والنماذج`, `النسخ الاحتياطي` or `الصيانة والنشر`.
+- [ ] The request list shows **only requests they created**. Note another employee's request id
+      from the relay and open `/requests/{that id}` directly → **404**, not an empty page.
+
+### B. What they must be able to do
+
+**B1 — File a request ([D] Arts. 15–16).**
+
+- [ ] استلام الطلب shows the type picker; choosing a type reveals the **required-documents
+      checklist** in two groups — `مستندات أساسية مشتركة` and `مستندات خاصة بالنوع` ([D] Appendix
+      57). Conditional items carry their own qualifier ("بحسب الموضوع", "عند الحاجة").
+- [ ] Every attachment upload **requires a file section** ([D] Appendix 14's thirteen folders).
+      Submitting an attachment without one is refused — "يمنع حفظ الملفات بصورة عشوائية دون تصنيف".
+- [ ] On success the screen shows an **intake receipt** `PM-RCV/YYYY/NNNNNN` and states in as many
+      words that this is a receipt and **not** a قيد with the committee.
+- [ ] The new request's `reference_number` is **null** — no `PM-COM/...` number yet. [D] Art. 15 is
+      explicit that handing a request to the direct manager "لا يعد قيدًا", and Art. 20 grants the
+      رقم إشاري only after completeness is established (relay step 5).
+- [ ] The request appears at stage 2 `مراجعة الطلب من المدير المباشر`, not stage 1.
+
+**B2 — The duplication rule ([D] Appendix 16).**
+
+- [ ] With REQ-A still open, start a **second request of the same type**. The intake screen warns
+      before you fill the form, and submitting is **refused**, naming the open file to attach the
+      documents to instead — "لا تنشأ معاملة جديدة، بل تلحق المستندات بالمعاملة القائمة".
+- [ ] A request of a **different type** is accepted while REQ-A is open.
+- [ ] Once every prior file of that type is closed, filing again **requires a classification**. The
+      picker greys out `تظلم` and `إعادة عرض`; choosing either is refused and points at the real
+      route (an appeal, or re-presentation on the existing file). `واقعة جديدة` and
+      `استكمال لقرار سابق` are accepted.
+
+**B3 — Follow their own file.**
+
+- [ ] The detail screen shows `المسؤول الحالي` and `الإجراء التالي المطلوب` ([D] Appendices 17/18)
+      and **neither is ever empty**, at any stage, including right after submission.
+- [ ] Both fields also appear as columns in the request list.
+- [ ] The timeline shows each step with its date, actor, الجهة and any linked document
+      ([D] Art. 100).
+- [ ] The time card ([D] Appendix 71) shows T1–T10; segments that have not both happened read as
+      empty, **not** as zero.
+- [ ] The stage-timeliness indicator shows `ضمن المدة` / `قرب تجاوز المدة` / `متأخرة` /
+      `تأخير حرج` — never a raw number with no label.
+- [ ] Attachments preview in-browser for PNG/JPG/PDF; DOC/DOCX download.
+- [ ] Notes can be added and read.
+
+**B4 — Notices ([D] Art. 101).**
+
+- [ ] After the relay, the detail screen's notices card lists the moments the employee was notified
+      (استلام في المسار الرسمي، إدراج بجدول الأعمال، صدور النتيجة، بدء التنفيذ، الإقفال …), each
+      with its moment number.
+- [ ] The bell badge in the topbar matches the unread count; opening the dropdown clears it.
+- [ ] **No notice contains the vote tally.** [D] Art. 102 excludes مداولات اللجنة and كيفية تصويت كل
+      عضو from anything sent to صاحب العلاقة — the result notice quotes
+      "للأسباب المثبتة في القرار المعتمد" and stops. Committee members get the tally; the employee
+      must not.
+- [ ] Notification preferences (in-app / email / SMS per event) save and are honoured — mute an
+      event, trigger it, confirm nothing arrives.
+
+**B5 — Withdraw a request ([D] Appendix 68).**
+
+- [ ] On a request they created, filing a written withdrawal succeeds.
+- [ ] Attempting the same on **someone else's** request is refused — the endpoint requires the
+      actor to be the request's own creator, not merely someone with the grant.
+- [ ] R01 **cannot determine** the outcome of their own withdrawal; that is the rapporteur's call
+      (§3 B7).
+
+**B6 — Appeal a decided request ([D] Arts. 75–79).**
+
+- [ ] التظلمات lists only their own appeals.
+- [ ] Filing an appeal against a **decided** request succeeds and captures تاريخ العلم به،
+      أسباب الاعتراض، الطلب النهائي, plus supporting documents uploaded as follow-up.
+- [ ] Filing against a request that is **not yet decided** is refused.
+- [ ] Filing against **another employee's** request is refused.
+- [ ] Filing a **second** appeal on the same request is refused **unless** a new-facts declaration
+      is supplied ([D] Art. 75 pt 2).
+- [ ] The appeal's `القرار محل التظلم` is filled in automatically from the request's latest
+      decision — it is not typed by the appellant, and a value supplied by hand is ignored.
+
+### C. What they must be refused
+
+- [ ] Every approval queue: the screen is absent, and `GET /api/approvals/reviewer` with R01's token
+      → **403**.
+- [ ] `GET /api/users`, `/api/departments`, `/api/roles-permissions`, `/api/settings`,
+      `/api/templates`, `/api/backups`, `/api/maintenance` → **403** each.
+- [ ] The request detail screen offers **no workflow action buttons** on their own request at stage
+      2 — the direct manager acts there, not the submitter.
+- [ ] Exporting: `GET /api/reports/requests/export` and `/api/registers/{code}/export` → **403**
+      (export is R06/R07 only). The reports and registers screens themselves are readable.
+- [ ] `POST /api/legal-reviews` (recording a legal review) → **403**.
+- [ ] `PATCH /api/requests/{id}/close` → **403**.
+- [ ] Opening another employee's appeal, or previewing its attachment → **404**.
+
+> **Resolved by Stage 84 — this is now a negative check, not an open question.** R01 used to hold
+> `notes_attachments,edit`, and both the [D] Art. 45 jurisdiction test
+> (`PATCH /requests/{id}/jurisdiction-test`) and the [D] Appendix 63 intake gate
+> (`PATCH /requests/{id}/intake-gate`) rode it with no further check — so an employee could answer
+> the completeness attestation that decides whether their own file may be registered. Three sources
+> say otherwise: Appendix 45's صلاحية الموظف has no editing capability at all, Appendix 6's RACI
+> leaves the الموظف column empty for both فحص اكتمال ملف اللجنة and القيد, and Appendix 19 forbids
+> مقدم الطلب from being معتمد الطلب. Two layers now enforce it, and both are worth testing:
+>
+> - [ ] `PATCH /requests/{id}/jurisdiction-test` and `.../intake-gate` as **R01 on their own
+>       request** → **403** (the grant is gone). `PATCH /requests/{id}/financial-impact` → **403**
+>       too; that is the same grant and a deliberate consequence, not an oversight.
+> - [ ] The same two as an account holding **R02 that created the request** → **422**, quoting
+>       «لا يجوز لمقدّم الطلب…». This second layer catches an officer filing on someone's behalf,
+>       whom the permission alone would let through.
+> - [ ] As an **R02 who did not create it** → **200**, and the recorded card now names them:
+>       `control_gates.intake.recorded_by` and `control_gates.intake.jurisdiction_test.recorded_by`
+>       are both populated on screen.
+
+---
+
+## 3. R02 — المقرر / Reviewer
+
+**Identity.** [D] Art. 13 (ب)'s مقرر لجنة شؤون الموظفين — the busiest role in the system. R02 owns
+the whole pre-committee stretch (stages 5–7), every backward exception, the post-decision registers
+(referral, return, execution, closure), and the appeal's formal and legal review. In this seed r02
+is **also** `r01.employee@`'s direct manager, so they appear twice in the relay wearing different
+hats; keep the two apart when reading results.
+
+Sign in as `r02.reviewer@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **20 sidebar entries** (22 screens from the API).
+- [ ] Exactly one approval screen: `اعتماد المقرر`. No other approval queue is visible, and
+      `GET /api/approvals/ministry` → **403**.
+- [ ] `المراجعة القانونية` is visible (they dispatch to it) but recording a review is refused —
+      see C.
+
+### B. What they must be able to do
+
+**B1 — Act as the direct manager (stages 2–3).**
+
+- [ ] On REQ-A at stage 2, `forward` is offered and works → stage 3.
+- [ ] `return_to_employee` requires a reason; submitting without one is refused and **no status
+      changes** ([D] Art. 10 — no withholding without a written reason).
+- [ ] At stage 3 all three routes are offered — `route_to_hr`, `route_to_diwan`,
+      `route_to_committee_secretary` — and the request type's **suggested** route is badged on one
+      of them. The badge is advisory: the other two are still clickable and all three work.
+- [ ] Sign in as any other non-admin account and try `forward` on the same request at stage 2 →
+      **refused**. Only the submitter's own manager (or R08) may act there.
+
+**B2 — Requirements check (stage 5) — the قيد gate.**
+
+- [ ] Before anything is recorded, `approve`, `declare_no_jurisdiction` and `reject_formally` are
+      **all refused**, and the buttons are not offered.
+- [ ] `return_missing_docs` **is** available even then — a file with missing documents cannot
+      honestly be classified yet, so [D] Art. 19's استكمال loop stays open.
+- [ ] Record [D] Art. 45's **six-question jurisdiction test**; a partial answer set is refused —
+      the classification is not final until all six are answered.
+- [ ] Record the **intake gate** ([D] Appendix 63 بوابة 1): one answer per seeded required document
+      plus the facts attestation. An unanswered item or a `مفقود` answer is refused by name. An item
+      the source marks conditional may be answered `لا ينطبق`; an unconditional one may **not** —
+      try waiving one and confirm it is refused naming the document.
+- [ ] With both recorded, `approve` **with a signature** succeeds → stage 6, status `تم التسجيل`,
+      and the request is granted `PM-COM/YYYY/NNNN`.
+- [ ] `approve` **without** a signature is refused (approval level 1 requires one).
+- [ ] Send the file back with `return_missing_docs`, then walk it forward again through the whole
+      chain: on the second pass through stage 5 the reference number is **unchanged** — [D] Art. 99
+      gives one number for the file's whole life.
+
+**B3 — The two non-registration outcomes at stage 5.**
+
+- [ ] `declare_no_jurisdiction` (self-loop) requires a reason → status `عدم اختصاص`.
+- [ ] `reject_formally` (self-loop) requires a reason → status `مرفوضة`.
+- [ ] Neither mints a reference number.
+
+**B4 — Stages 6 and 7.**
+
+- [ ] Stage 6: `forward` → stage 7. `reject_review` (reason required) → back to stage 5.
+- [ ] Stage 7: `forward` → stage 8, status `جاهزة`. `request_edit` (reason required) → back to
+      stage 6.
+- [ ] `cancel` is available at every open stage they own and always requires a reason.
+
+**B5 — Dispatch to legal review ([D] Art. 21).**
+
+- [ ] From المراجعة القانونية or the request detail, send a stage-9 file to legal review → status
+      `تحت المراجعة القانونية`.
+- [ ] Attempting to **record** the review itself → **403**. Dispatching is the coordinating act
+      ([D] Appendix 6's RACI: العضو القانوني is مسؤول, المقرر only منسق).
+
+**B6 — The post-decision registers (all on `meeting_outputs,edit`).**
+
+- [ ] **Approval referral** ([D] Art. 30): record the outward leg (تاريخ الإحالة، رقم كتاب الإحالة،
+      الجهة المحال إليها), then later the result (تاريخ ورود النتيجة، رقم قرار الاعتماد، الملاحظات).
+      رقم قرار الاعتماد is required only when the outcome is an approval.
+- [ ] **Return from the approving body** ([D] Art. 94): record a return with its kind and reason. A
+      reason code the source classes as شكلية cannot be recorded as موضوعية — try the mismatch and
+      confirm it is refused quoting the correct classification.
+- [ ] While a return is open, the **next approver is blocked** — have R05 attempt `approve` through
+      both the approval queue and the request detail; both must be refused with no approval row
+      written.
+- [ ] Resolving a **شكلية** return re-refers to the same body without moving the stage; resolving a
+      **موضوعية** return sends the file back to stage 9 with status `أعيد فتحه لإعادة العرض`, and
+      **the earlier decision row is still there, unchanged** ([D] Art. 94 — the approved محضر is
+      never quietly edited).
+- [ ] A second round accumulates: the first return is still readable after the second is recorded.
+
+**B7 — Art. 103, 105, execution and closure.**
+
+> **Stage 84 gave R02 the committee-preparation work it had never held.** [D] Appendix 45's
+> صلاحية المقرر is "القيد · الفحص · **إنشاء الاجتماع** · **إدارة جدول الأعمال** · تسجيل النتيجة ·
+> المحاضر · المتابعة", and R02 held none of the four in bold. Walk each:
+
+- [ ] **Schedule a meeting** for a committee this account sits on, and **send invitations**, add
+      attendees and mark attendance ([D] Art. 15 (أ) أولًا 12-13، ثانيًا 1).
+- [ ] Scheduling for a committee this account does **not** sit on → **422**, naming `committee_id`.
+      An R08 account may still do it.
+- [ ] **Build the agenda**: add, reorder, apply [D] Art. 83's computed order, and remove items.
+- [ ] **Generate and edit a presentation memo** ([D] Art. 22) — the derived fields recompute while
+      the authored ones survive a regenerate.
+- [ ] **Nominate a candidate request**, and **request completion** on one ([D] Art. 15 (أ) أولًا 6).
+- [ ] **Generate the محضر draft** ([D] Art. 15 (أ) ثانيًا 9 / ثالثًا 1).
+- [ ] **Record a decision** once the vote has resolved ([D] Art. 15 (أ) ثانيًا 6 — تسجيل نتيجة
+      التصويت). The outcome is computed from the votes, so confirm it cannot be overridden.
+- [ ] Post to the live discussion feed ([D] Art. 15 (أ) ثانيًا 5 — تدوين المناقشات).
+
+- [ ] **Soundness checklist** ([D] Art. 103): record it before R07 may refer to execution. Eight of
+      the twelve are **derived from real state** — submit the payload with `minutes_signed: "no"`
+      and confirm it comes back `نعم` from the record, not from what you sent.
+- [ ] R07's `approve` at stage 12 is refused until the checklist is recorded, and refused again if
+      any attested answer is `لا`.
+- [ ] **Suspension** ([D] Art. 105): suspend a file in the approval window. The **status** changes
+      to `موقوفة لمراجعة قانونية` and the **stage does not** — confirm the timeline gains no stage
+      entry. `approve` is then refused everywhere.
+- [ ] Lifting the suspension is **refused until R11 records a legal review dated after it** — a
+      review from before the doubt was raised does not count.
+- [ ] **Execution** ([D] Appendix 70): a bare "تم التنفيذ" is refused — "لا يكفي أن تقول الجهة
+      المنفذة (تم التنفيذ)؛ يجب إرفاق دليل التنفيذ". Nominating one of the request's own attachments
+      as typed evidence lets it through; nominating an attachment belonging to a **different**
+      request is refused.
+- [ ] A request flagged with a financial impact cannot be executed until the financial-referral
+      check is `نعم` ([D] Art. 97).
+- [ ] **Closure** ([D] Appendix 47/48): a `deferred` request is refused with the appendix's own
+      words. A single `لا` on the twelve-point audit refuses and quotes the failed question back.
+      `لا ينطبق` is accepted where the path genuinely has no such step.
+- [ ] Closure works from all three of [D] Art. 37's final paths — `منفذة`, `غير موافق عليها`, and
+      `عدم اختصاص` — including a pre-committee عدم اختصاص that never rode an agenda.
+- [ ] **Visibility:** R02 can open a `معتمدة نهائياً` / `قيد التنفيذ` / closable request **they did
+      not create**. This is the check that the closure and execution screens are usable at all.
+
+**B8 — Lifecycle records ([D] Appendices 30/31/53/60/68).**
+
+- [ ] Record a **document conflict**; agenda insertion for that request is then refused —
+      "فلا تعرض المعاملة قبل معالجة التعارض". Resolving requires all three fields (الجهة المخاطبة،
+      المستند المعتمد، التصحيح) — an empty resolve returns all three refusals at once.
+- [ ] Record **document validity** ([D] Appendix 31): only the two checks the source qualifies may
+      be answered غير منطبق; waiving الجهة المصدرة is refused by name. A `لا` records a finding and
+      **blocks nothing**.
+- [ ] Record a **correction memo** ([D] Appendix 53): a substantive kind is refused and points at
+      the reopen route; a material one is recorded, and **approval is refused to its own author**
+      ([D] Appendix 19's separation rule). The original decision's title and reference are untouched.
+- [ ] Record a **special case** ([D] Appendix 60): وفاة and انتهاء الخدمة block closure until the
+      legal effect is determined; النقل and فقدان مستند block nothing.
+- [ ] **Determine a withdrawal**: before any decision exists it may be granted (file closes as
+      `ملغاة` with the reason quoted into the history); once a decision exists `granted` is not
+      offered at all and only `تثبيت فقط` remains, which changes no status ([D] Appendix 69 — the
+      decision is neither deleted nor erased).
+
+**B9 — Appeals (Track J).**
+
+- [ ] Appeals filed by **other people** are visible (R02 holds `appeals,edit`), unlike R01 who sees
+      only their own.
+- [ ] **Formal verification**: record صفة المتظلم / القرار محل التظلم / عدم التكرار; a failing
+      verdict requires a reason and closes the appeal as `مرفوض شكلياً`. Verifying twice is refused.
+- [ ] Verifying **their own** appeal is refused (self-action block).
+- [ ] **Jurisdiction test** ([D] Art. 77): answering anything other than "the committee is
+      competent" terminates the appeal as `عدم اختصاص` — test the disciplinary-board answer and one
+      other.
+- [ ] **Legal review checklist** ([D] Art. 75 pt 4): all five questions required together; recording
+      moves the appeal to `المراجعة القانونية`, which is the state Stage 63 requires before it can
+      be nominated.
+- [ ] **Execute the outcome** after the committee decides, and **close** the appeal — closing
+      releases the hold that was keeping the original request from closing.
+- [ ] **Reopen** a closed appeal, or re-present a concluded request — both require one of the
+      enumerated reasons; a plain "I disagree" is refused by validation.
+
+### C. What they must be refused
+
+- [ ] Any approval queue other than `اعتماد المقرر` → **403**.
+- [ ] Recording a legal review (`POST /api/legal-reviews`) → **403** (R11 only).
+- [ ] **Casting a vote**, or declaring a conflict of interest → **403** (`decisions,add` is R03 +
+      R04). This is the sharp edge of Stage 84 and the one not to "tidy": R02 may *record* the
+      tallied result but never *vote* on it — [D] Art. 16 (أ) 2 forbids المقرر voting unless قرار
+      التشكيل says otherwise, which is the committee record's own `rapporteur_votes` flag, not a
+      permission. R02 recording a decision and R02 voting must stay on opposite sides of this line.
+- [ ] **Deferring** a candidate, or returning one to study → **422**, not 403: R02 passes the screen
+      permission and `WorkflowService`'s own R03 role on those transitions refuses. Two independent
+      layers, and the 422 is what proves the second one is real.
+- [ ] Approving minutes → **403** (`meeting_minutes,approve` is R03 only — [D] Art. 12 (أ) 13).
+      Convening a meeting → **403** ([D] Art. 12 (أ) 1, 5). Advancing an item's state in the live
+      runner → **403** ([D] Art. 12 (أ) 9-10).
+- [ ] Every administration screen → **403**.
+- [ ] Approving a request **they created themselves** → refused, at every entry point.
+
+---
+
+## 4. R03 — رئيس اللجنة / Committee Head
+
+**Identity.** [D] Art. 10 (أ)'s رئيس اللجنة. Everything in the sitting is theirs: convening it,
+running it, recording the binding decision, and approving the محضر. R03 is also the one role that
+can override a readiness exception, so its refusals are the ones that matter most.
+
+Sign in as `r03.head@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **20 sidebar entries** (22 screens), including the whole `إدارة الاجتماعات` group.
+- [ ] Exactly one approval screen: `اعتماد رئيس اللجنة`.
+
+### B. What they must be able to do
+
+**B1 — Committees.**
+
+- [ ] Create a committee, add the three R04 members plus themselves as head, and set the five named
+      seats ([D] Art. 10's roster: رئيس، قانوني، مدير الموارد البشرية، مندوب الخدمة المدنية، مقرر).
+- [ ] Assigning `chair` forces the head flag. Two members cannot hold the same seat — try it and
+      confirm the refusal. Several members with **no** seat is fine.
+- [ ] Record the committee's **identity card** ([D] Appendix 65): formation decision number and
+      date, legal basis, minutes-approval body, and the quorum / majority / tie-break rules **in the
+      text's own words alongside the structured form**.
+- [ ] **With no rules recorded**, readiness reports the quorum as `غير مثبت` and blocks convening
+      with `قواعد اللجنة غير مثبتة`. This is deliberate: [D] Appendix 64 forbids the system
+      inventing a quorum — "ولا يجوز للدليل إنشاء نسبة نصاب أو أغلبية من تلقاء نفسه". A committee
+      showing a computed quorum it was never given is a **defect**.
+- [ ] Record `أكثر من نصف الأعضاء` on a four-member committee → required quorum is **3**, not 2.
+      (`لا يقل عن نصف` on the same committee is 2. The comparator is what distinguishes them.)
+- [ ] Deleting a committee that has meetings is refused; deactivate instead.
+
+**B2 — Scheduling ([D] Arts. 23–24).**
+
+- [ ] The five-step wizard runs: requests → details → members/invitations → review/agenda →
+      approve. Only the last step writes anything.
+- [ ] The meeting number is **assigned by the system** as `PM-MTG/YYYY/NN` — the field is not
+      typed. Post a `meeting_number` by hand and confirm it is ignored.
+- [ ] Committee members are auto-invited; extra invitees can be added.
+- [ ] Invitations are sent, and each attendee's RSVP (`مؤكد` / `معتذر` / `لم يرد`) can be recorded,
+      stamping the response time.
+
+**B3 — The agenda ([D] Arts. 83–85, Appendices 24/25).**
+
+- [ ] Add employee-request items, administrative items (which need a subject, having no request) and
+      appeal items.
+- [ ] A request whose legal review has **not** passed cannot be added — confirm the refusal.
+- [ ] A request with an **unresolved document conflict** cannot be added.
+- [ ] Declaring an item `أولوية عالية` requires **both** one of [D] Appendix 33's five grounds and
+      a written justification — "لا تعتبر المعاملة مستعجلة لمجرد طلب صاحبها ذلك". Clearing the
+      ground while leaving the level high must also be refused.
+- [ ] Drag-and-drop reorder works and persists.
+- [ ] `تطبيق الترتيب` rewrites the agenda into [D] Art. 83's computed order — deferred items first,
+      then legal-deadline items, then urgent, then ready by readiness date.
+- [ ] Leaving the agenda in a **different** order raises the readiness exception
+      `الترتيب يخالف القاعدة` until a justification is written ([D] Appendix 24 — "ولا يجوز استخدام
+      الأولوية لتجاوز ترتيب المعاملات دون مبرر إداري موثق").
+
+**B4 — Readiness and convening ([D] Art. 84).**
+
+- [ ] جاهزية الاجتماع shows the four percentages, the quorum, and an **exceptions-only** list.
+- [ ] Convening is **blocked** while any exception stands.
+- [ ] R03 may convene anyway **with a written reason** — this is the override, and it must be
+      recorded, not silent.
+- [ ] Convening **freezes** the committee's voting rules onto the meeting: edit the committee's
+      quorum afterwards and confirm the held meeting still reports the rule it was convened under.
+
+**B5 — Running the sitting ([D] Art. 85, Appendix 25).**
+
+- [ ] Mark attendance. Advance an item through `معروض → مناقشة → تصويت → اتخاذ القرار → مكتمل`.
+- [ ] The nine-step **study card** is enforced **as a sequence**: marking a step before its
+      predecessor is refused, naming the missing step.
+- [ ] **Voting is refused until the sequence completes** — and the members' "awaiting my vote"
+      worklist must be **empty** at the same moment. The screen and the endpoint must never disagree.
+- [ ] Once a vote exists, un-ticking a step is refused, and **attachments and the presentation memo
+      are frozen** for that request ([D] Appendix 25 — "ولا يجوز استمرار تعديل الوقائع أو المستندات
+      بعد بدء التصويت"). Confirm the same upload succeeds on a different, unvoted request.
+
+**B6 — Recording the decision.**
+
+- [ ] With three members voting 2-1, the decision records the majority outcome.
+- [ ] A **tie** is refused and **no decision row is written**. A zero-vote item is refused too.
+- [ ] Every decision requires [D] Appendix 27's four parts (الموضوع، الوقائع، السند، المنطوق) and
+      [D] Art. 90's instrument (قرار / توصية / رأي) — the instrument is pre-filled from the legal
+      card but the recorder may change it.
+- [ ] A منطوق of "اتخاذ اللازم." alone is refused; "اتخاذ اللازم نحو إحالة الملف إلى الإدارة
+      القانونية خلال أسبوع." is accepted. Same for "لعدم الاستحقاق" as the entire reasoning.
+- [ ] A **deferral** requires [D] Art. 34's four mandatory fields; "تأجيل للمراجعة" with nothing
+      stated is refused ([D] Appendix 29).
+- [ ] A **refusal** requires one of [D] Appendix 28's reason codes plus real substantiation.
+- [ ] `عدم اختصاص` and `إعادة للدراسة` are available as committee outcomes and land on their own
+      statuses.
+- [ ] The seven [D] Appendix 59 decision formulas are offered as drafting templates, and a draft
+      pulls the request's real reference number into the text rather than leaving dots.
+
+**B7 — Minutes ([D] Art. 28, Appendix 8).**
+
+- [ ] Generate the محضر; it carries the meeting, attendance with each attendee's seat, the quorum
+      rule applied, and per item: the facts summary, documents reviewed, legal basis, the vote
+      tally, the decision, and any dissenting opinion with its reason.
+- [ ] **Approving the محضر runs [D] Appendix 8's sixteen checks.** Generate it, then change the
+      agenda, then try to approve → **refused**, because the frozen snapshot no longer matches the
+      sitting. Regenerating clears it. This is the check that catches an approved محضر describing a
+      meeting that did not happen.
+- [ ] A meeting with **no recorded attendance** cannot have its محضر approved — attendance proves
+      neither حضور nor صحة انعقاد.
+- [ ] After approval, one signature row exists per present attendee; the last signature flips the
+      محضر to `معتمد`.
+- [ ] **The meeting cannot be closed** while any agenda item is unresolved, or while the محضر is
+      not `معتمد`.
+
+**B8 — Also available to R03**
+
+- [ ] Everything in §3 B6–B8 (registers, execution, closure, lifecycle records) — R03 shares
+      `meeting_outputs,edit` with R02.
+- [ ] Nominate, defer, return-to-study and request-completion on committee candidates.
+
+### C. What they must be refused
+
+- [ ] Any approval queue other than `اعتماد رئيس اللجنة` → **403**.
+- [ ] Recording a legal review → **403** (R11 only).
+- [ ] Every administration screen → **403**.
+- [ ] Verifying or deciding an **appeal's** formal stage → **403** (`appeals,edit` is R02 + R08;
+      R03's role in an appeal is the committee vote and decision, not its administration).
+- [ ] Approving a request they created themselves → refused.
+- [ ] Voting on an item where they have **declared a conflict of interest** → refused, and they are
+      also blocked from that item's discussion feed.
+
+---
+
+## 5. R04 — عضو اللجنة / Committee Member
+
+**Identity.** [D] Art. 12 (أ)'s أعضاء اللجنة. They deliberate and vote. The interesting thing about
+R04 is how narrow it is next to R03: same screens, far fewer verbs — so most of this section is §C.
+
+Sign in as `r04.member1@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **19 sidebar entries** (21 screens) — the meetings group is fully visible.
+- [ ] **No approval screen.**
+
+### B. What they must be able to do
+
+- [ ] Open a meeting and its agenda, and read any request on the agenda **even though they did not
+      create it and hold no workflow role on it** — the live runner's quick-info tabs (summary,
+      employee, study, attachments, previous requests, notes) must all load, and an attachment must
+      stream rather than 404.
+- [ ] Post discussion notes during a sitting.
+- [ ] **Cast a vote**, but only when all of these hold: they are a member of that meeting's
+      committee, they are marked as having **attended**, they have not declared a conflict, and the
+      study sequence is complete.
+- [ ] Declare a **conflict of interest** on an agenda item. Afterwards voting **and** the discussion
+      feed are both refused for that item, and the declaration appears in the compiled محضر.
+- [ ] Generate the محضر draft, and **sign** their own signature row.
+- [ ] Post to the live discussion feed on an agenda item.
+
+### C. What they must be refused
+
+These are the segregation-of-duties checks; do both halves of each.
+
+> **Stage 84 moved four of these out of section B.** [D] Art. 13 (أ) gives a committee member
+> studying, discussing and voting, and Appendix 45's صلاحية أعضاء اللجنة is "الاطلاع على الملفات ·
+> الاطلاع على جدول الأعمال · تسجيل الحضور · المشاركة في الاجتماع" — no convening, no agenda, no
+> memo. R04 previously held all four. If any of the next four checks passes, the matrix has drifted
+> back.
+
+- [ ] **Create a committee, or schedule a meeting** → refused (`meetings,add` is R02 + R03).
+      الدعوة is the chair's under Art. 12 (أ) 1 and إنشاء الاجتماع is المقرر's under Appendix 45.
+- [ ] **Nominate a candidate request**, or defer / return-to-study / request-completion it →
+      refused (`committee_candidates` is R02 + R03 + R09 on both tiers).
+- [ ] **Generate or edit a presentation memo** → refused. [D] Appendix 6's RACI makes إعداد مذكرة
+      العرض مقرر اللجنة's own responsibility; R04 held this only because Stage 46 read "a member
+      acting as مقرر" into the grant.
+- [ ] **Add, reorder or remove an agenda item** → refused (`meeting_agenda` is R02 + R03 + R09).
+- [ ] **Add committee members**, add attendees, mark attendance, send invitations, or edit a
+      meeting → refused (`meetings,edit` is R02 + R03).
+- [ ] **Convene a meeting** → refused (`meeting_readiness,edit` is R03 only).
+- [ ] **Advance an item's state** in the live runner → refused (`meeting_live,edit` is R03 only).
+- [ ] **Record a decision** → refused (`decisions,approve` is R03 only). Voting is `decisions,add`
+      and is allowed; recording the tallied outcome is not.
+- [ ] **Approve the محضر** → refused (`meeting_minutes,approve` is R03 only). Generating and signing
+      are allowed.
+- [ ] **Close or execute a request**, record an approval return, a suspension, or any lifecycle
+      record → refused (`meeting_outputs,edit` is R02 + R03).
+- [ ] **Defer, return-to-study or request-completion** on a candidate → refused
+      (`committee_candidates,edit` is R03 + R09). Nominating is allowed.
+- [ ] Record a legal review → **403**.
+- [ ] Every approval queue → **403**.
+- [ ] Every administration screen → **403**.
+- [ ] Vote on an item in a meeting whose committee they are **not** a member of → refused.
+- [ ] Vote when marked **absent** → refused.
+- [ ] Vote **after** the decision has been recorded → refused.
+
+---
+
+## 6. R05 — مدير إدارة الشؤون الإدارية / Admin Manager
+
+**Identity.** [D] Art. 12 (ب)'s إدارة الموارد البشرية. R05 appears three times in one file's life —
+registering it on the HR route, handing it to the committee, and approving it at the municipality
+level — which is why they are the easiest role to mix up with the reviewer. They are not the same
+person and hold no notes/attachments write beyond adding.
+
+Sign in as `r05.manager@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **20 sidebar entries** (22 screens).
+- [ ] Exactly one approval screen: `اعتماد مدير الإدارة`.
+
+### B. What they must be able to do
+
+- [ ] **Register an HR-routed file** (stage 4): the file arrives with status
+      `موجّه إلى الموارد البشرية`; `register` moves it to stage 5.
+- [ ] **Stage 8** `تحويل الطلب للجنة`: `forward` → stage 9, status `في الاجتماع`.
+- [ ] **Stage 10** `اعتماد (حسب الصلاحيات)`: `approve` **with a signature** from the
+      `اعتماد مدير الإدارة` queue → stage 11, status `بانتظار الاعتماد المركزي`.
+- [ ] The same approval also works from the request-detail screen, and the two paths agree — both
+      write one approval row, and doing it twice is refused.
+- [ ] **The ministry-bypass branch:** on a request whose `decision_grade` is below its type's
+      threshold, the same `approve` lands directly on stage 12 with status `معتمدة نهائياً`,
+      skipping R06 entirely.
+- [ ] `cancel` (reason required) at stages 4, 8 and 10.
+- [ ] File a request on someone's behalf — R05 holds `request_intake` view/add.
+
+### C. What they must be refused
+
+- [ ] **Register a file routed to the Diwan or to the committee secretary** → refused. The
+      registration rule is gated on the role **and** the routing status, so the wrong registrar
+      cannot take a file that was not routed to them. This is the check that makes the three-way
+      routing mean something.
+- [ ] Any approval queue other than `اعتماد مدير الإدارة` → **403**.
+- [ ] **Record the jurisdiction test, the intake gate, or correct the financial-impact flag** →
+      **403**. All three ride `notes_attachments,edit`, which is R01 + R02 only; R05 holds `add`.
+- [ ] Approve at stage 10 while an **approval return is open** on that request → refused, through
+      both the queue and the detail screen, with no approval row written.
+- [ ] Approve at stage 10 on a request **they created themselves** → refused.
+- [ ] Close or execute a request → **403**. Record a committee decision → **403**.
+- [ ] Every administration screen → **403**.
+- [ ] Export anything (`reports`, `registers`, `audit-logs`, `requests`) → **403**; R05 may read
+      all four but carry none of them out.
+
+---
+
+## 7. R06 — وزارة الحكم المحلي / Ministry
+
+**Identity.** [D] Art. 31's central approval tier, and Art. 14's مندوب الخدمة المدنية. Two things
+about this role are load-bearing and easy to get wrong: it must see **only** the files that
+actually reached it, and its committee seat must never substitute for this separate approval.
+
+Sign in as `r06.ministry@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **20 sidebar entries** (22 screens).
+- [ ] Exactly one approval screen: `اعتماد وزارة الحكم المحلي`.
+
+### B. What they must be able to do
+
+- [ ] **Stage 11**: `approve` **with a signature** → stage 12, status `معتمدة نهائياً`.
+- [ ] `cancel` at stage 11 with a reason.
+- [ ] **Export**, which is what distinguishes R06/R07 from everyone else:
+      - [ ] `التقارير` → xlsx **and** PDF. Open the PDF and confirm the **Arabic is shaped and
+            joined**, not reversed disconnected letterforms.
+      - [ ] `السجلات الرسمية` → any of [D] Art. 98's twelve registers exports.
+      - [ ] `سجل التدقيق` → exports.
+      - [ ] `القرارات والتوصيات` → exports. **Stage 84** gave `decisions,export` the same R06/R07
+            tier every other export already had; before that it was R08-only because the grant key
+            was simply absent. Not a widening of what R06 may see — `decisions,view` is `'*'`, so
+            they already read these rows, tallies included, on screen.
+      - [ ] The requests list exports.
+- [ ] Read all twelve registers and confirm each carries its own columns: register 1 shows **both**
+      numbers (receipt and قيد), register 2 keeps a shortfall the file has since cleared (with a
+      `لا` in the still-incomplete column), register 6 has [D] Appendix 12's thirteen columns,
+      register 11 carries [D] Art. 34's five deferral fields.
+- [ ] Read the performance screens: [D] Art. 106's **twelve** indicators in the article's own order,
+      [D] Appendix 10's early-warning alerts (each naming **the party the file is waiting on**, not
+      just a day count), and the three periodic reports (`دوري`, `شهري`, `سنوي`).
+- [ ] Confirm an indicator with nothing to measure reports **empty, not a confident zero**.
+
+### C. What they must be refused
+
+- [ ] Any approval queue other than the ministry's → **403**.
+- [ ] A request that **never reached stage 11** and that they did not create → **404** on open.
+      Approving is not enough of a reason to read the whole pipeline.
+- [ ] **Adding a note or an attachment** → **403**. R06 holds `notes_attachments,view` only.
+- [ ] **A committee member's own actions** — voting, declaring a conflict of interest, generating or
+      signing the محضر → **403** each. R06 sits on the committee as [D] Art. 14's delegate but holds
+      no `decisions,add` or `meeting_minutes,add` grant of its own.
+- [ ] Record a committee decision, close a request, or record a legal review → **403** each.
+- [ ] Every administration screen → **403**.
+- [ ] **The committee-seat check ([D] Art. 14).** Seat the R06 account as `مندوب الخدمة المدنية` on
+      the committee and let it vote to approve. Then confirm the request **still** goes to stage 11
+      for the ministry's separate approval when its grade requires it, and **still** bypasses when
+      it does not. Their vote must change neither. A ministry delegate's committee vote that
+      silently satisfies the central approval is a serious compliance failure.
+
+---
+
+## 8. R07 — المدير العام / العميد / Director
+
+**Identity.** The municipality's final approving authority. R07's defining trait is what is missing:
+**they have no intake screen at all** — the dean approves, they do not do data entry — and since
+Stage 57 they hold exactly one approval checkpoint, not two.
+
+Sign in as `r07.director@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **19 sidebar entries** (21 screens).
+- [ ] Exactly one approval screen: `الاعتماد النهائي والأرشفة`.
+- [ ] **No `استلام الطلب` entry**, and `POST /api/requests` → **403**. This is deliberate; confirm
+      it rather than filing it as a missing feature.
+- [ ] There is **no `اعتماد السلطة المختصة`** screen anywhere. It was removed with the stage it
+      belonged to; if it appears, the seeder's deletion did not run.
+
+### B. What they must be able to do
+
+- [ ] **Stage 12** (a self-loop): `approve` **with a signature** → status `قيد التنفيذ`.
+- [ ] The same export set as R06 — reports, registers, audit log, requests list.
+- [ ] Read the performance indicators and the periodic reports.
+- [ ] Receive an escalation notification when a file goes `حرج` ([D] Appendix 38's third rung
+      reaches رئيس اللجنة and the السلطة المختصة).
+
+### C. What they must be refused
+
+- [ ] `approve` at stage 12 **before** [D] Art. 103's soundness checklist has been recorded by R02
+      or R03 → refused. The file is prepared by one hand and referred to execution by another.
+- [ ] `approve` when any attested soundness answer is `لا` → refused, quoting the failed question.
+- [ ] `approve` while a **suspension** ([D] Art. 105) is open → refused.
+- [ ] Any approval queue other than the final one → **403**.
+- [ ] Adding a note or attachment → **403** (view only).
+- [ ] Filing a request → **403**.
+- [ ] Every administration screen → **403**.
+- [ ] Approving a request they created → refused (they cannot create one, but check the guard holds
+      if an admin creates one on their behalf).
+
+---
+
+## 9. R08 — مدير النظام / System Admin
+
+**Identity.** The only role that holds all seven actions on all 33 screens. R08 is a **support**
+role: use it to configure the system and to unblock, not to walk the process. Most of this section
+is about the administration screens nobody else can reach.
+
+Sign in as `r08.sysadmin@abusaleem.test` (leave `admin@abusaleem.test` untouched as a spare).
+
+### A. What they must see
+
+- [ ] **31 sidebar entries** (33 screens) — including all five approval queues, which is exactly
+      why R08 is useless for testing segregation of duties.
+
+### B. What they must be able to do
+
+**B1 — Users.**
+
+- [ ] Create, edit, deactivate and delete a user; assign multiple roles; assign a **manager**.
+- [ ] The manager picker never offers the user being edited as their own manager.
+- [ ] Deactivating a user immediately refuses them at login **and** as a workflow actor.
+- [ ] **The phone number cannot be set here** — only `TestUserSeeder` writes it. Confirm the field
+      is absent rather than present-and-ignored.
+
+**B2 — Departments.**
+
+- [ ] Create a child department under the tree.
+- [ ] **Deleting a department that still has children or users is refused**; deactivating it is the
+      supported route ([preserve, don't erase]). This pattern recurs for other master data —
+      committees behave the same way.
+
+**B3 — Roles and permissions.**
+
+- [ ] The matrix grid shows 33 screens × 11 roles × 7 actions.
+- [ ] Revoke `اعتماد` from R02 on `اعتماد المقرر`, then sign in as R02: the queue is gone from the
+      sidebar **and** `POST /api/approvals/reviewer/{id}` returns 403. Restore it afterwards.
+- [ ] Grant R04 `meeting_agenda,edit`, confirm R04 can now add an agenda item, then revoke it and
+      confirm they cannot. Changes must take effect on the next request, with no re-seed.
+
+**B4 — Settings, templates, guide.**
+
+- [ ] Settings key/value rows save and are read back.
+- [ ] Create a template with category `decision`; it then appears in the committee's decision
+      drafting picker for R03/R04. A template left inactive does not.
+- [ ] Create a user-guide article; while it is a **draft** it is invisible to every role without
+      `user_guide,edit` and visible to R08. Confirm article bodies render as **plain text** — HTML
+      typed into a body must not execute, since this screen is editable and read by everyone.
+
+**B5 — Backup.**
+
+- [ ] Run an on-demand backup; it appears in the list with a size and a download link.
+- [ ] Download it and confirm the archive opens.
+- [ ] **There is no restore button.** That is by design — restoring is a server-side operation. The
+      screen says so; confirm the copy is present rather than treating the absence as a gap.
+- [ ] Break the dumper path deliberately (a bad `BACKUP_MYSQLDUMP_PATH`) and confirm the run is
+      recorded as **failed with its reason on screen**, not swallowed as a 500.
+- [ ] The nightly schedule lists `backup:run` (`php artisan schedule:list`).
+
+**B6 — The maintenance console.**
+
+- [ ] The screen shows the environment probe: PHP version, `max_execution_time` (with a warning
+      under 120s), whether subprocesses (`proc_open`) are available **and why not** if they are not,
+      pending migration count, config-cache staleness, queue depth, writable paths.
+- [ ] Each command shows its **exact argv verbatim** — someone about to drop every table should be
+      able to read the command, not trust a label.
+- [ ] `php artisan migrate` runs in-process and works even where subprocesses are disabled.
+- [ ] A shell command (composer/npm) is refused **with a reason** on a host that forbids
+      subprocesses, rather than failing blank.
+- [ ] **There is no free-text command box.** The client sends a command *code* from a fixed
+      allowlist and nothing else. If a free-text field exists, that is a critical defect — it turns
+      an operations screen into a remote shell.
+- [ ] Send an off-allowlist string (`rm -rf /`, `migrate; whoami`) through the API → refused, and
+      **no run row is recorded**.
+- [ ] `migrate:fresh` and `migrate:rollback` additionally require the `approve` action **and** the
+      caller echoing back the confirmation phrase the API dictates. Try both halves missing.
+- [ ] One run at a time: a second concurrent run is refused outright rather than queued.
+- [ ] The run history shows a preview per row and the full output on the detail view; clearing the
+      history works.
+- [ ] With the console switched off (`MAINTENANCE_CONSOLE_ENABLED=false`), the diagnostics endpoint
+      **still answers** with `enabled: false` and an empty command list, while running a command is
+      refused. A screen that can say "this is disabled" beats a bare 403.
+
+**B7 — Audit log.**
+
+- [ ] Every write in the relay is recorded with actor, action, model, and an old/new diff.
+- [ ] A no-op save records **nothing**.
+- [ ] Password fields are **redacted** on both sides of a diff.
+- [ ] Filters by user, action, model and date range narrow the list; a raw class name supplied as
+      the model filter is rejected.
+- [ ] Export works (R08 and R06/R07 hold it).
+
+**B8 — The override role in the workflow.**
+
+- [ ] R08 can act at a manager-gated row when a submitter has no assigned manager (the documented
+      fallback).
+- [ ] R08 can route a file flagged `deadline_expired` to ministry oversight with a mandatory reason.
+
+### C. What they must be refused
+
+- [ ] **Approving a request they created themselves** → refused. The self-approval block is in
+      `WorkflowService`, not in the permission matrix, so even R08 must be caught by it. Create a
+      request as R08, walk it to an approval checkpoint, and confirm.
+- [ ] The unauthenticated bootstrap page (`GET /api/maintenance/bootstrap`) must **404** whenever
+      the console is already reachable the normal way, and must 404 for a missing, wrong, or
+      too-short token. Every refusal is a 404 — a 403 would confirm the path exists.
+
+---
+
+## 10. R09 — أمين سر اللجنة / Committee Secretary
+
+**Identity.** The role added by the diagram-alignment redesign: one of the three administrative
+routing destinations, and the person who prepares the committee's agenda once study is complete.
+The sharp edge here is that R09 **builds the agenda but does not schedule the meeting**.
+
+Sign in as `r09.secretary@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **18 sidebar entries** (20 screens) — the fewest of any committee-side role.
+- [ ] **No approval screen.**
+- [ ] **No `استلام الطلب`.**
+
+### B. What they must be able to do
+
+- [ ] **Register a committee-secretary-routed file** (stage 4, status
+      `موجّه إلى أمين سر اللجنة`) → stage 5.
+- [ ] `cancel` at stage 4 with a reason.
+- [ ] **Dispatch a file to legal review** (`legal_review,edit`) → status `تحت المراجعة القانونية`.
+- [ ] **Nominate** a candidate request, and **defer / return-to-study / request-completion** on it
+      — R09 shares `committee_candidates,edit` with R03.
+- [ ] **Build the agenda**: add items, reorder by drag-and-drop, apply [D] Art. 83's computed order,
+      set per-item priority and estimated time, and write the departure justification.
+- [ ] Generate and edit a presentation memo.
+- [ ] Read the meetings dashboard and act on it.
+
+### C. What they must be refused
+
+- [ ] **Create or edit a committee, or schedule a meeting** → **403**. `meetings` is R02 + R03 on
+      both tiers; R09 holds `view` and `print`. This is deliberate and sourced, not an oversight:
+      [D] Art. 12 (أ) 1 gives الدعوة إلى اجتماعات اللجنة to the chair and Appendix 45 gives إنشاء
+      الاجتماع to المقرر — the secretary is neither. R09 arranges the agenda of a meeting somebody
+      else scheduled, which is exactly their seeded description.
+- [ ] Add attendees, mark attendance, or send invitations → **403**.
+- [ ] Convene a meeting → **403**.
+- [ ] Vote, record a decision, or approve the محضر → **403**.
+- [ ] Close or execute a request, or record any lifecycle record → **403**.
+- [ ] **Record** a legal review → **403** (they dispatch; R11 records).
+- [ ] Register a file routed to HR or to the Diwan → refused.
+- [ ] Add a note or attachment → **403** (view only).
+- [ ] Every approval queue and every administration screen → **403**.
+
+---
+
+## 11. R10 — وكيل الديوان / Diwan Deputy
+
+**Identity.** The second of the three routing destinations. The narrowest role in the system: R10
+exists to receive and register files routed to the Diwan, and that is nearly all. Its section is
+short on purpose — if R10 can do more than this, the matrix has drifted.
+
+Sign in as `r10.diwan@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **18 sidebar entries** (20 screens).
+- [ ] **No approval screen**, **no `استلام الطلب`**.
+
+### B. What they must be able to do
+
+- [ ] **Register a Diwan-routed file** (stage 4, status `موجّه إلى وكيل الديوان`) → stage 5.
+- [ ] `cancel` at stage 4 with a reason.
+- [ ] Read the request list, the registers, the reports and the audit log.
+
+### C. What they must be refused
+
+- [ ] **Register a file routed to HR or to the committee secretary** → refused. Run this
+      explicitly: it is the clearest proof that the routing choice is enforced and not decorative.
+- [ ] File a request → **403**.
+- [ ] Any committee action at all — nominate, agenda, vote, decide, minutes → **403**.
+- [ ] Close or execute a request → **403**.
+- [ ] Add a note or attachment → **403**.
+- [ ] Every approval queue and every administration screen → **403**.
+- [ ] Export anything → **403**.
+
+---
+
+## 12. R11 — العضو القانوني / Legal Officer
+
+**Identity.** [D] Art. 14 (ب)'s العضو القانوني. R11 is the only role that may **record** the
+pre-meeting legal review, and [D] is explicit about the limit of that authority: the opinion
+"لا يحل محل مداولة اللجنة أو تصويتها، كما لا يمنح العضو القانوني سلطة منفردة في قبول الطلب أو رفضه".
+Both halves need testing — the exclusive power, and its boundary.
+
+Sign in as `r11.legal@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **18 sidebar entries** (20 screens).
+- [ ] `المراجعة القانونية` is present, and its queue lists **only** files currently handed to legal
+      review.
+- [ ] **No approval screen**, **no `استلام الطلب`**.
+
+### B. What they must be able to do
+
+- [ ] **Open a file in their queue that they did not create and hold no workflow role on.** This is
+      the first thing to check: if it 404s, the queue is a dead end and nothing else in this section
+      can be tested.
+- [ ] The review form pre-fills the request type's **legal basis** ([D] Appendix 21) for the six
+      types the appendix actually names, and leaves it **empty** for the other six rather than
+      inventing a citation. Check one of each.
+- [ ] Record [D] Appendix 22's **بطاقة السند القانوني** — eight fields, including
+      `نوع الاختصاص` (قرار / توصية / رأي / **دراسة فقط**) and `الاعتماد المركزي` as a **three-value**
+      answer (نعم / لا / **يحتاج إلى تحقق**), not a yes/no.
+- [ ] Record each of the five verdicts and confirm where each sends the file:
+      - `سليم قانونيًا وجاهز للعرض` → status `جاهزة`, and the file may be put on an agenda.
+      - `مسألة قانونية تستوجب العرض مع بيانها` → **also permits** the agenda; the matter is presented
+        *with the issue stated*. A note is required.
+      - `يحتاج إلى استكمال مستند` / `يحتاج إلى إيضاح` / `ملاحظة على الاختصاص` → status
+        `مطلوب استكمال`, agenda insertion refused. A note is required for each.
+- [ ] Recording a blocking verdict **without a note** is refused.
+- [ ] **The re-review loop**: after a blocking verdict, the file is corrected, dispatched again, and
+      a second review is recorded. Both rounds stay readable in the file, and the agenda gate reads
+      only the **latest**.
+- [ ] Record a review **after** an [D] Art. 105 suspension — this is what unblocks R02/R03's lift.
+      Confirm the lift is refused before this review exists and permitted after.
+- [ ] Committee members can read the recorded opinion at study time ([D] Art. 21 requires it).
+
+### C. What they must be refused
+
+- [ ] **Dispatch a file to legal review** → **403**. Recording is `legal_review,add` (R11 only);
+      dispatching is `legal_review,edit` (R02 + R09). Test both directions: R11 cannot dispatch, R02
+      cannot record.
+- [ ] **Declare عدم اختصاص on the request itself** — R11's `ملاحظة على الاختصاص` verdict must
+      **not** set the request's status to `عدم اختصاص` or terminate it. That decision stays with the
+      committee (or with R02 at stage 5). This is [D] Art. 14 (ب)'s limit, and it is the single most
+      important refusal in this section.
+- [ ] Vote or record a decision → **403**.
+- [ ] Add an agenda item, convene, or approve minutes → **403**.
+- [ ] Close or execute a request → **403**.
+- [ ] Add a note or attachment → **403** (view only).
+- [ ] File a request → **403**.
+- [ ] Every approval queue and every administration screen → **403**.
+
+---
+
+## 13. Cross-role checks
+
+These do not belong to any one role, and each one has broken at least once in this system's
+history. Run them after the role sections.
+
+### 13.1 Multiple roles are a union, never an intersection
+
+Sign in as `multi.role@abusaleem.test` (R03 **+** R04).
+
+- [ ] The sidebar shows **20 entries** (22 screens) — R03's set, since R04 adds nothing R03 lacks.
+- [ ] `اعتماد رئيس اللجنة` is visible.
+- [ ] They can **both** vote (`decisions,add`, R03 + R04) **and** record a decision
+      (`decisions,approve`, R03 only). If recording is refused, permissions have regressed to an
+      intersection.
+
+### 13.2 An inactive user is refused twice
+
+Sign in attempt as `inactive.user@abusaleem.test`.
+
+- [ ] Login is refused with its **own message**, not a generic "bad credentials".
+- [ ] Re-activate them, mint a token, deactivate them again, then use that token to attempt a
+      workflow transition → refused by `WorkflowService`, which re-checks the actor's active status
+      independently of the login gate.
+
+### 13.3 Nobody approves their own work
+
+- [ ] For each of R02, R03, R05, R06, R07 and **R08**: create a request as that account, walk it to
+      the checkpoint that account owns, and confirm the approval is refused. Check both entry points
+      (the approval queue and the request detail screen).
+
+### 13.4 Login throttle
+
+- [ ] `POST /api/auth/login` is rate-limited at **six attempts per minute**. Signing in as seven
+      accounts in quick succession — which the one-click test-user picker makes easy — returns 429
+      on the seventh. Confirm the UI reports it as rate limiting and not as a wrong password.
+
+### 13.5 Visibility is a 404, not an empty list
+
+- [ ] As any role, open a request id you have no relationship to → **404**.
+- [ ] The exceptions, each of which must work: R11 on a file in legal review; R02/R03 on a file in
+      the approval, execution or closable states; a user in the **Salaries** department (`SAL`) on
+      any request flagged with a financial impact; and every user on requests they created.
+
+### 13.6 Notifications
+
+- [ ] The bell badge count matches the unread list, and marking all read clears it.
+- [ ] Each of the [D] Art. 101 moments fires once and only once for the right person.
+- [ ] Muting an event type stops delivery on that channel only.
+- [ ] A user with no phone number silently drops the SMS channel rather than queueing an
+      undeliverable message.
+- [ ] An escalation reaches the right rung: `أصفر` the current holder, `أحمر` R02 + R05,
+      `تأخير حرج` R03 + R07 ([D] Appendix 38). The same rung is never announced twice for the same
+      file, but a worsening delay climbs.
+
+### 13.7 Language, direction, theme and print
+
+- [ ] Switch to English and back. Every screen's labels change; nothing renders as a raw key like
+      `meetingsUnit.minutes.title`.
+- [ ] In Arabic the layout mirrors fully — sidebar, tables, form fields. Nothing is clipped.
+- [ ] **Command lines and log output on the maintenance screen stay left-to-right** even in Arabic;
+      an RTL-mirrored shell command is unreadable and uncopyable.
+- [ ] Toggle dark mode; check every screen in both themes. Any element that stays light-on-light or
+      dark-on-dark is a hard-coded colour and a defect.
+- [ ] Print a decisions register and a guide article from dark mode — the print output must be ink
+      on white, not light grey on an unrendered background.
+
+### 13.8 Audit trail
+
+- [ ] Every action in §1's relay is attributable in `سجل التدقيق` to the account that performed it,
+      with a timestamp and an old/new diff.
+- [ ] The audit log itself cannot be edited or deleted by anyone, including R08.
+
+---
+
+## 14. Defect log and sign-off
+
+Record every failure here as you hit it. Do not fix mid-pass.
+
+| # | Role | Section | What you did | What you expected | What happened | Severity |
+|---|---|---|---|---|---|---|
+| 1 | | | | | | |
+| 2 | | | | | | |
+| 3 | | | | | | |
+| 4 | | | | | | |
+| 5 | | | | | | |
+
+**Severity guide.** *Critical* — a role can do something the standard forbids (approve their own
+work, register a file routed elsewhere, run an arbitrary command, read another employee's file).
+*Major* — a role cannot do something the standard requires. *Minor* — wording, layout, or a missing
+convenience.
+
+### Sign-off
+
+| Role | Tester | Date | Result | Notes |
+|---|---|---|---|---|
+| R01 Employee | | | ☐ pass ☐ fail | |
+| R02 Reviewer | | | ☐ pass ☐ fail | |
+| R03 Committee Head | | | ☐ pass ☐ fail | |
+| R04 Committee Member | | | ☐ pass ☐ fail | |
+| R05 Admin Manager | | | ☐ pass ☐ fail | |
+| R06 Ministry | | | ☐ pass ☐ fail | |
+| R07 Director | | | ☐ pass ☐ fail | |
+| R08 System Admin | | | ☐ pass ☐ fail | |
+| R09 Committee Secretary | | | ☐ pass ☐ fail | |
+| R10 Diwan Deputy | | | ☐ pass ☐ fail | |
+| R11 Legal Officer | | | ☐ pass ☐ fail | |
+| §1 relay | | | ☐ pass ☐ fail | |
+| §13 cross-role | | | ☐ pass ☐ fail | |
+
+---
+
+## Appendix A — the seeded permission matrix
+
+Generated from `ScreenSeeder` and `ScreenRolePermissionSeeder`. This is the **starting** matrix;
+R08 can change any cell from the Roles & Permissions screen, so re-derive it after any change.
+
+Letters: `v` view · `a` add · `e` edit · `d` delete · `A` approve · `p` print · `x` export ·
+`·` no access at all.
+
+| Screen | R01 | R02 | R03 | R04 | R05 | R06 | R07 | R08 | R09 | R10 | R11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `dashboard` — لوحة التحكم الرئيسية | vp | vp | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp |
+| `requests` — الطلبات | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp |
+| `request_intake` — استلام الطلب | vae | vae | va | va | vae | va | · | vaedApx | · | · | · |
+| `request_details` — تفاصيل الطلب | vpx | vpx | vpx | vpx | vpx | vpx | vpx | vaedApx | vpx | vpx | vpx |
+| `notes_attachments` — الملاحظات والمرفقات | va | vae | va | va | va | v | v | vaedApx | v | v | v |
+| `appeals` — التظلمات | vap | vep | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp |
+| `meetings_dashboard` — لوحة قيادة الاجتماعات | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vaep | vp | vp |
+| `committee_candidates` — الطلبات المرشحة | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vaep | vp | vp |
+| `legal_review` — المراجعة القانونية | vp | vep | vp | vp | vp | vp | vp | vaedApx | vep | vp | vap |
+| `meetings` — الاجتماعات | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp |
+| `meeting_agenda` — جدول الأعمال | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vaep | vp | vp |
+| `meeting_readiness` — جاهزية الاجتماع | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp |
+| `meeting_live` — مباشرة الاجتماع | vp | vap | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp |
+| `decisions` — القرارات والتوصيات | vp | vAp | vaAp | vap | vp | vpx | vpx | vaedApx | vp | vp | vp |
+| `meeting_minutes` — المحاضر | vp | vap | vaeAp | vap | vp | vp | vp | vaedApx | vp | vp | vp |
+| `meeting_outputs` — المخرجات | vp | vep | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp |
+| `reviewer_approval` — اعتماد المقرر | · | vA | · | · | · | · | · | vaedApx | · | · | · |
+| `committee_head_approval` — اعتماد رئيس اللجنة | · | · | vA | · | · | · | · | vaedApx | · | · | · |
+| `admin_manager_approval` — اعتماد مدير الإدارة | · | · | · | · | vA | · | · | vaedApx | · | · | · |
+| `ministry_approval` — اعتماد وزارة الحكم المحلي | · | · | · | · | · | vA | · | vaedApx | · | · | · |
+| `final_approval` — الاعتماد النهائي والأرشفة | · | · | · | · | · | · | vA | vaedApx | · | · | · |
+| `users` — المستخدمون | · | · | · | · | · | · | · | vaedApx | · | · | · |
+| `departments` — الإدارات والأقسام | · | · | · | · | · | · | · | vaedApx | · | · | · |
+| `roles_permissions` — الأدوار والصلاحيات | · | · | · | · | · | · | · | vaedApx | · | · | · |
+| `settings` — الإعدادات العامة | · | · | · | · | · | · | · | vaedApx | · | · | · |
+| `reports` — التقارير والإحصائيات | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp |
+| `registers` — السجلات الرسمية | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp |
+| `audit_log` — سجل التدقيق | v | v | v | v | v | vx | vx | vaedApx | v | v | v |
+| `notifications` — الإشعارات | ve | ve | ve | ve | ve | ve | ve | vaedApx | ve | ve | ve |
+| `templates` — القوالب والنماذج | · | · | · | · | · | · | · | vaedApx | · | · | · |
+| `backup` — النسخ الاحتياطي | · | · | · | · | · | · | · | vaedApx | · | · | · |
+| `maintenance` — الصيانة والنشر | · | · | · | · | · | · | · | vaedApx | · | · | · |
+| `user_guide` — دليل الاستخدام | vp | vp | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp |
+
+**Screen counts per role** (API total / sidebar total — `request_details` and `notes_attachments`
+are returned by the API but hidden from the menu because they need a request id):
+
+| Role | API | Sidebar | Approval screen |
+|---|---|---|---|
+| R01 Employee | 21 | 19 | — |
+| R02 Reviewer | 22 | 20 | `اعتماد المقرر` |
+| R03 Committee Head | 22 | 20 | `اعتماد رئيس اللجنة` |
+| R04 Committee Member | 21 | 19 | — |
+| R05 Admin Manager | 22 | 20 | `اعتماد مدير الإدارة` |
+| R06 Ministry | 22 | 20 | `اعتماد وزارة الحكم المحلي` |
+| R07 Director | 21 | 19 | `الاعتماد النهائي والأرشفة` |
+| R08 System Admin | 33 | 31 | all five |
+| R09 Committee Secretary | 20 | 18 | — |
+| R10 Diwan Deputy | 20 | 18 | — |
+| R11 Legal Officer | 20 | 18 | — |
+| multi.role (R03+R04) | 22 | 20 | `اعتماد رئيس اللجنة` |
+
+---
+
+## Appendix B — the twelve lifecycle stages
+
+`responsible_role` below is **indicative** — it tells the UI who normally holds the file. Authority
+to actually move it comes from the transition's own required role, which is why stages 2–4 show
+none: their gate is "the submitter's own manager" or "whichever of three registrars matches the
+route", and neither is expressible as a single role.
+
+| # | Code | Arabic | Normally held by | Target days |
+|---|---|---|---|---|
+| 1 | `receive_from_municipality` | استلام الطلب من البلدية | R01 | — |
+| 2 | `direct_manager_review` | مراجعة الطلب من المدير المباشر | the submitter's manager | 1 |
+| 3 | `administrative_routing` | إحالة الطلب لأحد المسارات الإدارية | the submitter's manager | 2 |
+| 4 | `receive_and_register` | الاستلام والتسجيل | R05 / R09 / R10 by route | 3 |
+| 5 | `requirements_check` | فحص استيفاء المتطلبات | R02 | 2 |
+| 6 | `reviewer_review` | مراجعة المقرر وفق اللوائح | R02 | 3 |
+| 7 | `observations` | إبداء الملاحظات (إن وجدت) | R02 | 2 |
+| 8 | `forward_to_committee` | تحويل الطلب للجنة القائمة | R05 | — |
+| 9 | `receive_from_committee` | استلام الطلب من اللجنة | R09 (decisions: R03) | 3 |
+| 10 | `approval_by_authority` | اعتماد (حسب الصلاحيات) | R05 | 2 |
+| 11 | `local_governance_ministry` | وزارة الحكم المحلي | R06 | — |
+| 12 | `final_approval_archiving` | الاعتماد النهائي والأرشفة | R07 | 1–2 |
+
+Targets come from [D] Appendix 37 and are a **soft** SLA — never blocking. A stage with no target
+shows no indicator rather than a fabricated "on target". The hard per-type deadline
+(`due_date` / `overdue_at`) is a separate mechanism, swept nightly.
+
+**Exception actions**, all requiring a written reason:
+
+| Action | From → to | Who |
+|---|---|---|
+| `return_to_employee` | 2 → 1 | the submitter's manager |
+| `return_missing_docs` | 5 → 1 | R02 |
+| `declare_no_jurisdiction` | 5 → 5, and 9 → 9 | R02 at stage 5, R03 at stage 9 |
+| `reject_formally` | 5 → 5 | R02 |
+| `reject_review` | 6 → 5 | R02 |
+| `request_edit` | 7 → 6 | R02 |
+| `defer` | 9 → 9 | R03 |
+| `conditional_approve` | 9 → 10 | R03 |
+| `request_legal_opinion` | 9 → 9 | R03 |
+| `refer_to_another_body` | 9 → 9 | R03 |
+| `reject_by_committee` | 9 → 9 | R03 |
+| `return_to_study` | 9 → 7 | R03 |
+| `cancel` | self-loop at every open stage | the role holding that stage |
+| `deadline_expired` | any open stage → 11 | R08 |
+
+---
+
+## Appendix C — the status dictionary
+
+The vocabulary is [D] Art. 38's, extended where this system needs a state the article does not
+itemise. Statuses a tester will meet most often, in roughly lifecycle order:
+
+`جديد` · `قيد المراجعة` · `موجّه إلى الموارد البشرية` / `موجّه إلى وكيل الديوان` /
+`موجّه إلى أمين سر اللجنة` · `تم التسجيل` · `ناقص` · `مرفوضة` · `عدم اختصاص` ·
+`تحت المراجعة القانونية` · `مطلوب استكمال` · `جاهزة` · `في الاجتماع` · `مرشح للجنة` ·
+`مدرج بجدول الأعمال` · `قيد المناقشة` · `مؤجلة` · `طلب رأي قانوني` · `أحيلت لجهة أخرى` ·
+`غير موافق عليها` · `اعتماد مشروط` · `بانتظار اعتماد البلدية` · `بانتظار الاعتماد المركزي` ·
+`أعيدت من جهة الاعتماد` · `موقوفة لمراجعة قانونية` · `معتمدة نهائياً` · `قيد التنفيذ` · `منفذة` ·
+`مكتمل ومغلق` · `ملغاة` · `أعيد فتحه بموجب تظلم` · `أعيد فتحه لإعادة العرض` ·
+`قرار مسحوب بموجب تظلم` · `قرار معدَّل بموجب تظلم`
+
+**Terminal statuses** — no further ordinary workflow move is possible, and a non-creator's
+assignment-based visibility stops: `ملغاة`, `مؤرشفة`, `غير موافق عليها`, `قيد التنفيذ`, `منفذة`,
+`مكتمل ومغلق`, `قرار مسحوب بموجب تظلم`, `قرار معدَّل بموجب تظلم`.
+
+---
+
+## Appendix D — artefact numbering
+
+Every number is minted **server-side**; none is typed by a user. If a screen offers a field for
+one of these, that is a defect.
+
+| Artefact | Format | Minted when |
+|---|---|---|
+| Intake receipt | `PM-RCV/YYYY/NNNNNN` | at submission — **not a قيد** |
+| Request (رقم إشاري) | `PM-COM/YYYY/NNNN` | at the stage-5 `approve` (the قيد), once and only once for the file's whole life |
+| Meeting | `PM-MTG/YYYY/NN` | when the meeting is created |
+| Minutes | `PM-MIN/YYYY/NN` | at first generation, preserved across regenerations |
+| Decision | `PM-DEC/YYYY/NNN` | when the decision is recorded |
+
+---
+
+*Generated from the seeders, routes and services in this repository, and from the process standard
+indexed at `docs/employee-committee-lifecycle/README.md`. When a seeder changes, re-derive
+Appendix A rather than editing it by hand.*

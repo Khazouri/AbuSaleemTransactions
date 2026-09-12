@@ -458,18 +458,37 @@ class RequestController extends Controller
      * carries no stage restriction of its own — it is a working draft that
      * can be revised any time before (or after) requirements_check acts on
      * it, mirroring that method's own precedent.
+     *
+     * Stage 84 — but never by the person who filed the request. [D] Appendix
+     * 19's مصفوفة الفصل بين الصلاحيات is explicit ("لا يكون مقدم الطلب هو
+     * معتمد الطلب"), Appendix 6's RACI leaves the الموظف column empty for both
+     * فحص اكتمال ملف اللجنة and القيد, and Appendix 45 gives الفحص to المقرر
+     * alone. Same block AppealController::recordJurisdictionTest() has carried
+     * since Stage 62, and the same shape as reopen()'s own creator refusal.
      */
     public function recordJurisdictionTest(
         RecordJurisdictionTestRequest $request,
         Request $requestRecord,
         WorkflowService $workflow,
         RequestVisibility $visibility,
-    ): RequestDetailResource {
-        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
+    ): RequestDetailResource|JsonResponse {
+        $actor = $request->user();
 
-        $requestRecord->update(['jurisdiction_test' => $request->validated()]);
+        abort_unless($visibility->canView($actor, $requestRecord), 404);
 
-        return $this->detailResource($requestRecord, $workflow, $request->user());
+        if ($requestRecord->created_by_user_id === $actor->id) {
+            return response()->json([
+                'message' => 'لا يجوز لمقدّم الطلب إجراء اختبار الاختصاص على طلبه بنفسه.',
+            ], 422);
+        }
+
+        $requestRecord->update([
+            'jurisdiction_test' => $request->validated(),
+            'jurisdiction_tested_by_user_id' => $actor->id,
+            'jurisdiction_tested_at' => now(),
+        ]);
+
+        return $this->detailResource($requestRecord, $workflow, $actor);
     }
 
     /**
@@ -571,8 +590,20 @@ class RequestController extends Controller
         // rounds stay readable, and an open one cannot survive a reopen in
         // practice — `execution_suspended` is not a REOPENABLE_STATUS_CODES
         // entry, so a reopened request only ever carries resolved rounds.
-        if ($requestRecord->intake_gate !== null || $requestRecord->execution_soundness !== null) {
+        //
+        // Stage 84 — `jurisdiction_test` is cleared here too, which it was
+        // not before. Art. 45's answers are the other half of gate 1, and
+        // leaving them behind meant a reopened file arrived already
+        // satisfying the `!== null` gate on `requirements_check → approve`
+        // using the previous lap's answers — exactly the staleness clearing
+        // the other two records was meant to prevent.
+        if ($requestRecord->intake_gate !== null
+            || $requestRecord->execution_soundness !== null
+            || $requestRecord->jurisdiction_test !== null) {
             $requestRecord->update([
+                'jurisdiction_test' => null,
+                'jurisdiction_tested_by_user_id' => null,
+                'jurisdiction_tested_at' => null,
                 'intake_gate' => null,
                 'intake_gate_checked_by_user_id' => null,
                 'intake_gate_checked_at' => null,
@@ -775,12 +806,19 @@ class RequestController extends Controller
      * document Appendix 57 requires for this request's type, plus Appendix
      * 20's own attestation that the facts themselves are sound.
      *
-     * Rides the same `notes_attachments,edit` grant (R01/R02) Stage 54's
-     * jurisdiction test and Stage 47's financial-impact correction already
-     * use, and carries no stage restriction of its own for the same reason
-     * those two don't: it is a working record the officer builds while the
-     * file is being checked, and `requirements_check → approve` is what reads
-     * it.
+     * Rides the same `notes_attachments,edit` grant Stage 54's jurisdiction
+     * test and Stage 47's financial-impact correction already use, and
+     * carries no stage restriction of its own for the same reason those two
+     * don't: it is a working record the officer builds while the file is
+     * being checked, and `requirements_check → approve` is what reads it.
+     *
+     * Stage 84 — never by the person who filed the request. This is the
+     * completeness attestation the قيد hangs on, and [D] Appendix 19 forbids
+     * مقدم الطلب from being معتمد الطلب; Appendix 6's RACI makes فحص اكتمال
+     * ملف اللجنة مقرر اللجنة's alone, with the الموظف column empty. R01 also
+     * lost `notes_attachments,edit` in the same stage, so this block is the
+     * second of two — it additionally covers an R02 who filed on someone's
+     * behalf and would otherwise be checking their own work.
      */
     public function recordIntakeGate(
         RecordIntakeGateRequest $request,
@@ -788,8 +826,16 @@ class RequestController extends Controller
         IntakeGateService $gate,
         WorkflowService $workflow,
         RequestVisibility $visibility,
-    ): RequestDetailResource {
-        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
+    ): RequestDetailResource|JsonResponse {
+        $actor = $request->user();
+
+        abort_unless($visibility->canView($actor, $requestRecord), 404);
+
+        if ($requestRecord->created_by_user_id === $actor->id) {
+            return response()->json([
+                'message' => 'لا يجوز لمقدّم الطلب إثبات اكتمال ملفه بنفسه.',
+            ], 422);
+        }
 
         $requestRecord->loadMissing('requestType:id,required_documents');
 
@@ -799,11 +845,11 @@ class RequestController extends Controller
                 $request->validated('documents'),
                 $request->boolean('facts_verified'),
             ),
-            'intake_gate_checked_by_user_id' => $request->user()->id,
+            'intake_gate_checked_by_user_id' => $actor->id,
             'intake_gate_checked_at' => now(),
         ]);
 
-        return $this->detailResource($requestRecord, $workflow, $request->user());
+        return $this->detailResource($requestRecord, $workflow, $actor);
     }
 
     /**
@@ -987,6 +1033,7 @@ class RequestController extends Controller
             'suspensions.suspendedFromStatus:id,code,name_ar,name_en',
             'suspensions.suspendedBy:id,name',
             'suspensions.resolvedBy:id,name',
+            'jurisdictionTestedBy:id,name',
             'intakeGateCheckedBy:id,name',
             'executionSoundnessCheckedBy:id,name',
         ]);
@@ -1141,8 +1188,17 @@ class RequestController extends Controller
                 'required_documents' => $intake->requiredDocuments($requestRecord),
                 'refusal' => $intake->refusalReason($requestRecord),
                 // Art. 45's test is the other half of this same gate, and it
-                // has been enforced on the same hop since Stage 54.
-                'jurisdiction_test_recorded' => $requestRecord->jurisdiction_test !== null,
+                // has been enforced on the same hop since Stage 54. Stage 84
+                // gave it the same who/when the record above has always had,
+                // so both halves of gate 1 now name their author.
+                'jurisdiction_test' => [
+                    'recorded' => $requestRecord->jurisdiction_test !== null,
+                    'recorded_at' => $requestRecord->jurisdiction_tested_at?->toIso8601String(),
+                    'recorded_by' => $requestRecord->jurisdictionTestedBy ? [
+                        'id' => $requestRecord->jurisdictionTestedBy->id,
+                        'name' => $requestRecord->jurisdictionTestedBy->name,
+                    ] : null,
+                ],
             ],
             // بوابة 3 — قبل الاعتماد lives on the محضر, not on the request:
             // Appendix 8's checks are meeting-wide. Reported as the decision's

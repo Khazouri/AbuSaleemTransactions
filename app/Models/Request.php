@@ -9,7 +9,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * A staff-affairs request travelling through the 11-stage workflow.
+ * A staff-affairs request travelling through the workflow defined by
+ * `workflow_stages` — twelve stages since Stage 57 cut two of the original
+ * fourteen; read WorkflowStageSeeder rather than trusting a number here.
  *
  * `status` answers how the request is doing; `currentStage` answers where it
  * is. Their histories are separate because exception handling can change one
@@ -34,6 +36,10 @@ class Request extends Model
         'decision_grade',
         'has_financial_impact',
         'jurisdiction_test',
+        // Stage 84 — who answered Art. 45's test and when. Written only by
+        // RequestController::recordJurisdictionTest(), cleared by reopen().
+        'jurisdiction_tested_by_user_id',
+        'jurisdiction_tested_at',
         // Stage 83 — [D] Appendix 16's classification of a request raised
         // after an earlier file on the same subject closed. Written once, at
         // intake; only its two "genuinely new" values ever reach the column.
@@ -44,7 +50,8 @@ class Request extends Model
         // fillable for the same reason the closure/execution cards below are.
         'intake_gate',
         'intake_gate_checked_by_user_id',
-        'intake_gate_checked_at',        // Stage 75 — [D] Art. 37's closure record. Written only by
+        'intake_gate_checked_at',
+        // Stage 75 — [D] Art. 37's closure record. Written only by
         // RequestClosureService (and cleared by RequestController::reopen),
         // but fillable so both write it through one update() call.
         'closure',
@@ -82,6 +89,7 @@ class Request extends Model
             // once at requirements_check and gating that stage's approve/
             // declare_no_jurisdiction/reject_formally outcomes.
             'jurisdiction_test' => 'array',
+            'jurisdiction_tested_at' => 'datetime',
             'intake_gate' => 'array',
             'intake_gate_checked_at' => 'datetime',
             'execution_soundness' => 'array',
@@ -134,6 +142,16 @@ class Request extends Model
     public function executedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'executed_by_user_id');
+    }
+
+    /**
+     * Stage 84 — who answered [D] Art. 45's jurisdiction test. The appeals
+     * side has carried this since Stage 62; the request side did not until
+     * now, which left the two halves of gate 1 reading differently.
+     */
+    public function jurisdictionTestedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'jurisdiction_tested_by_user_id');
     }
 
     /** Stage 78 — who answered [D] Appendix 63's بوابة 1 for this file. */

@@ -551,6 +551,15 @@ onBeforeUnmount(clearAttachmentPreview)
         <p>{{ t('requestDetail.jurisdictionTest.hint') }}</p>
         <p v-if="request.jurisdiction_test" class="state">{{ t('requestDetail.jurisdictionTest.recorded') }}</p>
         <p v-else class="action-error">{{ t('requestDetail.jurisdictionTest.notRecorded') }}</p>
+        <!-- Stage 84 — whose answers these are. This half of gate 1 carried no
+             recorder at all before, while the intake half beside it always
+             did; [D] Appendix 19 makes the author part of the record. -->
+        <p v-if="request.control_gates?.intake?.jurisdiction_test?.recorded_by">
+          {{ t('requestDetail.jurisdictionTest.recordedBy', {
+            name: request.control_gates.intake.jurisdiction_test.recorded_by.name,
+            at: dateTime(request.control_gates.intake.jurisdiction_test.recorded_at),
+          }) }}
+        </p>
         <fieldset :disabled="jurisdictionTestSaving">
           <div class="grid">
             <label>
@@ -848,6 +857,8 @@ onBeforeUnmount(clearAttachmentPreview)
             :required-documents="request.control_gates.intake.required_documents"
             :record="request.control_gates.intake.record"
             :refusal="request.control_gates.intake.refusal"
+            :recorded-by="request.control_gates.intake.recorded_by"
+            :recorded-at="request.control_gates.intake.recorded_at"
             @updated="onGateUpdated"
           />
         </div>

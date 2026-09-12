@@ -679,6 +679,7 @@
       "title": "Jurisdiction test (Article 45)",
       "hint": "All six questions must be answered before the request can be accepted, rejected, or referred for lack of jurisdiction.",
       "recorded": "The jurisdiction test has been recorded.",
+      "recordedBy": "Recorded by {name} — {at}",
       "notRecorded": "The jurisdiction test has not been recorded yet — it must be recorded before an initial-review action can be taken.",
       "choose": "— Choose —",
       "yes": "Yes",
@@ -1907,6 +1908,7 @@
       "choose": "Choose…",
       "factsVerified": "I certify the facts and data submitted are correct.",
       "passed": "The file has cleared gate 1.",
+      "recordedBy": "Recorded by {name} — {at}",
       "answers": {
         "present": "Attached",
         "not_applicable": "Not applicable",
