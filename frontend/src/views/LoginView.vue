@@ -71,18 +71,64 @@ async function submit() {
       // Tripped the throttle:6,1 limit on the login route — waiting is the fix.
       error.value = 'محاولات كثيرة جداً. يرجى الانتظار دقيقة ثم المحاولة مجدداً.'
     } else {
-      // No response at all: the API is unreachable (VM down, wrong host entry,
-      // CORS). Nothing to do with the credentials, so say so.
+      // No response at all. TWO different faults land here and the browser
+      // reports them identically — axios cannot see a response in either case:
       //
-      // Naming the Homestead host is the right hint on a dev machine and noise
-      // on a deployed site, where the reader has no VM to start — so the two
-      // audiences get different text. Vite replaces DEV with the literal false
-      // in a build, which folds this to the else branch and keeps the internal
-      // hostname out of the shipped bundle.
-      error.value = import.meta.env.DEV
-        ? 'تعذّر الاتصال بالخادم. تأكد من تشغيل abusaleem.test'
-        : 'تعذّر الاتصال بالخادم. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني.'
+      //   a) the API is genuinely unreachable (VM down, wrong host entry)
+      //   b) the API answered, but its Access-Control-Allow-Origin did not
+      //      match this page's origin, so the browser discarded the reply
+      //
+      // Telling the reader only (a) actively misleads when it is (b): the
+      // server is running and the password is right, yet the message says the
+      // server is down. So find out which one it is before choosing the text.
+      error.value = await describeUnreachable()
     }
+  }
+}
+
+/**
+ * Work out WHY a request produced no response, and say so.
+ *
+ * A cross-origin block and an unreachable server are indistinguishable to
+ * axios, but a no-cors probe separates them: that mode asks the browser to
+ * make the request WITHOUT enforcing the origin check, so it resolves (with an
+ * unreadable "opaque" response) whenever the server is actually reachable, and
+ * rejects only when the network call itself fails.
+ *
+ * Reachable, while the real call was blocked, therefore means the origin is
+ * being rejected — a configuration fault (Laravel's FRONTEND_URL has to equal
+ * this page's origin exactly), not something the user can wait out.
+ */
+async function describeUnreachable() {
+  const origin = window.location.origin
+
+  if (await apiIsReachable()) {
+    // The server answered the probe, so it is up — the reply to the real call
+    // was discarded by the browser over the origin mismatch.
+    return import.meta.env.DEV
+      ? `الخادم يعمل، لكن المتصفّح حجب ردّه (CORS). اضبط FRONTEND_URL في ملف .env الخاص بـ Laravel على ${origin} تماماً، ثم نفّذ php artisan config:clear`
+      : 'تعذّر إكمال الاتصال بالخادم بسبب إعداد في النظام. يرجى التواصل مع الدعم الفني.'
+  }
+
+  // The probe failed too: nothing is answering at that address at all.
+  return import.meta.env.DEV
+    ? 'تعذّر الاتصال بالخادم. تأكد من تشغيل abusaleem.test'
+    : 'تعذّر الاتصال بالخادم. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني.'
+}
+
+/** True when the API host answers at all, regardless of the origin check. */
+async function apiIsReachable() {
+  try {
+    await fetch(new URL('auth/login', `${api.defaults.baseURL}/`), {
+      method: 'POST',
+      mode: 'no-cors',
+      // Kept short: this only runs on a failure the user is already waiting
+      // on, so a slow probe would just make a bad moment worse.
+      signal: AbortSignal.timeout(4000),
+    })
+    return true
+  } catch {
+    return false
   }
 }
 
