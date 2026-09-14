@@ -101,8 +101,10 @@ class User extends Authenticatable
     /**
      * This employee's direct manager (المدير المباشر) — the actor
      * WorkflowService::actorMayUse resolves for `requires_submitter_manager`
-     * rows. Nullable: an employee with no manager assigned falls through to
-     * the R08 override there rather than being permanently stranded.
+     * rows, and the ONLY actor who may use one — there is no admin override.
+     * Nullable, and the consequence of leaving it null is real: that
+     * employee's requests cannot be delegated out of direct_manager_review
+     * by anyone at all until a live manager is assigned here.
      */
     public function manager(): BelongsTo
     {

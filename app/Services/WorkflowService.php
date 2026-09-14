@@ -8,7 +8,6 @@ use App\Models\Request;
 use App\Models\RequestStageLog;
 use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
-use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
@@ -36,11 +35,6 @@ class WorkflowService
         private readonly NotificationDispatcher $notifications,
         private readonly ArtifactNumberGenerator $numbers,
     ) {}
-
-    // Cached per instance so a request evaluating many candidate rows (both
-    // filter sites loop over several) doesn't re-query the roles table for
-    // "what is R08's id" on every row.
-    private ?int $r08RoleId = null;
 
     /**
      * Workflow stage code => immutable business approval level.
@@ -547,9 +541,10 @@ class WorkflowService
      * All three gates must hold:
      *   - the existing role check, preserved exactly;
      *   - if the row is manager-gated, the actor must be the request
-     *     creator's active, non-deleted manager, OR hold R08 as a fallback so
-     *     a submitter with no manager assigned (or whose manager has left or
-     *     been deactivated) is never permanently stranded;
+     *     creator's active, non-deleted manager, with no fallback of any
+     *     kind: only that manager may delegate, and a submitter with no
+     *     manager assigned (or whose manager has left or been deactivated)
+     *     has a request that cannot be delegated at all;
      *   - if the row is status-gated, the request's CURRENT status must
      *     match — this is what makes three-way administrative routing
      *     enforceable rather than decorative.
@@ -566,9 +561,16 @@ class WorkflowService
             return false;
         }
 
+        // A manager-gated row is the submitter's own direct manager's
+        // decision and nobody else's. There is deliberately NO admin
+        // override here: a request whose creator has no live manager link
+        // cannot be delegated at all, which is the rule as stated rather
+        // than a gap for R08 to paper over. The consequence is real and
+        // intended — such a request stalls at direct_manager_review with no
+        // action available to anyone, an admin included. Assigning the
+        // employee a manager on the Users screen is what releases it.
         if ($rule->requires_submitter_manager
-            && ! $this->actorIsCreatorsActiveManager($requestRecord, $actor)
-            && ! $this->actorHoldsR08($actorRoleIds)) {
+            && ! $this->actorIsCreatorsActiveManager($requestRecord, $actor)) {
             return false;
         }
 
@@ -583,8 +585,9 @@ class WorkflowService
      * Is $actor the request creator's manager, and is that manager link
      * actually live — not soft-deleted (the default Eloquent scope already
      * excludes trashed rows) and not deactivated? A dangling manager_id
-     * (the manager left, or was never set) must fall through to the R08
-     * override in actorMayUse() rather than matching here.
+     * (the manager left, or was never set) simply fails the gate — there is
+     * no override to fall through to, so the request cannot be delegated
+     * until a live manager is assigned.
      */
     private function actorIsCreatorsActiveManager(Request $requestRecord, User $actor): bool
     {
@@ -601,14 +604,6 @@ class WorkflowService
         }
 
         return User::query()->whereKey($managerId)->where('is_active', true)->exists();
-    }
-
-    /** Does the actor hold the R08 (System Admin) role, by code, not a hardcoded id. */
-    private function actorHoldsR08(Collection $actorRoleIds): bool
-    {
-        $this->r08RoleId ??= Role::query()->where('code', 'R08')->value('id');
-
-        return $this->r08RoleId !== null && $actorRoleIds->contains($this->r08RoleId);
     }
 
     /**

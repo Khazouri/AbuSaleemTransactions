@@ -6,7 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * Role (الدور) — one of the eight fixed system roles, R01..R08.
+ * Role (الدور) — one of the fixed system roles, R01 onward. The first eight
+ * came from the Role Matrix sheet; R09/R10 (diagram alignment) and R11 (Stage
+ * 68's العضو القانوني) were appended later, so read RoleSeeder for the roster
+ * rather than assuming the range ends at R08.
  *
  * Roles are the hinge of the whole authorisation design: permissions attach to
  * roles (never to users), workflow transitions require a role, and the
@@ -16,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * Always identify a role by its `code` ('R08'), not its database id — ids
  * differ between a fresh seed and production, codes don't.
  *
- * @property string $code R01..R08
+ * @property string $code R01..R11 (see RoleSeeder — the list has grown)
  * @property string $name_ar
  * @property string|null $name_en
  */

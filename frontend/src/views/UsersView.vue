@@ -250,6 +250,7 @@ onMounted(() => {
             </option>
           </select>
           <small v-if="errors.manager_id" class="field-error">{{ errors.manager_id[0] }}</small>
+          <small v-else class="hint">{{ t('users.managerHint') }}</small>
         </label>
       </div>
 

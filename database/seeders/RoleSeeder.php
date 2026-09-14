@@ -6,11 +6,15 @@ use App\Models\Role;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds the eight system roles (R01–R08) taken from the Role Matrix sheet.
+ * Seeds the system roles, R01 onward. The first eight come from the Role
+ * Matrix sheet; R09/R10 were added by the diagram-alignment redesign and R11
+ * by Stage 68 — so treat the array below as the count, not this sentence.
  *
- * These roles are fixed by the municipality's approval structure — they are
- * reference data, not user-editable content. Everything downstream keys off
- * the `code`, so this seeder must run FIRST (see DatabaseSeeder).
+ * These roles are reference data fixed by the municipality's approval
+ * structure, not user-editable content — but "fixed" means an administrator
+ * cannot add one through the UI, NOT that the list is closed: three have been
+ * appended since it was first written. Everything downstream keys off the
+ * `code`, so this seeder must run FIRST (see DatabaseSeeder).
  */
 class RoleSeeder extends Seeder
 {

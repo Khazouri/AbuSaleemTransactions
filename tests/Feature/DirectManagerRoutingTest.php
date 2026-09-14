@@ -26,7 +26,7 @@ class DirectManagerRoutingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_a_non_manager_is_refused_the_assigned_manager_may_act_and_r08_may_act_with_no_manager_assigned(): void
+    public function test_only_the_assigned_manager_may_delegate_and_r08_holds_no_override(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -52,14 +52,29 @@ class DirectManagerRoutingTest extends TestCase
         $requestRecord = $service->transition($requestRecord->refresh(), 'forward', $manager);
         $this->assertSame('administrative_routing', $requestRecord->currentStage->code);
 
-        // R08 may act even though this employee has no manager assigned at all.
+        // An employee with no manager at all cannot have their request
+        // delegated by anyone — R08 included. This is the rule, not a gap:
+        // delegation is the submitter's own manager's decision.
         $unmanagedEmployee = $this->userWithRole('R01');
         $orphanRequest = $this->newRequest('direct_manager_review', 'in_review', $unmanagedEmployee->id);
-        $moved = $service->transition($orphanRequest, 'forward', $admin);
-        $this->assertSame('administrative_routing', $moved->currentStage->code);
+        try {
+            $service->transition($orphanRequest, 'forward', $admin);
+            $this->fail('R08 must not be able to delegate a request whose creator has no manager.');
+        } catch (WorkflowTransitionException $exception) {
+            $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
+        }
+
+        // The preview must agree with that refusal rather than offering a
+        // button the transition endpoint would reject — the load-bearing
+        // property actorMayUse() exists to keep true for both call sites.
+        $this->assertSame(
+            [],
+            $service->availableActions($orphanRequest->refresh(), $admin)->all(),
+        );
+        $this->assertSame('direct_manager_review', $orphanRequest->refresh()->currentStage->code);
     }
 
-    public function test_a_soft_deleted_or_inactive_manager_falls_through_to_the_r08_override_rather_than_500ing(): void
+    public function test_an_inactive_manager_leaves_the_request_undelegatable_rather_than_500ing(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -76,8 +91,8 @@ class DirectManagerRoutingTest extends TestCase
         // refuses any inactive actor outright, before rule matching even
         // starts) — separately, actorIsCreatorsActiveManager() is what stops
         // a DIFFERENT actor from resolving this dangling manager_id as a
-        // still-live manager link; both guard the same "no 500, no silent
-        // stranding" property from two angles.
+        // still-live manager link. The dangling link must fail closed and
+        // quietly, never with a 500.
         try {
             $service->transition($requestRecord, 'forward', $inactiveManager);
             $this->fail('A deactivated manager must not be able to act.');
@@ -85,9 +100,21 @@ class DirectManagerRoutingTest extends TestCase
             $this->assertSame('لا يمكن لمستخدم غير نشط تنفيذ إجراء سير العمل.', $exception->getMessage());
         }
 
-        // ...but R08 can, with no 500 and no special-casing needed.
-        $moved = $service->transition($requestRecord->refresh(), 'forward', $admin);
-        $this->assertSame('administrative_routing', $moved->currentStage->code);
+        // ...and neither can R08: a dead manager link is not an admin
+        // override, so the request simply cannot move. Cancelling is refused
+        // on the same grounds, which is what makes this a genuine stall —
+        // recorded here deliberately so a later "usability" change cannot
+        // reintroduce the override without this test failing.
+        foreach (['forward', 'cancel'] as $action) {
+            try {
+                $service->transition($requestRecord->refresh(), $action, $admin, 'محاولة إدارية.');
+                $this->fail("R08 must not be able to {$action} past a dead manager link.");
+            } catch (WorkflowTransitionException $exception) {
+                $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
+            }
+        }
+
+        $this->assertSame('direct_manager_review', $requestRecord->refresh()->currentStage->code);
     }
 
     public function test_each_of_the_three_routes_lands_at_receive_and_register_with_its_own_status(): void

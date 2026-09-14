@@ -13,7 +13,8 @@ use Illuminate\Support\Carbon;
  * Request, never a Request itself and never routed through WorkflowService.
  * See STAGE_PLAN.md Track J's intro for the two scope decisions this rests
  * on (a new entity, not a RequestType; its own status machine, not the
- * 14-stage workflow_stages table).
+ * main workflow_stages table — which was fourteen stages when Track J was
+ * written and is twelve since Stage 57, though the point stands either way).
  *
  * @property int|null $appellant_user_id
  * @property int $original_request_id

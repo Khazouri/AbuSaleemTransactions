@@ -88,14 +88,21 @@ The built asset paths are absolute (`/assets/index-*.js`). At a domain root or
 on a subdomain that is correct. If the app is served from a **subfolder**
 (`example.com/app/`), those paths resolve to the domain root and 404 — the
 symptom is a blank page with failed asset requests rather than the module error
-above. Fix it in `vite.config.js` and rebuild:
+above. Add **one key** to the existing `vite.config.js` and rebuild — don't
+replace the file:
 
 ```js
 export default defineConfig({
-  base: '/app/',
+  base: '/app/',        // <-- add this line; leave everything else as it is
   plugins: [vue()],
+  server: { port: 5173, strictPort: true },   // already there — keep it
 })
 ```
+
+That `server` block is load-bearing: `config/cors.php` allows exactly one
+origin, so a dev server that silently drifts to another port when 5173 is busy
+becomes unreachable against a running API. Overwriting the file with a
+two-key config is the easiest way to reintroduce that bug.
 
 ## Checks when something looks wrong
 

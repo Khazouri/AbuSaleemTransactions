@@ -10,11 +10,11 @@ use Illuminate\Database\Seeder;
  *
  * ORDER IS NOT ARBITRARY. Each seeder looks up rows the previous ones created:
  *
- *   RoleSeeder          the 8 roles — nothing else works without them
+ *   RoleSeeder          the system roles — nothing else works without them
  *   PermissionSeeder    attaches capabilities to those roles
  *   DepartmentSeeder    the org tree
  *   AdminUserSeeder     needs both the ADM department and the R08 role
- *   WorkflowStageSeeder the 11 stages (looks up responsible roles)
+ *   WorkflowStageSeeder the workflow stages (looks up responsible roles)
  *   RequestStatus.. the statuses a request can hold
  *   RequestType..   the request types
  *   WorkflowTransition. the Stage 14/16 normal and exception state machine
@@ -23,8 +23,13 @@ use Illuminate\Database\Seeder;
  *                       dependency — the settings table stands alone)
  *   TemplateSeeder      Stage 74's seven Appendix 59 decision formulas (same:
  *                       no dependency)
- *   ScreenSeeder        the 22 screens
- *   ScreenRolePerm..    the 22 x 8 matrix — needs screens AND roles
+ *   ScreenSeeder        the menu screens
+ *   ScreenRolePerm..    one row per screen x role — needs screens AND roles
+ *
+ * Deliberately no row counts above: every one of these lists has grown since
+ * it was written (roles 8 -> 11, stages 14 -> 12 after Stage 57's cut, screens
+ * 22 -> 33), and a number baked into a comment goes stale silently. Count the
+ * seeder's own array when you need the figure.
  */
 class DatabaseSeeder extends Seeder
 {

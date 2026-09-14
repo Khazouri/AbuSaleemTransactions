@@ -137,10 +137,11 @@ class WorkflowTransitionSeeder extends Seeder
         // it is written directly rather than through seedException(), with
         // is_exception=false, matching the main $transitions array's
         // semantics. It is manager-gated rather than role-gated, so it
-        // can't live in that array's single-role tuple shape; no separate
-        // R08 sibling is needed here (unlike `submit` above) because
-        // actorMayUse() already lets R08 through any
-        // requires_submitter_manager row automatically.
+        // can't live in that array's single-role tuple shape. There is
+        // deliberately no R08 sibling (unlike `submit` above): delegating a
+        // request is the submitter's own manager's decision and nobody
+        // else's, so a request whose creator has no live manager stalls here
+        // rather than being pushed on by an admin.
         WorkflowTransition::updateOrCreate(
             [
                 'request_type_id' => null,
@@ -298,9 +299,12 @@ class WorkflowTransitionSeeder extends Seeder
         }
 
         // Diagram-alignment redesign: cancel at the two manager-gated new
-        // stages follows the same manager-or-R08 actor rule as advancing
-        // them, rather than a fixed role — only the manager currently
-        // reviewing (or an admin) should be able to cancel at that point.
+        // stages follows the same manager-only actor rule as advancing them,
+        // rather than a fixed role — only the manager currently reviewing
+        // should be able to cancel at that point. Note the consequence,
+        // which is intended rather than overlooked: with no admin override
+        // anywhere on a manager-gated row, a request whose creator has no
+        // live manager can be neither delegated nor cancelled here.
         foreach (['direct_manager_review', 'administrative_routing'] as $managerGatedStage) {
             $this->seedException(
                 $stages[$managerGatedStage]->id,

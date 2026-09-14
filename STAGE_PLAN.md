@@ -23,7 +23,7 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 >    the full audit.
 >
 > Ground truth at the time of that audit: **12** workflow stages · **11** roles ·
-> **33** screens · **41** request statuses · **11** notification event types ·
+> **33** screens · **39** request statuses · **11** notification event types ·
 > **5** approval levels · **15** seeded test accounts.
 
 ---

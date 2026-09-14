@@ -9,10 +9,13 @@ use Illuminate\Database\Seeder;
  * Seeds every status a request can hold, with the badge colour the UI
  * uses for each.
  *
- * The first nine are the normal progression. The remaining four
- * (returned / rejected / cancelled / deferred) are exception outcomes,
- * driven by the exception transitions added in Stage 16 and Stage 21 — they're
- * seeded now so those transitions have something to point at.
+ * The array is grouped by kind — the normal progression first, then the
+ * exception outcomes (returned / rejected / cancelled / deferred, driven by
+ * the transitions added in Stage 16 and Stage 21), then the committee
+ * sub-states and the later Track J/K additions. No count is given on purpose:
+ * this vocabulary has grown from 13 rows to 41 across Stages 29/54b/69/77/78,
+ * and every figure a comment here has ever stated went stale within two
+ * stages. Read the `$statuses` array.
  *
  * Stage 69 (Track K) made this vocabulary Art. 38's own twenty-code
  * dictionary: it added codes 13, 15, 16 and 19, which had no status of

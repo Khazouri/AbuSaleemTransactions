@@ -109,7 +109,19 @@ class UnifiedNumberingTest extends TestCase
         $reviewer = $this->userWithRole('R02');
         $service = app(WorkflowService::class);
 
+        // The return loop re-walks the two manager-gated hops, and only the
+        // submitter's own manager may use those — there is no admin
+        // override — so this fixture needs a real creator with a real
+        // manager. The test's subject is number stability, not the gate.
+        $manager = User::factory()->create(['is_active' => true]);
+        $employee = $this->userWithRole('R01');
+        $employee->manager_id = $manager->id;
+        $employee->save();
+
         $requestRecord = $this->requestAt('requirements_check', 'in_review');
+        $requestRecord->created_by_user_id = $employee->id;
+        $requestRecord->save();
+
         $service->transition($requestRecord, 'approve', $reviewer, signaturePath: 'signatures/a.png');
         $first = $requestRecord->refresh()->reference_number;
         $this->assertSame('PM-COM/'.now()->format('Y').'/0001', $first);
@@ -120,9 +132,9 @@ class UnifiedNumberingTest extends TestCase
         $service->transition($requestRecord, 'return_missing_docs', $reviewer, 'مستند مفقود');
         $requestRecord->refresh();
 
-        $service->transition($requestRecord, 'submit', $this->userWithRole('R01'));
-        $service->transition($requestRecord, 'forward', $this->userWithRole('R08'));
-        $service->transition($requestRecord, 'route_to_hr', $this->userWithRole('R08'));
+        $service->transition($requestRecord, 'submit', $employee);
+        $service->transition($requestRecord, 'forward', $manager);
+        $service->transition($requestRecord, 'route_to_hr', $manager);
         $service->transition($requestRecord, 'register', $this->userWithRole('R05'));
         $service->transition($requestRecord, 'approve', $reviewer, signaturePath: 'signatures/b.png');
 

@@ -38,7 +38,7 @@ use Illuminate\Support\Facades\Hash;
  *     php artisan db:seed --class=TestUserSeeder
  *
  * Keeping it out of the default seed is the point: `migrate:fresh --seed` on a
- * real deployment must not quietly mint twelve known-password logins.
+ * real deployment must not quietly mint a set of known-password logins.
  *
  * Runs after RoleSeeder and DepartmentSeeder (both are looked up by `code`).
  */

@@ -41,7 +41,7 @@ class ScreenSeeder extends Seeder
             // --- Day-to-day work ---------------------------------------------
             ['dashboard',                'لوحة التحكم الرئيسية',       'Dashboard',                    '/dashboard',                'gauge',        null],
             ['requests',             'الطلبات',                  'Requests',                 '/requests',             'list',         null],
-            ['request_intake',       'استلام الطلب',            'Request Intake',           '/requests/create',      'inbox',        null],
+            ['request_intake',       'إرسال الطلب',            'Request Intake',           '/requests/create',      'inbox',        null],
             ['request_details',      'تفاصيل الطلب',            'Request Details',          '/requests/:id',         'file-text',    null],
             ['notes_attachments',        'الملاحظات والمرفقات',        'Notes & Attachments',          '/requests/:id/notes',   'paperclip',    null],
             // Stage 58 — appeals (تظلمات) against an already-decided request.

@@ -27,10 +27,11 @@ import AppLayout from '../layouts/AppLayout.vue'
  */
 
 /*
- * Note the two screens absent from that list: request_details
- * ("/requests/:id") and notes_attachments. They need a specific
- * request id, so they can't be linked from a static menu — the sidebar
- * filters them out and they get real routes in Stage 15.
+ * Two seeded screens are deliberately absent from the sidebar: request_details
+ * ("/requests/:id") and notes_attachments. Both need a specific request id, so
+ * they can't be linked from a static menu — stores/screens.js filters any
+ * screen whose route carries ":id" out of navItems, while they keep real
+ * routes below (added in Stage 15).
  */
 
 const routes = [
@@ -162,8 +163,8 @@ const routes = [
       },
       {
         // Stage 20 — single meeting workspace: agenda builder + attendance.
-        // Needs a specific meeting id, so (like request_details) it isn't
-        // in placeholderScreens and has no separate sidebar entry. vue-router
+        // Needs a specific meeting id, so (like request_details) it has no
+        // separate sidebar entry. vue-router
         // ranks static segments (meetings/agenda etc. above) over this :id
         // route regardless of declaration order, so they aren't shadowed.
         path: 'meetings/:id',

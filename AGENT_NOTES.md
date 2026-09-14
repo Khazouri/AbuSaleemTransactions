@@ -14,6 +14,263 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-12 14:30 EET — Claude — Manager-gated transitions lost their R08 override (delegation is the manager's alone)
+
+User rule: **only the submitter's own manager may delegate a request, and a request with no manager
+cannot be delegated.** `WorkflowService::actorMayUse()` previously let any R08 holder through every
+`requires_submitter_manager` row as a documented fallback "so a submitter with no manager is never
+permanently stranded"; that fallback is **deleted**, along with the now-dead `actorHoldsR08()` helper,
+its `$r08RoleId` cache and the `Role` import. One predicate, both call sites — `transition()` and
+`availableTransitions()` — so the preview and the enforcement still cannot disagree; a test now pins
+that an admin looking at an unmanaged request sees an **empty** action list rather than a button the
+endpoint would refuse. **No migration, no seeded-value change, no reseed needed** — only comments moved
+in `WorkflowTransitionSeeder`, since the six gated rows themselves are untouched.
+
+**Both scope decisions were put to the user and answered; don't re-litigate either.** (1) The override
+is gone from **all** manager-gated rows, not just the delegating ones — so `cancel` and
+`return_to_employee` at `direct_manager_review`/`administrative_routing` are equally manager-only.
+**The consequence is a genuine, intended dead end**: a request whose creator has no live manager stalls
+there with no action available to anyone, an admin included, until a manager is assigned. I flagged
+that before building and the user chose it deliberately. (2) Intake was **left alone** — `store()`
+still accepts a request from an employee with no manager rather than refusing it, so such a request is
+created and then stops.
+
+**Visibility was deliberately NOT changed, and the split is the thing to understand before touching
+this again.** `RequestVisibility`'s `$isSystemAdmin` branch still admits manager-gated rows, so R08
+can still *open* a stalled request — it just has no actions on it. That is now a read-only allowance
+rather than a fallback, and its comment says so. Narrowing it would have hidden stalled requests from
+the only role that can diagnose them, which is a different question from who may delegate.
+
+**Two pre-existing tests were rewritten because their subject was the override itself** (renamed to say
+what they now assert): the R08-acts-with-no-manager case and the dead-manager-link case both now assert
+refusal, the second walking `forward` **and** `cancel` so a later "usability" change cannot quietly
+restore the override without failing. **One more needed a legitimate fixture update, not a regression
+fix**: `UnifiedNumberingTest::test_a_returned_file_keeps_its_first_reference_when_it_comes_back` used
+R08 as a shortcut through the two manager-gated hops of the return loop; its subject is number
+stability, so it now builds a real creator with a real manager and walks them as that manager.
+
+**Frontend**: one hint under the Users screen's manager picker (`users.managerHint`, both locales),
+because with intake left permissive that picker is now the *only* place the consequence of "بدون مدير
+مباشر" can be surfaced before a request is filed and stranded.
+
+Verification: full suite **572 tests / 3704 assertions** green (was 572/3700 — same count, the four new
+assertions are the refusal/empty-preview pins), Pint clean on all six touched PHP files, `npm run build`
+passes (then reverted `frontend/dist`, tracked in git, per every prior stage's note), and locale
+key-parity verified programmatically (**1818 keys each side, zero on-one-side-only**). The durable half is
+recorded in **AGENTS.md** as its own architectural-facts bullet, so the next agent meets it before
+deciding a stalled request is a bug.
+
+**Smoke-tested end to end over real HTTP against Homestead**, with two fixtures at
+`direct_manager_review` — A created by `r01.employee@` (whose `manager_id` is the seeded
+`r02.reviewer@`) and B created by `r03.head@` (no manager at all). The admin's preview of B returned
+`available_actions: []` and both `forward` and `cancel` on it were refused **422**, which is the
+"all manager-gated actions" decision proven live rather than only unit-tested; the admin was refused
+`forward` on **A** too (422), so the rule is manager-only even where a manager exists; and `r02` then
+walked A through both gated stages themselves — `forward` → `administrative_routing` (200), then
+`route_to_hr` → `receive_and_register` / `routed_to_hr` (200), with the admin refused 422 on that
+routing hop first. B never moved. **One response code worth knowing before it reads as a bug:** `r02`
+attempting B came back **404, not 422** — `RequestVisibility` hides a request from someone who is
+neither its creator nor an assignable actor, and that check fires before the workflow gate. Deleted both
+fixtures with their stage logs, status history and audit rows, purged the queue and revoked every token —
+back to **0 tokens / 0 jobs**. The one pre-existing request in that database (id 37, not mine) was left
+untouched.
+
+**Open item.** A request created before this change (or after it, via intake) whose employee has no
+manager is now **unrecoverable through the API** — not cancellable, not returnable. The only remedies
+are assigning that employee a manager or editing the row directly. If that turns out to be too sharp in
+practice, the fix the user already declined once is an intake refusal, not a re-added override.
+
+### 2026-09-12 12:55 EET — Claude — The five diagram SVGs regenerated (closes the prior entry's open item 1)
+
+Rendered all five `docs/diagrams/*.mmd` with **`@mermaid-js/mermaid-cli@11.16.0`**, pinned
+deliberately — that is the version `AGENT_NOTES` records the original renders were made with, and an
+unpinned `npx` is free to change the output style. **Docs only; no PHP, Vue, migration or seeder file
+was touched, so no PHPUnit/Pint/`npm run build` run is claimed or warranted** — running them would
+prove nothing about this change. `docs/` is git-ignored, so **`AGENT_NOTES.md` is the only tracked
+file this changes**; the renders and both banner edits stay on this machine.
+
+**The blocker recorded in the previous entry was out of date, and that is the finding worth keeping.**
+It said rendering "needs a Puppeteer/Chromium download". It does not: `~/.cache/puppeteer` already
+held **Chrome 152.0.7977.54 and 131.0.6778.204 plus both headless-shell builds**, and the npm cache
+already held the **mermaid-cli 11.16.0 and 11.12.0 tarballs**. So this was one command against local
+cache, with `PUPPETEER_SKIP_DOWNLOAD=1` and `mmdc -p config.json` pointing `executablePath` at the
+cached full Chrome (not the headless shell — mermaid-cli v11 launches in new-headless mode, which the
+shell binary does not serve). The parts of the old note that *were* right: `npx --no-install mmdc`
+genuinely fails with "could not determine executable to run", and `frontend/node_modules/.bin` holds
+only nanoid/parser/rolldown/vite.
+
+**Four of the five were stale, not five.** `access-control.svg` came back **byte-identical**
+(md5 `ab43825f…` before and after) because its source has not changed since 2026-08-25 — which is
+also the toolchain proof: 11.16.0 reproduces the original pipeline exactly, so the other four diffs
+are real source changes and not a renderer-version artifact.
+
+Verified per file rather than asserted: `transaction` and `المعاملات` now return **0 hits across all
+five** (baseline: role-permission-workflow 3 EN + 6 AR, supporting-operations 2,
+request-meeting-lifecycle 1); **R09/R10/R11 now present** in `role-permission-workflow.svg` (3/3/8)
+where **zero of the five** previously contained R09 or R11; the **R03→R05 handoff the earlier
+multi-address `sed` accident dropped** is visible again (`قرار اللجنة / Committee decision`); and
+`authority_approval`, `ministry_endorsement` and `competent_authority` are all absent from
+`request-meeting-lifecycle.svg`.
+
+**Arabic was checked by looking, not by grepping.** Both embedded diagrams were screenshotted through
+the cached Chrome and inspected: Arabic is correctly shaped and connected, no tofu boxes, no clipped
+labels. So the `%%{init}` `fontFamily` block the plan held in reserve was **not** needed and **no
+`.mmd` source was modified** — this was a pure re-render.
+
+**Worth knowing before anyone opens these outside a browser:** every label is a `<foreignObject>` HTML
+block and there are **zero `<text>` elements** in any of the five. Arabic therefore shapes at *view*
+time in the viewer's own engine — fine in VS Code / any Chromium preview, but these SVGs will show no
+text in a non-browser SVG viewer (Inkscape, GitHub's markdown renderer). That is how the originals
+were produced too, so it is a property of the pipeline, not a regression.
+
+Both stale banners are gone: `docs/user-permissions-flow.md` (the ⚠ "images below are STALE" block)
+and `docs/system-flow.md` (the "pre-rendered `.svg` files are stale" note) now state the render date
+and carry the pinned command plus the `executablePath` escape hatch.
+
+**A local-tooling gotcha that silently reports a false failure:** the `python` on PATH here is the
+**Windows Store stub** (`AppData/Local/Microsoft/WindowsApps/python`), so a naive
+`python -c "import xml.dom.minidom…"` validation "fails" for every file while telling you nothing.
+Validate with `node`, or with the cached Chrome, instead.
+
+**Open items.** (1) **Only two of the five SVGs are embedded anywhere** — `user-permission-enforcement`
+and `role-permission-workflow`, both in `user-permissions-flow.md`. The other three
+(`access-control`, `request-meeting-lifecycle`, `supporting-operations`) are **orphans that nothing
+links**, and `system-flow.md` draws those same three as live inline ```mermaid``` fences precisely so
+they cannot drift. They were rendered anyway, at the user's explicit direction, but they will go stale
+again with no reader to notice; deleting them is a legitimate decision someone should take rather than
+inherit. (2) **`R09` and `R10` render as floating, unconnected boxes** at the top of
+`role-permission-workflow.svg` — the source describes the registration step with a single
+`R05 / R09 / R10` diamond rather than edges from those nodes, so the legend boxes hang loose. It is an
+authoring choice in the `.mmd`, not a render fault, and was left alone as out of scope for a
+re-render. (3) The prior entry's open item (2) — whether the git-ignored `docs/` tree should stay
+ignored — is **untouched and still unowned**.
+
+### 2026-09-12 12:40 EET — Claude — Documentation reconciliation complete (docs vs. code drift)
+
+Built per the plan below. **Docs and docblocks only — no behaviour changed anywhere**, and the
+proof is that the suite is **572 tests / 3700 assertions, byte-identical to Stage 84's**: any
+docblock edit that moved it would have touched code. Pint clean on all nine touched PHP files,
+`npm run build` passes (then reverted `frontend/dist`, tracked in git, per every prior stage).
+
+**The single worst finding was not a count.** `AGENTS.md` told every agent that the map of
+built-vs-stubbed screens is `frontend/src/router/index.js`'s `placeholderScreens` list — which
+Stage 27 deleted along with `PlaceholderView`, leaving only a tombstone comment. That file is
+auto-loaded by both Claude Code and Codex at session start, so the instruction had been
+unfollowable for fifty-odd stages. Its bullet now says what is actually true (nothing is
+stubbed; `ScreenSeeder` is the roster) and records that Tracks A–L are complete.
+
+**Ground truth, re-derived from the seeders — and one of these corrected a number I had
+already written down.** **12** stages · **11** roles · **33** screens · **39** request statuses
+· **11** notification events · **5** approval levels · **15** test accounts. My first status
+count said **41**, because the `grep` pattern also matched the two `['code' => $code]` lines of
+the `updateOrCreate` call below the array; the verification sweep caught it, and it was
+corrected in five places before this note. **Count the `$statuses` array's own rows, not lines
+beginning with `[`.** That miscount is a fair illustration of the whole problem: a plausible
+number, written once, propagates.
+
+**Eight docblocks carried stale counts** (`DatabaseSeeder` ×4, `RoleSeeder`,
+`RequestStatusSeeder`, `Role`, `Screen`, `ScreenRolePermission`, `Request`, `Appeal` — e.g. "22
+screens x 8 roles = 176 rows" against a real 33 × 11). Where a count will drift again it is now
+phrased to degrade gracefully ("one row per role", "the workflow stages") rather than restated
+with today's figure, and `DatabaseSeeder`'s docblock says explicitly why it carries no numbers.
+
+**STAGE_PLAN.md got a banner plus forward-looking fixes only — a deliberate decision, taken
+with the user, not to re-litigate.** Its early stages say "22 screens" and "11 stages" because
+that was true when they were written, and those counts record what each stage actually faced;
+rewriting 85 entries would erase that and drift again next stage. A dated header now states
+that, and states the ground truth once. What *was* corrected is anything that misleads someone
+building today: Stage 76 named `MeetingOutputService::complete()`, a method Stage 69 split and
+Stage 75 deleted (the gate belongs on `markExecuted()`, which is where Stage 76 actually built
+it); Stage 81's heading said "thirteen KPIs" while Art. 106 has twelve — and its own
+parenthetical list already enumerated twelve; Stage 75 called Appendix 47 "thirteen-point" when
+the verbatim appendix has twelve; Stage 78's "Stage 33 built gate 2 only" understated what
+existed by the time it ran; Stage 73's two line-anchored citations pointed at moved code; and
+**L105 carried a sentence the Transaction→Request rename mangled into "race-safe inside a DB
+request"** — it meant an ACID transaction. Stage 67 gained the `Source:` line every other Track
+K/L stage has, and the file gained a **"Work with no stage"** section so the six declined
+provisions are decided rather than inherited.
+
+**TEST_PLAN.md/.ar.md were rewritten in full** (the user's call over a superseded banner). They
+were unrunnable: §4's stage-walk table was the pre-Track-I pipeline including both stages Stage
+57 deleted, §2.1's per-role screen counts were wrong in every row, `authority_approval` was
+still tested, and **R09/R10/R11 appeared zero times**. The rewrite stays
+**feature/subsystem-organised** so it complements rather than duplicates the role-organised
+`TEST_PLAN.roles.md` pair — that split is stated in both headers. 16 sections covering Tracks
+A–L, **203 checkboxes each side, verified equal section-for-section** (the roles pair is
+unchanged and still matches at 346 counting indented boxes, 338 anchored). It now covers what
+no plan covered before: the four control gates, the قيد point and the two numbering series,
+Art. 85's study sequence blocking a vote, Appendix 25's material freeze, the appeal lifecycle
+end to end, execution proof, suspension, registers, KPIs, and the maintenance console.
+
+**`docs/` (git-ignored, local-only — these fixes never reach another clone).**
+`compliance-matrix.md`'s headline tally was wrong in **every cell**; it is now **recounted
+mechanically** (Articles ✅88/⚠16/❌1/➖14, Appendices ✅62/⚠20/❌4/➖10) with the awk one-liner
+that produced it embedded so the next reader can re-run it, and the accreted 106-line
+"adjusted by this stage's delta" chain is **deleted rather than extended** — a figure that is
+only ever incremented is one nobody can check. Six rows were not merely mis-pointed but
+factually wrong, each describing an absence a completed stage had filled: Arts. 10(أ)/12(أ)
+still said quorum was "hard-coded `ceil(n/2)`" three stages after `CommitteeVotingRules`
+replaced it, and Arts. 32/33/93 and appendix 77 likewise. **Art. 54 was ❌ the whole time while
+two separate headline claims said the articles' ❌ column was genuinely 0.** Part C's summary
+("17 compliant, 4 divergent, 0 missing") double-counted two rows and omitted a third; the
+source table it summarises had five rows still tagged against the pre-Track-K system, so both
+were corrected to **19 compliant · 1 divergent · 1 evidence-only**. Part D marked 3 of 16
+stages built and had no Stage 84 row at all; it now records what each stage closed **and what
+it declined**. The acceptance-test section said questions 5, 9 and 10 "cannot be answered from
+the record" — all three have been answerable since Stages 68/75/76/79.
+
+**`docs/system-flow.md` §2 was the worst doc/code mismatch found** and is redrawn: it showed
+eleven stages, missing the three Track I added and still drawing the two Stage 57 deleted, so
+**every stage number from 2 onward was wrong** and the prose inherited it. It now carries the
+twelve stages, the four control gates, both numbering series, the legal-review step, Art. 105's
+suspension, and the seven decision outcomes. `user-permissions-flow.md` said "30 screens × 8
+roles" and omitted R09/R10/R11 entirely — including R11, which owns a mandatory step.
+`gap-analysis.md`'s superseding header gained the four newly-found wrong claims (its own
+baseline says 14 stages and 10 roles, contradicting its §14; its §3 asserts a zero-hit grep for
+تعارض that Stage 48 falsified).
+
+**Diagrams: sources fixed, SVGs deliberately NOT regenerated.** All five `.mmd` are now current
+(R09/R10/R11 added, the twelve-stage pipeline drawn, R01–R08 → R01–R11) and the three inline
+Mermaid blocks in `system-flow.md` were **verified identical to their `.mmd` mirrors**. The
+`.svg` renders are stale — three still show pre-rename text — and there is no Mermaid CLI here
+(`npx --no-install mmdc` fails; nothing in `frontend/node_modules/.bin`), so rendering needs a
+Puppeteer/Chromium download. A warning block in `user-permissions-flow.md` (the only file that
+embeds them) says so and carries the one-line regeneration loop. **Whoever has network: one
+`mmdc` run closes this.**
+
+**A sed gotcha worth knowing, because it silently damaged a diagram.** `sed` line addresses are
+evaluated against **input** line numbers, so an earlier `9a` append in the same script does not
+shift a later `14,15c` — mine replaced the wrong two lines of
+`role-permission-workflow.mmd`, dropping the R03→R05 handoff and leaving a stale R01→R02 edge.
+Caught by re-reading the file rather than trusting the exit code. **Re-read after any
+multi-address sed, or use one address per invocation.**
+
+**Also fixed:** `.env.example` gained six env vars that `config/` reads but it never documented
+(`MAINTENANCE_LOCK_SECONDS`/`MAX_OUTPUT`/`NODE_PATH`, `BACKUP_DISK`/`PATH`/`TIMEOUT`).
+`MAINTENANCE_PHP_PATH` was **deliberately left commented** against the plan's own wording:
+promoting it to a live key with a literal `php` would override its `PHP_BINARY` default — the
+interpreter already running — which is a downgrade, and the comment now says so.
+`frontend/DEPLOYMENT.md`'s subfolder snippet showed `vite.config.js` as a whole file, silently
+dropping the `strictPort` pin; copying it verbatim reintroduces exactly the CORS-origin bug
+that pin exists to prevent, so it is now shown as an added key.
+
+**Deliberately not done.** STAGE_PLAN's historical per-stage counts (see above). The five SVGs
+(no CLI). `TEST_PLAN.roles.md`/`.ar.md` were audited and found **clean** — 346/346, Appendix A
+re-derived from the seeders and matching exactly including Stage 84's corrections — so they
+were not touched.
+
+**Open items.** (1) **The five SVGs still need one `mmdc` run.** (2) **The docs/ fixes are
+local-only** — `docs/` is git-ignored, so a fresh clone gets none of this; if that tree is
+worth keeping, it is worth deciding whether it should stay ignored. (3) The compliance matrix's
+**ownerless list is now explicit** (Art. 54, appendices 13/42/62/67, plus Art. 84, appendix 46,
+appendix 40 item 10, appendices 43/74 and the mis-routed Arts. 53/68) — that list is a decision
+someone should take, not a backlog to inherit. (4) **[E] stage 15 is the one remaining
+divergence**: the ministry branch still routes on numeric `decision_grade` while *two* recorded
+answers (Stage 54's and Stage 68's `requires_central_approval`) drive nothing — flagged since
+Stage 57 and still unowned.
+
+---
+
 ### 2026-09-12 11:10 EET — Claude — Documentation reconciliation plan (docs vs. code drift audit)
 
 Stage 84 found four `compliance-matrix.md` rows carrying a ✅ awarded on an under-verification.
@@ -23,7 +280,7 @@ the code it describes** — three parallel surveys over (1) `AGENTS.md` + `.env.
 files, (3) the git-ignored `docs/` tree. **~60 mismatches found.**
 
 **Ground truth, re-counted from the seeders rather than trusted from any doc:** **12** workflow
-stages · **11** roles · **33** screens · **41** request statuses · **11** notification event types
+stages · **11** roles · **33** screens · **39** request statuses · **11** notification event types
 · **5** approval levels · **15** test accounts. Docs variously claim 11/14 stages, 8 roles, 22/23/30
 screens, 13/20/25/28 statuses, 6/9 events, 6 approval levels and 12 accounts.
 

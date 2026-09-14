@@ -77,6 +77,7 @@
     "noDepartment": "No department",
     "manager": "Direct manager",
     "noManager": "No direct manager",
+    "managerHint": "Only the direct manager may delegate this employee's requests. With none assigned, their requests stall at direct manager review and nobody can move them on.",
     "roles": "Roles",
     "empty": "No users yet.",
     "selfActionBlocked": "You can't do that to your own account."

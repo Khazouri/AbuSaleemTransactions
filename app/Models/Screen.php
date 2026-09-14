@@ -54,8 +54,8 @@ class Screen extends Model
     }
 
     /**
-     * The eight permission rows for this screen — one per role.
-     * This is the screen's slice of the permission matrix.
+     * This screen's permission rows — one per role, so the count follows
+     * RoleSeeder rather than being fixed. The screen's slice of the matrix.
      */
     public function rolePermissions(): HasMany
     {

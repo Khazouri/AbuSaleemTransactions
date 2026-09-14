@@ -42,7 +42,9 @@ frontend/src/
   router/      → single route table + the auth navigation guard
   lib/api.js   → axios instance, base URL from VITE_API_BASE_URL, token
                  injection, 401 → auto-logout interceptor
-  i18n/        → vue-i18n setup; locales/ar.json and locales/en.json
+  i18n/        → vue-i18n setup (index.js only — the message files are one
+                 level up, at frontend/src/locales/ar.json and en.json)
+  locales/     → ar.json and en.json; keep the two key sets identical
   style.css    → design tokens as CSS custom properties (ported from the SCCO
                  dashboard template's Tailwind @theme — this SPA does NOT use
                  Tailwind; frontend/postcss.config.js is deliberately empty to
@@ -78,6 +80,20 @@ Key architectural facts worth knowing before changing things:
   `screen.permission:<screen_code>,<action>` rather than a bare
   `apiResource()`, and new action buttons should carry
   `v-can="'<screen_code>.<action>'"` (`frontend/src/directives/can.js`).
+- **Manager-gated transitions have NO admin override.** A
+  `workflow_transitions` row with `requires_submitter_manager` may be used by
+  exactly one person: the submitter's own active, non-deleted manager
+  (`users.manager_id`). `WorkflowService::actorMayUse()` deliberately has no
+  R08 fallback, so a request whose creator has no live manager **cannot be
+  delegated, returned or cancelled at all** — it stalls at
+  `direct_manager_review` with an empty action list for every actor,
+  including an admin, until a manager is assigned on the Users screen. This is
+  the rule as specified, not a gap: don't "fix" it by re-adding an override.
+  The six gated rows are `forward`/`return_to_employee`/`cancel` at
+  `direct_manager_review` and the three `route_to_*` plus `cancel` at
+  `administrative_routing`. `RequestVisibility` still lets R08 *see* such a
+  request (read-only, so a stall can be diagnosed) — visibility and capability
+  are deliberately separate here.
 - **RTL/i18n**: layout CSS uses logical properties (`margin-inline-start`,
   `text-align: start`, etc.), not `left`/`right`, so the UI mirrors
   automatically when `vue-i18n` flips `dir` on `<html>`. Don't introduce
@@ -104,11 +120,16 @@ Key architectural facts worth knowing before changing things:
   anything customised through Roles & Permissions.
 - **Staged build-out**: [STAGE_PLAN.md](STAGE_PLAN.md) is the source of truth
   for what each stage number means (goal, what gets built, done-when) —
-  consult it before starting or referencing a stage. In the code,
-  `frontend/src/router/index.js`'s `placeholderScreens` list is the map of
-  what's built vs. stubbed. A screen not yet implemented renders
-  `PlaceholderView`; as each stage lands, move its entry out of that list into
-  a real route + view, matching the `departments` entry as the template.
+  consult it before starting or referencing a stage. **Tracks A–L (Stages
+  1–84) are all built**; a stage's own bullet states the counts that were true
+  when it was written, so verify any figure against the seeders rather than
+  quoting it. There is no built-vs-stubbed map any more: Stages 25–27 gave the
+  last three screens real UIs and deleted both `PlaceholderView` and the
+  `placeholderScreens` list that used to track them (a tombstone comment at the
+  top of `frontend/src/router/index.js` records this). **Every seeded screen
+  now has a real route and a real view** — `database/seeders/ScreenSeeder.php`
+  is the screen roster, and adding a screen means a seeder row plus a route,
+  not an entry on a stub list.
 - **Employee Affairs Committee process standard**: for anything touching the
   committee/workflow subsystem (`WorkflowService`, `CommitteeStatusService`,
   the `meetings_management` screen group, STAGE_PLAN.md Track I), the

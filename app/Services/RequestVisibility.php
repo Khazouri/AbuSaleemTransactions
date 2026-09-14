@@ -190,8 +190,13 @@ class RequestVisibility
                         $manager->where('workflow_transitions.requires_submitter_manager', false);
 
                         if ($isSystemAdmin) {
-                            // R08 is the documented fallback when a
-                            // manager-gated request would otherwise stall.
+                            // Deliberately a READ-only allowance, and no
+                            // longer a fallback: R08 cannot use a
+                            // manager-gated row (WorkflowService::actorMayUse
+                            // has no admin override), but keeping these
+                            // requests visible to an admin is what lets a
+                            // stalled one be diagnosed — its available
+                            // actions will simply be empty.
                             $manager->orWhere('workflow_transitions.requires_submitter_manager', true);
 
                             return;
