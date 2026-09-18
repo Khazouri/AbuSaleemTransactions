@@ -1304,12 +1304,182 @@ no one can schedule a meeting for a committee they do not sit on.
 
 ---
 
+# TRACK M — Municipality lifecycle-diagram alignment (Stages 85–93)
+
+Source documents, cited below as:
+
+- **[F]** — دورة حياة طلب لجنة شؤون الموظفين (the 10-step lifecycle poster: each step, its
+  responsible party, and two footer rules).
+- **[G]** — دورة حياة المعاملة — المرحلة الأولى: تقديم الطلب (a per-stage spec sheet, "1 من 11":
+  six internal sub-steps, inputs, five validations, six system actions, four standard error
+  messages, outputs, five employee notes, and an expected duration).
+
+[F] is the same infographic family that drove the Aug-2026 redesign, so the chain it shows is
+largely built — Track M's [F]-sourced stages correct **ownership**, not shape. [G] is new
+material: no prior stage references a per-stage spec sheet.
+
+**⚠ Neither diagram is committed to this repo.** Both arrived as chat attachments, so the
+`Source:` lines below cannot be checked against anything until someone commits them. Track K
+solved this for [D]/[E] by transcribing them into `docs/employee-committee-lifecycle/` — but that
+tree is git-ignored, so even that keeps them local-only. Treat an [F]/[G] citation as unverified
+until the sources land.
+
+**[D] remains authoritative.** Where [G] promises something [D] deliberately excludes — an
+acknowledgement at submission, "رقم مرجعي" for what Art. 15 makes a receipt, subject-based
+duplicate matching — **no stage is created**. Those are recorded in
+[TODO_LATER.md](TODO_LATER.md) as decisions for the process owner, not defects.
+
+---
+
+### Stage 85 — Document completeness becomes binding
+**Goal:** [D] Appendix 57's matrix binds instead of advising, at both ends of the intake half.
+**Build:** `IntakeGateService` reads the attachments rather than asking the officer to re-answer
+by hand — a row with a file naming it is answered by definition, since the submitter's picker and
+the officer's gate now share `IntakeGateService::documentKey()`'s slug. Coverage becomes a
+submission rule: `StoreRequest` refuses an intake that leaves a **mandatory** Appendix 57 row
+uncovered, while rows carrying the appendix's own `condition` qualifier stay optional — the
+distinction Stage 78 already reads. That is what finally lets [G]'s «الرجاء إرفاق المستندات
+المطلوبة» fire; today no validation can produce it. And `MeetingController::addAgendaItem()` gains
+a completeness precondition with a matching `MeetingReadinessService` exception, so [F]'s footer
+rule 2 («لا يُعرض أي طلب على اللجنة قبل استكمال المستندات المطلوبة») is enforced at the moment it
+names rather than three hops upstream at `requirements_check → approve`, where it is checked once
+and never re-verified — so a file whose completeness later regressed can be agenda'd today.
+**Done when:** an intake missing a mandatory document is refused with that document named; the
+officer's gate pre-fills from the submitter's own files; a file whose completeness regressed
+cannot reach an agenda; and a meeting carrying one reports the exception before it can convene.
+**Watch:** `attachments` is `nullable` today, so every fixture that files a request without
+attachments becomes invalid — expect a broad but legitimate test-fixture update, not regressions.
+**Source:** [F] footer 2 + [G] validation 3 and error message 2 + [D] Appendices 57 and 63 (gate 1).
+
+---
+
+### Stage 86 — The committee secretary owns the handover
+**Goal:** the file reaches the committee through أمين سر اللجنة, as [F] step 7 shows.
+**Build:** re-seed the two hops into the committee so **R09** holds them — `observations →
+forward_to_committee` (today R02) and `forward_to_committee → receive_from_committee` (today R05).
+R09 is literally named أمين سر اللجنة in `RoleSeeder`, yet owns no transition anywhere in the
+pre-committee chain except the `register` row for its own routing destination.
+**Then decide, don't assume:** `receive_from_committee`'s display-only `responsible_role_id`
+already names R09 — set there **deliberately**, with a comment saying so — while every outbound
+action at that stage requires R03. That is defensible (the secretary holds the file; the chair
+records the decision) but it does mean the screen names someone who cannot act. Once R09 genuinely
+owns the hops *into* the stage, decide whether the display stays or the field starts meaning "who
+can act".
+**Deliberately unchanged:** the committee's own decision actions stay R03 — [F] step 9 assigns the
+decision to the committee, not to its secretary, and [D] Art. 16 governs.
+**Done when:** R09 can perform both handover hops and R02/R05 can no longer.
+**Watch:** R09's screen capability comes from wildcard `'*'` view grants, not deliberate ones —
+check `ScreenRolePermissionSeeder` before assuming the role can reach the screens these hops run
+through.
+**Source:** [F] steps 7–9 + [D] Art. 15.
+
+---
+
+### Stage 87 — إدارة الموارد البشرية gets a seat
+**Goal:** HR is a named party, as [F] shows it twice.
+**Build:** decide first whether R05 (`مدير إدارة الشؤون الإدارية`) **is** HR under another name,
+or whether a distinct HR role is missing. [F] names إدارة الموارد البشرية as the `route_to_hr`
+destination (step 3) *and* as co-owner of the study (step 6), while the system has no distinct
+role and makes the study R02-only. Then make the routing destination and the study's co-owner the
+same named party.
+**Done when:** the party the poster names owns both the places the poster puts it.
+**Decide before building.** A naming-vs-missing-seat question for the process owner; building
+either answer without it risks seeding a role nobody wanted.
+**Source:** [F] steps 3 and 6.
+
+---
+
+### Stage 88 — Intake drafts and the review step
+**Goal:** an intake can be put down and picked up, and read before it is sent.
+**Build:** a draft state for `requests` — `request_intake.edit` is seeded and **no route consumes
+it** — plus a resume path on `RequestIntakeView.vue`, which holds everything in plain `ref()`s
+today, so a refresh loses all typed data and every chosen file. Then [G]'s sub-step 5: a review
+screen between the form and submission, rendering every entered value and every attached file
+beside the document row it declares, with submission happening from there.
+**Load-bearing:** a draft must take **no** `intake_receipt_number`, write no stage log, and never
+hop to `direct_manager_review`. It is not a submission, and the receipt is the one thing [D]
+Art. 15 lets the employee hold; numbering a draft would also burn a serial out of arrival order.
+**Done when:** a half-filled intake survives a refresh; a draft appears in no workflow queue,
+visibility scope or register; and submission happens from the review screen.
+**Source:** [G] sub-step 5, system action 1, employee note 1.
+
+---
+
+### Stage 89 — «متابعة طلباتي» employee tracking
+**Goal:** the screen [G] tells the employee to use exists, and is named that.
+**Build:** an employee-facing tracking view over data that **already exists and is already visible
+to R01** — status, stage, the Art. 100 timeline, Appendix 17/18's المسؤول الحالي and الإجراء
+التالي, the Art. 101 notices register, the Appendix 71 time card. The only list route today is the
+generic internal work queue: no ownership framing, and no search box (the `search` param exists on
+`RequestController::index()` and no UI exposes it). Also render the expected-duration data in
+employee language — `stage_timeliness` currently shows as an internal RAG indicator with
+escalation rungs, not as "expected to reach the next step by ⟨date⟩".
+**Done when:** an employee reaches a screen named متابعة طلباتي, can search their own files, and
+is told when the current step is expected to complete.
+**Note:** packaging and discoverability, not new data — the backing payload is already complete.
+**Source:** [G] employee note 4 + الوقت المتوقع للمرحلة.
+
+---
+
+### Stage 90 — Intake form fidelity
+**Goal:** the intake form matches the sheet that specifies it.
+**Build:** live per-field validation ([G]'s «التحقق الفوري» is honoured today only for
+attachments; every other field waits for HTML5 `required` at submit). Per-file server errors
+rendered on their own row — `attachments.N.file` keys have no matching element, so a
+server-rejected file shows only a generic banner — and a rejected file no longer aborting the
+entire selection. A dedicated «الأسباب» field, which [G] lists and which folds into free-text
+`description` today. The `*` convention on required labels, which [G] promises and the form does
+not use. And the accepted file types reconciled with [G]'s «PDF أو صورة واضحة» — DOC/DOCX are
+accepted today.
+**Done when:** every [G] error message has a path that produces it, on the row that caused it.
+**Source:** [G] sub-step 3, system action 2, رسائل الخطأ الشائعة, employee notes 2–3.
+
+---
+
+### Stage 91 — One document vocabulary for the استكمال loop
+**Goal:** the same question about the same document, whenever it is attached.
+**Build:** give `AttachmentController::store()` the `required_document_key` question intake now
+asks, deriving the Appendix 14 folder from it as `RequestType::sectionForDocument()` already does
+— so a document attached during استكمال النواقص ([F] step 5) names the same matrix row it would
+have at intake. The commit that introduced the intake picker deferred exactly this, because that
+endpoint is shared with R02–R05 uploading genuine committee-cycle documents: it needs a deliberate
+decision about who sees which question, not a widening.
+**Done when:** the officer's completeness gate reads documents supplied after intake the same way
+it reads those supplied with it.
+**Source:** [F] step 5 + [D] Appendices 14 and 57.
+
+---
+
+### Stage 92 — Execution recorded by the executing body
+**Goal:** [F] step 10's الجهة المنفذة is who the record names.
+**Build:** decide whether the executing body acts in the system, or whether R02/R03 record on its
+behalf — today both `MeetingOutputsController::execute` and `RequestController::close` ride
+`meeting_outputs,edit` (R02 + R03), so the committee side records that someone else executed.
+Appendix 70's execution evidence already carries the proof; what is missing is the acting grant
+matching the acting party.
+**Done when:** the execution record names who executed, and the grant matches.
+**Decide before building.** Defensible as-is — a process question, not a defect.
+**Source:** [F] step 10 + [D] Appendix 70.
+
+---
+
+### Stage 93 — Stage numbering reconciled
+**Goal:** one stage count, everywhere an employee can see one.
+**Build:** reconcile [G]'s «1 من 11», [F]'s ten steps and the system's twelve `workflow_stages`
+rows. `current_stage.order_no` is surfaced to the employee, so a reader of the poster and a reader
+of the screen see different totals today. Whichever count is authoritative, the employee-facing
+progress indicator states the same one as the wall.
+**Done when:** a request's progress reads the same number on screen as on the poster.
+**Source:** [F] + [G] ترتيب المرحلة في دورة الحياة.
+
+---
+
 ## Suggested order
 
-**All of it is built** — Stages 1–84, Tracks A through L. This block is kept as
-the dependency record: it says which stage had to precede which, which is what
-you need when reading a stage's assumptions or judging whether a change to one
-stage's work disturbs another's. It is no longer a queue.
+**Stages 1–84 (Tracks A–L) are built. Track M (85–93) is not.** For the built stages this block is
+the dependency record: it says which stage had to precede which, which is what you need when
+reading a stage's assumptions or judging whether a change to one stage's work disturbs another's.
+For Track M it is still a queue.
 
 ```
 1 → 2 → 3 → 4 → 5        (foundation — do these in order)
@@ -1332,6 +1502,11 @@ stage's work disturbs another's. It is no longer a queue.
 75 → 76 → 77 → 78                                 (Track K — closure, execution proof, approval-return, the four gates)
 79 → 80 → 81 → 82 → 83                            (Track K — notifications, registers, KPIs, agenda rules, edge cases)
 84                                                (Track L — the permission matrix; independent of Track K, but reads its compliance matrix)
+
+--- not built ---
+85 → 91                                           (Track M — document completeness; 91 extends 85's vocabulary to the استكمال loop)
+86 · 88 → 89 · 90 · 93                            (Track M — ownership, intake UX, employee tracking; independent of each other)
+87 · 92                                           (Track M — blocked on a process decision, not on code)
 ```
 
 **Stages that were independent** (buildable out of order): 10, 12, 22, 74.
@@ -1345,21 +1520,11 @@ through the Roles & Permissions screen.**
 
 ## Work with no stage
 
-Every stage above is built, but a handful of provisions were deliberately declined along the
-way and belong to nobody. They are listed here so they are decided rather than inherited:
-
-- **[D] Art. 84's session-opening acts** — see the note under Stage 82.
-- **[D] Appendix 46** — the immutable post-approval copy of an approved محضر and its versioned
-  amendment. Also what Appendix 66's tenth prohibition needs. Flagged by Stage 78, taken by
-  nothing since; it is document versioning, not a gate, and deserves its own stage.
-- **Appendices 13, 42 and 62** — the precedents, preliminary-decisions and risk registers.
-  Each was declined deliberately by an earlier stage (13 is "اختياري" in its own text).
-- **[D] Art. 54's seniority register** and its annual publication — still tagged ❌ in the
-  compliance matrix with no owner.
-- **Appendix 40 item 10** (أكثر أسباب النقص) — blocked on a structured shortfall vocabulary
-  that does not exist; whichever stage introduces one should take this at the same time.
-- **Appendices 43, 67 and 74** — routed to Stage 83 by the matrix but outside its Source line,
-  so that stage declined them explicitly.
+**Moved to [TODO_LATER.md](TODO_LATER.md)**, which is now the single home for everything this repo
+knows it has not scheduled — the provisions earlier tracks declined outright, the process
+decisions that must be taken before any code is worth writing, and the platform items outside this
+stage plan. Anything that belongs to nobody goes there, not here; this file is for work that has a
+stage.
 
 ## Adding a stage
 
