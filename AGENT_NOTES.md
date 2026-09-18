@@ -14,6 +14,232 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-19 00:05 EET — Claude — Stage 88 complete (intake drafts and the review step)
+
+Built per the plan below, from [G] sub-step 5 + system action 1 + employee note 1. One migration (two new
+tables), **no seeder change and no permission change** — every route rides `request_intake,edit`, the grant
+Stage 88 found seeded (R01/R02/R05) with nothing consuming it, which is the check that this stage fills a
+hole the permission matrix already described. Full suite **626 tests / 4032 assertions** green (was
+615/3942 — exactly this stage's +11 tests, and **no pre-existing test needed changing**, which is the check
+that it is additive).
+
+**⚠ The design decision not to re-litigate: a draft is NOT a `requests` row.** The Build bullet says "a
+draft state for `requests`" and the obvious reading is a status value or a null `submitted_at` on the real
+table. That reading is wrong here, and the stage's own **Load-bearing** paragraph is the argument against
+it: a draft must take no `intake_receipt_number`, write no stage log, never hop to `direct_manager_review`,
+and "appear in no workflow queue, visibility scope or register". **Twenty-eight files query `requests`** —
+every register, `RequestVisibility`, `DuplicatePolicy`, `ReportMetricsService`, `MeetingReadinessService`,
+`DecisionEligibility`, both console sweeps — so a draft living there means auditing all twenty-eight, or
+fitting a global scope to the application's core entity where one missed bypass surfaces a half-filled form
+inside an approval queue or an official register. `Request` is also in `AuditLog::AUDITED_MODELS`, so every
+autosave would write an audit row and bump `ReportCacheObserver`'s KPI generation counter. New
+`request_drafts` / `request_draft_attachments` make all four constraints true **by construction**, and a
+dedicated test asserts them directly so a later stage that moves drafts onto `requests` fails rather than
+drifts.
+
+**One submission path, not two.** `POST /requests` gained an optional `draft_id`, and **the draft supplies
+the FILES ONLY**: every field still travels in the payload and is validated there, so what is filed is what
+the review screen just showed and a stale draft can never submit something else. `store()` normalises both
+sources into one list (`intakeAttachmentSources()`), so the `Attachment` row written — the Appendix 57 key,
+the Appendix 14 folder derived from it, the uploader — is identical whichever way the file arrived. A second
+"submit this draft" endpoint would have been the dual-path trap Stage 54's note records and Stage 75 deleted
+a second closure path to avoid. `StoreRequest`'s rules are **byte-identical for a caller with no
+`draft_id`** (every existing test passes untouched); with one, `attachments` is `prohibited` — two answers
+to "which files is this being filed with" would file documents the review screen never showed — and the
+Appendix 57 `after()` hook reads the draft's own keys, since
+`DocumentCompletenessService::refusalForSubmission()` already takes an iterable and needed no change.
+
+**A draft's document keys are checked at submission, not at upload, and that is deliberate.** The draft
+endpoint stores whatever key it is given: a draft's request type can still change while it is being typed,
+and a key belongs to one type's matrix. So `StoreRequest` asks the per-file question of the draft's rows
+against the type actually being filed — otherwise a draft-backed submission would be the one way to file an
+unclassified or foreign-typed document, since `attachments.*` rules never run for it. Both refusals are
+worded exactly as the inline ones.
+
+**Promotion copies, then deletes after commit.** The draft's stored file is copied into
+`attachments/{requestId}/` inside the transaction and tracked in the existing `$storedPaths` array, so the
+existing catch block's cleanup covers it unchanged; the draft row and its own directory are deleted only
+**after** the commit. A move would leave a rolled-back submission with the employee's file gone from a draft
+the database still says exists — and until commit that copy is the only one they could resume from. A test
+refuses a submission on its title and asserts the draft and its file both survive, then submits it.
+
+**Drafts are an ADDED capability, not a new requirement.** R03/R04/R06 hold `request_intake,add` without
+`edit`, so the intake screen keeps its original in-memory behaviour for them and nobody loses the ability to
+file. Creating a draft rides `edit` too rather than `add`, since a draft somebody can create and never
+update is worse than none. A test asserts both halves — the draft routes 403, the intake still 201s.
+
+**[G]'s sub-step 5 is client-side and needed no endpoint.** The intake screen became two steps: the form's
+button now opens a review panel rendering every entered value and every attached file **beside the Appendix
+57 row it declares**, and the submit button lives there. It reads whichever source is in play — in-memory
+rows without the grant, draft rows (with a private preview stream) with it — so one review step serves both.
+The form is `v-show`n rather than `v-if`d so stepping back does not re-create it and drop an in-memory
+`File`. A failed submission returns to the form deliberately: every message that endpoint returns is about a
+field that lives there.
+
+**One real pre-existing bug the smoke run surfaced and this stage fixed.**
+`RequestController::detailResource()`'s restricted attachment eager load omitted **`required_document_key`
+and `file_section`**, so `AttachmentResource` reported both as `null` for every request — silently, the same
+shape the Stage 63 note records for a partially-selected relation, and dating from the stages that added
+those columns (80 and 91). It is fixed here rather than flagged because this stage's review step shows the
+employee exactly those two answers moments before they file, and the workspace they land in contradicting
+it *is* the bug; `RequestDetailResource` is the only renderer of that resource, so one line closes it.
+Pinned by an assertion through the endpoint, since a column dropped from that list fails without an error.
+**Found live, not by the suite** — the promotion test asserted the model, which was correct all along.
+
+**Three test-writing findings worth knowing.** (1) **Every seeded request type carries
+`decision_grade_threshold = 10`**, so `decision_grade` is required at intake for all twelve — four of my
+tests read as broken until I traced the 422. (2) The incoming-requests register's code is **`incoming`**,
+not `incoming_requests`, and its rows are `data` with the count in `meta.total`, not `data.rows`. (3) The
+**FormRequest runs before the controller's ownership check**, so asserting a 404 on a draft belonging to
+someone else needs a *valid* payload or the 422 arrives first and the test passes without exercising the
+refusal it is about — the same ordering the 2026-09-11 note records for Stage 84's creator block.
+
+Frontend: `RequestIntakeView.vue` gained the resume panel (shown above a blank form rather than resuming
+silently — reopening a half-filled intake somebody set aside is worse than offering it), debounced autosave
+that creates nothing until something is actually typed, upload-on-choose, per-file classification PATCHed as
+it changes, a discard action, and the review step. `files` rows were normalised so one list covers both an
+in-memory `File` and a draft row; a type change now clears the answers **on the server too**, or a resumed
+draft would come back holding keys the form had already discarded. Autosave failures are deliberately soft —
+they must not block an intake the employee can still finish and send in this sitting. 22 new locale keys per
+side; parity verified programmatically (**1892 keys each side, zero on-one-side-only**).
+
+Verification: new `tests/Feature/RequestDraftTest.php` (11 tests — a draft keeping what was typed across a
+separate request and replacing rather than merging; the four load-bearing negatives asserted directly
+(no request row, no stage log, absent from the work queue and from Art. 98's register 1); another
+employee's draft 404ing on every verb and absent from their list; the permission split in both directions;
+promotion with the folder derived and the draft and its file gone; inline attachments refused alongside a
+draft; Appendix 57 completeness enforced against the draft's own files with [G]'s own wording; a foreign
+and an unanswered key both refused with nothing created; a refused submission leaving the draft resumable
+and still submittable; reclassify/remove/preview with the stranger refused; and discard removing the stored
+files). Full suite **626/4032** green, Pint clean **repo-wide** (`--test` over `app/`, `database/`,
+`routes/`, `tests/` reports zero diffs), `npm run build` passes with `RequestIntakeView` as its own 17.1 kB
+lazy chunk (then reverted the tracked `frontend/dist`, per every prior stage), and the migration ran clean
+against the real MySQL/Homestead database with `php artisan migrate` afterwards reporting **nothing to
+migrate**.
+
+Smoke-tested end to end over real HTTP against Homestead as the seeded `r01.employee@`: a draft created
+half-filled, filled by the PUT autosave sends, a file uploaded to it and classified by the PATCH the picker
+sends, then **re-read on a separate request with the Arabic and the file both intact** — which is the
+refresh this stage exists for; the resume list showing both drafts with their file counts; the preview
+streaming 69 bytes of `application/pdf`; the work queue still showing **4** requests and the register still
+**4**, with the drafts in neither. Then the refusals: an uncovered draft refused **422** with «الرجاء إرفاق
+المستندات المطلوبة. المستندات الناقصة: البيانات الوظيفية»; inline attachments alongside a draft refused;
+`r03.head@` **403** on all three draft routes while still able to file; `r02.reviewer@` **404** on the draft
+and on its preview. The covered draft then filed as `PM-RCV/2026/000005` at `direct_manager_review` with no
+reference number, the draft **404** immediately afterwards, and the promoted attachment carrying
+`key=1-5b02f970 / folder=service_file` — the Appendix 14 derivation proven on the promotion path, not only
+in a test. Deleted every fixture row (the request, its attachment and stored file, 2 stage logs, 2
+status-history rows, both drafts and the whole `request-drafts` directory) and revoked **only** the four
+tokens this session minted, by id (143–146), leaving the two pre-existing ones alone. Counts confirmed back
+to the **4 pre-existing requests (37/40/41/42)**, 8 attachments, 0 drafts, 0 jobs, 2 tokens, and the six
+audit rows this run wrote removed by id — the two remaining rows at `auditable_id = 46` are from 2026-09-12
+and belong to different models, checked rather than assumed.
+
+**Open items for whoever builds Stage 89+.** (1) **Nothing prunes abandoned drafts** — autosave creates one
+the moment something is typed, and a draft only disappears when it is submitted or discarded. Growth is
+bounded by how often somebody starts and abandons an intake, and each is small, but a sweep (the
+`backup:run` retention precedent) or a per-user cap is the fix if it matters; deliberately not built, since
+nothing asked for one. (2) **A draft can be built that cannot be submitted until its keys are re-answered** —
+the intake screen clears them on a type change, but an API caller that changes the type without doing so
+gets a refusal at submission rather than at upload. That is the deliberate trade for letting a draft exist
+before its type is chosen; the refusal names the reason. (3) **R03/R04/R06 cannot draft at all**, because
+the seeded `edit` grant excludes them. Defensible (they hold `add` so they can file on someone's behalf, but
+they are not the routine filers) and it costs them nothing, but it is a seeded decision nobody has
+re-examined since Stage 3 — widen the seeder if the process owner disagrees, rather than re-pointing the
+routes at `add`. (4) **The review step is client state**, so a reload while on it returns to the form: a
+draft-backed intake comes back whole, an in-memory one does not — which is the same exposure that role
+already had before this stage, not a new one. (5) **`RequestDraft` is deliberately absent from
+`AuditLog::AUDITED_MODELS`** — a half-filled form is not a business event, and a row per autosave would bury
+the activity that trail exists for (the `NotificationSetting`/`RequestLegalReview` precedent); the filed
+request is audited exactly as before. (6) **[G]'s remaining intake-form fidelity items are Stage 90's** —
+live per-field validation, per-file server errors on their own row, the dedicated «الأسباب» field, the `*`
+convention and the DOC/DOCX reconciliation are all untouched here on purpose.
+
+---
+
+### 2026-09-18 23:15 EET — Claude — Stage 88 implementation plan (intake drafts and the review step)
+
+Building Stage 88 per STAGE_PLAN.md Track M: a draft state so an intake can be put down and picked up,
+plus [G]'s sub-step 5 — a review screen between the form and submission, with submission happening from
+there. `RequestIntakeView.vue` holds everything in plain `ref()`s today, so a refresh loses every typed
+field **and every chosen file**, and `request_intake.edit` is seeded (R01/R02/R05) with no route
+consuming it.
+
+**⚠ The design decision not to re-litigate: a draft is NOT a `requests` row.** The stage's Build bullet
+says "a draft state for `requests`", and the obvious reading is a `status` value or a null `submitted_at`
+on the real table. That reading is wrong here, and the stage's own **Load-bearing** paragraph is the
+argument against it: a draft must take no `intake_receipt_number`, write no stage log, never hop to
+`direct_manager_review`, and "appear in no workflow queue, visibility scope or register". **28 files query
+`requests`** (grep: every register, `RequestVisibility`, `DuplicatePolicy`, `ReportMetricsService`,
+`MeetingReadinessService`, `DecisionEligibility`, both console sweeps, …), so a draft living there means
+either auditing all 28 or adding a global scope to the application's core entity — where one missed
+bypass surfaces a half-filled form inside an approval queue or an official register. And `Request` is in
+`AuditLog::AUDITED_MODELS`, so every autosave would write audit rows and bump `ReportCacheObserver`'s KPI
+generation counter. A separate `request_drafts` table makes **every one of those four load-bearing
+constraints true by construction rather than by inspection** — the same discipline Stage 86 relied on when
+`RequestVisibility` followed the re-seeded rows on its own.
+
+**A draft is saved form state plus its uploaded files, never a submission.** New `request_drafts`
+(`created_by_user_id` FK cascade, `payload` json, timestamps) and `request_draft_attachments`
+(`request_draft_id` FK cascade, plus the same disk/path/original_name/mime_type/size_bytes/label/
+`required_document_key` columns `attachments` carries). Files upload to the draft as they are chosen,
+because "every chosen file" is what the Build bullet names as lost today and a browser cannot reconstruct
+a `File` across a refresh. `RequestDraft` is deliberately **not** added to `AuditLog::AUDITED_MODELS` —
+an autosaved half-filled form is not a business event, the same call Stage 23 made for
+`NotificationSetting` and Stage 68 for `RequestLegalReview`.
+
+**One submission path, not two.** `POST /requests` gains an optional `draft_id`: the payload still carries
+every field (so `StoreRequest` validates what is actually being submitted, never a possibly-stale draft
+payload — the draft supplies **files only**), and only the attachment source branches. `StoreRequest`'s
+rules stay byte-identical for a caller with no `draft_id`, so no existing test or API caller changes; with
+one, `attachments` must be absent and the Appendix 57 `after()` hook reads the draft's own
+`required_document_key` values instead of the payload's — `DocumentCompletenessService::refusalForSubmission()`
+already takes an iterable of keys, so it needs no change at all. Everything else in `store()` — Appendix
+16's duplicate refusal, the receipt, the deadline, the Appendix 14 folder derivation, the intake stage log,
+the `submit` system hop — runs exactly once, on one code path. That is the dual-path trap Stage 54's note
+records and Stage 75 deleted a second closure path to avoid.
+
+**Promotion copies, then deletes after commit.** The draft's stored files are copied into
+`attachments/{requestId}/` inside the transaction and tracked in the existing `$storedPaths` array, so the
+existing catch block's cleanup covers them unchanged; the draft row and its own files are deleted only
+**after** the transaction commits. Moving instead would leave a rolled-back submission with the employee's
+files gone from a draft the database still says exists.
+
+**Permissions: no seeder change.** Every draft route rides `request_intake,edit` — the grant the stage
+names as unconsumed, held by R01/R02/R05 (the employee, the case officer, the admin manager: the roles
+that actually compose intakes). R03/R04/R06 hold `add` but not `edit`, so **drafts are an added capability,
+not a new requirement**: the screen keeps today's in-memory behaviour for anyone without `edit`, and
+nobody loses the ability to file. Creating a draft rides `edit` too rather than `add`, since a draft
+somebody can create but never update is worse than no draft at all.
+
+**The review step is client-side and needs no endpoint.** [G]'s sub-step 5 becomes a second wizard step
+on the intake screen: every entered value rendered back, every attached file listed **beside the Appendix
+57 row it declares**, and the submit button living there rather than on the form. It reads whichever file
+source is in play — in-memory rows for a caller without `edit`, draft rows (with a private preview route,
+same shape as `AttachmentController::preview`) for one with it — so one review step serves both.
+
+**Files**: 2 migrations; `RequestDraft`/`RequestDraftAttachment`; `RequestDraftController`
+(index/store/show/update/destroy + attachment store/destroy/preview); `SaveRequestDraftRequest` (every
+field nullable — a draft is incomplete by definition; lengths and id types still validated so the column
+cannot hold junk) and `StoreRequestDraftAttachmentRequest` (the same mime/size rules as intake, with the
+document key optional because a draft may not have chosen its type yet); two Resources; routes registered
+**before** the `requests/{requestRecord}` wildcard, per the house rule the intake block already states;
+`StoreRequest` (the `draft_id` branch); `RequestController::store()` (promotion); `RequestIntakeView.vue`
+(resume panel, debounced autosave, upload-on-choose, the review step); `intake.draft.*`/`intake.review.*`
+locale keys both sides.
+
+**Verification plan**: new `tests/Feature/RequestDraftTest.php` — a draft round-trips its payload and
+survives; a draft is invisible to the request list, to `RequestVisibility` and to the incoming-requests
+register, and holds no receipt/stage log; another user's draft 404s; submission from a draft creates the
+request with the draft's files promoted, their Appendix 14 folders derived, and deletes the draft; a
+rolled-back submission leaves the draft and its files intact; Appendix 57 completeness is enforced against
+the draft's own keys; `attachments` alongside `draft_id` is refused; and a role without
+`request_intake,edit` is refused every draft route while still being able to file. Plus the full PHPUnit
+suite, Pint, `npm run build` (then reverting the tracked `frontend/dist`), locale key-parity, and
+`php artisan migrate` against the real MySQL/Homestead database.
+
+---
+
 ### 2026-09-18 23:10 EET — Claude — Stage 86 complete (the committee secretary owns the handover)
 
 Built per the plan below, from [F] steps 7–9 + [D] Art. 15. **Four seeded cells, no application code at

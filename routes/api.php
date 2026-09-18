@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\PresentationMemoController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RequestController;
+use App\Http\Controllers\Api\RequestDraftController;
 use App\Http\Controllers\Api\RequestLegalReviewController;
 use App\Http\Controllers\Api\RequestLifecycleController;
 use App\Http\Controllers\Api\RequestTypeController;
@@ -261,6 +262,45 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('requests/duplicate-check', [RequestLifecycleController::class, 'duplicateCheck']);
     Route::middleware('screen.permission:request_intake,add')
         ->post('requests', [RequestController::class, 'store']);
+
+    /*
+     * Stage 88 — an intake that can be put down and picked up.
+     *
+     * Literal `requests/drafts` paths, registered here so they precede the
+     * `requests/{requestRecord}` wildcard below — otherwise the model binding
+     * would try to resolve a request numbered "drafts".
+     *
+     * All of them ride `request_intake,edit`: the grant this stage found
+     * seeded (R01/R02/R05) with nothing consuming it. Creating rides `edit`
+     * too rather than `add`, because a draft somebody can create and never
+     * update is worse than no draft at all — and because drafts are an added
+     * capability, not a new requirement, so the roles holding only `add`
+     * (R03/R04/R06) keep filing exactly as they do today.
+     */
+    Route::middleware('screen.permission:request_intake,edit')->group(function (): void {
+        Route::get('requests/drafts', [RequestDraftController::class, 'index']);
+        Route::post('requests/drafts', [RequestDraftController::class, 'store']);
+        Route::get('requests/drafts/{draft}', [RequestDraftController::class, 'show']);
+        Route::put('requests/drafts/{draft}', [RequestDraftController::class, 'update']);
+        Route::delete('requests/drafts/{draft}', [RequestDraftController::class, 'destroy']);
+
+        Route::post('requests/drafts/{draft}/attachments', [RequestDraftController::class, 'storeAttachment']);
+        Route::patch(
+            'requests/drafts/{draft}/attachments/{draftAttachment}',
+            [RequestDraftController::class, 'updateAttachment'],
+        );
+        Route::delete(
+            'requests/drafts/{draft}/attachments/{draftAttachment}',
+            [RequestDraftController::class, 'destroyAttachment'],
+        );
+        // Named, because RequestDraftAttachmentResource builds the review
+        // step's preview link from it — the same way an attachment's own
+        // preview route is named for AttachmentResource.
+        Route::get(
+            'requests/drafts/{draft}/attachments/{draftAttachment}/preview',
+            [RequestDraftController::class, 'previewAttachment'],
+        )->name('requests.drafts.attachments.preview');
+    });
 
     // Stage 19 — private signature images use the same request-detail
     // visibility gate as the approval trail that renders them.

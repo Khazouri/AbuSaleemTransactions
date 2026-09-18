@@ -607,7 +607,29 @@
       "uncovered": "Please attach the required documents before submitting the request.",
       "mandatoryHint": "Documents marked (required) must be attached; the rest are attached as the case requires."
     },
-    "classifyFiles": "Say which document each attached file is before submitting the request."
+    "classifyFiles": "Say which document each attached file is before submitting the request.",
+    "draft": {
+      "resumeTitle": "Unsent drafts",
+      "resume": "Resume",
+      "untitled": "Untitled draft",
+      "fileCount": "{count} attachment(s)",
+      "saving": "Saving draft…",
+      "saved": "Draft saved automatically; you can come back to it later.",
+      "autosaveHint": "What you type is saved automatically as a draft.",
+      "discard": "Discard draft",
+      "saveFailed": "The draft could not be saved. You can still finish and submit this request now.",
+      "resumeFailed": "The draft could not be opened.",
+      "discardFailed": "The draft could not be discarded.",
+      "uploadFailed": "The file could not be uploaded to the draft.",
+      "removeFailed": "The attachment could not be removed from the draft."
+    },
+    "review": {
+      "open": "Review before submitting",
+      "title": "Review the request before submitting",
+      "hint": "Check the entered data and the attached files; submission happens from this page.",
+      "back": "Back to the form",
+      "noFiles": "No attachments."
+    }
   },
   "approvals": {
     "subtitle": "Only requests currently waiting at this checkpoint appear here.",

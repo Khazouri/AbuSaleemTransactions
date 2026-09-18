@@ -25,6 +25,8 @@ use App\Models\ApprovalReferral;
 use App\Models\Attachment;
 use App\Models\Department;
 use App\Models\Request;
+use App\Models\RequestDraft;
+use App\Models\RequestDraftAttachment;
 use App\Models\RequestStageLog;
 use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
@@ -52,6 +54,7 @@ use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -239,6 +242,20 @@ class RequestController extends Controller
         $data = $request->validated();
         $storedPaths = [];
 
+        // Stage 88 — a submission from a saved draft. The draft supplies the
+        // FILES ONLY; every field above still came in this payload and was
+        // validated there, so a stale draft can never file something other
+        // than what the review screen just showed. Re-scoped to the caller
+        // here as well as in the rule: this is the point where its files are
+        // about to be copied into somebody's request.
+        $draftId = $data['draft_id'] ?? null;
+        $draft = $draftId === null
+            ? null
+            : RequestDraft::query()
+                ->where('created_by_user_id', $request->user()->id)
+                ->with('attachments')
+                ->find($draftId);
+
         // Stage 83 — [D] Appendix 16. Checked before anything is written: an
         // open file on the same subject means "لا تنشأ معاملة جديدة", and a
         // closed one means the new request must be classified — with تظلم and
@@ -256,7 +273,7 @@ class RequestController extends Controller
             : $duplicates->priorRequests($request->user(), (int) $data['request_type_id'])->first()?->getKey();
 
         try {
-            $requestRecord = DB::transaction(function () use ($data, $request, $numbers, $deadlines, $workflow, $priorRelation, $priorRequestId, &$storedPaths) {
+            $requestRecord = DB::transaction(function () use ($data, $request, $numbers, $deadlines, $workflow, $priorRelation, $priorRequestId, $draft, &$storedPaths) {
                 $department = Department::query()->findOrFail($data['department_id']);
                 $type = RequestType::query()->findOrFail($data['request_type_id']);
                 $newStatus = RequestStatus::query()->where('code', 'new')->firstOrFail();
@@ -296,32 +313,41 @@ class RequestController extends Controller
                 // Loaded once rather than per file: every attachment on this
                 // request answers the same type's matrix.
                 $requestType = RequestType::findOrFail($data['request_type_id']);
-                $documentKeys = array_column($data['attachments'] ?? [], 'required_document_key');
 
-                foreach ($request->file('attachments', []) as $index => $attachmentInput) {
-                    $file = $attachmentInput['file'];
-                    $path = $file->store("attachments/{$requestRecord->id}", 'local');
+                foreach ($this->intakeAttachmentSources($request, $data, $draft) as $source) {
+                    $documentKey = $source['required_document_key'];
+                    $target = "attachments/{$requestRecord->id}";
+
+                    // Stage 88 — a draft's file is COPIED rather than moved,
+                    // and its own copy is deleted only after this transaction
+                    // commits. A move would leave a rolled-back submission
+                    // with the employee's file gone from a draft the database
+                    // still says is there; a copy is covered by the same
+                    // $storedPaths compensation an inline upload already gets.
+                    $path = $source['stored'] === null
+                        ? $source['upload']->store($target, 'local')
+                        : $this->copyDraftFile($source['stored'], $target);
                     $storedPaths[] = $path;
 
                     Attachment::create([
                         'request_id' => $requestRecord->id,
                         'disk' => 'local',
                         'path' => $path,
-                        'original_name' => $file->getClientOriginalName(),
-                        'mime_type' => $file->getMimeType(),
-                        'size_bytes' => $file->getSize(),
-                        'label' => $data['attachments'][$index]['label'] ?? null,
+                        'original_name' => $source['original_name'],
+                        'mime_type' => $source['mime_type'],
+                        'size_bytes' => $source['size_bytes'],
+                        'label' => $source['label'],
                         // Which of the type's [D] Appendix 57 recommended
                         // documents the submitter says this file is — the same
                         // key Stage 78's intake gate answers under, so the
                         // officer's completeness check reads the employee's own
                         // uploads rather than a parallel list.
-                        'required_document_key' => $documentKeys[$index],
+                        'required_document_key' => $documentKey,
                         // [D] Appendix 14's folder, DERIVED from that answer
                         // rather than asked separately: the seeder declares it
                         // per row, so this is recorded data, not a guess, and
                         // never the default nobody chose.
-                        'file_section' => $requestType->sectionForDocument($documentKeys[$index]),
+                        'file_section' => $requestType->sectionForDocument($documentKey),
                         'uploaded_by_user_id' => $request->user()->id,
                     ]);
                 }
@@ -372,6 +398,15 @@ class RequestController extends Controller
             throw $exception;
         }
 
+        // Stage 88 — the draft has served its purpose and its files now live
+        // on the request. Deleted only here, after the commit: until this
+        // point a rollback has to leave the employee's own copy intact, since
+        // it is the only one they could resume from.
+        if ($draft !== null) {
+            Storage::disk('local')->deleteDirectory("request-drafts/{$draft->id}");
+            $draft->delete();
+        }
+
         // Stage 23 — announced only once the intake request has committed,
         // so nobody is told about a reference number that was rolled back.
         $notifications->requestCreated($requestRecord, $request->user());
@@ -379,6 +414,74 @@ class RequestController extends Controller
         return (new RequestResource($requestRecord))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * Stage 88 — the files this intake is being filed with, from either
+     * source, in one shape.
+     *
+     * Normalised here so the Attachment row written below is identical
+     * whichever way the file arrived: an inline multipart upload (every
+     * caller before this stage, and anyone without `request_intake,edit`) or
+     * a draft the employee built up over several sittings. Two loops writing
+     * two nearly-identical rows is how the [D] Appendix 14 derivation or the
+     * Appendix 57 key would eventually come to differ between them.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<array{stored: ?array{string, string}, upload: ?UploadedFile, original_name: string, mime_type: ?string, size_bytes: ?int, label: ?string, required_document_key: ?string}>
+     */
+    private function intakeAttachmentSources(StoreRequest $request, array $data, ?RequestDraft $draft): array
+    {
+        if ($draft !== null) {
+            return $draft->attachments
+                ->map(fn (RequestDraftAttachment $attachment): array => [
+                    'stored' => [$attachment->disk, $attachment->path],
+                    'upload' => null,
+                    'original_name' => $attachment->original_name,
+                    'mime_type' => $attachment->mime_type,
+                    'size_bytes' => $attachment->size_bytes,
+                    'label' => $attachment->label,
+                    'required_document_key' => $attachment->required_document_key,
+                ])
+                ->all();
+        }
+
+        $sources = [];
+
+        foreach ($request->file('attachments', []) as $index => $attachmentInput) {
+            $file = $attachmentInput['file'];
+
+            $sources[] = [
+                'stored' => null,
+                'upload' => $file,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'size_bytes' => $file->getSize(),
+                'label' => $data['attachments'][$index]['label'] ?? null,
+                'required_document_key' => $data['attachments'][$index]['required_document_key'] ?? null,
+            ];
+        }
+
+        return $sources;
+    }
+
+    /**
+     * Copy one draft file into the new request's own directory.
+     *
+     * The stored basename is already a random hash, so reusing it cannot
+     * collide and keeps the two copies traceable to each other while both
+     * briefly exist.
+     *
+     * @param  array{string, string}  $stored
+     */
+    private function copyDraftFile(array $stored, string $target): string
+    {
+        [$disk, $path] = $stored;
+        $destination = $target.'/'.basename($path);
+
+        Storage::disk($disk)->copy($path, $destination);
+
+        return $destination;
     }
 
     /** Stage 15 — one complete request workspace, including its audit timeline. */
@@ -1008,7 +1111,16 @@ class RequestController extends Controller
             // Appendix 70's دليل التنفيذ; omitting it from this restricted
             // list would make AttachmentResource report every document as
             // unmarked on the one screen that shows the execution record.
-            'attachments:id,request_id,original_name,mime_type,size_bytes,label,execution_evidence_type,uploaded_by_user_id,created_at',
+            // `required_document_key` and `file_section` are listed because
+            // AttachmentResource exposes both and a restricted eager load
+            // omitting a column makes it read back as null rather than as
+            // missing — the same silent shape the Stage 63 note records for a
+            // partially-selected relation. Both were absent here since the
+            // stages that added them (80 and 91), so the request workspace
+            // reported every document as unclassified; Stage 88's review step
+            // shows the employee exactly these two answers before they file,
+            // and the workspace contradicting it a moment later is the bug.
+            'attachments:id,request_id,original_name,mime_type,size_bytes,label,required_document_key,file_section,execution_evidence_type,uploaded_by_user_id,created_at',
             'stageLogs' => fn ($query) => $query->orderBy('acted_at')->orderBy('id'),
             // `responsible_role_id` is in these column lists because the
             // nested responsibleRole eager-load below cannot resolve without
