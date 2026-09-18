@@ -12,9 +12,9 @@ the system must refuse them.
 > redesign (12 stages, not 14), roles R09–R11, and everything in Tracks J and K. Where the two
 > disagree, **this file is current**.
 
-**Why by role.** The permission matrix is 33 screens × 11 roles, and the approval chain is
+**Why by role.** The permission matrix is 34 screens × 11 roles, and the approval chain is
 single-role by design — each approval screen names exactly one role. Clicking through as the
-System Admin proves almost nothing, because R08 holds all seven actions on all 33 screens and so
+System Admin proves almost nothing, because R08 holds all seven actions on all 34 screens and so
 sees every approval queue at once, which is the exact opposite of what the matrix encodes. The
 lifecycle also cannot be walked by one person: reaching `مكتمل ومغلق` needs at least nine
 different people acting in order. This plan makes each of them do their part.
@@ -830,7 +830,7 @@ Sign in as `r07.director@abusaleem.test`.
 
 ## 9. R08 — مدير النظام / System Admin
 
-**Identity.** The only role that holds all seven actions on all 33 screens. R08 is a **support**
+**Identity.** The only role that holds all seven actions on all 34 screens. R08 is a **support**
 role: use it to configure the system and to unblock, not to walk the process. Most of this section
 is about the administration screens nobody else can reach.
 
@@ -838,7 +838,7 @@ Sign in as `r08.sysadmin@abusaleem.test` (leave `admin@abusaleem.test` untouched
 
 ### A. What they must see
 
-- [ ] **31 sidebar entries** (33 screens) — including all five approval queues, which is exactly
+- [ ] **32 sidebar entries** (34 screens) — including all five approval queues, which is exactly
       why R08 is useless for testing segregation of duties.
 
 ### B. What they must be able to do
@@ -851,16 +851,22 @@ Sign in as `r08.sysadmin@abusaleem.test` (leave `admin@abusaleem.test` untouched
 - [ ] **The phone number cannot be set here** — only `TestUserSeeder` writes it. Confirm the field
       is absent rather than present-and-ignored.
 
-**B2 — Departments.**
+**B2 — Departments and request types.**
 
 - [ ] Create a child department under the tree.
 - [ ] **Deleting a department that still has children or users is refused**; deactivating it is the
       supported route ([preserve, don't erase]). This pattern recurs for other master data —
       committees behave the same way.
+- [ ] On `أنواع الطلبات`, edit a type's **service level** and its **ministry-escalation grade**;
+      a request filed afterwards picks up the new due date.
+- [ ] **Deleting a type that any request already uses is refused** (422, naming the reason);
+      deactivating it removes it from the intake picker while old requests keep their type.
+- [ ] Add a row to a type's **required-documents** list with a condition, and confirm it appears on
+      the intake checklist as a qualifier; leave the condition blank and confirm no empty chip shows.
 
 **B3 — Roles and permissions.**
 
-- [ ] The matrix grid shows 33 screens × 11 roles × 7 actions.
+- [ ] The matrix grid shows 34 screens × 11 roles × 7 actions.
 - [ ] Revoke `اعتماد` from R02 on `اعتماد المقرر`, then sign in as R02: the queue is gone from the
       sidebar **and** `POST /api/approvals/reviewer/{id}` returns 403. Restore it afterwards.
 - [ ] Grant R04 `meeting_agenda,edit`, confirm R04 can now add an agenda item, then revoke it and
@@ -1215,6 +1221,7 @@ Letters: `v` view · `a` add · `e` edit · `d` delete · `A` approve · `p` pri
 | `final_approval` — الاعتماد النهائي والأرشفة | · | · | · | · | · | · | vA | vaedApx | · | · | · |
 | `users` — المستخدمون | · | · | · | · | · | · | · | vaedApx | · | · | · |
 | `departments` — الإدارات والأقسام | · | · | · | · | · | · | · | vaedApx | · | · | · |
+| `request_types` — أنواع الطلبات | · | · | · | · | · | · | · | vaedApx | · | · | · |
 | `roles_permissions` — الأدوار والصلاحيات | · | · | · | · | · | · | · | vaedApx | · | · | · |
 | `settings` — الإعدادات العامة | · | · | · | · | · | · | · | vaedApx | · | · | · |
 | `reports` — التقارير والإحصائيات | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp |
@@ -1238,7 +1245,7 @@ are returned by the API but hidden from the menu because they need a request id)
 | R05 Admin Manager | 22 | 20 | `اعتماد مدير الإدارة` |
 | R06 Ministry | 22 | 20 | `اعتماد وزارة الحكم المحلي` |
 | R07 Director | 21 | 19 | `الاعتماد النهائي والأرشفة` |
-| R08 System Admin | 33 | 31 | all five |
+| R08 System Admin | 34 | 32 | all five |
 | R09 Committee Secretary | 20 | 18 | — |
 | R10 Diwan Deputy | 20 | 18 | — |
 | R11 Legal Officer | 20 | 18 | — |

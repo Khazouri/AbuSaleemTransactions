@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * RequestType (نوع الطلب) — promotion, leave, grievance, etc.
@@ -42,6 +43,45 @@ use Illuminate\Database\Eloquent\Model;
  */
 class RequestType extends Model
 {
+    /**
+     * Stage 56's three administrative_routing targets.
+     *
+     * Named here rather than inline in the FormRequest so the validator and
+     * the admin screen's picker read one list — the value is advisory (all
+     * three routes stay freely selectable whatever a type suggests), so a
+     * drifted fourth value would mislead silently rather than fail.
+     */
+    public const ADMINISTRATIVE_ROUTES = ['hr', 'diwan', 'committee_secretary'];
+
+    /**
+     * The two groups a required_documents entry may belong to — [D] Appendix
+     * 57's أساسية مشتركة and الخاصة بالنوع.
+     *
+     * The appendix's third group (المشروطة) is not a value here: the source
+     * expresses it as a per-row qualifier, which is what the entry's own
+     * `condition` carries. Its fourth (الناتجة عن دورة اللجنة) is never
+     * stored at all — those documents only exist after the file reaches the
+     * committee, so they cannot be an intake checklist item. Mirrored on the
+     * frontend by lib/requiredDocuments.js's DOCUMENT_GROUPS.
+     */
+    public const DOCUMENT_GROUPS = ['basic', 'specific'];
+
+    /**
+     * Column defaults restated in PHP.
+     *
+     * The database applies these on INSERT, but the model create() hands
+     * back does not re-read the row — so without this a freshly created
+     * type answers `is_active: null` for a row the database has as true,
+     * and the admin screen would render a brand-new type as retired. Same
+     * fix GuideArticle and MeetingRequest already carry.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'is_active' => true,
+        'default_has_financial_impact' => false,
+    ];
+
     protected $fillable = [
         'code',
         'name_ar',
@@ -63,5 +103,30 @@ class RequestType extends Model
             'default_has_financial_impact' => 'boolean',
             'required_documents' => 'array',
         ];
+    }
+
+    /**
+     * Requests filed under this type.
+     *
+     * Read as a count by the delete guard, and that guard exists because the
+     * FK on the other side is nullOnDelete: removing a referenced type would
+     * silently strip the type off every historical request instead of failing.
+     */
+    public function requests(): HasMany
+    {
+        return $this->hasMany(Request::class);
+    }
+
+    /**
+     * Workflow rules scoped to this type alone — the per-type overrides
+     * workflow_transitions allows.
+     *
+     * Also read only as a count, for the opposite reason to the relation
+     * above: that FK is cascadeOnDelete, so deleting the type would take its
+     * own workflow overrides with it without anyone being told.
+     */
+    public function workflowTransitions(): HasMany
+    {
+        return $this->hasMany(WorkflowTransition::class);
     }
 }

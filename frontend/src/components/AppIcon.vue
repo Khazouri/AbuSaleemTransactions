@@ -59,6 +59,8 @@ const icons = {
   // Stage 58 — appeals (تظلمات).
   flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
   // Neutral fallback for any screen without a mapped glyph.
+  // Stage: request-type catalogue — stacked sheets, i.e. a set of kinds.
+  layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.57 3.9a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
   dot: '<circle cx="12" cy="12" r="3.5"/>',
 }
 

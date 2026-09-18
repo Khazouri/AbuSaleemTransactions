@@ -11,7 +11,7 @@ use Illuminate\Database\Seeder;
  * to the original 22 for the meetings-unit redesign; Stage 57 later removes
  * one, `authority_approval`), plus `departments` (see the note beside it
  * below), Stage 58's `appeals`, Stage 68's `legal_review`, Stage 80's
- * `registers` and the maintenance console = 33 total.
+ * `registers`, the maintenance console and `request_types` = 34 total.
  *
  * Two consumers:
  *   - the sidebar (Stage 5) renders these rows, filtered by can_view
@@ -94,6 +94,12 @@ class ScreenSeeder extends Seeder
             // tree (Stage 6) and no existing screen covers it. Restricted to
             // R08 like the other administration screens.
             ['departments',              'الإدارات والأقسام',          'Departments',                  '/departments',              'sitemap',      null],
+            // The request-type catalogue (أنواع الطلبات). Seeded since Stage
+            // 53 with no way to maintain it — the type carries the SLA, the
+            // ministry-escalation grade and Appendix 57's document matrix, so
+            // it needs a screen. Administration, i.e. R08-only, like its
+            // neighbours here.
+            ['request_types',            'أنواع الطلبات',              'Request Types',                '/request-types',            'layers',       null],
             ['roles_permissions',        'الأدوار والصلاحيات',         'Roles & Permissions',          '/roles',                    'key',          null],
             ['settings',                 'الإعدادات العامة',           'General Settings',             '/settings',                 'settings',     null],
 

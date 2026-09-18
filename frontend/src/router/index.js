@@ -92,6 +92,14 @@ const routes = [
         meta: { screenCode: 'users' },
       },
       {
+        // The request-type catalogue — the SLA, the ministry-escalation
+        // grade and Appendix 57's document matrix all live on these rows.
+        path: 'request-types',
+        name: 'request_types',
+        component: () => import('../views/RequestTypesView.vue'),
+        meta: { screenCode: 'request_types' },
+      },
+      {
         // Stage 8 — roles & permissions matrix editor.
         path: 'roles',
         name: 'roles_permissions',

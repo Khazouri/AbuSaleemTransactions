@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RequestController;
 use App\Http\Controllers\Api\RequestLegalReviewController;
 use App\Http\Controllers\Api\RequestLifecycleController;
+use App\Http\Controllers\Api\RequestTypeController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
@@ -154,6 +155,30 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::middleware('screen.permission:departments,delete')
         ->delete('departments/{department}', [DepartmentController::class, 'destroy']);
+
+    /*
+     * Request types (أنواع الطلبات).
+     *
+     * The catalogue behind the intake type picker, and behind three rules
+     * other stages read: the SLA that becomes a request's due_date (Stage
+     * 17), the decision grade forcing ministry escalation (Stage 18) and
+     * [D] Appendix 57's document matrix (Stage 72). Seeded since Stage 53
+     * with no way to maintain it; this is that screen.
+     *
+     * Same shape as departments, for the same reason — master data, so
+     * per-verb gating rather than a bare apiResource(), and toggle-active
+     * declared BEFORE the {requestType} wildcard so it can't be shadowed.
+     */
+    Route::middleware('screen.permission:request_types,view')
+        ->get('request-types', [RequestTypeController::class, 'index']);
+    Route::middleware('screen.permission:request_types,add')
+        ->post('request-types', [RequestTypeController::class, 'store']);
+    Route::middleware('screen.permission:request_types,edit')->group(function () {
+        Route::patch('request-types/{requestType}/toggle-active', [RequestTypeController::class, 'toggleActive']);
+        Route::put('request-types/{requestType}', [RequestTypeController::class, 'update']);
+    });
+    Route::middleware('screen.permission:request_types,delete')
+        ->delete('request-types/{requestType}', [RequestTypeController::class, 'destroy']);
 
     /*
      * Read-only role list (Stage 7) — the Users screen needs it to offer

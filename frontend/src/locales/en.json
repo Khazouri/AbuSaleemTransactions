@@ -65,6 +65,56 @@
     "empty": "No departments yet.",
     "codeHint": "Used in request reference numbers"
   },
+  "requestTypes": {
+    "title": "Request Types",
+    "add": "Add request type",
+    "edit": "Edit request type",
+    "name": "Name",
+    "nameAr": "Arabic name",
+    "nameEn": "English name",
+    "code": "Code",
+    "codeHint": "Short code shown in reports, e.g. PROM.",
+    "slaDays": "Service level (days)",
+    "slaHint": "Sets the request's due date. Leave blank for a type with no deadline.",
+    "gradeThreshold": "Ministry escalation grade",
+    "gradeHint": "At or above this decision grade the case must go to the ministry.",
+    "route": "Suggested routing",
+    "routeHint": "Advisory only — all three routes stay selectable.",
+    "noRoute": "— No suggestion —",
+    "routes": {
+      "hr": "Human Resources",
+      "diwan": "Diwan Deputy",
+      "committee_secretary": "Committee Secretary"
+    },
+    "financialImpact": "Has a financial impact by default",
+    "financialImpactShort": "Financial impact",
+    "legalBasis": "Legal basis",
+    "legalBasisHint": "Pre-fills the legal-basis card during legal review.",
+    "legalBasisNote": "Procedural note",
+    "usage": "References",
+    "requestsCount": "{count} requests",
+    "rulesCount": "{count} workflow rules",
+    "empty": "No request types yet.",
+    "saveFailed": "Could not save. Please try again.",
+    "deleteFailed": "Could not delete.",
+    "documents": {
+      "title": "Required documents",
+      "sourceNote": "Transcribed from the manual's mandatory-documents matrix — check the source before editing.",
+      "add": "Add document",
+      "empty": "No documents recorded for this type.",
+      "show": "Documents ({count})",
+      "nameAr": "Document name (Arabic)",
+      "nameEn": "Document name (English)",
+      "group": "Group",
+      "groups": {
+        "basic": "Shared basic documents",
+        "specific": "Documents specific to this type"
+      },
+      "conditionAr": "Condition (Arabic)",
+      "conditionEn": "Condition (English)",
+      "conditionHint": "Leave blank when the document is always required."
+    }
+  },
   "users": {
     "title": "Users",
     "add": "Add user",

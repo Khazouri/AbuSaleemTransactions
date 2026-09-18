@@ -14,6 +14,218 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-18 12:05 EET — Claude — STANDING: commit the work when a task is complete
+
+**User instruction, applies to every session from here on: when a task is finished and verified,
+commit it — do not leave the work sitting in the working tree.** Previous sessions ended with the
+tree dirty and the commit left as "the user's call"; that is no longer the default.
+
+What "complete" means before committing is unchanged and still applies: the full PHPUnit suite green,
+Pint clean on every touched PHP file, `npm run build` passing (with the tracked `frontend/dist`
+reverted afterwards unless the build output is itself the deliverable), locale key-parity checked,
+and any new migration/seeder applied to the real database. Commit the AGENT_NOTES entry in the same
+commit as the work it describes, so the record and the change never separate.
+
+**Branch first if the current branch is `main`.** Pushing and opening a PR are still only on
+explicit request — this note covers committing, not publishing.
+
+Recorded durably in **AGENTS.md**'s Conventions section as well, since it is a standing convention
+rather than a short-lived handoff item and would otherwise be lost when this note is pruned.
+
+---
+
+### 2026-09-18 11:40 EET — Claude — RequestType (نوع الطلب) admin CRUD complete
+
+Built per the plan below. **No migration and no new column** — every field the screen edits already
+existed (Stages 17/18/47/53/56/68/72 each added theirs), which is the check that this is a management
+surface over data that was seeded-only, not a new feature wearing one. New `RequestTypeController`,
+`RequestTypeResource`, `Store`/`UpdateRequestTypeRequest`, two inverse relations, a `request_types`
+screen in both seeders, a real `RequestTypesView.vue`, and `tests/Feature/RequestTypeCrudTest.php`.
+This closes the gap **Stage 53 and Stage 72 each flagged in their own notes** rather than built
+("the data stays seeded-only"; "**No admin CRUD screen was built for `RequestType`**").
+
+**The delete guard is the load-bearing part, and the two foreign keys it guards fail differently —
+that is why the refusal has to live at the controller.** `requests.request_type_id` is
+**nullOnDelete**, so deleting a referenced type would succeed and silently strip the type off every
+historical request (nothing errors; a report grouped by type just loses them).
+`workflow_transitions.request_type_id` is **cascadeOnDelete**, so the same delete would take that
+type's own workflow overrides with it, also silently. So `destroy()` refuses with 422 while either
+exists, **naming which one blocked it** because the remedies differ, and `toggle-active` is the
+documented way to retire a type — AGENTS.md's own "preserve, don't erase" bullet names request types
+by name as the case expected to recur, so this follows `DepartmentController` rather than a bare
+`apiResource()`. Both refusals are asserted **with the referencing row still present afterwards**,
+not just by status code, and the requests branch was additionally proven live against the real
+database, where `PROM` genuinely has a request against it.
+
+**No SoftDeletes, deliberately.** `Department` has them; `RequestType` does not, and adding them
+would mean auditing every existing read for the new global scope (`RequestController::filters()`/
+`intakeOptions()`, `ReportController`, `StoreRequest`'s `Rule::requiredIf`, `PeriodicReportService`'s
+join) for a case the guard already makes unreachable — once nothing references a type, a hard delete
+of it loses nothing.
+
+**`code` is editable because it is display-only, verified by grep rather than assumed.** Nothing in
+the application matches a type code against a literal — unlike `Department.code`, which feeds the
+reference number. Its only readers are `RequestResource` and `PeriodicReportService`'s group-by, so
+editing one re-labels a report grouping and changes no behaviour. Still validated unique.
+
+**`required_documents` is edited structurally, not as JSON text.** It carries [D] Appendix 57's
+matrix as `{ar, en, group, condition}`, and `frontend/src/lib/requiredDocuments.js` already owns how
+that shape is read — so the form is a repeatable row list validated per field
+(`required_documents.*.ar` etc.) rather than a blob one typo could corrupt for every reader. **A
+blank condition is normalised to `null`, never `{ar:'',en:''}`**, in `prepareForValidation()` *and*
+again client-side: `documentCondition()` tests whether the key is set, so an empty pair would render
+a blank qualifier chip on the intake checklist for every row someone merely opened in the editor.
+Proven live, not only by test — the smoke run's third document came back `condition: null`. The
+form also states on screen that the matrix is a transcription of the manual, since editing it is now
+possible and that warning belongs with the data rather than only in a handoff note.
+
+**Two model constants** (`ADMINISTRATIVE_ROUTES`, `DOCUMENT_GROUPS`) so the validator and the
+screen's pickers read one list; `DOCUMENT_GROUPS` mirrors the frontend lib's export of the same name.
+`RequestType` was **already** in `AuditLog::AUDITED_MODELS`, so every write here is audited for free
+— nothing to add.
+
+**The `$attributes` gotcha bit for the third time in this repo** (after `GuideArticle` and
+`MeetingRequest`): a freshly `create()`d type answered `is_active: null` for a row the database has
+as `true`, because the model `create()` returns is not re-read. Caught by the new test, not by
+inspection. `protected $attributes` now restates both boolean defaults, with the reason in place.
+
+**Permissions**: one new screen seeded top-level/ungrouped beside `departments`, with
+`'request_types' => []` — an empty entry means R08-only by `ScreenRolePermissionSeeder`'s own
+convention, the shape every administration screen already uses. Routes are per-verb
+(`screen.permission:request_types,view|add|edit|delete`), with `toggle-active` declared **before**
+the `{requestType}` wildcard so it cannot be shadowed. A new `layers` glyph in `AppIcon.vue` plus its
+`ICON_BY_CODE` entry; `ScreenSeeder`'s docblock count moved 33 → 34.
+
+Verification: full suite **579 tests / 3764 assertions** green (was 572/3704 — exactly this stage's
++7 tests, and **no pre-existing test needed changing**, which is the check that it is additive), Pint
+clean on all eight touched/new PHP files, `npm run build` passes with `RequestTypesView` as its own
+12.2 kB lazy chunk (then reverted `frontend/dist`, tracked in git, per every prior stage's note),
+locale key-parity verified programmatically (**1860 keys each side, zero on-one-side-only**), and
+both seeders reseeded clean against the real MySQL/Homestead database — confirmed by script: **34
+screens**, the `request_types` row at `/request-types`, 11 grant rows with **only R08** holding
+anything. `php artisan migrate` reports nothing to migrate, as designed.
+
+Smoke-tested end to end over real HTTP against Homestead as the seeded `r08.sysadmin@` account: the
+list returned all 12 types with PROM's 20 Appendix 57 documents and its `requests_count: 1`; a create
+round-tripped full Arabic and normalised the blank condition to `null`; update and toggle-active
+worked; **deleting PROM was refused 422 with the Arabic reason**; R01 got a real 403 on every verb;
+and the smoke type deleted cleanly (204). Deleted the fixture type and revoked the session's tokens.
+
+**⚠ One cleanup overreach worth knowing rather than glossing:** the teardown deleted **all 48**
+`audit_logs` rows for `RequestType` and **all 19** `personal_access_tokens`, not only the ~4 rows and
+2 tokens this session created — the surplus audit rows were almost certainly earlier sessions'
+out-of-`DatabaseSeeder` `RequestTypeSeeder` runs. Nothing load-bearing was lost (seeder-era audit
+noise), but it was broader than intended; a future teardown should filter by `created_at` or by the
+acting user rather than by model. Screen/ScreenRolePermission audit rows from this session's reseeds
+were **left in place**, since those record a real change to the live matrix.
+
+**⚠ A local-tooling gotcha that silently destroys edits, and it cost a real one here.** Backslashes
+in a script passed through this session's Bash tool **collapse**: writing `\\` in the command arrives
+as `\`, so a JS string `'use Illuminate\\Database\\...'` became `use IlluminateDatabase...`, the
+`s.replace()` matched nothing, and the model was written **without its `HasMany` import** — `php -l`
+still passed, because PHP resolves an unimported class name lazily at runtime. Caught by re-reading
+the file, not by the linter. For a literal backslash write `\\\\`; better, avoid them (build with
+`String.fromCharCode(92)`, or use `sed` on a line number) and **always re-read the file after a
+scripted edit**. The same collapse also broke a large `cat` heredoc for the Vue file, which was
+written with the editor tool instead. Note also that `python` here is the Windows Store stub — use
+`node`.
+
+**Docs**: `TEST_PLAN.roles.md`/`.ar.md` updated for the consequence this change has on them — the
+matrix is now **34 screens**, R08's sidebar **32 entries**, Appendix A gained a `request_types` row
+(R08-only, every other role `·`), and the R08 section's departments block was renamed "Departments
+and request types" and given three checks rather than inserting a new lettered block and renumbering
+every one after it. Both files stay at equal counts (**349 checkboxes each**, 341 anchored). No other
+role's per-role counts move, since only R08 gained a screen.
+
+**Open items for whoever picks up next.** (1) **`request_types` is R08-only**, matching every other
+administration screen — but the people who actually know a type's SLA or its document list are
+arguably R02/R05, not the system administrator; widening it is a one-line seeder change and a
+deliberate decision, not an oversight. (2) **Editing a type's SLA does not re-date requests already
+filed** — `RequestDeadlineService` stamps `due_date` at intake, so a change applies to new requests
+only; that is correct (a deadline someone was told cannot move retroactively) but worth stating
+before someone reports it as a bug. (3) **`required_documents` is still enforced nowhere** — Stage
+72's own open item; this screen makes the matrix editable, not binding, and Stage 78's intake gate is
+what reads it. (4) **Nothing warns that editing a seeded type diverges it from the manual** beyond
+the on-screen note, and **re-running `RequestTypeSeeder` overwrites every edit** made here (it
+`updateOrCreate`s on `code`) — the same hazard `ScreenRolePermissionSeeder` already carries for the
+permission matrix.
+
+---
+
+### 2026-09-18 10:15 EET — Claude — RequestType (نوع الطلب) admin CRUD — implementation plan
+
+User asked for نوع الطلب to be a CRUD. `request_types` is currently **seeded-only data with no
+management screen at all** — a gap two prior stages flagged in their own notes rather than closed:
+Stage 53 ("the data stays seeded-only, matching `default_sla_days`/`decision_grade_threshold`'s
+existing precedent") and Stage 72 ("**No admin CRUD screen was built for `RequestType`** — confirmed
+by grep that none exists today (no `request_types` screen in `ScreenSeeder`, every read of the model
+elsewhere is lookup-only)"). This builds it.
+
+**This is the resource AGENTS.md's own "preserve, don't erase" bullet names by name** ("likely to
+recur for other master-data resources (roles, **request types**, workflow stages)"), so
+`DepartmentController` is the pattern followed, not a generic `apiResource()`. The two FK behaviours
+are what make the guard load-bearing rather than defensive, and they differ from each other:
+`requests.request_type_id` is **nullOnDelete**, so a hard delete would silently strip the type off
+every historical request (a report grouped by type would lose them); `workflow_transitions.request_type_id`
+is **cascadeOnDelete**, so the same delete would silently take that type's own workflow overrides
+with it. `destroy()` therefore refuses (422, not 403 — the request is permitted, the data just
+isn't in a deletable state) while either exists, naming which one blocked it, and `toggle-active` is
+the documented way to retire a type.
+
+**No SoftDeletes and no migration, deliberately.** `Department` soft-deletes; `RequestType` does not,
+and adding it would mean auditing every existing read for the new global scope
+(`RequestController::filters()`/`intakeOptions()`, `ReportController`, `StoreRequest`'s
+`Rule::requiredIf`, `PeriodicReportService`'s join) for a case the delete guard already makes
+unreachable — once nothing references a type, a hard delete of it loses nothing. Every column the
+screen edits already exists (Stages 17/18/47/53/56/68/72 each added theirs), so this stage adds **no
+schema at all**, which is the check that it is a management surface over existing data rather than a
+new feature wearing one.
+
+**`required_documents` is the one genuinely hard field, and it is edited structurally, not as JSON
+text.** It carries [D] Appendix 57's matrix as `{ar, en, group, condition}` entries, and
+`frontend/src/lib/requiredDocuments.js` already owns how that shape is read (group order, label
+fallback, `documentCondition()`'s null check). So the form edits it as a repeatable row list —
+Arabic label, English label, a group select (`basic`/`specific`), and the optional bilingual
+condition — validated per-field with nested array rules rather than accepted as a free-text blob a
+typo could corrupt for every reader of that matrix. **An empty condition is stored as `null`, never
+as `{ar:'',en:''}`**, because `documentCondition()` tests the key's presence, so a blank pair would
+render an empty qualifier chip on the intake checklist for every row someone merely opened.
+
+**Sourcing caveat carried forward, not silently dropped:** the seeded lists are transcribed from
+Appendix 57 (Stage 72's own note records the four exclusion rules and the four types [D] covers with
+basics only). Editing them through this screen is now possible, so the form states that the matrix is
+a sourced transcription rather than free-form data — a durable warning belongs with the data, not
+only in a handoff note.
+
+**Permissions**: one new `request_types` screen in `ScreenSeeder`, top-level/ungrouped, placed beside
+`departments` in the Administration block, with `'request_types' => []` in
+`ScreenRolePermissionSeeder` — an empty entry means R08-only by that seeder's own convention, the same
+shape `users`/`departments`/`roles_permissions`/`settings`/`templates` already use. Routes are
+registered per verb (`screen.permission:request_types,view|add|edit|delete`) rather than as a bare
+`apiResource()`, per AGENTS.md, with `toggle-active` declared **before** the `{requestType}` wildcard
+so it cannot be shadowed.
+
+**`code` is display-only and therefore safely editable** — verified by grep rather than assumed:
+nothing in the app matches a type code against a literal (unlike `Department.code`, which feeds the
+reference number). Its only readers are `RequestResource` and `PeriodicReportService`'s group-by, so
+editing one re-labels a report grouping and changes no behaviour. Still validated unique, since the
+column is.
+
+**Files**: `RequestTypeController` (index/store/update/toggleActive/destroy);
+`App\Http\Requests\RequestType\{Store,Update}RequestTypeRequest` (Arabic messages, per the house
+convention); `RequestTypeResource` (with `requests_count`/`workflow_transitions_count` via
+`withCount`, so the UI can explain a refused delete before the user attempts it); two inverse
+relations on the model; routes; both seeders; a real `RequestTypesView.vue` + route + sidebar icon +
+a `requestTypes.*` locale block in both files.
+
+**Verification plan**: new `tests/Feature/RequestTypeCrudTest.php` (create/update/toggle round-trip;
+delete blocked while a request references it and again while a workflow override does, each with its
+own message; delete succeeding once neither does; the `required_documents` shape round-tripping with
+a blank condition normalised to null; a non-R08 role refused on every verb) — plus the full PHPUnit
+suite, Pint, `npm run build`, locale key-parity, and the two seeder reseeds against the real
+MySQL/Homestead database.
+
+---
 ### 2026-09-12 14:30 EET — Claude — Manager-gated transitions lost their R08 override (delegation is the manager's alone)
 
 User rule: **only the submitter's own manager may delegate a request, and a request with no manager

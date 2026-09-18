@@ -66,6 +66,7 @@ const ICON_BY_CODE = {
   ministry_approval: 'check-square',
   final_approval: 'check-square',
   users: 'users',
+  request_types: 'layers',
   roles_permissions: 'shield',
   settings: 'settings',
   reports: 'bar-chart',

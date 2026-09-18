@@ -210,6 +210,16 @@ Key architectural facts worth knowing before changing things:
   belongs to, e.g. `// Stage 6 — department tree management.` (see the
   `departments` route in `frontend/src/router/index.js` for the pattern).
   This keeps the stage-by-stage build-out traceable in the code itself.
+- **Commit finished work**: when a task is complete and verified, commit
+  it rather than leaving it in the working tree for the user to deal with.
+  "Verified" means the full PHPUnit suite green, Pint clean on every touched
+  PHP file, `npm run build` passing (then reverting the tracked
+  `frontend/dist` unless the build output is the deliverable), locale
+  key-parity checked, and any new migration/seeder applied to the real
+  database. Put the AGENT_NOTES.md entry in the same commit as the work it
+  describes, so the record and the change cannot drift apart. Branch first if
+  the current branch is `main`. Pushing and opening a PR stay on explicit
+  request — this covers committing only.
 
 ## Build / run / test commands
 

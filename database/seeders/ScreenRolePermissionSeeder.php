@@ -175,6 +175,7 @@ class ScreenRolePermissionSeeder extends Seeder
         // Administration: empty array = R08 only.
         'users' => [],
         'departments' => [],
+        'request_types' => [],
         'roles_permissions' => [],
         'settings' => [],
         'templates' => [],
