@@ -41,6 +41,31 @@ class Attachment extends Model
         'closure' => 'مستندات الإقفال',
     ];
 
+    /**
+     * The folders a request's own submitter may file into at intake.
+     *
+     * Appendix 14's twelve span the file's whole life, and most of them name
+     * artifacts the committee cycle produces long after the employee has
+     * filed — مذكرة العرض، المحضر والقرار، الاعتماد، التنفيذ، الإشعارات.
+     * Offering those to a submitter invites a wrong classification, which is
+     * worse than a coarse one for a scheme whose purpose is retrieval.
+     *
+     * الإحالات is excluded for the reason Stage 72 already established: this
+     * system records an إحالة as a workflow transition, not as a document, so
+     * no type's checklist asks for one. An earlier decision attached under
+     * Appendix 16's استكمال لقرار سابق belongs in المستندات المؤيدة — the
+     * المحضر والقرار folder holds *this* file's own محضر, not a previous
+     * file's.
+     *
+     * AttachmentController::store() deliberately keeps the full list: R02-R05
+     * upload genuine later-cycle documents through it.
+     */
+    public const SUBMITTER_FILE_SECTIONS = [
+        'request',
+        'service_file',
+        'supporting_documents',
+    ];
+
     protected $guarded = [];
 
     /** The appendix's own Arabic folder name, or غير مصنف for a legacy row. */

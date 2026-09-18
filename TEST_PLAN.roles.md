@@ -142,8 +142,8 @@ when it appears at step 5 — later sections call it **REQ-A**.
 | 1 | R01 employee | استلام الطلب (`/requests/create`) | Fill and submit | Stage 2 `مراجعة الطلب من المدير المباشر`, status `قيد المراجعة` |
 | 2 | R02 **as manager** | Request detail | `forward` | Stage 3 `إحالة الطلب لأحد المسارات الإدارية` |
 | 3 | R02 **as manager** | Request detail | `route_to_hr` | Stage 4 `الاستلام والتسجيل`, status `موجّه إلى الموارد البشرية` |
-| 4 | R05 manager | Request detail | `register` | Stage 5 `فحص استيفاء المتطلبات`, status `قيد المراجعة` |
-| 5 | R02 reviewer | Request detail | Record the jurisdiction test **and** the intake gate, then `approve` with a signature | Stage 6 `مراجعة المقرر`, status `تم التسجيل` — **and the `PM-COM/YYYY/NNNN` reference number is granted here, not at intake** |
+| 4 | R05 manager | Request detail | `register` | Stage 5 `فحص استيفاء المتطلبات`, status `تم التسجيل` — **the قيد: `PM-COM/YYYY/NNNN` is granted here and the submitter is notified** |
+| 5 | R02 reviewer | Request detail | Record the jurisdiction test **and** the intake gate, then `approve` with a signature | Stage 6 `مراجعة المقرر`, status `تم التسجيل` — **the reference number does not change here** |
 | 6 | R02 reviewer | Request detail | `forward` | Stage 7 `إبداء الملاحظات` |
 | 7 | R02 reviewer | Request detail | `forward` | Stage 8 `تحويل الطلب للجنة`, status `جاهزة` |
 | 8 | R05 manager | Request detail | `forward` | Stage 9 `استلام الطلب من اللجنة`, status `في الاجتماع` |
@@ -206,8 +206,9 @@ Sign in as `r01.employee@abusaleem.test`.
 - [ ] On success the screen shows an **intake receipt** `PM-RCV/YYYY/NNNNNN` and states in as many
       words that this is a receipt and **not** a قيد with the committee.
 - [ ] The new request's `reference_number` is **null** — no `PM-COM/...` number yet. [D] Art. 15 is
-      explicit that handing a request to the direct manager "لا يعد قيدًا", and Art. 20 grants the
-      رقم إشاري only after completeness is established (relay step 5).
+      explicit that handing a request to the direct manager "لا يعد قيدًا". The رقم إشاري is granted
+      when the receiving body registers the file (relay step 4), and the submitter receives a
+      `reference_assigned` notice naming the superseded receipt and the new reference.
 - [ ] The request appears at stage 2 `مراجعة الطلب من المدير المباشر`, not stage 1.
 
 **B2 — The duplication rule ([D] Appendix 16).**
@@ -347,7 +348,7 @@ Sign in as `r02.reviewer@abusaleem.test`.
       the source marks conditional may be answered `لا ينطبق`; an unconditional one may **not** —
       try waiving one and confirm it is refused naming the document.
 - [ ] With both recorded, `approve` **with a signature** succeeds → stage 6, status `تم التسجيل`,
-      and the request is granted `PM-COM/YYYY/NNNN`.
+      and the request keeps the `PM-COM/YYYY/NNNN` it was granted at step 4, unchanged.
 - [ ] `approve` **without** a signature is refused (approval level 1 requires one).
 - [ ] Send the file back with `return_missing_docs`, then walk it forward again through the whole
       chain: on the second pass through stage 5 the reference number is **unchanged** — [D] Art. 99

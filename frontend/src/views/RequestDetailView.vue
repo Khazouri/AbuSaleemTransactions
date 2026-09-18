@@ -448,9 +448,11 @@ onBeforeUnmount(clearAttachmentPreview)
     <template v-else-if="request">
       <header class="heading">
         <div>
-          <!-- Stage 70 — a request before the قيد (Art. 20) genuinely has
-               no reference number; its intake receipt is the only handle that
-               exists, and labelling it as such keeps the two distinct. -->
+          <!-- A request before the قيد genuinely has no reference number; its
+               intake receipt is the only handle that exists, and labelling it
+               as such keeps the two distinct. The قيد is now the receiving
+               body's own `register` action, so this falls back for one stage
+               fewer than it used to. -->
           <p class="reference ltr">{{ request.reference_number || request.intake_receipt_number || `#${request.id}` }}</p>
           <p v-if="!request.reference_number && request.intake_receipt_number" class="reference-hint">{{ t('requestDetail.awaitingRegistration') }}</p>
           <h2>{{ request.title }}</h2>
@@ -921,7 +923,11 @@ onBeforeUnmount(clearAttachmentPreview)
           <li v-for="notice in request.employee_notices" :key="notice.id">
             <div class="notice-head">
               <strong>{{ noticeText(notice, 'title') }}</strong>
-              <span class="notice-moment">{{ t('employeeNotices.moment', { number: notice.moment_number }) }}</span>
+              <!-- `reference_assigned` is not one of Art. 101's twelve
+                   moments, so it carries no moment number; label it by its
+                   event instead of rendering "Moment undefined". -->
+              <span v-if="notice.moment_number" class="notice-moment">{{ t('employeeNotices.moment', { number: notice.moment_number }) }}</span>
+              <span v-else class="notice-moment">{{ t(`notifications.events.${notice.event_type}`) }}</span>
               <span class="notice-date">{{ dateTime(notice.sent_at) }}</span>
             </div>
             <p>{{ noticeText(notice, 'body') }}</p>

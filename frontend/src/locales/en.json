@@ -592,7 +592,7 @@
     "loadFailed": "The intake form options could not be loaded.",
     "successTitle": "Request created",
     "successBody": "The request has entered the official track. Its intake receipt number is:",
-    "receiptNotice": "This is an intake receipt, not a registration with the Employee Affairs Committee. The committee reference number is granted once the file is confirmed complete.",
+    "receiptNotice": "This is an intake receipt, not a registration with the Employee Affairs Committee. The committee reference number is granted when the receiving body registers the file, and you will be notified when it is.",
     "createAnother": "Enter another request",
     "viewQueue": "View request queue",
     "requiredDocuments": {
@@ -602,7 +602,8 @@
         "basic": "Shared basic documents",
         "specific": "Documents specific to this type"
       }
-    }
+    },
+    "classifyFiles": "Classify every attached document before submitting the request."
   },
   "approvals": {
     "subtitle": "Only requests currently waiting at this checkpoint appear here.",
@@ -665,7 +666,7 @@
   },
   "requestDetail": {
     "back": "Back to request list",
-    "awaitingRegistration": "Intake receipt — not yet registered with the committee.",
+    "awaitingRegistration": "Intake receipt — the receiving body has not registered this file yet.",
     "currentStage": "Current stage",
     "submittedAt": "Submitted",
     "dueDate": "Due date",
@@ -1750,7 +1751,7 @@
       "route_to_hr": "Route to HR",
       "route_to_diwan": "Route to Diwan Deputy",
       "route_to_committee_secretary": "Route to Committee Secretary",
-      "register": "Register receipt",
+      "register": "Register the file and grant its reference number",
       "return_to_employee": "Return to employee",
       "reject_formally": "Formal rejection with reason",
       "reject_by_committee": "Non-approval with reason",
@@ -1868,7 +1869,8 @@
       "financial_impact_review": "Financial impact review",
       "appeal_decided": "Appeal result",
       "delay_escalation": "Request delay escalation",
-      "request_notice": "Request notice (Art. 101)"
+      "request_notice": "Request notice (Art. 101)",
+      "reference_assigned": "Reference number assigned"
     }
   },
   "employeeNotices": {
@@ -1949,7 +1951,7 @@
     "cancel": "Cancel",
     "error": "The action could not be completed.",
     "intake": {
-      "title": "Gate 1 — before registration",
+      "title": "Gate 1 — before referral for review",
       "question": "Are the facts and documents correct and complete?",
       "action": "Record the file check",
       "reviseAction": "Revise the file check",

@@ -146,6 +146,9 @@ class RequestIntakeTest extends TestCase
                 'attachments' => [[
                     'file' => UploadedFile::fake()->create('promotion.pdf', 120, 'application/pdf'),
                     'label' => 'قرار الترقية',
+                    // [D] Appendix 14 is now required per attachment at intake,
+                    // not only on the later AttachmentController path.
+                    'file_section' => 'supporting_documents',
                 ]],
             ], ['Accept' => 'application/json']);
 
@@ -153,11 +156,11 @@ class RequestIntakeTest extends TestCase
         // one additional system hop into direct_manager_review in the same
         // request, so the request created here is never actually left
         // sitting at receive_from_municipality.
-        // Stage 70 — intake no longer mints a reference number: [D] Art. 15
-        // says handing the request over "لا يعد ... قيدًا", and Art. 20 grants
-        // the رقم إشاري only after completeness. The employee gets a receipt
-        // instead; the reference appears at requirements_check -> approve
-        // (proved end to end in UnifiedNumberingTest).
+        // Intake mints no reference number: [D] Art. 15 says handing the
+        // request over "لا يعد ... قيدًا". The employee gets a receipt
+        // instead; the reference appears when the receiving body registers
+        // the file (proved end to end in UnifiedNumberingTest), and the
+        // submitter is told when it does.
         $response->assertCreated()
             ->assertJsonPath('data.reference_number', null)
             ->assertJsonPath('data.intake_receipt_number', 'PM-RCV/'.now()->format('Y').'/000001')
@@ -199,7 +202,77 @@ class RequestIntakeTest extends TestCase
 
         $attachment = Attachment::firstOrFail();
         $this->assertSame('قرار الترقية', $attachment->label);
+        $this->assertSame('supporting_documents', $attachment->file_section);
         Storage::disk('local')->assertExists($attachment->path);
+    }
+
+    /**
+     * [D] Appendix 14: "ويمنع حفظ الملفات بصورة عشوائية دون تصنيف". Intake was
+     * the one write path that still produced an unclassified attachment, so
+     * an unclassified file now refuses the whole submission rather than being
+     * stored as غير مصنف.
+     */
+    public function test_intake_refuses_an_attachment_with_no_file_section(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Storage::fake('local');
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $department = Department::where('code', 'ADM')->firstOrFail();
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
+
+        $this->actingAs($admin, 'sanctum')
+            ->post('/api/requests', [
+                'title' => 'طلب بمرفق غير مصنف',
+                'department_id' => $department->id,
+                'request_type_id' => $type->id,
+                'decision_grade' => 11,
+                'attachments' => [[
+                    'file' => UploadedFile::fake()->create('unclassified.pdf', 60, 'application/pdf'),
+                ]],
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('attachments.0.file_section');
+
+        // The refusal is the whole submission, not just the document: a
+        // request saved without its file would be worse than neither.
+        $this->assertSame(0, Request::count());
+        $this->assertSame(0, Attachment::count());
+    }
+
+    /**
+     * The submitter is offered only the folders their own file can be in.
+     * Appendix 14's later-cycle folders (مذكرة العرض، المحضر والقرار،
+     * الاعتماد …) are artifacts the committee produces, so naming one here is
+     * refused even though AttachmentController still accepts it from the
+     * roles that genuinely upload those documents.
+     */
+    public function test_intake_refuses_a_committee_cycle_file_section(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Storage::fake('local');
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $department = Department::where('code', 'ADM')->firstOrFail();
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
+
+        // Valid on the AttachmentController path, refused on this one.
+        $this->assertArrayHasKey('minutes_decision', Attachment::FILE_SECTIONS);
+        $this->assertNotContains('minutes_decision', Attachment::SUBMITTER_FILE_SECTIONS);
+
+        $this->actingAs($admin, 'sanctum')
+            ->post('/api/requests', [
+                'title' => 'طلب بتصنيف لا يخص مقدم الطلب',
+                'department_id' => $department->id,
+                'request_type_id' => $type->id,
+                'decision_grade' => 11,
+                'attachments' => [[
+                    'file' => UploadedFile::fake()->create('decision.pdf', 60, 'application/pdf'),
+                    'file_section' => 'minutes_decision',
+                ]],
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('attachments.0.file_section');
+
+        $this->assertSame(0, Attachment::count());
     }
 
     /**

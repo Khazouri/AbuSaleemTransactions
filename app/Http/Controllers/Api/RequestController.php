@@ -114,9 +114,12 @@ class RequestController extends Controller
 
         $stageCode = $requestRecord->currentStage()->value('code');
 
-        // بوابة 1 — قبل القيد. This hop is where Art. 20's رقم إشاري is minted
-        // (Stage 70), so it is the entry to the committee track Appendix 63
-        // guards.
+        // بوابة 1. Appendix 63 calls it "قبل القيد", but since the قيد moved
+        // to the receiving body's `register` action the file is already
+        // numbered by the time it gets here; this hop is now the entry to the
+        // rapporteur's substantive review, which is the boundary this gate can
+        // actually guard. See IntakeGateService's docblock for why it could
+        // not move with the قيد.
         if ($stageCode === IntakeGateService::GATED_STAGE) {
             return app(IntakeGateService::class)->refusalReason($requestRecord);
         }
@@ -246,13 +249,15 @@ class RequestController extends Controller
                 $submittedAt = now();
 
                 $requestRecord = Request::create([
-                    // Stage 70 — [D] Art. 15: handing a request to the direct
-                    // manager "لا يعد ... قيدًا للموضوع لدى لجنة شؤون الموظفين",
-                    // and Art. 20 grants the رقم إشاري only "بعد ثبوت اكتمال
-                    // الملف". So intake mints NO reference_number at all; the
-                    // employee gets a receipt instead, and WorkflowService
-                    // allocates the real reference when the file reaches
-                    // Art. 38's status 06.
+                    // [D] Art. 15: handing a request to the direct manager
+                    // "لا يعد ... قيدًا للموضوع لدى لجنة شؤون الموظفين". So
+                    // intake mints NO reference_number at all; the employee
+                    // gets a receipt instead, and WorkflowService allocates
+                    // the real reference when the file reaches Art. 38's
+                    // status 06 — which is now the receiving body's own
+                    // `register` action. The submitter is told when that
+                    // happens (NotificationDispatcher::referenceAssigned),
+                    // because this receipt number stops identifying the file.
                     'intake_receipt_number' => $numbers->nextIntakeReceipt(),
                     'title' => $data['title'],
                     'description' => $data['description'] ?? null,
@@ -286,6 +291,10 @@ class RequestController extends Controller
                         'mime_type' => $file->getMimeType(),
                         'size_bytes' => $file->getSize(),
                         'label' => $data['attachments'][$index]['label'] ?? null,
+                        // [D] Appendix 14's folder, chosen by the submitter:
+                        // required by StoreRequest, so this is never null on a
+                        // row written through intake.
+                        'file_section' => $data['attachments'][$index]['file_section'],
                         'uploaded_by_user_id' => $request->user()->id,
                     ]);
                 }
@@ -1140,12 +1149,21 @@ class RequestController extends Controller
         return DatabaseNotification::query()
             ->where('notifiable_type', User::class)
             ->where('notifiable_id', $requestRecord->created_by_user_id)
-            ->where('data->event_type', 'request_notice')
+            // Both kinds, because this card answers "what was this employee
+            // actually told about this file" and leaving one out makes that
+            // answer wrong. `reference_assigned` is not one of Art. 101's
+            // twelve moments, so it carries a null `moment`/`moment_number`
+            // — its payload otherwise mirrors RequestNoticeNotification's
+            // shape precisely so this one mapper serves both.
+            ->whereIn('data->event_type', ['request_notice', 'reference_assigned'])
             ->where('data->request_id', $requestRecord->getKey())
             ->oldest('created_at')
             ->get()
             ->map(fn (DatabaseNotification $notice): array => [
                 'id' => $notice->id,
+                // Carried so the screen can label a notice that has no Art.
+                // 101 moment number instead of rendering a blank.
+                'event_type' => $notice->data['event_type'] ?? null,
                 'moment' => $notice->data['moment'] ?? null,
                 'moment_number' => $notice->data['moment_number'] ?? null,
                 'title_ar' => $notice->data['title_ar'] ?? null,

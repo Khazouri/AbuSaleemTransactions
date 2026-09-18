@@ -109,9 +109,11 @@ class RequirementsCheckJurisdictionTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $reviewer = $this->userWithRole('R02');
 
-        // Stage 78 — the قيد hop is gated on Appendix 63's بوابة 1 too, and
-        // only that hop is: declaring عدم اختصاص or refusing formally does not
-        // grant a قيد, so neither needs the documents complete first.
+        // Stage 78 — this hop alone is gated on Appendix 63's بوابة 1:
+        // declaring عدم اختصاص or refusing formally does not send the file on
+        // to the rapporteur's review, so neither needs the documents complete
+        // first. (The gate is no longer "before the قيد" — that moved to the
+        // receiving body's own register action; see IntakeGateService.)
         $approved = $this->passIntakeGate(
             $this->requestAt('requirements_check', 'in_review', jurisdictionTest: $this->answers()),
         );
@@ -122,8 +124,9 @@ class RequirementsCheckJurisdictionTest extends TestCase
             ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.current_stage.code', 'reviewer_review')
-            // Stage 70 — passing the completeness check is the قيد (Art. 20),
-            // Art. 38's code 06.
+            // Art. 38's code 06, re-stamped: the file was already registered
+            // and numbered when the receiving body accepted it, and passing the
+            // completeness check keeps it in that band.
             ->assertJsonPath('data.status.code', 'registered');
 
         $referred = $this->requestAt('requirements_check', 'in_review', jurisdictionTest: $this->answers());

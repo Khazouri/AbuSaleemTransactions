@@ -159,11 +159,19 @@ class EmployeeNoticeService
      * otherwise be guesses:
      *
      *  - `registered` reached having previously held a نواقص status is not a
-     *    second استلام. Art. 20 grants the قيد once (Art. 99, and Stage 70
-     *    enforces it by only ever minting a reference number when there is
-     *    none), but a file returned on `return_missing_docs` re-walks the chain
-     *    and reaches `registered` again — which is literally moment 3, the
-     *    completeness re-check passing.
+     *    second استلام. The قيد is granted once (Art. 99, enforced by only
+     *    ever minting a reference number when there is none), but a file
+     *    returned on `return_missing_docs` re-walks the chain and reaches
+     *    `registered` again — which is moment 3, اكتمال النواقص.
+     *
+     *    Since the قيد moved to the receiving body's acceptance, that second
+     *    arrival happens when the completed file is RE-REGISTERED, not when
+     *    the rapporteur re-examines it. Moment 3 therefore announces the
+     *    material's arrival rather than a verified completeness, and
+     *    RequestNoticeNotification's body is worded that way on purpose. It is
+     *    a known imprecision against Art. 101, recorded in AGENT_NOTES.md:
+     *    moment 3 has no status of its own to key off, so tightening it is a
+     *    logic change rather than a wording one.
      *  - leaving `completion_required` for a working status is the same news
      *    from the committee's side.
      */

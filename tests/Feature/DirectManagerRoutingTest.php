@@ -163,9 +163,10 @@ class DirectManagerRoutingTest extends TestCase
         $hrRegistrar = $this->userWithRole('R05');
         $moved = $service->transition($requestRecord->refresh(), 'register', $hrRegistrar);
         $this->assertSame('requirements_check', $moved->currentStage->code);
-        // Stage 70 — arriving at the completeness check is Art. 38's code 04,
-        // not 06: `registered` moved to the approve hop out of this stage.
-        $this->assertSame('in_review', $moved->status->code);
+        // Registering IS the قيد, so accepting the file lands it on Art. 38's
+        // code 06 and mints its رقم إشاري — see UnifiedNumberingTest.
+        $this->assertSame('registered', $moved->status->code);
+        $this->assertNotNull($moved->reference_number);
 
         // And the reverse pairing (R05 attempting a Diwan-routed file) is
         // equally refused, confirming this isn't a one-way accident.

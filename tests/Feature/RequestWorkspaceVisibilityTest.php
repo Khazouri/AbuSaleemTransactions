@@ -123,11 +123,13 @@ class RequestWorkspaceVisibilityTest extends TestCase
     /**
      * Stage 83 — the reference number is now deliberately null.
      *
-     * Every request in this file sits in the intake half (before Art. 20's
-     * قيد), and since Stage 70 such a request genuinely has no رقم إشاري: it
-     * is minted only on the `requirements_check → approve` hop. The old
-     * fixture minted one anyway, in the `YYYY-DEPT-NNNNNN` scheme Stage 70
-     * deleted the generator for — a state real data cannot be in. That matters
+     * Every request in this file sits in the intake half, before the قيد, and
+     * such a request genuinely has no رقم إشاري: it is minted only when the
+     * receiving body registers the file, which is past every stage used here.
+     * The old fixture minted one anyway, in the `YYYY-DEPT-NNNNNN` scheme
+     * Stage 70 deleted the generator for — a state real data cannot be in.
+     * Keep it null: it is what isolates the assignment branch from Stage 83's
+     * Art. 20 branch, and a non-null reference here changes `meta.total`. That matters
      * here because Stage 83 bounds the rapporteur's own reach by exactly that
      * line, so a fixture with an impossible reference would have made this test
      * assert privacy for a request the system would never actually produce.

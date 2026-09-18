@@ -20,6 +20,7 @@ use App\Notifications\RequestCreatedNotification;
 use App\Notifications\RequestDelayEscalationNotification;
 use App\Notifications\RequestNoticeNotification;
 use App\Notifications\RequestOverdueNotification;
+use App\Notifications\RequestReferenceAssignedNotification;
 use App\Notifications\RequestStageChangedNotification;
 use App\Notifications\SystemNotification;
 use Illuminate\Support\Collection;
@@ -239,6 +240,25 @@ class NotificationDispatcher
         $this->send(
             $this->creatorOf($requestRecord, $actorId === null ? [] : [$actorId]),
             new RequestNoticeNotification($requestRecord, $moment, $context),
+        );
+    }
+
+    /**
+     * The قيد allocated this request's رقم إشاري, superseding the intake
+     * receipt the submitter is holding. Fired by WorkflowService::transition()
+     * on the one move that mints it, so it reaches the submitter exactly once
+     * in the request's life.
+     *
+     * Addressed to the creator alone: it is their own receipt number that
+     * stopped being the file's identifier, and nobody else was ever given it.
+     * The actor is excluded through creatorOf(), consistent with every other
+     * method here — though in practice the registrar is never the submitter.
+     */
+    public function referenceAssigned(Request $requestRecord, User $actor): void
+    {
+        $this->send(
+            $this->creatorOf($requestRecord, [$actor->id]),
+            new RequestReferenceAssignedNotification($requestRecord),
         );
     }
 

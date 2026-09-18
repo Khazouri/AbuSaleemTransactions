@@ -48,12 +48,12 @@ class WorkflowServiceTest extends TestCase
             ['receive_from_municipality', 'direct_manager_review', 'submit', 'R01', 'in_review'],
             ['direct_manager_review', 'administrative_routing', 'forward', 'MANAGER', 'in_review'],
             ['administrative_routing', 'receive_and_register', 'route_to_hr', 'MANAGER', 'routed_to_hr'],
-            // Stage 70 — these two statuses swapped places so the seeded map
-            // matches [D] Art. 38's own order: arriving to be checked is code
-            // 04 (in_review, تحت فحص الاكتمال), and passing the check is code 06
-            // (registered, مستوفية ومقيدة) — which is also where Art. 20 grants
-            // the reference number.
-            ['receive_and_register', 'requirements_check', 'register', 'R05', 'in_review'],
+            // The قيد: accepting the file is what registers it, so this hop
+            // lands on Art. 38's code 06 (registered, مستوفية ومقيدة) and is
+            // what grants the رقم إشاري. The approve hop below re-stamps the
+            // same code deliberately — see WorkflowTransitionSeeder for why,
+            // and UnifiedNumberingTest for the number not changing there.
+            ['receive_and_register', 'requirements_check', 'register', 'R05', 'registered'],
             ['requirements_check', 'reviewer_review', 'approve', 'R02', 'registered'],
             ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
             // Stage 57 collapsed the old two-hop observations ->

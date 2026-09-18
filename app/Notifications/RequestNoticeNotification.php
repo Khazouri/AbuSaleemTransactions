@@ -102,9 +102,17 @@ class RequestNoticeNotification extends SystemNotification
                 "بالإشارة إلى معاملتكم رقم {$ref}، وبعد مراجعة الملف تبين الحاجة إلى استكمال بعض المستندات، وتبقى المعاملة بحالة (بانتظار استكمال النواقص) إلى حين ورود المطلوب وإعادة فحصها. ولا يعتبر هذا الإشعار رفضًا للطلب أو نتيجة نهائية بشأنه.{$suffix}",
                 "Request {$ref} needs supporting documents completed. It stays in \"awaiting completion\" until the required items arrive and it is re-examined. This notice is neither a refusal nor a final result.{$suffixEn}",
             ],
+            // Worded as arrival, not as verification. Since the قيد moved to
+            // the receiving body's acceptance, this moment fires when the
+            // completed file is re-registered — before the rapporteur has
+            // re-examined it — so the earlier wording ("باكتمال ما طُلب
+            // استكماله") would have asserted a completeness nobody had yet
+            // checked. Re-keying the moment off a different signal would be a
+            // logic change; correcting the claim is the honest fix. See
+            // EmployeeNoticeService::momentFor() and AGENT_NOTES.md.
             'documents_completed' => [
-                "نفيدكم باكتمال ما طُلب استكماله بشأن معاملتكم رقم {$ref}، وقد استؤنف النظر فيها.",
-                "The items requested for request {$ref} have been completed and it is back under consideration.",
+                "نفيدكم بورود ما طُلب استكماله بشأن معاملتكم رقم {$ref} وإعادة قيدها، وقد استؤنف النظر فيها.",
+                "The items requested for request {$ref} have arrived, it has been re-registered, and it is back under consideration.",
             ],
             'placed_on_agenda' => [
                 "نفيدكم بإدراج معاملتكم رقم {$ref} في جدول أعمال لجنة شؤون الموظفين.",

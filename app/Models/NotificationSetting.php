@@ -56,6 +56,11 @@ class NotificationSetting extends Model
         // Same defaults as `decision_recorded`: this is news about the
         // reader's own request, which is what email is for.
         'request_notice' => ['in_app' => true, 'email' => true, 'sms' => false],
+        // The قيد changed the submitter's own reference number out from under
+        // them (PM-RCV receipt -> PM-COM رقم إشاري), and every later notice
+        // quotes the new one. Same defaults as `request_notice`: news about
+        // the reader's own request, which is what email is for.
+        'reference_assigned' => ['in_app' => true, 'email' => true, 'sms' => false],
     ];
 
     /** The preference columns, in the order the preferences screen shows them. */

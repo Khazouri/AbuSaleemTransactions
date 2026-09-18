@@ -14,6 +14,341 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-18 19:40 EET — Claude — The قيد now happens at the receiving body's acceptance, and the submitter is told
+
+Built per the plan below. **No migration, no schema change, no new status row** — the behaviour change is
+**one field**: the three `register` rows in `WorkflowTransitionSeeder` set `registered` (Art. 38's code 06)
+instead of `in_review`, and `WorkflowService::grantReferenceNumberIfRegistering()` — which keys allocation
+off the **destination status** — follows the seeded map with **no edit to its own logic**. That hook's
+docblock already said it was keyed that way "so the قيد follows the seeded map … and re-seeding that map
+moves this with it"; this change is literally the mechanism its author built for it. Full suite **587 tests
+/ 3793 assertions** green.
+
+**Four scope decisions were put to the user and answered; do not re-litigate any of them.** (1) **All three
+registrars** grant it (R05/HR, R10/Diwan, R09/Committee Secretary), so the `register` action itself is the
+قيد and "HR" is just its commonest route. (2) The **status moves with the number**. (3) [D] Appendix 63's
+بوابة 1 is **reworded, not moved**. (4) The submitter is told through a **dedicated `reference_assigned`
+event**, not by folding the news into Art. 101's moment 1.
+
+**This deliberately reverses Stage 70's alignment to [D] Art. 20** ("القيد … بعد ثبوت اكتمال الملف"). The
+user made that call after being shown the conflict. **Read that before treating any of the below as a bug.**
+
+**Gate 1 is now enforced AFTER the قيد, and that is the sharpest consequence.** [D] Appendix 63 calls بوابة
+1 "قبل القيد", and it no longer is: a file is numbered when the receiving body accepts it, then meets the
+completeness gate one stage later at `requirements_check → approve`. **It could not move with the قيد** —
+only R02 holds `notes_attachments.edit` (narrowed to المقرر in Stage 84 per Appendices 6/19), and R02 cannot
+even open the file while it sits with the receiving body, so gating `register` on a record only R02 can
+write would **deadlock**. So the gate keeps its hop and guards the boundary it actually can: entry into the
+rapporteur's substantive review. All three of its refusal strings were reworded off the word القيد
+(`IntakeGateService`), and `controlGates.intake.title` with them — the old title was on screen and false.
+
+**The notice: one logic addition, three lines.** `WorkflowService::transition()` captures
+`reference_number` before its transaction and fires `NotificationDispatcher::referenceAssigned()` after
+commit when it went null → non-null, beside the existing `stageChanged()`. Because the mint is one-way and
+idempotent, **the notice fires exactly once in a file's life** — and because it watches the *allocation*
+rather than a stage, it also covers a file that predates this change and mints at `approve` instead. New
+`reference_assigned` entry in `NotificationSetting::EVENT_TYPES` (in_app + email, SMS opt-in — same as
+`request_notice`), new `RequestReferenceAssignedNotification` naming **both** numbers, because a submitter
+holding a `PM-RCV` slip otherwise gets a notice quoting a `PM-COM` number they have never seen.
+
+**Moment 1 and `reference_assigned` both fire at that instant, deliberately — a later "de-duplicate the
+notifications" pass must not collapse them.** Under this arrangement `registered` is reached only at this
+hop, so suppressing Art. 101's moment 1 here would delete a [D]-mandated notice from the system entirely.
+They are worded to different purposes: moment 1 keeps [D]'s own formula (receipt into the official track),
+while `reference_assigned` is the only notice that names the superseded receipt and says which number to
+quote from now on. Both were seen landing together in the live run.
+
+**Art. 101 moment 3 got a reworded body, not a new trigger.** `momentFor()` turns a `registered` arrival
+after a نواقص status into moment 3, which now fires at HR **re-acceptance** — before anyone re-checks the
+documents — while its body asserted completion outright ("نفيدكم باكتمال ما طُلب استكماله"). Corrected to
+what is true at that hop (the documents **arrived** and the file was re-registered). Re-keying the moment
+off a different signal is a logic change and was out of scope; the imprecision is recorded in
+`EmployeeNoticeService::momentFor()`'s own docblock.
+
+**`requirements_check → approve` keeps setting `registered`, and that is load-bearing rather than lazy.**
+Art. 38's code 06 asserts two things — "اكتملت المتطلبات" AND "منحت رقمًا مرجعيًا" — and after the move no
+single hop establishes both, so keeping 06 across both rows says the file is in that band from acceptance
+until it leaves for the rapporteur. It is also what makes a file **already mid-pipeline self-heal**: sitting
+on `in_review` at `requirements_check`, it still mints on `approve` instead of being stranded numberless.
+The resulting `registered → registered` re-stamp is provably inert — `RequestStatusNoticeObserver` skips
+from==to rows, `RequestTimeCard::timeInStatuses()` treats re-entry as a no-op, and every reader of
+`request_status_history` filters on `ready`/`deferred`/`incomplete`/`completion_required`, never this one.
+**Pre-flight against the real database found 0 such in-flight files**, so no backfill was needed here — but
+a deployment with some gets them numbered on their next `approve` rather than needing a data fix.
+
+**Two more consequences, recorded rather than left to be discovered.** **R03 gains one stage of read-only
+visibility**: `RequestVisibility`'s `orWhereNotNull('reference_number')` clause sits in the `$isCloser`
+(R02+R03) branch, and R03 holds no outbound row at `requirements_check`, so it can now open a file the
+moment the receiving body registers it — and keeps that view on one later `reject_formally`d or
+`declare_no_jurisdiction`d, since neither status is terminal there. R02 is unaffected; it already held five
+outbound rows at that stage. **Formally refused and out-of-jurisdiction files now consume a `PM-COM`
+serial**, because the قيد precedes those outcomes — no Art. 99 violation (still one number per file), but a
+visible change in the series' character.
+
+**Tests.** New `tests/Feature/ReferenceAssignedNotificationTest.php` (6 tests — the قيد naming both numbers
+on the right channels with the registrar excluded; fired once and *not* again on the completeness re-stamp;
+a hop that mints nothing announcing nothing; the self-heal file announced too; a muted event delivering
+nothing; and the notice reaching the request's own `employee_notices` register through real delivery).
+`UnifiedNumberingTest` had its core test renamed and reframed — the number now appears at `register` and the
+later `approve` is asserted for **stability**, not allocation — and its other two tests were re-entered
+through `receive_and_register`/`routed_to_hr` + `register`/R05, because entering at `requirements_check`
+silently tested the legacy self-heal path instead of the قيد. Six pre-existing tests needed legitimate
+expectation updates: four `ControlGateTest` cases asserting the reworded gate-1 strings, plus the status
+walk in `WorkflowServiceTest` and `DirectManagerRoutingTest` (which also now asserts the number is minted).
+Comments in `RequestIntakeTest`, `RequirementsCheckJurisdictionTest` and `RequestWorkspaceVisibilityTest`
+were corrected where they asserted the old moment in prose.
+
+**Verification.** Full suite **587/3793** green; Pint clean on every changed PHP file; `npm run build`
+passes (then reverted `frontend/dist`, tracked in git, per every prior stage); locale key-parity verified
+programmatically (**1862 keys each side, zero on-one-side-only**); `php artisan migrate` reports nothing to
+migrate; and the `WorkflowTransitionSeeder`/`RequestStatusSeeder` reseed ran clean against the real
+MySQL/Homestead database with tinker confirming all three `register` rows now set `registered` **while
+keeping their `required_status_id` routing gate** (the thing that stops R10 registering an HR-routed file),
+13 generic non-exception transitions, and no row pointing at a missing stage.
+
+**Smoke-tested end to end over real HTTP against Homestead.** Intake returned `reference_number: null` with
+`PM-RCV/2026/000005`; `forward` and `route_to_hr` both left it null; **`register` as R05 returned
+`PM-COM/2026/0002` with status `registered` and the receipt intact**; the drained queue delivered **both**
+notices to the submitter, and `GET /api/requests/{id}` showed them together in `employee_notices` with the
+Arabic naming both numbers; gate 1's reworded refusal appeared live; and `approve` afterwards left the
+number **unchanged** with exactly **one** `reference_assigned` ever sent. Deleted every fixture row
+(request, 6 stage logs, 6 status-history rows, 1 approval + its stored signature file, 10 notifications, 8
+audit rows), restored the `manager_id` the run borrowed, revoked all three minted tokens, and confirmed the
+database back to its **4 pre-existing requests (ids 37/40/41/42)** and 1 pre-existing token — none of them
+mine, and left untouched.
+
+**Two environment gotchas worth knowing.** `r01.employee@`'s `manager_id` is **NULL in the real database**
+(`TestUserSeeder` has not been run there since that wiring was added), so the manager-gated `forward`/
+`route_to_hr` hops **404** — not 422 — because `RequestVisibility` hides the file from a non-creator
+non-assignee before the workflow gate is reached. I wired it temporarily and restored it; anyone
+smoke-testing the front half needs `php artisan db:seed --class=TestUserSeeder` first. And **Appendix 16's
+duplicate policy refuses a second open file of the same type**, so `r01.employee@` cannot file PROM/LEAV/
+ALLW/TRNS while those leftover fixtures exist — pick an untouched type, the same workaround
+`RequestIntakeTest` already uses.
+
+**Docs.** `USER_GUIDE.ar.md` had eight passages corrected, including §1.3's numbering table, §4.4/§4.5's
+stage headings, the Appendix 63 gate table and **the glossary definition of القيد itself**. Both
+`TEST_PLAN.roles.md`/`.ar.md` relay tables moved the قيد from step 5 to step 4 and now state that the number
+does not change at step 5 (**checkbox parity held at 346 each side**). `STAGE_PLAN.md` was deliberately left
+alone: its stage bullets are historical records of what each stage faced, per the convention its own dated
+banner sets, and its "قبل القيد" mention is a verbatim citation of Appendix 63 rather than a claim about
+this system.
+
+**Open items.** (1) **Formally refused and عدم اختصاص files now burn a `PM-COM` serial** — sourced and
+deliberate, but a stage that wants a separate refusal series should weigh Art. 99 rather than renumbering.
+(2) **Moment 3's imprecision** above has no clean fix without giving it a status of its own. (3) **Appendix
+63's gate-1 naming is now internally inconsistent with [D]'s own text** — the code says so in three places,
+but a future Track K stage reconciling the gates should decide whether to re-source the gate or the قيد.
+
+### 2026-09-18 18:10 EET — Claude — Intake attachments now carry their Appendix 14 classification
+
+Built per the plan below. **No migration and no seeder change** — `attachments.file_section` has existed
+since Stage 80; what was missing was that the *submitter's own* write path never set it. Intake carries its
+files inline through `POST /requests` (`attachments[n][file]` + an optional free-text `label`), and
+`StoreRequest` validated no section while `RequestController::store()`'s `Attachment::create()` simply
+omitted the column — so every file an employee attached at intake landed **`file_section = null`**, reading
+as غير مصنف. That was the last way to produce an unclassified row through the API, and it is the literal
+case [D] **Appendix 14** closes by forbidding ("**ويمنع حفظ الملفات بصورة عشوائية دون تصنيف**").
+`StoreAttachmentRequest` has required the same field on every *other* path since Stage 80; this closes the
+one that mattered most, since it is the path that creates the file in the first place.
+
+**The picker at intake is deliberately three folders, not Appendix 14's twelve — the design decision not to
+re-litigate.** New `Attachment::SUBMITTER_FILE_SECTIONS` = `request` (الطلب) · `service_file` (الملف
+الوظيفي — exactly what Appendix 57's shared basics ask an employee for: قرار التعيين، كشف الخدمة، المؤهل) ·
+`supporting_documents` (المستندات المؤيدة). The other nine name artifacts the **committee cycle** produces
+long after the employee has filed — مذكرة العرض، المحضر والقرار، الاعتماد، التنفيذ، الإشعارات — and offering
+those to a submitter invites a wrong classification, which is worse than a coarse one for a scheme whose
+whole purpose is retrieval. **الإحالات is excluded for the reason Stage 72 already established**: this system
+records an إحالة as a workflow transition, not a document, which is why that row was filtered out of every
+type's checklist. The one case that might argue for a fourth — attaching an earlier decision under Appendix
+16's استكمال لقرار سابق — is *correctly* `supporting_documents`: `minutes_decision` is where **this** file's
+own محضر goes, not a previous file's. **`AttachmentController::store()` keeps the full twelve**, because
+R02–R05 genuinely upload later-cycle documents through it; narrowing there by role would be a broader
+behavioural change than the ask and would block legitimate uses. A test pins both halves — `minutes_decision`
+is asserted to be in `FILE_SECTIONS` and *not* in `SUBMITTER_FILE_SECTIONS`, so a later "consistency" pass
+cannot quietly merge the two lists.
+
+**No default, on purpose**, matching the reason `StoreAttachmentRequest`'s own comment already states: a
+default would be a classification the uploader never made. The column stays nullable at the database layer,
+so pre-Stage-80 rows keep reading honestly as غير مصنف rather than being retro-assigned a folder nobody
+chose. **The refusal is the whole submission, not just the document** — a request saved without the file the
+employee meant to attach is worse than neither, and a test asserts `Request::count()` is still 0 after a
+refusal.
+
+**One real pre-existing bug found and fixed in the same lines, not scope creep.** `chooseFiles()` built
+`[...files.value, ...selected]` — mixing already-wrapped `{file, label}` rows with raw `File` objects — and
+then re-wrapped the whole array, so a **second** file selection nested each earlier row inside a second
+wrapper (`{file: {file, label}, label: ''}`), dropped its label, and appended an object rather than a file to
+the payload. It only bites when a user picks files in more than one batch, which is why it survived; it would
+have silently eaten the new classification too. Now only the newly-picked files are wrapped.
+
+Frontend: a per-file classification `<select>` beside the existing label input on `RequestIntakeView.vue`, the
+server's per-row error surfaced on its own row (`errors['attachments.N.file_section']`) rather than only as a
+form-level message, and submit blocked while any attached file is unclassified — the server is still the
+enforcement, but a submit it would certainly refuse is worth stopping while the rows are on screen. New
+`SUBMITTER_FILE_SECTIONS` export in `lib/fileSections.js` mirrors the constant once, the Stage 80 precedent.
+Every label already existed (`fileSections.*`, `attachments.fileSection`, `attachments.fileSectionHint`), so
+this adds exactly **one** new key (`intake.classifyFiles`) per locale.
+
+Verification: `RequestIntakeTest` **9 tests / 259 assertions** green (was 7 tests — two new: an unclassified
+attachment refused with nothing created, and a committee-cycle folder refused by name), with the pre-existing
+`test_an_authorized_user_can_intake_a_request_with_attachments` fixture updated in place and commented, since
+this change deliberately alters what that endpoint requires — it is the only test in the suite that posts
+intake attachments, confirmed by grep. Pint clean on all four touched PHP files, `npm run build` passes (then
+reverted `frontend/dist`, tracked in git, per every prior stage's note), and locale key-parity verified
+programmatically (**1861 keys each side, zero on-one-side-only**).
+
+**⚠ Another session was editing this same working tree throughout, and the full suite is NOT green because of
+it — none of those failures are this change's.** While this was being built, `WorkflowTransitionSeeder`,
+`WorkflowService`, `IntakeGateService`, `ArtifactNumberGenerator`, `RequestStatusSeeder`,
+`NotificationDispatcher`, `AGENTS.md` and `RequestController` all gained uncommitted edits that were not in
+the working tree at the start of this session, moving the قيد onto the receiving body's own `register` action
+and adding a `reference_assigned` notification. The full suite currently reports **7 failures across
+`WorkflowServiceTest`, `ControlGateTest` (×4), `DirectManagerRoutingTest` and `UnifiedNumberingTest`** — all
+of them assertions about where the reference is minted and which status `register` sets. **Proven not to be
+this change rather than assumed**: with only this change's four PHP files reverted, those same classes still
+failed (6 failures), and with the *whole* tree reverted they passed. The count drifted from 3 to 7 between two
+runs of the same suite, which is itself the signal that the tree is being written to concurrently.
+
+**⚠ Do not `git stash` in this working tree while that is true.** Reverting my own files to compare meant
+stashing, and `git stash push --include-untracked` swallowed the *other* session's in-flight work as well —
+including a file (`RequestController.php`) both sessions had edited. It popped back clean (stash list empty,
+their comment blocks and their `reference_assigned` wiring verified present afterward by reading the diff),
+but a conflict on that pop would have damaged uncommitted work belonging to someone else. Use a pathspec
+stash at most, verify the other party's hunks survived, and prefer not stashing at all.
+
+**The standing "commit when complete" rule (2026-09-18 12:05) is deliberately NOT followed here, and this
+is the reason.** That rule's own precondition is a green suite, which the tree cannot currently produce; and
+this change cannot be committed in isolation anyway, because `RequestController.php` carries the other
+session's قيد edits, the locale files carry the previous session's RequestType work, and AGENT_NOTES carries
+their 17:55 plan. Committing would capture another session's half-finished, test-failing work under this
+change's message. Whoever lands the قيد move should commit this alongside it, or the user can say go once the
+tree is theirs alone.
+
+**Open items.** (1) **The classification is still not cross-checked against Appendix 57's checklist** — the
+intake screen shows the required-documents matrix and now asks for a folder, but nothing links an attachment
+to the checklist row it satisfies, so Stage 72's own open item ("`required_documents` is enforced nowhere")
+is unchanged; the intake gate (Stage 78) still answers per document by index+label-hash rather than by a real
+attachment. (2) **`AttachmentController::store()` still offers all twelve to everyone who holds
+`notes_attachments,add` (R01–R05)**, so an employee adding a document to their own file *after* intake can
+still pick a committee-cycle folder there; narrowing that one by role is a coherent follow-up, but it is a
+permissions-shaped decision rather than this one's.
+
+---
+
+### 2026-09-18 17:55 EET — Claude — The قيد moves to the receiving body's acceptance, and the submitter is told — implementation plan
+
+User request: **"The request ref should be changed after HR acceptance"**, plus, on review of the plan,
+**"there should be a notification to the request submitter when ref is changed at acceptance"**. Today
+Stage 70's arrangement mints the `PM-COM` reference at `requirements_check → approve` (the rapporteur's
+completeness check) and the submitter holds only a `PM-RCV` receipt until then. This moves the قيد one
+stage earlier, to the `register` action out of `receive_and_register` — the moment the receiving body
+accepts the file.
+
+**Four scope decisions were put to the user and answered; do not re-litigate any of them.** (1) **All
+three registrars** grant it — R05/HR, R10/Diwan, R09/Committee Secretary — so the `register` action
+*itself* is the قيد and "HR" is simply its commonest route. (2) **The status moves with the number**: the
+three `register` rows set `registered` instead of `in_review`, which means the existing status-keyed mint
+hook follows the seeded map with no change to its own logic — that hook's docblock already says it is
+keyed off the destination status "so the قيد follows the seeded map … and re-seeding that map moves this
+with it", so this change is literally the mechanism its author built for it. (3) **[D] Appendix 63's بوابة
+1 is reworded, not moved**: it stays on `requirements_check → approve` and stops being described as
+"before the قيد", becoming the gate before the file enters the rapporteur's substantive review. It
+*cannot* move earlier — only R02 holds `notes_attachments.edit`, and R02 cannot even open the file while
+it sits with HR, so gating `register` on a record only R02 can write would deadlock. (4) The submitter is
+told through a **dedicated `reference_assigned` event**, not by folding the news into Art. 101's moment 1.
+
+**This deliberately reverses Stage 70's alignment to [D] Art. 20** ("القيد … بعد ثبوت اكتمال الملف"). That
+is the user's explicit call, made after being shown the conflict, and it is recorded here so the next agent
+does not read it as a bug.
+
+**One logic addition, and it is three lines.** `WorkflowService::transition()` captures
+`reference_number` before its transaction and fires the new notice after commit when it went null →
+non-null, beside the existing `stageChanged()` dispatch. The mint is one-way and idempotent, so the notice
+fires **exactly once in a file's life** — including for the in-flight files that will self-heal at
+`approve` instead, since the check is hop-agnostic rather than tied to a stage.
+
+**Moment 1 and `reference_assigned` both fire at that instant, deliberately.** Under the new arrangement
+`registered` is reached only at this hop, so suppressing Art. 101's moment 1 here would delete a
+[D]-mandated notice from the system altogether. The two are therefore worded to different purposes: moment
+1 keeps [D]'s own formula (receipt into the official track), while `reference_assigned` is the only notice
+that names the superseded receipt and tells the submitter which number to quote from now on. **A later
+"de-duplicate the notifications" pass must not collapse them.**
+
+**Art. 101 moment 3 gets a reworded body, not a new trigger.** `momentFor()` turns a `registered` arrival
+after a نواقص status into moment 3, which now fires at HR re-acceptance — before anyone re-checks the
+documents — while its current body asserts completion outright ("نفيدكم باكتمال ما طُلب استكماله"). The
+claim is corrected to what is true at that hop (the documents arrived and the file was re-registered);
+re-keying the moment off a different signal is a real logic change and out of scope.
+
+**Known consequences, each recorded rather than discovered later.** In-flight files past the new قيد point
+self-heal, which is *why* `requirements_check → approve` keeps setting `registered` rather than being
+swapped back — a swap would strand them numberless and force a backfill that burns serials out of arrival
+order; the resulting `registered → registered` re-stamp is provably inert (the notice observer skips
+from==to, `RequestTimeCard` treats re-entry as a no-op, and every reader of `request_status_history`
+filters on `ready`/`deferred`/`incomplete`/`completion_required`, never `registered`). **R03 gains one
+stage of read-only visibility** through `RequestVisibility`'s `orWhereNotNull('reference_number')` clause
+(R02 is unaffected — it already holds five outbound rows at that stage). **Formally refused and
+out-of-jurisdiction files now consume a `PM-COM` serial**, since the قيد precedes those outcomes — no Art.
+99 violation, but a visible change in the series' character.
+
+**No migration, no schema change, no new status row.** Verification: the full PHPUnit suite, Pint,
+`npm run build`, locale key-parity, a `WorkflowTransitionSeeder` reseed against the real MySQL/Homestead
+database with tinker confirmation that all three `register` rows keep their `required_status_id` routing
+gate, and an HTTP smoke run of submit → forward → route_to_hr → register asserting both notices actually
+reach the submitter.
+
+### 2026-09-18 12:30 EET — Claude — Intake attachments must carry their Appendix 14 classification — implementation plan
+
+User asked that a request submitter attaching a file also specify its type. Checked before designing: the
+system already has that field and already requires it — **on every path except the submitter's own**.
+`StoreAttachmentRequest` (Stage 12/80) requires `file_section` over [D] **Appendix 14**'s twelve folders,
+and `FileUpload.vue` renders the picker. But intake is a *different* write path: `POST /requests` carries
+its attachments inline as `attachments[n][file]` + an optional free-text `label`, `StoreRequest` validates
+no section at all, and `RequestController::store()`'s `Attachment::create()` simply omits the column. So a
+file uploaded by the person filing the request lands **`file_section = null`**, reading as غير مصنف — which
+is the literal case Appendix 14's closing sentence forbids ("**ويمنع حفظ الملفات بصورة عشوائية دون تصنيف**")
+and the only remaining way to produce an unclassified row through the API.
+
+**The picker at intake is deliberately NOT the full twelve, and that is the judgment call worth recording.**
+Appendix 14's folders span the file's whole life — مذكرة العرض، المحضر والقرار، الاعتماد، التنفيذ،
+الإشعارات — all artifacts the *committee cycle* produces long after the employee has filed. Offering them
+to a submitter would invite a wrong classification, which is worse than a coarse one for a scheme whose
+whole purpose is retrieval. New `Attachment::SUBMITTER_FILE_SECTIONS` = `request` (الطلب) · `service_file`
+(الملف الوظيفي — exactly what Appendix 57's shared basics ask for: قرار التعيين، كشف الخدمة، المؤهل) ·
+`supporting_documents` (المستندات المؤيدة). **`referrals` is excluded on purpose**: Stage 72 already
+established that this system records الإحالة as a workflow transition, not a document, which is why that
+row was filtered out of every type's checklist. And the one case that might argue for a fourth — attaching
+an earlier decision when Appendix 16's `prior_relation` is استكمال لقرار سابق — is *correctly*
+`supporting_documents`: `minutes_decision` is where **this** file's own محضر goes, not a previous file's.
+
+**Only the intake path narrows.** `AttachmentController::store()` keeps the full twelve, because R02–R05
+genuinely upload later-cycle documents through it; narrowing there by role would be a broader behavioural
+change than the ask, and would block legitimate uses.
+
+**No default, no migration.** A default would be a classification the uploader never made — the same reason
+`StoreAttachmentRequest` states in its own comment — so it is required per attachment. The column already
+exists and stays nullable at the database layer, so rows written before Stage 80 keep reading honestly as
+غير مصنف rather than being retro-assigned a folder nobody chose.
+
+**Files**: `Attachment` (the new const); `StoreRequest` (`attachments.*.file_section` required +
+`Rule::in`, Arabic messages per the house convention); `RequestController::store()` (write the column);
+`lib/fileSections.js` (mirror the subset once, the Stage 80 precedent); `RequestIntakeView.vue` (a per-file
+select beside the existing label input, appended to the payload, submit blocked until every attached file
+has one, and the server's per-row error surfaced on its own row rather than only as a form-level message).
+Every label already exists in both locale files (`fileSections.*`, `attachments.fileSection`), so this adds
+one new key at most.
+
+**Verification plan**: extend `tests/Feature/RequestIntakeTest.php` — an attachment with no `file_section`
+is refused (and no request row is created), one naming a committee-cycle folder is refused by name, and a
+valid intake stores the chosen folder on the `attachments` row; plus the existing
+`test_an_authorized_user_can_intake_a_request_with_attachments` fixture updated to carry a section (a
+legitimate update to a behaviour this change deliberately alters, commented in place — it is the only test
+in the suite that posts intake attachments). Then the full PHPUnit suite, Pint on every touched file,
+`npm run build`, and locale key-parity.
+
+---
+
 ### 2026-09-18 12:05 EET — Claude — STANDING: commit the work when a task is complete
 
 **User instruction, applies to every session from here on: when a task is finished and verified,
@@ -226,6 +561,7 @@ suite, Pint, `npm run build`, locale key-parity, and the two seeder reseeds agai
 MySQL/Homestead database.
 
 ---
+
 ### 2026-09-12 14:30 EET — Claude — Manager-gated transitions lost their R08 override (delegation is the manager's alone)
 
 User rule: **only the submitter's own manager may delegate a request, and a request with no manager

@@ -9,6 +9,9 @@ import { documentCondition, documentLabel, groupDocuments } from '../lib/require
 // Stage 83 — [D] Appendix 16 classifies a new request raised after an
 // earlier one on the same subject; the two it routes elsewhere are greyed out.
 import { PRIOR_RELATIONS } from '../lib/lifecycle'
+// [D] Appendix 14 — a submitter classifies each document they attach; the
+// list is narrowed to the folders an employee's own file can honestly be in.
+import { SUBMITTER_FILE_SECTIONS } from '../lib/fileSections'
 
 const { t, locale } = useI18n()
 const options = ref({ departments: [], types: [] })
@@ -27,6 +30,9 @@ const duplicateChecking = ref(false)
 const acceptedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png']
 const maxBytes = 20 * 1024 * 1024
 const isBusy = computed(() => loadingOptions.value || submitting.value)
+// Appendix 14 is required per attachment, so an unclassified row blocks the
+// whole submission rather than being dropped from it.
+const unclassifiedFiles = computed(() => files.value.some((attachment) => !attachment.file_section))
 const selectedType = computed(() => options.value.types.find(
   (type) => String(type.id) === String(form.value.request_type_id),
 ))
@@ -83,13 +89,16 @@ function chooseFiles(event) {
     return
   }
 
-  const next = [...files.value, ...selected]
+  // Wrap only what was just picked: re-wrapping the whole list would nest
+  // each existing row inside a second wrapper and drop its label and its
+  // classification, so a second selection would silently break the first.
+  const next = [...files.value, ...selected.map((file) => ({ file, label: '', file_section: '' }))]
   if (next.length > 10) {
     error.value = t('intake.tooManyFiles')
     return
   }
 
-  files.value = next.map((file) => ({ file, label: '' }))
+  files.value = next
   error.value = ''
   event.target.value = ''
 }
@@ -122,9 +131,10 @@ async function submit() {
   payload.append('request_type_id', form.value.request_type_id)
   if (form.value.decision_grade !== '') payload.append('decision_grade', form.value.decision_grade)
   if (form.value.prior_relation !== '') payload.append('prior_relation', form.value.prior_relation)
-  files.value.forEach(({ file, label }, index) => {
+  files.value.forEach(({ file, label, file_section: fileSection }, index) => {
     payload.append(`attachments[${index}][file]`, file)
     if (label.trim()) payload.append(`attachments[${index}][label]`, label.trim())
+    payload.append(`attachments[${index}][file_section]`, fileSection)
   })
 
   try {
@@ -163,9 +173,12 @@ onMounted(loadOptions)
       <h3>{{ t('intake.successTitle') }}</h3>
       <p>{{ t('intake.successBody') }}</p>
       <strong class="reference ltr">{{ created.intake_receipt_number }}</strong>
-      <!-- Stage 70 — [D] Art. 15: handing a request to the direct manager is
-           explicitly not a قيد, so the screen says so rather than letting the
-           receipt read as the committee reference it is not. -->
+      <!-- [D] Art. 15: handing a request to the direct manager is explicitly
+           not a قيد, so the screen says so rather than letting the receipt
+           read as the committee reference it is not. The copy also promises
+           the notice the submitter gets when the receiving body registers the
+           file and this number is superseded — see
+           RequestReferenceAssignedNotification. -->
       <p class="receipt-notice">{{ t("intake.receiptNotice") }}</p>
       <div class="actions">
         <button class="primary" type="button" @click="startAnother">{{ t('intake.createAnother') }}</button>
@@ -269,18 +282,29 @@ onMounted(loadOptions)
         <p class="hint">{{ t('attachments.acceptedHint') }}</p>
         <input class="file-input" type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" @change="chooseFiles" />
         <small v-if="errors.attachments">{{ errors.attachments[0] }}</small>
+        <p class="hint">{{ t('attachments.fileSectionHint') }}</p>
 
         <div v-if="files.length" class="files">
           <article v-for="(attachment, index) in files" :key="`${attachment.file.name}-${index}`" class="file-row">
             <span class="file-name ltr">{{ attachment.file.name }}</span>
+            <select v-model="attachment.file_section" :aria-label="t('attachments.fileSection')">
+              <option value="" disabled>{{ t('attachments.chooseFileSection') }}</option>
+              <option v-for="section in SUBMITTER_FILE_SECTIONS" :key="section" :value="section">
+                {{ t(`fileSections.${section}`) }}
+              </option>
+            </select>
             <input v-model="attachment.label" type="text" :placeholder="t('attachments.label')" maxlength="255" />
             <button class="ghost" type="button" @click="removeFile(index)">{{ t('intake.removeFile') }}</button>
+            <small v-if="errors[`attachments.${index}.file_section`]" class="row-error">
+              {{ errors[`attachments.${index}.file_section`][0] }}
+            </small>
           </article>
         </div>
       </fieldset>
 
+      <p v-if="unclassifiedFiles" class="hint">{{ t('intake.classifyFiles') }}</p>
       <div class="actions">
-        <button v-can="'request_intake.add'" class="primary" type="submit" :disabled="isBusy">{{ submitting ? t('intake.submitting') : t('intake.submit') }}</button>
+        <button v-can="'request_intake.add'" class="primary" type="submit" :disabled="isBusy || unclassifiedFiles">{{ submitting ? t('intake.submitting') : t('intake.submit') }}</button>
       </div>
     </form>
   </section>
@@ -292,6 +316,6 @@ onMounted(loadOptions)
 label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .85rem; }input, select, textarea { min-inline-size: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }textarea { resize: vertical; }small { color: var(--color-danger-fg); font-size: .78rem; }.field-hint, .hint, .state { color: var(--color-muted); font-size: .78rem; }.hint, .state { margin: 0 0 .75rem; }.file-input { max-inline-size: 100%; }
 .checklist ul { display: grid; gap: .35rem; padding-inline-start: 1.2rem; margin: 0; color: var(--color-black-700); font-size: .85rem; }
 .doc-group + .doc-group { margin-block-start: .85rem; }.doc-group h3 { margin: 0 0 .35rem; color: var(--color-black-700); font-size: .8rem; font-weight: 600; }.doc-condition { color: var(--color-black-500); font-size: .75rem; }
-.files { display: grid; gap: .6rem; margin-top: .85rem; }.file-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(10rem, 1fr) auto; gap: .5rem; align-items: center; padding: .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.actions { display: flex; gap: .5rem; }.primary, .ghost { padding: .5rem .9rem; border-radius: var(--radius-lg); font-size: .85rem; cursor: pointer; }.primary { border: 0; color: var(--color-on-brand); background: var(--color-brand); }.ghost { border: 1px solid var(--color-border-hover); color: var(--color-black-700); background: var(--color-surface); }.link-button { text-decoration: none; }.primary:disabled, fieldset:disabled { cursor: not-allowed; opacity: .65; }.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.success { max-inline-size: 38rem; }.success h3 { margin: 0; color: var(--color-brand-text); }.success p { color: var(--color-black-700); }.reference { display: block; margin: 1rem 0; color: var(--color-primary); font-size: 1.15rem; }.receipt-notice { padding: .6rem .7rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-lg); color: var(--color-info-fg); background: var(--color-info-bg); font-size: .8rem; }
+.files { display: grid; gap: .6rem; margin-top: .85rem; }.file-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, auto) minmax(8rem, 1fr) auto; gap: .5rem; align-items: center; padding: .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.file-row .row-error { grid-column: 1 / -1; }.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.actions { display: flex; gap: .5rem; }.primary, .ghost { padding: .5rem .9rem; border-radius: var(--radius-lg); font-size: .85rem; cursor: pointer; }.primary { border: 0; color: var(--color-on-brand); background: var(--color-brand); }.ghost { border: 1px solid var(--color-border-hover); color: var(--color-black-700); background: var(--color-surface); }.link-button { text-decoration: none; }.primary:disabled, fieldset:disabled { cursor: not-allowed; opacity: .65; }.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.success { max-inline-size: 38rem; }.success h3 { margin: 0; color: var(--color-brand-text); }.success p { color: var(--color-black-700); }.reference { display: block; margin: 1rem 0; color: var(--color-primary); font-size: 1.15rem; }.receipt-notice { padding: .6rem .7rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-lg); color: var(--color-info-fg); background: var(--color-info-bg); font-size: .8rem; }
 @media (max-width: 640px) { .grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.file-row { grid-template-columns: 1fr; } }
 </style>

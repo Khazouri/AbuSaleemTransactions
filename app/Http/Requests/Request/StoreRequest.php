@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Request;
 
+use App\Models\Attachment;
 use App\Models\RequestType;
 use App\Services\Lifecycle\DuplicatePolicy;
 use Illuminate\Foundation\Http\FormRequest;
@@ -46,6 +47,14 @@ class StoreRequest extends FormRequest
             'attachments' => ['nullable', 'array', 'max:10'],
             'attachments.*.file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:20480'],
             'attachments.*.label' => ['nullable', 'string', 'max:255'],
+            // [D] Appendix 14 closes with "ويمنع حفظ الملفات بصورة عشوائية دون
+            // تصنيف", and intake was the one write path still producing an
+            // unclassified row: StoreAttachmentRequest has required this since
+            // Stage 80, but a submitter's own files come in through here. The
+            // list is narrowed to Attachment::SUBMITTER_FILE_SECTIONS — see
+            // that constant for why offering the committee-cycle folders to an
+            // employee would be worse than not asking.
+            'attachments.*.file_section' => ['required', Rule::in(Attachment::SUBMITTER_FILE_SECTIONS)],
         ];
     }
 
@@ -65,6 +74,8 @@ class StoreRequest extends FormRequest
             'attachments.*.file.mimes' => 'يسمح بملفات PDF وDOC وDOCX وJPG وPNG فقط.',
             'attachments.*.file.max' => 'الحد الأقصى لحجم الملف هو 20 ميجابايت.',
             'attachments.*.label.max' => 'لا يمكن أن يتجاوز وصف المرفق 255 حرفاً.',
+            'attachments.*.file_section.required' => 'يجب تحديد نوع كل مستند مرفق.',
+            'attachments.*.file_section.in' => 'نوع المستند غير صالح لمرفقات مقدم الطلب.',
         ];
     }
 }

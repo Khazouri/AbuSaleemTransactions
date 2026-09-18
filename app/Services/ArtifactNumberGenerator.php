@@ -48,7 +48,7 @@ class ArtifactNumberGenerator
      */
     private const RECEIPT_PREFIX = 'PM-RCV';
 
-    /** Art. 20's رقم إشاري — granted only once completeness is established. */
+    /** The رقم إشاري — granted when the receiving body registers the file. */
     public function nextRequestReference(): string
     {
         return $this->next(self::REQUEST_PREFIX, 4, 'requests', 'reference_number');
