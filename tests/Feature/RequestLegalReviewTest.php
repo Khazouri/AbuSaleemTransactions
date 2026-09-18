@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\PassesControlGates;
 use Tests\TestCase;
 
 /**
@@ -23,6 +24,7 @@ use Tests\TestCase;
  */
 class RequestLegalReviewTest extends TestCase
 {
+    use PassesControlGates;
     use RefreshDatabase;
 
     public function test_the_rapporteur_hands_a_ready_file_to_the_legal_member(): void
@@ -349,7 +351,7 @@ class RequestLegalReviewTest extends TestCase
 
     private function committeeRequest(string $statusCode, string $typeCode = 'PROM'): Request
     {
-        return Request::create([
+        $requestRecord = Request::create([
             'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
             'title' => 'مراجعة قانونية سابقة للاجتماع',
             'department_id' => Department::where('code', 'ADM')->value('id'),
@@ -359,6 +361,14 @@ class RequestLegalReviewTest extends TestCase
             'submitted_at' => now(),
             'decision_grade' => 10,
         ]);
+
+        // Stage 85 — [F] footer 2 now refuses an agenda insertion for a file
+        // that does not cover its type's mandatory [D] Appendix 57 rows.
+        // Supplied here so these tests stay about what they were written for;
+        // the rule itself has its own coverage in DocumentCompletenessTest.
+        $this->supplyRequiredDocuments($requestRecord);
+
+        return $requestRecord->refresh();
     }
 
     private function meetingFor(User $head): Meeting

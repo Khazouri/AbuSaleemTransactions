@@ -19,6 +19,7 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Tests\PassesControlGates;
 use Tests\TestCase;
 
 /**
@@ -28,6 +29,7 @@ use Tests\TestCase;
  */
 class MeetingReadinessTest extends TestCase
 {
+    use PassesControlGates;
     use RefreshDatabase;
 
     public function test_a_fully_prepared_meeting_reports_no_exceptions_and_is_ready(): void
@@ -349,6 +351,13 @@ class MeetingReadinessTest extends TestCase
                 'mime_type' => 'application/pdf',
                 'size_bytes' => 1024,
             ]);
+
+            // Stage 85 — `missing_files` asks whether the file has ANY
+            // documents; `incomplete_required_documents` asks whether it has
+            // the ones its own [D] Appendix 57 matrix states unconditionally.
+            // An item meant to be fully prepared has to satisfy both, and the
+            // $withFile === false case deliberately satisfies neither.
+            $this->supplyRequiredDocuments($requestRecord);
         }
 
         return MeetingRequest::create([

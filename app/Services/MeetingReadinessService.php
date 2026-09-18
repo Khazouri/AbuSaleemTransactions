@@ -28,7 +28,11 @@ class MeetingReadinessService
         $meeting->loadMissing([
             'committee.activeMembers.user:id,name',
             'attendees.user:id,name',
-            'agendaItems.request.attachments:id,request_id',
+            // Stage 85 — `required_document_key` is what says WHICH Appendix
+            // 57 row each file answers, so the completeness check below reads
+            // nothing without it.
+            'agendaItems.request.attachments:id,request_id,required_document_key',
+            'agendaItems.request.requestType:id,required_documents',
             'agendaItems.request.latestLegalReview',
             // Stage 83 — Appendix 30's unresolved conflicts, eager-loaded so
             // the readiness check costs one query rather than one per item.
@@ -68,6 +72,24 @@ class MeetingReadinessService
         $itemsWithDocumentConflict = $requestItems->filter(
             fn ($item) => $item->request !== null
                 && $item->request->documentConflicts->whereNull('resolved_at')->isNotEmpty(),
+        );
+
+        // --- Stage 85: [F] footer 2's "لا يُعرض أي طلب على اللجنة قبل
+        // استكمال المستندات المطلوبة" ----------------------------------------
+        // Reported the same way as the two above, and for the same reason the
+        // insertion gate cannot cover: a type's Appendix 57 matrix can gain a
+        // mandatory row AFTER an item was scheduled, and a file that predates
+        // Stage 85's submission rule never had to carry one at all. Deliberately
+        // distinct from `missing_files` — that one asks whether the file has
+        // any documents, this one asks whether it has the ones its own type
+        // requires.
+        $completeness = app(DocumentCompletenessService::class);
+        $itemsMissingRequiredDocuments = $requestItems->filter(
+            fn ($item) => $item->request !== null
+                && $completeness->uncovered(
+                    $item->request->requestType,
+                    $completeness->coveredKeys($item->request),
+                ) !== [],
         );
 
         // --- member % (roster coverage, not attendance) --------------------
@@ -148,6 +170,13 @@ class MeetingReadinessService
             $exceptions[] = [
                 'code' => 'unresolved_document_conflict',
                 'item_ids' => $itemsWithDocumentConflict->pluck('id')->values(),
+            ];
+        }
+        // Stage 85 — [F] footer 2, asked at the sitting.
+        if ($itemsMissingRequiredDocuments->isNotEmpty()) {
+            $exceptions[] = [
+                'code' => 'incomplete_required_documents',
+                'item_ids' => $itemsMissingRequiredDocuments->pluck('id')->values(),
             ];
         }
         // Stage 82 — Art. 83 orders the agenda by rule and leaves the chair

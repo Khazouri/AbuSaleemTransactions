@@ -98,7 +98,11 @@ function exceptionMessage(exception) {
       required: exception.required,
     })
   }
-  if (exception.code === 'missing_files') {
+  // Stage 85 — both of these count agenda items, and they mean different
+  // things: `missing_files` is "this file has no documents at all",
+  // `incomplete_required_documents` is "it has documents but not the ones its
+  // own [D] Appendix 57 matrix states unconditionally".
+  if (exception.code === 'missing_files' || exception.code === 'incomplete_required_documents') {
     return t(`meetingsUnit.readiness.exceptions.${exception.code}`, { count: exception.item_ids?.length ?? 0 })
   }
   if (exception.code === 'unconfirmed_members') {

@@ -14,10 +14,12 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\PassesControlGates;
 use Tests\TestCase;
 
 class RequestIntakeTest extends TestCase
 {
+    use PassesControlGates;
     use RefreshDatabase;
 
     public function test_an_authorized_user_can_load_intake_options_before_the_request_wildcard_route(): void
@@ -148,14 +150,25 @@ class RequestIntakeTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
-                'attachments' => [[
-                    'file' => UploadedFile::fake()->create('promotion.pdf', 120, 'application/pdf'),
-                    'label' => 'قرار الترقية',
-                    // The submitter names which of the type's [D] Appendix 57
-                    // recommended documents this file is; the Appendix 14
-                    // folder is derived from that answer.
-                    'required_document_key' => $this->documentKeyFor($type, 'كشف الخدمة'),
-                ]],
+                'attachments' => [
+                    // Stage 85 — a submission now has to cover every row [D]
+                    // Appendix 57 states unconditionally for this type, so a
+                    // single file is no longer a valid intake. PROM states
+                    // seven.
+                    ...$this->mandatoryAttachments($type),
+                    [
+                        'file' => UploadedFile::fake()->create('promotion.pdf', 120, 'application/pdf'),
+                        'label' => 'قرار الترقية',
+                        // The submitter names which of the type's [D] Appendix 57
+                        // recommended documents this file is; the Appendix 14
+                        // folder is derived from that answer. كشف الخدمة carries
+                        // the appendix's own "بحسب الموضوع" qualifier, so it is
+                        // conditional — deliberately still the one asserted on
+                        // below, since a conditional row is what proves the new
+                        // rule does not require every row.
+                        'required_document_key' => $this->documentKeyFor($type, 'كشف الخدمة'),
+                    ],
+                ],
             ], ['Accept' => 'application/json']);
 
         // Diagram-alignment redesign (see AGENT_NOTES.md): intake now performs
@@ -206,9 +219,9 @@ class RequestIntakeTest extends TestCase
             'to_status_id' => RequestStatus::where('code', 'in_review')->value('id'),
         ]);
 
-        $attachment = Attachment::firstOrFail();
+        $attachment = Attachment::where('required_document_key', $this->documentKeyFor($type, 'كشف الخدمة'))
+            ->firstOrFail();
         $this->assertSame('قرار الترقية', $attachment->label);
-        $this->assertSame($this->documentKeyFor($type, 'كشف الخدمة'), $attachment->required_document_key);
         // كشف الخدمة is a service-record extract, so the folder derived from it
         // is الملف الوظيفي — not the المستندات المؤيدة default.
         $this->assertSame('service_file', $attachment->file_section);
@@ -308,10 +321,10 @@ class RequestIntakeTest extends TestCase
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
                 'attachments' => [
-                    [
-                        'file' => UploadedFile::fake()->create('grade.pdf', 60, 'application/pdf'),
-                        'required_document_key' => $this->documentKeyFor($type, 'بيان الدرجة الحالية'),
-                    ],
+                    // Stage 85 — the mandatory rows first, since a submission
+                    // that leaves one uncovered is now refused. بيان الدرجة
+                    // الحالية is itself one of them, so it arrives with them.
+                    ...$this->mandatoryAttachments($type),
                     [
                         'file' => UploadedFile::fake()->create('extra.pdf', 60, 'application/pdf'),
                         'required_document_key' => 'other',
@@ -320,9 +333,14 @@ class RequestIntakeTest extends TestCase
             ], ['Accept' => 'application/json'])
             ->assertCreated();
 
-        $attachments = Attachment::orderBy('id')->get();
-        $this->assertSame(['supporting_documents', 'supporting_documents'], $attachments->pluck('file_section')->all());
-        $this->assertSame('other', $attachments->last()->required_document_key);
+        // Asserted per key rather than over the whole collection, because the
+        // collection is now the type's full mandatory list plus this one.
+        $specific = Attachment::where('required_document_key', $this->documentKeyFor($type, 'بيان الدرجة الحالية'))
+            ->firstOrFail();
+        $other = Attachment::where('required_document_key', 'other')->firstOrFail();
+
+        $this->assertSame('supporting_documents', $specific->file_section);
+        $this->assertSame('supporting_documents', $other->file_section);
     }
 
     /**
@@ -377,15 +395,18 @@ class RequestIntakeTest extends TestCase
         // exists ("لا تنشأ معاملة جديدة"), and this test is about the receipt
         // series, which is global per year rather than per type.
         $types = RequestType::whereIn('code', ['PROM', 'LEAV'])->get()->keyBy('code');
+        // Stage 85 — both submissions now carry real uploads.
+        Storage::fake('local');
 
         foreach ([1 => 'PROM', 2 => 'LEAV'] as $sequence => $code) {
             $this->actingAs($admin, 'sanctum')
-                ->postJson('/api/requests', [
+                ->post('/api/requests', [
                     'title' => "طلب {$sequence}",
                     'department_id' => $department->id,
                     'request_type_id' => $types[$code]->id,
                     'decision_grade' => 9,
-                ])
+                    'attachments' => $this->mandatoryAttachments($types[$code]),
+                ], ['Accept' => 'application/json'])
                 ->assertCreated()
                 ->assertJsonPath('data.reference_number', null)
                 ->assertJsonPath(

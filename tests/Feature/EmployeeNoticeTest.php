@@ -21,6 +21,7 @@ use App\Services\NotificationDispatcher;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Tests\PassesControlGates;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,7 @@ use Tests\TestCase;
  */
 class EmployeeNoticeTest extends TestCase
 {
+    use PassesControlGates;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -456,7 +458,7 @@ class EmployeeNoticeTest extends TestCase
 
     private function requestFor(User $creator): Request
     {
-        return Request::create([
+        $requestRecord = Request::create([
             'reference_number' => 'PM-COM/2026/'.fake()->unique()->numerify('####'),
             'title' => 'اختبار إشعارات المادة 101',
             'department_id' => Department::where('code', 'ADM')->value('id'),
@@ -467,6 +469,14 @@ class EmployeeNoticeTest extends TestCase
             'submitted_at' => now(),
             'decision_grade' => 10,
         ]);
+
+        // Stage 85 — [F] footer 2 now refuses an agenda insertion for a file
+        // that does not cover its type's mandatory [D] Appendix 57 rows.
+        // Supplied here so these tests stay about what they were written for;
+        // the rule itself has its own coverage in DocumentCompletenessTest.
+        $this->supplyRequiredDocuments($requestRecord);
+
+        return $requestRecord->refresh();
     }
 
     private function meeting(User $creator, ?Committee $committee = null): Meeting

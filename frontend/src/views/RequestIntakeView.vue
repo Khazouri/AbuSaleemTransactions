@@ -31,6 +31,8 @@ const duplicateChecking = ref(false)
 
 const acceptedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png']
 const maxBytes = 20 * 1024 * 1024
+// Mirrors StoreRequest's own `attachments` cap; see the note in chooseFiles().
+const maxFiles = 30
 const isBusy = computed(() => loadingOptions.value || submitting.value)
 // A document answer is required per attachment, so an unanswered row blocks
 // the whole submission rather than being dropped from it.
@@ -52,6 +54,19 @@ const documentOptionGroups = computed(() => DOCUMENT_GROUPS
 const coveredDocumentKeys = computed(
   () => new Set(files.value.map((attachment) => attachment.required_document_key).filter(Boolean)),
 )
+
+// Stage 85 — [D] Appendix 57 binds now. A row the appendix states without an
+// inline qualifier must be covered by one of this submission's files; a row
+// that carries one ("بحسب الموضوع"، "عند الحاجة") stays optional. Mirrors the
+// server's own rule (DocumentCompletenessService) so the form refuses what the
+// endpoint would refuse, rather than posting into a 422 — the server stays the
+// enforcement either way.
+function isMandatory(doc) {
+  return !doc.condition
+}
+
+const uncoveredMandatory = computed(() => (selectedType.value?.document_options ?? [])
+  .filter((doc) => isMandatory(doc) && !coveredDocumentKeys.value.has(doc.key)))
 
 function blankForm() {
   return { title: '', description: '', department_id: '', request_type_id: '', decision_grade: '', prior_relation: '' }
@@ -111,7 +126,10 @@ function chooseFiles(event) {
   // each existing row inside a second wrapper and drop its label and its
   // classification, so a second selection would silently break the first.
   const next = [...files.value, ...selected.map((file) => ({ file, label: '', required_document_key: '' }))]
-  if (next.length > 10) {
+  // Stage 85 raised the server's cap from 10 to 30: TRNS alone states thirteen
+  // documents unconditionally, so the old cap would have refused a submission
+  // for documents it also refused permission to attach.
+  if (next.length > maxFiles) {
     error.value = t('intake.tooManyFiles')
     return
   }
@@ -278,18 +296,31 @@ onMounted(loadOptions)
 
       <!--
         Stage 72 — [D] Appendix 57's document matrix for the chosen type, grouped
-        by the appendix's own أساسية مشتركة / خاصة بالنوع split. Soft and
-        informational: nothing here is validated on submit.
+        by the appendix's own أساسية مشتركة / خاصة بالنوع split.
+
+        Stage 85 — no longer merely informational: a row the appendix states
+        without an inline qualifier has to be covered by one of the attached
+        files before the form will submit, and the server refuses it either way.
       -->
       <fieldset v-if="documentOptionGroups.length" class="checklist" :disabled="isBusy">
         <legend>{{ t('intake.requiredDocuments.title') }}</legend>
         <p class="hint">{{ t('intake.requiredDocuments.hint') }}</p>
+        <p class="hint">{{ t('intake.requiredDocuments.mandatoryHint') }}</p>
         <div v-for="section in documentOptionGroups" :key="section.group" class="doc-group">
           <h3>{{ t(`intake.requiredDocuments.groups.${section.group}`) }}</h3>
           <ul>
-            <li v-for="(doc, index) in section.items" :key="index" :class="{ covered: coveredDocumentKeys.has(doc.key) }">
+            <li
+              v-for="(doc, index) in section.items"
+              :key="index"
+              :class="{
+                covered: coveredDocumentKeys.has(doc.key),
+                outstanding: isMandatory(doc) && !coveredDocumentKeys.has(doc.key),
+              }"
+            >
               <span aria-hidden="true" class="tick">{{ coveredDocumentKeys.has(doc.key) ? '✓' : '•' }}</span>
               {{ docLabel(doc) }}
+              <!-- Appendix 57 states this row without a qualifier, so it binds. -->
+              <span v-if="isMandatory(doc)" class="doc-required">({{ t('intake.requiredDocuments.mandatory') }})</span>
               <span v-if="docCondition(doc)" class="doc-condition">({{ docCondition(doc) }})</span>
               <span v-if="coveredDocumentKeys.has(doc.key)" class="sr-only">{{ t('intake.requiredDocuments.attached') }}</span>
             </li>
@@ -328,8 +359,19 @@ onMounted(loadOptions)
       </fieldset>
 
       <p v-if="unclassifiedFiles" class="hint">{{ t('intake.classifyFiles') }}</p>
+      <!-- Stage 85 — the outstanding rows by name, so "why can I not submit?"
+           is answered on the form rather than by a server refusal. -->
+      <p v-if="selectedType && uncoveredMandatory.length" class="alert" role="alert">
+        {{ t('intake.requiredDocuments.uncovered') }}
+        <span class="outstanding-list">{{ uncoveredMandatory.map(docLabel).join('، ') }}</span>
+      </p>
       <div class="actions">
-        <button v-can="'request_intake.add'" class="primary" type="submit" :disabled="isBusy || unclassifiedFiles">{{ submitting ? t('intake.submitting') : t('intake.submit') }}</button>
+        <button
+          v-can="'request_intake.add'"
+          class="primary"
+          type="submit"
+          :disabled="isBusy || unclassifiedFiles || uncoveredMandatory.length > 0"
+        >{{ submitting ? t('intake.submitting') : t('intake.submit') }}</button>
       </div>
     </form>
   </section>
@@ -340,7 +382,7 @@ onMounted(loadOptions)
 .card { padding: 1.25rem; }.form { max-inline-size: 52rem; }.form fieldset { min-inline-size: 0; padding: 0; margin: 0 0 1.5rem; border: 0; }.form legend { margin-bottom: .85rem; color: var(--color-brand-text); font-weight: 700; }.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.wide { grid-column: 1 / -1; }
 label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .85rem; }input, select, textarea { min-inline-size: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }textarea { resize: vertical; }small { color: var(--color-danger-fg); font-size: .78rem; }.field-hint, .hint, .state { color: var(--color-muted); font-size: .78rem; }.hint, .state { margin: 0 0 .75rem; }.file-input { max-inline-size: 100%; }
 .checklist ul { display: grid; gap: .35rem; padding-inline-start: 0; margin: 0; color: var(--color-black-700); font-size: .85rem; list-style: none; }
-.checklist li.covered { color: var(--color-success-fg); }.checklist .tick { display: inline-block; min-inline-size: 1rem; }
+.checklist li.covered { color: var(--color-success-fg); }.checklist li.outstanding { color: var(--color-black-700); font-weight: 600; }.doc-required { color: var(--color-danger-fg); font-size: .75rem; }.outstanding-list { display: block; margin-block-start: .25rem; font-weight: 600; }.checklist .tick { display: inline-block; min-inline-size: 1rem; }
 .sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .doc-group + .doc-group { margin-block-start: .85rem; }.doc-group h3 { margin: 0 0 .35rem; color: var(--color-black-700); font-size: .8rem; font-weight: 600; }.doc-condition { color: var(--color-black-500); font-size: .75rem; }
 .files { display: grid; gap: .6rem; margin-top: .85rem; }.file-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, auto) minmax(8rem, 1fr) auto; gap: .5rem; align-items: center; padding: .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.file-row .row-error { grid-column: 1 / -1; }.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.actions { display: flex; gap: .5rem; }.primary, .ghost { padding: .5rem .9rem; border-radius: var(--radius-lg); font-size: .85rem; cursor: pointer; }.primary { border: 0; color: var(--color-on-brand); background: var(--color-brand); }.ghost { border: 1px solid var(--color-border-hover); color: var(--color-black-700); background: var(--color-surface); }.link-button { text-decoration: none; }.primary:disabled, fieldset:disabled { cursor: not-allowed; opacity: .65; }.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.success { max-inline-size: 38rem; }.success h3 { margin: 0; color: var(--color-brand-text); }.success p { color: var(--color-black-700); }.reference { display: block; margin: 1rem 0; color: var(--color-primary); font-size: 1.15rem; }.receipt-notice { padding: .6rem .7rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-lg); color: var(--color-info-fg); background: var(--color-info-bg); font-size: .8rem; }

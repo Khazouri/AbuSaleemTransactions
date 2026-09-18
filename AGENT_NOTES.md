@@ -14,6 +14,223 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-18 23:40 EET — Claude — Stage 85 complete (document completeness becomes binding) — Track M opens
+
+Built per the plan below, from [D] **Appendix 57** (the matrix Stage 72 seeded and nothing enforced), **Appendix
+63**'s gate 1, **[F]** footer rule 2 and **[G]**'s validation 3 / error message 2. **No migration, no seeder
+change, no permission change** — every part reads columns and grants that already existed, which is the check
+that this stage binds data rather than adding a feature. Full suite **601 tests / 3882 assertions** green
+(was 589/3798).
+
+**One predicate, three callers — that is the whole shape.** New `App\Services\DocumentCompletenessService`
+answers "which of this type's Appendix 57 rows are mandatory, and which does this file leave uncovered", and
+the intake rule, the agenda gate and the readiness exception all read it. An intake refusal and an agenda
+refusal that disagreed about what "complete" means would be worse than either — the same reason
+`DecisionEligibility` owns one rule for both the vote endpoint and the worklist that offers it.
+
+**Mandatory is Stage 72's own data, not a new vocabulary, and this is the part not to re-litigate.** A row is
+mandatory exactly when Appendix 57 states it with no inline qualifier, which that stage stored verbatim as the
+entry's `condition` — and **Stage 78's officer gate has read that same distinction since it was built**: it
+refuses `not_applicable` on an unconditional row. So the unconditional rows already had to be answered
+`present` before a file could reach the rapporteur. Stage 85 does not raise that bar; it moves the refusal to
+the moment the employee can act on it, instead of three hops later with `return_missing_docs` as the only way
+back.
+
+**⚠ The consequence is sharp for some types, and it is the stage's own instruction rather than a judgment
+call I made.** Counted against the real seeded data: **TRNS 13** unconditional rows, PEVG 11, SECD 11, CONF 7,
+GRIV 7, PROM 7, SETL 6, LEAV 4, and the four types [D] covers with basics only, 1. So a transfer request now
+needs thirteen separate files, and several of those rows are *data statements* rather than documents (بيان
+الوظيفة الحالية، الدرجة الوظيفية، مدة الندب، سبب الندب). Softening it would mean inventing a
+"documents vs. data" split Appendix 57 does not draw, so it was built as specified and flagged here instead.
+**If that proves unusable in practice, the fix is a `data_statement` flag on the seeded rows, not a loosening
+of the rule** — the rule is what [F] footer 2 and Appendix 63 both ask for.
+
+**A real conflict the stage's own text did not anticipate, found and fixed: `attachments` was capped at
+`max:10` while TRNS states thirteen.** The two rules together made that type **literally unfilable** —
+refused for documents it was simultaneously refused permission to attach. The cap is raised to **30** (floor:
+PEVG's 22-row matrix plus room for conditional rows and `other`); it was never a sourced number, just Stage
+13's guard against a runaway upload. `RequestIntakeView.vue`'s own client-side cap follows it. A dedicated
+test files TRNS end to end so the two can never drift apart again.
+
+**Part A — the officer's gate reads the files.** `IntakeGateService` gained `derivedAnswers()`: a row an
+attachment names is `present` **by definition**, because the submitter's picker and the gate share
+`documentKey()`'s slug. Derived answers **override** whatever the officer sent, in both directions — they
+answer a row nobody reached, and they overturn a `missing` that a since-uploaded file has made untrue. Same
+discipline `ExecutionSoundnessService` applies to its own derived checks, for Art. 104's reason ("صحة المستند
+والاختصاص ليستا إجراءات شكلية"): a document check that can be ticked away is the إجراء شكلي the article rules
+out. A test spoofs `missing` on every row of a fully-covered file and gets `present` back from the stored
+record. `requiredDocuments()` now reports `covered` per row and `record()` freezes it beside the answer, so a
+later reader can tell an **attested** `present` from a **proven** one — the panel renders covered rows
+read-only and asks only about the rest, which after Part B is the conditional ones.
+
+**Part B — coverage became a submission rule, in `StoreRequest::after()`.** An `after()` hook rather than a
+rule on `attachments`, deliberately: the failure that matters most is a submission with **no** `attachments`
+key at all, and `nullable` short-circuits every rule on an absent field — so the one case that matters would
+have been the one case the rule never ran for. The message is [G]'s own «الرجاء إرفاق المستندات المطلوبة»
+plus the outstanding documents by name; that message is what this stage exists to make producible. `after()`
+is Laravel 11's own FormRequest hook (`getValidatorInstance()` calls it) — the repo has deliberately never
+used `withValidator`, and this is not that.
+
+**Part C — [F] footer 2 enforced where it is named.** `MeetingController::addAgendaItem()` refuses an
+`employee_request` item whose mandatory rows are uncovered, and `MeetingReadinessService` gained a matching
+`incomplete_required_documents` exception — the pair Stage 68's legal-review gate and Stage 83's conflict gate
+already come in, for the same stated reason: an insertion gate cannot catch completeness that regressed
+*after* an item was scheduled. **The agenda gate reads live coverage, not the frozen gate record**, on
+purpose: the record is an attestation and cannot regress, while the documents can (a row added to a type's
+matrix through the Request Types screen). It is in the controller rather than in
+`CommitteeStatusService::place_on_agenda` for the third time and the same documented reason — Stage 44
+established that an item is inserted through this endpoint without that action ever firing.
+
+**Deliberately distinct from `missing_files`.** That exception asks whether a file has *any* documents; this
+one asks whether it has the ones its own type requires. `MeetingReadinessTest`'s `$withFile === false` case
+satisfies neither, and the fixture supplies the matrix only when `$withFile` is true.
+
+**Twenty-two pre-existing tests needed legitimate fixture updates, not regression fixes** — every one is a
+fixture that now has to carry documents to finish a story about something else. Two new helpers on
+`Tests\PassesControlGates` (the `ClosesRequests`/`ExecutesRequests`/`RunsStudySequence` precedent):
+`mandatoryAttachments()` builds an intake payload, `supplyRequiredDocuments()` writes `attachments` rows
+straight to the database for a fixture built with `Request::create()`, which bypasses intake validation
+entirely. `DuplicateRequestTest` gained a `setUp()` `Storage::fake('local')` so its submissions never write
+into the real local disk. Three assertions in `RequestIntakeTest` were rewritten to look up an attachment by
+key rather than by position, since the collection is now the type's whole mandatory list plus the one the test
+is about — commented in place.
+
+Verification: new `tests/Feature/DocumentCompletenessTest.php` (12 tests — mandatory proven to be exactly the
+unqualified rows, checked row-by-row against the seeded matrix; an intake missing one refused with that
+document named and **nothing created**; an intake with no attachments at all refused; the same intake accepted
+once covered, with no conditional row attached; ALLW accepted on one file; TRNS filed end to end past the
+raised cap; the derivation covering exactly the mandatory rows and reporting `covered`; a spoofed `missing`
+overridden on every covered row; an uncovered mandatory row still refusing the gate, both with no record at
+all and with a record that leaves it unanswered; the agenda refused then admitted; an administrative item
+unaffected; and coverage lost after scheduling becoming the readiness exception, naming the item). Full suite
+**601/3882** green, Pint clean on all seventeen touched files (the one repo-wide `--test` failure is
+`scripts/build-guide-pdf.php`, pre-existing and untouched), `npm run build` passes (then reverted
+`frontend/dist`, tracked in git, per every prior stage), locale key-parity verified programmatically
+(**1873 keys each side, zero on-one-side-only**), and `php artisan migrate` reports **nothing to migrate** —
+as designed.
+
+Smoke-tested end to end over real HTTP against Homestead as the seeded `r01.employee@`: a SECD intake carrying
+one of its eleven mandatory documents was refused **422** with [G]'s wording naming the other ten by name; the
+same intake with all eleven returned **201** with `PM-RCV/2026/000005`, the Appendix 14 folders derived
+(`service_file` / `supporting_documents`), `refusalForRequest()` null, and the officer's gate deriving
+**11 of 20** rows — the eleven mandatory ones, leaving the nine conditional ones as the only questions left to
+ask. Deleted every fixture row (request, 11 attachments and their stored files, 2 stage logs, 2 status-history
+rows, 13 audit rows), purged the queue and revoked the tokens — counts confirmed back to the **4 pre-existing
+requests (37/40/41/42)**, 8 pre-existing attachments, 0 tokens, 0 jobs.
+
+**⚠ One teardown overreach, recorded rather than glossed:** the token cleanup filtered on `created_at >= now()
+-1h` and removed **2** rows where I had minted 1 — the pre-existing token was also recent. Nothing
+load-bearing (a session token; whoever held it logs in again), but it is the same class of overreach the
+2026-09-18 11:40 note already flagged. Filter by the acting user or by id next time.
+
+**⚠ Live data now fails the new rules, and that is the intended behaviour rather than a bug — but know it
+before it surprises you.** All four pre-existing requests in the real database predate the submission rule and
+leave mandatory rows uncovered (37/LEAV 4, 40/PROM 7, 41/ALLW 1, 42/TRNS 13), so **none of them can reach an
+agenda** until their documents are attached or they go back through Art. 19's استكمال loop. And the one
+pre-existing meeting, `PM-MTG/2026/01`, now reports `incomplete_required_documents` as its **only** readiness
+exception, because its single agenda item is request 41. Stage 33's R03 override is still the escape hatch.
+
+**Open items for whoever builds Stage 86+.** (1) **The strictness above needs a real-world sanity check** — if
+thirteen files for a transfer is wrong, the sourced fix is a per-row "this is a data statement, not a
+document" flag on the seeded matrix, decided by the process owner; loosening the rule itself would undo what
+[F] footer 2 asks for. (2) **`AttachmentController::store()` still asks the raw Appendix 14 folder**, so a
+document supplied during استكمال النواقص does not name a matrix row and therefore cannot close a gap the
+intake rule opened — **that is Stage 91**, and it is now the thing standing between this stage and a complete
+loop: today an incomplete legacy file cannot be completed through the ordinary upload path, only by refiling.
+Stage 91 should be done soon rather than late. (3) **`RequestType`'s admin CRUD can add a mandatory row to a
+type at any time**, which is exactly the regression path the readiness exception exists for — that screen has
+no warning that doing so blocks every open file of that type from the agenda; a warning there is cheap and
+was out of this stage's scope. (4) **The officer can still attest `present` for an uncovered row**, which
+after this stage only happens on legacy data — left deliberately, since removing it would strand those files
+with no recordable answer, but it means gate 1 can pass while the agenda gate refuses. Both refusals name the
+document, and `return_missing_docs` is the route either way.
+
+---
+
+### 2026-09-18 21:50 EET — Claude — Stage 85 implementation plan (document completeness becomes binding)
+
+Building Stage 85, the first stage of Track M, per STAGE_PLAN.md. [D] Appendix 57's matrix has been
+seeded onto `request_types.required_documents` since Stage 72 and **enforced nowhere**: Stage 72's own
+note said so, Stage 78 read it to build the officer's gate, and the 2026-09-18 21:05 entry made the
+submitter name which row each file answers — but a request can still be filed with no documents at
+all, and the officer's gate still asks a human to re-answer rows the employee's own uploads already
+prove. This stage makes the matrix bind at both ends of the intake half.
+
+**Three parts, one shared predicate.** New `App\Services\DocumentCompletenessService` owns the single
+question "which of this type's Appendix 57 rows are mandatory, and which does this file leave
+uncovered", read by all three call sites so an intake refusal, an agenda refusal and a readiness
+exception can never disagree about what "complete" means — the `DecisionEligibility` /
+`MeetingReadinessService` precedent. **Mandatory = the row carries no `condition`**, which is Stage
+72's own stored data and exactly the distinction Stage 78's gate already reads ("an entry that carries
+a condition may honestly be answered `not_applicable`; an unconditional one may not"). No new
+vocabulary is invented; the only new fact is that the same bar now applies where the employee can act
+on it.
+
+**Part A — the officer's gate reads the files.** `IntakeGateService` gains `coveredDocumentKeys()` and
+derives `present` for every row an attachment names, overriding whatever the officer submitted, the
+same way `ExecutionSoundnessService` overrides a spoofed derived check. This is the house split (ask a
+human only what the system cannot answer) applied to the one question Stage 78 had no data for and
+now does: the submitter's picker and the gate share `IntakeGateService::documentKey()`'s slug, so a row
+with a file naming it is answered by definition. The officer keeps answering rows **no** file covers —
+which after Part B is only the conditional ones. `requiredDocuments()` grows a `covered` flag so the
+panel can render those rows read-only rather than as inputs that cannot change anything.
+
+**Part B — coverage becomes a submission rule.** `StoreRequest` gains an `after()` hook (Laravel 11's
+own FormRequest validation hook; the repo has deliberately never used `withValidator`) refusing an
+intake that leaves a mandatory row uncovered, naming the documents, with [G]'s own wording «الرجاء
+إرفاق المستندات المطلوبة» — the message the stage notes no validation can produce today. Conditional
+rows stay optional. The check reads the submitted `required_document_key` values against the submitted
+type's own `documentOptions()`, which the FormRequest already queries for `allowedDocumentKeys()`, so
+the list offered, the list accepted and the list required are one list.
+
+**⚠ The consequence, stated rather than discovered: this is strict, and some types are very strict.**
+Counted against the real seeded data: TRNS has **13** unconditional rows, PEVG 11, SECD 11, CONF 7,
+GRIV 7, PROM 7, SETL 6, LEAV 4, and the four types [D] covers with basics only have 1. So a transfer
+request cannot be filed without thirteen separate files, and several of those rows are *data
+statements* rather than documents (بيان الوظيفة الحالية، الدرجة الوظيفية، مدة الندب، سبب الندب).
+This is the stage's own literal instruction and it is not new strictness in the *gate* — Stage 78's
+officer gate already refuses `not_applicable` on an unconditional row, so those thirteen already had
+to be answered `present` before the file could reach the rapporteur; Stage 85 only moves the refusal
+to the moment the employee can act on it instead of three hops later via `return_missing_docs`. It is
+recorded here as an open item rather than softened, because softening it would mean inventing a
+"documents vs. data" split Appendix 57 does not draw.
+
+**Part C — [F] footer 2, enforced where it is named.** `MeetingController::addAgendaItem()` refuses an
+`employee_request` item whose mandatory rows are not covered, and `MeetingReadinessService` gains a
+matching `incomplete_required_documents` exception — the pair the legal-review and document-conflict
+gates already come in, and for the same stated reason: the insertion gate cannot catch completeness
+that regressed *after* an item was scheduled. Today the only completeness check is at
+`requirements_check → approve`, recorded once and never re-verified, so a file that lost its coverage
+can be agenda'd. **The agenda gate reads live coverage, not the frozen gate record**, deliberately:
+the record is an attestation and cannot regress, while the attachments are the fact [F] footer 2
+speaks about. A legacy file whose officer attested `present` for a row with no uploaded file will
+therefore be refused the agenda and routed back through Art. 19's استكمال loop, which is the correct
+destination.
+
+**No migration, no seeder change, no permission change** — every part reads columns and grants that
+already exist, which is the check that this stage binds existing data rather than adding a feature.
+
+**Files**: new `DocumentCompletenessService`; `IntakeGateService` (derivation + `covered`);
+`StoreRequest` (`after()`); `RequestController::store()` is untouched — the FormRequest refuses first;
+`MeetingController::addAgendaItem()`; `MeetingReadinessService` (the exception plus two eager-load
+column additions, since `attachments:id,request_id` omits `required_document_key` and the type's own
+matrix is not loaded at all); `RequestIntakeView.vue` (mandatory markers, an uncovered-rows hint, the
+submit block, the server error on `attachments`); `IntakeGatePanel.vue` (derived rows read-only);
+`MeetingReadinessView.vue` + both locale files.
+
+**Verification plan**: new `tests/Feature/DocumentCompletenessTest.php` — an intake missing a mandatory
+row refused with that row named and nothing created; the same intake accepted once covered; a
+conditional row never required; a type with one mandatory row (ALLW) accepted with one file; the
+officer's gate deriving `present` from the submitter's files and overriding a spoofed `missing`; the
+gate still refusing an unconditional row with neither a file nor an answer; an agenda insertion refused
+for an uncovered file and admitted once covered; an administrative agenda item unaffected; and the
+readiness exception firing for an item whose coverage regressed after it was scheduled. Plus a shared
+`Tests\PassesControlGates::supplyRequiredDocuments()` helper for the fixtures that now have to carry
+documents to finish a story about something else, the full PHPUnit suite, Pint, `npm run build`, locale
+key-parity, and `php artisan migrate` confirming nothing to migrate.
+
+---
+
 ### 2026-09-18 21:05 EET — Claude — The submitter names which recommended document each attached file is
 
 Built per the plan below. One migration (`attachments.required_document_key`, nullable), applied to the real

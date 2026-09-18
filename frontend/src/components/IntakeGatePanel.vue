@@ -13,7 +13,11 @@ import { intakeAnswersFor } from '../lib/controlGates'
 
 const props = defineProps({
   requestId: { type: [Number, String], required: true },
-  // { key: { ar, en, conditional } }, straight from the type's own matrix.
+  // { key: { ar, en, conditional, covered } }, straight from the type's own
+  // matrix. Stage 85 — `covered` means one of the request's own attachments
+  // already names this row, so the server derives `present` for it and
+  // ignores whatever is sent; the form shows it read-only rather than as an
+  // input that cannot change anything.
   requiredDocuments: { type: Object, default: () => ({}) },
   // The stored record, once one exists.
   record: { type: Object, default: null },
@@ -39,6 +43,12 @@ const factsVerified = ref(false)
 
 const documents = computed(() => Object.entries(props.requiredDocuments))
 
+// Stage 85 — the officer is asked only about rows no file answers. After the
+// submission rule those are the conditional ones; a file created before it can
+// still leave a mandatory row here.
+const openDocuments = computed(() => documents.value.filter(([, document]) => !document.covered))
+const coveredDocuments = computed(() => documents.value.filter(([, document]) => document.covered))
+
 function label(document) {
   return (locale.value === 'ar' ? document.ar : document.en) || document.ar || document.en
 }
@@ -52,8 +62,8 @@ const recordedAtLabel = computed(() => (props.recordedAt
 // previous answers rather than a blank slate the officer has to redo.
 function seed() {
   const stored = props.record?.documents ?? {}
-  for (const [key] of documents.value) {
-    answers[key] = stored[key] ?? ''
+  for (const [key, document] of documents.value) {
+    answers[key] = document.covered ? 'present' : (stored[key] ?? '')
   }
   factsVerified.value = props.record?.facts_verified === true
 }
@@ -63,7 +73,7 @@ watch(open, (isOpen) => {
   if (isOpen) seed()
 })
 
-const canSubmit = computed(() => documents.value.every(([key]) => answers[key] !== ''))
+const canSubmit = computed(() => openDocuments.value.every(([key]) => answers[key] !== ''))
 
 function describe(requestError) {
   const errors = requestError.response?.data?.errors
@@ -107,8 +117,10 @@ async function submit() {
     <ul v-if="record?.items?.length" class="recorded">
       <li v-for="item in record.items" :key="item.key">
         <span>{{ locale === 'ar' ? item.label_ar : item.label_en }}</span>
+        <!-- Stage 85 — an attested `present` and a proven one read
+             differently, because they are different claims. -->
         <span :class="['answer', item.answer]">
-          {{ t(`controlGates.intake.answers.${item.answer}`) }}
+          {{ item.covered ? t('controlGates.intake.derived') : t(`controlGates.intake.answers.${item.answer}`) }}
         </span>
       </li>
     </ul>
@@ -128,7 +140,20 @@ async function submit() {
 
       <p v-if="!documents.length" class="hint">{{ t('controlGates.intake.noDocuments') }}</p>
 
-      <label v-for="[key, document] in documents" :key="key">
+      <!-- Stage 85 — rows the submitter's own files already answer. Shown so
+           the officer can see the whole matrix, never as inputs: the server
+           derives these and overrides whatever is sent. -->
+      <template v-if="coveredDocuments.length">
+        <p class="hint">{{ t('controlGates.intake.derivedHint') }}</p>
+        <ul class="derived">
+          <li v-for="[key, document] in coveredDocuments" :key="key">
+            <span>{{ label(document) }}</span>
+            <span class="answer present">{{ t('controlGates.intake.derived') }}</span>
+          </li>
+        </ul>
+      </template>
+
+      <label v-for="[key, document] in openDocuments" :key="key">
         <span>
           {{ label(document) }}
           <em v-if="document.conditional">{{ t('controlGates.intake.conditional') }}</em>
@@ -202,6 +227,7 @@ async function submit() {
   font: inherit;
 }
 
+.derived,
 .recorded {
   margin: 0;
   padding: 0;
@@ -212,6 +238,7 @@ async function submit() {
   font-size: 0.85rem;
 }
 
+.derived li,
 .recorded li {
   display: flex;
   justify-content: space-between;

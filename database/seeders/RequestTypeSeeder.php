@@ -91,7 +91,16 @@ use Illuminate\Database\Seeder;
  * the only علاوة mentions in [D] are Art. 69's effect-on-allowance clause, and
  * إنهاء الخدمة appears only as a probation *outcome*. Same honest-gap
  * convention Stage 68 used when only six of twelve types had an Appendix 21
- * citation. Nothing is validated or enforced server-side either way.
+ * citation.
+ *
+ * STAGE 85 MADE THIS COLUMN BINDING. An entry with no `condition` must be
+ * covered by one of a submission's own files, and by one of the request's
+ * attachments before it can reach a committee agenda; an entry with one stays
+ * optional. So EDITING THIS SEEDER CHANGES WHAT CAN BE FILED AND WHAT CAN BE
+ * PRESENTED — adding an unconditional row to a type blocks every open file of
+ * that type from an agenda until its documents cover the new row (which is
+ * what MeetingReadinessService's `incomplete_required_documents` exception
+ * reports). The same is true of the Request Types admin screen.
  *
  * ---
  *

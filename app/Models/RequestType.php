@@ -27,10 +27,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *                                          `specific` (this type's own ملف), and `condition` is a
  *                                          nullable {ar, en} pair carrying the source's own inline
  *                                          qualifier, which is what makes an entry Appendix 57's
- *                                          third group (المشروطة). Soft and informational — never
- *                                          enforced server-side. See RequestTypeSeeder's docblock
- *                                          for the exclusion rules and the four types [D] does not
- *                                          cover.
+ *                                          third group (المشروطة). Stage 85 — no longer
+ *                                          informational: an entry with NO condition must be
+ *                                          covered by one of the submission's own files, and by
+ *                                          one of the file's own attachments before it can reach a
+ *                                          committee agenda (DocumentCompletenessService); an entry
+ *                                          WITH one stays optional. See RequestTypeSeeder's
+ *                                          docblock for the exclusion rules and the four types [D]
+ *                                          does not cover.
  * @property string|null $default_administrative_route Stage 56 — a soft,
  *                                                     advisory suggestion (hr|diwan|committee_secretary) for which
  *                                                     of administrative_routing's 3 manual routes fits this type;

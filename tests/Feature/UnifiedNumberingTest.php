@@ -19,6 +19,7 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\PassesControlGates;
 use Tests\RecordsStructuredDecisions;
 use Tests\RunsStudySequence;
 use Tests\TestCase;
@@ -35,6 +36,7 @@ use Tests\TestCase;
  */
 class UnifiedNumberingTest extends TestCase
 {
+    use PassesControlGates;
     use RecordsStructuredDecisions;
     use RefreshDatabase;
     use RunsStudySequence;
@@ -60,6 +62,10 @@ class UnifiedNumberingTest extends TestCase
                 'department_id' => Department::where('code', 'ADM')->value('id'),
                 'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
                 'decision_grade' => 9,
+                // Stage 85 — Appendix 57's mandatory rows became a submission
+                // rule; this test's subject is the numbering, so it clears
+                // that rule rather than restating it.
+                'attachments' => $this->mandatoryAttachments(RequestType::where('code', 'PROM')->firstOrFail()),
             ])
             ->assertCreated()
             ->assertJsonPath('data.reference_number', null)

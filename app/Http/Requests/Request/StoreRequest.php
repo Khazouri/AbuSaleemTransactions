@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Request;
 
 use App\Models\RequestType;
+use App\Services\DocumentCompletenessService;
 use App\Services\Lifecycle\DuplicatePolicy;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -43,7 +45,16 @@ class StoreRequest extends FormRequest
             // controller — the split StoreDecisionRequest's docblock already
             // established for rules that depend on state.
             'prior_relation' => ['nullable', Rule::in(array_keys(DuplicatePolicy::RELATIONS))],
-            'attachments' => ['nullable', 'array', 'max:10'],
+            // Stage 85 raised this from 10. It has to clear the largest
+            // Appendix 57 matrix or the submission rule below contradicts it:
+            // TRNS alone states THIRTEEN documents unconditionally, so a cap of
+            // ten would have made that type literally unfilable — refused for
+            // missing documents it is simultaneously refused permission to
+            // attach. The floor is the largest matrix (PEVG's 22 rows), plus
+            // room for conditional rows and `other`; the number itself was
+            // never sourced, it is Stage 13's own guard against a runaway
+            // upload.
+            'attachments' => ['nullable', 'array', 'max:30'],
             'attachments.*.file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:20480'],
             'attachments.*.label' => ['nullable', 'string', 'max:255'],
             // Which of the chosen type's [D] Appendix 57 recommended documents
@@ -66,6 +77,54 @@ class StoreRequest extends FormRequest
         ];
     }
 
+    /**
+     * Stage 85 — [D] Appendix 57 stops advising and starts binding.
+     *
+     * Every row the appendix states WITHOUT a qualifier must be answered by
+     * one of this submission's own files; a row carrying the appendix's own
+     * inline condition ("بحسب الموضوع"، "عند الحاجة") stays optional. That is
+     * the same distinction Stage 78's officer gate has read since it was
+     * built — it refuses `not_applicable` on an unconditional row — so this
+     * moves an existing bar to the moment the employee can act on it rather
+     * than raising a new one. Until now the file only met that bar three hops
+     * later, and the only way back was Art. 19's استكمال loop.
+     *
+     * It is also what finally lets [G]'s own «الرجاء إرفاق المستندات
+     * المطلوبة» fire: no validation in this system could previously produce
+     * that message, because `attachments` was nullable and nothing compared
+     * what arrived against the matrix.
+     *
+     * An `after` hook rather than a rule on `attachments`, deliberately: the
+     * failure this catches is most often a submission with NO attachments key
+     * at all, and `nullable` short-circuits every rule attached to an absent
+     * field — so the one case that matters most would be the one case the
+     * rule never ran for.
+     *
+     * @return list<\Closure>
+     */
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            // The type's own `exists` rule already reported an unknown or
+            // retired type; naming documents from a type that failed would
+            // report a second, confusing failure about the first one.
+            if ($validator->errors()->has('request_type_id')) {
+                return;
+            }
+
+            $attachments = $this->input('attachments');
+
+            $refusal = app(DocumentCompletenessService::class)->refusalForSubmission(
+                RequestType::query()->whereKey($this->integer('request_type_id'))->first(),
+                array_column(is_array($attachments) ? $attachments : [], 'required_document_key'),
+            );
+
+            if ($refusal !== null) {
+                $validator->errors()->add('attachments', $refusal);
+            }
+        }];
+    }
+
     public function messages(): array
     {
         return [
@@ -77,7 +136,7 @@ class StoreRequest extends FormRequest
             'decision_grade.required' => 'درجة القرار مطلوبة لهذا النوع من الطلبات.',
             'decision_grade.integer' => 'يجب أن تكون درجة القرار رقماً صحيحاً.',
             'decision_grade.between' => 'يجب أن تكون درجة القرار بين 1 و100.',
-            'attachments.max' => 'لا يمكن إرفاق أكثر من 10 ملفات.',
+            'attachments.max' => 'لا يمكن إرفاق أكثر من 30 ملفاً.',
             'attachments.*.file.required' => 'يرجى اختيار ملف للمرفق.',
             'attachments.*.file.mimes' => 'يسمح بملفات PDF وDOC وDOCX وJPG وPNG فقط.',
             'attachments.*.file.max' => 'الحد الأقصى لحجم الملف هو 20 ميجابايت.',

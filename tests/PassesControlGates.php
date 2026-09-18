@@ -2,14 +2,18 @@
 
 namespace Tests;
 
+use App\Models\Attachment;
 use App\Models\Meeting;
 use App\Models\MeetingMinutes;
 use App\Models\Request;
+use App\Models\RequestType;
 use App\Models\User;
+use App\Services\DocumentCompletenessService;
 use App\Services\ExecutionSoundnessService;
 use App\Services\IntakeGateService;
 use App\Services\MeetingMinutesCompiler;
 use App\Services\MinutesQualityRules;
+use Illuminate\Http\UploadedFile;
 
 /**
  * Stage 78 — what a request and a محضر now need to get past [D] Appendix 63's
@@ -23,6 +27,72 @@ use App\Services\MinutesQualityRules;
  */
 trait PassesControlGates
 {
+    /**
+     * Stage 85 — an intake payload's `attachments` array covering every
+     * mandatory [D] Appendix 57 row of the chosen type.
+     *
+     * For tests that POST /api/requests to get a request to exist at all. The
+     * caller needs Storage::fake('local'), since these are real uploads that
+     * store() writes to disk.
+     *
+     * @return list<array{file: UploadedFile, required_document_key: string}>
+     */
+    protected function mandatoryAttachments(RequestType $type): array
+    {
+        $keys = array_keys(app(DocumentCompletenessService::class)->mandatoryDocuments($type));
+
+        return array_map(fn (int $index, string $key): array => [
+            'file' => UploadedFile::fake()->create("required-{$index}.pdf", 20, 'application/pdf'),
+            'required_document_key' => $key,
+        ], array_keys($keys), $keys);
+    }
+
+    /**
+     * Stage 85 — give a request one attachment per mandatory [D] Appendix 57
+     * row of its own type.
+     *
+     * Since Stage 85 a request cannot be filed without them, cannot reach an
+     * agenda without them, and a meeting carrying one that lacks them cannot
+     * convene — so a fixture built with Request::create() (which bypasses
+     * intake validation entirely) has to be given them before it can finish a
+     * story about something else. Rows are written straight to `attachments`
+     * with no stored file: the completeness rule reads
+     * `required_document_key` and nothing else, and a fixture that needs a
+     * real file on disk says so itself.
+     *
+     * Tests whose subject IS the completeness rule build their own
+     * deliberately incomplete files instead — see DocumentCompletenessTest.
+     *
+     * @return list<Attachment>
+     */
+    protected function supplyRequiredDocuments(Request $requestRecord, ?User $uploader = null): array
+    {
+        $requestRecord->loadMissing('requestType');
+
+        $mandatory = app(DocumentCompletenessService::class)
+            ->mandatoryDocuments($requestRecord->requestType);
+
+        $created = [];
+        foreach (array_keys($mandatory) as $index => $key) {
+            $created[] = Attachment::create([
+                'request_id' => $requestRecord->id,
+                'disk' => 'local',
+                'path' => "attachments/{$requestRecord->id}/fixture-{$index}.pdf",
+                'original_name' => "fixture-{$index}.pdf",
+                'mime_type' => 'application/pdf',
+                'size_bytes' => 1024,
+                'required_document_key' => $key,
+                'file_section' => $requestRecord->requestType?->sectionForDocument($key)
+                    ?? Attachment::DEFAULT_SUBMITTER_SECTION,
+                'uploaded_by_user_id' => $uploader?->id ?? $requestRecord->created_by_user_id,
+            ]);
+        }
+
+        $requestRecord->unsetRelation('attachments');
+
+        return $created;
+    }
+
     /**
      * Answer Appendix 63's بوابة 1 for this request's own Appendix 57 matrix,
      * every document present.

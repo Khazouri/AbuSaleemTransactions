@@ -60,6 +60,14 @@ class IntakeGateService
     public const FACTS_CHECK = 'هل الوقائع والبيانات المقدمة صحيحة؟';
 
     /**
+     * Stage 85 — the gate stopped asking about documents the file already
+     * carries. DocumentCompletenessService owns which Appendix 57 rows a
+     * request's own uploads answer, and is shared with the intake submission
+     * rule and the agenda gate so all three read one notion of coverage.
+     */
+    public function __construct(private readonly DocumentCompletenessService $completeness) {}
+
+    /**
      * The request type's own Appendix 57 matrix, keyed by a stable slug so an
      * answer survives a reword of the Arabic label.
      *
@@ -69,18 +77,27 @@ class IntakeGateService
      * a typo fix. Both together mean a changed list produces *unanswered*
      * items (which the gate refuses) rather than wrong ones.
      *
-     * @return array<string, array{ar: string, en: string, conditional: bool}>
+     * Stage 85 — each row also reports whether one of the request's own
+     * attachments already names it, which is what lets the panel render a
+     * covered row as a recorded fact rather than as an input that cannot
+     * change anything.
+     *
+     * @return array<string, array{ar: string, en: string, conditional: bool, covered: bool}>
      */
     public function requiredDocuments(Request $requestRecord): array
     {
         $documents = $requestRecord->requestType?->required_documents ?? [];
+        $covered = array_fill_keys($this->completeness->coveredKeys($requestRecord), true);
 
         $indexed = [];
         foreach (array_values($documents) as $index => $document) {
-            $indexed[self::documentKey($index, $document['ar'] ?? '')] = [
+            $key = self::documentKey($index, $document['ar'] ?? '');
+
+            $indexed[$key] = [
                 'ar' => $document['ar'] ?? '',
                 'en' => $document['en'] ?? '',
                 'conditional' => ($document['condition'] ?? null) !== null,
+                'covered' => isset($covered[$key]),
             ];
         }
 
@@ -90,6 +107,37 @@ class IntakeGateService
     public static function documentKey(int $index, string $labelAr): string
     {
         return $index.'-'.substr(sha1($labelAr), 0, 8);
+    }
+
+    /**
+     * Stage 85 — the rows this file answers by itself.
+     *
+     * A row an attachment names is `present` by definition: the submitter's
+     * picker and this gate share `documentKey()`'s slug, so the file IS the
+     * answer. Asking the officer to restate it — and then being free to accept
+     * a `missing` contradicted by a document sitting in the file — is the
+     * shape Art. 104 rules out for the soundness checklist ("صحة المستند
+     * والاختصاص ليستا إجراءات شكلية"), which is why ExecutionSoundnessService
+     * overrides its own derived answers rather than trusting what it was sent.
+     *
+     * Rows no file covers stay the officer's to answer, which after Stage 85's
+     * submission rule means the conditional ones — plus, for a file created
+     * before that rule, whatever it never carried.
+     *
+     * @return array<string, string>
+     */
+    public function derivedAnswers(Request $requestRecord): array
+    {
+        $covered = array_fill_keys($this->completeness->coveredKeys($requestRecord), true);
+
+        $derived = [];
+        foreach (array_keys($this->requiredDocuments($requestRecord)) as $key) {
+            if (isset($covered[$key])) {
+                $derived[$key] = 'present';
+            }
+        }
+
+        return $derived;
     }
 
     /**
@@ -112,6 +160,12 @@ class IntakeGateService
             $answers = is_array($record['documents'] ?? null) ? $record['documents'] : [];
             $factsVerified = (bool) ($record['facts_verified'] ?? false);
         }
+
+        // Stage 85 — a document in the file outranks anything anyone recorded
+        // about it, in both directions: it answers a row the officer never
+        // reached, and it overrides a `missing` that a since-uploaded file has
+        // made untrue.
+        $answers = [...$answers, ...$this->derivedAnswers($requestRecord)];
 
         foreach ($required as $key => $document) {
             $answer = $answers[$key] ?? null;
@@ -145,12 +199,16 @@ class IntakeGateService
      * reassemble from a seeder. Stage 75's `auditRecord()` precedent.
      *
      * @param  array<string, string>  $answers
-     * @return array{documents: array<string, string>, items: list<array{key: string, label_ar: string, label_en: string, conditional: bool, answer: string}>, facts_verified: bool}
+     * @return array{documents: array<string, string>, items: list<array{key: string, label_ar: string, label_en: string, conditional: bool, covered: bool, answer: string}>, facts_verified: bool}
      */
     public function record(Request $requestRecord, array $answers, bool $factsVerified): array
     {
         $items = [];
         $documents = [];
+        // Stage 85 — same precedence as the refusal above, so the stored card
+        // and the gate that reads it can never say different things about the
+        // same row.
+        $answers = [...$answers, ...$this->derivedAnswers($requestRecord)];
 
         foreach ($this->requiredDocuments($requestRecord) as $key => $document) {
             $answer = $answers[$key] ?? 'missing';
@@ -160,6 +218,10 @@ class IntakeGateService
                 'label_ar' => $document['ar'],
                 'label_en' => $document['en'],
                 'conditional' => $document['conditional'],
+                // Whether the answer came from a file rather than from the
+                // officer, frozen beside it: a later reader can tell an
+                // attested `present` from a proven one.
+                'covered' => $document['covered'],
                 'answer' => $answer,
             ];
         }

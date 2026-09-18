@@ -10,12 +10,27 @@ use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
+use Tests\PassesControlGates;
 use Tests\TestCase;
 
 /** Stage 83 — [D] Appendix 16's سياسة عدم ازدواجية المعاملات. */
 class DuplicateRequestTest extends TestCase
 {
+    use PassesControlGates;
     use RefreshDatabase;
+
+    /**
+     * Stage 85 — every submission below now carries real uploads, because
+     * Appendix 57's mandatory rows became a submission rule. Faked once here
+     * rather than per test so store() never writes into the real local disk.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Storage::fake('local');
+    }
 
     public function test_an_open_file_on_the_same_subject_refuses_a_second_request(): void
     {
@@ -129,13 +144,18 @@ class DuplicateRequestTest extends TestCase
 
     private function submit(User $actor, string $typeCode = 'PROM', array $extra = [])
     {
-        return $this->actingAs($actor, 'sanctum')->postJson('/api/requests', [
+        $type = RequestType::where('code', $typeCode)->firstOrFail();
+
+        return $this->actingAs($actor, 'sanctum')->post('/api/requests', [
             'title' => 'طلب ترقية',
             'department_id' => Department::where('code', 'ADM')->value('id'),
-            'request_type_id' => RequestType::where('code', $typeCode)->value('id'),
+            'request_type_id' => $type->id,
             'decision_grade' => 9,
+            // Stage 85 — this test's subject is Appendix 16's duplicate rule,
+            // so the file has to clear Appendix 57's own rule first to reach it.
+            'attachments' => $this->mandatoryAttachments($type),
             ...$extra,
-        ]);
+        ], ['Accept' => 'application/json']);
     }
 
     /** A previously-filed request on the same subject that has since concluded. */

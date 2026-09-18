@@ -29,6 +29,7 @@ use App\Models\Request;
 use App\Models\RequestStageLog;
 use App\Services\AgendaOrderingService;
 use App\Services\ArtifactNumberGenerator;
+use App\Services\DocumentCompletenessService;
 use App\Services\Lifecycle\DocumentConflictService;
 use App\Services\Lifecycle\UrgencyRules;
 use App\Services\NotificationDispatcher;
@@ -293,6 +294,26 @@ class MeetingController extends Controller
                 throw ValidationException::withMessages([
                     'request_id' => [DocumentConflictService::AGENDA_BLOCK_MESSAGE],
                 ]);
+            }
+
+            // Stage 85 — [F]'s own footer rule 2, enforced where it is named:
+            // "لا يُعرض أي طلب على اللجنة قبل استكمال المستندات المطلوبة".
+            //
+            // The file's documents were already checked once, at
+            // `requirements_check → approve` — but that check is recorded and
+            // never re-verified, so completeness that regressed afterwards
+            // (a row added to the type's matrix through the Request Types
+            // screen, or a file that predates Stage 85's submission rule)
+            // reaches the agenda unnoticed. This reads live coverage rather
+            // than the frozen gate record, because the record is an
+            // attestation and cannot regress while the documents can.
+            //
+            // Here rather than in CommitteeStatusService for the third time
+            // and the same documented reason as the two gates above: an item
+            // is inserted through this endpoint without `place_on_agenda`
+            // ever firing.
+            if (($incomplete = app(DocumentCompletenessService::class)->refusalForRequest($subject)) !== null) {
+                throw ValidationException::withMessages(['request_id' => [$incomplete]]);
             }
         }
 

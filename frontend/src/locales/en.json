@@ -602,7 +602,10 @@
         "basic": "Shared basic documents",
         "specific": "Documents specific to this type"
       },
-      "attached": "attached"
+      "attached": "attached",
+      "mandatory": "required",
+      "uncovered": "Please attach the required documents before submitting the request.",
+      "mandatoryHint": "Documents marked (required) must be attached; the rest are attached as the case requires."
     },
     "classifyFiles": "Say which document each attached file is before submitting the request."
   },
@@ -1312,7 +1315,8 @@
         "committee_rules_not_recorded": "The committee card records no quorum rule, and the system may not assume one.",
         "missing_legal_review": "Some request items have not completed the required legal review.",
         "agenda_order_departs_from_rule": "The agenda departs from the order Art. 83 mandates, with no documented administrative justification.",
-        "unresolved_document_conflict": "A document conflict on one of the agenda items has not been resolved."
+        "unresolved_document_conflict": "A document conflict on one of the agenda items has not been resolved.",
+        "incomplete_required_documents": "Required documents are incomplete on {count} request item(s)."
       },
       "convene": {
         "title": "Convene meeting",
@@ -1971,7 +1975,9 @@
         "present": "Attached",
         "not_applicable": "Not applicable",
         "missing": "Missing"
-      }
+      },
+      "derived": "Confirmed from the attachments",
+      "derivedHint": "Documents the submitter attached are confirmed automatically and are not asked again."
     },
     "soundness": {
       "title": "Decision soundness checklist (Art. 103)",

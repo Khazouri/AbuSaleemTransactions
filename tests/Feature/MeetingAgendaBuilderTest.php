@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\PassesControlGates;
 use Tests\RunsStudySequence;
 use Tests\TestCase;
 
@@ -23,6 +24,7 @@ use Tests\TestCase;
  */
 class MeetingAgendaBuilderTest extends TestCase
 {
+    use PassesControlGates;
     use RefreshDatabase;
     use RunsStudySequence;
 
@@ -316,7 +318,14 @@ class MeetingAgendaBuilderTest extends TestCase
             'reviewed_at' => now(),
         ]);
 
-        return $requestRecord;
+        // Stage 85 — [F] footer 2 now refuses an agenda insertion for a file
+        // that does not cover its type's mandatory [D] Appendix 57 rows.
+        // Supplied here for the same reason the legal review above is, and
+        // with the same split: the rule itself is covered by
+        // DocumentCompletenessTest.
+        $this->supplyRequiredDocuments($requestRecord);
+
+        return $requestRecord->refresh();
     }
 
     private function userWithRole(string $roleCode): User

@@ -13,10 +13,12 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\PassesControlGates;
 use Tests\TestCase;
 
 class CommitteeMeetingTest extends TestCase
 {
+    use PassesControlGates;
     use RefreshDatabase;
 
     public function test_committee_head_can_schedule_a_meeting_that_auto_invites_active_members(): void
@@ -192,6 +194,12 @@ class CommitteeMeetingTest extends TestCase
             'verdict' => 'sound_ready',
             'reviewed_at' => now(),
         ]);
+
+        // Stage 85 — [F] footer 2 now refuses an agenda insertion for a file
+        // that does not cover its type's mandatory [D] Appendix 57 rows.
+        // Supplied here so these tests stay about what they were written for;
+        // the rule itself has its own coverage in DocumentCompletenessTest.
+        $this->supplyRequiredDocuments($requestRecord);
 
         return $requestRecord;
     }

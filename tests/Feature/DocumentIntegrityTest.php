@@ -16,6 +16,7 @@ use App\Models\WorkflowStage;
 use App\Services\Lifecycle\DocumentValidityRules;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\PassesControlGates;
 use Tests\TestCase;
 
 /**
@@ -24,6 +25,7 @@ use Tests\TestCase;
  */
 class DocumentIntegrityTest extends TestCase
 {
+    use PassesControlGates;
     use RefreshDatabase;
 
     public function test_an_open_conflict_refuses_agenda_insertion_and_resolving_it_lifts_the_refusal(): void
@@ -292,6 +294,12 @@ class DocumentIntegrityTest extends TestCase
             'committee_mandate' => 'decision',
             'reviewed_at' => now(),
         ]);
+
+        // Stage 85 — [F] footer 2 now refuses an agenda insertion for a file
+        // that does not cover its type's mandatory [D] Appendix 57 rows.
+        // Supplied here so these tests stay about what they were written for;
+        // the rule itself has its own coverage in DocumentCompletenessTest.
+        $this->supplyRequiredDocuments($requestRecord);
 
         return $requestRecord->refresh();
     }
