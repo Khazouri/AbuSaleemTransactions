@@ -34,7 +34,9 @@ class WorkflowServiceTest extends TestCase
         $employee->manager_id = $manager->id;
         $employee->save();
 
-        $actors = collect(['R02', 'R03', 'R05', 'R06', 'R07'])
+        // Stage 86 added R09 (أمين سر اللجنة): the two hops into the committee
+        // are the secretary's now, not R02's and R05's.
+        $actors = collect(['R02', 'R03', 'R05', 'R06', 'R07', 'R09'])
             ->mapWithKeys(fn (string $roleCode) => [
                 $roleCode => $this->userWithRole($roleCode),
             ]);
@@ -57,9 +59,11 @@ class WorkflowServiceTest extends TestCase
             ['requirements_check', 'reviewer_review', 'approve', 'R02', 'registered'],
             ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
             // Stage 57 collapsed the old two-hop observations ->
-            // ministry_endorsement -> forward_to_committee into one.
-            ['observations', 'forward_to_committee', 'forward', 'R02', 'ready'],
-            ['forward_to_committee', 'receive_from_committee', 'forward', 'R05', 'in_meeting'],
+            // ministry_endorsement -> forward_to_committee into one; Stage 86
+            // then moved both remaining hops into the committee to R09
+            // (أمين سر اللجنة), from R02 and R05 respectively.
+            ['observations', 'forward_to_committee', 'forward', 'R09', 'ready'],
+            ['forward_to_committee', 'receive_from_committee', 'forward', 'R09', 'in_meeting'],
             ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'awaiting_municipal_approval'],
             ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'awaiting_central_approval'],
             // Stage 57 removed competent_authority: ministry approval is now
@@ -205,13 +209,18 @@ class WorkflowServiceTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        $adminManager = $this->userWithRole('R05');
+        // Stage 86 — cancelling at forward_to_committee followed the forwarding
+        // hop from R05 to R09, per that seeder's own rule that cancellation
+        // belongs to the role responsible for moving the stage.
+        $secretary = $this->userWithRole('R09');
         $service = app(WorkflowService::class);
         $paths = [
             ['requirements_check', 'return_missing_docs', $reviewer, 'receive_from_municipality', 'incomplete', 'المستند المالي غير مرفق.'],
             ['reviewer_review', 'reject_review', $reviewer, 'requirements_check', 'rejected', 'الطلب لا تطابق اللائحة.'],
+            // R02 keeps this one: the study is still its work, and sending the
+            // file back is still its call — only the handover onward moved.
             ['observations', 'request_edit', $reviewer, 'reviewer_review', 'returned', 'يرجى تصحيح بيانات القرار.'],
-            ['forward_to_committee', 'cancel', $adminManager, 'forward_to_committee', 'cancelled', 'أُلغي الطلب بناءً على كتاب رسمي.'],
+            ['forward_to_committee', 'cancel', $secretary, 'forward_to_committee', 'cancelled', 'أُلغي الطلب بناءً على كتاب رسمي.'],
         ];
 
         foreach ($paths as [$from, $action, $actor, $to, $status, $reason]) {
@@ -335,7 +344,7 @@ class WorkflowServiceTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $actors = collect(['R02', 'R03', 'R05', 'R07'])
+        $actors = collect(['R02', 'R03', 'R05', 'R07', 'R09'])
             ->mapWithKeys(fn (string $roleCode) => [
                 $roleCode => $this->userWithRole($roleCode),
             ]);
@@ -346,16 +355,18 @@ class WorkflowServiceTest extends TestCase
         // matching what used to be the effective starting point after the
         // very first `forward` step below, which is why that step is gone).
         // Stage 57 collapsed observations -> ministry_endorsement ->
-        // forward_to_committee into one R02 hop, so only one `forward`/R05
-        // step remains (forward_to_committee -> receive_from_committee) —
-        // not two.
+        // forward_to_committee into one hop, so only one `forward` step into
+        // the committee remains (forward_to_committee ->
+        // receive_from_committee) — not two. Stage 86 then made both hops into
+        // the committee R09's (أمين سر اللجنة), leaving R02 the study half of
+        // the chain only.
         $requestRecord = $this->newRequest(stageCode: 'requirements_check', statusCode: 'in_review', decisionGrade: 9);
 
         foreach ([
             ['approve', 'R02'],
             ['forward', 'R02'],
-            ['forward', 'R02'],
-            ['forward', 'R05'],
+            ['forward', 'R09'],
+            ['forward', 'R09'],
             ['approve', 'R03'],
         ] as [$action, $role]) {
             $requestRecord = $service->transition(

@@ -63,7 +63,12 @@ class RequestDetailTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.current_stage.code', 'observations')
             ->assertJsonPath('data.status.code', 'in_review')
-            ->assertJsonPath('data.available_actions.0', 'forward');
+            // Stage 86 — the handover out of `observations` belongs to R09
+            // (أمين سر اللجنة) now, so this R02 reviewer is deliberately no
+            // longer offered `forward` here. It keeps `request_edit`: the
+            // study is still its work and sending the file back is still its
+            // call. CommitteeHandoverTest covers the R09 side.
+            ->assertJsonPath('data.available_actions.0', 'request_edit');
 
         $this->assertDatabaseHas('request_stage_logs', [
             'request_id' => $requestRecord->id,

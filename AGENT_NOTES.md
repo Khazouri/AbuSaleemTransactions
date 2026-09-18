@@ -14,6 +14,243 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-18 23:10 EET — Claude — Stage 86 complete (the committee secretary owns the handover)
+
+Built per the plan below, from [F] steps 7–9 + [D] Art. 15. **Four seeded cells, no application code at
+all** — `git status` shows only the two seeders, three existing test files, one new test file and this
+note. No migration, no frontend, no locale key, no permission change, and **no `RequestVisibility`
+change**, which is the check that this stage re-seeds ownership rather than adding a feature. Full suite
+**615 tests / 3942 assertions** green (was 608/3920 — exactly this stage's +7 tests and +22 assertions).
+
+**The two hops into the committee are R09's**: `observations → forward_to_committee` (was R02) and
+`forward_to_committee → receive_from_committee` (was R05). R09 is literally named أمين سر اللجنة in
+`RoleSeeder` and until now owned no transition anywhere in the pre-committee chain except the `register`
+row for its own routing destination.
+
+**Three things needed no change, and each was checked rather than assumed.** (1) Neither hop is an
+approval level (`WorkflowService::APPROVAL_LEVELS`, `ApprovalController::LEVELS`), so neither runs
+through the approval queue or `RequestController::actorCanApproveCurrentLevel()`'s screen map — both are
+reachable only through `POST requests/{requestRecord}/transition`. (2) **The stage's own "Watch" bullet
+resolves to "nothing to do"**: `requests` and `request_details` both seed `view => '*'`, so R09 genuinely
+holds them — the wildcard *is* the grant, not a gap. (3) **`RequestVisibility` derives its assignment
+clause from these very rows**, so R09 gained visibility at both stages and R05 lost it at
+`forward_to_committee` the moment the rows moved. Every prior instance of that gap (Stages
+47/68/75/76/77/78/83) needed a bounded clause *because* the role held no row; R09 holds one. Proven live,
+not only by test: R05 now gets a **404** on a file at `forward_to_committee`.
+
+**R02 keeps its seat at `observations` and that is deliberate** — the visibility subquery does not filter
+`is_exception`, so R02's `request_edit`/`cancel` rows keep the file in its workspace. The study is still
+R02's work and sending the file back is still its call; only the handover onward moved. Confirmed live:
+at `observations` R09 is offered `forward` and R02 is offered `request_edit,cancel`.
+
+**One consequence the Build bullet does not name, required by the seeder's own stated rule: `cancel` at
+`forward_to_committee` moved R05 → R09 too.** That seeder's comment states the invariant — "Cancellation
+is available to the role responsible for moving each open stage" — and after this change R09 is that role
+while R05 holds *nothing else* there. Leaving it behind would have given R05 one orphan capability at a
+stage it has no part in, kept R05 visible there, and left the file's holder able to move it but not stop
+it. **`cancel` at `observations` stays R02**, the same rule read the other way (R02 still moves that
+stage, backward, through `request_edit`; Appendix 37 maps `observations` to إعداد مذكرة العرض, المقرر's
+own action). The asymmetry is one rule applied consistently.
+
+**That cancel move needed an explicit cleanup, and the cleanup is proven load-bearing rather than
+assumed.** Exception rows are **not** cleared by the delete at the top of `WorkflowTransitionSeeder::run()`
+(which only removes generic non-exception rows), and `seedException()` keys its upsert on
+`required_role_id` — so on any database seeded before Stage 86 the superseded R05 row would have survived
+*beside* its R09 replacement. A targeted delete now removes any non-R09 `cancel` row at that stage. **The
+test for it does not seed twice on a clean database** (that passes vacuously, since a fresh database never
+holds the stale row): it seeds, writes the row back to R05 the way a pre-Stage-86 install actually has it,
+then re-seeds. Verified by temporarily deleting the cleanup block and watching that test fail with
+**"actual size 2"** — two cancel rows — then restoring it.
+
+**The "then decide, don't assume" question, decided: the display stays, and `responsible_role_id` keeps
+its documented indicative contract.** Not inertia — three reasons. (a) "Who can act" is **not expressible
+in that column**: three stages are NULL precisely because the actor is "whoever is this submitter's
+manager" or one of three routing destinations, which a role FK cannot say, so redefining the field would
+make it wrong-by-construction for 3 of 12 rows. (b) Stage 83 already built the who-can-act answer as a
+*derivation* — `RequestResponsibilityService::partyFromStage()` reads the live outbound rules and falls
+back to this column only for a stage with no rule at all — so redefining it would hand one question two
+answers free to disagree, the failure that service's own docblock exists to prevent. (c) After this stage
+`receive_from_committee`'s R09 display is **more** accurate, not less: R09 now genuinely hands the file
+into that stage and holds it while R03 records the decision, which is Appendix 6's own RACI split. Its
+Stage 84 comment now records that Stage 86 re-examined and kept it. **`forward_to_committee`'s own display
+role did move R05 → R09**, for the same reason the column exists: it names who the file is sitting with,
+and R05 holds no row there any more. `observations` keeps R02.
+
+**Appendix 17 followed the re-seed by itself**, which is worth knowing before someone "fixes" it:
+`RequestResponsibilityService::rules()` filters `is_exception = false`, so at both stages the only rule it
+reads is the `forward` row. المسؤول الحالي moves from مقرر اللجنة (at `observations`) and from إدارة
+الموارد البشرية (at `forward_to_committee`) to **قسم شؤون الموظفين** — R09's existing `ROLE_TO_PARTY`
+entry, since Appendix 17 has no أمين سر اللجنة value of its own. Pinned by a test so a later change to
+either side shows up as a failure rather than as drift.
+
+**⚠ One real consequence, flagged rather than designed around, because fixing it would mean inventing
+mechanism this stage does not ask for.** `NotificationDispatcher::actorsForStage()` reads the same
+non-exception outbound rows, so the `action_required` notification on arrival at `observations` moves from
+R02 to R09. Under the handover this stage builds that is correct — it tells the secretary a file is
+waiting to be taken to the committee — but it is a **pull** model: nothing signals that R02 has actually
+finished the presentation memo, so R09 is prompted on arrival rather than on readiness. R02 is not left
+blind (it performs the move *into* `observations` itself, and `actorsForStage()` excludes the actor, so in
+a single-R02 deployment nobody was notified there before either). **If the process owner wants a push
+model, the fix is a readiness signal at `observations`, not a role change** — a decision, not a defect.
+
+**Deliberately unchanged:** the committee's own decision actions stay R03 ([F] step 9 assigns the decision
+to the committee, not its secretary; [D] Art. 16 governs). No new action name, so `workflow.actions.forward`
+already covers the UI — no frontend and no locale change, which is itself the check that this stage adds
+no vocabulary. `compliance-matrix.md` needed nothing: it is indexed by [D] and its Art. 15 (أ) row is
+already ✅ and already names R02/R09, while [F] appears in it nowhere.
+
+**Eight pre-existing tests needed legitimate updates, not regression fixes** — every one asserts ownership
+this stage deliberately moved, and each is commented in place. `WorkflowServiceTest`: the happy-path walk
+(both hops' actor roles plus R09 added to its actor map — the approvals assertion is untouched, since
+neither hop is `approve`), the seeded-exception-path case (`forward_to_committee cancel` now R09), and the
+low-grade ministry-skip walk. `NotificationTest`'s four fixtures moved one hop earlier, to
+`reviewer_review`: walking out of `observations` would now make the actor and the next actor the **same**
+role and lose the two-distinct-parties handoff those tests are about, whereas `reviewer_review →
+observations` keeps R02 acting and makes **R09** the next actor — so they now demonstrate this stage's own
+change rather than working around it. `RequestDetailTest`'s `available_actions.0 === 'forward'` for an R02
+reviewer at `observations` is the one assertion this stage outright falsifies; it is now a positive pin
+that R02 is offered `request_edit` there instead.
+
+Verification: new `tests/Feature/CommitteeHandoverTest.php` (7 tests — each hop performed by R09 and
+refused to its previous owner; the detail screen offering `forward` to R09 and not to R02 while R02 keeps
+`request_edit`, so the preview and the gate agree; R09 opening a file at `forward_to_committee` it did not
+create while R05 404s; cancel moved with the hop; the pre-Stage-86 re-seed leaving exactly one cancel row;
+and Appendix 17 naming قسم شؤون الموظفين at both stages). Full suite **615/3942** green, Pint clean on all
+six touched/new PHP files, `php artisan migrate` reports **nothing to migrate** — as designed, this stage
+adds no schema — and both seeders were re-run **twice** against the real MySQL/Homestead database,
+confirmed stable and idempotent by script: 12 stages, 55 transitions, **0 rows pointing at a missing
+stage**, both `forward` rows R09, exactly one `cancel` row at `forward_to_committee` and it is R09, while
+`observations`' `cancel`/`request_edit` are still R02.
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r09.secretary@`/`r02.reviewer@`/
+`r05.manager@` accounts against a fixture at `observations`: R09 opened a file it did not create and was
+offered `forward`; R02 opened the same file and was offered only `request_edit,cancel`; R02's handover
+attempt was refused **422** in the workflow's own Arabic; R09's first hop landed `forward_to_committee` /
+`ready`; **R05 then got 404 on that same file** (the visibility shift, proven live rather than only
+unit-tested); and R09's second hop landed `receive_from_committee` / `in_meeting`. Deleted every fixture
+row (the request, 2 stage logs, 2 status-history rows, 3 audit rows) and the 6 queued notification jobs it
+generated — no worker was running, so no `notifications` row was ever written, and a grep for both the
+fixture id and its reference confirms none exists. Revoked **only** the three tokens this session minted,
+by id (140/141/142), leaving the two pre-existing ones alone — the `created_at` filtering the 2026-09-18
+23:40 note flagged as an overreach. Counts confirmed back to the **4 pre-existing requests (37/40/41/42)**,
+0 jobs, 2 tokens.
+
+**A clock note for whoever writes the next entry:** this file's timestamps had drifted ~4 hours ahead of
+the machine's real clock (the entry below is stamped 2026-09-19 01:05 EET while its own commit is
+2026-09-18 20:46 +0200). This entry uses the real time, so the two newest entries read out of order by
+their stamps even though the newest is still on top. Position is the ordering, as AGENTS.md says.
+
+**Open items for whoever builds Stage 87+.** (1) **The notification pull-model gap above** is the one real
+decision this stage leaves open. (2) **Stage 87 is the natural next stage and it explicitly says "decide
+before building"** — whether R05 (`مدير إدارة الشؤون الإدارية`) *is* إدارة الموارد البشرية under another
+name, or whether a distinct HR role is missing; note that R05 has just lost its last row at
+`forward_to_committee`, so its remaining pre-committee footprint is the HR `register` row and
+`approval_by_authority` — worth having in hand when that question is answered, since it narrows what R05
+still means in this system. (3) **`RequestResponsibilityService`'s docblock says "(57 transitions, 11
+roles, 12 stages)"** while the live database holds **55**. That figure is descriptive only (nothing reads
+it) and the drift is **not** this stage's doing — the total is unchanged by it, since the cleanup deletes
+one superseded `cancel` row and `seedException()` immediately recreates it under R09. Worth correcting
+whenever that file is next touched, rather than trusted as a count.
+
+---
+
+### 2026-09-18 22:25 EET — Claude — Stage 86 implementation plan (the committee secretary owns the handover)
+
+Building Stage 86 per STAGE_PLAN.md Track M: re-seed the two hops into the committee so **R09**
+(أمين سر اللجنة) holds them — `observations → forward_to_committee` (today R02) and
+`forward_to_committee → receive_from_committee` (today R05) — so the file reaches the committee
+through its secretary, as [F] step 7 shows. R09 is literally named أمين سر اللجنة in `RoleSeeder`
+yet owns no transition anywhere in the pre-committee chain except the `register` row for its own
+routing destination.
+
+**This is a re-seed, not a feature, and three checks prove that rather than assert it.** (1) Neither
+hop is an approval level — `WorkflowService::APPROVAL_LEVELS` and `ApprovalController::LEVELS` both
+skip `observations` and `forward_to_committee` — so neither runs through the approval queue or
+`RequestController::actorCanApproveCurrentLevel()`'s screen map. Both are reachable only through
+`POST requests/{requestRecord}/transition`, gated `screen.permission:request_details,view`.
+(2) **The stage's own "Watch" bullet is satisfied with no seeder change, checked rather than
+assumed**: `request_details` and `requests` both seed `view => '*'`, so R09 genuinely holds them —
+the wildcard is the grant, not a gap. (3) **`RequestVisibility` needs no change at all**, which is
+the real check: its assignment clause derives from the `workflow_transitions` rows themselves, so
+R09 gains visibility at both stages and R05 loses it at `forward_to_committee` the moment the rows
+move. Every prior instance of that gap (Stages 47/68/75/76/77/78/83) needed a bounded clause
+*because* the role held no row; R09 will hold one.
+
+**R02 keeps its seat at `observations`, and that is deliberate.** The visibility subquery does
+**not** filter `is_exception`, so R02's `request_edit` and `cancel` rows there keep the file in
+R02's workspace — the study is still R02's work and it must stay able to send the file back.
+
+**One consequence the Build bullet does not name, required by the seeder's own stated rule:
+`cancel` at `forward_to_committee` moves R05 → R09 too.** That seeder states the invariant in its
+own comment — "Cancellation is available to the role responsible for moving each open stage" — and
+after this change R09 is that role while R05 holds *nothing else* at that stage. Leaving cancel
+behind would give R05 a single orphan capability at a stage it has no part in, keep R05 visible
+there, and leave the file's actual holder able to move it but not stop it. **`cancel` at
+`observations` stays R02**, by the same rule read the other way: R02 still moves that stage
+(backward, via `request_edit`), and Appendix 37 maps `observations` to إعداد مذكرة العرض — المقرر's
+own action. The asymmetry is the rule applied consistently, not an oversight.
+
+**The "then decide, don't assume" question, answered: the display stays, and `responsible_role_id`
+keeps its documented indicative contract.** Three reasons, none of them inertia. (a) "Who can act"
+is **not expressible in that column**: three stages are NULL precisely because the actor is
+"whoever is this submitter's manager" or one of three routing destinations, which a role FK cannot
+say — redefining the field would make it wrong-by-construction for 3 of 12 rows. (b) Stage 83
+already built the "who can act" answer as a *derivation*:
+`RequestResponsibilityService::partyFromStage()` reads the live outbound rules and falls back to
+`responsible_role_id` only for a stage with no rule at all. Redefining the column would hand one
+question two answers free to disagree — the exact failure that service's own docblock exists to
+prevent. (c) After this stage `receive_from_committee`'s R09 display becomes **more** accurate, not
+less: R09 now genuinely hands the file into that stage and holds it there while R03 records the
+decision — Appendix 6's own RACI split, which Stage 84 cited. Its Stage 84 comment gains a line
+recording that Stage 86 re-examined and kept it.
+
+**`forward_to_committee`'s own display role moves R05 → R09** for the same reason the column
+exists: it names who the file is sitting with, and after this stage that is the secretary while R05
+holds no row there. `observations` keeps R02 (the study is R02's).
+
+**Appendix 17 follows the re-seed automatically, and that is worth pinning with a test.**
+`RequestResponsibilityService::rules()` filters `is_exception = false`, so at `observations` the
+only rule it reads is the `forward` row — المسؤول الحالي moves from مقرر اللجنة to قسم شؤون
+الموظفين (R09's existing `ROLE_TO_PARTY` entry; Appendix 17 has no أمين سر اللجنة value, and
+قسم شؤون الموظفين is the mapping already seeded for R09). At `forward_to_committee` it moves from
+إدارة الموارد البشرية to the same. Both are the improvement [F] step 7 asks for.
+
+**⚠ One real consequence flagged rather than designed around, because fixing it would mean
+inventing mechanism this stage does not ask for.** `NotificationDispatcher::actorsForStage()` reads
+the same `is_exception = false` outbound rows, so the `action_required` notification on arrival at
+`observations` moves from R02 to R09. Under the handover model this stage builds that is correct —
+it tells the secretary a file is waiting to be taken to the committee — but it is a **pull** model:
+nothing signals that R02 has actually finished the presentation memo, so R09 is prompted on arrival
+rather than on readiness. R02 is not left blind (it performs the move *into* `observations` itself,
+and `actorsForStage()` excludes the actor anyway, so in a single-R02 deployment nobody is notified
+there today either), but if the process owner wants a push model instead, the fix is a readiness
+signal at `observations`, not a role change — and that is a decision, not a defect.
+
+**Deliberately unchanged:** the committee's own decision actions stay R03 ([F] step 9 assigns the
+decision to the committee, not its secretary; [D] Art. 16 governs). No new action name, so no
+frontend and no locale change — `workflow.actions.forward` already exists, which is itself the
+check that this stage adds no vocabulary.
+
+**Test updates expected, all legitimate re-seed consequences rather than regressions**:
+`WorkflowServiceTest`'s seeded-rule-shape table and happy-path walk (both hops' actor roles, plus
+R09 added to the walk's actor map — the approvals assertion is untouched, since neither hop is
+`approve`) and its `forward_to_committee cancel` exception case; `NotificationTest`'s four fixtures
+that transition `forward` out of `observations` as R02; and `RequestDetailTest`'s
+`available_actions.0 === 'forward'` assertion for an R02 reviewer at `observations`, which this
+stage deliberately falsifies — rewritten into a positive pin that R02 no longer sees the handover
+there while R09 does.
+
+**Verification plan**: a new `tests/Feature/CommitteeHandoverTest.php` (R09 performs both hops and
+R02/R05 are refused each; R09 can open a file at both stages it did not create while R05 404s at
+`forward_to_committee`; R02 keeps `request_edit` at `observations`; Appendix 17 names قسم شؤون
+الموظفين at both stages), plus the full PHPUnit suite, Pint on every touched file, locale key
+parity (expected unchanged — no new keys), `npm run build` (then reverting the tracked
+`frontend/dist`), a `WorkflowStageSeeder`/`WorkflowTransitionSeeder` reseed against the real
+MySQL/Homestead database with the four changed rows confirmed by query, and `php artisan migrate`
+reporting nothing to migrate — as designed, since this stage adds no schema.
+
+---
+
 ### 2026-09-19 01:05 EET — Claude — Stage 91 complete (one document vocabulary for the استكمال loop)
 
 Built per the plan below. **No migration, no seeder change and no permission change** — every part reads a

@@ -46,9 +46,15 @@ class NotificationTest extends TestCase
 
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
-        $nextActor = $this->userWithRole('R05');
+        // Stage 86 — the fixture moved one hop earlier (it used to walk out of
+        // `observations` as R02). That hop is R09's now, so walking it here
+        // would make the actor and the next actor the same role and lose the
+        // handoff this test is about; `reviewer_review -> observations` keeps
+        // two distinct parties, and the next actor at `observations` is the
+        // committee secretary this stage put there.
+        $nextActor = $this->userWithRole('R09');
         $bystander = $this->userWithRole('R04');
-        $requestRecord = $this->requestAtStage('observations', $creator);
+        $requestRecord = $this->requestAtStage('reviewer_review', $creator);
 
         app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
 
@@ -63,8 +69,8 @@ class NotificationTest extends TestCase
             fn ($notification, array $channels) => $channels === ['database', 'mail'],
         );
 
-        // The actor already knows what they just did, and R04 has no rule out
-        // of stage 5, so neither is on the list.
+        // The actor already knows what they just did, and R04 holds no rule
+        // out of the destination stage, so neither is on the list.
         Notification::assertNotSentTo($actor, RequestStageChangedNotification::class);
         Notification::assertNotSentTo($actor, ActionRequiredNotification::class);
         Notification::assertNotSentTo($bystander, ActionRequiredNotification::class);
@@ -112,8 +118,8 @@ class NotificationTest extends TestCase
 
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
-        $nextActor = $this->userWithRole('R05');
-        $requestRecord = $this->requestAtStage('observations', $creator);
+        $nextActor = $this->userWithRole('R09');
+        $requestRecord = $this->requestAtStage('reviewer_review', $creator);
 
         // The next actor drops email but keeps the bell...
         NotificationSetting::create([
@@ -179,7 +185,7 @@ class NotificationTest extends TestCase
     {
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
-        $requestRecord = $this->requestAtStage('observations', $creator);
+        $requestRecord = $this->requestAtStage('reviewer_review', $creator);
 
         app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
 
@@ -208,7 +214,7 @@ class NotificationTest extends TestCase
         $actor = $this->userWithRole('R02');
         $stranger = $this->userWithRole('R01');
 
-        app(WorkflowService::class)->transition($this->requestAtStage('observations', $creator), 'forward', $actor);
+        app(WorkflowService::class)->transition($this->requestAtStage('reviewer_review', $creator), 'forward', $actor);
 
         $this->actingAs($stranger)
             ->getJson('/api/notifications')
