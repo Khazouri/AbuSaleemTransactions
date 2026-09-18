@@ -286,6 +286,11 @@ class RequestExecutionTest extends TestCase
         $this->actingAs($executor, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('execution.pdf', 40, 'application/pdf'),
+                // Stage 91 — no Appendix 57 row names a دليل التنفيذ document:
+                // that matrix is the intake file, while this is produced after
+                // the decision. `other` is the honest answer, and it is what
+                // keeps Appendix 14's own folder question available for it.
+                'required_document_key' => 'other',
                 // Stage 80 — Appendix 14's folder for a دليل التنفيذ document.
                 'file_section' => 'execution',
             ])

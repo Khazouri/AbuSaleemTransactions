@@ -317,6 +317,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:notes_attachments,add')
         ->post('requests/{requestRecord}/attachments', [AttachmentController::class, 'store']);
 
+    // Stage 91 — what the upload form has to ask about one more document:
+    // this request type's own [D] Appendix 57 matrix, keyed, plus which rows
+    // the file already covers and which mandatory ones are still outstanding.
+    // Rides the same grant as the upload it renders, since it exists for that
+    // form and shows nothing the request workspace does not already show.
+    Route::middleware('screen.permission:notes_attachments,add')
+        ->get('requests/{requestRecord}/document-options', [AttachmentController::class, 'documentOptions']);
+
     // Stage 13 — conversation notes are independent from changing workflow state.
     Route::middleware('screen.permission:notes_attachments,view')
         ->get('requests/{requestRecord}/notes', [NoteController::class, 'index']);

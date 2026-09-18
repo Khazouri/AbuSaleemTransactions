@@ -661,7 +661,8 @@
     "documentType": "نوع المستند",
     "chooseDocumentType": "اختر المستند…",
     "documentTypeHint": "حدد لكل ملف أي مستند من مستندات نوع الطلب يقدمه.",
-    "otherDocument": "مستند آخر"
+    "otherDocument": "مستند آخر",
+    "outstanding": "مستندات مطلوبة ما زالت ناقصة:"
   },
   "notes": {
     "title": "الملاحظات",

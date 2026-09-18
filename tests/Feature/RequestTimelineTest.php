@@ -198,9 +198,13 @@ class RequestTimelineTest extends TestCase
 
     /**
      * Appendix 14 — "ويمنع حفظ الملفات بصورة عشوائية دون تصنيف", so a new
-     * upload names its folder or it is refused.
+     * upload is classified or it is refused.
+     *
+     * Stage 91 changed WHICH question does the classifying, not whether one is
+     * asked: the Appendix 57 row is the question now, and Appendix 14's folder
+     * survives for `other` — the one answer that leaves a folder unstated.
      */
-    public function test_an_upload_must_name_its_appendix_14_folder(): void
+    public function test_an_upload_must_be_classified_before_it_is_stored(): void
     {
         Storage::fake('local');
         $actor = $this->userWithRole('R02');
@@ -211,11 +215,21 @@ class RequestTimelineTest extends TestCase
                 'file' => UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf'),
             ], ['Accept' => 'application/json'])
             ->assertStatus(422)
+            ->assertJsonValidationErrors('required_document_key');
+
+        // `other` is what makes Appendix 14's folder a real question again.
+        $this->actingAs($actor, 'sanctum')
+            ->post("/api/requests/{$requestRecord->id}/attachments", [
+                'file' => UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf'),
+                'required_document_key' => 'other',
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(422)
             ->assertJsonValidationErrors('file_section');
 
         $this->actingAs($actor, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf'),
+                'required_document_key' => 'other',
                 'file_section' => 'not-a-folder',
             ], ['Accept' => 'application/json'])
             ->assertStatus(422)
@@ -224,6 +238,7 @@ class RequestTimelineTest extends TestCase
         $this->actingAs($actor, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf'),
+                'required_document_key' => 'other',
                 'file_section' => 'supporting_documents',
             ], ['Accept' => 'application/json'])
             ->assertCreated()

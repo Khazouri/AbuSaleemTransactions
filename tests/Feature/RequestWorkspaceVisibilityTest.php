@@ -75,6 +75,9 @@ class RequestWorkspaceVisibilityTest extends TestCase
                 // Stage 80 — a valid payload, deliberately: the point of this
                 // case is the 404 from RequestVisibility, and an invalid one
                 // would 422 in the FormRequest before that check ever runs.
+                // Stage 91 added the document question, so a valid payload now
+                // answers that too.
+                'required_document_key' => 'other',
                 'file_section' => 'supporting_documents',
             ], ['Accept' => 'application/json'])
             ->assertNotFound();

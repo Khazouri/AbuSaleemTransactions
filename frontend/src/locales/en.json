@@ -661,7 +661,8 @@
     "documentType": "Document",
     "chooseDocumentType": "Choose the document…",
     "documentTypeHint": "For each file, say which of the request type's documents it provides.",
-    "otherDocument": "Another document"
+    "otherDocument": "Another document",
+    "outstanding": "Required documents still missing:"
   },
   "notes": {
     "title": "Notes",

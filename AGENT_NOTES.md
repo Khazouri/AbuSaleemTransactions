@@ -14,6 +14,197 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-19 01:05 EET — Claude — Stage 91 complete (one document vocabulary for the استكمال loop)
+
+Built per the plan below. **No migration, no seeder change and no permission change** — every part reads a
+column, a slug and a derivation that already existed, which is the check that this stage joins two halves
+rather than adding a feature. `attachments.required_document_key` has been there since the intake picker
+landed, and that migration's own docblock anticipated this endpoint; it is the sentence this stage revises.
+Full suite **608 tests / 3920 assertions** green (was 601/3882).
+
+**The gap Stage 85 recorded was live, and it is closed.** `AttachmentController::store()` asked [D]
+Appendix 14's raw twelve-folder question and nothing else, so a document supplied during **استكمال
+النواقص** ([F] step 5) named no Appendix 57 row — and `IntakeGateService::derivedAnswers()`, which reads
+exactly that column, could not see it. An incomplete file could not be completed through the ordinary
+upload path at all, only by refiling.
+
+**⚠ The Build bullet's own question — "who sees which question" — is answered "nobody; the DOCUMENT
+decides, not the uploader", and that is the part not to re-litigate.** A role branch is the obvious reading
+and it is wrong for this stage's own purpose: Art. 19's loop sends an incomplete file back to
+`requirements_check`, where R02–R05 routinely attach on the employee's behalf, so a submitter-only question
+would have left staff unable to close the very gap Stage 91 exists to close. So **every** upload through
+this endpoint answers the same question intake asks, with the same keys, resolved from this request's own
+type. The end-to-end test and the live smoke run both walk it as **R02**, not as the employee, so that
+decision is pinned by a test rather than only by a comment.
+
+**One question, with the folder surviving only where it is genuinely unanswered.**
+`required_document_key` is now required (`Rule::in` this type's own `documentOptions()` keys plus `other`,
+read off the route-bound `{requestRecord}` — the `StoreMeetingAgendaRequest` precedent for a FormRequest
+reading an already-bound route model). A named row's Appendix 14 folder is **derived**, exactly as at
+intake, and a client-supplied one is **overridden rather than trusted** — the
+`IntakeGateService::derivedAnswers()` / `ExecutionSoundnessService` discipline. `file_section` is required
+**only for `other`**, and then over the full twelve rather than the submitter's three: `other` means no
+matrix row names this document, which is precisely when the folder is a real question, and it is what
+keeps R02–R05's genuine committee-cycle uploads (مذكرة العرض، المحضر والقرار، الاعتماد، التنفيذ،
+الإشعارات) filing where they belong.
+
+**The one asymmetry with intake, stated rather than discovered.** At intake `other` derives to المستندات
+المؤيدة with no second question; here it asks. The populations differ — intake is the submitter's own
+three folders' worth of material, this endpoint is shared with the whole committee cycle — and defaulting
+instead would be "a classification the uploader never made", the sentence Stage 80 wrote the requiredness
+for in the first place.
+
+**A finding from the tests worth knowing before writing another one: the nine shared basics produce
+IDENTICAL keys across every type.** `documentKey()` is `{index}-{sha1(ar)[0:8]}` and Appendix 57's basics
+are merged into every type at the same positions, so PROM's first key *is* TRNS's first key — legitimately.
+My first «a foreign key is refused» test used `array_key_first()` on another type and **failed with a 201**,
+because the key was not foreign at all. Only a row from a type's own ملف is genuinely foreign, and the test
+now picks one by `array_diff_key`. This is a property of the shared slug, not a defect: it is what lets the
+same basic row be answered identically whatever type is filed.
+
+**A picker needs its options, so one narrow lookup**: `GET requests/{requestRecord}/document-options`
+(`notes_attachments,add` + `RequestVisibility::canView`, the same pair the upload itself rides) returns the
+type's keyed matrix, the keys the file already covers, and the **outstanding mandatory rows** in the
+appendix's own order. That third field is what makes the loop actionable rather than merely possible — an
+uploader completing نواقص is told what is still missing. It is a lookup rather than a field on
+`RequestDetailResource` because both upload callers hand the component only a request id, and the list
+payload stays untouched (Stage 72's precedent).
+
+**Done-when needed no change to either gate.** `derivedAnswers()` already answers `present` for a row an
+attachment names and `refusalForRequest()` already reads live coverage, so the moment an استكمال upload can
+carry a key, a post-intake document is read exactly like one supplied with the submission.
+
+Frontend: `FileUpload.vue` asks the matrix question (one `<optgroup>` per Appendix 57 group, the same shape
+the intake picker renders), shows the outstanding rows, and reveals the folder select only for مستند آخر;
+it refetches the lookup after each upload so the outstanding list shrinks as the gap closes. A failed
+lookup is deliberately silent — the server refuses an unanswered upload regardless, and a broken lookup
+must not also break an upload the user can still complete. The appeals caller (`requireSection: false`)
+asks neither question, since neither classification describes an appeal's own file.
+`AttachmentResource` gained `required_document_key`. One new locale key per side
+(`attachments.outstanding`); everything else reuses the keys the intake picker already has.
+
+Verification: new `tests/Feature/CompletionDocumentUploadTest.php` (7 tests — the key required with neither
+a row nor a private file left behind; a type-specific foreign key refused; a named row deriving its own
+folder over a spoofed `closure`; `other` refused without a folder then accepted with a committee-cycle one;
+the end-to-end loop walked by the officer — agenda refused, no derived answer, upload, `present`, refusal
+null, agenda admitted; the lookup naming covered vs. outstanding; and R06 refused the lookup). Full suite
+**608/3920** green, Pint clean on all ten touched/new PHP files, `npm run build` passes (then reverted
+`frontend/dist`, tracked in git, per every prior stage), locale key-parity verified programmatically
+(**1874 keys each side, zero on-one-side-only**), and `php artisan migrate` reports **nothing to migrate**
+— as designed.
+
+**Five pre-existing test files needed legitimate fixture updates, not regression fixes** — every one now
+answers the document question to finish a story about something else, each commented in place with `other`
+plus its own folder. `RequestTimelineTest`'s Appendix 14 case is the one whose *subject* genuinely moved:
+it was «an upload names its folder or it is refused», and it now walks the whole contract — no key refused,
+`other` without a folder refused, an invalid folder refused, then created — renamed
+`test_an_upload_must_be_classified_before_it_is_stored`.
+
+Smoke-tested end to end over real HTTP against Homestead against **request 41**, one of the four live files
+Stage 85's note recorded as agenda-blocked: `document-options` returned ALLW's nine rows with
+`covered: []` (its two pre-existing attachments predate the question, so they honestly answer nothing) and
+البيانات الوظيفية as the single outstanding row; an upload with no key was refused **422** in the
+FormRequest's own Arabic; the same upload naming that row returned **201 with `file_section:
+service_file`** — the row's declared folder, **not** the `closure` I deliberately sent, which is the
+derivation override proven live rather than only unit-tested; and the gate then read
+`{"1-5b02f970":"present"}` with `refusalForRequest()` **null**, i.e. that file could reach an agenda for
+the first time. Deleted the fixture attachment and its stored file and revoked **only** the one token I
+minted (id 139, leaving the two pre-existing ones alone — the teardown overreach the 2026-09-18 23:40 note
+flagged), with counts confirmed back to **8 attachments / 4 requests / 0 jobs**, request 41 back to its
+own incomplete state.
+
+**Open items for whoever builds Stage 86+.** (1) **An attachment written before the question existed cannot
+be re-classified** — there is no "name what this existing document answers" endpoint, so closing a legacy
+gap means uploading the document again even when the file already holds it. Request 41 is exactly that
+case, and it is the honest remaining cost of Stage 85's rule; a small PATCH on `attachments` riding
+`notes_attachments,edit` would close it, and it is a decision rather than an oversight. (2) **The workspace
+checklist still does not tick covered rows** the way the intake screen does — cheap, and now that the
+lookup exists it is a few lines, but it is `RequestDetailView`'s card rather than this stage's endpoint.
+(3) **Stage 85's own open item (3) stands**: the Request Types screen can still add a mandatory row to a
+type with no warning that every open file of that type is thereby blocked from the agenda — Stage 91 makes
+that recoverable through the ordinary upload path, which is most of the sting, but the warning is still
+unwritten. (4) **`other` is never counted as coverage**, deliberately — it names no row — so a submitter
+who files a mandatory document as مستند آخر will still be asked for it; the outstanding hint is what makes
+that visible before they upload.
+
+---
+
+### 2026-09-18 23:55 EET — Claude — Stage 91 implementation plan (one document vocabulary for the استكمال loop)
+
+Building Stage 91, the stage Stage 85's own note named as "the thing standing between this stage and a
+complete loop". Today `AttachmentController::store()` asks [D] **Appendix 14**'s raw twelve-folder
+question and nothing else, so a document supplied during **استكمال النواقص** ([F] step 5) names no
+Appendix 57 matrix row — and `IntakeGateService::derivedAnswers()`, which reads exactly that column,
+cannot see it. The consequence Stage 85 recorded is live: an incomplete legacy file **cannot be
+completed through the ordinary upload path at all**, only by refiling.
+
+**No migration and no seeder change.** `attachments.required_document_key` has existed since the
+intake picker landed, nullable, and its own migration docblock already anticipated this endpoint
+("a file uploaded later in the cycle by the committee (AttachmentController's own path) is not
+answering the intake matrix at all" — that is the sentence this stage revises). The column, the slug
+(`IntakeGateService::documentKey()`), the derivation (`RequestType::sectionForDocument()`) and the
+reader (`DocumentCompletenessService`) are all already built. What is missing is one question.
+
+**⚠ The deliberate decision the Build bullet asks for — "who sees which question" — is answered
+"nobody; the DOCUMENT decides, not the uploader", and that is the part not to re-litigate.** A role
+branch is the obvious reading and it is wrong for this stage's own purpose: Art. 19's loop routes an
+incomplete file back through `requirements_check`, where R02–R05 routinely attach on the employee's
+behalf, so a branch that only asked the submitter the matrix question would leave staff unable to
+close the very gap Stage 91 exists to close. So **every** upload through this endpoint answers the
+same question intake asks, with the same keys, resolved from this request's own type.
+
+**One question, with the folder question surviving only where it is genuinely unanswered.**
+`required_document_key` becomes **required** (`Rule::in` this type's own `documentOptions()` keys plus
+`other`, resolved from the route-bound `{requestRecord}` — the `StoreMeetingAgendaRequest` precedent
+for a FormRequest reading an already-bound route model). When a real matrix row is named the Appendix
+14 folder is **derived**, exactly as at intake, and a client-supplied `file_section` is **overridden
+rather than trusted** — the `IntakeGateService::derivedAnswers()` / `ExecutionSoundnessService`
+discipline, pinned by a test that spoofs one. `file_section` stays required **only for `other`**, and
+then over the full twelve: `other` means no matrix row names this document, which is precisely when
+the folder is a real question, and it is what keeps R02–R05's genuine committee-cycle uploads
+(مذكرة العرض، المحضر والقرار، الاعتماد، التنفيذ، الإشعارات) filing where they belong. That is also why
+the twelve are **not** narrowed to `Attachment::SUBMITTER_FILE_SECTIONS` here.
+
+**The one asymmetry with intake, stated rather than discovered.** At intake `other` derives to
+المستندات المؤيدة with no second question; here it asks. The difference is the population: intake is
+the submitter's own three folders' worth of material, while this endpoint is shared with the whole
+committee cycle. Defaulting instead would be "a classification the uploader never made", which is
+the sentence Stage 80 wrote the requiredness for in the first place.
+
+**A picker needs its options, so one narrow lookup**: `GET requests/{requestRecord}/document-options`
+(`notes_attachments,add` + `RequestVisibility::canView`, the same pair the upload itself rides)
+returning this type's keyed matrix, the keys the file's attachments already cover, and the
+**outstanding mandatory rows**. The third is what makes the loop actionable rather than merely
+possible — an uploader completing نواقص is told which rows are still missing, in the appendix's own
+order. It is a lookup rather than a field on `RequestDetailResource` because both upload callers
+(`RequestDetailView`, `RequestsView`'s list modal) pass only `request-id`, and the list payload
+deliberately stays untouched (Stage 72's precedent).
+
+**Done-when falls out with no change to the gate.** `IntakeGateService::derivedAnswers()` already
+answers `present` for any row an attachment names, and `DocumentCompletenessService::refusalForRequest()`
+already reads live coverage — so the moment an استكمال upload can carry a key, the officer's gate and
+the agenda gate read a post-intake document identically to one supplied with the submission. The test
+walks exactly that: a file built with a gap, refused the agenda, completed through this endpoint, then
+admitted.
+
+**Files**: `StoreAttachmentRequest` (the per-type key rule, `required_if` on the folder, Arabic
+messages); `AttachmentController::store()` (derive the folder, store the key) + `documentOptions()`;
+`routes/api.php` (one route, registered before the `{attachment}` wildcard's sibling paths);
+`FileUpload.vue` (fetch the options for a request attachment, the matrix select, the folder select
+only for `other`, the outstanding-rows hint) + a few `attachments.*` locale keys both sides.
+`AttachmentResource` gains `required_document_key` so the workspace can show what a document answers.
+
+**Verification plan**: new `tests/Feature/CompletionDocumentUploadTest.php` — the key required and
+nothing written when it is missing; a foreign type's key refused; a matrix row deriving its own folder
+over a spoofed one; `other` refused without a folder and stored with it; and the end-to-end loop above
+(uncovered row → agenda refused → upload → gate derives `present`, refusal null, agenda admitted).
+Plus the eight pre-existing call sites that post to this endpoint (a legitimate update to a
+requirement this stage deliberately changes, commented in place), the full PHPUnit suite, Pint,
+`npm run build` (then reverting the tracked `frontend/dist`), locale key-parity, and
+`php artisan migrate` confirming nothing to migrate — as designed.
+
+---
+
 ### 2026-09-18 23:40 EET — Claude — Stage 85 complete (document completeness becomes binding) — Track M opens
 
 Built per the plan below, from [D] **Appendix 57** (the matrix Stage 72 seeded and nothing enforced), **Appendix

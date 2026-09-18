@@ -167,6 +167,9 @@ class StudySequenceTest extends TestCase
         $upload = fn () => $this->actingAs($requestRecord->createdBy, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('doc.pdf', 12, 'application/pdf'),
+                // Stage 91 — this test's subject is Appendix 25's freeze, so
+                // the document question is answered the generic way.
+                'required_document_key' => 'other',
                 'file_section' => 'supporting_documents',
             ]);
 

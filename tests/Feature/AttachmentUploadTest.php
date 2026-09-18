@@ -30,6 +30,10 @@ class AttachmentUploadTest extends TestCase
             ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('supporting-document.pdf', 120, 'application/pdf'),
                 'label' => 'المستند الداعم',
+                // Stage 91 — every upload names which [D] Appendix 57 row it
+                // answers. This file answers none, so `other` is the explicit
+                // answer, and Appendix 14's folder is then a real question.
+                'required_document_key' => 'other',
                 // Stage 80 — Appendix 14 requires every new upload to name the
                 // folder it is filed under.
                 'file_section' => 'supporting_documents',
