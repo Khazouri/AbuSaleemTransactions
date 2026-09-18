@@ -5,13 +5,15 @@ import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 // Stage 72 — [D] Appendix 57's grouped document matrix, shared with the
 // request workspace so both screens read the same list the same way.
-import { documentCondition, documentLabel, groupDocuments } from '../lib/requiredDocuments'
+import { documentCondition, documentLabel } from '../lib/requiredDocuments'
 // Stage 83 — [D] Appendix 16 classifies a new request raised after an
 // earlier one on the same subject; the two it routes elsewhere are greyed out.
 import { PRIOR_RELATIONS } from '../lib/lifecycle'
-// [D] Appendix 14 — a submitter classifies each document they attach; the
-// list is narrowed to the folders an employee's own file can honestly be in.
-import { SUBMITTER_FILE_SECTIONS } from '../lib/fileSections'
+// [D] Appendix 57 — a submitter names which of the chosen type's recommended
+// documents each file provides. The options, and the key each one is stored
+// under, come from the server (see RequestType::documentOptions()); the
+// Appendix 14 folder is derived from the answer rather than asked separately.
+import { DOCUMENT_GROUPS } from '../lib/requiredDocuments'
 
 const { t, locale } = useI18n()
 const options = ref({ departments: [], types: [] })
@@ -30,14 +32,26 @@ const duplicateChecking = ref(false)
 const acceptedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png']
 const maxBytes = 20 * 1024 * 1024
 const isBusy = computed(() => loadingOptions.value || submitting.value)
-// Appendix 14 is required per attachment, so an unclassified row blocks the
-// whole submission rather than being dropped from it.
-const unclassifiedFiles = computed(() => files.value.some((attachment) => !attachment.file_section))
+// A document answer is required per attachment, so an unanswered row blocks
+// the whole submission rather than being dropped from it.
+const unclassifiedFiles = computed(() => files.value.some((attachment) => !attachment.required_document_key))
 const selectedType = computed(() => options.value.types.find(
   (type) => String(type.id) === String(form.value.request_type_id),
 ))
-// Stage 72 — Appendix 57's groups for the chosen type; empty until one is picked.
-const documentSections = computed(() => groupDocuments(selectedType.value?.required_documents))
+// The same matrix as the checklist above, but keyed — one <optgroup> per
+// Appendix 57 group, in the appendix's own order.
+const documentOptionGroups = computed(() => DOCUMENT_GROUPS
+  .map((group) => ({
+    group,
+    items: (selectedType.value?.document_options ?? []).filter((doc) => doc.group === group),
+  }))
+  .filter((section) => section.items.length > 0))
+
+// Which recommended documents the attached files already cover, so the
+// checklist stops being a list to read and becomes a list to satisfy.
+const coveredDocumentKeys = computed(
+  () => new Set(files.value.map((attachment) => attachment.required_document_key).filter(Boolean)),
+)
 
 function blankForm() {
   return { title: '', description: '', department_id: '', request_type_id: '', decision_grade: '', prior_relation: '' }
@@ -47,6 +61,10 @@ function blankForm() {
 async function checkDuplicates() {
   duplicate.value = null
   form.value.prior_relation = ''
+  // A document key belongs to one type's matrix, so a type change makes every
+  // answer meaningless — clearing beats silently posting a key the server
+  // will (correctly) refuse as belonging to another type.
+  files.value.forEach((attachment) => { attachment.required_document_key = '' })
   if (!form.value.request_type_id) return
   duplicateChecking.value = true
   try {
@@ -92,7 +110,7 @@ function chooseFiles(event) {
   // Wrap only what was just picked: re-wrapping the whole list would nest
   // each existing row inside a second wrapper and drop its label and its
   // classification, so a second selection would silently break the first.
-  const next = [...files.value, ...selected.map((file) => ({ file, label: '', file_section: '' }))]
+  const next = [...files.value, ...selected.map((file) => ({ file, label: '', required_document_key: '' }))]
   if (next.length > 10) {
     error.value = t('intake.tooManyFiles')
     return
@@ -131,10 +149,10 @@ async function submit() {
   payload.append('request_type_id', form.value.request_type_id)
   if (form.value.decision_grade !== '') payload.append('decision_grade', form.value.decision_grade)
   if (form.value.prior_relation !== '') payload.append('prior_relation', form.value.prior_relation)
-  files.value.forEach(({ file, label, file_section: fileSection }, index) => {
+  files.value.forEach(({ file, label, required_document_key: documentKey }, index) => {
     payload.append(`attachments[${index}][file]`, file)
     if (label.trim()) payload.append(`attachments[${index}][label]`, label.trim())
-    payload.append(`attachments[${index}][file_section]`, fileSection)
+    payload.append(`attachments[${index}][required_document_key]`, documentKey)
   })
 
   try {
@@ -263,15 +281,17 @@ onMounted(loadOptions)
         by the appendix's own أساسية مشتركة / خاصة بالنوع split. Soft and
         informational: nothing here is validated on submit.
       -->
-      <fieldset v-if="documentSections.length" class="checklist" :disabled="isBusy">
+      <fieldset v-if="documentOptionGroups.length" class="checklist" :disabled="isBusy">
         <legend>{{ t('intake.requiredDocuments.title') }}</legend>
         <p class="hint">{{ t('intake.requiredDocuments.hint') }}</p>
-        <div v-for="section in documentSections" :key="section.group" class="doc-group">
+        <div v-for="section in documentOptionGroups" :key="section.group" class="doc-group">
           <h3>{{ t(`intake.requiredDocuments.groups.${section.group}`) }}</h3>
           <ul>
-            <li v-for="(doc, index) in section.items" :key="index">
+            <li v-for="(doc, index) in section.items" :key="index" :class="{ covered: coveredDocumentKeys.has(doc.key) }">
+              <span aria-hidden="true" class="tick">{{ coveredDocumentKeys.has(doc.key) ? '✓' : '•' }}</span>
               {{ docLabel(doc) }}
               <span v-if="docCondition(doc)" class="doc-condition">({{ docCondition(doc) }})</span>
+              <span v-if="coveredDocumentKeys.has(doc.key)" class="sr-only">{{ t('intake.requiredDocuments.attached') }}</span>
             </li>
           </ul>
         </div>
@@ -282,21 +302,26 @@ onMounted(loadOptions)
         <p class="hint">{{ t('attachments.acceptedHint') }}</p>
         <input class="file-input" type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" @change="chooseFiles" />
         <small v-if="errors.attachments">{{ errors.attachments[0] }}</small>
-        <p class="hint">{{ t('attachments.fileSectionHint') }}</p>
+        <p class="hint">{{ t('attachments.documentTypeHint') }}</p>
 
         <div v-if="files.length" class="files">
           <article v-for="(attachment, index) in files" :key="`${attachment.file.name}-${index}`" class="file-row">
             <span class="file-name ltr">{{ attachment.file.name }}</span>
-            <select v-model="attachment.file_section" :aria-label="t('attachments.fileSection')">
-              <option value="" disabled>{{ t('attachments.chooseFileSection') }}</option>
-              <option v-for="section in SUBMITTER_FILE_SECTIONS" :key="section" :value="section">
-                {{ t(`fileSections.${section}`) }}
-              </option>
+            <select v-model="attachment.required_document_key" :aria-label="t('attachments.documentType')">
+              <option value="" disabled>{{ t('attachments.chooseDocumentType') }}</option>
+              <optgroup
+                v-for="section in documentOptionGroups"
+                :key="section.group"
+                :label="t(`intake.requiredDocuments.groups.${section.group}`)"
+              >
+                <option v-for="doc in section.items" :key="doc.key" :value="doc.key">{{ docLabel(doc) }}</option>
+              </optgroup>
+              <option value="other">{{ t('attachments.otherDocument') }}</option>
             </select>
             <input v-model="attachment.label" type="text" :placeholder="t('attachments.label')" maxlength="255" />
             <button class="ghost" type="button" @click="removeFile(index)">{{ t('intake.removeFile') }}</button>
-            <small v-if="errors[`attachments.${index}.file_section`]" class="row-error">
-              {{ errors[`attachments.${index}.file_section`][0] }}
+            <small v-if="errors[`attachments.${index}.required_document_key`]" class="row-error">
+              {{ errors[`attachments.${index}.required_document_key`][0] }}
             </small>
           </article>
         </div>
@@ -314,7 +339,9 @@ onMounted(loadOptions)
 .heading { margin-bottom: 1rem; }.heading h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }.heading p { margin: .25rem 0 0; color: var(--color-muted); font-size: .88rem; }
 .card { padding: 1.25rem; }.form { max-inline-size: 52rem; }.form fieldset { min-inline-size: 0; padding: 0; margin: 0 0 1.5rem; border: 0; }.form legend { margin-bottom: .85rem; color: var(--color-brand-text); font-weight: 700; }.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.wide { grid-column: 1 / -1; }
 label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .85rem; }input, select, textarea { min-inline-size: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }textarea { resize: vertical; }small { color: var(--color-danger-fg); font-size: .78rem; }.field-hint, .hint, .state { color: var(--color-muted); font-size: .78rem; }.hint, .state { margin: 0 0 .75rem; }.file-input { max-inline-size: 100%; }
-.checklist ul { display: grid; gap: .35rem; padding-inline-start: 1.2rem; margin: 0; color: var(--color-black-700); font-size: .85rem; }
+.checklist ul { display: grid; gap: .35rem; padding-inline-start: 0; margin: 0; color: var(--color-black-700); font-size: .85rem; list-style: none; }
+.checklist li.covered { color: var(--color-success-fg); }.checklist .tick { display: inline-block; min-inline-size: 1rem; }
+.sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .doc-group + .doc-group { margin-block-start: .85rem; }.doc-group h3 { margin: 0 0 .35rem; color: var(--color-black-700); font-size: .8rem; font-weight: 600; }.doc-condition { color: var(--color-black-500); font-size: .75rem; }
 .files { display: grid; gap: .6rem; margin-top: .85rem; }.file-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, auto) minmax(8rem, 1fr) auto; gap: .5rem; align-items: center; padding: .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.file-row .row-error { grid-column: 1 / -1; }.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.actions { display: flex; gap: .5rem; }.primary, .ghost { padding: .5rem .9rem; border-radius: var(--radius-lg); font-size: .85rem; cursor: pointer; }.primary { border: 0; color: var(--color-on-brand); background: var(--color-brand); }.ghost { border: 1px solid var(--color-border-hover); color: var(--color-black-700); background: var(--color-surface); }.link-button { text-decoration: none; }.primary:disabled, fieldset:disabled { cursor: not-allowed; opacity: .65; }.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.success { max-inline-size: 38rem; }.success h3 { margin: 0; color: var(--color-brand-text); }.success p { color: var(--color-black-700); }.reference { display: block; margin: 1rem 0; color: var(--color-primary); font-size: 1.15rem; }.receipt-notice { padding: .6rem .7rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-lg); color: var(--color-info-fg); background: var(--color-info-bg); font-size: .8rem; }
 @media (max-width: 640px) { .grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.file-row { grid-template-columns: 1fr; } }

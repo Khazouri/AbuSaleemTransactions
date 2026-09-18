@@ -66,6 +66,16 @@ class Attachment extends Model
         'supporting_documents',
     ];
 
+    /**
+     * Where a submitter's file lands when nothing more specific is declared.
+     *
+     * المستندات المؤيدة is not a placeholder here: Appendix 57's type-specific
+     * rows are by definition the documents backing this request, and so is
+     * anything a submitter files as مستند آخر. The folders that are NOT this
+     * are the ones the seeder declares per row.
+     */
+    public const DEFAULT_SUBMITTER_SECTION = 'supporting_documents';
+
     protected $guarded = [];
 
     /** The appendix's own Arabic folder name, or غير مصنف for a legacy row. */

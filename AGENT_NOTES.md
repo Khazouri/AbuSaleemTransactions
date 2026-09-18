@@ -14,6 +14,158 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-18 21:05 EET — Claude — The submitter names which recommended document each attached file is
+
+Built per the plan below. One migration (`attachments.required_document_key`, nullable), applied to the real
+MySQL/Homestead database, plus a `RequestTypeSeeder` reseed. The classification a submitter picks per file now
+comes from **the chosen request type's own [D] Appendix 57 matrix** — the list the intake screen had been
+showing read-only since Stage 72 — instead of Appendix 14's generic folders.
+
+**The key is deliberately not new, and that is the load-bearing part.** Stage 78's
+`IntakeGateService::documentKey()` already assigns each matrix row a stable slug (`{index}-{sha1(ar)[0:8]}`,
+built so a reworded label or an inserted row yields *unanswered* items rather than wrongly-answered ones). The
+attachment stores **that same key**, so the officer's per-document completeness answers and the employee's
+uploaded files name one set of rows. A dedicated test asserts `documentOptions()`'s keys are identical, in
+order, to what `IntakeGateService::documentKey()` produces for the same type — so if a later change gives
+either side its own identifier the suite says so rather than the two silently drifting apart. This is also
+what starts making Stage 72's checklist actionable rather than decorative.
+
+**One question on screen, not two: the Appendix 14 folder is now DERIVED, from declared seed data rather than
+from a guess.** The entry below had made `file_section` a required intake question; asking a submitter both
+"which folder" and "which recommended document" about one file is one question too many, and the second answer
+implies the first. Each seeded document entry gained an optional `section`, and `RequestController::store()`
+resolves the chosen key to its entry and writes the folder itself.
+
+The mapping is hand-authored exactly where it must be: the **nine shared basics** each declare their own —
+`طلب الموظف` → **الطلب**, the seven service-record extracts (البيانات الوظيفية، قرار التعيين، مباشرة العمل،
+آخر قرار وظيفي، كشف الخدمة، المؤهل العلمي، تقارير الأداء) → **الملف الوظيفي**, `المستندات المؤيدة للطلب` →
+**المستندات المؤيدة** — while every type-**specific** row, every administrator-created row, and the `other`
+escape fall to **المستندات المؤيدة**, which is what Appendix 57's per-type items *are* (documents backing this
+request), not a placeholder for an unmade choice. Nine declarations and one honest default; the derivation
+lives in `RequestType::sectionForDocument()` alone. Verified against the real database rather than asserted:
+PROM's twenty options come back `request` / seven × `service_file` / twelve × `supporting_documents`.
+
+**`other` (مستند آخر) is an explicit answer, not a blank.** Appendix 57 covers eight of the twelve types with a
+specific list and the other four with the shared basics only (Stage 72's deliberate honest gap), and employees
+legitimately attach material no row names. The field is required either way, so "the submitter chose مستند آخر"
+stays distinguishable from "nobody was asked" — the same reason the folder question carried no default.
+
+**Validation is resolved per request type, so the list offered and the list accepted are one list.**
+`StoreRequest::allowedDocumentKeys()` reads the submitted `request_type_id`'s own `documentOptions()` plus
+`other`, which is why it cannot be a static `Rule::in` constant. A key belonging to a **different** type is
+refused — the client cannot produce one, but an API caller can, and it would otherwise be stored as an answer
+to a question this request was never asked. A test uses a real TRNS key against a PROM request to pin that.
+
+**Keys are computed server-side and sent with the options, deliberately.** `intakeOptions()` now returns a
+`document_options` array per type (each row plus its `key`), because the slug is a sha1: hashing it in the
+browser would be a second implementation of an identifier that must not drift, and `crypto.subtle` is async
+besides. `required_documents` is left exactly as it was, so the read-only checklist keeps rendering unchanged.
+
+Frontend: the per-file select is now driven by the type, with one `<optgroup>` per Appendix 57 group in the
+appendix's own order plus مستند آخر; the checklist above it **ticks the rows an attached file now covers**, so
+it reads as a list to satisfy rather than a list to read; and **changing the request type clears every stored
+answer**, since a key belongs to one type's matrix and silently posting a stale one would earn a refusal the
+submitter could not explain. `SUBMITTER_FILE_SECTIONS` was **removed from `lib/fileSections.js`** — with the
+folder derived it is no longer a picker list anywhere, and a dead export invites someone to wire it back up as
+a second question; the PHP constant stays as the assertion that the derivation only ever produces a folder a
+submitter's file can honestly be in.
+
+Verification: `RequestIntakeTest` **11 tests / 264 assertions** green (four new: an unanswered document refused
+with nothing created; a foreign type's key refused; a type-specific row and `other` both deriving المستندات
+المؤيدة; and the shared-key assertion above — plus the happy path now proving كشف الخدمة derives **الملف
+الوظيفي**, not the default, which is what shows the seeded sections are actually read). **Full suite 589 tests
+/ 3798 assertions green** — the قيد work that was in flight during the entry below has since landed, so the
+seven failures recorded there are gone and this was re-checked rather than assumed. Pint clean on all seven
+touched PHP files, `npm run build` passes (then reverted `frontend/dist`, tracked in git), locale key-parity
+**1867 keys each side, zero on-one-side-only**, and the migration plus the seeder reseed both ran against the
+real MySQL/Homestead database.
+
+**One pre-existing assertion needed a legitimate update, commented in place**: Stage 72's
+`test_intake_options_expose_appendix_57s_grouped_document_matrix_per_type` pins each entry's exact key set, and
+`section` is a real addition to that shape.
+
+**The RequestTypes admin CRUD was deliberately left untouched.** An administrator-created document row simply
+carries no `section` and falls to المستندات المؤيدة, which is both correct and keeps this change out of a file
+another session had uncommitted. **Be aware that re-running `RequestTypeSeeder` overwrites every edit made
+through that screen** — the hazard that stage's own note already records, now also carrying these sections.
+
+**Open items.** (1) **`AttachmentController::store()` still asks for the raw Appendix 14 folder**, so a
+submitter adding a missing document *after* intake — the استكمال النواقص loop, which is exactly when you attach
+"the كشف الخدمة they asked for" — gets the twelve-folder question rather than this picker. Giving that endpoint
+the same `required_document_key` (and deriving the folder there too) is the natural next step and would make
+the checklist actionable for the whole intake half, not just the first submission; it is left out here because
+that endpoint is shared with R02–R05 uploading genuine committee-cycle documents, so it needs a deliberate
+decision about who sees which question rather than a widening. (2) **Nothing yet compares the answers to the
+gate**: Stage 78's `IntakeGateService` still asks the officer to answer each document by hand, even though the
+submitter's own files now name the same rows — having the gate *read* the attachments (a row with a file
+answering it is present, by definition) is the point at which Stage 72's open item genuinely closes, and it is
+now a small change rather than a design problem, because both sides already speak one vocabulary. (3) **A
+conditional row and a mandatory one are offered identically** in the picker; the condition shows on the
+checklist but not in the `<option>` text, which would get long.
+
+---
+
+### 2026-09-18 19:55 EET — Claude — The submitter names which recommended document each file is — implementation plan
+
+Follow-up to the entry below, at the user's request: the classification a submitter picks per attachment
+should come from **the chosen request type's own recommended documents** ([D] Appendix 57's matrix, already
+seeded onto `request_types.required_documents` by Stage 72 and already rendered as a read-only checklist on
+the intake screen) rather than from Appendix 14's generic folder list.
+
+**The key is not new, and that is the point.** Stage 78's `IntakeGateService::documentKey()` already assigns
+each matrix entry a stable slug — `{index}-{sha1(ar)[0:8]}`, deliberately built so that a reworded label or an
+inserted row yields *unanswered* items rather than wrongly-answered ones. The attachment stores **that same
+key**, so the officer's per-document gate answers (Stage 78) and the submitter's uploaded files name the same
+rows in the same vocabulary. A second identifier for the same document would be exactly the drift this
+codebase keeps refusing elsewhere; this is also what finally makes the checklist *actionable* rather than
+decorative, which is Stage 72's own open item ("`required_documents` is enforced nowhere").
+
+**One question on screen, not two — the Appendix 14 folder becomes DERIVED, and it is derived from declared
+seed data rather than guessed.** The entry below made `file_section` a required intake question; asking a
+submitter both "which folder" and "which recommended document" about one file is one question too many, and
+the second answer implies the first. So each seeded document entry gains an optional `section`, and
+`RequestController::store()` resolves the chosen key to its entry and writes the folder itself.
+
+The mapping is hand-authored where it must be and defaulted only where the default is the literally correct
+answer: the **nine shared basics** in `commonDocuments()` each declare their own — `طلب الموظف` → **الطلب**,
+the seven service-record extracts (البيانات الوظيفية، قرار التعيين، مباشرة العمل، آخر قرار وظيفي، كشف الخدمة،
+المؤهل العلمي، تقارير الأداء) → **الملف الوظيفي**, and `المستندات المؤيدة للطلب` → **المستندات المؤيدة** —
+while every type-**specific** entry and the "مستند آخر" escape fall to **المستندات المؤيدة**, because that is
+precisely what Appendix 57's per-type items *are* (documents backing this request), not a placeholder. Nine
+declarations and one honest default; no per-row guessing, and no default standing in for a choice the
+submitter never made, since the submitter's own choice is what selects it.
+
+**"مستند آخر" is an explicit option, not a blank.** Appendix 57 covers eight of the twelve types with a
+specific list and the other four with the shared basics only (Stage 72's deliberate honest gap), and an
+employee legitimately attaches material no matrix row names. So the picker always offers it, and choosing it
+is still a choice — the field is required, matching the "no default classification" rule the folder question
+already followed.
+
+**Validation is per-request-type, so the option list and the rule cannot disagree.** `StoreRequest` resolves
+the submitted `request_type_id`'s own matrix and accepts only its real keys plus `other` — a key belonging to
+a *different* type is refused, which the client cannot produce but an API caller can. `Attachment::SUBMITTER_FILE_SECTIONS`
+(added in the entry below) stops being a picker list and becomes the assertion that the derivation only ever
+produces a folder a submitter's file can honestly be in.
+
+**Files**: one migration (`attachments.required_document_key`, nullable — pre-existing rows genuinely have no
+answer); `RequestTypeSeeder` (the nine sections plus the helper signature); `Attachment` (the derivation, one
+place); `StoreRequest` (replace the `file_section` rule with the per-type key rule); `RequestController::store()`;
+`RequestIntakeView.vue` (the per-file picker grouped exactly as the checklist already groups the matrix, and
+the checklist itself ticking the rows a file now covers); `lib/requiredDocuments.js` (the key helper mirrored
+once, the Stage 80 precedent). The **RequestTypes admin CRUD is deliberately untouched** — an
+administrator-created row simply carries no `section` and falls to the default, which is both correct and
+keeps this change out of a file another session has uncommitted.
+
+**Verification plan**: rewrite this session's two intake-attachment tests onto the new shape (an unanswered
+document refuses with nothing created; a key from another type refuses) and add — the derived folder landing
+on الملف الوظيفي for a basic, المستندات المؤيدة for a type-specific one and for `other`; the stored key
+matching `IntakeGateService::documentKey()` for the same row, which is the assertion that ties the two
+features to one vocabulary. Then `RequestIntakeTest` in full, Pint, `npm run build`, locale key-parity, and
+the `RequestTypeSeeder` reseed. **The full suite is still red from the other session's in-flight قيد work
+(see below) — that is pre-existing and unrelated, and is re-checked rather than assumed.**
+
+---
+
 ### 2026-09-18 19:40 EET — Claude — The قيد now happens at the receiving body's acceptance, and the submitter is told
 
 Built per the plan below. **No migration, no schema change, no new status row** — the behaviour change is

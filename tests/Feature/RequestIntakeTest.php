@@ -9,6 +9,7 @@ use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Services\IntakeGateService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -61,8 +62,12 @@ class RequestIntakeTest extends TestCase
         }
 
         $promotion = collect($types->firstWhere('code', 'PROM')['required_documents']);
+        // `section` joined the entry when the submitter started naming which
+        // recommended document a file provides: the [D] Appendix 14 folder is
+        // derived from that answer, and the seeder declares it per row rather
+        // than it being guessed from the label afterwards.
         $this->assertSame(
-            ['ar', 'en', 'group', 'condition'],
+            ['ar', 'en', 'group', 'condition', 'section'],
             array_keys($promotion->first()),
         );
 
@@ -146,9 +151,10 @@ class RequestIntakeTest extends TestCase
                 'attachments' => [[
                     'file' => UploadedFile::fake()->create('promotion.pdf', 120, 'application/pdf'),
                     'label' => 'قرار الترقية',
-                    // [D] Appendix 14 is now required per attachment at intake,
-                    // not only on the later AttachmentController path.
-                    'file_section' => 'supporting_documents',
+                    // The submitter names which of the type's [D] Appendix 57
+                    // recommended documents this file is; the Appendix 14
+                    // folder is derived from that answer.
+                    'required_document_key' => $this->documentKeyFor($type, 'كشف الخدمة'),
                 ]],
             ], ['Accept' => 'application/json']);
 
@@ -202,17 +208,23 @@ class RequestIntakeTest extends TestCase
 
         $attachment = Attachment::firstOrFail();
         $this->assertSame('قرار الترقية', $attachment->label);
-        $this->assertSame('supporting_documents', $attachment->file_section);
+        $this->assertSame($this->documentKeyFor($type, 'كشف الخدمة'), $attachment->required_document_key);
+        // كشف الخدمة is a service-record extract, so the folder derived from it
+        // is الملف الوظيفي — not the المستندات المؤيدة default.
+        $this->assertSame('service_file', $attachment->file_section);
         Storage::disk('local')->assertExists($attachment->path);
     }
 
     /**
-     * [D] Appendix 14: "ويمنع حفظ الملفات بصورة عشوائية دون تصنيف". Intake was
-     * the one write path that still produced an unclassified attachment, so
-     * an unclassified file now refuses the whole submission rather than being
-     * stored as غير مصنف.
+     * A file with no document named refuses the whole submission.
+     *
+     * Required rather than defaulted, for the reason Appendix 14 already gives
+     * about classification generally: a default would be an answer the
+     * submitter never gave. And the refusal is the whole request, not just the
+     * document — a request saved without the file the employee meant to attach
+     * is worse than neither.
      */
-    public function test_intake_refuses_an_attachment_with_no_file_section(): void
+    public function test_intake_refuses_an_attachment_with_no_document_named(): void
     {
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
@@ -222,31 +234,66 @@ class RequestIntakeTest extends TestCase
 
         $this->actingAs($admin, 'sanctum')
             ->post('/api/requests', [
-                'title' => 'طلب بمرفق غير مصنف',
+                'title' => 'طلب بمرفق بلا نوع',
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
                 'attachments' => [[
-                    'file' => UploadedFile::fake()->create('unclassified.pdf', 60, 'application/pdf'),
+                    'file' => UploadedFile::fake()->create('unnamed.pdf', 60, 'application/pdf'),
                 ]],
             ], ['Accept' => 'application/json'])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('attachments.0.file_section');
+            ->assertJsonValidationErrors('attachments.0.required_document_key');
 
-        // The refusal is the whole submission, not just the document: a
-        // request saved without its file would be worse than neither.
         $this->assertSame(0, Request::count());
         $this->assertSame(0, Attachment::count());
     }
 
     /**
-     * The submitter is offered only the folders their own file can be in.
-     * Appendix 14's later-cycle folders (مذكرة العرض، المحضر والقرار،
-     * الاعتماد …) are artifacts the committee produces, so naming one here is
-     * refused even though AttachmentController still accepts it from the
-     * roles that genuinely upload those documents.
+     * A key is only meaningful against the type whose matrix produced it, so a
+     * key belonging to another type is refused rather than stored as an answer
+     * to a question this request was never asked. The client cannot produce
+     * one; an API caller can.
      */
-    public function test_intake_refuses_a_committee_cycle_file_section(): void
+    public function test_intake_refuses_a_document_key_from_another_request_type(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Storage::fake('local');
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $department = Department::where('code', 'ADM')->firstOrFail();
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
+        $otherType = RequestType::where('code', 'TRNS')->firstOrFail();
+
+        // A genuine key, just not one of PROM's.
+        $foreignKey = $this->documentKeyFor($otherType, 'رأي أو موافقة الجهة المنقول إليها');
+        $this->assertArrayNotHasKey($foreignKey, $type->documentOptions());
+
+        $this->actingAs($admin, 'sanctum')
+            ->post('/api/requests', [
+                'title' => 'طلب بمستند من نوع آخر',
+                'department_id' => $department->id,
+                'request_type_id' => $type->id,
+                'decision_grade' => 11,
+                'attachments' => [[
+                    'file' => UploadedFile::fake()->create('foreign.pdf', 60, 'application/pdf'),
+                    'required_document_key' => $foreignKey,
+                ]],
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('attachments.0.required_document_key');
+
+        $this->assertSame(0, Attachment::count());
+    }
+
+    /**
+     * The Appendix 14 folder is derived from the document named, and the
+     * matrix's own escape hatch still lands somewhere honest.
+     *
+     * `other` is what a submitter picks for material no Appendix 57 row names —
+     * the appendix covers only eight of the twelve types with a specific list —
+     * and it files as المستندات المؤيدة, which is what such a document is.
+     */
+    public function test_a_type_specific_document_and_other_both_file_as_supporting_documents(): void
     {
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
@@ -254,25 +301,62 @@ class RequestIntakeTest extends TestCase
         $department = Department::where('code', 'ADM')->firstOrFail();
         $type = RequestType::where('code', 'PROM')->firstOrFail();
 
-        // Valid on the AttachmentController path, refused on this one.
-        $this->assertArrayHasKey('minutes_decision', Attachment::FILE_SECTIONS);
-        $this->assertNotContains('minutes_decision', Attachment::SUBMITTER_FILE_SECTIONS);
-
         $this->actingAs($admin, 'sanctum')
             ->post('/api/requests', [
-                'title' => 'طلب بتصنيف لا يخص مقدم الطلب',
+                'title' => 'طلب ترقية بمرفقين',
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
-                'attachments' => [[
-                    'file' => UploadedFile::fake()->create('decision.pdf', 60, 'application/pdf'),
-                    'file_section' => 'minutes_decision',
-                ]],
+                'attachments' => [
+                    [
+                        'file' => UploadedFile::fake()->create('grade.pdf', 60, 'application/pdf'),
+                        'required_document_key' => $this->documentKeyFor($type, 'بيان الدرجة الحالية'),
+                    ],
+                    [
+                        'file' => UploadedFile::fake()->create('extra.pdf', 60, 'application/pdf'),
+                        'required_document_key' => 'other',
+                    ],
+                ],
             ], ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('attachments.0.file_section');
+            ->assertCreated();
 
-        $this->assertSame(0, Attachment::count());
+        $attachments = Attachment::orderBy('id')->get();
+        $this->assertSame(['supporting_documents', 'supporting_documents'], $attachments->pluck('file_section')->all());
+        $this->assertSame('other', $attachments->last()->required_document_key);
+    }
+
+    /**
+     * The submitter's stored key is the one Stage 78's intake gate answers under.
+     *
+     * This is the assertion that keeps the two features on one vocabulary: if a
+     * later change gives either side its own identifier, the officer's
+     * completeness check and the employee's uploads would silently stop
+     * describing the same rows.
+     */
+    public function test_the_stored_key_is_the_intake_gates_own_document_key(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
+
+        $expected = [];
+        foreach (array_values($type->required_documents) as $index => $document) {
+            $expected[] = IntakeGateService::documentKey($index, $document['ar']);
+        }
+
+        $this->assertNotEmpty($expected);
+        $this->assertSame($expected, array_keys($type->documentOptions()));
+    }
+
+    /** The slug a given Appendix 57 row is offered and stored under. */
+    private function documentKeyFor(RequestType $type, string $labelAr): string
+    {
+        foreach ($type->documentOptions() as $key => $document) {
+            if ($document['ar'] === $labelAr) {
+                return $key;
+            }
+        }
+
+        $this->fail("No seeded document labelled {$labelAr} on type {$type->code}.");
     }
 
     /**

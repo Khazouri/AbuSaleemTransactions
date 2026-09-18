@@ -31,17 +31,3 @@ export function fileSectionLabel(t, code) {
     ? t(`fileSections.${code}`)
     : t('fileSections.unclassified')
 }
-
-/**
- * The subset a request's own submitter may choose at intake.
- *
- * Mirrors `Attachment::SUBMITTER_FILE_SECTIONS`. The other folders name
- * artifacts the committee cycle produces after the employee has filed, so
- * offering them here would invite a wrong classification; the server refuses
- * one either way.
- */
-export const SUBMITTER_FILE_SECTIONS = [
-  'request',
-  'service_file',
-  'supporting_documents',
-]

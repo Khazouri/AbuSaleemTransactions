@@ -601,9 +601,10 @@
       "groups": {
         "basic": "Shared basic documents",
         "specific": "Documents specific to this type"
-      }
+      },
+      "attached": "attached"
     },
-    "classifyFiles": "Classify every attached document before submitting the request."
+    "classifyFiles": "Say which document each attached file is before submitting the request."
   },
   "approvals": {
     "subtitle": "Only requests currently waiting at this checkpoint appear here.",
@@ -653,7 +654,11 @@
     "downloadFailed": "The file could not be downloaded. Please try again.",
     "fileSection": "File section (Appendix 14)",
     "chooseFileSection": "Choose a section…",
-    "fileSectionHint": "Documents may not be stored without a classification."
+    "fileSectionHint": "Documents may not be stored without a classification.",
+    "documentType": "Document",
+    "chooseDocumentType": "Choose the document…",
+    "documentTypeHint": "For each file, say which of the request type's documents it provides.",
+    "otherDocument": "Another document"
   },
   "notes": {
     "title": "Notes",

@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Request;
 
-use App\Models\Attachment;
 use App\Models\RequestType;
 use App\Services\Lifecycle\DuplicatePolicy;
 use Illuminate\Foundation\Http\FormRequest;
@@ -47,14 +46,23 @@ class StoreRequest extends FormRequest
             'attachments' => ['nullable', 'array', 'max:10'],
             'attachments.*.file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:20480'],
             'attachments.*.label' => ['nullable', 'string', 'max:255'],
-            // [D] Appendix 14 closes with "ويمنع حفظ الملفات بصورة عشوائية دون
-            // تصنيف", and intake was the one write path still producing an
-            // unclassified row: StoreAttachmentRequest has required this since
-            // Stage 80, but a submitter's own files come in through here. The
-            // list is narrowed to Attachment::SUBMITTER_FILE_SECTIONS — see
-            // that constant for why offering the committee-cycle folders to an
-            // employee would be worse than not asking.
-            'attachments.*.file_section' => ['required', Rule::in(Attachment::SUBMITTER_FILE_SECTIONS)],
+            // Which of the chosen type's [D] Appendix 57 recommended documents
+            // this file provides. Required, with `other` as an explicit answer
+            // for material the matrix does not name — a submitter is asked, and
+            // "nobody was asked" stays distinguishable from "the matrix has no
+            // row for this".
+            //
+            // Validated against THIS type's own keys, so a key belonging to a
+            // different type is refused: the client cannot produce one, but an
+            // API caller can, and a mismatched key would otherwise be stored as
+            // an answer to a question this request was never asked. Resolved
+            // from the submitted request_type_id rather than a static list,
+            // which is also why this cannot live in a plain Rule::in constant.
+            //
+            // The [D] Appendix 14 folder is NOT asked for here — it is derived
+            // from the answer (RequestType::sectionForDocument()), so the
+            // submitter answers one question about a file rather than two.
+            'attachments.*.required_document_key' => ['required', Rule::in($this->allowedDocumentKeys())],
         ];
     }
 
@@ -74,8 +82,32 @@ class StoreRequest extends FormRequest
             'attachments.*.file.mimes' => 'يسمح بملفات PDF وDOC وDOCX وJPG وPNG فقط.',
             'attachments.*.file.max' => 'الحد الأقصى لحجم الملف هو 20 ميجابايت.',
             'attachments.*.label.max' => 'لا يمكن أن يتجاوز وصف المرفق 255 حرفاً.',
-            'attachments.*.file_section.required' => 'يجب تحديد نوع كل مستند مرفق.',
-            'attachments.*.file_section.in' => 'نوع المستند غير صالح لمرفقات مقدم الطلب.',
+            'attachments.*.required_document_key.required' => 'يجب تحديد نوع كل مستند مرفق من مستندات نوع الطلب.',
+            'attachments.*.required_document_key.in' => 'نوع المستند المحدد لا يخص نوع الطلب المختار.',
+        ];
+    }
+
+    /**
+     * The document keys this request's own type offers, plus the `other`
+     * escape.
+     *
+     * Reads RequestType::documentOptions(), the same method the intake options
+     * endpoint renders the picker from and store() derives the folder with, so
+     * the list offered and the list accepted are one list. An unknown or
+     * inactive type yields just `other`, and the type rule above is what
+     * reports that properly.
+     *
+     * @return list<string>
+     */
+    private function allowedDocumentKeys(): array
+    {
+        $type = RequestType::query()
+            ->whereKey($this->integer('request_type_id'))
+            ->first();
+
+        return [
+            ...array_keys($type?->documentOptions() ?? []),
+            RequestType::OTHER_DOCUMENT,
         ];
     }
 }

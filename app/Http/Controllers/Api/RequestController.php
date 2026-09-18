@@ -208,7 +208,22 @@ class RequestController extends Controller
                 'types' => RequestType::query()
                     ->where('is_active', true)
                     ->orderBy('name_ar')
-                    ->get(['id', 'code', 'name_ar', 'name_en', 'decision_grade_threshold', 'required_documents']),
+                    ->get(['id', 'code', 'name_ar', 'name_en', 'decision_grade_threshold', 'required_documents'])
+                    // Each Appendix 57 row with the key an attachment stores
+                    // against it. Sent from here because the key is a sha1
+                    // slug: hashing it in the browser would be a second
+                    // implementation of an identifier that must not drift, and
+                    // an async one at that. `required_documents` is left as it
+                    // was so the read-only checklist keeps rendering unchanged.
+                    ->map(fn (RequestType $type): array => [
+                        ...$type->only([
+                            'id', 'code', 'name_ar', 'name_en',
+                            'decision_grade_threshold', 'required_documents',
+                        ]),
+                        'document_options' => collect($type->documentOptions())
+                            ->map(fn (array $document, string $key): array => ['key' => $key, ...$document])
+                            ->values(),
+                    ]),
             ],
         ]);
     }
@@ -278,6 +293,11 @@ class RequestController extends Controller
                     'has_financial_impact' => $type->default_has_financial_impact,
                 ]);
 
+                // Loaded once rather than per file: every attachment on this
+                // request answers the same type's matrix.
+                $requestType = RequestType::findOrFail($data['request_type_id']);
+                $documentKeys = array_column($data['attachments'] ?? [], 'required_document_key');
+
                 foreach ($request->file('attachments', []) as $index => $attachmentInput) {
                     $file = $attachmentInput['file'];
                     $path = $file->store("attachments/{$requestRecord->id}", 'local');
@@ -291,10 +311,17 @@ class RequestController extends Controller
                         'mime_type' => $file->getMimeType(),
                         'size_bytes' => $file->getSize(),
                         'label' => $data['attachments'][$index]['label'] ?? null,
-                        // [D] Appendix 14's folder, chosen by the submitter:
-                        // required by StoreRequest, so this is never null on a
-                        // row written through intake.
-                        'file_section' => $data['attachments'][$index]['file_section'],
+                        // Which of the type's [D] Appendix 57 recommended
+                        // documents the submitter says this file is — the same
+                        // key Stage 78's intake gate answers under, so the
+                        // officer's completeness check reads the employee's own
+                        // uploads rather than a parallel list.
+                        'required_document_key' => $documentKeys[$index],
+                        // [D] Appendix 14's folder, DERIVED from that answer
+                        // rather than asked separately: the seeder declares it
+                        // per row, so this is recorded data, not a guess, and
+                        // never the default nobody chose.
+                        'file_section' => $requestType->sectionForDocument($documentKeys[$index]),
                         'uploaded_by_user_id' => $request->user()->id,
                     ]);
                 }

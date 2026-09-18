@@ -224,15 +224,18 @@ class RequestTypeSeeder extends Seeder
                 'طلب الموظف',
                 "The employee's own request",
                 ['ar' => 'عند كون المعاملة بطلب منه', 'en' => 'Where the matter originates from the employee'],
+                'request',
             ),
-            $this->basic('البيانات الوظيفية', 'Employment data statement'),
-            $this->basic('قرار التعيين', 'Appointment decision', self::BY_SUBJECT),
-            $this->basic('مباشرة العمل', 'Proof of the date work commenced', self::BY_SUBJECT),
-            $this->basic('آخر قرار وظيفي ذي علاقة', 'Most recent related employment decision', self::BY_SUBJECT),
-            $this->basic('كشف الخدمة', 'Service statement', self::BY_SUBJECT),
-            $this->basic('المؤهل العلمي', 'Academic qualification', self::IF_RELATED),
-            $this->basic('تقارير الأداء', 'Performance reports', self::IF_RELATED),
-            $this->basic('المستندات المؤيدة للطلب', 'Documents supporting the request', self::BY_CASE),
+            // The seven service-record extracts below are literally الملف
+            // الوظيفي; only the first and last of the nine basics are not.
+            $this->basic('البيانات الوظيفية', 'Employment data statement', null, 'service_file'),
+            $this->basic('قرار التعيين', 'Appointment decision', self::BY_SUBJECT, 'service_file'),
+            $this->basic('مباشرة العمل', 'Proof of the date work commenced', self::BY_SUBJECT, 'service_file'),
+            $this->basic('آخر قرار وظيفي ذي علاقة', 'Most recent related employment decision', self::BY_SUBJECT, 'service_file'),
+            $this->basic('كشف الخدمة', 'Service statement', self::BY_SUBJECT, 'service_file'),
+            $this->basic('المؤهل العلمي', 'Academic qualification', self::IF_RELATED, 'service_file'),
+            $this->basic('تقارير الأداء', 'Performance reports', self::IF_RELATED, 'service_file'),
+            $this->basic('المستندات المؤيدة للطلب', 'Documents supporting the request', self::BY_CASE, 'supporting_documents'),
         ];
     }
 
@@ -418,14 +421,26 @@ class RequestTypeSeeder extends Seeder
     }
 
     /** @return array{ar: string, en: string, group: string, condition: array{ar: string, en: string}|null} */
-    private function basic(string $ar, string $en, ?array $condition = null): array
+    /**
+     * A shared basic. `$section` is the [D] Appendix 14 folder a file
+     * answering this row is stored in, declared here because the person
+     * transcribing the matrix is the one who knows which it is — deriving it
+     * from the label later would be guesswork. Omitted means المستندات
+     * المؤيدة, which is what an unclassified supporting document actually is.
+     */
+    private function basic(string $ar, string $en, ?array $condition = null, ?string $section = null): array
     {
-        return ['ar' => $ar, 'en' => $en, 'group' => 'basic', 'condition' => $condition];
+        return ['ar' => $ar, 'en' => $en, 'group' => 'basic', 'condition' => $condition, 'section' => $section];
     }
 
     /** @return array{ar: string, en: string, group: string, condition: array{ar: string, en: string}|null} */
+    /**
+     * A type-specific entry. These carry no `section`: Appendix 57's per-type
+     * items are by definition the documents backing *this* request, which is
+     * المستندات المؤيدة — the default, not a placeholder for an unmade choice.
+     */
     private function specific(string $ar, string $en, ?array $condition = null): array
     {
-        return ['ar' => $ar, 'en' => $en, 'group' => 'specific', 'condition' => $condition];
+        return ['ar' => $ar, 'en' => $en, 'group' => 'specific', 'condition' => $condition, 'section' => null];
     }
 }

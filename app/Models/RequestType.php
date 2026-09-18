@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\IntakeGateService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -65,6 +66,67 @@ class RequestType extends Model
      * frontend by lib/requiredDocuments.js's DOCUMENT_GROUPS.
      */
     public const DOCUMENT_GROUPS = ['basic', 'specific'];
+
+    /**
+     * The answer a submitter picks for a file no Appendix 57 row names.
+     *
+     * A real answer, not an absence: Appendix 57 covers eight of the twelve
+     * types with a specific list and the rest with the shared basics only, and
+     * an employee legitimately attaches material outside the matrix. Storing it
+     * explicitly keeps "the submitter chose" distinguishable from "nobody was
+     * asked", which is the whole reason the field has no default.
+     */
+    public const OTHER_DOCUMENT = 'other';
+
+    /**
+     * This type's Appendix 57 matrix as pickable options, each carrying the
+     * key an attachment stores and the Appendix 14 folder it files into.
+     *
+     * The key is IntakeGateService::documentKey() — deliberately the SAME slug
+     * Stage 78's intake gate stores its per-document answers under, so the
+     * officer's completeness check and the submitter's uploads name one set of
+     * rows. Two identifiers for one matrix is the drift this avoids.
+     *
+     * One method behind three readers (the intake options endpoint, StoreRequest's
+     * validation, and the folder derivation in store()), so the list a submitter
+     * is offered and the list the server accepts cannot come apart.
+     *
+     * @return array<string, array{ar: string, en: string, group: string, condition: array{ar: string, en: string}|null, section: string}>
+     */
+    public function documentOptions(): array
+    {
+        $options = [];
+
+        foreach (array_values($this->required_documents ?? []) as $index => $document) {
+            $key = IntakeGateService::documentKey($index, $document['ar'] ?? '');
+
+            $options[$key] = [
+                'ar' => $document['ar'] ?? '',
+                'en' => $document['en'] ?? '',
+                'group' => $document['group'] ?? 'specific',
+                'condition' => $document['condition'] ?? null,
+                // Declared per row by the seeder where it is not المستندات
+                // المؤيدة; see basic()'s docblock for why it is data rather
+                // than something derived from the label afterwards. An
+                // administrator-created row carries none and falls here too.
+                'section' => $document['section'] ?? Attachment::DEFAULT_SUBMITTER_SECTION,
+            ];
+        }
+
+        return $options;
+    }
+
+    /**
+     * The Appendix 14 folder a file answering `$key` belongs in.
+     *
+     * OTHER_DOCUMENT — and any key this type does not know — resolves to the
+     * default rather than throwing: the caller has already validated the key,
+     * and a folder is not the place to re-litigate that.
+     */
+    public function sectionForDocument(?string $key): string
+    {
+        return $this->documentOptions()[$key]['section'] ?? Attachment::DEFAULT_SUBMITTER_SECTION;
+    }
 
     /**
      * Column defaults restated in PHP.
