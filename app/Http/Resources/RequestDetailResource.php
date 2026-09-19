@@ -12,6 +12,9 @@ class RequestDetailResource extends RequestResource
         return [
             ...parent::toArray($request),
             'description' => $this->description,
+            // Stage 90 — [G]'s «الأسباب», beside the description it used to
+            // fold into, so the officer reading the file sees both.
+            'reasons' => $this->reasons,
             'created_by' => $this->createdBy ? [
                 'id' => $this->createdBy->id,
                 'name' => $this->createdBy->name,

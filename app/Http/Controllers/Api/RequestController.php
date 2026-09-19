@@ -293,6 +293,9 @@ class RequestController extends Controller
                     'intake_receipt_number' => $numbers->nextIntakeReceipt(),
                     'title' => $data['title'],
                     'description' => $data['description'] ?? null,
+                    // Stage 90 — [G]'s «الأسباب», stated separately from the
+                    // description it used to fold into.
+                    'reasons' => $data['reasons'] ?? null,
                     'department_id' => $department->id,
                     'request_type_id' => $data['request_type_id'],
                     'status_id' => $newStatus->id,

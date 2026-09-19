@@ -14,6 +14,179 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-19 12:10 EET — Claude — Stage 90 complete (intake form fidelity)
+
+Built per the plan below. **No seeder change, no permission change** — every part rides grants that
+already fit, which is the check that this stage is form fidelity rather than a new capability. One
+migration (`requests.reasons`, nullable), applied to the real MySQL/Homestead database.
+
+**1. Live per-field validation.** `RequestIntakeView.vue` gained a `fieldErrors` computed mirroring
+`StoreRequest`'s own rules field-for-field, shown once a field is left (blur/change) or once the
+review button has been pressed (`reviewAttempted`) — so the form does not shout at fields nobody has
+reached yet. **`formIncomplete` is now derived FROM `fieldErrors`** rather than restating the same
+conditions a second time, which removes a duplication rather than adding one. The form gained
+`novalidate` while every `required` attribute stayed — the attribute is the accessibility semantics a
+screen reader announces, `novalidate` only stops the browser's own bubble competing with ours.
+`review()` no longer disables the button on an incomplete form; pressing it now reveals every
+outstanding message on the row that caused it, which the plan judged more useful than a button that
+silently refuses to say why.
+
+**2. Per-file server errors on their own row, and a rejected file no longer aborting the selection.**
+Both defects were real. `attachments.N.file`/`.label` gained matching `<small>` elements beside the
+existing `.required_document_key` one — a server refusal of a specific file now lands on that file's
+own row. `chooseFiles()` was rewritten to partition rather than abort: each picked file is judged on
+its own (type, size, remaining slots), the acceptable ones are kept, and the rest are listed by name
+with the reason that rejected them, rendered as a `role="alert"` list above the picker. The draft
+upload loop's single try/catch became per-file too — one server refusal used to abandon every upload
+queued behind it in the loop; now each is caught independently and reported against its own name.
+
+**3. `requests.reasons`.** [G] lists «الأسباب» as its own input; it folded into free-text `description`
+until now. **Deliberately optional** — `description` is itself nullable, and splitting a field out of
+it must not silently raise the bar the employee already cleared; [G] lists the field, it does not say
+it is mandatory. Wired exactly where `description` already travels and no further: `StoreRequest`,
+`SaveRequestDraftRequest` (autosaved like every other field), `RequestController::store()`,
+`RequestDetailResource`, `RequestTrackingResource`, `MeetingController::agendaItemContext()`,
+`AppealFileCompiler`. **`PresentationMemoController`'s `facts_summary` seed was deliberately left
+reading `description` alone** — that is Stage 46's own first-draft derivation, and changing what it
+seeds from is that stage's decision, not this one's.
+
+**4. The `*` convention.** A required marker on every required label plus one legend line stating what
+it means. `decision_grade`'s marker is conditional on the chosen type carrying a ministry threshold —
+the one genuinely conditional requirement on the form.
+
+**5. File types reconciled with [G]'s «PDF أو صورة واضحة».** Narrowed `pdf,doc,docx,jpg,jpeg,png` to
+`pdf,jpg,jpeg,png` on **the submitter's own two intake paths only** — `StoreRequest`'s
+`attachments.*.file` and `StoreRequestDraftAttachmentRequest::file`. Both, not either: Stage 88's
+`attachments.*` rules never run for a draft-backed submission, so narrowing only the inline path would
+have made a draft the one remaining way to file a DOCX — the same shape of hole Stage 88 had to close
+for the document key. **`AttachmentController` and the appeal path are deliberately NOT narrowed and a
+test pins it** — that endpoint is shared with R02–R05 uploading genuine committee-cycle documents, the
+same "who sees which question" split Stage 91 made about it; [D] names no file format anywhere
+(grepped), so the constraint is [G]'s and [G] specifies stage 1 only. **Consequence stated rather than
+hidden:** a document supplied during استكمال النواقص may be a DOCX while the same document at intake
+may not — the boundary of what [G] covers, not an inconsistency this stage invents.
+
+**One hole the narrowing opened, closed rather than left to timing.** A draft created before this
+stage could already hold a DOCX, and since `StoreRequest`'s `attachments.*` rules never run for a
+draft-backed submission, it would still have promoted unchallenged. `StoreRequest::after()` gained
+`refusalForDraftFileTypes()`, mirroring `refusalForDraftDocumentKeys()`'s existing shape — reads the
+draft attachment's stored `mime_type` (Symfony's content-guessed value, recorded at upload) rather
+than the filename, since that is the server-verified fact. Both draft checks now share one fetch of
+the draft's rows (`draftAttachmentRows()`, memoised) rather than querying twice.
+
+**Two real gaps surfaced only while writing tests, both from stages already built, neither this
+stage's own:** every seeded `RequestType` since Stage 85 carries a `decision_grade` threshold and at
+least one mandatory Appendix 57 row, so a fixture that only sets a title/department/type 422s on
+completeness before it ever reaches the file-type check being tested — the new tests use `ALLW`
+(exactly one mandatory row) throughout, resolved generically via
+`DocumentCompletenessService::mandatoryDocuments()` rather than a hardcoded key. And
+`AttachmentController::store()` requires `required_document_key` (Stage 91) even for the "still
+accepts DOCX" test, which is not what that test is about but is what the endpoint now always asks.
+
+Verification: new `tests/Feature/IntakeFidelityTest.php` (7 tests — a DOCX refused at intake and on
+the draft endpoint while a PDF is accepted on both; the same DOCX still accepted by
+`AttachmentController`, the deliberate asymmetry pinned; a pre-existing draft holding a DOCX refused
+at submission with nothing created and the draft itself surviving; `reasons` optional and
+round-tripping through intake, the draft, and the detail payload; a rejected attachment reporting its
+own index while its sibling's error keys stay absent). Full suite **642 tests / 4125 assertions**
+green (was 635/4090 — exactly this stage's +7 tests and +35 assertions, and no pre-existing test
+needed changing, which is the check that the narrowing broke nothing already built). Pint clean on
+every touched/new file, `npm run build` passes with `RequestIntakeView` picking up the new markup in
+its existing chunk (then reverted `frontend/dist`, tracked in git, per every prior stage's note),
+locale key-parity verified programmatically (1932 keys each side, zero on-one-side-only), and the
+migration applied clean to the real MySQL/Homestead database.
+
+**Open items for whoever builds Stage 91+ or revisits this one.** (1) **[G] itself is still not
+committed to this repo** — this stage was built from its own five-item Build bullet in STAGE_PLAN.md,
+not from the sheet; if [G] ever lands, re-check the five items against its literal wording rather than
+assuming this note's reading was exact. (2) **The DOCX-at-intake vs. DOCX-during-استكمال asymmetry is
+now real and pinned by a test** — a future stage reconciling Stage 91's own document vocabulary across
+the two paths should decide it deliberately rather than "fix" it as an inconsistency. (3) `reasons` has
+no locale-neutral character limit reconciliation with `description`'s own 5000 — both share the same
+cap, which was a judgment call, not a sourced figure.
+
+---
+
+### 2026-09-19 11:30 EET — Claude — Stage 90 implementation plan (intake form fidelity)
+
+Building Stage 90 per STAGE_PLAN.md Track M. **[G] is not committed to this repo** (the Track M intro
+says so explicitly — both diagrams arrived as chat attachments), so the stage's own five-item Build
+bullet is the spec I am working from, not the sheet. Checked each item against the code before
+designing rather than trusting the bullet: all five are real and unbuilt.
+
+**1. «التحقق الفوري» — live per-field validation.** Today the form has exactly two live rules
+(`unclassifiedFiles`, `uncoveredMandatory` — both Stage 85's) and every other field waits for HTML5
+`required` at submit or a 422 afterwards. Adding a `touched` set plus a `fieldErrors` computed that
+mirrors `StoreRequest`'s own rules per field, shown on blur and cleared as the value is fixed.
+**`formIncomplete` is rederived FROM `fieldErrors`** rather than kept beside it — it currently
+restates the same conditions in a second place, so this removes a duplication instead of adding one.
+The form gains `novalidate` while the `required` attributes STAY: the attribute is the accessibility
+semantics (screen readers announce it), `novalidate` only suppresses the browser's own bubble so it
+cannot compete with our message, and `aria-invalid`/`aria-describedby` wire the field to it.
+
+**2. Per-file server errors on their own row, and a rejected file no longer aborting the selection.**
+Two distinct defects in one place. (a) Only `attachments.N.required_document_key` has a matching
+element today, so a server-rejected *file* or *label* shows nothing but the form-level banner —
+adding both keys to the row. (b) `chooseFiles()` finds the FIRST invalid file and `return`s, dropping
+every valid file picked alongside it; and the draft-upload loop's single try/catch means one server
+refusal mid-loop abandons the remaining uploads. Rewriting both to partition rather than abort:
+accepted files are kept, rejected ones are listed by name with their own reason. The over-cap case
+is the same rule — take what fits, name what did not, rather than dropping the whole selection.
+
+**3. A dedicated «الأسباب» field.** New nullable `requests.reasons` text column, since it folds into
+free-text `description` today. **Optional, not required** — a deliberate call: `description` is
+nullable, so splitting a field out of it must not silently raise the bar on the employee, and
+STAGE_PLAN's bullet says [G] *lists* it, not that it mandates it. Plumbed exactly where `description`
+already travels and no further (`RequestDetailResource`, `RequestTrackingResource`,
+`MeetingController`'s agenda-item context, `AppealFileCompiler`), plus the draft payload so a
+half-typed reason survives a refresh like every other field. **`PresentationMemoController`'s
+`facts_summary` seed is deliberately left reading `description` alone** — that is Stage 46's own
+first-draft derivation and it fires once, on first generate; changing what it seeds from is that
+stage's decision, not this one's.
+
+**4. The `*` convention.** A required marker on each required label plus one legend line saying what
+it means. `decision_grade`'s marker is conditional on the chosen type carrying a threshold, which is
+the one genuinely conditional requirement on the form.
+
+**5. File types reconciled with [G]'s «PDF أو صورة واضحة».** Narrowing `pdf,doc,docx,jpg,jpeg,png` to
+`pdf,jpg,jpeg,png` on **the submitter's own two intake paths only** — `StoreRequest`'s
+`attachments.*.file` and `StoreRequestDraftAttachmentRequest::file`. Both, not either: Stage 88's
+`attachments.*` rules never run for a draft-backed submission, so narrowing only the first would make
+the draft the one way to file a DOCX, the same class of hole that stage had to close for document
+keys. **`AttachmentController` and the appeal path are deliberately NOT narrowed** — that endpoint is
+shared with R02–R05 uploading genuine committee-cycle documents, which is the same "who sees which
+question" split Stage 91 made about it; [D] itself names no file format anywhere (grepped), so the
+constraint is [G]'s and [G] specifies stage 1 only. **Consequence to flag rather than hide:** a
+document supplied during استكمال النواقص may be a DOCX while the same document at intake may not.
+That asymmetry is the boundary of what [G] covers, not an inconsistency this stage invents.
+`attachments.invalidType`/`acceptedHint` are **shared with `FileUpload.vue`** and must not be edited,
+or the committee path would start announcing a restriction it does not enforce — intake gets its own
+two keys instead.
+
+**One hole the narrowing opens, closed rather than left to timing:** a draft created before this stage
+could already hold a DOCX, and since `attachments.*` rules do not run for a draft-backed submission,
+it would still promote. `StoreRequest::after()` gains a mime check over the draft's own stored rows,
+mirroring `refusalForDraftDocumentKeys()`'s existing shape — the stored `mime_type` (Symfony's
+content-guessed value) rather than the filename, since that is the server-verified fact.
+
+**No seeder change, no permission change** — every part rides grants that already fit, which is the
+check that this stage is form fidelity rather than a new capability. **Every existing test fixture
+uploads a PDF** (grepped: the only non-PDF/PNG upload in the suite is `AttachmentUploadTest`'s
+deliberate `.txt` refusal, on the path this stage does not touch), so the narrowing is expected to
+break nothing — if it does, that is a finding, not a fixture to paper over.
+
+**Verification plan**: new `tests/Feature/IntakeFidelityTest.php` — a DOCX refused at intake and
+refused on the draft endpoint while a PDF is accepted on both; the same DOCX still accepted by
+`AttachmentController` (the deliberate asymmetry, pinned so a later "consistency" pass has to be a
+decision); a pre-existing draft holding a DOCX refused at submission with nothing created; `reasons`
+round-tripping through intake, the draft and the detail payload, and staying optional; per-file
+`attachments.N.file` errors keyed to the offending index while its siblings are untouched. Plus the
+full PHPUnit suite, Pint on every touched file, `npm run build` (then reverting the tracked
+`frontend/dist`), locale key-parity checked programmatically, and the one migration applied to the
+real MySQL/Homestead database.
+
+---
+
 ### 2026-09-19 09:40 EET — Claude — Stage 89 complete («متابعة طلباتي» employee tracking)
 
 Built per the plan below. **No migration, no new derivation, and exactly one new backend field** —

@@ -476,6 +476,7 @@ class MeetingController extends Controller
                 'reference_number' => $requestRecord->reference_number,
                 'title' => $requestRecord->title,
                 'description' => $requestRecord->description,
+                'reasons' => $requestRecord->reasons,
                 'department' => $requestRecord->department ? [
                     'id' => $requestRecord->department->id,
                     'name_ar' => $requestRecord->department->name_ar,

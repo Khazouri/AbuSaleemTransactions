@@ -13,6 +13,27 @@ use Illuminate\Validation\Rule;
 /** Validates an incoming request before it becomes a workflow request. */
 class StoreRequest extends FormRequest
 {
+    /**
+     * Stage 90 — [G]'s «PDF أو صورة واضحة», as the mimes a draft's already
+     * stored rows are checked against. The `mimes:` rule above states the same
+     * set as extensions, which is what Laravel's rule speaks; this states it as
+     * the content-guessed values `getMimeType()` recorded at upload. Keep the
+     * two in step.
+     */
+    private const ACCEPTED_INTAKE_MIMES = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+    ];
+
+    /**
+     * Memo for draftAttachmentRows(); null means "not fetched yet", which is
+     * distinguishable from a draft that genuinely holds no files.
+     *
+     * @var list<array{required_document_key: ?string, mime_type: ?string}>|null
+     */
+    private ?array $draftAttachmentRows = null;
+
     public function authorize(): bool
     {
         return true;
@@ -39,6 +60,13 @@ class StoreRequest extends FormRequest
             ],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            // Stage 90 — [G] lists «الأسباب» as an input of its own, and it
+            // folded into `description` until now. Deliberately OPTIONAL:
+            // `description` is nullable, so splitting a field out of it must
+            // not silently raise the bar on the employee. The cap matches
+            // SaveRequestDraftRequest's own, so a reason a draft accepted can
+            // always be submitted.
+            'reasons' => ['nullable', 'string', 'max:5000'],
             // Intake must not route fresh work to retired master-data rows.
             'department_id' => ['required', 'integer', Rule::exists('departments', 'id')->where(
                 fn ($query) => $query->where('is_active', true)->whereNotNull('code'),
@@ -80,7 +108,21 @@ class StoreRequest extends FormRequest
                 Rule::prohibitedIf(fn (): bool => $this->filled('draft_id')),
                 'nullable', 'array', 'max:30',
             ],
-            'attachments.*.file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:20480'],
+            // Stage 90 — narrowed from pdf,doc,docx,jpg,jpeg,png to reconcile
+            // with [G]'s «PDF أو صورة واضحة». Scoped to the SUBMITTER's own
+            // paths (here and StoreRequestDraftAttachmentRequest) and
+            // deliberately not to AttachmentController or the appeal path,
+            // which are shared with R02–R05 uploading genuine committee-cycle
+            // documents — the same "who sees which question" split Stage 91
+            // made about that endpoint. [D] names no file format anywhere, so
+            // the constraint is [G]'s, and [G] specifies stage 1 only.
+            //
+            // ⚠ Consequence, stated rather than hidden: a document supplied
+            // during استكمال النواقص may be a DOCX while the same document at
+            // intake may not. That is the boundary of what [G] covers, not an
+            // inconsistency this stage invents — a later stage holding [G]'s
+            // sibling sheet for [F] step 5 should decide it, not inherit it.
+            'attachments.*.file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:20480'],
             'attachments.*.label' => ['nullable', 'string', 'max:255'],
             // Which of the chosen type's [D] Appendix 57 recommended documents
             // this file provides. Required, with `other` as an explicit answer
@@ -146,6 +188,18 @@ class StoreRequest extends FormRequest
             // without checking it against a matrix (its type can still change
             // while it is being typed), which is exactly why the check has to
             // land at submission, against the type actually being filed.
+            // Stage 90 — and the same is true of the file TYPE. Narrowing the
+            // draft endpoint stops a new draft holding a DOCX, but a draft
+            // created before this stage may already hold one, and it would
+            // promote unchallenged for exactly the reason above. Reads the
+            // stored mime (Symfony's content-guessed value, recorded at
+            // upload) rather than the filename, since that is the fact the
+            // server verified.
+            if ($this->filled('draft_id')
+                && ($typeRefusal = $this->refusalForDraftFileTypes()) !== null) {
+                $validator->errors()->add('attachments', $typeRefusal);
+            }
+
             if ($this->filled('draft_id')
                 && ($keyRefusal = $this->refusalForDraftDocumentKeys($documentKeys)) !== null) {
                 $validator->errors()->add('attachments', $keyRefusal);
@@ -180,12 +234,59 @@ class StoreRequest extends FormRequest
             'attachments.prohibited' => 'لا يمكن إرفاق ملفات مع إرسال مسودة؛ تعدل مرفقات المسودة على المسودة نفسها.',
             'attachments.max' => 'لا يمكن إرفاق أكثر من 30 ملفاً.',
             'attachments.*.file.required' => 'يرجى اختيار ملف للمرفق.',
-            'attachments.*.file.mimes' => 'يسمح بملفات PDF وDOC وDOCX وJPG وPNG فقط.',
+            'attachments.*.file.mimes' => 'يسمح بملفات PDF أو صورة واضحة (JPG أو PNG) فقط.',
             'attachments.*.file.max' => 'الحد الأقصى لحجم الملف هو 20 ميجابايت.',
             'attachments.*.label.max' => 'لا يمكن أن يتجاوز وصف المرفق 255 حرفاً.',
             'attachments.*.required_document_key.required' => 'يجب تحديد نوع كل مستند مرفق من مستندات نوع الطلب.',
             'attachments.*.required_document_key.in' => 'نوع المستند المحدد لا يخص نوع الطلب المختار.',
+            'reasons.max' => 'لا يمكن أن تتجاوز أسباب الطلب 5000 حرف.',
         ];
+    }
+
+    /**
+     * Stage 90 — why a draft's own files cannot be filed at all.
+     *
+     * [G] accepts «PDF أو صورة واضحة», and the intake rules above now say so —
+     * but they never run for a draft-backed submission, so this is where the
+     * same bar is applied to a draft's rows. Named in the same words the
+     * inline path uses, because it is the same refusal about the same file.
+     *
+     * A row whose mime was never recorded is let through rather than refused:
+     * the column is nullable, and refusing on an absent fact would reject a
+     * file nobody has established anything about.
+     */
+    private function refusalForDraftFileTypes(): ?string
+    {
+        foreach ($this->draftAttachmentRows() as $row) {
+            $mime = $row['mime_type'] ?? null;
+
+            if ($mime !== null && ! in_array($mime, self::ACCEPTED_INTAKE_MIMES, true)) {
+                return 'يسمح بملفات PDF أو صورة واضحة (JPG أو PNG) فقط.';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The draft's own attachment rows, fetched once.
+     *
+     * Two checks in after() read them — the document keys and the file types —
+     * and a draft carries at most `attachments.max` rows, so one fetch shared
+     * between them beats two queries over the same handful of records.
+     *
+     * @return list<array{required_document_key: ?string, mime_type: ?string}>
+     */
+    private function draftAttachmentRows(): array
+    {
+        return $this->draftAttachmentRows ??= RequestDraftAttachment::query()
+            ->where('request_draft_id', $this->integer('draft_id'))
+            ->get(['required_document_key', 'mime_type'])
+            ->map(fn (RequestDraftAttachment $row): array => [
+                'required_document_key' => $row->required_document_key,
+                'mime_type' => $row->mime_type,
+            ])
+            ->all();
     }
 
     /**
@@ -230,10 +331,7 @@ class StoreRequest extends FormRequest
     private function submittedDocumentKeys(): array
     {
         if ($this->filled('draft_id')) {
-            return RequestDraftAttachment::query()
-                ->where('request_draft_id', $this->integer('draft_id'))
-                ->pluck('required_document_key')
-                ->all();
+            return array_column($this->draftAttachmentRows(), 'required_document_key');
         }
 
         $attachments = $this->input('attachments');

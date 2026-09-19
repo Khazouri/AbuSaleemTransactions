@@ -26,6 +26,9 @@ class Request extends Model
         'intake_receipt_number',
         'title',
         'description',
+        // Stage 90 — [G]'s own «الأسباب» input, which folded into the
+        // free-text `description` until this stage gave it a column.
+        'reasons',
         'department_id',
         'request_type_id',
         'status_id',

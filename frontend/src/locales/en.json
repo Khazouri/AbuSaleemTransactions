@@ -631,6 +631,26 @@
       "hint": "Check the entered data and the attached files; submission happens from this page.",
       "back": "Back to the form",
       "noFiles": "No attachments."
+    },
+    "reasons": "Reasons for the request",
+    "reasonsHint": "State why you are making this request. Optional, and shown to the reviewing body alongside the description.",
+    "requiredLegend": "Fields marked (*) are required.",
+    "files": {
+      "acceptedHint": "PDF or a clear image (JPG or PNG), up to 20 MB.",
+      "invalidType": "Only PDF files or clear images (JPG or PNG) are accepted."
+    },
+    "validation": {
+      "titleRequired": "A request subject is required.",
+      "titleTooLong": "The request subject cannot exceed 255 characters.",
+      "departmentRequired": "Please choose a department.",
+      "typeRequired": "Please choose a request type.",
+      "gradeRequired": "A decision grade is required for this request type.",
+      "gradeInteger": "The decision grade must be a whole number.",
+      "gradeRange": "The decision grade must be between 1 and 100.",
+      "priorRelationRequired": "Please classify this request against the earlier one.",
+      "descriptionTooLong": "The request description cannot exceed 5000 characters.",
+      "reasonsTooLong": "The reasons cannot exceed 5000 characters.",
+      "fixBeforeReview": "Please complete the required fields before reviewing and submitting."
     }
   },
   "approvals": {
@@ -819,7 +839,9 @@
       "source": "Appendix 71 — each segment is measured on its own; the full cycle is not their sum.",
       "days": "{days} days",
       "pending": "not finished yet"
-    }
+    },
+    "reasons": "Reasons for the request",
+    "noReasons": "The submitter stated no reasons."
   },
   "committees": {
     "title": "Committees",

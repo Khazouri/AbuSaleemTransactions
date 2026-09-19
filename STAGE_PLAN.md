@@ -1476,7 +1476,7 @@ progress indicator states the same one as the wall.
 
 ## Suggested order
 
-**Stages 1–86, 88, 89 and 91 are built. Track M's 87, 90, 92 and 93 are not.** For the built
+**Stages 1–86 and 88–91 are built. Track M's 87, 92 and 93 are not.** For the built
 stages this block is the dependency record: it says which stage had to precede which, which is what
 you need when reading a stage's assumptions or judging whether a change to one stage's work
 disturbs another's. For the rest of Track M it is still a queue.
@@ -1504,10 +1504,10 @@ disturbs another's. For the rest of Track M it is still a queue.
 84                                                (Track L — the permission matrix; independent of Track K, but reads its compliance matrix)
 
 85 → 91                                           (Track M — BOTH BUILT; 91 extended 85's vocabulary to the استكمال loop)
-86 · 88 → 89                                      (Track M — ALL BUILT; 89 packages the intake half for the employee)
+86 · 88 → 89 → 90                                 (Track M — ALL BUILT; 89 packages the intake half, 90 sharpens the form 89 packaged)
 
 --- not built ---
-90 · 93                                           (Track M — intake-form fidelity and the stage count; independent of each other)
+93                                                (Track M — the stage count, reconciling [F]/[G]/the twelve workflow_stages rows)
 87 · 92                                           (Track M — blocked on a process decision, not on code)
 ```
 

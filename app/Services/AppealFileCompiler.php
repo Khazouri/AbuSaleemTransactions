@@ -79,6 +79,7 @@ class AppealFileCompiler
             'reference_number' => $originalRequest->reference_number,
             'title' => $originalRequest->title,
             'description' => $originalRequest->description,
+            'reasons' => $originalRequest->reasons,
             'submitted_at' => $originalRequest->submitted_at?->toIso8601String(),
             'status' => $originalRequest->status ? [
                 'code' => $originalRequest->status->code,

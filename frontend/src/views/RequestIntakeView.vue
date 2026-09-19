@@ -21,6 +21,9 @@ const auth = useAuthStore()
 const options = ref({ departments: [], types: [] })
 const form = ref(blankForm())
 const files = ref([])
+// Stage 90 — files the picker would not take, kept by name with the reason
+// each one was refused, instead of one banner for a whole selection.
+const rejectedFiles = ref([])
 const loadingOptions = ref(false)
 const submitting = ref(false)
 const errors = ref({})
@@ -56,7 +59,18 @@ const draftError = ref('')
 const resuming = ref(false)
 let saveTimer = null
 
-const acceptedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png']
+/*
+ * Stage 90 — [G] accepts «PDF أو صورة واضحة», so DOC/DOCX are gone from the
+ * submitter's own paths. Mirrors StoreRequest and
+ * StoreRequestDraftAttachmentRequest, which are the enforcement; this list is
+ * what keeps the picker from offering a file those two would refuse.
+ *
+ * Deliberately NOT the same list FileUpload.vue uses: that component serves
+ * AttachmentController, which is shared with R02–R05 uploading genuine
+ * committee-cycle documents and still accepts DOC/DOCX. Two lists because
+ * there are two questions — see StoreRequest's own note.
+ */
+const acceptedExtensions = ['pdf', 'jpg', 'jpeg', 'png']
 const maxBytes = 20 * 1024 * 1024
 // Mirrors StoreRequest's own `attachments` cap; see the note in chooseFiles().
 const maxFiles = 30
@@ -98,18 +112,96 @@ function isMandatory(doc) {
 const uncoveredMandatory = computed(() => (selectedType.value?.document_options ?? [])
   .filter((doc) => isMandatory(doc) && !coveredDocumentKeys.value.has(doc.key)))
 
-// What the form itself would refuse, so the review step can be reached only
-// from a state the server would accept — and so "why is this disabled?" is
-// answered on the row that caused it.
-const formIncomplete = computed(() => !form.value.title
-  || !form.value.department_id
-  || !form.value.request_type_id
-  || (selectedType.value?.decision_grade_threshold != null && form.value.decision_grade === '')
+/*
+ * Stage 90 — [G]'s «التحقق الفوري».
+ *
+ * Until now the only live rules on this form were Stage 85's two document
+ * checks; every other field waited for the browser's own `required` bubble at
+ * submit, or for a 422 afterwards. This mirrors StoreRequest's rules per field
+ * so a message shown here and a refusal from the endpoint say the same thing
+ * about the same value — the server stays the enforcement either way.
+ *
+ * A field's message appears once it has been left (blur/change) or once the
+ * review button has been pressed, so the form does not shout at an employee
+ * about fields they have not reached yet.
+ */
+const touched = ref({})
+const reviewAttempted = ref(false)
+
+function markTouched(field) {
+  touched.value = { ...touched.value, [field]: true }
+}
+
+// Appendix 16 requires a classification only when this employee has earlier
+// closed files of the same type; an OPEN one is refused outright instead, so
+// there is nothing to classify. Mirrors DuplicatePolicy's own condition.
+const needsPriorRelation = computed(() => !duplicate.value?.open_prior
+  && (duplicate.value?.prior_requests?.length ?? 0) > 0)
+
+const fieldErrors = computed(() => {
+  const found = {}
+  const { title, description, reasons, department_id: departmentId, request_type_id: typeId } = form.value
+  const grade = form.value.decision_grade
+
+  if (!title.trim()) found.title = t('intake.validation.titleRequired')
+  else if (title.length > 255) found.title = t('intake.validation.titleTooLong')
+
+  if (!departmentId) found.department_id = t('intake.validation.departmentRequired')
+  if (!typeId) found.request_type_id = t('intake.validation.typeRequired')
+
+  // Required only for a type that carries a ministry threshold, which is the
+  // one genuinely conditional requirement on this form.
+  if (selectedType.value?.decision_grade_threshold != null && grade === '') {
+    found.decision_grade = t('intake.validation.gradeRequired')
+  } else if (grade !== '' && !/^\d+$/.test(String(grade).trim())) {
+    found.decision_grade = t('intake.validation.gradeInteger')
+  } else if (grade !== '' && (Number(grade) < 1 || Number(grade) > 100)) {
+    found.decision_grade = t('intake.validation.gradeRange')
+  }
+
+  if (needsPriorRelation.value && !form.value.prior_relation) {
+    found.prior_relation = t('intake.validation.priorRelationRequired')
+  }
+
+  if (description.length > 5000) found.description = t('intake.validation.descriptionTooLong')
+  if (reasons.length > 5000) found.reasons = t('intake.validation.reasonsTooLong')
+
+  return found
+})
+
+/**
+ * What to show under one field.
+ *
+ * A server message wins over the local mirror: the endpoint knows things this
+ * form cannot, such as a department retired since the page was loaded.
+ */
+function fieldError(field) {
+  if (errors.value[field]) return errors.value[field][0]
+  if (!touched.value[field] && !reviewAttempted.value) return ''
+
+  return fieldErrors.value[field] ?? ''
+}
+
+// What the form itself would refuse, now derived FROM the per-field rules
+// rather than restating them — one rule set, so a field that validates live
+// and the button that gates the review step cannot disagree.
+const formIncomplete = computed(() => Object.keys(fieldErrors.value).length > 0
   || unclassifiedFiles.value
   || uncoveredMandatory.value.length > 0)
 
 function blankForm() {
-  return { title: '', description: '', department_id: '', request_type_id: '', decision_grade: '', prior_relation: '' }
+  return {
+    title: '',
+    description: '',
+    // Stage 90 — [G] lists «الأسباب» as its own input; it folded into the
+    // free-text description until now. Optional, like the description it came
+    // out of — see the column's own migration note.
+    reasons: '',
+    department_id: '',
+    request_type_id: '',
+    decision_grade: '',
+    prior_relation: '',
+  }
 }
 
 /** Appendix 16 searches "برقم الموظف وموضوع المعاملة" — the type is the subject. */
@@ -181,6 +273,7 @@ function draftPayload() {
   return {
     title: form.value.title || null,
     description: form.value.description || null,
+    reasons: form.value.reasons || null,
     department_id: form.value.department_id || null,
     request_type_id: form.value.request_type_id || null,
     decision_grade: form.value.decision_grade === '' ? null : form.value.decision_grade,
@@ -242,6 +335,11 @@ async function resumeDraft(id) {
     draftId.value = draft.id
     form.value = { ...blankForm(), ...compactPayload(draft.payload ?? {}) }
     files.value = (draft.attachments ?? []).map(toDraftRow)
+    rejectedFiles.value = []
+    // A resumed draft has not been "left" field by field in this sitting, so
+    // it starts quiet rather than showing every gap the moment it opens.
+    touched.value = {}
+    reviewAttempted.value = false
     drafts.value = drafts.value.filter((entry) => entry.id !== id)
     step.value = 'form'
     if (form.value.request_type_id) await checkDuplicates()
@@ -283,6 +381,9 @@ async function discardDraft() {
   }
   form.value = blankForm()
   files.value = []
+  rejectedFiles.value = []
+  touched.value = {}
+  reviewAttempted.value = false
   duplicate.value = null
   step.value = 'form'
   await loadDrafts()
@@ -303,36 +404,59 @@ async function saveAttachment(attachment) {
 
 // ------------------------------------------------------------ attachments
 
+/**
+ * Why one picked file cannot be attached, or '' when it can.
+ *
+ * Stage 85 raised the server's cap from 10 to 30: TRNS alone states thirteen
+ * documents unconditionally, so the old cap would have refused a submission
+ * for documents it also refused permission to attach.
+ */
+function rejectionReason(file, remaining) {
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  if (!acceptedExtensions.includes(extension)) return t('intake.files.invalidType')
+  if (file.size > maxBytes) return t('attachments.fileTooLarge')
+  if (remaining <= 0) return t('intake.tooManyFiles')
+
+  return ''
+}
+
 async function chooseFiles(event) {
   const selected = Array.from(event.target.files ?? [])
-  const invalid = selected.find((file) => {
-    const extension = file.name.split('.').pop()?.toLowerCase()
-    return !acceptedExtensions.includes(extension) || file.size > maxBytes
-  })
-
-  if (invalid) {
-    error.value = t(!acceptedExtensions.includes(invalid.name.split('.').pop()?.toLowerCase())
-      ? 'attachments.invalidType'
-      : 'attachments.fileTooLarge')
-    return
-  }
-
-  // Stage 85 raised the server's cap from 10 to 30: TRNS alone states thirteen
-  // documents unconditionally, so the old cap would have refused a submission
-  // for documents it also refused permission to attach.
-  if (files.value.length + selected.length > maxFiles) {
-    error.value = t('intake.tooManyFiles')
-    return
-  }
-
-  error.value = ''
   event.target.value = ''
+  rejectedFiles.value = []
+  error.value = ''
+
+  /*
+   * Stage 90 — partition rather than abort.
+   *
+   * One unacceptable file used to drop the WHOLE selection: picking nine valid
+   * documents and one oversized scan left the employee with nothing attached
+   * and a single banner that named neither file. Now each file is judged on its
+   * own, the acceptable ones are kept, and the rest are listed by name with the
+   * reason that rejected them — [G] wants the message on the row that caused it.
+   */
+  const accepted = []
+  let remaining = maxFiles - files.value.length
+
+  for (const file of selected) {
+    const reason = rejectionReason(file, remaining)
+
+    if (reason) {
+      rejectedFiles.value.push({ name: file.name, reason })
+      continue
+    }
+
+    accepted.push(file)
+    remaining -= 1
+  }
+
+  if (!accepted.length) return
 
   if (!canDraft.value) {
     // Wrap only what was just picked: re-wrapping the whole list would nest
     // each existing row inside a second wrapper and drop its label and its
     // classification, so a second selection would silently break the first.
-    files.value = [...files.value, ...selected.map((file) => ({
+    files.value = [...files.value, ...accepted.map((file) => ({
       id: null,
       file,
       name: file.name,
@@ -352,14 +476,29 @@ async function chooseFiles(event) {
   try {
     const id = await ensureDraft()
 
-    for (const file of selected) {
+    for (const file of accepted) {
       const payload = new FormData()
       payload.append('file', file)
-      const { data } = await api.post(`/requests/drafts/${id}/attachments`, payload)
-      files.value = [...files.value, toDraftRow(data.data)]
+
+      try {
+        const { data } = await api.post(`/requests/drafts/${id}/attachments`, payload)
+        files.value = [...files.value, toDraftRow(data.data)]
+      } catch (uploadError) {
+        // Per file, deliberately: a single server refusal used to abandon
+        // every upload queued behind it, so one rejected scan silently cost
+        // the employee the files they had picked after it.
+        rejectedFiles.value.push({
+          name: file.name,
+          reason: uploadError.response?.data?.errors?.file?.[0]
+            ?? uploadError.response?.data?.message
+            ?? t('intake.draft.uploadFailed'),
+        })
+      }
     }
-  } catch (uploadError) {
-    error.value = uploadError.response?.data?.message ?? t('intake.draft.uploadFailed')
+  } catch {
+    // Only reached when the draft itself could not be created, which is not
+    // about any one file.
+    error.value = t('intake.draft.uploadFailed')
   } finally {
     draftSaving.value = false
   }
@@ -391,8 +530,20 @@ async function loadOptions() {
 // ------------------------------------------------------------- submission
 
 function review() {
+  // Stage 90 — pressing this reveals every outstanding message rather than
+  // being a dead button. The review step stays unreachable from a state the
+  // server would refuse, but "why can I not continue?" is now answerable by
+  // pressing the thing that will not continue, on the fields that caused it.
+  reviewAttempted.value = true
   errors.value = {}
   error.value = ''
+
+  if (formIncomplete.value) {
+    error.value = t('intake.validation.fixBeforeReview')
+
+    return
+  }
+
   step.value = 'review'
 }
 
@@ -430,6 +581,7 @@ function inlinePayload() {
   const payload = new FormData()
   payload.append('title', form.value.title)
   payload.append('description', form.value.description)
+  payload.append('reasons', form.value.reasons)
   payload.append('department_id', form.value.department_id)
   payload.append('request_type_id', form.value.request_type_id)
   if (form.value.decision_grade !== '') payload.append('decision_grade', form.value.decision_grade)
@@ -446,6 +598,9 @@ function inlinePayload() {
 function startAnother() {
   form.value = blankForm()
   files.value = []
+  rejectedFiles.value = []
+  touched.value = {}
+  reviewAttempted.value = false
   errors.value = {}
   error.value = ''
   created.value = null
@@ -509,7 +664,11 @@ onMounted(async () => {
         </ul>
       </section>
 
-      <form v-show="step === 'form'" class="card form" @submit.prevent="review">
+      <!-- Stage 90 — `novalidate` suppresses the browser's own validation
+           bubble so it cannot compete with the live messages below; the
+           `required` attributes STAY, because they are the accessibility
+           semantics a screen reader announces, not the UI. -->
+      <form v-show="step === 'form'" class="card form" novalidate @submit.prevent="review">
         <p v-if="error" class="alert" role="alert">{{ error }}</p>
         <p v-if="loadingOptions || resuming" class="state">{{ t('common.loading') }}</p>
 
@@ -527,27 +686,49 @@ onMounted(async () => {
 
         <fieldset :disabled="isBusy">
           <legend>{{ t('intake.basicData') }}</legend>
+          <!-- Stage 90 — [G] promises this convention and the form did not use
+               it, so a required field looked exactly like an optional one. -->
+          <p class="required-legend"><span class="required-mark" aria-hidden="true">*</span> {{ t('intake.requiredLegend') }}</p>
           <div class="grid">
             <label class="wide">
-              {{ t('intake.subject') }}
-              <input v-model="form.title" type="text" maxlength="255" required />
-              <small v-if="errors.title">{{ errors.title[0] }}</small>
+              {{ t('intake.subject') }}<span class="required-mark" aria-hidden="true">*</span>
+              <input
+                v-model="form.title"
+                type="text"
+                maxlength="255"
+                required
+                :aria-invalid="fieldError('title') ? 'true' : undefined"
+                @blur="markTouched('title')"
+              />
+              <small v-if="fieldError('title')">{{ fieldError('title') }}</small>
             </label>
             <label>
-              {{ t('requests.department') }}
-              <select v-model="form.department_id" required>
+              {{ t('requests.department') }}<span class="required-mark" aria-hidden="true">*</span>
+              <select
+                v-model="form.department_id"
+                required
+                :aria-invalid="fieldError('department_id') ? 'true' : undefined"
+                @change="markTouched('department_id')"
+                @blur="markTouched('department_id')"
+              >
                 <option disabled value="">{{ t('intake.chooseDepartment') }}</option>
                 <option v-for="department in options.departments" :key="department.id" :value="department.id">{{ name(department) }}</option>
               </select>
-              <small v-if="errors.department_id">{{ errors.department_id[0] }}</small>
+              <small v-if="fieldError('department_id')">{{ fieldError('department_id') }}</small>
             </label>
             <label>
-              {{ t('requests.type') }}
-              <select v-model="form.request_type_id" required @change="checkDuplicates">
+              {{ t('requests.type') }}<span class="required-mark" aria-hidden="true">*</span>
+              <select
+                v-model="form.request_type_id"
+                required
+                :aria-invalid="fieldError('request_type_id') ? 'true' : undefined"
+                @change="markTouched('request_type_id'); checkDuplicates()"
+                @blur="markTouched('request_type_id')"
+              >
                 <option disabled value="">{{ t('intake.chooseType') }}</option>
                 <option v-for="type in options.types" :key="type.id" :value="type.id">{{ name(type) }}</option>
               </select>
-              <small v-if="errors.request_type_id">{{ errors.request_type_id[0] }}</small>
+              <small v-if="fieldError('request_type_id')">{{ fieldError('request_type_id') }}</small>
             </label>
             <!-- Stage 83 — [D] Appendix 16. An open file on the same subject is
                  shown before the form is filled: "لا تنشأ معاملة جديدة، بل تلحق
@@ -556,8 +737,14 @@ onMounted(async () => {
               {{ t('lifecycle.duplicate.openPrior', { title: duplicate.open_prior.title }) }}
             </div>
             <label v-else-if="duplicate?.prior_requests?.length" class="wide">
-              {{ t('lifecycle.duplicate.classify') }}
-              <select v-model="form.prior_relation" required>
+              {{ t('lifecycle.duplicate.classify') }}<span class="required-mark" aria-hidden="true">*</span>
+              <select
+                v-model="form.prior_relation"
+                required
+                :aria-invalid="fieldError('prior_relation') ? 'true' : undefined"
+                @change="markTouched('prior_relation')"
+                @blur="markTouched('prior_relation')"
+              >
                 <option disabled value="">{{ t('lifecycle.duplicate.choose') }}</option>
                 <option
                   v-for="relation in PRIOR_RELATIONS"
@@ -568,27 +755,48 @@ onMounted(async () => {
                   {{ t(`lifecycle.duplicate.relations.${relation}`) }}
                 </option>
               </select>
+              <small v-if="fieldError('prior_relation')">{{ fieldError('prior_relation') }}</small>
               <small>{{ t('lifecycle.duplicate.redirectedNote') }}</small>
             </label>
             <p v-else-if="duplicateChecking" class="wide state">{{ t('common.loading') }}</p>
             <label>
               {{ t('intake.decisionGrade') }}
+              <!-- The one genuinely conditional requirement on this form: only
+                   a type carrying a ministry threshold needs a grade. -->
+              <span v-if="selectedType?.decision_grade_threshold != null" class="required-mark" aria-hidden="true">*</span>
               <input
                 v-model="form.decision_grade"
                 type="number"
                 min="1"
                 max="100"
                 :required="selectedType?.decision_grade_threshold != null"
+                :aria-invalid="fieldError('decision_grade') ? 'true' : undefined"
+                @blur="markTouched('decision_grade')"
               />
               <small class="field-hint">
                 {{ t('intake.decisionGradeHint', { threshold: selectedType?.decision_grade_threshold ?? '—' }) }}
               </small>
-              <small v-if="errors.decision_grade">{{ errors.decision_grade[0] }}</small>
+              <small v-if="fieldError('decision_grade')">{{ fieldError('decision_grade') }}</small>
             </label>
             <label class="wide">
               {{ t('intake.description') }}
-              <textarea v-model="form.description" rows="5" />
-              <small v-if="errors.description">{{ errors.description[0] }}</small>
+              <textarea v-model="form.description" rows="5" @blur="markTouched('description')" />
+              <small v-if="fieldError('description')">{{ fieldError('description') }}</small>
+            </label>
+            <!-- Stage 90 — [G] lists «الأسباب» as an input of its own; until
+                 now the employee's reasons and their description of what they
+                 are asking for went into the same box. Optional, like the
+                 description it came out of. -->
+            <label class="wide">
+              {{ t('intake.reasons') }}
+              <textarea
+                v-model="form.reasons"
+                rows="4"
+                :aria-invalid="fieldError('reasons') ? 'true' : undefined"
+                @blur="markTouched('reasons')"
+              />
+              <small class="field-hint">{{ t('intake.reasonsHint') }}</small>
+              <small v-if="fieldError('reasons')">{{ fieldError('reasons') }}</small>
             </label>
           </div>
         </fieldset>
@@ -629,9 +837,22 @@ onMounted(async () => {
 
         <fieldset :disabled="isBusy">
           <legend>{{ t('attachments.title') }}</legend>
-          <p class="hint">{{ t('attachments.acceptedHint') }}</p>
-          <input class="file-input" type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" @change="chooseFiles" />
+          <!-- Stage 90 — intake's own hint and `accept` list, not the shared
+               attachments.* keys: those are read by FileUpload.vue on the
+               committee-cycle path, which still takes DOC/DOCX. -->
+          <p class="hint">{{ t('intake.files.acceptedHint') }}</p>
+          <input class="file-input" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" @change="chooseFiles" />
           <small v-if="errors.attachments">{{ errors.attachments[0] }}</small>
+
+          <!-- Stage 90 — the files the picker would not take, each named with
+               its own reason. The rest of the selection was still attached. -->
+          <ul v-if="rejectedFiles.length" class="rejected" role="alert">
+            <li v-for="(rejected, index) in rejectedFiles" :key="`${rejected.name}-${index}`">
+              <span class="file-name ltr">{{ rejected.name }}</span>
+              <span class="rejected-reason">{{ rejected.reason }}</span>
+            </li>
+          </ul>
+
           <p class="hint">{{ t('attachments.documentTypeHint') }}</p>
 
           <div v-if="files.length" class="files">
@@ -660,6 +881,15 @@ onMounted(async () => {
                 @blur="saveAttachment(attachment)"
               />
               <button class="ghost" type="button" @click="removeFile(index)">{{ t('intake.removeFile') }}</button>
+              <!-- Stage 90 — `attachments.N.file` and `.label` had no element
+                   to render into, so a server-rejected file showed only the
+                   form-level banner and nothing on the row that caused it. -->
+              <small v-if="errors[`attachments.${index}.file`]" class="row-error">
+                {{ errors[`attachments.${index}.file`][0] }}
+              </small>
+              <small v-if="errors[`attachments.${index}.label`]" class="row-error">
+                {{ errors[`attachments.${index}.label`][0] }}
+              </small>
               <small v-if="errors[`attachments.${index}.required_document_key`]" class="row-error">
                 {{ errors[`attachments.${index}.required_document_key`][0] }}
               </small>
@@ -677,11 +907,15 @@ onMounted(async () => {
         <div class="actions">
           <!-- [G] sub-step 5 — this no longer submits. The intake is read back
                first, and sent from there. -->
+          <!-- Stage 90 — deliberately NOT disabled on an incomplete form.
+               Pressing it reveals every outstanding message on the fields that
+               produced them, which is more use than a button that refuses to
+               say why it will not move. -->
           <button
             v-can="'request_intake.add'"
             class="primary"
             type="submit"
-            :disabled="isBusy || formIncomplete"
+            :disabled="isBusy"
           >{{ t('intake.review.open') }}</button>
         </div>
       </form>
@@ -705,6 +939,7 @@ onMounted(async () => {
             <dd>{{ t(`lifecycle.duplicate.relations.${form.prior_relation}`) }}</dd>
           </div>
           <div class="wide"><dt>{{ t('intake.description') }}</dt><dd class="prewrap">{{ form.description || '—' }}</dd></div>
+          <div class="wide"><dt>{{ t('intake.reasons') }}</dt><dd class="prewrap">{{ form.reasons || '—' }}</dd></div>
         </dl>
 
         <h4>{{ t('attachments.title') }}</h4>
@@ -741,11 +976,14 @@ label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .8
 .checklist ul { display: grid; gap: .35rem; padding-inline-start: 0; margin: 0; color: var(--color-black-700); font-size: .85rem; list-style: none; }
 .checklist li.covered { color: var(--color-success-fg); }.checklist li.outstanding { color: var(--color-black-700); font-weight: 600; }.doc-required { color: var(--color-danger-fg); font-size: .75rem; }.outstanding-list { display: block; margin-block-start: .25rem; font-weight: 600; }.checklist .tick { display: inline-block; min-inline-size: 1rem; }
 .sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.required-mark { margin-inline-start: .15rem; color: var(--color-danger-fg); font-weight: 700; }.required-legend { margin: 0 0 .85rem; color: var(--color-muted); font-size: .76rem; }
+.rejected { display: grid; gap: .4rem; padding: .5rem .6rem; margin: .6rem 0 0; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); background: var(--color-danger-bg); list-style: none; }.rejected li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; align-items: baseline; }.rejected-reason { color: var(--color-danger-fg); font-size: .76rem; }
+[aria-invalid='true'] { border-color: var(--color-danger-border); }
 .doc-group + .doc-group { margin-block-start: .85rem; }.doc-group h3 { margin: 0 0 .35rem; color: var(--color-black-700); font-size: .8rem; font-weight: 600; }.doc-condition { color: var(--color-black-500); font-size: .75rem; }
 .files { display: grid; gap: .6rem; margin-top: .85rem; }.file-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, auto) minmax(8rem, 1fr) auto; gap: .5rem; align-items: center; padding: .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.file-row .row-error { grid-column: 1 / -1; }.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.actions { display: flex; gap: .5rem; }.primary, .ghost { padding: .5rem .9rem; border-radius: var(--radius-lg); font-size: .85rem; cursor: pointer; }.primary { border: 0; color: var(--color-on-brand); background: var(--color-brand); }.ghost { border: 1px solid var(--color-border-hover); color: var(--color-black-700); background: var(--color-surface); }.link-button { text-decoration: none; }.primary:disabled, .ghost:disabled, fieldset:disabled { cursor: not-allowed; opacity: .65; }.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.success { max-inline-size: 38rem; }.success h3 { margin: 0; color: var(--color-brand-text); }.success p { color: var(--color-black-700); }.reference { display: block; margin: 1rem 0; color: var(--color-primary); font-size: 1.15rem; }.receipt-notice { padding: .6rem .7rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-lg); color: var(--color-info-fg); background: var(--color-info-bg); font-size: .8rem; }
 .drafts { margin-bottom: 1rem; max-inline-size: 52rem; }.drafts h3 { margin: 0 0 .6rem; color: var(--color-brand-text); font-size: .95rem; }.drafts ul { display: grid; gap: .5rem; padding-inline-start: 0; margin: 0; list-style: none; }.drafts li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem; align-items: center; padding: .55rem .65rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.draft-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-black-700); font-size: .85rem; }.draft-meta { color: var(--color-muted); font-size: .75rem; }
 .draft-state { display: flex; gap: .5rem; align-items: center; margin: 0 0 1rem; color: var(--color-muted); font-size: .78rem; }.linkish { padding: 0; border: 0; color: var(--color-danger-fg); background: none; font: inherit; text-decoration: underline; cursor: pointer; }
 .review h3 { margin: 0 0 .35rem; color: var(--color-brand-text); font-size: 1rem; }.review h4 { margin: 1.25rem 0 .5rem; color: var(--color-black-700); font-size: .85rem; }.review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; margin: 0 0 .5rem; }.review-grid dt { color: var(--color-muted); font-size: .75rem; }.review-grid dd { margin: .2rem 0 0; color: var(--color-black-700); font-size: .88rem; }.prewrap { white-space: pre-wrap; }
 .review-files { display: grid; gap: .45rem; padding-inline-start: 0; margin: 0 0 1rem; list-style: none; }.review-files li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem; align-items: center; padding: .5rem .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.declared { color: var(--color-brand-text); font-size: .78rem; }.declared-label { color: var(--color-muted); font-size: .75rem; }
-@media (max-width: 640px) { .grid, .review-grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.file-row, .review-files li, .drafts li { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .grid, .review-grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.file-row, .review-files li, .drafts li, .rejected li { grid-template-columns: 1fr; } }
 </style>

@@ -33,6 +33,7 @@ class RequestTrackingResource extends RequestResource
         return [
             ...parent::toArray($request),
             'description' => $this->description,
+            'reasons' => $this->reasons,
             // Stage 51 — [A] §7's own employee-facing question: is my file
             // still missing something? Derived from the status, so it needs no
             // eager load of its own.

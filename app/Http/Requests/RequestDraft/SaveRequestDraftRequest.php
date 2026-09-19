@@ -34,6 +34,9 @@ class SaveRequestDraftRequest extends FormRequest
         return [
             'title' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
+            // Stage 90 — [G]'s «الأسباب», autosaved like every other field so
+            // a half-typed reason survives a refresh too.
+            'reasons' => ['nullable', 'string', 'max:5000'],
             // `integer` only — existence is checked at submission, so a draft
             // saved against a department that is retired in the meantime is
             // still resumable and still shows what was typed.
@@ -49,6 +52,7 @@ class SaveRequestDraftRequest extends FormRequest
         return [
             'title.max' => 'لا يمكن أن يتجاوز عنوان الطلب 255 حرفاً.',
             'description.max' => 'لا يمكن أن يتجاوز وصف الطلب 5000 حرف.',
+            'reasons.max' => 'لا يمكن أن تتجاوز أسباب الطلب 5000 حرف.',
             'decision_grade.integer' => 'يجب أن تكون درجة القرار رقماً صحيحاً.',
             'decision_grade.between' => 'يجب أن تكون درجة القرار بين 1 و100.',
             'prior_relation.in' => 'تصنيف العلاقة بالطلب السابق غير صالح.',
