@@ -453,8 +453,6 @@ onMounted(async () => {
       </header>
       <p v-if="closeError" class="alert" role="alert">{{ closeError }}</p>
 
-      <div class="video-placeholder">{{ t('meetingsUnit.live.videoPlaceholder') }}</div>
-
       <div class="columns">
         <aside class="card side">
           <h3>{{ t('meetingsUnit.live.presentAttendees') }}</h3>
@@ -817,15 +815,6 @@ select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-ho
 .pill.small { font-size: .7rem; padding: .15rem .5rem; }
 .pill.good { background: var(--color-success-bg); color: var(--color-success-fg); border-color: var(--color-success-border); }
 .pill.bad { background: var(--color-danger-bg); color: var(--color-danger-fg); border-color: var(--color-danger-border); }
-
-/* Deliberately fixed, not themed: a video feed area reads as a dark screen
-   in both themes (see AGENTS.md's dark-mode note). */
-.video-placeholder {
-  display: flex; align-items: center; justify-content: center;
-  block-size: 10rem; border-radius: 12px; margin-bottom: 1rem;
-  background: #111; color: #d4d4d4;
-  font-size: .85rem; border: 1px dashed var(--color-border-hover);
-}
 
 .columns { display: grid; grid-template-columns: minmax(220px, 26%) 1fr; gap: 1rem; align-items: start; }
 @media (max-width: 60rem) { .columns { grid-template-columns: 1fr; } }

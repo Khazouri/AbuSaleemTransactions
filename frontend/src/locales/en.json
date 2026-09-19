@@ -1396,7 +1396,6 @@
       "notConvened": "This meeting has not been convened yet. Convene it from the readiness screen before running it.",
       "goToReadiness": "Go to readiness",
       "closeMeeting": "Close meeting",
-      "videoPlaceholder": "Video feed — not available in this build",
       "presentAttendees": "Present attendees",
       "noAttendees": "No attendees marked present yet.",
       "noItems": "The agenda has no items.",

@@ -14,6 +14,39 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-19 20:05 EET — Claude — Video-streaming placeholder removed from the Live Meeting screen
+
+User request: "remove everything that relates to video streaming from the system." A full repo-wide sweep
+(backend PHP, frontend, locales, seeders, config, `composer.json`/`.lock`, `package.json`) found **no actual
+video/streaming implementation anywhere** — no WebRTC, no camera APIs, no video SDK dependency, no
+Reverb/Pusher/broadcasting wiring (`.env.example`'s `BROADCAST_CONNECTION=log` is inert, unused, generic
+Laravel scaffolding, left untouched). The only thing that was actually about video streaming was a static,
+non-functional placeholder box on the Stage 34 "Live Meeting" runner screen
+(`frontend/src/views/MeetingLiveView.vue`) reading "Video feed — not available in this build" / "بث الفيديو —
+غير متاح في هذا الإصدار" ("بث الفيديو" literally means video streaming/broadcast) — a deliberate stand-in for a
+video feed that was never built (STAGE_PLAN.md's own Stage 34 text: "no websockets/broadcasting — the video
+area is a static placeholder"), not working functionality.
+
+Removed the placeholder `<div class="video-placeholder">` and its dedicated CSS rule/comment from
+`MeetingLiveView.vue`, and the matching `meetingsUnit.live.videoPlaceholder` key from both
+`frontend/src/locales/en.json` and `ar.json`. **Nothing else in the Live Meeting screen was touched** — the
+item-state machine, timer, discussion notes, and vote/decision panel are unrelated committee-meeting
+functionality, not video. Confirmed with the user via AskUserQuestion beforehand: the sidebar's video-camera
+icon for that screen (`AppSidebar.vue`'s `meeting_live: 'video'` + `AppIcon.vue`'s `video` glyph) is left
+as-is — it's just an icon choice, not an implementation of streaming, and the user chose not to swap it.
+`AGENT_NOTES.md`/`STAGE_PLAN.md`'s own historical Stage 34 entries are left alone per the repo's standing
+convention against rewriting stage history.
+
+No backend change, no migration, no seeder change — pure frontend markup/CSS/locale-copy deletion. Verified:
+a repo-wide grep for `videoPlaceholder`/`video-placeholder` now only matches this note and the pre-existing,
+untouched `frontend/dist/*` build output (stale, tracked separately); `ar.json`/`en.json` still have identical
+key sets (1937 keys each side, zero on-one-side-only); `npm run build` passes clean with `MeetingLiveView` as
+its own chunk and no `video` text anywhere in the freshly rebuilt `dist/`, which was then reverted
+(`git checkout -- frontend/dist && git clean -fd frontend/dist`) since rebuilding wasn't the deliverable, per
+every prior stage's convention.
+
+---
+
 ### 2026-09-19 18:20 EET — Claude — Signatures removed system-wide; approving is now a plain confirmation
 
 User request: "remove signitures from the system" / "only approve buttom with confirmation." Removed the
