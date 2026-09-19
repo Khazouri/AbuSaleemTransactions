@@ -67,7 +67,14 @@ class ScreenRolePermissionSeeder extends Seeder
         // empty, and which Appendix 19 forbids the submitter from signing off
         // on ("لا يكون مقدم الطلب هو معتمد الطلب"). R01 loses Stage 47's
         // financial-impact correction as a consequence; R02 keeps it.
-        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05'], 'edit' => ['R02']],
+        //
+        // Stage 87 — R12 (HR Manager) added: [F] names إدارة الموارد البشرية
+        // as co-owner of the study at `observations`, and RequestVisibility's
+        // new bounded clause only lets R12 open a request there — this grant
+        // is what lets them actually contribute once they can. Bounded the
+        // same way R05's own membership here is: a screen-level capability,
+        // narrowed in practice by which requests the actor can even see.
+        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R12'], 'edit' => ['R02']],
 
         // Stage 58 — appeals against an already-decided request. `view` is
         // broad (like `requests`): the controller scopes the query to the
@@ -173,7 +180,17 @@ class ScreenRolePermissionSeeder extends Seeder
         // RoleSeeder name is literally المقرر. Additive rather than a swap — the
         // source removes nothing from the chair, and this grant also gates the
         // Stage 75 request-closure route.
-        'meeting_outputs' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R02', 'R03'], 'print' => '*'],
+        // Stage 92 — `edit` still gates the rapporteur/chair-only certifications
+        // (Art. 30/103/105's approval-return, execution-soundness and suspension
+        // records), but [F] step 10's executing-body question is a different
+        // one: who actually carried the decision out. `approve` is that
+        // answer's own tier — execute() and close() alone ride it — so R12 (HR
+        // Manager, the executing body [D] names most often) can record its own
+        // execution and closure without also gaining the other five, unrelated
+        // `edit` actions. R02/R03 keep `approve` too, for whichever file some
+        // other body executed. Mirrors the decisions.add/decisions.approve
+        // split exactly.
+        'meeting_outputs' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R02', 'R03'], 'approve' => ['R02', 'R03', 'R12'], 'print' => '*'],
 
         // One approval screen per authority — single-role by design, so no one
         // can approve at a level that isn't theirs.

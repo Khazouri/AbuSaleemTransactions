@@ -84,7 +84,8 @@ class UnifiedNumberingTest extends TestCase
 
         // THE قيد. Accepting the file is what registers it, so the status
         // (Art. 38's code 06) and the رقم إشاري arrive together on this hop.
-        $service->transition($requestRecord, 'register', $this->userWithRole('R05'));
+        // Stage 87 — the HR registrar is R12, not R05.
+        $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
         $requestRecord->refresh();
         $this->assertSame('PM-COM/'.now()->format('Y').'/0001', $requestRecord->reference_number);
         $this->assertSame('registered', $requestRecord->status->code);
@@ -132,7 +133,7 @@ class UnifiedNumberingTest extends TestCase
         $requestRecord->created_by_user_id = $employee->id;
         $requestRecord->save();
 
-        $service->transition($requestRecord, 'register', $this->userWithRole('R05'));
+        $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
         $first = $requestRecord->refresh()->reference_number;
         $this->assertSame('PM-COM/'.now()->format('Y').'/0001', $first);
 
@@ -147,7 +148,7 @@ class UnifiedNumberingTest extends TestCase
         $service->transition($requestRecord, 'submit', $employee);
         $service->transition($requestRecord, 'forward', $manager);
         $service->transition($requestRecord, 'route_to_hr', $manager);
-        $service->transition($requestRecord, 'register', $this->userWithRole('R05'));
+        $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
         $service->transition($requestRecord, 'approve', $reviewer, signaturePath: 'signatures/b.png');
 
         $requestRecord->refresh();
@@ -163,7 +164,7 @@ class UnifiedNumberingTest extends TestCase
         $reviewer = $this->userWithRole('R02');
         $service = app(WorkflowService::class);
 
-        $registrar = $this->userWithRole('R05');
+        $registrar = $this->userWithRole('R12');
 
         foreach ([1, 2, 3] as $sequence) {
             $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr');

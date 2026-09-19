@@ -7,7 +7,7 @@ Each stage lists: **Goal → What gets built → Done when**.
 Stages are ordered by dependency, not difficulty. Don't skip ahead unless the stage says it's independent.
 
 > **Status, as of 2026-09-12 — Tracks A through L (Stages 1–84) are all built.**
-> This file stays the reference for *what each stage number means*; it is not a
+> This file stays the reference for _what each stage number means_; it is not a
 > to-do list any more. Two things follow from that, and they matter when reading
 > any stage below:
 >
@@ -17,7 +17,7 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 >    (now 11) and several different status counts. These are deliberately left
 >    as written — they record what that stage actually faced. **Verify any figure
 >    against the seeders before quoting it**, never against a stage bullet.
-> 2. **Claims that would mislead someone building *now* have been corrected** in
+> 2. **Claims that would mislead someone building _now_ have been corrected** in
 >    place (a named method that no longer exists, a miscounted source appendix),
 >    with the correction noted inline. See AGENT_NOTES.md's 2026-09-12 entry for
 >    the full audit.
@@ -31,75 +31,92 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 ## TRACK A — Local Environment & Foundation
 
 ### Stage 1 — Local environment setup
+
 **Goal:** A running Laravel API and Vue app on your machine, talking to each other.
 **Build:**
+
 - Laravel 11 project (`backend/`), Vue 3 + Vite project (`frontend/`)
 - MySQL database created locally, `.env` configured
 - CORS + Sanctum stateful domain config so `localhost:5173` can call `localhost:8000`
 - One test endpoint (`GET /api/ping`) called from the Vue app to prove the wiring
-**Done when:** `php artisan serve` + `npm run dev` both run, and the Vue page displays a response fetched from Laravel.
-**Independent:** yes — nothing else needed first.
+  **Done when:** `php artisan serve` + `npm run dev` both run, and the Vue page displays a response fetched from Laravel.
+  **Independent:** yes — nothing else needed first.
 
 ### Stage 2 — Base schema (part 1: org + identity)
+
 **Goal:** Core tables exist and are seeded.
 **Build:**
+
 - Migrations: `departments`, `users`, `roles`, `permissions`, `role_user`, `permission_role`
 - Seeders: 8 roles (R01–R08), permission list, a few sample departments, one admin user
 - Eloquent models with relationships
-**Done when:** `php artisan migrate:fresh --seed` runs clean and you can query roles/departments in tinker.
+  **Done when:** `php artisan migrate:fresh --seed` runs clean and you can query roles/departments in tinker.
 
 ### Stage 3 — Base schema (part 2: workflow + lookup tables)
+
 **Goal:** The lookup/reference tables the whole system reads from.
 **Build:**
+
 - Migrations: `workflow_stages`, `workflow_transitions`, `request_statuses`, `request_types`, `screens`, `screen_role_permissions`
 - Seeders: the 11 stages, all statuses, the 22 screens
 - `workflow_transitions` left **empty** for now (filled in Stage 14)
-**Done when:** migrate:fresh --seed runs clean, all 11 stages and 22 screens are in the DB.
+  **Done when:** migrate:fresh --seed runs clean, all 11 stages and 22 screens are in the DB.
 
 ### Stage 4 — Authentication
+
 **Goal:** Login works end to end.
 **Build:**
+
 - Sanctum login/logout/me endpoints
 - Vue: login page, Pinia auth store, token handling, axios interceptor
 - Route guard skeleton (logged-in vs not)
-**Done when:** You can log in as the seeded admin, see a protected page, and log out.
+  **Done when:** You can log in as the seeded admin, see a protected page, and log out.
 
 ### Stage 5 — App shell & layout
+
 **Goal:** The frame every screen will live inside.
 **Build:**
+
 - Vue layout: sidebar nav, top bar, content area
 - RTL setup + Arabic font (Cairo/Tajawal), vue-i18n scaffolding with AR/EN toggle
 - Nav items driven by the `screens` table
-**Done when:** App renders RTL in Arabic, sidebar lists screens, navigation works between placeholder pages.
+  **Done when:** App renders RTL in Arabic, sidebar lists screens, navigation works between placeholder pages.
 
 ---
 
 ## TRACK B — Admin & Master Data (simple CRUD)
 
 ### Stage 6 — Departments CRUD
+
 **Build:** API + Vue screen — list, create, edit, deactivate. Handles the self-referencing `parent_id`.
 **Done when:** You can create a nested department tree from the UI.
 
 ### Stage 7 — Users management
+
 **Build:** API + Vue screen — list, create, edit, deactivate users; assign roles via `role_user`.
 **Done when:** You can create a user, assign them R02 (المقرر), and log in as them.
 
 ### Stage 8 — Permission matrix editor
+
 **Goal:** The tool you'll use to configure everything else.
 **Build:**
+
 - Grid UI: 22 screens × 8 roles, with view/add/edit/delete/approve/print/export toggles
 - Bulk-save API endpoint writing to `screen_role_permissions`
-**Done when:** You can toggle a permission in the UI, save, and see it persisted.
+  **Done when:** You can toggle a permission in the UI, save, and see it persisted.
 
 ### Stage 9 — Permission enforcement layer
+
 **Goal:** One source of truth, enforced on both sides.
 **Build:**
+
 - Laravel middleware/policies reading `screen_role_permissions`
 - Login response returns the user's permission set
 - Vue: route guards + a `v-can` style directive/helper for hiding buttons
-**Done when:** A user without `users.view` cannot reach the Users screen via UI *or* by calling the API directly.
+  **Done when:** A user without `users.view` cannot reach the Users screen via UI _or_ by calling the API directly.
 
 ### Stage 10 — Settings & templates screens
+
 **Build:** CRUD for `settings` (key/value) and `templates`. Low risk, no logic attached yet.
 **Done when:** Both screens work; settings values are readable from the backend.
 
@@ -108,56 +125,68 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 ## TRACK C — Requests Core
 
 ### Stage 11 — Requests schema + list view
+
 **Build:**
+
 - Migrations: `requests`, `request_stage_logs`, `request_status_history`, `attachments`, `notes`
 - API: list endpoint with filters (status, department, type, date range) + pagination
 - Vue: requests list screen
-**Done when:** Manually-inserted test rows appear in the list and filters work.
+  **Done when:** Manually-inserted test rows appear in the list and filters work.
 
 ### Stage 12 — File upload component
+
 **Build:** Reusable Vue upload component + Laravel storage endpoint. Validates PDF/DOC/DOCX/JPG/PNG, 20MB cap. Writes to `attachments`.
 **Done when:** You can upload a valid file and get rejected on an invalid type/size.
 **Independent:** can be built any time after Stage 5.
 
 ### Stage 13 — Request intake flow
+
 **Goal:** The full "create a request" journey (Image 6).
 **Build:**
+
 - Reference number generator (`YYYY-DEPT-000123`), race-safe inside a database transaction
-  <!-- The Transaction->Request rename swept this word too; it means an ACID
-       transaction, not a request. Stage 70 later replaced this whole scheme
-       with Appendix 15's `PM-COM/YYYY/0001` and moved the قيد point. -->
+    <!-- The Transaction->Request rename swept this word too; it means an ACID
+         transaction, not a request. Stage 70 later replaced this whole scheme
+         with Appendix 15's `PM-COM/YYYY/0001` and moved the قيد point. -->
 
 - Intake form: basic data → attachments → validation → submit
 - On submit: create request, assign reference number, set status `new` / stage 1
 - Notes component on the request detail page
-**Done when:** You complete the form and get a request with a unique reference number at stage 1.
+  **Done when:** You complete the form and get a request with a unique reference number at stage 1.
 
 ---
 
 ## TRACK D — Workflow Engine (the core)
 
 ### Stage 14 — Transition map + WorkflowService (happy path)
+
 **Goal:** The state machine, data-driven.
 **Build:**
+
 - Seed all happy-path rows in `workflow_transitions` (stage 1→2→3…→11, with action + required role)
 - `WorkflowService::transition(request, action, actor)`: validates role, validates prerequisites, updates stage/status, writes `request_stage_logs` + `request_status_history`
 - Unit tests for the happy path
-**Done when:** A test walks a request from stage 1 to stage 11 in code, with correct log rows.
+  **Done when:** A test walks a request from stage 1 to stage 11 in code, with correct log rows.
 
 ### Stage 15 — Request detail page + stage actions
+
 **Build:**
+
 - Vue: request detail view showing current stage, status, timeline, attachments, notes
 - Approve / reject / forward buttons wired to the transition API, gated by role
-**Done when:** You can move a request through several stages from the UI, logging in as the right role each time.
+  **Done when:** You can move a request through several stages from the UI, logging in as the right role each time.
 
 ### Stage 16 — Exception flows
+
 **Build:**
+
 - Seed exception transitions: نقص مستندات (return for missing docs), رفض المراجعة, طلب تعديل, إلغاء الطلب
 - Return-to-previous-stage logic with mandatory comment/reason
 - Vue: exception action buttons + reason modals
-**Done when:** Each exception path works and is correctly recorded in the stage log.
+  **Done when:** Each exception path works and is correctly recorded in the stage log.
 
 ### Stage 17 — SLA / deadlines
+
 **Build:** `due_date` handling per request type, a scheduled command flagging overdue requests, and the انتهاء المهلة escalation path.
 **Done when:** An artificially back-dated request gets flagged as overdue by the scheduled command.
 
@@ -166,50 +195,62 @@ Stages are ordered by dependency, not difficulty. Don't skip ahead unless the st
 ## TRACK E — Approvals & Committees
 
 ### Stage 18 — Approval chain
+
 **Build:**
+
 - `approvals` table wiring — records every action with level + role
 - Sequential enforcement (can't skip a required approver)
 - The conditional branch: ministry approval only above the decision-grade threshold
-**Done when:** The full chain (reviewer → committee → admin manager → ministry/dean → final) runs correctly, and skipping a level is blocked.
+  **Done when:** The full chain (reviewer → committee → admin manager → ministry/dean → final) runs correctly, and skipping a level is blocked.
 
 ### Stage 19 — E-signature
+
 **Build:** Signature-pad Vue component → saved image → `signature_path` on the approval record; approval trail visual on the request detail page.
 **Done when:** An approval captures a signature and it renders in the trail.
 
 ### Stage 20 — Committees & meetings
+
 **Build:**
+
 - Migrations + CRUD: `committees`, `committee_members`, `meetings`, `meeting_attendees`, `meeting_requests`
 - Agenda builder (add/remove/reorder requests on a meeting), attendee management, minutes field
-**Done when:** You can schedule a meeting, add requests to its agenda, and mark attendance.
+  **Done when:** You can schedule a meeting, add requests to its agenda, and mark attendance.
 
 ### Stage 21 — Decisions & voting → workflow integration
+
 **Build:**
+
 - `decisions` + `votes` tables, voting UI in the meeting screen, tally logic
 - A recorded decision automatically triggers the right `WorkflowService::transition()` call
 - Handle "defer" (stays in committee for the next meeting)
-**Done when:** A committee vote moves the request to the next stage with no manual intervention.
+  **Done when:** A committee vote moves the request to the next stage with no manual intervention.
 
 ---
 
 ## TRACK F — Cross-cutting Features
 
 ### Stage 22 — Audit log
+
 **Build:** Model observers writing to `audit_logs` (old/new values, IP, user agent), plus a read-only viewer screen with filters.
 **Done when:** Every create/update/approve action appears in the audit viewer.
-**Note:** Build this *before* heavy testing so the test runs generate real audit data.
+**Note:** Build this _before_ heavy testing so the test runs generate real audit data.
 
 ### Stage 23 — Notifications
+
 **Build:**
+
 - Laravel notification classes per event type, queued
 - Channels: in-app, email, SMS — respecting `notification_settings`
 - Vue: notification bell + store; `notification_settings` preferences screen
-**Done when:** A stage transition fires notifications on the enabled channels only.
+  **Done when:** A stage transition fires notifications on the enabled channels only.
 
 ### Stage 24 — Dashboard KPIs & reports
+
 **Build:**
+
 - Real KPI queries: average cycle time, completion %, pending count, SLA breaches (cached)
 - Reports screen with filters + Excel/PDF export
-**Done when:** Dashboard reflects real data and a filtered report exports correctly.
+  **Done when:** Dashboard reflects real data and a filtered report exports correctly.
 
 ---
 
@@ -226,7 +267,9 @@ None of these needs a permission change — every action each one uses was
 already granted when the matrix was first seeded.
 
 ### Stage 25 — Decisions register & pending-votes worklist
+
 **Build:**
+
 - `GET /decisions` register of every recorded committee decision (filters:
   outcome, committee, date range, reference/subject search) + `/decisions/export`
   reusing Stage 24's `ReportDocument`/`ReportExporter`
@@ -242,7 +285,9 @@ already granted when the matrix was first seeded.
 agenda item it settled disappears from that member's worklist.
 
 ### Stage 26 — Backup & retention
+
 **Build:**
+
 - `backups` table + `App\Contracts\DatabaseDumper` (driver map in
   `AppServiceProvider`, `MysqlDumper` shelling to mysqldump)
 - `BackupService`: zip of `database.sql` plus the private attachment/signature
@@ -252,10 +297,11 @@ agenda item it settled disappears from that member's worklist.
 
 **Done when:** An admin can take a snapshot, download it, and the nightly run
 prunes expired ones.
-**Note:** Restore is deliberately *not* in scope. Reloading the database is a
+**Note:** Restore is deliberately _not_ in scope. Reloading the database is a
 server-side operation performed with the system stopped, not a web button.
 
 ### Stage 27 — User guide
+
 **Build:** `guide_articles` (bilingual, `Template`-shaped) + CRUD behind the
 `user_guide` grants; Vue reading pane with search, category grouping, R08 inline
 editing, and a print view.
@@ -291,8 +337,10 @@ Stage-7 5-step wizard, the Stage-10 internal path, the state-sequence on p2);
 mockups]** the 9 meeting-screen images.
 
 ### Stage 28 — Meetings-Unit navigation shell, screens & permissions
+
 **Goal:** The grouped sidebar section and the 9 screen slots exist and route.
 **Build:**
+
 - Add `group` + `sort_order` to the `screens` table + `ScreenSeeder`; seed the 9
   codes (`meetings_dashboard`, `committee_candidates`, keep `meetings`,
   `meeting_agenda`, `meeting_readiness`, `meeting_live`, keep `decisions`,
@@ -301,16 +349,18 @@ mockups]** the 9 meeting-screen images.
 - `stores/screens.js` builds a nested `navGroups`; `AppSidebar.vue` renders the
   collapsible group; non-meeting screens stay top-level
 - Register lazy routes to empty view scaffolds
-**Mechanism:** flat sidebar → grouped; the single `meetings` screen splits its
-concerns across sibling screens.
-**Done when:** the group renders for a committee role and each new route loads an
-(empty) screen behind its permission.
-**Source:** [Design PDF] p5 (sidebar restructure) + the 9-screen overview table
-(p1); [UI mockups] all 9 (shared left-nav group).
+  **Mechanism:** flat sidebar → grouped; the single `meetings` screen splits its
+  concerns across sibling screens.
+  **Done when:** the group renders for a committee role and each new route loads an
+  (empty) screen behind its permission.
+  **Source:** [Design PDF] p5 (sidebar restructure) + the 9-screen overview table
+  (p1); [UI mockups] all 9 (shared left-nav group).
 
 ### Stage 29 — Request lifecycle status expansion + workflow wiring
+
 **Goal:** The committee sub-states exist without corrupting the stage machine.
 **Build:**
+
 - Add 7 statuses to `RequestStatusSeeder`: `nominated_for_committee`,
   `on_agenda`, `under_discussion`, `awaiting_recommendation_approval`,
   `completion_required`, `in_execution`, `completed_closed`
@@ -319,17 +369,19 @@ concerns across sibling screens.
   sole stage authority
 - Reconcile `in_execution`/`completed_closed` with existing `approved`/
   `final_approved`/`archived` rather than duplicating them
-**Mechanism:** 13 → 20 statuses; agenda placement and the live runner set status
-without moving stages.
-**Done when:** a request passes
-ready→nominated→on_agenda→under_discussion→awaiting_recommendation_approval and a
-feature test proves the stage number is untouched by the status-only moves.
-**Source:** [Lifecycle PDF] p2 "حالات الطلب خلال الدورة" + the 12-stage table
-(p1); [Workflow infographics] stages 5–7.
-**Note:** don't rush — this touches the correctness-sensitive workflow engine.
+  **Mechanism:** 13 → 20 statuses; agenda placement and the live runner set status
+  without moving stages.
+  **Done when:** a request passes
+  ready→nominated→on_agenda→under_discussion→awaiting_recommendation_approval and a
+  feature test proves the stage number is untouched by the status-only moves.
+  **Source:** [Lifecycle PDF] p2 "حالات الطلب خلال الدورة" + the 12-stage table
+  (p1); [Workflow infographics] stages 5–7.
+  **Note:** don't rush — this touches the correctness-sensitive workflow engine.
 
 ### Stage 30 — Meeting scheduling model + 5-step wizard
+
 **Build:**
+
 - Migrate `meetings` (+`meeting_number`, `meeting_type` {دوري/استثنائي/طارئ},
   `chairman_user_id`, `rapporteur_user_id`, `expected_duration_minutes`,
   `agenda_deadline`, `description`)
@@ -338,105 +390,119 @@ feature test proves the stage number is untouched by the status-only moves.
   `MeetingController::store/update` + a send-invitations action
 - Rebuild the `MeetingsView` schedule form into the 5-step wizard
   (requests → details → members/invitations → review/agenda → approve/schedule)
-**Mechanism:** bare schedule form → wizard; attendees gain confirm-attendance.
-**Done when:** a meeting is scheduled through the wizard with invitations sent and
-attendance status tracked.
-**Source:** [Design PDF] §3 (p2); [Lifecycle PDF] Stage 7 "المعالج من 5 خطوات"
-(p1); [UI mockups] the wizard step screens + the الأعضاء والدعوات screen.
+  **Mechanism:** bare schedule form → wizard; attendees gain confirm-attendance.
+  **Done when:** a meeting is scheduled through the wizard with invitations sent and
+  attendance status tracked.
+  **Source:** [Design PDF] §3 (p2); [Lifecycle PDF] Stage 7 "المعالج من 5 خطوات"
+  (p1); [UI mockups] the wizard step screens + the الأعضاء والدعوات screen.
 
 ### Stage 31 — Agenda builder enhancements
+
 **Build:**
+
 - Migrate `meeting_requests` (+`priority`, `estimated_minutes`, `item_type`
   {employee_request|administrative|emerging}, nullable `subject`/`department_id`
   so **non-request admin items** are allowed)
 - Agenda-stats + grouping endpoints; dedicated agenda-builder screen (priority,
   time totals, group-similar)
-**Mechanism:** request-only ordered list → typed, prioritized, timed agenda
-with admin items.
-**Done when:** an agenda mixes employee requests and admin items with priorities
-and a computed total time.
-**Source:** [Design PDF] §4 (p2 — تجميع الطلبات المتشابهة, الزمن المتوقع);
-[Lifecycle PDF] Stage 8; [UI mockups] the ترتيب جدول الأعمال + مراجعة وجدول
-الأعمال screens.
+  **Mechanism:** request-only ordered list → typed, prioritized, timed agenda
+  with admin items.
+  **Done when:** an agenda mixes employee requests and admin items with priorities
+  and a computed total time.
+  **Source:** [Design PDF] §4 (p2 — تجميع الطلبات المتشابهة, الزمن المتوقع);
+  [Lifecycle PDF] Stage 8; [UI mockups] the ترتيب جدول الأعمال + مراجعة وجدول
+  الأعمال screens.
 
 ### Stage 32 — Candidate-requests screen + command dashboard
+
 **Build:**
+
 - `GET /committee-candidates` (requests in `ready`/`nominated_for_committee`)
   with actions add-to-meeting / defer / return-to-study / request-completion,
   each writing status via `CommitteeStatusService`
 - `GET /meetings/dashboard` aggregating KPIs + next-meeting readiness + the
   request lifecycle funnel; build both screens
-**Mechanism:** the ad-hoc agenda search in `MeetingDetailView` → a first-class
-linking worklist; new command dashboard.
-**Done when:** a studied request appears as a candidate, is added to a meeting
-from that screen, and the dashboard counts move.
-**Source:** [Design PDF] §1 (p1 — 6 KPI cards, next-meeting block, the
-38→18→16→2→16 funnel) + §2 (p1–2 — إضافة/تأجيل/إعادة للدراسة/طلب استكمال); [UI
-mockups] the الطلبات المرشحة للعرض table + the مركز قيادة اللجنة dashboard.
+  **Mechanism:** the ad-hoc agenda search in `MeetingDetailView` → a first-class
+  linking worklist; new command dashboard.
+  **Done when:** a studied request appears as a candidate, is added to a meeting
+  from that screen, and the dashboard counts move.
+  **Source:** [Design PDF] §1 (p1 — 6 KPI cards, next-meeting block, the
+  38→18→16→2→16 funnel) + §2 (p1–2 — إضافة/تأجيل/إعادة للدراسة/طلب استكمال); [UI
+  mockups] the الطلبات المرشحة للعرض table + the مركز قيادة اللجنة dashboard.
 
 ### Stage 33 — Meeting readiness control center
+
 **Build:**
+
 - `GET /meetings/{id}/readiness` computing file %, member %, agenda completeness,
   invitations %, expected quorum, and an exceptions-only list → ready/not-ready
 - The screen; gate "convene" on readiness (R03 exceptional override with a
   logged reason)
-**Mechanism:** nothing today → a pre-meeting gate.
-**Done when:** an incomplete file blocks convening until resolved or overridden.
-**Source:** [Design PDF] §5 "Pre-Meeting Control Center" (p2–3); [UI mockups] the
-مستوى الجاهزية donut on the meeting-detail and dashboard screens.
+  **Mechanism:** nothing today → a pre-meeting gate.
+  **Done when:** an incomplete file blocks convening until resolved or overridden.
+  **Source:** [Design PDF] §5 "Pre-Meeting Control Center" (p2–3); [UI mockups] the
+  مستوى الجاهزية donut on the meeting-detail and dashboard screens.
 
 ### Stage 34 — Live meeting runner
+
 **Build:**
+
 - Migrate `meeting_requests` (+`item_state`
   {presented|discussion|voting|deciding|complete}) and a discussion-notes store
 - Runner screen: current-item panel, per-item timer, discussion feed, live vote
   panel (polling), progress, present-attendees, video **placeholder**; reuse the
   existing vote/decision endpoints; block meeting close until every item is
   `complete` or decided
-**Mechanism:** inline agenda voting → a dedicated run-the-meeting screen.
-**Done when:** a chair runs a meeting item-by-item and cannot close it with
-unresolved items.
-**Source:** [Design PDF] §6 (p3–4 — "أهم شاشة", بدء التصويت); [Lifecycle PDF]
-Stage 10 internal path (p2); [UI mockups] the مباشر الاجتماع runner (video = the
-static placeholder).
+  **Mechanism:** inline agenda voting → a dedicated run-the-meeting screen.
+  **Done when:** a chair runs a meeting item-by-item and cannot close it with
+  unresolved items.
+  **Source:** [Design PDF] §6 (p3–4 — "أهم شاشة", بدء التصويت); [Lifecycle PDF]
+  Stage 10 internal path (p2); [UI mockups] the مباشر الاجتماع runner (video = the
+  static placeholder).
 
 ### Stage 35 — Decision templates & richer outcomes
+
 **Build:**
+
 - Reuse the `Template` model for decision text; map new outcome types (conditional
   approval, request-legal-opinion, refer-to-another-body) onto workflow actions
   (new exception transitions as needed); surface on the runner + `DecisionsView`
-**Mechanism:** fixed approve/reject/defer → templated, richer outcome set.
-**Done when:** a conditional-approval decision is recorded from a template and
-drives the correct transition.
-**Source:** [Design PDF] §7 (p4 — the قالب list); [Workflow infographics] stage 7
-قرار اللجنة.
+  **Mechanism:** fixed approve/reject/defer → templated, richer outcome set.
+  **Done when:** a conditional-approval decision is recorded from a template and
+  drives the correct transition.
+  **Source:** [Design PDF] §7 (p4 — the قالب list); [Workflow infographics] stage 7
+  قرار اللجنة.
 
 ### Stage 36 — Minutes preparation & approval (المحاضر)
+
 **Build:**
+
 - Auto-compile minutes from meeting data (attendance, quorum, agenda, per-item
   summary, discussions, votes, decisions)
 - Minutes approval lifecycle (draft → head review → member signatures → approved
   → meeting closed) via new fields/table + `SignaturePad`; the screen; gate
   meeting close on minutes approval
-**Mechanism:** the single `minutes` text field → a generated, reviewed, signed,
-approved document.
-**Done when:** minutes generate, get signed and approved, and only then does the
-meeting close.
-**Source:** [Design PDF] §8 (p4 — the إعداد المقرر→…→إغلاق cycle); [Lifecycle PDF]
-"بعد انتهاء الاجتماع" + Stage 12 (p1–2); [Workflow infographics] stage 8 اعتماد.
+  **Mechanism:** the single `minutes` text field → a generated, reviewed, signed,
+  approved document.
+  **Done when:** minutes generate, get signed and approved, and only then does the
+  meeting close.
+  **Source:** [Design PDF] §8 (p4 — the إعداد المقرر→…→إغلاق cycle); [Lifecycle PDF]
+  "بعد انتهاء الاجتماع" + Stage 12 (p1–2); [Workflow infographics] stage 8 اعتماد.
 
 ### Stage 37 — Meeting outputs follow-up (مخرجات الاجتماعات)
+
 **Build:**
+
 - Meeting-scoped outputs view linking each agenda item → decision → next action →
   responsible body → execution status; follow decisions into execution
   (`in_execution` → `completed_closed`)
-**Mechanism:** the generic decisions register → a meeting-to-request outputs
-tracker that closes the loop.
-**Done when:** a meeting's page lists every decision with its downstream action
-and live execution status.
-**Source:** [Design PDF] §9 (p4–5 — the رقم الطلب|الموظف|قرار اللجنة|الإجراء
-التالي|الجهة المسؤولة|الحالة table + the full تقديم→…→إغلاق backbone); [Workflow
-infographics] stages 8–11.
+  **Mechanism:** the generic decisions register → a meeting-to-request outputs
+  tracker that closes the loop.
+  **Done when:** a meeting's page lists every decision with its downstream action
+  and live execution status.
+  **Source:** [Design PDF] §9 (p4–5 — the رقم الطلب|الموظف|قرار اللجنة|الإجراء
+  التالي|الجهة المسؤولة|الحالة table + the full تقديم→…→إغلاق backbone); [Workflow
+  infographics] stages 8–11.
 
 ---
 
@@ -449,7 +515,7 @@ for the full lineage — that folder is git-ignored but persists locally).
 manual) and **[E]** (`المسار التفصيلي المعتمد`, a 21-stage detailed flow) are
 the **standard** — same July-2026 edition as the shorter **[A]** (`مسار تقديم
 طلب وعمل لجنة`), which stays a useful summary but loses to [D]/[E] on
-specifics. **[B]**/**[C]** (`1.pdf` / `اجتماع لجنة.pdf`) are the *different*,
+specifics. **[B]**/**[C]** (`1.pdf` / `اجتماع لجنة.pdf`) are the _different_,
 informal documents Track H above was actually built from — kept for UI/UX
 reference only, never authoritative on process shape. Full comparison:
 [docs/employee-committee-lifecycle/gap-analysis.md](docs/employee-committee-lifecycle/gap-analysis.md).
@@ -463,15 +529,18 @@ Stage 56 below is a verification task, not a rebuild. Same for the
 `direct_manager_review` gate against Stage 55.
 
 ### Stage 38 — Source reconciliation
+
 **Goal:** [D]/[E] formally recorded as the standard process reference.
 **Build:**
+
 - `docs/employee-committee-lifecycle/` committed to memory (git-ignored, so
   it stays local — durable pointer lives in AGENTS.md/AGENT_NOTES.md instead)
 - No code change — this stage is the housekeeping the other 20 depend on.
-**Done when:** anyone opening AGENTS.md or this file knows where to look
-before touching committee/workflow code.
+  **Done when:** anyone opening AGENTS.md or this file knows where to look
+  before touching committee/workflow code.
 
 ### Stage 39 — Agenda drag-and-drop reorder
+
 **Goal:** `meeting_agenda`'s reorder matches [C]'s design (drag & drop), not
 the up/down buttons Stage 20/31 shipped.
 **Build:** replace `MeetingAgendaBuilderView.vue`'s up/down controls with a
@@ -479,6 +548,7 @@ drag-and-drop list, same `agenda_order` write path underneath.
 **Source:** [C] §4.
 
 ### Stage 40 — Group-similar-by-request-type in the agenda builder
+
 **Goal:** `agendaStats()`'s grouping matches [C]'s example (by request type),
 not the current department-only axis.
 **Build:** add a request-type grouping option to `MeetingController::agendaStats()`
@@ -486,6 +556,7 @@ and the agenda builder UI, alongside the existing department grouping.
 **Source:** [C] §4 ("جميع طلبات الترقية... في مجموعة واحدة").
 
 ### Stage 41 — Abstain vote option
+
 **Goal:** a committee member who attended but didn't vote either way can be
 represented.
 **Build:** add `abstain` (or `ممتنع`) to `votes.vote`'s value set, a
@@ -493,6 +564,7 @@ represented.
 **Source:** [C] §7 ("الحاضرون 7 | صوّت 7 | موافق 5 | غير موافق 1 | ممتنع 1").
 
 ### Stage 42 — Decision-draft auto-generation
+
 **Goal:** picking a decision template merges the record's own data into the
 draft text, not just a static body the user edits by hand.
 **Build:** extend `DecisionController::record()`'s template-fill step to
@@ -502,6 +574,7 @@ decision-phrasing bank (`official-procedures-manual-index.md` §11) for the
 canonical phrasing set to draw from.
 
 ### Stage 43 — Move `decisions` out of the meetings sidebar group
+
 **Goal:** `decisions` is a shared/common screen again, per [C]'s explicit
 instruction, not nested inside `meetings_management`.
 **Build:** change `decisions`' `group` in `ScreenSeeder` back to null/shared;
@@ -510,20 +583,24 @@ update `AppSidebar.vue` placement accordingly. No permission change needed.
 الاجتماعات").
 
 ### Stage 44 — Verify remaining [C] fidelity gaps
+
 **Goal:** confirm or close two unverified items from the gap analysis rather
 than leave them as open questions.
 **Build:**
+
 - Check `committee_candidates`'s columns against [C] §2 (مدة االنتظار,
   االجتماع المقترح, a standalone فتح الملف action) — add whichever are
   actually missing
 - Check `MeetingLiveView`'s tabs against [C] §6's six (ملخص الطلب|بيانات
   الموظف|الدراسة|المرفقات|الطلبات السابقة|مالحظات اللجنة)
-**Source:** [C] §2, §6.
+  **Source:** [C] §2, §6.
 
 ### Stage 45 — Fixed 5-seat committee roster
+
 **Goal:** `committees`/`committee_members` can represent [D] Art. 10's
 institutional composition, not just an open R03/R04 headcount.
 **Build:**
+
 - Add a `seat` enum to `committee_members` (chair/legal/hr_director/
   ministry_delegate/rapporteur) alongside the existing `is_head`, or replace
   `is_head` with it
@@ -532,13 +609,14 @@ institutional composition, not just an open R03/R04 headcount.
 - `مندوب الخدمة المدنية` seat is display/voting per [D] Art. 14 but never
   substitutes for a separate central-approval referral — don't let filling
   this seat silently skip Stage 57's ministry-approval logic
-**Mechanism:** open membership pool → fixed institutional roster.
-**Done when:** a committee's 5 seats are individually identifiable and a
-feature test proves the ministry-delegate seat's vote doesn't skip central
-approval on its own.
-**Source:** [D] Art. 10, 14 (`official-procedures-manual-index.md` §3).
+  **Mechanism:** open membership pool → fixed institutional roster.
+  **Done when:** a committee's 5 seats are individually identifiable and a
+  feature test proves the ministry-delegate seat's vote doesn't skip central
+  approval on its own.
+  **Source:** [D] Art. 10, 14 (`official-procedures-manual-index.md` §3).
 
 ### Stage 46 — Presentation memo (مذكرة العرض) compiler
+
 **Goal:** each committee item has a compiled pre-meeting memo, not just the
 raw file.
 **Build:** new `PresentationMemoCompiler` service mirroring
@@ -552,6 +630,7 @@ with the post-meeting minutes compiler.
 **Source:** [D] Art. 22; [A] §4 stage 7.
 
 ### Stage 47 — Salaries & Benefits Dept participation trigger
+
 **Goal:** requests with a financial effect (promotion, settlement, allowance,
 back-pay, grade change) trigger a قسم المرتبات والمزايا review step.
 **Build:** a `has_financial_impact` flag (derived from request type or set
@@ -563,32 +642,37 @@ narrowing before building it as a full parallel-review step.
 **Source:** [A] §3 party 5.
 
 ### Stage 48 — Rapporteur/voting-member separation + conflict of interest
+
 **Goal:** a meeting's rapporteur can't also vote unless the tashkil decision
 grants it, and a member with a stake in an item must formally recuse.
 **Build:**
+
 - Enforce in `DecisionEligibility`/vote-casting: block a vote from the
   meeting's `rapporteur_user_id` unless a flag on the tashkil/committee
   record grants dual status
 - New conflict-of-interest declare/recuse action per agenda item: disclose
   before discussion → recorded in the compiled minutes → blocked from
   deliberation/voting once recused
-**Source:** [D] Art. 11, 15, 18; [A] §11 controls #4–5; [C]'s rapporteur/
-voting-member distinction.
+  **Source:** [D] Art. 11, 15, 18; [A] §11 controls #4–5; [C]'s rapporteur/
+  voting-member distinction.
 
 ### Stage 49 — Richer committee decision outcomes
+
 **Goal:** the decision-outcome set matches the standard's shape rather than
 current system's 6-outcome list built ad hoc across Stages 21/35.
 **Build:**
+
 - Add an explicit "عدم اختصاص" outcome (distinct from `refer_to_another_body`)
   matching [D] status 14 — a new workflow_transitions exception row + status
 - Reconsider whether "إعادة الملف الستكمال بيانات" should be reachable as an
-  *in-meeting decision outcome* (per [A]/[E]) rather than only as
+  _in-meeting decision outcome_ (per [A]/[E]) rather than only as
   `CommitteeStatusService::require_completion`'s pre-meeting, status-only
   action — these are two different moments in the standard's own model
-**Source:** [A] §4 stage 9 (7 outcomes); [D] Art. 26 (4 outcomes, deferral
-covering 6 named reasons); [E] stage 12.
+  **Source:** [A] §4 stage 9 (7 outcomes); [D] Art. 26 (4 outcomes, deferral
+  covering 6 named reasons); [E] stage 12.
 
 ### Stage 50 — Minutes content completeness
+
 **Goal:** close every gap the exploration found against [D] Art. 28's minute-
 content list.
 **Build:** extend `MeetingMinutesCompiler`'s content schema with: attendee
@@ -600,6 +684,7 @@ field, and embedded signature references.
 **Source:** [D] Art. 28; [A] §4 stage 10.
 
 ### Stage 51 — Employee-facing visibility
+
 **Goal:** an employee viewing their own request sees what [A] §7 requires.
 **Build:** extend `RequestDetailResource` with a `documents_complete` flag
 and a `committee_summary` block (meeting number/date, agenda item number,
@@ -609,6 +694,7 @@ final/approved before every required approval tier is actually complete.
 **Source:** [A] §7; [D] Art. 32, 101.
 
 ### Stage 52 — Per-stage operational timeframes (soft SLA)
+
 **Goal:** a soft, non-binding per-stage duration target exists alongside the
 existing hard per-type SLA — not a replacement for it.
 **Build:** a target-duration lookup per `workflow_stages` row (or a small
@@ -618,18 +704,21 @@ never blocking.
 **Source:** [D] appendix "المدد التشغيلية المستهدفة"; [A] §12.
 
 ### Stage 53 — RequestType catalogue + per-type document checklists
+
 **Goal:** `RequestType` matches [D] Art. 46's six primary families plus
 secondary categories, each with its own required-attachment list.
 **Build:**
+
 - Add missing types, notably **"تثبيت بعد الاختبار"** (confirmation after
   probation — [A]'s jurisdiction item #1, [D]'s first type-specific chapter)
   plus plain التعيين/التعاقد, تسوية وضع وظيفي as first-class, and تظلم من
   تقييم أداء distinct from generic Grievance
 - A `required_documents` list per type (soft checklist at intake), sourced
   from [D]'s per-type chapters (Arts. 48–79) and checklist appendices
-**Source:** [D] Art. 46–79 + appendices; [A] §10.
+  **Source:** [D] Art. 46–79 + appendices; [A] §10.
 
 ### Stage 54 — Committee jurisdiction validation at initial review
+
 **Goal:** initial review runs [D] Art. 45's 6-question jurisdiction test
 before anything reaches the agenda, with a matching outcome set.
 **Build:** extend `requirements_check`'s outcomes beyond today's
@@ -639,6 +728,7 @@ gated on the 6-question test.
 **Source:** [D] Art. 45; [A] §4 stage 3.
 
 ### Stage 54b — Status-vocabulary reconciliation
+
 **Goal:** a deliberate mapping exists between the current 25-status enum and
 [D] Art. 38's canonical 20-code dictionary, so nothing on either side is
 silently unrepresented.
@@ -650,6 +740,7 @@ divergent status, whether to rename/merge/keep.
 **Source:** [D] Art. 38 (`official-procedures-manual-index.md` §5).
 
 ### Stage 55 — ⚠ Verify `direct_manager_review` gate wording
+
 **Goal:** confirm whether the current mandatory gate (forward /
 `return_to_employee`-with-required-comment / cancel) already complies with
 [D] Art. 10 ("no withholding without a written reason") — likely close, per
@@ -660,6 +751,7 @@ actual gap is found, not the gate mechanism itself.
 **Source:** [D] Art. 10; gap-analysis.md §13.
 
 ### Stage 56 — ⚠ Verify 3-way routing selection rule
+
 **Goal:** confirm the 3-way `administrative_routing` (route_to_hr/
 route_to_diwan/route_to_committee_secretary) selects among وكيل الديوان/مدير
 الموارد البشرية/رئيس قسم شؤون الموظفين "بحسب الموضوع" (by subject matter,
@@ -671,6 +763,7 @@ a replacement of them.
 **Source:** [D] Art. 11; [E] stage 03; gap-analysis.md §13.
 
 ### Stage 57 — ⚠ Pre-committee ministry stage + approval-tail restructure
+
 **Goal:** replace `ministry_endorsement` (currently pre-committee, workflow
 stage 8) and the 4-level `decision_grade`-gated approval tail with the
 standard's two-path model (mayor-only under delegated authority, or
@@ -713,8 +806,8 @@ through the ordinary intake pipeline. This is already settled in
 gap-analysis.md §12: `GRIV` (and Stage 53's `PEVG`) are ordinary intake types
 "processed through the identical committee pipeline as every other request
 type, **not a way to contest an already-decided matter**." Both concepts
-legitimately coexist — a grievance *about* something is a request; a تظلم
-*against a committee decision* is an appeal. Expect this to be the single
+legitimately coexist — a grievance _about_ something is a request; a تظلم
+_against a committee decision_ is an appeal. Expect this to be the single
 most likely thing for a future session to conflate.
 
 **(2) Appeals get their own small status machine**, not a detour through the
@@ -743,6 +836,7 @@ of an open `Appeal`, which satisfies [D]'s behavioural requirement without
 reopening Stage 54b's decision.
 
 ### Stage 58 — Appeal entity, schema & status machine
+
 **Goal:** the foundational `appeals` table and its own status machine exist,
 independent of `requests`/`workflow_stages`.
 **Build:** `appeals` (appellant `user_id`, `original_request_id` FK →
@@ -759,6 +853,7 @@ action, not committee administration) with permissions seeded.
 block); gap-analysis.md §12.
 
 ### Stage 59 — Appeal intake
+
 **Goal:** an employee can submit a written appeal against one of their own
 already-decided matters.
 **Build:** intake form — pick the target decided request (restricted to
@@ -785,6 +880,7 @@ owns, its documents are stored, and a same-facts duplicate is refused.
 **Source:** [D] Arts. 75–79 (intake fields); [A] §9 steps 1–2.
 
 ### Stage 60 — Formal verification gate (التحقق الشكلي)
+
 **Goal:** قسم شؤون الموظفين's admissibility check before an appeal proceeds
 any further.
 **Build:** a verification action checking, per [A] §9 step 2: صفة المتظلم
@@ -801,6 +897,7 @@ with who/when/why.
 **Source:** [D] Arts. 75–79 (jurisdiction/formal check); [A] §9 step 2.
 
 ### Stage 61 — Original file assembly (جمع الملف األصلي)
+
 **Goal:** the appeal record shows the complete original-matter dossier
 alongside the new appeal documents.
 **Build:** a read-only `AppealFileCompiler` reusing already-built compilers
@@ -813,7 +910,7 @@ today:** [A] §9 step 3 lists it as part of the original dossier, but Stage
 23's `notifications` table is Laravel's standard **database-channel** store —
 it persists a row per in-app notification and nothing for email or SMS, which
 have no delivery log at all. So this stage can honestly show in-app notice
-proof and must show *absence of evidence* (not a fabricated "notified") for
+proof and must show _absence of evidence_ (not a fabricated "notified") for
 the other two channels. Building a real per-channel delivery log is a
 separate piece of work, not assumed here.
 **Done when:** opening an appeal shows the original request, memo, minutes,
@@ -822,6 +919,7 @@ with no data re-entered by hand.
 **Source:** [D] Arts. 75–79 (original-file assembly); [A] §9 step 3.
 
 ### Stage 62 — Jurisdiction test & legal review
+
 **Goal:** Art. 77's explicit disciplinary-matter exclusion, plus the Art. 75
 point 4 legal-review checklist, both gate whether an appeal can reach
 committee presentation.
@@ -843,6 +941,7 @@ article-level citation the index is explicit about — "ال يجوز الخلط
 المسار التأديبي", per gap-analysis.md §12); [A] §9 step 4.
 
 ### Stage 63 — Committee presentation & 5-outcome decision
+
 **Goal:** an appeal can be placed before اللجنة أو الجهة المختصة and decided
 with Art. 75 point 5's own outcome vocabulary — distinct from the ordinary
 committee-decision outcomes Stages 35/41/49 already built.
@@ -876,7 +975,8 @@ inherited.
 **Source:** [D] Arts. 75–79 (the 5-outcome set); [A] §9 step 5.
 
 ### Stage 64 — ⚠ Outcome execution (accept / amend / refer / redo)
-**Goal:** each of the 5 outcomes has a real effect on the *original* decided
+
+**Goal:** each of the 5 outcomes has a real effect on the _original_ decided
 request, not just a label on the appeal.
 **Build:** قبول التظلم / قبول جزئي → writes the withdrawal/amendment back
 onto the original `Request` record itself, never a new one — per [D] Arts.
@@ -888,7 +988,7 @@ strong default, not an absolute); رفض مسبب → closes the appeal with the
 recorded reasoning, no change to the original request; إحالة لجهة أخرى →
 referral bookkeeping, reusing the `refer_to_another_body`-style pattern
 Stage 49 already built; **إعادة اإلجراءات من المرحلة التي وقع فيها العيب is
-the one genuinely novel case** — it must re-enter the *original* request's
+the one genuinely novel case** — it must re-enter the _original_ request's
 own `WorkflowService` state machine at the specific stage the legal-review
 found the defect, not restart the request from scratch. This is real new
 coupling between two systems that were deliberately kept separate everywhere
@@ -903,6 +1003,7 @@ diagram (the general re-presentation/return-path shape, applied here to
 appeal outcomes specifically).
 
 ### Stage 65 — Notification & closure
+
 **Goal:** Art. 75 point 6 — the appellant receives written notice of the
 final result and issuing body; the appeal's own closure record is complete.
 **Build:** a new `appeal_decided` event on Stage 23's existing
@@ -916,7 +1017,7 @@ decision (3) hold on the original request's closure.
 **⚠ There is no existing closure-record precedent to mirror — verified, not
 assumed.** A grep for `closed_at`/`closure`/`closed_by` on `Request` and its
 migrations returns **nothing**: Stage 37 gave requests a `completed_closed`
-*status* and nothing else, and "preserve, don't erase" is the master-data
+_status_ and nothing else, and "preserve, don't erase" is the master-data
 deletion pattern (departments/committees), unrelated to closure records. So
 these 8 fields are new work sourced from [D] directly — and the same gap
 exists for ordinary requests, which this stage does **not** close (that would
@@ -929,6 +1030,7 @@ list and the "file kept open until the تظلم path concludes" rule); [A] §9
 step 6.
 
 ### Stage 66 — Non-reopening rule + the reopen mechanism
+
 **Goal:** [D] Arts. 78–79 — neither a closed appeal nor a concluded original
 matter may be reopened merely because the affected party is unhappy with the
 result.
@@ -937,7 +1039,7 @@ result.
 legal-status change / the approving body sent it back / a competent authority
 directed a re-study (Arts. 78–79's own list, transcribed in the index) —
 never a free-text-only justification. Wired onto a closed `Appeal` and onto
-the original request's re-presentation path. Note this is the *positive*
+the original request's re-presentation path. Note this is the _positive_
 counterpart to Arts. 34–37's عدم الموافقة rule ("a matter is never
 re-presented with the same facts and documents merely because the affected
 party is dissatisfied — only via a legal path, or when new documents/facts
@@ -976,24 +1078,24 @@ disagree with the outcome" attempt is rejected.
 > questions (match Stage 54's `jurisdiction_test` field-for-field), Art. 26's
 > four committee outcomes (present as a superset), and Arts. 75–79's appeal
 > lifecycle and enumerated reopen reasons (match Track J, including
-> `ReopenReasonCatalog::CODES`). The process *shape* is right; what follows is
+> `ReopenReasonCatalog::CODES`). The process _shape_ is right; what follows is
 > a finite list, not a rebuild.
 >
 > **Source-citation warning:** [D] contains **two** article-numbering
 > collisions. The already-known duplicate Art. 103, and — found during Track
 > K's audit — **Articles 9–20 appear twice**: occurrence **(أ)** is Baab 2's
 > "الفصل الرابع: تشكيل لجنة شؤون الموظفين" (Arts. 9–20), and occurrence **(ب)**
-> restarts the numbering across Baab 3's chapter *also* labelled "الفصل الرابع"
+> restarts the numbering across Baab 3's chapter _also_ labelled "الفصل الرابع"
 > (الأطراف المشاركة، Arts. 9–14) and Baab 4's "الفصل الخامس" (المسار الإجرائي،
-> Arts. 15–23), then runs on to 114. So "المادة 15" is both *مقرر اللجنة* and
-> *نقطة بداية المعاملة*. Existing Track I/J citations of Arts. 10–14 mean (أ);
+> Arts. 15–23), then runs on to 114. So "المادة 15" is both _مقرر اللجنة_ and
+> _نقطة بداية المعاملة_. Existing Track I/J citations of Arts. 10–14 mean (أ);
 > citations of Arts. 15–23 mean (ب) — both verified correct, but always name
 > the chapter alongside an article number from this manual.
 >
 > **Two scope decisions taken once, not re-litigated per stage:**
 > **(1) ملف الخدمة is treated as living outside this application.** Art. 12
 > mandates a service file and Appendix 52 mandates updating it after
-> execution; Track K implements the *evidence* that it was updated (Stage 76),
+> execution; Track K implements the _evidence_ that it was updated (Stage 76),
 > not an employment-record module.
 > **(2) Statuses reconcile to Art. 38 (Stage 69), deliberately reversing Stage
 > 54b's "keep as-is" decision** — that call was correct when the goal was a
@@ -1007,6 +1109,7 @@ disagree with the outcome" attempt is rejected.
 > matrix and deliberately not turned into code.
 
 ### Stage 67 — Verbatim sources + corrected compliance matrix
+
 **Goal:** the docs folder stops depending on a paraphrase for anything the
 real text can answer, and a single current matrix says exactly where the
 system stands against every provision.
@@ -1017,19 +1120,20 @@ duplicate-numbering defect alongside the known Art. 103 one; produce
 `compliance-matrix.md` tagging every Article 1–114, every appendix 1–78 and
 every [E] stage 01–21 as **compliant** (citing the implementing file) /
 **divergent** / **missing** / **not applicable**.
-**Note on the matrix's home:** it is a *new* file rather than a rewrite of
+**Note on the matrix's home:** it is a _new_ file rather than a rewrite of
 `gap-analysis.md`, which instead gets a superseding header. This folder is
-git-ignored, so overwriting would have destroyed the only copy of *why*
+git-ignored, so overwriting would have destroyed the only copy of _why_
 several Track I decisions were made (§4's status reconciliation, §14's Stage
 57 resolution, §§16–17's verification verdicts) — reasoning the matrix cites
 but does not reproduce.
 **Done when:** every provision appears exactly once with a tag, and the
 divergent/missing rows are the ones Stages 68–83 close. No code change.
 **Source:** [D] in full (all 114 Articles, all 78 appendices) and [E] in full
-(21 stages, 7 supplementary diagrams) — this stage *is* the transcription, so
+(21 stages, 7 supplementary diagrams) — this stage _is_ the transcription, so
 it cites the two documents themselves rather than a provision within them.
 
 ### Stage 68 — Pre-meeting legal review (the largest missing mandated step)
+
 **Goal:** [E]'s numbered **stage 08** exists. Today `legal_review` lives only
 on `Appeal` (Stage 62); the ordinary request path has no legal review at all,
 which Stage 46's own note already found ("no model for that review exists
@@ -1040,7 +1144,7 @@ anywhere in this codebase").
 مدة قانونية مؤثرة، شروط مانعة) plus النموذج 06's five-outcome verdict (سليم
 قانونيًا وجاهز للعرض / يحتاج استكمال مستند أو بيان / يحتاج إيضاح قانوني أو
 إداري / ملاحظة بشأن الاختصاص / مسألة قانونية تستوجب العرض مع بيانها); a new
-**R11 legal-officer role** (Stage 45 added a `legal` committee *seat*, but no
+**R11 legal-officer role** (Stage 45 added a `legal` committee _seat_, but no
 role and no permissions); the Art. 38 code **07** status; and an
 agenda-insertion gate, per Art. 24's ملف العرض contents and Appendix 7's
 readiness question "هل تمت المراجعة القانونية المطلوبة؟".
@@ -1049,7 +1153,8 @@ and each of the five verdicts routes correctly.
 **Source:** [D] Art. 21, 24; [E] stage 08; Appendices 6, 7, 22.
 
 ### Stage 69 — ⚠ Art. 38 status-dictionary reconciliation
-**Goal:** the status vocabulary *is* Art. 38's twenty-code dictionary.
+
+**Goal:** the status vocabulary _is_ Art. 38's twenty-code dictionary.
 **Build:** split `approved` into codes **15/16** (بانتظار اعتماد البلدية vs
 بانتظار الاعتماد المركزي — Art. 31 names the latter explicitly); separate code
 **13** (غير موافق عليها) from the overloaded `cancelled`, which is the one item
@@ -1066,10 +1171,11 @@ own finding. All four must move together, plus
 **Source:** [D] Art. 38, 31; Appendix 5; gap-analysis §4.
 
 ### Stage 70 — Unified numbering + the قيد point
+
 **Goal:** every artifact carries the number [D] says it must, granted when [D]
 says it is granted.
 **Build:** add `decision_number` to `decisions` (Art. 89 requires رقم القرار
-*inside* the محضر; Stage 51 recorded refusing to fabricate one) and a number to
+_inside_ the محضر; Stage 51 recorded refusing to fabricate one) and a number to
 `meeting_minutes`; adopt Appendix 15's scheme (`M-COM/YEAR/SERIAL`,
 `PM-MTG/…`, `PM-MIN/…`, `PM-DEC/…`); and move the committee reference-number
 grant from intake to the post-completeness قيد, since Art. 15 says handing the
@@ -1078,6 +1184,7 @@ after completeness — Art. 38's status 06. The employee keeps an intake receipt
 **Source:** [D] Arts. 15, 20, 89, 99; Appendices 15, 74; النموذج 05.
 
 ### Stage 71 — Real operational durations + escalation routing
+
 **Goal:** Stage 52's soft SLA uses [D]'s own figures instead of the [A] §12
 substitute it adopted when the appendix was unavailable — which its own note
 said to "replace outright rather than layering a second interpretation on top."
@@ -1090,21 +1197,24 @@ beyond colouring it.
 **Source:** [D] Appendices 37, 38, 71.
 
 ### Stage 72 — Real per-type document checklists
+
 **Goal:** `RequestType.required_documents` reflects [D]'s own matrices, not
 Stage 53's admitted "judgment-call starting checklist."
 **Build:** re-derive from **Appendix 57**'s four groups (أساسية مشتركة /
 خاصة / مشروطة / ناتجة عن دورة اللجنة), keeping only client-submittable items —
-**Appendix 4**'s seven lists are the committee's *internal* file-completeness
+**Appendix 4**'s seven lists are the committee's _internal_ file-completeness
 checks and include internal actions (e.g. الرأي القانوني) an employee would
 never attach.
 **Source:** [D] Appendices 57, 4; Arts. 48–79's per-type chapters.
 
 ### Stage 73 — ⚠ Committee identity card + configurable quorum
+
 **Goal:** stop inventing a quorum. `MeetingReadinessService` and
 `MeetingMinutesCompiler` both hard-coded `ceil(activeMembers/2)`, and the file's
 own comment admitted it was invented for lack of a spec — but **Appendix 64
 forbids exactly that**: "ولا يجوز للدليل إنشاء نسبة نصاب أو أغلبية من تلقاء
 نفسه."
+
 <!-- This bullet used to cite two line numbers. Stage 73 removed the `ceil(` from
      both files and left a past-tense comment where each one stood, so the
      anchors now point at unrelated code — cite file + symbol, not file + line. -->
@@ -1119,6 +1229,7 @@ old rule** before touching code.
 **Source:** [D] Appendices 64, 65; Arts. 84, 87.
 
 ### Stage 74 — Structured decisions, deferrals and refusals
+
 **Goal:** decisions, deferrals and refusals carry the structure [D] requires
 rather than one free-text comment.
 **Build:** Appendix 27's four decision parts (موضوع / وقائع / سند / منطوق);
@@ -1133,6 +1244,7 @@ reasoning per Art. 91 and Appendix 28, which reject generic phrases such as
 **Source:** [D] Arts. 34, 89, 90, 91; Appendices 27, 28, 29, 59.
 
 ### Stage 75 — Request closure record
+
 **Goal:** ordinary requests get the closure record Stage 65 built for appeals
 and explicitly declined to retrofit here ("the same gap exists for ordinary
 requests, which this stage does not close").
@@ -1141,6 +1253,7 @@ requests, which this stage does not close").
 موقع حفظ الملف); Appendix 47's **twelve**-point pre-closure audit; and Appendix
 48's eight conditions under which closure must be refused. Mirror Stage 65's
 appeal-closure shape rather than inventing a second one.
+
 <!-- Said "thirteen-point" until the 2026-09-12 doc audit. The verbatim appendix
      has twelve bullets; RequestClosureService's own docblock says so too. The
      transcription wins over this paraphrase. -->
@@ -1148,6 +1261,7 @@ appeal-closure shape rather than inventing a second one.
 **Source:** [D] Art. 37; Appendices 47, 48; النموذج 18.
 
 ### Stage 76 — Execution proof
+
 **Goal:** "تم التنفيذ" stops being a claim and becomes evidence — Appendix 70
 is explicit: "لا يكفي أن تقول الجهة المنفذة (تم التنفيذ) بل يجب إرفاق دليل
 التنفيذ."
@@ -1156,8 +1270,9 @@ tracking checklist (تم إصدار القرار الإداري / تحديث م�
 إحالة الأثر المالي / إخطار التقسيم التنظيمي / إخطار الموظف / إرفاق مستند
 التنفيذ), with a required evidence attachment before
 `MeetingOutputService::markExecuted()` will record the execution. Per the Track
-K intro's scope decision (1), the ملف الخدمة update is *evidenced* here, not
+K intro's scope decision (1), the ملف الخدمة update is _evidenced_ here, not
 modelled.
+
 <!-- This named `MeetingOutputService::complete()`, which no longer exists:
      Stage 69 split it into markExecuted() (18->19) and close() (19->20), then
      Stage 75 deleted close() outright and moved closure to
@@ -1167,6 +1282,7 @@ modelled.
 **Source:** [D] Arts. 95, 96, 97; Appendices 52, 70; النموذج 17.
 
 ### Stage 77 — Return from the approving body
+
 **Goal:** [A] §5's "Path 3", flagged as having no equivalent since
 gap-analysis §14.
 **Build:** Appendix 34's شكلية/موضوعية split, honouring Art. 94's rule that
@@ -1176,15 +1292,18 @@ quiet edit of an approved محضر.
 **Source:** [D] Art. 94; Appendix 34; [A] §5 Path 3.
 
 ### Stage 78 — The four mandatory control gates
+
 **Goal:** Appendix 63 requires the system itself to block progression at four
 points — قبل القيد / قبل جدول الأعمال / قبل الاعتماد / قبل الإقفال — "وتمنع
 المنظومة الإلكترونية الانتقال إذا كانت متطلبات البوابة غير مكتملة". Stage 33
 built gate 2.
+
 <!-- This said "gate 2 only", which was true when written but not by the time
      Stage 78 ran: Stage 75's RequestClosureService IS gate 4 (Appendix 47's
      audit + Appendix 48's refusals), and 75 comes first in the suggested order.
      Stage 78's real scope was gates 1 and 3 — it verified 2 and 4 rather than
      rebuilding them. -->
+
 **Build:** gates 1 and 3 (2 and 4 already exist — verify, don't rebuild);
 Art. 103's twelve-point قائمة فحص سلامة القرار
 before execution; and Art. 105's rule that a material fact discovered to be
@@ -1193,6 +1312,7 @@ review — there is no suspend action today.
 **Source:** [D] Arts. 103, 104, 105; Appendices 20, 63.
 
 ### Stage 79 — Art. 101's twelve notification moments
+
 **Goal:** the employee is told at each of the twelve moments [D] enumerates.
 **Build:** `NotificationSetting::EVENT_TYPES` had nine events when Track K was
 planned — eleven today, after Stage 71 added `delay_escalation` and this stage
@@ -1205,6 +1325,7 @@ moves fire **nothing** — `stage_changed` only ever fires from
 **Source:** [D] Arts. 101, 102; النموذج 16.
 
 ### Stage 80 — The twelve official registers
+
 **Goal:** Art. 98's twelve named registers exist.
 **Build:** الواردة / الناقصة / الاجتماعات / جدول الأعمال / المحاضر / القرارات
 والتوصيات / الإحالات للاعتماد / القرارات المعادة من جهة الاعتماد / التنفيذ /
@@ -1214,11 +1335,14 @@ timeline entry.
 **Source:** [D] Arts. 98, 99, 100; Appendices 11, 12.
 
 ### Stage 81 — The twelve official KPIs
+
 **Goal:** the dashboard measures what Art. 106 says to measure.
+
 <!-- Heading and bullet both said "thirteen" until the 2026-09-12 doc audit.
      Art. 106's verbatim table has TWELVE rows — and the parenthetical list
      below has always enumerated exactly twelve, so the paraphrase contradicted
      its own contents. Same class of error as Stage 75's Appendix 47 count. -->
+
 **Build:** [D]'s own twelve indicators (متوسط مدة الفحص الأولي، نسبة الملفات
 الناقصة، متوسط مدة استكمال النواقص، نسبة الملفات الجاهزة قبل الاجتماع، عدد
 المعاملات بكل اجتماع، نسبة المعاملات المؤجلة، نسبة التأجيل بسبب نقص مستندات،
@@ -1228,6 +1352,7 @@ timeline entry.
 **Source:** [D] Arts. 106, 107; Appendices 10, 39, 40.
 
 ### Stage 82 — Agenda ordering and item fields
+
 **Goal:** the agenda is ordered by rule, not by hand.
 **Build:** Art. 83's mandated priority (المؤجلة من اجتماعات سابقة → المرتبطة
 بمدد قانونية → العاجلة المعتمدة → المكتملة بحسب تاريخ جاهزيتها); Appendix 24's
@@ -1246,6 +1371,7 @@ nine-step per-item sequence as the live runner's checklist (النموذج 11).
 > explicit decision to drop them — do not assume Track K closed them.
 
 ### Stage 83 — Lifecycle edge cases
+
 **Goal:** the situations [D] anticipates but the system currently cannot
 represent.
 **Build:** duplicate-transaction prevention (Appendix 16 — search by employee +
@@ -1253,8 +1379,7 @@ subject, attach to the open file rather than create a second); the mandatory
 "المسؤول الحالي" and "الإجراء التالي" fields (Appendices 17, 18 — "يمنع وجود
 معاملة بحالة عامة مثل (قيد الإجراء) دون معرفة ما المطلوب فعليًا"); urgent-flag
 rules (Appendix 33 — عاجل only for five enumerated reasons, recorded);
-material-error correction (Appendix 53); document-conflict handling (Appendix
-30) and document-validity checks (Appendix 31); withdrawal before and after a
+material-error correction (Appendix 53); document-conflict handling (Appendix 30) and document-validity checks (Appendix 31); withdrawal before and after a
 decision (Appendices 68, 69); and Appendix 60's six special cases (وفاة الموظف
 أثناء نظر المعاملة، انتهاء الخدمة، النقل أثناء الدراسة، تغير التشريع أثناء
 السير، فقدان مستند، اكتشاف مستند غير صحيح بعد القرار).
@@ -1264,16 +1389,17 @@ decision (Appendices 68, 69); and Appendix 60's six special cases (وفاة ال
 
 # TRACK L — permission-matrix corrections (Stage 84)
 
-Track K made the *process* identical to [D]. This track makes the **permission
+Track K made the _process_ identical to [D]. This track makes the **permission
 matrix** identical to it, which turned out to be a separate question: the
 compliance matrix had Appendices 6 and 45 tagged ✅ on a check that only
-confirmed the roles *existed*, never that each role's listed capabilities
+confirmed the roles _existed_, never that each role's listed capabilities
 matched. [D] Appendix 45 (صلاحيات النظام الإلكتروني) is a per-party capability
 list written for exactly this table, and reading it against the seeder found
 one role attesting its own file and another convening committees it has no
 seat on.
 
 ### Stage 84 — Role-matrix and gate-authorship corrections
+
 **Goal:** every seeded grant traceable to a clause, and nobody certifying their
 own file.
 **Build:** the creator refused on both halves of Appendix 63's gate 1 —
@@ -1332,6 +1458,7 @@ duplicate matching — **no stage is created**. Those are recorded in
 ---
 
 ### Stage 85 — Document completeness becomes binding
+
 **Goal:** [D] Appendix 57's matrix binds instead of advising, at both ends of the intake half.
 **Build:** `IntakeGateService` reads the attachments rather than asking the officer to re-answer
 by hand — a row with a file naming it is answered by definition, since the submitter's picker and
@@ -1354,6 +1481,7 @@ attachments becomes invalid — expect a broad but legitimate test-fixture updat
 ---
 
 ### Stage 86 — The committee secretary owns the handover
+
 **Goal:** the file reaches the committee through أمين سر اللجنة, as [F] step 7 shows.
 **Build:** re-seed the two hops into the committee so **R09** holds them — `observations →
 forward_to_committee` (today R02) and `forward_to_committee → receive_from_committee` (today R05).
@@ -1363,7 +1491,7 @@ pre-committee chain except the `register` row for its own routing destination.
 already names R09 — set there **deliberately**, with a comment saying so — while every outbound
 action at that stage requires R03. That is defensible (the secretary holds the file; the chair
 records the decision) but it does mean the screen names someone who cannot act. Once R09 genuinely
-owns the hops *into* the stage, decide whether the display stays or the field starts meaning "who
+owns the hops _into_ the stage, decide whether the display stays or the field starts meaning "who
 can act".
 **Deliberately unchanged:** the committee's own decision actions stay R03 — [F] step 9 assigns the
 decision to the committee, not to its secretary, and [D] Art. 16 governs.
@@ -1376,10 +1504,11 @@ through.
 ---
 
 ### Stage 87 — إدارة الموارد البشرية gets a seat
+
 **Goal:** HR is a named party, as [F] shows it twice.
 **Build:** decide first whether R05 (`مدير إدارة الشؤون الإدارية`) **is** HR under another name,
 or whether a distinct HR role is missing. [F] names إدارة الموارد البشرية as the `route_to_hr`
-destination (step 3) *and* as co-owner of the study (step 6), while the system has no distinct
+destination (step 3) _and_ as co-owner of the study (step 6), while the system has no distinct
 role and makes the study R02-only. Then make the routing destination and the study's co-owner the
 same named party.
 **Done when:** the party the poster names owns both the places the poster puts it.
@@ -1390,6 +1519,7 @@ either answer without it risks seeding a role nobody wanted.
 ---
 
 ### Stage 88 — Intake drafts and the review step
+
 **Goal:** an intake can be put down and picked up, and read before it is sent.
 **Build:** a draft state for `requests` — `request_intake.edit` is seeded and **no route consumes
 it** — plus a resume path on `RequestIntakeView.vue`, which holds everything in plain `ref()`s
@@ -1406,6 +1536,7 @@ visibility scope or register; and submission happens from the review screen.
 ---
 
 ### Stage 89 — «متابعة طلباتي» employee tracking
+
 **Goal:** the screen [G] tells the employee to use exists, and is named that.
 **Build:** an employee-facing tracking view over data that **already exists and is already visible
 to R01** — status, stage, the Art. 100 timeline, Appendix 17/18's المسؤول الحالي and الإجراء
@@ -1422,6 +1553,7 @@ is told when the current step is expected to complete.
 ---
 
 ### Stage 90 — Intake form fidelity
+
 **Goal:** the intake form matches the sheet that specifies it.
 **Build:** live per-field validation ([G]'s «التحقق الفوري» is honoured today only for
 attachments; every other field waits for HTML5 `required` at submit). Per-file server errors
@@ -1437,6 +1569,7 @@ accepted today.
 ---
 
 ### Stage 91 — One document vocabulary for the استكمال loop
+
 **Goal:** the same question about the same document, whenever it is attached.
 **Build:** give `AttachmentController::store()` the `required_document_key` question intake now
 asks, deriving the Appendix 14 folder from it as `RequestType::sectionForDocument()` already does
@@ -1451,6 +1584,7 @@ it reads those supplied with it.
 ---
 
 ### Stage 92 — Execution recorded by the executing body
+
 **Goal:** [F] step 10's الجهة المنفذة is who the record names.
 **Build:** decide whether the executing body acts in the system, or whether R02/R03 record on its
 behalf — today both `MeetingOutputsController::execute` and `RequestController::close` ride
@@ -1464,6 +1598,7 @@ matching the acting party.
 ---
 
 ### Stage 93 — Stage numbering reconciled
+
 **Goal:** one stage count, everywhere an employee can see one.
 **Build:** reconcile [G]'s «1 من 11», [F]'s ten steps and the system's twelve `workflow_stages`
 rows. `current_stage.order_no` is surfaced to the employee, so a reader of the poster and a reader
@@ -1476,10 +1611,9 @@ progress indicator states the same one as the wall.
 
 ## Suggested order
 
-**Stages 1–86 and 88–93 are built. Track M's 87 and 92 are not.** For the built
-stages this block is the dependency record: it says which stage had to precede which, which is what
-you need when reading a stage's assumptions or judging whether a change to one stage's work
-disturbs another's. For the rest of Track M it is still a queue.
+**Every stage, 1–93, is built — Track M is complete.** This block is now purely the
+dependency record: it says which stage had to precede which, which is what you need when reading a
+stage's assumptions or judging whether a change to one stage's work disturbs another's.
 
 ```
 1 → 2 → 3 → 4 → 5        (foundation — do these in order)
@@ -1503,12 +1637,10 @@ disturbs another's. For the rest of Track M it is still a queue.
 79 → 80 → 81 → 82 → 83                            (Track K — notifications, registers, KPIs, agenda rules, edge cases)
 84                                                (Track L — the permission matrix; independent of Track K, but reads its compliance matrix)
 
-85 → 91                                           (Track M — BOTH BUILT; 91 extended 85's vocabulary to the استكمال loop)
-86 · 88 → 89 → 90                                 (Track M — ALL BUILT; 89 packages the intake half, 90 sharpens the form 89 packaged)
-93                                                (Track M — BUILT; reconciled the count independently of 85–91)
-
---- not built ---
-87 · 92                                           (Track M — blocked on a process decision, not on code)
+85 → 91                                           (Track M — 91 extended 85's vocabulary to the استكمال loop)
+86 → 87 · 88 → 89 → 90                            (Track M — 87 needed 86's handover settled first; 89 packages the intake half, 90 sharpens it)
+92                                                (Track M — [F] step 10's execution grant; independent of the rest)
+93                                                (Track M — reconciled the count independently of 85–91)
 ```
 
 **Stages that were independent** (buildable out of order): 10, 12, 22, 74.

@@ -35,8 +35,11 @@ class WorkflowServiceTest extends TestCase
         $employee->save();
 
         // Stage 86 added R09 (أمين سر اللجنة): the two hops into the committee
-        // are the secretary's now, not R02's and R05's.
-        $actors = collect(['R02', 'R03', 'R05', 'R06', 'R07', 'R09'])
+        // are the secretary's now, not R02's and R05's. Stage 87 added R12
+        // (مدير إدارة الموارد البشرية): the receive_and_register hop on the
+        // HR route is theirs now, not R05's — R05 keeps only its later
+        // approval_by_authority duty, unaffected by either change.
+        $actors = collect(['R02', 'R03', 'R05', 'R06', 'R07', 'R09', 'R12'])
             ->mapWithKeys(fn (string $roleCode) => [
                 $roleCode => $this->userWithRole($roleCode),
             ]);
@@ -55,7 +58,9 @@ class WorkflowServiceTest extends TestCase
             // what grants the رقم إشاري. The approve hop below re-stamps the
             // same code deliberately — see WorkflowTransitionSeeder for why,
             // and UnifiedNumberingTest for the number not changing there.
-            ['receive_and_register', 'requirements_check', 'register', 'R05', 'registered'],
+            // Stage 87 — this is the HR route, so the registrar is R12, not
+            // R05, which keeps only its later approval_by_authority duty.
+            ['receive_and_register', 'requirements_check', 'register', 'R12', 'registered'],
             ['requirements_check', 'reviewer_review', 'approve', 'R02', 'registered'],
             ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
             // Stage 57 collapsed the old two-hop observations ->
@@ -197,10 +202,11 @@ class WorkflowServiceTest extends TestCase
 
         // The three `register` rows are what makes the routing enforceable:
         // one per legitimate receiving role, all converging on the same
-        // destination stage.
+        // destination stage. Stage 87 — R12 on the HR route, not R05, which
+        // holds no row at this stage at all any more.
         $registerRules = $rules->where('action', 'register')->values();
         $this->assertCount(3, $registerRules);
-        $this->assertEqualsCanonicalizing(['R05', 'R09', 'R10'], $registerRules->pluck('requiredRole.code')->all());
+        $this->assertEqualsCanonicalizing(['R12', 'R09', 'R10'], $registerRules->pluck('requiredRole.code')->all());
         $this->assertTrue($registerRules->every(fn (WorkflowTransition $rule) => $rule->toStage->code === 'requirements_check'));
     }
 

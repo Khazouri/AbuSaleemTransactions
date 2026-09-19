@@ -3,6 +3,11 @@
 // pre-closure audit. Shared by the request workspace and the meeting-outputs
 // tracker, because both offer the same closure and neither should carry its
 // own copy of a twelve-check form — the AgendaItemDecisionPanel precedent.
+//
+// Stage 92 — the button rides meeting_outputs.approve, not .edit: closure's
+// own executing_body field is [F] step 10's question, so R12 (HR) holds this
+// tier alongside R02/R03 while the screen's other, unrelated .edit actions
+// stay theirs alone.
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
@@ -70,7 +75,7 @@ async function submit() {
 
     <button
       v-else-if="!open"
-      v-can="'meeting_outputs.edit'"
+      v-can="'meeting_outputs.approve'"
       class="primary compact"
       type="button"
       @click="open = true"

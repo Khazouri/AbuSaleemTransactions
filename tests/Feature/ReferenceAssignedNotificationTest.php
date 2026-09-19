@@ -47,7 +47,8 @@ class ReferenceAssignedNotificationTest extends TestCase
         Notification::fake();
 
         $employee = $this->userWithRole('R01');
-        $registrar = $this->userWithRole('R05');
+        // Stage 87 — R12 is the HR registrar now, not R05.
+        $registrar = $this->userWithRole('R12');
         $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr', $employee, 'PM-RCV/2026/000042');
 
         app(WorkflowService::class)->transition($requestRecord, 'register', $registrar);
@@ -91,7 +92,7 @@ class ReferenceAssignedNotificationTest extends TestCase
         $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr', $employee);
 
         $service = app(WorkflowService::class);
-        $service->transition($requestRecord, 'register', $this->userWithRole('R05'));
+        $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
         $service->transition($requestRecord->refresh(), 'approve', $this->userWithRole('R02'), signaturePath: 'signatures/a.png');
 
         Notification::assertSentToTimes($employee, RequestReferenceAssignedNotification::class, 1);
@@ -155,7 +156,7 @@ class ReferenceAssignedNotificationTest extends TestCase
 
         $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr', $employee);
 
-        app(WorkflowService::class)->transition($requestRecord, 'register', $this->userWithRole('R05'));
+        app(WorkflowService::class)->transition($requestRecord, 'register', $this->userWithRole('R12'));
 
         $this->assertNotNull($requestRecord->refresh()->reference_number);
         Notification::assertNotSentTo($employee, RequestReferenceAssignedNotification::class);
@@ -171,7 +172,7 @@ class ReferenceAssignedNotificationTest extends TestCase
         $employee = $this->userWithRole('R01');
         $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr', $employee, 'PM-RCV/2026/000007');
 
-        app(WorkflowService::class)->transition($requestRecord, 'register', $this->userWithRole('R05'));
+        app(WorkflowService::class)->transition($requestRecord, 'register', $this->userWithRole('R12'));
 
         $response = $this->actingAs($employee, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")

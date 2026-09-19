@@ -770,6 +770,11 @@ class RequestController extends Controller
      *
      * The refusal check runs here and again inside the service's own lock —
      * an appeal can be filed between the two.
+     *
+     * Stage 92 — rides `meeting_outputs,approve` (R02 + R03 + R12), not `edit`:
+     * closure's `executing_body` field is the same [F] step 10 question
+     * execute() answers, so the acting grant now matches it, reaching R12 (HR
+     * Manager) alongside R02/R03.
      */
     public function close(
         CloseRequest $request,

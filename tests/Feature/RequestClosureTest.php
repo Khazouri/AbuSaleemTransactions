@@ -309,8 +309,12 @@ class RequestClosureTest extends TestCase
             ->assertJsonPath('data.closure.final_result_code', 'executed');
     }
 
-    /** Appendix 47 addresses closure to المقرر; the grant is R02 + R03 (+ R08). */
-    public function test_closing_requires_the_meeting_outputs_edit_grant(): void
+    /**
+     * Appendix 47 addresses closure to المقرر; Stage 92 split this off
+     * `meeting_outputs,edit` onto its own `approve` tier ([F] step 10's "who
+     * executed" question), so the grant is now R02 + R03 + R12 (+ R08).
+     */
+    public function test_closing_requires_the_meeting_outputs_approve_grant(): void
     {
         $requestRecord = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
 
@@ -321,6 +325,36 @@ class RequestClosureTest extends TestCase
         $this->actingAs($this->userWithRole('R03'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertOk();
+    }
+
+    /**
+     * The party Stage 92 actually adds: HR can close a file it did not create
+     * — recording that HR itself was the executing body, not R02/R03 on HR's
+     * behalf — and can open that file beforehand, the same bounded visibility
+     * R02/R03 already have via `$isCloser`. A role with no reach still 404s.
+     */
+    public function test_hr_can_close_a_request_it_did_not_create(): void
+    {
+        $hrExecutingBody = 'إدارة الموارد البشرية';
+        $requestRecord = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
+        $hr = $this->userWithRole('R12');
+
+        $this->actingAs($hr, 'sanctum')
+            ->getJson("/api/requests/{$requestRecord->id}")
+            ->assertOk();
+
+        $this->actingAs($hr, 'sanctum')
+            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload([
+                'executing_body' => $hrExecutingBody,
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.closure.executing_body', $hrExecutingBody);
+
+        $unrelatedRequest = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
+
+        $this->actingAs($this->userWithRole('R04'), 'sanctum')
+            ->getJson("/api/requests/{$unrelatedRequest->id}")
+            ->assertNotFound();
     }
 
     /**

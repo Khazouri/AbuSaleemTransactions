@@ -3,6 +3,10 @@
 // دليل التنفيذ. The evidence picker is the point of the screen: "تم التنفيذ"
 // cannot be submitted as a bare claim, so at least one of the request's own
 // documents has to be nominated and typed before the button enables.
+//
+// Stage 92 — the button rides meeting_outputs.approve, not .edit: [F] step
+// 10's الجهة المنفذة is who this record names, so R12 (HR, the executing body
+// named most often) holds this tier alongside R02/R03.
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
@@ -88,7 +92,7 @@ async function submit() {
   <div class="execution-panel">
     <button
       v-if="!open"
-      v-can="'meeting_outputs.edit'"
+      v-can="'meeting_outputs.approve'"
       class="primary compact"
       type="button"
       @click="open = true"

@@ -18,6 +18,11 @@ use Illuminate\Validation\ValidationException;
  * request-level act (two of its four final paths close requests that never
  * reached an agenda), so it lives at PATCH requests/{requestRecord}/close. The
  * outputs screen still offers the button; it posts there.
+ *
+ * Stage 92 split this screen's write grants in two: `edit` (R02 + R03) still
+ * covers the rapporteur/chair certifications elsewhere in the request
+ * lifecycle, while `approve` (R02 + R03 + R12) is [F] step 10's own question —
+ * who actually executed — so `execute()` rides that instead.
  */
 class MeetingOutputsController extends Controller
 {
@@ -32,6 +37,11 @@ class MeetingOutputsController extends Controller
      * Stage 76 made that a substantiated claim rather than a bare one. The
      * request now carries النموذج 17's card, its متابعة التنفيذ answers and
      * Appendix 70's دليل التنفيذ, all written with the status move.
+     *
+     * Stage 92 — rides `meeting_outputs,approve` (R02 + R03 + R12), not `edit`:
+     * [F] step 10's الجهة المنفذة is who this record names, so the acting
+     * grant now reaches R12 (HR Manager), the executing body [D] names most
+     * often, alongside R02/R03 for whichever file some other body executed.
      */
     public function execute(
         ExecuteMeetingOutputRequest $request,

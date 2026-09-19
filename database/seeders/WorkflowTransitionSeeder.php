@@ -228,7 +228,7 @@ class WorkflowTransitionSeeder extends Seeder
         // Diagram-alignment redesign: registration convergence, and — since
         // the قيد moved here — the hop that grants the reference number. Three
         // `register` rows share the SAME action out of receive_and_register,
-        // one per legitimate receiving role (R05/HR, R10/Diwan,
+        // one per legitimate receiving role (R12/HR, R10/Diwan,
         // R09/Committee Secretary), each gated on BOTH its role and the
         // matching routed_to_* status the routing step above stamped —
         // required_status_id is what makes routing enforceable rather than
@@ -243,9 +243,19 @@ class WorkflowTransitionSeeder extends Seeder
         // is_exception=true) with an upsert key widened to include both
         // required_role_id and required_status_id: without both, all three
         // rows collapse onto the same (from_stage, action) key and only the
-        // last one seeded would survive.
+        // last one seeded would survive. Both this array and the loop's WHERE
+        // key have `is_exception=false`, so an old row's role is cleared away
+        // by the generic delete at the top of this method rather than needing
+        // its own targeted cleanup — unlike the `cancel` exception below.
+        //
+        // Stage 87 — R05 (مدير إدارة الشؤون الإدارية, a separate
+        // administrative-approval role) is replaced here by R12 (مدير إدارة
+        // الموارد البشرية), not merely joined by it: [F] names إدارة الموارد
+        // البشرية as this destination, and R05's own remaining duty
+        // (approval_by_authority) has nothing to do with it. See
+        // AGENT_NOTES.md.
         $registrations = [
-            ['R05', 'routed_to_hr'],
+            ['R12', 'routed_to_hr'],
             ['R10', 'routed_to_diwan'],
             ['R09', 'routed_to_committee_secretary'],
         ];
@@ -387,6 +397,25 @@ class WorkflowTransitionSeeder extends Seeder
             );
         }
 
+        // Stage 87 — R05's cancel row here moved to R12 along with the
+        // register row above (same reasoning: R05 no longer holds any row at
+        // this stage). Unlike the register rows, this one IS an exception
+        // (is_exception=true), so it is not swept by the generic delete at
+        // the top of this method — an old database's R05 row would otherwise
+        // survive beside its R12 replacement, exactly the class of bug Stage
+        // 86's own cleanup fixed for `cancel` at forward_to_committee.
+        WorkflowTransition::query()
+            ->whereNull('request_type_id')
+            ->where('is_exception', true)
+            ->where('from_stage_id', $stages['receive_and_register']->id)
+            ->where('action', 'cancel')
+            ->whereNotIn('required_role_id', [
+                $roles['R12']->id,
+                $roles['R09']->id,
+                $roles['R10']->id,
+            ])
+            ->delete();
+
         // Diagram-alignment redesign: receive_and_register can be cancelled
         // by any of the three roles that could legitimately be holding the
         // file there, matching the plan's "simpler" fallback rather than the
@@ -395,7 +424,7 @@ class WorkflowTransitionSeeder extends Seeder
         // three receiving roles. Three rows (not one shared row) because
         // required_role_id must differ per role; the widened seedException()
         // key keeps them from colliding with each other.
-        foreach (['R05', 'R09', 'R10'] as $registrarRole) {
+        foreach (['R12', 'R09', 'R10'] as $registrarRole) {
             $this->seedException(
                 $stages['receive_and_register']->id,
                 $stages['receive_and_register']->id,

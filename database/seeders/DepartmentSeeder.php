@@ -14,7 +14,8 @@ use Illuminate\Database\Seeder;
  *     ├─ إدارة الشؤون المالية (FIN)
  *     ├─ مكتب المقرر (REP)
  *     ├─ لجنة شؤون الموظفين (CMT)
- *     └─ قسم المرتبات والمزايا (SAL)
+ *     ├─ قسم المرتبات والمزايا (SAL)
+ *     └─ إدارة الموارد البشرية (HR)
  *
  * These are a usable starting point, not a fixed structure — departments are
  * fully editable from the UI in Stage 6. The codes matter because they appear
@@ -40,6 +41,11 @@ class DepartmentSeeder extends Seeder
             // [A] §1's org chart lists المرتبات والمزايا as its own sibling
             // unit alongside شؤون الموظفين, not a subset of financial affairs.
             ['code' => 'SAL', 'name_ar' => 'قسم المرتبات والمزايا', 'name_en' => 'Salaries & Benefits'],
+            // Stage 87 — the same reasoning: [F] names إدارة الموارد البشرية
+            // as its own body, distinct from ADM (إدارة الشؤون الإدارية,
+            // R05's department). Reusing ADM for R12 would blur exactly the
+            // distinction this stage draws between the two roles.
+            ['code' => 'HR', 'name_ar' => 'إدارة الموارد البشرية', 'name_en' => 'Human Resources'],
         ];
 
         foreach ($children as $child) {

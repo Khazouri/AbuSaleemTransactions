@@ -159,8 +159,9 @@ class DirectManagerRoutingTest extends TestCase
             $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
         }
 
-        // The matching registrar (R05/HR) succeeds on the same file.
-        $hrRegistrar = $this->userWithRole('R05');
+        // The matching registrar (R12/HR — Stage 87 replaced R05 here) succeeds
+        // on the same file.
+        $hrRegistrar = $this->userWithRole('R12');
         $moved = $service->transition($requestRecord->refresh(), 'register', $hrRegistrar);
         $this->assertSame('requirements_check', $moved->currentStage->code);
         // Registering IS the قيد, so accepting the file lands it on Art. 38's
@@ -168,12 +169,25 @@ class DirectManagerRoutingTest extends TestCase
         $this->assertSame('registered', $moved->status->code);
         $this->assertNotNull($moved->reference_number);
 
-        // And the reverse pairing (R05 attempting a Diwan-routed file) is
+        // And the reverse pairing (R12 attempting a Diwan-routed file) is
         // equally refused, confirming this isn't a one-way accident.
         $diwanRequest = $this->newRequest('receive_and_register', 'routed_to_diwan');
         try {
             $service->transition($diwanRequest, 'register', $hrRegistrar);
-            $this->fail('R05 must not be able to register a Diwan-routed file.');
+            $this->fail('R12 must not be able to register a Diwan-routed file.');
+        } catch (WorkflowTransitionException $exception) {
+            $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
+        }
+
+        // Stage 87 — R05 is now refused the very action it used to hold: the
+        // routing destination the poster names as HR is R12's alone, not
+        // R05's, once the reassignment is real rather than additive. A fresh
+        // request, since $requestRecord has already moved past this stage.
+        $anotherHrRequest = $this->newRequest('receive_and_register', 'routed_to_hr');
+        $formerRegistrar = $this->userWithRole('R05');
+        try {
+            $service->transition($anotherHrRequest, 'register', $formerRegistrar);
+            $this->fail('R05 must no longer be able to register an HR-routed file.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
         }
@@ -221,7 +235,8 @@ class DirectManagerRoutingTest extends TestCase
             $this->assertSame('cancelled', $moved->status->code);
         }
 
-        foreach (['R05', 'R09', 'R10'] as $registrarRole) {
+        // Stage 87 — R12, not R05, is the third legitimate receiving role now.
+        foreach (['R12', 'R09', 'R10'] as $registrarRole) {
             $registrar = $this->userWithRole($registrarRole);
             $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr');
             $moved = $service->transition($requestRecord, 'cancel', $registrar, 'ألغيت.');

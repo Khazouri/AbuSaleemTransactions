@@ -18,19 +18,25 @@ use Illuminate\Support\Facades\Hash;
  * path deliberately needs several different people to reach `in_execution`:
  * submit (R01) -> direct-manager review + administrative routing (the
  * submitter's own manager, or an R08 override) -> receive & register
- * (R05/R10/R09, whichever matches the chosen route) -> R02 -> R05 -> R03 ->
+ * (R12/R10/R09, whichever matches the chosen route) -> R02 -> R05 -> R03 ->
  * R05 -> R06 -> R07. Without these accounts none of those gates is ever
  * actually hit. See TEST_PLAN.md for the script that uses them.
  *
  * Diagram-alignment redesign (see AGENT_NOTES.md): r09.secretary@ and
  * r10.diwan@ cover the two new receiving roles at receive_and_register
- * (R05/HR already existed as r05.manager@). r01.employee@'s `manager_id` is
- * wired to r02.reviewer@ below so the new front-half stages are walkable
- * end to end with a real assigned manager, not only through the R08
- * fallback — without that wiring, every manual walk of `submit ->
- * direct_manager_review` would fall through to the admin override and the
- * manager-specific checks (and the manager's own notification) would never
- * actually be exercised by hand.
+ * (R05/HR existed as r05.manager@ at the time, since replaced — see below).
+ * r01.employee@'s `manager_id` is wired to r02.reviewer@ below so the new
+ * front-half stages are walkable end to end with a real assigned manager,
+ * not only through the R08 fallback — without that wiring, every manual
+ * walk of `submit -> direct_manager_review` would fall through to the admin
+ * override and the manager-specific checks (and the manager's own
+ * notification) would never actually be exercised by hand.
+ *
+ * Stage 87 — r12.hr@ is the third receiving role at receive_and_register,
+ * replacing r05.manager@ on the HR route: [F] names إدارة الموارد البشرية as
+ * that destination, and r05.manager@'s remaining duty (Admin Manager
+ * approval, stage 10) is a separate administrative function. See
+ * AGENT_NOTES.md.
  *
  * SECURITY: every account below has the password `password`. This is
  * development data. It is NOT called from DatabaseSeeder — run it explicitly:
@@ -96,6 +102,10 @@ class TestUserSeeder extends Seeder
         // Stage 68 — [D] Art. 21's العضو القانوني, the one role the
         // pre-meeting legal review can be recorded by.
         ['r11.legal@abusaleem.test',      'العضو القانوني التجريبي',  'Legal officer',                ['R11'],        'CMT', '+218910000015', true],
+        // Stage 87 — the distinct HR role [F] names twice: the route_to_hr
+        // registration destination (replacing r05.manager@ there) and a
+        // bounded, non-controlling co-owner of the study at `observations`.
+        ['r12.hr@abusaleem.test',         'مدير الموارد البشرية التجريبي', 'HR manager',              ['R12'],        'HR',  '+218910000016', true],
     ];
 
     public function run(): void

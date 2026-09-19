@@ -14,6 +14,334 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-19 17:05 EET — Claude — Stage 92 complete (execution recorded by the executing body) — Track M finished
+
+Built per the plan below, after the "decide before building" question was put to the user directly
+(Stage 92's own gate) and answered: **let the executing body — R12, HR Manager — record its own
+execution and closure**, alongside R02/R03 for whichever file some other body executed.
+
+**Mechanism, narrower than the approved option's own wording, and deliberately so.**
+`meeting_outputs,edit` gates six actions in total; only two — `MeetingOutputsController::execute()`
+and `RequestController::close()` — are [F] step 10's "who executed" question. The other four
+(`recordApprovalReturn`/`resolveApprovalReturn`/`recordApprovalReferral`/`recordExecutionSoundness`/
+`suspend`/`lift`, i.e. Art. 30/103/105's rapporteur/chair certifications) stay R02+R03-only, untouched.
+Rather than widen `edit` wholesale for R12 — which would have handed HR five capabilities [F] never
+names and that this codebase's own "bounded, not general" discipline (R11/SAL/R12's own
+`RequestVisibility` clauses, the `decisions.add`/`decisions.approve` split, Stage 84's whole audit)
+argues against — `meeting_outputs` gained a new **`approve`** tier (seeded but empty until now, per
+`ScreenRolePermissionSeeder`'s own "any action not listed stays false but for R08" rule), and exactly
+`execute()`/`close()` moved onto it: `'approve' => ['R02', 'R03', 'R12']`. Same shape as `decisions.add`
+vs. `decisions.approve` (cast a vote vs. record one), applied to a different screen.
+
+**`RequestVisibility::$isCloser` widened to `can_edit OR can_approve` on `meeting_outputs`** — R12
+needs the same reach R02/R03 already have to find and open a file before it can act on it, since there
+is no query for "requests I am the executing body of" until execution is actually recorded. Not a new
+disclosure: `registers`/`reports` are both `view => '*'`, so R12 already sees this population there;
+this only lets the direct workspace and `AttachmentController::store()` (which R12 needs for Appendix
+70's evidence, riding the `notes_attachments.add` grant Stage 87 already gave it) agree with what those
+screens already show.
+
+**One real correctness gap found and fixed, not silently designed around: widening `$isCloser` for R12
+collided with Stage 87's own carefully bounded `$isHrStudyCoOwner` clause.** `HumanResourcesSeatTest::
+test_the_hr_manager_loses_visibility_once_the_request_moves_past_observations` built a REGISTERED
+fixture (a `reference_number` is always set by that file's own helper) at `forward_to_committee`/
+`ready`, expecting R12 to 404 there — proving Stage 87's observations-only bound is exactly one stage.
+Once R12 also held `meeting_outputs,can_approve`, `$isCloser`'s own "any registered file" fallback
+(Stage 83's own reasoning, already applied to R02/R03) caught this fixture too, and the test failed
+with a 200. **This is not a regression to design around — it is Stage 92 legitimately widening R12's
+overall reach through a second, unrelated channel**, and the old assertion was simply no longer true.
+Split into two tests instead: `requestAtStage()` gained an optional `registered` flag, and the failing
+test now builds an UNREGISTERED fixture at the same stage to prove the observations-only clause itself
+never widened, while a new sibling test proves a REGISTERED file at that same stage is now visible to
+R12 — explicitly through the new execution-reach channel, not the study seat.
+
+Verification: extended `RequestExecutionTest.php` (+2 tests — HR proves execution of a file it did not
+create, naming itself as `executing_body`; HR can open an `in_execution` file it did not create while
+a role with no reach still 404s) and `RequestClosureTest.php` (+1 test — HR closes a file it did not
+create, and a role with no reach still 404s on an unrelated one), renamed both files' permission-tier
+tests to `..._outputs_approve_grant...` since `edit` no longer gates these two actions, and fixed
+`HumanResourcesSeatTest.php` as described above. Full suite **657 tests / 4156 assertions** green (was
+656/4155 — the net is +1 since the HR-seat fix split one test into two), Pint clean repo-wide (the one
+`--test` failure, `scripts/build-guide-pdf.php`, is the same pre-existing drift every prior note
+flags), `npm run build` passes with no new chunks (only two existing panels' `v-can` strings changed),
+`git diff --check` clean, and locale key-parity confirmed unchanged (1933 keys each side, zero
+on-one-side-only — no new copy this stage, only a permission-tier rename). The
+`ScreenRolePermissionSeeder` reseed ran clean against the real MySQL/Homestead database — confirmed via
+tinker that R02/R03 hold both `can_edit` and `can_approve` on `meeting_outputs`, R12 holds `can_approve`
+alone, and every other role holds neither.
+
+Smoke-tested the whole thing end-to-end over real HTTP against Homestead with the seeded
+`r12.hr@`/`r04.member1@` accounts and a bootstrapped fixture (committee/meeting/request/agenda-item/
+decision/attachment) at `final_approval_archiving`/`in_execution`: R12 opened the file it did not
+create (200 — the visibility fix, live, not only unit-tested), executed it naming
+`إدارة الموارد البشرية` as `executing_body`, then closed it — `status: completed_closed`,
+`closure.closed_by.id` matching R12's own user id — while R04 was refused 403 on both endpoints
+throughout. Deleted every fixture row (request, attachment, agenda item, decision, meeting, committee,
+and the matching audit-log rows) and revoked only the tokens minted for the two test accounts during
+this session (5, by a created_at/user filter) — confirmed zero jobs or notifications referencing the
+deleted fixture ids, and the real database's pre-existing rows were otherwise untouched.
+
+**With this stage, Track M (Stages 85–93) is complete.** STAGE_PLAN.md's "Suggested order" block
+updated accordingly — Stage 87 was already built in this working tree (uncommitted, per its own
+2026-09-19 15:10 entry below) going into this session; this stage is what closed the last remaining
+gap. No open items flagged by this stage specifically.
+
+---
+
+### 2026-09-19 16:10 EET — Claude — Stage 92 implementation plan (execution recorded by the executing body)
+
+Building Stage 92 per STAGE_PLAN.md Track M — flagged **"Decide before building"** like Stage 87
+before it. Put the question to the user directly, mirroring Stage 87's own process: should the
+executing body itself act in the system, or should the committee side (R02/R03) keep recording on
+its behalf, as today? **Answer: let the executing body — R12, HR Manager, the role Stage 87 added —
+record its own execution and closure**, alongside R02/R03 for cases where some other body executed.
+Recorded here so the decision isn't re-litigated.
+
+**The mechanism is narrower than the approved option's own wording, and that narrowing is deliberate,
+not a reversal.** `meeting_outputs,edit` currently gates six actions —
+`RequestController::close`/`recordApprovalReturn`/`resolveApprovalReturn`/`recordApprovalReferral`/
+`recordExecutionSoundness`/`suspend`/`lift`, plus `MeetingOutputsController::execute` — and only two of
+them, `execute` and `close`, are the "who executed" question Stage 92 is about; the rest are Art.
+30/103/105's rapporteur/chair-only certifications, which [F] step 10 says nothing about and which HR
+has no standing to perform. Widening the whole `edit` tier (the literal mechanism named when the
+option was put to the user) would hand HR five capabilities nobody asked to give it, directly against
+this codebase's own "bounded, not general" discipline every prior party-widening stage has followed
+(R11/SAL/R12's own clauses in `RequestVisibility`, the `decisions.add`/`decisions.approve` split,
+Stage 84's whole audit of over-broad grants). So this stage instead gives `meeting_outputs` a new
+**`approve`** tier — seeded but empty until now, per that seeder's own "any action not listed stays
+false but for R08" rule — and re-routes exactly `execute` and `close` onto it:
+`'approve' => ['R02', 'R03', 'R12']`. `edit` stays `['R02', 'R03']`, untouched, for the other five
+actions. This is the exact `decisions.add`-vs-`decisions.approve` shape (cast a vote vs. record one)
+applied to a different screen.
+
+**Visibility follows the same "not a new disclosure" reasoning Stage 83 already used for
+`$isCloser`.** R12 needs to actually find and open the file to execute/close it, and there is no query
+that filters "requests where I am the executing body" — that fact isn't known until execution is
+recorded — so R12 needs the same reach R02/R03 already have via `$isCloser`'s bound, which Stage 83's
+own comment already justifies as "not a new disclosure: the reports and registers screens already
+list this same population to every role" — and `registers`/`reports` are both `view => '*'`, so R12
+already sees this population there. `RequestVisibility::apply()`'s `$isCloser` becomes
+`can_edit OR can_approve` on `meeting_outputs`, one predicate rather than a second, separately-bounded
+clause — matching the `can_edit`-only actors' existing reach, not a narrower one that would 404 R12
+attaching Appendix 70 evidence to a request it can otherwise act on
+(`AttachmentController::store()` already runs through this same gate, and R12 already holds
+`notes_attachments.add` since Stage 87).
+
+**Files**: `ScreenRolePermissionSeeder.php` (`meeting_outputs.approve`); `routes/api.php` (the
+`execute` and `close` routes' middleware, `meeting_outputs,edit` → `meeting_outputs,approve`, with
+updated comments — the other four `meeting_outputs,edit` routes are untouched); `RequestVisibility.php`
+(`$isCloser`); `MeetingOutputsController.php`/`RequestController.php` docblocks naming the grant;
+`RequestExecutionPanel.vue`/`RequestClosurePanel.vue` (`v-can` from `meeting_outputs.edit` to
+`meeting_outputs.approve` — the other panels riding `meeting_outputs.edit` for the rapporteur/chair
+actions are untouched). `MeetingOutputResource`'s `can_mark_executed`/`can_close` are state-derived,
+not permission-derived, and need no change.
+
+**Verification plan**: rename/extend `RequestExecutionTest::test_only_the_outputs_edit_grant_may_
+prove_execution` and `RequestClosureTest::test_closing_requires_the_meeting_outputs_edit_grant` (both
+currently describe a grant tier this stage renames — legitimate updates, not regressions) to assert
+R12 succeeds at both actions alongside R02/R03, R04 is still refused, and R12 can open (visibility) a
+request it didn't create that is `in_execution`/closable — the same shape Stage 87's own
+`HumanResourcesSeatTest` used for R12's `observations` co-ownership. Then the full PHPUnit suite, Pint
+on every touched file, `npm run build`, a locale key-parity check (none expected — no new copy, only a
+permission-tier rename), and the `ScreenRolePermissionSeeder` reseed against the real MySQL/Homestead
+database if reachable this session.
+
+---
+
+### 2026-09-19 15:10 EET — Claude — Stage 87 complete (إدارة الموارد البشرية gets a seat)
+
+Built exactly per the plan below, after the "decide before building" question was put to the user
+directly (Stage 87's own gate) and answered: **a distinct HR role was missing.** New **R12** —
+`مدير إدارة الموارد البشرية` / HR Manager — takes over `route_to_hr`'s registration outright and
+gains a bounded, non-controlling co-ownership of the study at `observations`. No migration — every
+change is seeded data or a service-level visibility clause.
+
+**Mechanism, exactly as planned.** `WorkflowTransitionSeeder`'s `$registrations` array moved
+`['R05','routed_to_hr']` → `['R12','routed_to_hr']` (the generic-rule delete at the top of that
+seeder's `run()` already sweeps the old row on every reseed, since `register` is `is_exception=false`
+— no separate cleanup needed there, unlike the `cancel` row). The `cancel`-at-`receive_and_register`
+foreach (`is_exception=true`, NOT swept generically) did need one: a targeted delete removing any
+non-R12/R09/R10 row before reseeding, mirroring Stage 86's own fix for the identical class of bug at
+`forward_to_committee` — confirmed live that no stale R05 row survives. New `HR` department (sibling
+under `ABS`, mirroring Stage 47's `SAL` precedent) and `r12.hr@abusaleem.test` test account.
+
+**The observations co-ownership is a new bounded `RequestVisibility` clause, not a workflow_transitions
+row** — R12 gets no `forward`/`request_edit`/`cancel` row at that stage (those stay R09's and R02's,
+per Stage 86's own settled rule), so the generic role-derived visibility mechanism gives it nothing
+there. Added `$isHrStudyCoOwner` (role R12 + `current_stage_id === observations`), the same shape as
+Stage 47's `$isSalariesReviewer` and Stage 68's `$isLegalReviewer`. `notes_attachments`'s `add` grant
+gained R12 so the co-ownership is genuinely read-and-contribute, not read-only — bounded in practice
+to exactly what the new visibility clause admits, since `NoteController`/`AttachmentController` both
+gate on `RequestVisibility::canView()` before the screen permission does anything.
+
+**Deliberately NOT touched, and why:** `App\Services\Lifecycle\RequestResponsibilityService::ROLE_TO_PARTY`
+(Stage 83, Appendix 17/18) still maps `R05 => hr_department` — now stale, since R05's sole remaining
+duty (`approval_by_authority`) has nothing to do with HR, but Appendix 17's fixed 14-party vocabulary
+has no clean fit for "administrative-authority approver," and guessing one would be exactly the
+fabrication this codebase's own discipline refuses. Also found and left alone: `partyFromStage()`'s
+`$applicable` filter for a stage with multiple outbound rules (`receive_and_register`'s three
+`register` rows) does not filter by the request's actual `status_id`, so it returns whichever role's
+rule sorts first in an unordered collection — a pre-existing, unrelated correctness gap in Stage 83's
+own derivation, predating this stage and affecting R09/R10's branches identically. Both flagged as
+open items below, not fixed — out of Stage 87's actual scope (routing/visibility ownership, not
+Appendix 17's display).
+
+**Legacy `PermissionSeeder` catalogue** — R12 added to the same seven rows R09/R10 already sit in
+(`requests.view/edit/notes/attachments/forward`, `reports.view`, `audit.view`), mirroring them exactly
+since R12 is functionally the third registration destination, per that file's own "kept in step...
+so it stays an accurate reference" convention (R11 was never added there when introduced — a narrower
+role, so the precedent doesn't mechanically extend to every new role, but R12's shape matches R09/R10's
+closely enough to justify it here).
+
+**Test fixture updates, all legitimate — every one performed `register` as R05 for an HR-routed file,
+which the reassignment now refuses:** `tests/Unit/WorkflowServiceTest.php` (the happy-path walk's
+`$actors` collection and the register step; the seeded-rule-shape test's register-role assertion,
+`['R05','R09','R10']` → `['R12','R09','R10']`), `tests/Feature/UnifiedNumberingTest.php` (4 call
+sites), `tests/Feature/ReferenceAssignedNotificationTest.php` (4 call sites),
+`tests/Feature/DirectManagerRoutingTest.php` (the matching-registrar test, plus a new explicit
+assertion that R05 is now refused registering an HR-routed file on a *fresh* request — the original
+request had already moved past that stage by the time R05's refusal needed testing; and the
+cancel-at-three-registrars loop). New `tests/Feature/HumanResourcesSeatTest.php` (6 tests) covers the
+genuinely new behavior: R12 can open a request at `observations` it didn't create while R05 cannot;
+R12's `available_actions` there is empty; R12 loses visibility once the request moves past
+`observations`; R12 can post a note there; R12 is refused `forward`/`request_edit`/`cancel` at that
+stage (role-mismatch, not comment-validation — confirmed the role check runs first).
+
+**Verification.** Full PHPUnit suite **653 tests / 4147 assertions** green (was 647/4137 — exactly
+this stage's +6 new tests), Pint clean repo-wide (`app`, `database`, `routes`, `tests`). Reseeded the
+real MySQL/Homestead database twice (idempotence confirmed) and ran `TestUserSeeder` — a bootstrapped
+script confirmed 12 roles, the `HR` department, all three `register` rows (`R12`/`R09`/`R10`, R05
+genuinely absent), and all three `cancel` rows at `receive_and_register` (no stale R05 row). Smoke-
+tested live over HTTP against Homestead: R05 gets a **404** attempting `register` on an HR-routed file
+(visibility, not just role, is gone — the same shape Stage 86 documented for R05 losing
+`forward_to_committee`); R12 succeeds and mints `PM-COM/2026/0002`; R12 opens a request at
+`observations` it didn't create (`available_actions: []`) and posts a note on it (201); R05 gets 404
+on the same request. Cleaned up precisely — deleted only the two fixture requests and the one note
+(not a blanket truncate: the real database carries pre-existing requests/jobs/notifications from
+other sessions), confirmed zero orphaned job/notification rows referencing the deleted fixtures, and
+revoked only the tokens minted for the two test accounts during this session. Counts confirmed back to
+the 4 pre-existing requests.
+
+**Docs.** `TEST_PLAN.roles.md`/`.ar.md` got a full pass, not just an appended column: new account #16
+(`r12.hr@`), a rewritten R05 section (its "appears three times" framing was already half-stale since
+Stage 86 — now correctly "once, at stage 10"), a new §13 R12 section (renumbering Cross-role checks
+§13→§14 and Defect log/sign-off §14→§15 in both files, including every internal `§13`/`§14`
+cross-reference and the Arabic-Indic-numeral mirror), the relay's step 4/8 actors and its "nine
+people" → "ten people" heading, Appendix B's stage 4/7/8 "normally held by" cells. **Appendix A's
+permission matrix was regenerated from the live database rather than hand-patched** — this is what
+surfaced a real, pre-existing, unrelated gap: the table was missing `request_tracking` (Stage 89)
+entirely and had `request_intake`'s label one relabeling out of date, both predating Stage 87 and
+fixed here as an unavoidable side effect of doing the regeneration properly (a half-fixed 35→36-screen
+mismatch would have been worse than either leaving it alone or fixing it once, correctly). Checkbox
+counts confirmed equal (363 each) after all edits — the same parity check this file's own convention
+calls for.
+
+**Open items for whoever builds Stage 88+.** (1) `RequestResponsibilityService::ROLE_TO_PARTY`'s
+`R05 => hr_department` mapping is now stale (R05 has no HR duty left) with no clean Appendix 17
+replacement value — needs a sourced answer, not a guess, from whoever next touches Track K's Appendix
+17/18 work. (2) `partyFromStage()`'s multi-rule-per-stage ambiguity (unordered "first match wins" over
+`receive_and_register`'s three register rows) is a genuine, pre-existing bug independent of this stage
+— worth a dedicated fix (likely: pick the rule whose `required_status_id` matches the request's actual
+status) rather than being carried forward silently. (3) A documentation sweep beyond what this stage
+touched: `request_intake`'s relabeling to "إرسال الطلب" and other post-Stage-89 additions may have
+left further staleness in `TEST_PLAN.roles.md`/`.ar.md`'s prose sections that a targeted pass like
+this one wouldn't surface — the next full doc audit should re-derive Appendix A programmatically
+first (as this stage did) and diff it against what's already written, rather than trusting either.
+
+---
+
+### 2026-09-19 14:20 EET — Claude — Stage 87 implementation plan (إدارة الموارد البشرية gets a seat)
+
+Building Stage 87 per STAGE_PLAN.md Track M. The stage is flagged **"Decide before building"** — [F]
+names إدارة الموارد البشرية twice (the `route_to_hr` destination at step 3, and co-owner of the study
+at step 6), but this system's only HR-shaped role, **R05** (مدير إدارة الشؤون الإدارية / Admin
+Manager), only touches the first. Put the naming-vs-missing-seat question to the user directly (the
+process owner in this context) via AskUserQuestion rather than guessing: **answer was "a distinct HR
+role is missing."** Recorded here so the decision isn't re-litigated.
+
+**New role: R12** — `مدير إدارة الموارد البشرية` / `HR Manager`. Takes over `route_to_hr`'s
+registration destination outright (R05 is refused it afterward, not merely joined by R12), and gains
+a new, narrow co-ownership of the study at `observations` — visibility plus the ability to add notes/
+attachments, **not** the ability to forward/cancel/edit the stage. That last point is deliberate and
+traced from the seeded data before writing any code: `observations`'s outbound `forward` is R09's
+(Stage 86) and its backward `request_edit`/`cancel` exceptions are R02's ("R02 still moves it —
+backward — and Appendix 37 maps that stage to إعداد مذكرة العرض, المقرر's own action... the asymmetry
+is the one rule read consistently" — Stage 86's own note). Giving R12 an outbound row there would
+either duplicate R09/R02's ownership or contradict that already-settled rule, so R12's "co-ownership"
+is visibility + contribution, not stage control — the same shape Stage 47's SAL department and Stage
+68's R11 already established for a party consulted on a stage without moving it.
+
+**Why `route_to_hr` reassigns rather than adds.** The generic `RequestVisibility` mechanism grants
+visibility to whichever role holds a matching `workflow_transitions` row at a request's current stage
+(the exact mechanism Stage 86 relied on: "R09 gains visibility... and R05 loses it... automatically").
+Moving the `register` row's `required_role_id` from R05 to R12 for the `routed_to_hr` status therefore
+needs **no separate visibility change** for that half — R12 gains it and R05 loses it the same way
+Stage 86's handover worked. The `cancel`-at-`receive_and_register` exception (seeded per registrar
+role, "cancellation is available to the role responsible for moving each open stage") moves with it:
+`['R05','R09','R10']` → `['R12','R09','R10']`.
+
+**Why `observations` needs an explicit `RequestVisibility` clause instead.** R12 holds no outbound row
+there at all (by design, per the paragraph above), so the generic mechanism gives it nothing. A new
+bounded clause — role R12 + `requests.current_stage_id === observations`'s id — mirrors
+`isSalariesReviewer`/`isLegalReviewer`'s exact shape: a party consulted on a stage, not a party that
+moves it. `notes_attachments`'s `add` grant gains R12 (mirroring R05's own long-standing membership
+there) so "co-owner of the study" is actually able to contribute, not merely read — bounded to exactly
+the requests R12 can already see, since `NoteController`/`AttachmentController` both gate on
+`RequestVisibility::canView()` before the screen permission does anything.
+
+**R05 keeps `approval_by_authority` untouched.** That stage's `responsible_role_id` and its main-path
+`approve` action are both already R05 and are a genuinely separate administrative-approval duty (post-
+committee, "اعتماد حسب الصلاحيات"), not an HR one — nothing in [F] steps 3/6 touches it, and
+`ArtThirtyEightStatusTest`'s coverage of it needs no change.
+
+**New department: `HR`** — `إدارة الموارد البشرية` / `Human Resources`, a sibling under `ABS`, mirroring
+Stage 47's `SAL` precedent ("a distinct admin unit... not a subset of" an existing one) rather than
+reusing `ADM` (R05's department), which would blur exactly the distinction this stage draws.
+
+**Deliberately NOT touched, and why:** `App\Services\Lifecycle\RequestResponsibilityService::ROLE_TO_PARTY`
+(Stage 83, Appendix 17/18) currently maps `R05 => hr_department` — a documented judgment call made
+*because* R05 held two duties at the time. That reasoning is now obsolete (R05 has one duty left), but
+picking a replacement value for R05 from Appendix 17's fixed 14-party vocabulary with no sourced fit is
+exactly the kind of fabrication this codebase's own discipline refuses, and Stage 87's own "Done when"
+doesn't ask for it. Left alone; flagged as an open item below for whoever next touches Appendix 17.
+Also found and NOT fixed while reading that service: `partyFromStage()`'s `$applicable` filter for a
+stage with multiple outbound rules (exactly `receive_and_register`'s three `register` rows) does not
+filter by the request's actual `status_id`, so it returns whichever role's rule sorts first in an
+unordered collection — a pre-existing, unrelated correctness gap in Stage 83's own derivation that
+predates this stage and would affect R09/R10's branches identically; flagged, not fixed here.
+
+**Files to touch:** `RoleSeeder.php` (R12 row + docblock), `DepartmentSeeder.php` (`HR` row),
+`WorkflowTransitionSeeder.php` (`$registrations` and the `receive_and_register` cancel `foreach`),
+`RequestVisibility.php` (new bounded clause), `ScreenRolePermissionSeeder.php` (`notes_attachments.add`
+gains R12), `PermissionSeeder.php` (legacy catalogue — add R12 to the same 7 rows R09/R10 already sit
+in: `requests.view/edit/notes/attachments/forward`, `reports.view`, `audit.view` — mirrored exactly,
+per that file's own "kept in step... so it stays an accurate reference" convention), `TestUserSeeder.php`
+(`r12.hr@abusaleem.test`), `Role.php`'s docblock range comment. Test files needing a legitimate fixture
+update (every one performs `register` as `R05` for an HR-routed file, which the reassignment now
+refuses): `tests/Unit/WorkflowServiceTest.php`, `tests/Feature/UnifiedNumberingTest.php`,
+`tests/Feature/ReferenceAssignedNotificationTest.php`, `tests/Feature/DirectManagerRoutingTest.php`
+(also its `cancel`-at-three-registrars loop). New `tests/Feature/HumanResourcesSeatTest.php` covering:
+R12 registers an HR-routed file and R05 is now refused it; R12 can cancel that same file at
+`receive_and_register`; R12 can open (and R05 cannot open) a request sitting at `observations` it
+didn't create, purely via the new bounded clause, with `available_actions` empty for R12 there; R12 can
+post a note on that same request; R12 loses visibility once the request moves past `observations` to a
+stage it holds no rule at and the new clause doesn't cover.
+
+**Docs:** `TEST_PLAN.roles.md`/`.ar.md` need a new "R12" account row, a new per-role section (inserted
+as the new §13, renumbering the existing §13 Cross-role checks → §14 and §14 Defect log/sign-off → §15,
+plus the handful of `§13`/`§14` cross-references and the sign-off table), and Appendix A's matrix gains
+a 12th column — done after the seeders are final so the matrix can be checked against the live grants
+rather than hand-typed.
+
+**Verification plan:** full PHPUnit suite, Pint on every touched/new file, `php artisan migrate` +
+reseed against the real MySQL/Homestead database if reachable this session (confirm via tinker: 12
+roles, `HR` department exists, the `register`/`cancel` rows moved, R05 genuinely holds no row at
+`receive_and_register` any more), and a locale key-parity check only if any frontend copy changes
+(none expected — no frontend file needs a role-specific change beyond what the API already drives
+generically).
+
+---
+
 ### 2026-09-19 13:45 EET — Claude — Stage 93 complete (stage numbering reconciled) — Track M finished
 
 Built per the plan below. **No migration** — no schema change, only a new service class, one resource

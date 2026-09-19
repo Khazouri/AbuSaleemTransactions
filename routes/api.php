@@ -412,14 +412,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:appeals,edit')
         ->patch('requests/{requestRecord}/reopen', [RequestController::class, 'reopen']);
 
-    // Stage 75 — [D] Art. 37's الإقفال. Rides `meeting_outputs,edit`, the
-    // grant that already owned the one existing closure action (Stage 37/69):
-    // that screen's declared domain is following a decision through execution
-    // and close, and gating the second and third of Art. 37's final paths
-    // differently would put two closure actions behind two permissions.
-    // Appendix 47 addresses closure to المقرر ("لا يغلق المقرر أي معاملة
-    // إلا بعد…"), which is why that grant gained R02 alongside R03.
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    // Stage 75 — [D] Art. 37's الإقفال. Rode `meeting_outputs,edit`, the grant
+    // that already owned the one existing closure action (Stage 37/69), until
+    // Stage 92 split it onto `meeting_outputs,approve` — [F] step 10's "who
+    // actually executed" question is distinct from `edit`'s rapporteur/chair
+    // certifications, and closure carries the same executing_body field
+    // execute() does. Appendix 47 addresses closure to المقرر ("لا يغلق
+    // المقرر أي معاملة إلا بعد…"), which is why that grant holds R02 alongside
+    // R03; R12 (HR, the body [D] names most often) joins them on `approve`.
+    Route::middleware('screen.permission:meeting_outputs,approve')
         ->patch('requests/{requestRecord}/close', [RequestController::class, 'close']);
 
     /*
@@ -429,10 +430,11 @@ Route::middleware('auth:sanctum')->group(function () {
      * Two endpoints because the article names two things and nobody knows the
      * second at the moment of the first.
      *
-     * Same `meeting_outputs,edit` grant (R02 + R03) closure and execution
-     * already ride: that screen's declared domain is following a decision
-     * through approval, execution and close, and Art. 30 addresses this
-     * register to مقرر اللجنة, which is R02's own role name.
+     * Same `meeting_outputs,edit` grant (R02 + R03) this screen's other
+     * rapporteur/chair certifications ride: this is a record of the referral
+     * itself, not of who executed (Stage 92's `approve` tier), so it stays
+     * here. Art. 30 addresses this register to مقرر اللجنة, R02's own role
+     * name.
      */
     Route::middleware('screen.permission:meeting_outputs,edit')
         ->patch('requests/{requestRecord}/approval-return', [RequestController::class, 'recordApprovalReturn']);
@@ -709,16 +711,21 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
      * Stage 37 — the live, meeting-scoped decision/output tracker. Reading is
-     * broad like the screen; the `edit` grant records that an in-execution
-     * request's effect has been carried out.
+     * broad like the screen; recording that an in-execution request's effect
+     * has been carried out rides `approve`, not `edit` (Stage 92).
      *
      * Stage 75 — Art. 38's code 20 is no longer reachable here: closure moved
      * to PATCH requests/{requestRecord}/close, since two of Art. 37's four
      * final paths close requests that never reached an agenda.
+     *
+     * Stage 92 — [F] step 10's "who executed" is a separate question from
+     * this screen's other `edit`-gated rapporteur/chair certifications, so it
+     * has its own tier: R02/R03/R12 all hold `approve`, R12 being the
+     * executing body [D] names most often.
      */
     Route::middleware('screen.permission:meeting_outputs,view')
         ->get('meetings/{meeting}/outputs', [MeetingOutputsController::class, 'show']);
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    Route::middleware('screen.permission:meeting_outputs,approve')
         ->post('meetings/{meeting}/outputs/{agendaItem}/execute', [MeetingOutputsController::class, 'execute']);
 
     /*

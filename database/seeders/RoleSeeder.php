@@ -7,8 +7,9 @@ use Illuminate\Database\Seeder;
 
 /**
  * Seeds the system roles, R01 onward. The first eight come from the Role
- * Matrix sheet; R09/R10 were added by the diagram-alignment redesign and R11
- * by Stage 68 — so treat the array below as the count, not this sentence.
+ * Matrix sheet; R09/R10 were added by the diagram-alignment redesign, R11 by
+ * Stage 68, and R12 by Stage 87 — so treat the array below as the count, not
+ * this sentence.
  *
  * These roles are reference data fixed by the municipality's approval
  * structure, not user-editable content — but "fixed" means an administrator
@@ -40,6 +41,15 @@ class RoleSeeder extends Seeder
             // Appendix 45 both list the legal officer as a system ROLE with
             // its own permissions, which is what was missing.
             ['code' => 'R11', 'name_ar' => 'العضو القانوني', 'name_en' => 'Legal Officer', 'description' => 'يراجع السند القانوني والاختصاص وسلامة المستندات قبل عرض الملف على اللجنة'],
+            // Stage 87 (Track M) — [F] names إدارة الموارد البشرية twice: as
+            // the route_to_hr destination, and as co-owner of the study at
+            // `observations`. Neither previously belonged to a distinct role
+            // — the routing destination sat with R05 (مدير إدارة الشؤون
+            // الإدارية, a different administrative duty), and the study had
+            // no HR party at all. R12 takes over the first outright and gains
+            // a bounded, non-controlling share of the second (see
+            // RequestVisibility). See AGENT_NOTES.md for the decision.
+            ['code' => 'R12', 'name_ar' => 'مدير إدارة الموارد البشرية', 'name_en' => 'HR Manager', 'description' => 'يستلم الطلبات المحالة لإدارة الموارد البشرية ويشارك في دراسة الطلب قبل عرضه على اللجنة'],
         ];
 
         foreach ($roles as $role) {

@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\User;
+use App\Models\WorkflowStage;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -79,13 +80,40 @@ class RequestVisibility
         // who holds no workflow_transitions row at either approval checkpoint —
         // so the recorder would 404 on the very file they are meant to record a
         // return from the approving body against.
-        $isCloser = $actor->hasScreenPermission('meeting_outputs', 'can_edit');
+        //
+        // Stage 92 added `can_approve` alongside `can_edit`: R12 (HR, [F] step
+        // 10's usual executing body) holds only the new execute/close tier, not
+        // the rapporteur/chair `edit` actions, but needs the exact same reach to
+        // find and open a file before it can act on it — there is no query for
+        // "requests I am the executing body of" until execution is actually
+        // recorded. Not a new disclosure: `reports`/`registers` are both
+        // `view => '*'`, so R12 already sees this population there; this only
+        // lets the direct workspace and AttachmentController::store() (which R12
+        // needs for Appendix 70's evidence, per Stage 76) agree with what those
+        // screens already show.
+        $isCloser = $actor->hasScreenPermission('meeting_outputs', 'can_edit')
+            || $actor->hasScreenPermission('meeting_outputs', 'can_approve');
+        // Stage 87 — [F] names إدارة الموارد البشرية as co-owner of the study
+        // at `observations`, but R12 holds no outbound workflow_transitions
+        // row there at all: `forward` out of that stage is R09's and
+        // `request_edit`/`cancel` are R02's (Stage 86's own settled rule —
+        // "the asymmetry is the one rule read consistently"). Giving R12 a
+        // row of its own would either duplicate that ownership or contradict
+        // it, so this is the same bounded, non-controlling reach the R11 and
+        // SAL clauses already use for a party consulted on a stage without
+        // moving it.
+        $observationsStageId = WorkflowStage::query()->where('code', 'observations')->value('id');
+        $isHrStudyCoOwner = $observationsStageId !== null && $actor->roles()->where('code', 'R12')->exists();
 
-        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser) {
+        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser, $isHrStudyCoOwner, $observationsStageId) {
             $visible->where('requests.created_by_user_id', $actor->id);
 
             if ($isSalariesReviewer) {
                 $visible->orWhere('requests.has_financial_impact', true);
+            }
+
+            if ($isHrStudyCoOwner) {
+                $visible->orWhere('requests.current_stage_id', $observationsStageId);
             }
 
             if ($isLegalReviewer) {

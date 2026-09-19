@@ -297,8 +297,13 @@ class RequestExecutionTest extends TestCase
             ->assertCreated();
     }
 
-    /** The outputs screen's own two write tiers, unchanged by this stage. */
-    public function test_only_the_outputs_edit_grant_may_prove_execution(): void
+    /**
+     * Stage 92 split execution off `meeting_outputs,edit` onto its own
+     * `approve` tier, since [F] step 10's "who executed" question is distinct
+     * from this screen's other rapporteur/chair actions. R02/R03 keep it;
+     * R12 (HR Manager, the executing body [D] names most often) joins them.
+     */
+    public function test_only_the_outputs_approve_grant_may_prove_execution(): void
     {
         [, $meeting, $agendaItem, $requestRecord] = $this->executableOutput();
         $member = $this->userWithRole('R04');
@@ -312,6 +317,44 @@ class RequestExecutionTest extends TestCase
         $this->actingAs($this->userWithRole('R02'), 'sanctum')
             ->postJson($this->executeUrl($meeting, $agendaItem), $this->executionPayload($requestRecord))
             ->assertOk();
+    }
+
+    /**
+     * The party Stage 92 actually adds: HR can now record its own execution
+     * of a file it did not create, rather than only having R02/R03 record it
+     * on HR's behalf.
+     */
+    public function test_hr_can_prove_execution_of_a_request_it_did_not_create(): void
+    {
+        [, $meeting, $agendaItem, $requestRecord] = $this->executableOutput();
+
+        $this->actingAs($this->userWithRole('R12'), 'sanctum')
+            ->postJson($this->executeUrl($meeting, $agendaItem), $this->executionPayload($requestRecord, [
+                'executing_body' => 'إدارة الموارد البشرية',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.outputs.0.execution.executing_body', 'إدارة الموارد البشرية');
+    }
+
+    /**
+     * The load-bearing half of the fix: R12 must actually be able to open the
+     * file before it can attach Appendix 70's evidence or read what it is
+     * executing — AttachmentController::store() runs through this exact same
+     * RequestVisibility gate (Stage 76), so without this R12 would 404 doing
+     * the very thing execute() now lets it do. Bounded, not general: a role
+     * with no reach here still 404s.
+     */
+    public function test_hr_can_open_a_request_it_did_not_create_that_is_in_execution(): void
+    {
+        [, , , $requestRecord] = $this->executableOutput();
+
+        $this->actingAs($this->userWithRole('R12'), 'sanctum')
+            ->getJson("/api/requests/{$requestRecord->id}")
+            ->assertOk();
+
+        $this->actingAs($this->userWithRole('R04'), 'sanctum')
+            ->getJson("/api/requests/{$requestRecord->id}")
+            ->assertNotFound();
     }
 
     private function executeUrl(Meeting $meeting, MeetingRequest $agendaItem): string

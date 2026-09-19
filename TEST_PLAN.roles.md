@@ -12,11 +12,11 @@ the system must refuse them.
 > redesign (12 stages, not 14), roles R09–R11, and everything in Tracks J and K. Where the two
 > disagree, **this file is current**.
 
-**Why by role.** The permission matrix is 34 screens × 11 roles, and the approval chain is
+**Why by role.** The permission matrix is 35 screens × 12 roles, and the approval chain is
 single-role by design — each approval screen names exactly one role. Clicking through as the
-System Admin proves almost nothing, because R08 holds all seven actions on all 34 screens and so
+System Admin proves almost nothing, because R08 holds all seven actions on all 35 screens and so
 sees every approval queue at once, which is the exact opposite of what the matrix encodes. The
-lifecycle also cannot be walked by one person: reaching `مكتمل ومغلق` needs at least nine
+lifecycle also cannot be walked by one person: reaching `مكتمل ومغلق` needs at least ten
 different people acting in order. This plan makes each of them do their part.
 
 **Where the expected behaviour comes from.** The process standard is the pair of documents indexed
@@ -25,7 +25,7 @@ plus 78 appendices, cited below as **[D]**) and its companion 21-stage detailed 
 Article and appendix citations in the expected-result lines point there.
 
 **How to use it.** Work a role section top to bottom. Every step has a checkbox and an explicit
-expected result. Record failures in §14 rather than fixing them mid-pass — a half-fixed system
+expected result. Record failures in §15 rather than fixing them mid-pass — a half-fixed system
 invalidates every step after it. §1 is the relay that produces the data the other sections need,
 so run it first.
 
@@ -40,7 +40,7 @@ so run it first.
 composer install
 php artisan migrate                          # must report nothing pending
 php artisan db:seed                          # roles, departments, stages, transitions, screens, matrix
-php artisan db:seed --class=TestUserSeeder   # the 15 accounts in 0.2
+php artisan db:seed --class=TestUserSeeder   # the 16 accounts in 0.2
 
 # Serve
 composer dev                                 # or php artisan serve / Homestead at http://abusaleem.test
@@ -59,10 +59,10 @@ npm run dev                                  # Vite at http://localhost:5173
       common false failure in a manual pass.
 
 `TestUserSeeder` is deliberately **not** called from `DatabaseSeeder`: a production seed must not
-mint fifteen known-password logins. It is idempotent, and re-running it **resets** any role you
+mint sixteen known-password logins. It is idempotent, and re-running it **resets** any role you
 changed by hand.
 
-### 0.2 The 15 test accounts
+### 0.2 The 16 test accounts
 
 Password for all of them: `password`. All have a phone set (needed for the SMS-channel check; the
 phone **cannot** be set from the Users screen, only by this seeder).
@@ -78,7 +78,7 @@ list — served by `GET /api/dev/test-users`, which 404s in every other environm
 | 4 | `r04.member1@abusaleem.test` | R04 Committee Member | CMT | Voter |
 | 5 | `r04.member2@abusaleem.test` | R04 Committee Member | CMT | Voter |
 | 6 | `r04.member3@abusaleem.test` | R04 Committee Member | CMT | Voter — **the third seat is what makes a 2-1 plurality reachable**; a tie is refused outright |
-| 7 | `r05.manager@abusaleem.test` | R05 Admin Manager | ADM | HR-route registration, stage 8, stage 10 |
+| 7 | `r05.manager@abusaleem.test` | R05 Admin Manager | ADM | Stage 10 approval only — Stage 87 moved the HR-route registration and the stage-8 committee handover off this role, onto R12 and R09 respectively |
 | 8 | `r06.ministry@abusaleem.test` | R06 Ministry | ABS | Stage 11; holds `export` on reports, registers and the audit log |
 | 9 | `r07.director@abusaleem.test` | R07 Director / Dean | ABS | Stage 12; **no intake access at all** |
 | 10 | `r08.sysadmin@abusaleem.test` | R08 System Admin | ADM | Administration; keeps `admin@abusaleem.test` free as a spare |
@@ -87,6 +87,7 @@ list — served by `GET /api/dev/test-users`, which 404s in every other environm
 | 13 | `r09.secretary@abusaleem.test` | R09 Committee Secretary | CMT | Registration on the committee-secretary route; agenda preparation |
 | 14 | `r10.diwan@abusaleem.test` | R10 Diwan Deputy | ABS | Registration on the Diwan route |
 | 15 | `r11.legal@abusaleem.test` | R11 Legal Officer | CMT | The only role that may record [D] Art. 21's pre-meeting legal review |
+| 16 | `r12.hr@abusaleem.test` | R12 HR Manager | HR | Registration on the HR route (replaces r05.manager@ there); a bounded, non-controlling reach into stage 7 (`observations`) |
 
 > **The manager link matters.** `r01.employee@`'s `manager_id` points at `r02.reviewer@`. Stage 2
 > (`مراجعة الطلب من المدير المباشر`) and stage 3 (routing) are gated on *"the actor is this
@@ -118,7 +119,7 @@ with R04's bearer token returns 403 or 422"*. Wherever a step says **refused**, 
 
 ### 0.5 How to read a role section
 
-Each of §2–§12 has the same four parts:
+Each of §2–§13 has the same four parts:
 
 - **Identity** — who this role is in [D], and the one line that defines their authority.
 - **A. What they must see** — sidebar contents and screen counts.
@@ -128,7 +129,7 @@ Each of §2–§12 has the same four parts:
 
 ---
 
-## 1. The relay — one request, nine people
+## 1. The relay — one request, ten people
 
 Run this first. It produces the request every later section needs, and it is the only way to see
 that the hand-offs work. Do not shortcut a row by acting as R08: the whole point is that no single
@@ -142,11 +143,11 @@ when it appears at step 5 — later sections call it **REQ-A**.
 | 1 | R01 employee | استلام الطلب (`/requests/create`) | Fill and submit | Stage 2 `مراجعة الطلب من المدير المباشر`, status `قيد المراجعة` |
 | 2 | R02 **as manager** | Request detail | `forward` | Stage 3 `إحالة الطلب لأحد المسارات الإدارية` |
 | 3 | R02 **as manager** | Request detail | `route_to_hr` | Stage 4 `الاستلام والتسجيل`, status `موجّه إلى الموارد البشرية` |
-| 4 | R05 manager | Request detail | `register` | Stage 5 `فحص استيفاء المتطلبات`, status `تم التسجيل` — **the قيد: `PM-COM/YYYY/NNNN` is granted here and the submitter is notified** |
+| 4 | R12 HR manager | Request detail | `register` | Stage 5 `فحص استيفاء المتطلبات`, status `تم التسجيل` — **the قيد: `PM-COM/YYYY/NNNN` is granted here and the submitter is notified** |
 | 5 | R02 reviewer | Request detail | Record the jurisdiction test **and** the intake gate, then `approve` with a signature | Stage 6 `مراجعة المقرر`, status `تم التسجيل` — **the reference number does not change here** |
 | 6 | R02 reviewer | Request detail | `forward` | Stage 7 `إبداء الملاحظات` |
 | 7 | R02 reviewer | Request detail | `forward` | Stage 8 `تحويل الطلب للجنة`, status `جاهزة` |
-| 8 | R05 manager | Request detail | `forward` | Stage 9 `استلام الطلب من اللجنة`, status `في الاجتماع` |
+| 8 | R09 secretary | Request detail | `forward` | Stage 9 `استلام الطلب من اللجنة`, status `في الاجتماع` |
 | 9 | R02 or R09 | المراجعة القانونية | Send the file to legal review | Status `تحت المراجعة القانونية` |
 | 10 | **R11 legal** | المراجعة القانونية | Record the review, verdict `سليم قانونيًا وجاهز للعرض` | Status `جاهزة` |
 | 11 | R03 or R09 | الطلبات المرشحة | Nominate | Status `مرشح للجنة` |
@@ -165,7 +166,7 @@ when it appears at step 5 — later sections call it **REQ-A**.
 
 - [ ] The relay completes and REQ-A reaches `مكتمل ومغلق`.
 - [ ] **No step was performed by R08.** If you had to fall back to the admin to get past a step,
-      that step is a defect — log it in §14 naming the role that should have been able to act.
+      that step is a defect — log it in §15 naming the role that should have been able to act.
 - [ ] R01 received in-app notifications at several of these points, but not all 23: [D] Art. 101
       names twelve notifying moments, and the purely internal steps are deliberately silent.
 
@@ -186,7 +187,7 @@ Sign in as `r01.employee@abusaleem.test`.
 
 ### A. What they must see
 
-- [ ] **19 sidebar entries** (21 screens from `GET /api/screens`; `تفاصيل الطلب` and
+- [ ] **20 sidebar entries** (22 screens from `GET /api/screens`; `تفاصيل الطلب` and
       `الملاحظات والمرفقات` are returned but hidden from the menu because they need a request id).
 - [ ] **No approval screen at all.**
 - [ ] No `المستخدمون`, `الإدارات والأقسام`, `الأدوار والصلاحيات`, `الإعدادات العامة`,
@@ -316,7 +317,7 @@ Sign in as `r02.reviewer@abusaleem.test`.
 
 ### A. What they must see
 
-- [ ] **20 sidebar entries** (22 screens from the API).
+- [ ] **21 sidebar entries** (23 screens from the API).
 - [ ] Exactly one approval screen: `اعتماد المقرر`. No other approval queue is visible, and
       `GET /api/approvals/ministry` → **403**.
 - [ ] `المراجعة القانونية` is visible (they dispatch to it) but recording a review is refused —
@@ -500,7 +501,7 @@ Sign in as `r03.head@abusaleem.test`.
 
 ### A. What they must see
 
-- [ ] **20 sidebar entries** (22 screens), including the whole `إدارة الاجتماعات` group.
+- [ ] **21 sidebar entries** (23 screens), including the whole `إدارة الاجتماعات` group.
 - [ ] Exactly one approval screen: `اعتماد رئيس اللجنة`.
 
 ### B. What they must be able to do
@@ -629,7 +630,7 @@ Sign in as `r04.member1@abusaleem.test`.
 
 ### A. What they must see
 
-- [ ] **19 sidebar entries** (21 screens) — the meetings group is fully visible.
+- [ ] **20 sidebar entries** (22 screens) — the meetings group is fully visible.
 - [ ] **No approval screen.**
 
 ### B. What they must be able to do
@@ -688,23 +689,23 @@ These are the segregation-of-duties checks; do both halves of each.
 
 ## 6. R05 — مدير إدارة الشؤون الإدارية / Admin Manager
 
-**Identity.** [D] Art. 12 (ب)'s إدارة الموارد البشرية. R05 appears three times in one file's life —
-registering it on the HR route, handing it to the committee, and approving it at the municipality
-level — which is why they are the easiest role to mix up with the reviewer. They are not the same
-person and hold no notes/attachments write beyond adding.
+**Identity.** The administrative-authority approver at stage 10 (`اعتماد (حسب الصلاحيات)`), and
+**only** that, since Stage 87. Before it, R05 also registered the HR route (stage 4) and handed the
+file to the committee (stage 8) — both moved off this role: stage 8 to R09 (أمين سر اللجنة) at
+Stage 86, and stage 4 to R12 (مدير إدارة الموارد البشرية) at Stage 87, once [F]'s own إدارة الموارد
+البشرية mentions were traced to a role of that name rather than left conflated with this one. If a
+build older than Stage 87 is under test, R05 will still hold the stage-4 registration — check
+`WorkflowTransitionSeeder` before assuming this section describes the running database.
 
 Sign in as `r05.manager@abusaleem.test`.
 
 ### A. What they must see
 
-- [ ] **20 sidebar entries** (22 screens).
+- [ ] **21 sidebar entries** (23 screens).
 - [ ] Exactly one approval screen: `اعتماد مدير الإدارة`.
 
 ### B. What they must be able to do
 
-- [ ] **Register an HR-routed file** (stage 4): the file arrives with status
-      `موجّه إلى الموارد البشرية`; `register` moves it to stage 5.
-- [ ] **Stage 8** `تحويل الطلب للجنة`: `forward` → stage 9, status `في الاجتماع`.
 - [ ] **Stage 10** `اعتماد (حسب الصلاحيات)`: `approve` **with a signature** from the
       `اعتماد مدير الإدارة` queue → stage 11, status `بانتظار الاعتماد المركزي`.
 - [ ] The same approval also works from the request-detail screen, and the two paths agree — both
@@ -712,15 +713,16 @@ Sign in as `r05.manager@abusaleem.test`.
 - [ ] **The ministry-bypass branch:** on a request whose `decision_grade` is below its type's
       threshold, the same `approve` lands directly on stage 12 with status `معتمدة نهائياً`,
       skipping R06 entirely.
-- [ ] `cancel` (reason required) at stages 4, 8 and 10.
+- [ ] `cancel` (reason required) at stage 10 only.
 - [ ] File a request on someone's behalf — R05 holds `request_intake` view/add.
 
 ### C. What they must be refused
 
-- [ ] **Register a file routed to the Diwan or to the committee secretary** → refused. The
-      registration rule is gated on the role **and** the routing status, so the wrong registrar
-      cannot take a file that was not routed to them. This is the check that makes the three-way
-      routing mean something.
+- [ ] **Register a file routed to HR, the Diwan, or the committee secretary** → refused for all
+      three. R05 holds no `register` row at `receive_and_register` any more — confirm this lands as
+      a **404** opening the file, not merely a 422 on the transition, since R05 has lost visibility
+      into that stage along with the role, the same way R05 lost `forward_to_committee` at Stage 86.
+- [ ] **`forward` a request out of stage 8** (`تحويل الطلب للجنة`) → refused; that hop is R09's.
 - [ ] Any approval queue other than `اعتماد مدير الإدارة` → **403**.
 - [ ] **Record the jurisdiction test, the intake gate, or correct the financial-impact flag** →
       **403**. All three ride `notes_attachments,edit`, which is R01 + R02 only; R05 holds `add`.
@@ -744,7 +746,7 @@ Sign in as `r06.ministry@abusaleem.test`.
 
 ### A. What they must see
 
-- [ ] **20 sidebar entries** (22 screens).
+- [ ] **21 sidebar entries** (23 screens).
 - [ ] Exactly one approval screen: `اعتماد وزارة الحكم المحلي`.
 
 ### B. What they must be able to do
@@ -831,7 +833,7 @@ Sign in as `r07.director@abusaleem.test`.
 
 ## 9. R08 — مدير النظام / System Admin
 
-**Identity.** The only role that holds all seven actions on all 34 screens. R08 is a **support**
+**Identity.** The only role that holds all seven actions on all 35 screens. R08 is a **support**
 role: use it to configure the system and to unblock, not to walk the process. Most of this section
 is about the administration screens nobody else can reach.
 
@@ -839,7 +841,7 @@ Sign in as `r08.sysadmin@abusaleem.test` (leave `admin@abusaleem.test` untouched
 
 ### A. What they must see
 
-- [ ] **32 sidebar entries** (34 screens) — including all five approval queues, which is exactly
+- [ ] **33 sidebar entries** (35 screens) — including all five approval queues, which is exactly
       why R08 is useless for testing segregation of duties.
 
 ### B. What they must be able to do
@@ -867,7 +869,7 @@ Sign in as `r08.sysadmin@abusaleem.test` (leave `admin@abusaleem.test` untouched
 
 **B3 — Roles and permissions.**
 
-- [ ] The matrix grid shows 34 screens × 11 roles × 7 actions.
+- [ ] The matrix grid shows 35 screens × 12 roles × 7 actions.
 - [ ] Revoke `اعتماد` from R02 on `اعتماد المقرر`, then sign in as R02: the queue is gone from the
       sidebar **and** `POST /api/approvals/reviewer/{id}` returns 403. Restore it afterwards.
 - [ ] Grant R04 `meeting_agenda,edit`, confirm R04 can now add an agenda item, then revoke it and
@@ -1078,12 +1080,63 @@ Sign in as `r11.legal@abusaleem.test`.
 
 ---
 
-## 13. Cross-role checks
+## 13. R12 — مدير إدارة الموارد البشرية / HR Manager
+
+**Identity.** [F] names إدارة الموارد البشرية twice — the `route_to_hr` registration destination,
+and co-owner of the study at stage 7 (`observations`) — and neither belonged to a role of that name
+until Stage 87: the registration destination sat with R05 (مدير إدارة الشؤون الإدارية, a different
+administrative role), and the study had no HR party at all. R12 is that missing seat, and its reach
+into `observations` is deliberately narrow: read the file and add a note, never move it. `forward`
+out of that stage is still R09's and `request_edit`/`cancel` are still R02's — Stage 86's own settled
+rule for who moves the stage.
+
+Sign in as `r12.hr@abusaleem.test`.
+
+### A. What they must see
+
+- [ ] **18 sidebar entries** (20 screens) — the same footprint as R09/R10.
+- [ ] **No approval screen**, **no `إرسال الطلب`**.
+
+### B. What they must be able to do
+
+- [ ] **Register an HR-routed file** (stage 4, status `موجّه إلى الموارد البشرية`) → stage 5, and
+      this is what mints the request's رقم إشاري (see Appendix D) — it replaces r05.manager@ here.
+- [ ] `cancel` at stage 4 with a reason.
+- [ ] **Open a request sitting at stage 7 (`observations`)** that they did not create and hold no
+      registration role on — the one reach R09/R10 do not have.
+- [ ] **Add a note** on that same request (`notes_attachments,add`).
+- [ ] Read the request list, the registers, the reports and the audit log.
+- [ ] **Execute a request they did not create**, naming إدارة الموارد البشرية as the executing body
+      ([D] Appendix 70 — Stage 92: [F] step 10's "who executed" question, now on its own
+      `meeting_outputs,approve` tier alongside R02/R03, not the `edit` tier those two hold). **Close**
+      the same request afterward. This is the check that the acting grant now matches the party the
+      execution record names, when HR itself is that party.
+
+### C. What they must be refused
+
+- [ ] **Register a file routed to the Diwan or to the committee secretary** → refused. Run this
+      explicitly: it is the clearest proof the routing choice is enforced and not decorative.
+- [ ] **`forward`, `request_edit`, or `cancel` a request at `observations`** → refused for all
+      three. Co-ownership of the study is read-and-contribute, never stage control.
+- [ ] **Open a request at any stage other than `observations`** that they are not the registrar or
+      creator for → **404**. This is the check that the reach is bounded to one stage, not "anywhere
+      past intake".
+- [ ] File a request → **403**.
+- [ ] Any committee action — nominate, agenda, vote, decide, minutes → **403**.
+- [ ] **Record an approval return, a suspension, or the Art. 103 execution-soundness checklist** →
+      **403**. These stay `meeting_outputs,edit`, which R12 does not hold — only `execute`/`close`
+      moved onto the new `approve` tier R12 shares with R02/R03.
+- [ ] Every approval queue and every administration screen → **403**.
+- [ ] Export anything → **403**.
+
+---
+
+## 14. Cross-role checks
 
 These do not belong to any one role, and each one has broken at least once in this system's
 history. Run them after the role sections.
 
-### 13.1 Multiple roles are a union, never an intersection
+### 14.1 Multiple roles are a union, never an intersection
 
 Sign in as `multi.role@abusaleem.test` (R03 **+** R04).
 
@@ -1093,7 +1146,7 @@ Sign in as `multi.role@abusaleem.test` (R03 **+** R04).
       (`decisions,approve`, R03 only). If recording is refused, permissions have regressed to an
       intersection.
 
-### 13.2 An inactive user is refused twice
+### 14.2 An inactive user is refused twice
 
 Sign in attempt as `inactive.user@abusaleem.test`.
 
@@ -1102,26 +1155,26 @@ Sign in attempt as `inactive.user@abusaleem.test`.
       workflow transition → refused by `WorkflowService`, which re-checks the actor's active status
       independently of the login gate.
 
-### 13.3 Nobody approves their own work
+### 14.3 Nobody approves their own work
 
 - [ ] For each of R02, R03, R05, R06, R07 and **R08**: create a request as that account, walk it to
       the checkpoint that account owns, and confirm the approval is refused. Check both entry points
       (the approval queue and the request detail screen).
 
-### 13.4 Login throttle
+### 14.4 Login throttle
 
 - [ ] `POST /api/auth/login` is rate-limited at **six attempts per minute**. Signing in as seven
       accounts in quick succession — which the one-click test-user picker makes easy — returns 429
       on the seventh. Confirm the UI reports it as rate limiting and not as a wrong password.
 
-### 13.5 Visibility is a 404, not an empty list
+### 14.5 Visibility is a 404, not an empty list
 
 - [ ] As any role, open a request id you have no relationship to → **404**.
 - [ ] The exceptions, each of which must work: R11 on a file in legal review; R02/R03 on a file in
       the approval, execution or closable states; a user in the **Salaries** department (`SAL`) on
       any request flagged with a financial impact; and every user on requests they created.
 
-### 13.6 Notifications
+### 14.6 Notifications
 
 - [ ] The bell badge count matches the unread list, and marking all read clears it.
 - [ ] Each of the [D] Art. 101 moments fires once and only once for the right person.
@@ -1132,7 +1185,7 @@ Sign in attempt as `inactive.user@abusaleem.test`.
       `تأخير حرج` R03 + R07 ([D] Appendix 38). The same rung is never announced twice for the same
       file, but a worsening delay climbs.
 
-### 13.7 Language, direction, theme and print
+### 14.7 Language, direction, theme and print
 
 - [ ] Switch to English and back. Every screen's labels change; nothing renders as a raw key like
       `meetingsUnit.minutes.title`.
@@ -1144,7 +1197,7 @@ Sign in attempt as `inactive.user@abusaleem.test`.
 - [ ] Print a decisions register and a guide article from dark mode — the print output must be ink
       on white, not light grey on an unrendered background.
 
-### 13.8 Audit trail
+### 14.8 Audit trail
 
 - [ ] Every action in §1's relay is attributable in `سجل التدقيق` to the account that performed it,
       with a timestamp and an old/new diff.
@@ -1152,7 +1205,7 @@ Sign in attempt as `inactive.user@abusaleem.test`.
 
 ---
 
-## 14. Defect log and sign-off
+## 15. Defect log and sign-off
 
 Record every failure here as you hit it. Do not fix mid-pass.
 
@@ -1184,8 +1237,9 @@ convenience.
 | R09 Committee Secretary | | | ☐ pass ☐ fail | |
 | R10 Diwan Deputy | | | ☐ pass ☐ fail | |
 | R11 Legal Officer | | | ☐ pass ☐ fail | |
+| R12 HR Manager | | | ☐ pass ☐ fail | |
 | §1 relay | | | ☐ pass ☐ fail | |
-| §13 cross-role | | | ☐ pass ☐ fail | |
+| §14 cross-role | | | ☐ pass ☐ fail | |
 
 ---
 
@@ -1193,64 +1247,69 @@ convenience.
 
 Generated from `ScreenSeeder` and `ScreenRolePermissionSeeder`. This is the **starting** matrix;
 R08 can change any cell from the Roles & Permissions screen, so re-derive it after any change.
+Re-derived in full for Stage 87 (not just an appended column) — the previous version had already
+drifted, missing `request_tracking` (Stage 89) entirely; regenerating from the live seeders is what
+caught it, which is the reason the file's own instruction is to re-derive rather than hand-edit.
 
 Letters: `v` view · `a` add · `e` edit · `d` delete · `A` approve · `p` print · `x` export ·
 `·` no access at all.
 
-| Screen | R01 | R02 | R03 | R04 | R05 | R06 | R07 | R08 | R09 | R10 | R11 |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| `dashboard` — لوحة التحكم الرئيسية | vp | vp | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp |
-| `requests` — الطلبات | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp |
-| `request_intake` — استلام الطلب | vae | vae | va | va | vae | va | · | vaedApx | · | · | · |
-| `request_details` — تفاصيل الطلب | vpx | vpx | vpx | vpx | vpx | vpx | vpx | vaedApx | vpx | vpx | vpx |
-| `notes_attachments` — الملاحظات والمرفقات | va | vae | va | va | va | v | v | vaedApx | v | v | v |
-| `appeals` — التظلمات | vap | vep | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp |
-| `meetings_dashboard` — لوحة قيادة الاجتماعات | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vaep | vp | vp |
-| `committee_candidates` — الطلبات المرشحة | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vaep | vp | vp |
-| `legal_review` — المراجعة القانونية | vp | vep | vp | vp | vp | vp | vp | vaedApx | vep | vp | vap |
-| `meetings` — الاجتماعات | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp |
-| `meeting_agenda` — جدول الأعمال | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vaep | vp | vp |
-| `meeting_readiness` — جاهزية الاجتماع | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp |
-| `meeting_live` — مباشرة الاجتماع | vp | vap | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp |
-| `decisions` — القرارات والتوصيات | vp | vAp | vaAp | vap | vp | vpx | vpx | vaedApx | vp | vp | vp |
-| `meeting_minutes` — المحاضر | vp | vap | vaeAp | vap | vp | vp | vp | vaedApx | vp | vp | vp |
-| `meeting_outputs` — المخرجات | vp | vep | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp |
-| `reviewer_approval` — اعتماد المقرر | · | vA | · | · | · | · | · | vaedApx | · | · | · |
-| `committee_head_approval` — اعتماد رئيس اللجنة | · | · | vA | · | · | · | · | vaedApx | · | · | · |
-| `admin_manager_approval` — اعتماد مدير الإدارة | · | · | · | · | vA | · | · | vaedApx | · | · | · |
-| `ministry_approval` — اعتماد وزارة الحكم المحلي | · | · | · | · | · | vA | · | vaedApx | · | · | · |
-| `final_approval` — الاعتماد النهائي والأرشفة | · | · | · | · | · | · | vA | vaedApx | · | · | · |
-| `users` — المستخدمون | · | · | · | · | · | · | · | vaedApx | · | · | · |
-| `departments` — الإدارات والأقسام | · | · | · | · | · | · | · | vaedApx | · | · | · |
-| `request_types` — أنواع الطلبات | · | · | · | · | · | · | · | vaedApx | · | · | · |
-| `roles_permissions` — الأدوار والصلاحيات | · | · | · | · | · | · | · | vaedApx | · | · | · |
-| `settings` — الإعدادات العامة | · | · | · | · | · | · | · | vaedApx | · | · | · |
-| `reports` — التقارير والإحصائيات | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp |
-| `registers` — السجلات الرسمية | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp |
-| `audit_log` — سجل التدقيق | v | v | v | v | v | vx | vx | vaedApx | v | v | v |
-| `notifications` — الإشعارات | ve | ve | ve | ve | ve | ve | ve | vaedApx | ve | ve | ve |
-| `templates` — القوالب والنماذج | · | · | · | · | · | · | · | vaedApx | · | · | · |
-| `backup` — النسخ الاحتياطي | · | · | · | · | · | · | · | vaedApx | · | · | · |
-| `maintenance` — الصيانة والنشر | · | · | · | · | · | · | · | vaedApx | · | · | · |
-| `user_guide` — دليل الاستخدام | vp | vp | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp |
+| Screen | R01 | R02 | R03 | R04 | R05 | R06 | R07 | R08 | R09 | R10 | R11 | R12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `dashboard` — لوحة التحكم الرئيسية | vp | vp | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `requests` — الطلبات | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp | vp |
+| `request_intake` — إرسال الطلب | vae | vae | va | va | vae | va | · | vaedApx | · | · | · | · |
+| `request_details` — تفاصيل الطلب | vpx | vpx | vpx | vpx | vpx | vpx | vpx | vaedApx | vpx | vpx | vpx | vpx |
+| `notes_attachments` — الملاحظات والمرفقات | va | vae | va | va | va | v | v | vaedApx | v | v | v | va |
+| `request_tracking` — متابعة طلباتي | vp | vp | vp | vp | vp | vp | · | vaedApx | · | · | · | · |
+| `appeals` — التظلمات | vap | vep | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `meetings_dashboard` — لوحة قيادة الاجتماعات | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vaep | vp | vp | vp |
+| `committee_candidates` — الطلبات المرشحة | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vaep | vp | vp | vp |
+| `legal_review` — المراجعة القانونية | vp | vep | vp | vp | vp | vp | vp | vaedApx | vep | vp | vap | vp |
+| `meetings` — الاجتماعات | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `meeting_agenda` — جدول الأعمال | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vaep | vp | vp | vp |
+| `meeting_readiness` — جاهزية الاجتماع | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `meeting_live` — مباشرة الاجتماع | vp | vap | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `decisions` — القرارات والتوصيات | vp | vAp | vaAp | vap | vp | vpx | vpx | vaedApx | vp | vp | vp | vp |
+| `meeting_minutes` — المحاضر | vp | vap | vaeAp | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `meeting_outputs` — المخرجات | vp | veAp | vaeAp | vap | vp | vp | vp | vaedApx | vp | vp | vp | vAp |
+| `reviewer_approval` — اعتماد المقرر | · | vA | · | · | · | · | · | vaedApx | · | · | · | · |
+| `committee_head_approval` — اعتماد رئيس اللجنة | · | · | vA | · | · | · | · | vaedApx | · | · | · | · |
+| `admin_manager_approval` — اعتماد مدير الإدارة | · | · | · | · | vA | · | · | vaedApx | · | · | · | · |
+| `ministry_approval` — اعتماد وزارة الحكم المحلي | · | · | · | · | · | vA | · | vaedApx | · | · | · | · |
+| `final_approval` — الاعتماد النهائي والأرشفة | · | · | · | · | · | · | vA | vaedApx | · | · | · | · |
+| `users` — المستخدمون | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
+| `departments` — الإدارات والأقسام | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
+| `request_types` — أنواع الطلبات | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
+| `roles_permissions` — الأدوار والصلاحيات | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
+| `settings` — الإعدادات العامة | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
+| `reports` — التقارير والإحصائيات | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp | vp |
+| `registers` — السجلات الرسمية | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp | vp |
+| `audit_log` — سجل التدقيق | v | v | v | v | v | vx | vx | vaedApx | v | v | v | v |
+| `notifications` — الإشعارات | ve | ve | ve | ve | ve | ve | ve | vaedApx | ve | ve | ve | ve |
+| `templates` — القوالب والنماذج | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
+| `backup` — النسخ الاحتياطي | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
+| `maintenance` — الصيانة والنشر | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
+| `user_guide` — دليل الاستخدام | vp | vp | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 
 **Screen counts per role** (API total / sidebar total — `request_details` and `notes_attachments`
 are returned by the API but hidden from the menu because they need a request id):
 
 | Role | API | Sidebar | Approval screen |
 |---|---|---|---|
-| R01 Employee | 21 | 19 | — |
-| R02 Reviewer | 22 | 20 | `اعتماد المقرر` |
-| R03 Committee Head | 22 | 20 | `اعتماد رئيس اللجنة` |
-| R04 Committee Member | 21 | 19 | — |
-| R05 Admin Manager | 22 | 20 | `اعتماد مدير الإدارة` |
-| R06 Ministry | 22 | 20 | `اعتماد وزارة الحكم المحلي` |
+| R01 Employee | 22 | 20 | — |
+| R02 Reviewer | 23 | 21 | `اعتماد المقرر` |
+| R03 Committee Head | 23 | 21 | `اعتماد رئيس اللجنة` |
+| R04 Committee Member | 22 | 20 | — |
+| R05 Admin Manager | 23 | 21 | `اعتماد مدير الإدارة` |
+| R06 Ministry | 23 | 21 | `اعتماد وزارة الحكم المحلي` |
 | R07 Director | 21 | 19 | `الاعتماد النهائي والأرشفة` |
-| R08 System Admin | 34 | 32 | all five |
+| R08 System Admin | 35 | 33 | all five |
 | R09 Committee Secretary | 20 | 18 | — |
 | R10 Diwan Deputy | 20 | 18 | — |
 | R11 Legal Officer | 20 | 18 | — |
-| multi.role (R03+R04) | 22 | 20 | `اعتماد رئيس اللجنة` |
+| R12 HR Manager | 20 | 18 | — |
+| multi.role (R03+R04) | 23 | 21 | `اعتماد رئيس اللجنة` |
 
 ---
 
@@ -1266,11 +1325,11 @@ route", and neither is expressible as a single role.
 | 1 | `receive_from_municipality` | استلام الطلب من البلدية | R01 | — |
 | 2 | `direct_manager_review` | مراجعة الطلب من المدير المباشر | the submitter's manager | 1 |
 | 3 | `administrative_routing` | إحالة الطلب لأحد المسارات الإدارية | the submitter's manager | 2 |
-| 4 | `receive_and_register` | الاستلام والتسجيل | R05 / R09 / R10 by route | 3 |
+| 4 | `receive_and_register` | الاستلام والتسجيل | R12 / R09 / R10 by route | 3 |
 | 5 | `requirements_check` | فحص استيفاء المتطلبات | R02 | 2 |
 | 6 | `reviewer_review` | مراجعة المقرر وفق اللوائح | R02 | 3 |
-| 7 | `observations` | إبداء الملاحظات (إن وجدت) | R02 | 2 |
-| 8 | `forward_to_committee` | تحويل الطلب للجنة القائمة | R05 | — |
+| 7 | `observations` | إبداء الملاحظات (إن وجدت) | R02 (R12 co-owns, non-controlling) | 2 |
+| 8 | `forward_to_committee` | تحويل الطلب للجنة القائمة | R09 | — |
 | 9 | `receive_from_committee` | استلام الطلب من اللجنة | R09 (decisions: R03) | 3 |
 | 10 | `approval_by_authority` | اعتماد (حسب الصلاحيات) | R05 | 2 |
 | 11 | `local_governance_ministry` | وزارة الحكم المحلي | R06 | — |
