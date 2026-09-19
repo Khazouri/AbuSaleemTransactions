@@ -691,6 +691,12 @@ class PerformanceIndicatorTest extends TestCase
         ]);
         $user->roles()->attach(Role::query()->where('code', $roleCode)->value('id'));
 
+        // Membership gate — the meetings dashboard is one of the screens hidden
+        // from anyone with no committee seat, so an actor in this file holds
+        // one. It changes no indicator: the committee has no meetings.
+        Committee::firstOrCreate(['name_ar' => 'لجنة شؤون الموظفين'])
+            ->members()->firstOrCreate(['user_id' => $user->id]);
+
         return $user;
     }
 }

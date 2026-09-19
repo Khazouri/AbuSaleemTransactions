@@ -1341,13 +1341,11 @@ class RequestController extends Controller
         // Stage 57 — competent_authority no longer exists as an approval
         // checkpoint (see AGENT_NOTES.md); local_governance_ministry's
         // approve now hands straight to final_approval_archiving.
-        $screenByStage = [
-            'requirements_check' => 'reviewer_approval',
-            'receive_from_committee' => 'committee_head_approval',
-            'approval_by_authority' => 'admin_manager_approval',
-            'local_governance_ministry' => 'ministry_approval',
-            'final_approval_archiving' => 'final_approval',
-        ];
+        // One map, three readers — see ApprovalController::LEVELS. This used
+        // to be a second copy of the same stage-to-screen fact.
+        $screenByStage = collect(ApprovalController::LEVELS)
+            ->mapWithKeys(fn (array $level) => [$level['stage'] => $level['screen']])
+            ->all();
         $stageCode = $requestRecord->currentStage()->value('code');
         $screenCode = $screenByStage[$stageCode] ?? null;
 

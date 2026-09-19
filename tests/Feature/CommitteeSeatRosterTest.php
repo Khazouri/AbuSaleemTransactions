@@ -40,6 +40,13 @@ class CommitteeSeatRosterTest extends TestCase
         $legal = $this->userWithRole('R04');
         $unseated = $this->userWithRole('R04');
 
+        // Membership gate — editing a committee's roster needs a seat on it.
+        // Built directly here because Committee::create() above bypasses
+        // CommitteeController::store(), which is what seats a creator in
+        // production. The chair's first call below then PROMOTES this row to
+        // the chair seat rather than adding a second one for the same person.
+        CommitteeMember::create(['committee_id' => $committee->id, 'user_id' => $chair->id]);
+
         $this->actingAs($chair, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", [
                 'user_id' => $chair->id,

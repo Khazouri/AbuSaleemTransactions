@@ -49,6 +49,7 @@ class ScreenSeeder extends Seeder
             // tracking your own request is the counterpart of submitting it,
             // which is why it sits here rather than beside `requests` (the
             // internal work queue, whose framing is "work I can act on").
+            ['my_tasks',             'المهام المعلقة',           'Pending Tasks',            '/my-tasks',             'inbox',        null],
             ['request_tracking',     'متابعة طلباتي',           'My Requests',              '/my-requests',          'compass',      null],
             ['request_details',      'تفاصيل الطلب',            'Request Details',          '/requests/:id',         'file-text',    null],
             ['notes_attachments',        'الملاحظات والمرفقات',        'Notes & Attachments',          '/requests/:id/notes',   'paperclip',    null],
@@ -86,14 +87,26 @@ class ScreenSeeder extends Seeder
             ['meeting_outputs',          'المخرجات',                   'Outputs',                      '/meetings/outputs',         'bar-chart',    'meetings_management'],
 
             // --- The approval chain, one screen per authority ------------------
-            ['reviewer_approval',        'اعتماد المقرر',              'Reviewer Approval',            '/approvals/reviewer',       'user-check',   null],
-            ['committee_head_approval',  'اعتماد رئيس اللجنة',         'Committee Head Approval',      '/approvals/committee-head', 'award',        null],
-            ['admin_manager_approval',   'اعتماد مدير الإدارة',        'Admin Manager Approval',       '/approvals/admin-manager',  'briefcase',    null],
-            ['ministry_approval',        'اعتماد وزارة الحكم المحلي',   'Ministry Approval',            '/approvals/ministry',       'landmark',     null],
+            //
+            // Route deliberately NULL: the unified task inbox replaced these
+            // five queues, so they have no page of their own any more and the
+            // SPA's navItems filter (which requires a route) drops them from
+            // the sidebar. The ROWS and their grants stay, because they were
+            // never only menu entries: RequestController::actorCanApproveCurrentLevel()
+            // resolves each approval stage to one of these codes and checks
+            // `can_approve` on it, so deleting them would make that false for
+            // everyone and the approve button would vanish at every checkpoint,
+            // for every role. They are the per-checkpoint segregation of duties
+            // the whole approval chain rests on, and they stay editable on the
+            // Roles & Permissions grid.
+            ['reviewer_approval',        'اعتماد المقرر',              'Reviewer Approval',           null,       'user-check',   null],
+            ['committee_head_approval',  'اعتماد رئيس اللجنة',         'Committee Head Approval',     null, 'award',        null],
+            ['admin_manager_approval',   'اعتماد مدير الإدارة',        'Admin Manager Approval',      null,  'briefcase',    null],
+            ['ministry_approval',        'اعتماد وزارة الحكم المحلي',   'Ministry Approval',           null,       'landmark',     null],
             // Stage 57 removed `authority_approval` (competent_authority) —
             // no standard document names a fourth post-committee approving
             // party; see the explicit delete() call below.
-            ['final_approval',           'الاعتماد النهائي والأرشفة',   'Final Approval & Archiving',   '/approvals/final',          'archive',      null],
+            ['final_approval',           'الاعتماد النهائي والأرشفة',   'Final Approval & Archiving',  null,          'archive',      null],
 
             // --- Administration ------------------------------------------------
             ['users',                    'المستخدمون',                'Users',                        '/users',                    'user',         null],

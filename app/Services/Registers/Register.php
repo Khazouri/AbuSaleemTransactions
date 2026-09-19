@@ -2,6 +2,7 @@
 
 namespace App\Services\Registers;
 
+use App\Models\User;
 use App\Services\Reports\ReportDocument;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -73,9 +74,13 @@ abstract class Register
     }
 
     /** @return Builder<Model> */
-    public function query(array $filters): Builder
+    public function query(array $filters, ?User $actor = null): Builder
     {
         $query = $this->baseQuery();
+
+        if ($actor !== null && ! $this->isOversightReader($actor)) {
+            $query = $this->scopeToActor($query, $actor);
+        }
 
         if ($from = $filters['date_from'] ?? null) {
             $query->whereDate($this->dateColumn(), '>=', $from);
@@ -97,6 +102,38 @@ abstract class Register
         }
 
         return $this->applyOrdering($query);
+    }
+
+    /**
+     * Membership gate — narrow a register to the rows this actor may see.
+     *
+     * Unscoped by default, and overridden per register rather than centrally,
+     * because the twelve registers are rooted on eight different models: there
+     * is no single column to filter on, only a different join path to the same
+     * two existing rules (RequestVisibility for a file, MeetingVisibility for
+     * a sitting). Each override reuses one of those rather than restating it.
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return $query;
+    }
+
+    /**
+     * Whoever may EXPORT a register reads it whole.
+     *
+     * The carve-out is the point, not a loophole. Art. 98's registers are
+     * official records, and `export` is seeded to R06/R07 — the approving and
+     * oversight bodies, who hold almost no RequestVisibility reach of their
+     * own because they are assignment-visible only at their own approval
+     * stage. Scoping them would hand the ministry an official document that
+     * had silently dropped most of its rows, with nothing to indicate it.
+     */
+    protected function isOversightReader(User $actor): bool
+    {
+        return $actor->hasScreenPermission('registers', 'can_export');
     }
 
     /**

@@ -235,6 +235,10 @@ class CommitteeCandidatesDashboardTest extends TestCase
         $overdue->save();
 
         $committee = Committee::create(['name_ar' => 'لجنة اختبار']);
+        // Membership gate — the meeting-derived KPIs count the actor's own
+        // committees, so the chair sits on the one these sittings belong to.
+        $committee->members()->create(['user_id' => $head->id]);
+
         Meeting::create([
             'committee_id' => $committee->id,
             'title' => 'اجتماع قادم',
@@ -358,6 +362,13 @@ class CommitteeCandidatesDashboardTest extends TestCase
     {
         $user = User::factory()->create(['is_active' => true]);
         $user->roles()->attach(Role::where('code', $roleCode)->value('id'));
+
+        // Membership gate — every actor in this file does committee-side work
+        // (the candidates worklist, the meetings dashboard), so they hold a
+        // seat. The 403s this file asserts are about action tiers R04 never
+        // held, so they are unaffected by having one.
+        Committee::firstOrCreate(['name_ar' => 'لجنة شؤون الموظفين'])
+            ->members()->firstOrCreate(['user_id' => $user->id]);
 
         return $user;
     }

@@ -44,7 +44,7 @@ class RegisterTest extends TestCase
     /** Art. 98 names twelve, in order, and the catalogue is that list. */
     public function test_the_catalogue_lists_art_98s_twelve_registers_in_order(): void
     {
-        $response = $this->actingAs($this->userWithRole('R01'), 'sanctum')
+        $response = $this->actingAs($this->userWithRole('R06'), 'sanctum')
             ->getJson('/api/registers')
             ->assertOk();
 
@@ -68,7 +68,7 @@ class RegisterTest extends TestCase
     {
         $requestRecord = $this->fixtureRequest();
 
-        $this->actingAs($this->userWithRole('R01'), 'sanctum')
+        $this->actingAs($this->userWithRole('R06'), 'sanctum')
             ->getJson('/api/registers/incoming')
             ->assertOk()
             ->assertJsonPath('data.0.reference_number', $requestRecord->reference_number)
@@ -100,7 +100,7 @@ class RegisterTest extends TestCase
         // The file has since moved on — its current status is not a shortfall.
         $requestRecord->update(['status_id' => RequestStatus::where('code', 'registered')->value('id')]);
 
-        $this->actingAs($this->userWithRole('R01'), 'sanctum')
+        $this->actingAs($this->userWithRole('R06'), 'sanctum')
             ->getJson('/api/registers/incomplete')
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
@@ -148,7 +148,7 @@ class RegisterTest extends TestCase
             'closure' => ['final_result_code' => 'executed', 'approving_body' => 'عميد البلدية'],
         ]);
 
-        $response = $this->actingAs($this->userWithRole('R01'), 'sanctum')
+        $response = $this->actingAs($this->userWithRole('R06'), 'sanctum')
             ->getJson('/api/registers/decisions')
             ->assertOk()
             ->assertJsonPath('data.0.decision_number', 'PM-DEC/2026/001')
@@ -185,7 +185,7 @@ class RegisterTest extends TestCase
             'decided_at' => now()->subDays(3),
         ]);
 
-        $this->actingAs($this->userWithRole('R01'), 'sanctum')
+        $this->actingAs($this->userWithRole('R06'), 'sanctum')
             ->getJson('/api/registers/deferred')
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
@@ -232,7 +232,7 @@ class RegisterTest extends TestCase
             'final_request' => 'إعادة النظر في الترقية.',
         ]);
 
-        $reader = $this->userWithRole('R01');
+        $reader = $this->userWithRole('R06');
 
         // Populated by the fixture above.
         foreach (['incoming' => 1, 'meetings' => 1, 'agenda' => 1, 'minutes' => 1,
@@ -279,7 +279,7 @@ class RegisterTest extends TestCase
         $second = $this->fixtureRequest('طلب نقل');
         $second->update(['submitted_at' => now()->subYear()]);
 
-        $reader = $this->userWithRole('R01');
+        $reader = $this->userWithRole('R06');
 
         $this->actingAs($reader, 'sanctum')
             ->getJson('/api/registers/incoming?date_from='.now()->subMonth()->toDateString())
@@ -297,7 +297,7 @@ class RegisterTest extends TestCase
     /** A URL naming a register that does not exist is a 404, not an empty table. */
     public function test_an_unknown_register_is_not_found(): void
     {
-        $this->actingAs($this->userWithRole('R01'), 'sanctum')
+        $this->actingAs($this->userWithRole('R06'), 'sanctum')
             ->getJson('/api/registers/precedents')
             ->assertNotFound();
     }
@@ -324,6 +324,10 @@ class RegisterTest extends TestCase
     {
         $this->fixtureRequest();
 
+        // R01 deliberately: this test is about the `export` tier, and R01
+        // holds `registers,view` (seeded '*') without it. Their view is now
+        // narrowed to their own files — which is exactly what the scoping test
+        // below pins — so this only asserts the status codes.
         $this->actingAs($this->userWithRole('R01'), 'sanctum')
             ->getJson('/api/registers/incoming')
             ->assertOk();
@@ -331,6 +335,43 @@ class RegisterTest extends TestCase
         $this->actingAs($this->userWithRole('R01'), 'sanctum')
             ->get('/api/registers/incoming/export')
             ->assertForbidden();
+    }
+
+    /**
+     * Membership gate — the incoming register narrows to files the reader can
+     * already open, while whoever may EXPORT it still reads it whole.
+     *
+     * The carve-out is the load-bearing half: `export` is seeded to R06/R07,
+     * who hold almost no RequestVisibility reach of their own, so scoping them
+     * would hand the ministry an official Art. 98 register that had silently
+     * dropped most of its rows.
+     */
+    public function test_the_register_narrows_to_the_readers_own_files_but_not_for_an_exporter(): void
+    {
+        $mine = $this->fixtureRequest('طلبي أنا');
+        $theirs = $this->fixtureRequest('طلب زميل');
+
+        $employee = $mine->createdBy;
+
+        $rows = collect(
+            $this->actingAs($employee, 'sanctum')
+                ->getJson('/api/registers/incoming')
+                ->assertOk()
+                ->json('data')
+        );
+
+        $this->assertTrue($rows->contains('reference_number', $mine->reference_number));
+        $this->assertFalse($rows->contains('reference_number', $theirs->reference_number));
+
+        $all = collect(
+            $this->actingAs($this->userWithRole('R06'), 'sanctum')
+                ->getJson('/api/registers/incoming')
+                ->assertOk()
+                ->json('data')
+        );
+
+        $this->assertTrue($all->contains('reference_number', $mine->reference_number));
+        $this->assertTrue($all->contains('reference_number', $theirs->reference_number));
     }
 
     private function fixtureRequest(string $title = 'طلب ترقية'): Request

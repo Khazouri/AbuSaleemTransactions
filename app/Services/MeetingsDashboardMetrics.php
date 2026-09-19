@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Decision;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
+use App\Models\User;
 use App\Services\Performance\CommitteeBoardService;
 use App\Services\Performance\EarlyWarningService;
 
@@ -23,26 +24,46 @@ class MeetingsDashboardMetrics
         private readonly MeetingReadinessService $readiness,
         private readonly CommitteeBoardService $committeeBoard,
         private readonly EarlyWarningService $warnings,
+        private readonly MeetingVisibility $visibility,
     ) {}
 
-    public function kpis(): array
+    /**
+     * Membership gate — the meeting-derived numbers count only the actor's
+     * own committees.
+     *
+     * `candidates` and `overdue_committee_items` are deliberately NOT scoped,
+     * and cannot be: they count requests sitting at the committee stage, and a
+     * request is not attached to any committee until it lands on an agenda.
+     * There is nothing to filter them by. That is not a disclosure — this
+     * screen is member-only now, and both figures are counts with no file in
+     * them.
+     */
+    public function kpis(User $actor): array
     {
+        $committeeIds = $this->visibility->visibleCommitteeIds($actor);
+        $mine = fn ($query) => $query->when(
+            $committeeIds !== null,
+            fn ($scoped) => $scoped->whereIn('committee_id', $committeeIds),
+        );
+
         return [
             'candidates' => $this->committeeStatus->candidatesQuery()->count(),
-            'upcoming_meetings' => Meeting::query()
+            'upcoming_meetings' => $mine(Meeting::query())
                 ->where('status', 'scheduled')
                 ->where('scheduled_at', '>=', now())
                 ->count(),
-            'meetings_held' => Meeting::query()->where('status', 'completed')->count(),
+            'meetings_held' => $mine(Meeting::query())->where('status', 'completed')->count(),
             'pending_decisions' => MeetingRequest::query()
                 ->where('item_type', 'employee_request')
                 ->whereDoesntHave('decision')
+                ->whereHas('meeting', fn ($meeting) => $mine($meeting))
                 ->count(),
             'overdue_committee_items' => $this->committeeStatus->candidatesQuery()
                 ->whereNotNull('overdue_at')
                 ->count(),
             'decisions_this_month' => Decision::query()
                 ->whereBetween('decided_at', [now()->startOfMonth(), now()->endOfMonth()])
+                ->whereHas('meetingRequest.meeting', fn ($meeting) => $mine($meeting))
                 ->count(),
         ];
     }
@@ -73,13 +94,13 @@ class MeetingsDashboardMetrics
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
-    public function earlyWarnings(array $filters = [], string $locale = 'ar'): array
+    public function earlyWarnings(array $filters = [], string $locale = 'ar', ?User $actor = null): array
     {
         return [
-            'summary' => $this->warnings->summary($filters, $locale),
+            'summary' => $this->warnings->summary($filters, $locale, $actor),
             // A dashboard card, not the full triage list — the reports screen
             // carries that.
-            'top' => $this->warnings->alerts($filters, $locale, 5),
+            'top' => $this->warnings->alerts($filters, $locale, 5, $actor),
         ];
     }
 
@@ -89,9 +110,9 @@ class MeetingsDashboardMetrics
      * with the dedicated readiness screen (per the Stage 32 note's own
      * open item).
      */
-    public function nextMeeting(): ?array
+    public function nextMeeting(User $actor): ?array
     {
-        $meeting = Meeting::query()
+        $meeting = $this->visibility->apply(Meeting::query(), $actor)
             ->with('committee:id,name_ar,name_en')
             ->withCount('agendaItems')
             ->where('status', 'scheduled')

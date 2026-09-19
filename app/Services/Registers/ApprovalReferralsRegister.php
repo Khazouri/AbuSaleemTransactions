@@ -3,6 +3,8 @@
 namespace App\Services\Registers;
 
 use App\Models\ApprovalReferral;
+use App\Models\User;
+use App\Services\RequestVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -87,5 +89,16 @@ class ApprovalReferralsRegister extends Register
             'approval_decision_number' => $model->approval_decision_number,
             'result_note' => $model->result_note,
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return $query->whereHas('requestRecord', fn (Builder $r) => app(RequestVisibility::class)->apply($r, $actor));
     }
 }

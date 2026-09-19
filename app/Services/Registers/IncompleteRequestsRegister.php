@@ -3,6 +3,8 @@
 namespace App\Services\Registers;
 
 use App\Models\RequestStatusHistory;
+use App\Models\User;
+use App\Services\RequestVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -97,5 +99,16 @@ class IncompleteRequestsRegister extends Register
                 ? ($locale === 'ar' ? 'نعم' : 'Yes')
                 : ($locale === 'ar' ? 'لا' : 'No'),
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return $query->whereHas('request', fn (Builder $r) => app(RequestVisibility::class)->apply($r, $actor));
     }
 }

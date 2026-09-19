@@ -52,6 +52,11 @@ class ScreenRolePermissionSeeder extends Seeder
         // from intake above — the dean approves, they don't file — and an
         // always-empty sidebar entry is noise, not access. Nothing is hidden by
         // this: requests and request_details below stay '*'.
+        // Every role has tasks, and the contents are per-actor by
+        // construction — PendingTaskCollector emits a source only when the
+        // caller holds the grant to act on it — so narrowing this would only
+        // produce an empty sidebar entry for somebody.
+        'my_tasks' => ['view' => '*'],
         'request_tracking' => ['view' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'print' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06']],
 
         'request_details' => ['view' => '*', 'print' => '*', 'export' => '*'],
@@ -117,9 +122,15 @@ class ScreenRolePermissionSeeder extends Seeder
         //          member's own act.
         //   edit = dispatch a file TO review — the coordinating act, so the
         //          rapporteur roles (R02 case officer, R09 committee secretary).
-        // `view` is '*' because Art. 21 requires the recorded opinion to be
-        // readable by the committee's own members at study time.
-        'legal_review' => ['view' => '*', 'add' => ['R11'], 'edit' => ['R02', 'R09'], 'print' => '*'],
+        // Membership gate — `view` narrowed from '*' to the three roles that
+        // act on this queue. Like meeting_outputs, this screen is exempt from
+        // the committee-membership gate: Art. 21's review happens BEFORE a file
+        // reaches the committee and is a queue of requests rather than of
+        // sittings, so gating it on a seat could stall a mandatory step on a
+        // roster mistake. Art. 21's own requirement that committee members can
+        // read the recorded opinion at study time is still met — it is on the
+        // request's own detail screen, whose `view` remains '*'.
+        'legal_review' => ['view' => ['R02', 'R09', 'R11'], 'add' => ['R11'], 'edit' => ['R02', 'R09'], 'print' => '*'],
         // Stage 84 — R02 in, R04 out. [D] Appendix 45 gives المقرر إنشاء
         // الاجتماع outright, and Art. 15 (أ) أولًا 12-13 / ثانيًا 1 give them
         // توجيه الدعوات and تسجيل حضور الأعضاء, which is what `edit` gates
@@ -190,7 +201,15 @@ class ScreenRolePermissionSeeder extends Seeder
         // `edit` actions. R02/R03 keep `approve` too, for whichever file some
         // other body executed. Mirrors the decisions.add/decisions.approve
         // split exactly.
-        'meeting_outputs' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R02', 'R03'], 'approve' => ['R02', 'R03', 'R12'], 'print' => '*'],
+        //
+        // Membership gate — `view` narrowed from '*' to the three roles that
+        // actually act on this screen. It is the one meetings-group screen the
+        // committee-membership gate CANNOT hide, because its principal actor
+        // R12 (HR Manager) deliberately holds no committee seat: gating it
+        // would revoke the execution and closure reach that exists for them.
+        // Narrowing `view` instead keeps an ordinary employee out while leaving
+        // R12 able to do the job the grant was created for.
+        'meeting_outputs' => ['view' => ['R02', 'R03', 'R12'], 'add' => ['R03', 'R04'], 'edit' => ['R02', 'R03'], 'approve' => ['R02', 'R03', 'R12'], 'print' => '*'],
 
         // One approval screen per authority — single-role by design, so no one
         // can approve at a level that isn't theirs.

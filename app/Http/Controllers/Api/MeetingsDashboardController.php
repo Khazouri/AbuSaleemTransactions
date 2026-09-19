@@ -23,12 +23,12 @@ class MeetingsDashboardController extends Controller
 
         return response()->json([
             'data' => [
-                'kpis' => $this->metrics->kpis(),
+                'kpis' => $this->metrics->kpis($request->user()),
                 // Stage 81 — [D] Appendix 11's ten buckets, which replaced
                 // Stage 32's own six-bucket funnel. See MeetingsDashboardMetrics.
                 'board' => $this->metrics->board([], $locale),
-                'early_warnings' => $this->metrics->earlyWarnings([], $locale),
-                'next_meeting' => $this->metrics->nextMeeting(),
+                'early_warnings' => $this->metrics->earlyWarnings([], $locale, $request->user()),
+                'next_meeting' => $this->metrics->nextMeeting($request->user()),
             ],
         ]);
     }

@@ -3,6 +3,8 @@
 namespace App\Services\Registers;
 
 use App\Models\Meeting;
+use App\Models\User;
+use App\Services\MeetingVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -88,5 +90,16 @@ class MeetingsRegister extends Register
             'attendees' => $model->attendees_count,
             'minutes_status' => $model->meetingMinutes?->status,
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return app(MeetingVisibility::class)->apply($query, $actor);
     }
 }

@@ -71,6 +71,16 @@ const routes = [
         meta: { screenCode: 'request_intake' },
       },
       {
+        // The unified pending-task inbox. Replaces the five per-role approval
+        // queues, which had no path of their own after this change; it lists
+        // every queue the signed-in user works and links each row to the
+        // screen that already owns that action.
+        path: 'my-tasks',
+        name: 'my_tasks',
+        component: () => import('../views/MyTasksView.vue'),
+        meta: { screenCode: 'my_tasks' },
+      },
+      {
         // Stage 89 — «متابعة طلباتي», the employee's own view of the files
         // they filed. A separate path from `requests` on purpose: that is the
         // internal work queue ("work I can act on"), this is ownership.
@@ -217,20 +227,10 @@ const routes = [
         component: () => import('../views/NotificationsView.vue'),
         meta: { screenCode: 'notifications' },
       },
-      // Stage 18 — role-specific queues backed by one reusable approval view.
-      ...[
-        ['reviewer_approval', 'reviewer'],
-        ['committee_head_approval', 'committee-head'],
-        ['admin_manager_approval', 'admin-manager'],
-        ['ministry_approval', 'ministry'],
-        // Stage 57 — 'authority_approval' (competent_authority) removed.
-        ['final_approval', 'final'],
-      ].map(([screenCode, level]) => ({
-        path: `approvals/${level}`,
-        name: screenCode,
-        component: () => import('../views/ApprovalQueueView.vue'),
-        meta: { screenCode, approvalLevel: level },
-      })),
+      // The five per-role approval queues are gone: the unified pending-task
+      // inbox lists that work now, and approving happens on the request's own
+      // detail screen, which has always offered the same transition. Their
+      // `screens` rows and grants deliberately survive — see ScreenSeeder.
       {
         // Stage 25 — the decisions register and the pending-votes worklist.
         // Recording a decision stays on the meeting screen, where the agenda

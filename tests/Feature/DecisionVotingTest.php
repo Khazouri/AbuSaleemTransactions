@@ -186,11 +186,17 @@ class DecisionVotingTest extends TestCase
         $outsider = User::factory()->create(['is_active' => true]);
         $outsider->roles()->attach(Role::where('code', 'R04')->value('id'));
 
+        // Membership gate — an outsider gets 404, not the 422 they used to:
+        // they cannot see this sitting at all, and a 422 explaining why they
+        // may not vote on it would confirm it exists. The reasoned refusal is
+        // reserved for someone who CAN see the meeting, as below.
         $this->actingAs($outsider, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
-            ->assertStatus(422);
+            ->assertStatus(404);
 
-        // A real member who has not been marked as attended cannot vote either.
+        // A real member who has not been marked as attended cannot vote either
+        // — and still gets DecisionEligibility's explained 422, because a seat
+        // is what earns you a reason rather than a blank wall.
         $absentMember = $this->userWithRole('R04');
         $committee->members()->create(['user_id' => $absentMember->id]);
         $meeting->attendees()->create(['user_id' => $absentMember->id, 'attended' => false]);

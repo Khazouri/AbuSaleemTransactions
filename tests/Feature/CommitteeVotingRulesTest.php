@@ -40,7 +40,7 @@ class CommitteeVotingRulesTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(2, rules: []);
+        [$committee, $members] = $this->committeeWithMembers(2, rules: [], head: $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         foreach ($members as $member) {
             $this->invite($meeting, $member, 'confirmed');
@@ -74,7 +74,7 @@ class CommitteeVotingRulesTest extends TestCase
             'quorum_type' => 'count',
             'quorum_count' => 3,
             'quorum_text' => 'لا يصح الاجتماع بأقل من ثلاثة أعضاء',
-        ]);
+        ], head: $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         $this->invite($meeting, $members[0], 'confirmed');
         $this->invite($meeting, $members[1], 'confirmed');
@@ -109,7 +109,7 @@ class CommitteeVotingRulesTest extends TestCase
             'quorum_numerator' => 1,
             'quorum_denominator' => 2,
             'quorum_comparator' => 'more_than',
-        ]);
+        ], head: $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         $this->invite($meeting, $members[0], 'confirmed');
         $this->invite($meeting, $members[1], 'confirmed');
@@ -132,7 +132,7 @@ class CommitteeVotingRulesTest extends TestCase
             'quorum_numerator' => 1,
             'quorum_denominator' => 2,
             'quorum_comparator' => 'at_least',
-        ]);
+        ], head: $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         foreach ($members as $member) {
             $this->invite($meeting, $member, 'confirmed');
@@ -148,6 +148,13 @@ class CommitteeVotingRulesTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
+
+        // Membership gate — `meetings,add` sits on a gated screen, so forming a
+        // committee needs a seat on one already. That is the real bootstrap
+        // rule: R08 (exempt) creates the first committee and seats people, and
+        // a seated chair can create further ones from there.
+        Committee::create(['name_ar' => 'لجنة التشكيل الأولى'])
+            ->members()->create(['user_id' => $head->id]);
 
         $created = $this->actingAs($head, 'sanctum')
             ->postJson('/api/committees', [
@@ -183,10 +190,13 @@ class CommitteeVotingRulesTest extends TestCase
 
         $id = $created->json('data.id');
 
-        $this->actingAs($head, 'sanctum')
-            ->getJson('/api/committees')
-            ->assertOk()
-            ->assertJsonPath('data.0.minutes_approval_body', 'عميد البلدية');
+        // Found by id rather than by position: the chair now sits on the
+        // bootstrap committee above as well, so the list holds more than one.
+        $listed = collect(
+            $this->actingAs($head, 'sanctum')->getJson('/api/committees')->assertOk()->json('data')
+        )->firstWhere('id', $id);
+
+        $this->assertSame('عميد البلدية', $listed['minutes_approval_body']);
 
         // A fraction with no comparator is refused rather than defaulted:
         // "لا يقل عن النصف" and "أكثر من النصف" are different numbers, and
@@ -289,7 +299,7 @@ class CommitteeVotingRulesTest extends TestCase
         [$committee, $members] = $this->committeeWithMembers(4, rules: [
             'quorum_type' => 'count',
             'quorum_count' => 2,
-        ]);
+        ], head: $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         foreach ($members as $member) {
             $this->invite($meeting, $member, 'confirmed');
@@ -320,7 +330,7 @@ class CommitteeVotingRulesTest extends TestCase
             'quorum_text' => 'عضوان على الأقل',
             'formation_decision_number' => '12',
             'minutes_approval_body' => 'عميد البلدية',
-        ]);
+        ], head: $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         foreach ($members as $member) {
             $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
@@ -342,7 +352,7 @@ class CommitteeVotingRulesTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(2, rules: []);
+        [$committee, $members] = $this->committeeWithMembers(2, rules: [], head: $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         foreach ($members as $member) {
             $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
@@ -365,11 +375,19 @@ class CommitteeVotingRulesTest extends TestCase
      * @param  array<string, mixed>  $rules
      * @return array{0: Committee, 1: User[]}
      */
-    private function committeeWithMembers(int $count, array $rules): array
+    private function committeeWithMembers(int $count, array $rules, ?User $head = null): array
     {
         $committee = Committee::create(['name_ar' => 'لجنة اختبار النصاب'] + $rules);
+        // Membership gate — when the acting head is passed in they are seated
+        // AS one of the $count members, not in addition to them: every quorum
+        // and majority figure below is computed from the roster size, so an
+        // extra seat would change the very numbers under test.
         $members = [];
-        for ($i = 0; $i < $count; $i++) {
+        if ($head !== null) {
+            $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
+            $members[] = $head;
+        }
+        for ($i = count($members); $i < $count; $i++) {
             $user = $this->userWithRole('R04');
             $committee->members()->create(['user_id' => $user->id]);
             $members[] = $user;

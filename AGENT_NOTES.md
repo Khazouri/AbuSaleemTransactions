@@ -14,6 +14,228 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-19 23:10 EET — Claude — Per-row scoping, a unified task inbox, and a membership-gated meetings section — complete
+
+Built per the plan below. **No migration** — `screens.route` was already nullable and everything else
+is seeded data or service logic. Full suite **682 tests / 4493 assertions** green (was 657/4146), Pint
+clean repo-wide, `npm run build` passes with `MyTasksView` as its own lazy chunk (then reverted the
+tracked `frontend/dist`), locale key-parity verified programmatically (**1955 keys each side, zero
+on-one-side-only**), and both seeders re-run against the real MySQL/Homestead database.
+
+**Two layers, because neither alone is sufficient — this is the shape not to collapse.**
+*Layer A (reach)*: `User::screenPermissions()` — the documented source of truth read by
+`CheckScreenPermission`, `UserResource`, the router guard and `v-can` — now sets `can_view = false` on
+`MeetingVisibility::GATED_SCREENS` for anyone with no committee seat, so all four agree by
+construction. `ScreenController::index()` was rewritten to read that map instead of its own duplicate
+`whereHas('rolePermissions')` query, which **removes** a drift risk rather than adding one (it had to
+keep its own `is_active` filter, which the permission map says nothing about). `screenPermissions()`
+is now memoized per model instance with a `forgetScreenPermissions()` escape hatch, because resolving
+it also asks a `committee_members` question and `RequestVisibility::apply()` calls it three times per
+invocation. *Layer B (per-row authorization)*: new `App\Services\MeetingVisibility` (shaped after
+`RequestVisibility` — a SQL scope plus a per-row predicate built by running that same scope against
+one key, so a list and a detail endpoint can never disagree) enforced by a new `meeting.member` route
+middleware on **25 route declarations**, 404 not 403. A route middleware rather than ~30
+`abort_unless` calls, because copying the check into every meeting-bound method is the exact
+duplication this work removes — the three membership checks that predated it were copy-pasted inline.
+Layer B is the real enforcement and is needed regardless: a member of committee A must not edit
+committee B's meeting, which no screen-level gate can express at all.
+
+**⚠ Three traps, each found by reading the code and each a silent regression if the gate is ever
+"simplified".** They are why only `can_view` is gated and why nothing was deleted.
+**(1)** `RequestVisibility.php:61,94-95` derives `$isLegalReviewer` from `legal_review,can_add` and
+`$isCloser` from `meeting_outputs,can_edit|can_approve`, and **13 request-level routes**
+(`routes/api.php:405-503`) ride the same grants. **R12 (HR Manager) holds `meeting_outputs.can_approve`
+and holds no committee seat by design** (Stage 87 created it as a non-committee role), so zeroing a
+whole permission row would have revoked Stage 92's execution and closure reach from the role that
+performs it. Verified by grep that `can_view` is read as a *capability* in exactly one place — the
+middleware — while every other consumer reads add/edit/approve, so gating `can_view` alone is
+provably side-effect-free. **(2)** `RequestController::actorCanApproveCurrentLevel():1339-1355` maps
+each approval stage to one of the five approval **screen codes** and checks `can_approve`; deleting
+those rows makes it false for everyone and the approve button vanishes at every checkpoint, for every
+role. So those five screens keep their rows and grants and lose only their `route` (nullable; the
+SPA's `navItems` filter requires one) — they were never menu entries, they are the per-checkpoint
+segregation of duties. **(3)** `POST meetings/{meeting}/outputs/{agendaItem}/execute` is
+meeting-scoped and is R12's own action, so `meeting_outputs` is exempt from the gate at BOTH layers.
+`GatedScreenSideEffectsTest` pins all three, including a generic invariant that compares a seated and
+an unseated actor's resolved maps and fails on any difference outside `can_view`.
+
+**Two decisions put to the user rather than guessed, both recorded so they are not re-litigated.**
+`meeting_outputs` and `legal_review` are **exempt from the membership gate**, with their `view` grants
+narrowed instead (`['R02','R03','R12']` and `['R02','R09','R11']`, from `'*'`). They are the two
+screens in that group that are about a REQUEST rather than about running a sitting, one on each side
+of the committee: Art. 21's legal review happens before a file reaches it, execution and closure after
+it has left, and their actors are correspondingly not guaranteed a seat. Gating `legal_review` would
+have let a **mandatory** step stall on nothing worse than a roster mistake — and note **no committee
+or membership is seeded anywhere**, rosters are built entirely at runtime, so on a fresh install
+nobody is seated and only R08 (exempt) can bootstrap. The gated set is therefore **seven** screens.
+`decisions` was already outside the group (a shared system-wide register), so its ROWS are scoped
+instead, by a **union**: a decision of a committee you sit on, OR one whose underlying request
+`RequestVisibility` already lets you open. An employee still finds the decision on their own file.
+
+**Row scoping beyond the meetings stack.** `MeetingController::index()`, `CommitteeController::index()`,
+`MeetingsDashboardMetrics` (the meeting-derived KPIs only — `candidates` and `overdue_committee_items`
+**cannot** be scoped and are commented as such, because a request is attached to no committee until it
+lands on an agenda), `agendaItemContext()`'s `previous_requests` (bound to `reference_number IS NOT
+NULL`, Art. 20's قيد — the same bound `$isCloser` already uses), all twelve registers via a new
+`Register::scopeToActor()` hook, `ReportController`'s row listing, and `EarlyWarningService`'s alerts
+— which are a row listing wearing a KPI's clothes, since Appendix 10 names a request and its reference
+number. **Aggregate KPIs stay org-wide, deliberately**: every one is a count, share or average with no
+person in it (what Art. 107 requires), and scoping them would make them *wrong* rather than private —
+a completion rate over one reader's subset is meaningless but still looks authoritative. **The
+oversight carve-out is load-bearing, not a loophole**: whoever holds `registers,can_export` /
+`reports,can_export` reads the whole thing, because `export` is seeded to R06/R07, who hold almost no
+`RequestVisibility` reach of their own — scoping them would hand the ministry an official Art. 98
+register that had silently dropped most of its rows.
+
+**The inbox.** New `my_tasks` screen (`/my-tasks`, ungrouped, `view => '*'`) backed by
+`App\Services\Tasks\PendingTaskCollector`, aggregating six sources by **calling the query builders that
+already own each rule** — never re-deriving one. A source is emitted **only if the actor holds the
+grant that lets them act on it**, which is what makes the inbox per-user by construction rather than
+by filtering afterwards, and why no row can be offered that its target screen would refuse. The inbox
+**lists; it does not act**: every row carries a vue-router location naming the screen that already owns
+that action, so each action keeps one implementation and one set of guards. `MyTasksTest` pins the two
+properties that matter — a source appears only for someone who can act on it, and **every task's route
+name resolves to a screen that same actor can view** (the invariant that would have caught trap 2).
+`ApprovalController::LEVELS` is now public and carries its screen code, read by the queue, the inbox
+and `actorCanApproveCurrentLevel()` — one fact that was previously written twice. The five approval
+Vue routes and `ApprovalQueueView.vue` are deleted; `ApprovalController` stays in full, since its
+`store()` and `RequestController::transition()` are a deliberately duplicated pair whose comments each
+say the other must stay in step.
+
+**Three adjacent bugs found and fixed rather than designed around.** (1) `UserFactory` never set
+`is_active`, so `create()` returned a model carrying `null` in memory while the row was `true`, and
+`actingAs()` hands that exact instance to the request — any visibility rule reading `$actor->is_active`
+silently saw an inactive user and 404'd everything. One line in the factory closes a trap this repo's
+notes record hitting before. (2) Creating a committee did not seat the creator, so with `index()`
+scoped they immediately lost sight of what they had just made — and `MeetingController::store()` has
+refused to schedule for a committee you do not sit on since Stage 84, so an unseated creator could
+produce a committee they could neither find nor convene. `store()` now seats them (as a plain member,
+not head: `meetings,add` is R02's as well as R03's, and making the rapporteur the chair is a governance
+claim this action has no business making). (3) That in turn exposed `addMember`'s per-committee unique
+rule on `user_id`, which would have made it impossible to give that creator a named seat afterwards;
+the endpoint now upserts on (committee, user), so one row per person is guaranteed by the upsert rather
+than by a refusal. `CommitteeController`'s five write methods also gained a per-committee 404 guard —
+without it `index()` hid a committee that every write endpoint still accepted from anyone with
+`meetings,edit` and an id to guess.
+
+**Blast radius: 10 test classes, 45 tests, every one a legitimate fixture update** — an actor holding a
+role but no seat. New `Tests\SitsOnCommittee` trait (the `PassesControlGates`/`RunsStudySequence`
+precedent). Two updates are worth knowing because the *behaviour* changed rather than the fixture:
+a non-member attempting to vote or declare a conflict now gets **404 instead of the explained 422** —
+they cannot see the sitting at all, and a reasoned refusal would confirm it exists; the 422 is reserved
+for someone who CAN see it but may not act (didn't attend, recused, non-voting rapporteur), which is a
+better split than the one before. `MeetingReadinessTest`/`CommitteeVotingRulesTest` seat the acting
+head **as one of** the N members rather than in addition to them, because every quorum and readiness
+figure those tests assert is computed from the roster size. `RegisterTest`'s reader moved R01 → R06
+(registers are official records read by oversight) with a new test pinning both halves of the narrowing.
+
+Smoke-tested end to end over real HTTP against Homestead: an unseated `r01.employee@` got **14 screens
+with zero gated codes**, `my_tasks` present; an unseated `r02.reviewer@` got **403** on `/api/meetings`;
+seated on a fixture committee the same account got **24 screens including all seven gated codes** and
+**200** on `/api/meetings`, with `reviewer_approval` returned route-less (kept as a capability, dropped
+from the sidebar by `navItems`); and the inbox listed a request at that reviewer's own checkpoint,
+routed to `request_details`, with the Arabic intact — while the employee who created it correctly saw
+nothing, since a creator may not approve their own file. Deleted every fixture row (one request, one
+committee and its membership, their audit rows) and revoked only the four tokens this session minted —
+confirmed the database back to its **4 pre-existing requests**, and that the one live committee and the
+one remaining token both predate this session.
+
+**Open items.** (1) **The gate is "sits on ANY committee" for the screen and "sits on THIS committee"
+for the row**, which is correct but means a seated member of committee A sees the meetings section and
+then an empty list if B's sittings are all that exist — honest, but a future empty-state could say why.
+(2) **`DecisionEligibility` does not filter on committee `is_active` while the gate does**, so a member
+of a just-deactivated committee can still vote on an open item but can no longer open the screen;
+arguably right (don't strand an in-flight vote) but it is now a deliberate asymmetry rather than an
+accident. (3) **`MeetingsDashboardMetrics::board()`/`earlyWarnings()` are request-population views, not
+committee-scoped**, so they stay whole on a screen that is now member-only — fine, but a stage that
+wants them per-committee needs a different join than the KPIs use. (4) **Nothing seeds a committee**,
+so a fresh install has an invisible meetings section until R08 creates one; worth a line in the
+deployment notes if that ever surprises someone. (5) The inbox has **no pagination** (each source caps
+at 100 and reports `truncated`), matching `/decisions/pending`'s own precedent; a busy deployment
+should watch that flag before reaching for pagination.
+
+### 2026-09-19 21:30 EET — Claude — Implementation plan: per-row scoping, a unified task inbox, and a membership-gated meetings section
+
+User request, three parts: "every one can only see do their task only based on permissions" /
+"a screen should be created that has pending tasks for everyone" / "the meetings section can only be
+entered if you are a member of the meeting otherwise it invisible". Scope decisions were put to the
+user directly and answered; recorded here so they are not re-litigated. (1) Part one means **per-row
+data scoping**, not re-auditing the grant matrix — the `screens × roles × actions` matrix already
+decides which *screens* open, but several are seeded `view => '*'` and then list the whole
+organisation's rows. (2) The inbox **replaces** the per-role queues, at the depth "the inbox lists,
+the existing screens act" — a row deep-links to the screen that already owns that action. (3) The
+meetings gate is **committee membership only** (a seat, not attendance); a non-member sees **no
+meetings group at all**; **R08 is exempt**, matching `MeetingController::store():93`'s existing
+bypass, because R08 is the only role that can edit a committee roster and a lockout would be
+unrecoverable through the UI. A "seat" = any `committee_members` row whose committee is `is_active`
+and not soft-deleted; a null `seat` still counts. Also in scope: the decisions register, agenda-item
+context, committee rosters, registers and reports.
+
+**The gap is real and larger than it looks: there is no membership-based visibility anywhere in the
+meeting stack.** `MeetingController::index()` has zero actor scoping, so every meeting of every
+committee is listed to anyone holding `meetings,view` — which is seeded `'*'`, i.e. everyone.
+Exactly three membership checks exist in the entire application (`DecisionEligibility:63`,
+`MeetingController::store():93`, `ConflictOfInterestController::store():58`), all copy-pasted inline,
+all write gates. There is no `User::committees()` relation, no policy, no scope.
+
+**⚠ Two traps found by reading the code, either of which would be a silent, serious regression — do
+not design around them from memory, they are the reason this plan has the shape it does.**
+**Trap 1: the meetings grants are load-bearing OUTSIDE the meetings section.**
+`RequestVisibility.php:94-95` derives "is this user a closer/executor" from
+`hasScreenPermission('meeting_outputs', 'can_edit'|'can_approve')`, and **13 request-level routes**
+(`routes/api.php:405-503` — closure, approval returns, referrals, execution soundness, suspension and
+the whole Stage 83 lifecycle group) ride the same grants. **R12 (HR Manager) holds
+`meeting_outputs.can_approve` and holds no committee seat** — Stage 87 created it as a non-committee
+role — so a blanket suppression of the meetings group inside `screenPermissions()` would revoke
+Stage 92's execution/closure reach outright. ⇒ **only `can_view` may be gated**; every other flag
+passes through untouched. **Trap 2: the five approval screens are a capability registry, not menu
+entries.** `RequestController::actorCanApproveCurrentLevel():1339-1355` maps each approval stage to
+one of the five approval *screen codes* and checks `can_approve` on it; deleting those rows makes it
+return false for everyone, so **nobody could approve anything through either entry point**. ⇒ keep
+the rows and grants, set `route = null` (the column is nullable, and `stores/screens.js` builds
+`navItems` from `screens.filter(s => s.route && …)`), which removes the sidebar entry with no
+frontend change.
+
+**Design — two complementary layers, because neither alone is sufficient.** *Layer A (reach)*: gate
+`can_view` on the nine `meetings_management` screens inside `User::screenPermissions()`, the
+documented source of truth consumed by `CheckScreenPermission`, `UserResource`, the router guard and
+`v-can` — so all four agree by construction. `ScreenController::index()` currently builds its own
+duplicate `whereHas('rolePermissions')` query and is pointed at `screenPermissions()` instead, which
+*removes* a drift risk rather than adding one. `screenPermissions()` gains memoization, since it is
+re-run on every `hasScreenPermission()` call and `RequestVisibility` calls it three times per
+invocation. *Layer B (per-row authorization)*: a new `MeetingVisibility` service asserting "the actor
+sits on **this meeting's** committee (or is R08)", applied in every meeting-scoped controller method
+regardless of verb, 404 not 403 (matching `RequestVisibility`'s convention at its 11 call sites).
+Layer B is the real enforcement and is needed anyway — a member of committee A must not edit
+committee B's meeting, which no screen-level gate can express at all.
+`MeetingOutputsController::execute()` is deliberately left ungated by membership (Trap 1). The two
+docblocks that explicitly declined scoping (`agendaItemContext():422-427`,
+`agendaItemAttachment():554-556`) argued `meeting_live,view` is the right gate because a non-head R04
+member would fail `RequestVisibility` — that reasoning holds for *that* service and is not
+contradicted here, since `MeetingVisibility` admits any seated member; both comments get rewritten to
+say so rather than being silently reversed.
+
+**The inbox** is a new `my_tasks` screen seeded `view => '*'`, backed by a `PendingTaskCollector`
+that aggregates five sources by **calling their existing query builders** rather than re-deriving
+them (`ApprovalController`'s queue query, `DecisionEligibility::pendingVotesQuery()`,
+`CommitteeStatusService::candidatesQuery()` / `legalReviewQueueQuery()`, and unsigned
+`MeetingMinuteSignature` rows). Each source is emitted only if the actor actually holds its grant, so
+the inbox cannot offer a task its target screen would refuse. `ApprovalController` stays in full —
+its `store()` and `RequestController::transition()` are a deliberately duplicated pair whose comments
+each say the other must stay in step.
+
+**⚠ Blast radius is large and is planned for, not discovered: 40 feature test files build a committee
+or meeting directly**, and any whose actor holds a role but no seat will now 404. A shared
+`Tests\SitsOnCommittee` trait follows the existing `PassesControlGates`/`RunsStudySequence`
+precedent. `ScreenTest.php:56-75` creates a bare R03 with no seat and asserts it sees the meetings
+group — behaviour this change deliberately reverses. Build order is sequenced so the suite is green
+at every step and each trap's regression guard lands in the same commit as the change that could trip
+it: (1) `MeetingVisibility` + `User::committeeMemberships()` + the test trait, unwired; (2) Layer B
+plus the fixture sweep, alone; (3) Layer A plus the Trap 1 guard; (4) row scoping for committees,
+the decisions register, registers/reports; (5) the inbox, then retiring the five approval routes with
+the Trap 2 guard. No migration — `screens.route` is already nullable and everything else is seeded
+data or service logic.
+
 ### 2026-09-19 20:05 EET — Claude — Video-streaming placeholder removed from the Live Meeting screen
 
 User request: "remove everything that relates to video streaming from the system." A full repo-wide sweep

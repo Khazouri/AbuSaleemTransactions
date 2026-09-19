@@ -94,7 +94,7 @@ class ReportController extends Controller
         $filters = $request->filters();
 
         $rows = $this->metrics
-            ->rowsQuery($filters)
+            ->rowsQuery($filters, $request->user())
             ->paginate($request->validated('per_page') ?? 25)
             ->withQueryString();
 
@@ -132,7 +132,7 @@ class ReportController extends Controller
 
         // Not paginated: an export that silently stopped at page one would be
         // worse than no export. The filters bound the size.
-        $rows = $this->metrics->rowsQuery($filters)->get();
+        $rows = $this->metrics->rowsQuery($filters, $request->user())->get();
 
         $document = new ReportDocument(
             slug: 'requests-report',

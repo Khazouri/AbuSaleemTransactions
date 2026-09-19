@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\MeetingMinutesController;
 use App\Http\Controllers\Api\MeetingOutputsController;
 use App\Http\Controllers\Api\MeetingReadinessController;
 use App\Http\Controllers\Api\MeetingsDashboardController;
+use App\Http\Controllers\Api\MyTaskController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PerformanceController;
@@ -271,6 +272,10 @@ Route::middleware('auth:sanctum')->group(function () {
      * and its own grant. No ordering hazard with the wildcards below, since
      * nothing else claims the `my-requests` prefix.
      */
+    // Everything awaiting the signed-in user, across every queue they work.
+    Route::middleware('screen.permission:my_tasks,view')
+        ->get('my-tasks', [MyTaskController::class, 'index']);
+
     Route::middleware('screen.permission:request_tracking,view')->group(function () {
         Route::get('my-requests', [RequestTrackingController::class, 'index']);
         Route::get('my-requests/{requestRecord}', [RequestTrackingController::class, 'show']);
@@ -583,16 +588,16 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('meetings', [MeetingController::class, 'index']);
     Route::middleware('screen.permission:meetings,add')
         ->post('meetings', [MeetingController::class, 'store']);
-    Route::middleware('screen.permission:meetings,view')
+    Route::middleware(['screen.permission:meetings,view', 'meeting.member'])
         ->get('meetings/{meeting}', [MeetingController::class, 'show']);
-    Route::middleware('screen.permission:meetings,edit')->group(function () {
+    Route::middleware(['screen.permission:meetings,edit', 'meeting.member'])->group(function () {
         Route::put('meetings/{meeting}', [MeetingController::class, 'update']);
         Route::post('meetings/{meeting}/send-invitations', [MeetingController::class, 'sendInvitations']);
         Route::post('meetings/{meeting}/attendees', [MeetingController::class, 'addAttendee']);
         Route::patch('meetings/{meeting}/attendees/{attendee}', [MeetingController::class, 'markAttendance']);
         Route::delete('meetings/{meeting}/attendees/{attendee}', [MeetingController::class, 'removeAttendee']);
     });
-    Route::middleware('screen.permission:meetings,delete')
+    Route::middleware(['screen.permission:meetings,delete', 'meeting.member'])
         ->delete('meetings/{meeting}', [MeetingController::class, 'destroy']);
 
     /*
@@ -603,14 +608,14 @@ Route::middleware('auth:sanctum')->group(function () {
      * seats R02/R03/R09 here and R02/R03 on `meetings`), so read the seeder
      * rather than assuming they track each other.
      */
-    Route::middleware('screen.permission:meeting_agenda,view')
+    Route::middleware(['screen.permission:meeting_agenda,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/stats', [MeetingController::class, 'agendaStats']);
     // Stage 82 — [D] Art. 83's ordering and Appendix 24's per-item profile.
     // Registered before the `{agendaItem}` wildcards below for the same
     // reason `meetings/department-options` precedes `meetings/{meeting}`.
-    Route::middleware('screen.permission:meeting_agenda,view')
+    Route::middleware(['screen.permission:meeting_agenda,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/ordering', [MeetingController::class, 'agendaOrdering']);
-    Route::middleware('screen.permission:meeting_agenda,edit')->group(function () {
+    Route::middleware(['screen.permission:meeting_agenda,edit', 'meeting.member'])->group(function () {
         Route::post('meetings/{meeting}/agenda', [MeetingController::class, 'addAgendaItem']);
         Route::put('meetings/{meeting}/agenda/reorder', [MeetingController::class, 'reorderAgenda']);
         Route::post('meetings/{meeting}/agenda/apply-order', [MeetingController::class, 'applyAgendaOrder']);
@@ -626,9 +631,9 @@ Route::middleware('auth:sanctum')->group(function () {
      * see PresentationMemoController's docblock for why the رئيس/مقرر split
      * matters here.
      */
-    Route::middleware('screen.permission:meeting_agenda,view')
+    Route::middleware(['screen.permission:meeting_agenda,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/{agendaItem}/presentation-memo', [PresentationMemoController::class, 'show']);
-    Route::middleware('screen.permission:meeting_agenda,add')->group(function () {
+    Route::middleware(['screen.permission:meeting_agenda,add', 'meeting.member'])->group(function () {
         Route::post('meetings/{meeting}/agenda/{agendaItem}/presentation-memo/generate', [PresentationMemoController::class, 'generate']);
         Route::patch('meetings/{meeting}/agenda/{agendaItem}/presentation-memo', [PresentationMemoController::class, 'update']);
     });
@@ -639,9 +644,9 @@ Route::middleware('auth:sanctum')->group(function () {
      * which doubles as the "R03 exceptional override" requirement, see
      * MeetingReadinessController's docblock).
      */
-    Route::middleware('screen.permission:meeting_readiness,view')
+    Route::middleware(['screen.permission:meeting_readiness,view', 'meeting.member'])
         ->get('meetings/{meeting}/readiness', [MeetingReadinessController::class, 'show']);
-    Route::middleware('screen.permission:meeting_readiness,edit')
+    Route::middleware(['screen.permission:meeting_readiness,edit', 'meeting.member'])
         ->post('meetings/{meeting}/convene', [MeetingReadinessController::class, 'convene']);
 
     /*
@@ -651,18 +656,18 @@ Route::middleware('auth:sanctum')->group(function () {
      * a meeting stays on the generic `meetings,edit` update() above — see
      * that method's docblock for why it isn't a separate endpoint here.
      */
-    Route::middleware('screen.permission:meeting_live,edit')
+    Route::middleware(['screen.permission:meeting_live,edit', 'meeting.member'])
         ->patch('meetings/{meeting}/agenda/{agendaItem}/state', [MeetingController::class, 'updateItemState']);
     // Stage 82 — النموذج 11's card, i.e. [D] Art. 85's per-item sequence.
     // Read by everyone who can watch the sitting; ticked by the chair, the
     // same split the runner's own state controls already use.
-    Route::middleware('screen.permission:meeting_live,view')
+    Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/{agendaItem}/study-sequence', [MeetingController::class, 'studySequence']);
-    Route::middleware('screen.permission:meeting_live,edit')
+    Route::middleware(['screen.permission:meeting_live,edit', 'meeting.member'])
         ->patch('meetings/{meeting}/agenda/{agendaItem}/study-sequence', [MeetingController::class, 'updateStudySequence']);
-    Route::middleware('screen.permission:meeting_live,view')
+    Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/{agendaItem}/notes', [MeetingDiscussionNoteController::class, 'index']);
-    Route::middleware('screen.permission:meeting_live,add')
+    Route::middleware(['screen.permission:meeting_live,add', 'meeting.member'])
         ->post('meetings/{meeting}/agenda/{agendaItem}/notes', [MeetingDiscussionNoteController::class, 'store']);
 
     /*
@@ -671,9 +676,9 @@ Route::middleware('auth:sanctum')->group(function () {
      * `meeting_live,view`, deliberately not the request-detail visibility
      * gate — see MeetingController::agendaItemContext()'s docblock.
      */
-    Route::middleware('screen.permission:meeting_live,view')
+    Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/{agendaItem}/context', [MeetingController::class, 'agendaItemContext']);
-    Route::middleware('screen.permission:meeting_live,view')
+    Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
         ->get(
             'meetings/{meeting}/agenda/{agendaItem}/attachments/{attachment}',
             [MeetingController::class, 'agendaItemAttachment'],
@@ -686,13 +691,13 @@ Route::middleware('auth:sanctum')->group(function () {
      * generating and signing (mirrors `decisions,add` covering vote-casting);
      * `approve` is the head-only review, same split as `decisions`.
      */
-    Route::middleware('screen.permission:meeting_minutes,view')
+    Route::middleware(['screen.permission:meeting_minutes,view', 'meeting.member'])
         ->get('meetings/{meeting}/minutes', [MeetingMinutesController::class, 'show']);
-    Route::middleware('screen.permission:meeting_minutes,add')->group(function () {
+    Route::middleware(['screen.permission:meeting_minutes,add', 'meeting.member'])->group(function () {
         Route::post('meetings/{meeting}/minutes/generate', [MeetingMinutesController::class, 'generate']);
         Route::post('meetings/{meeting}/minutes/sign', [MeetingMinutesController::class, 'sign']);
     });
-    Route::middleware('screen.permission:meeting_minutes,approve')
+    Route::middleware(['screen.permission:meeting_minutes,approve', 'meeting.member'])
         ->post('meetings/{meeting}/minutes/review', [MeetingMinutesController::class, 'review']);
 
     /*
@@ -721,14 +726,14 @@ Route::middleware('auth:sanctum')->group(function () {
      * committee member, while only the head can record the binding outcome
      * that drives WorkflowService::transition().
      */
-    Route::middleware('screen.permission:decisions,add')
+    Route::middleware(['screen.permission:decisions,add', 'meeting.member'])
         ->post('meetings/{meeting}/agenda/{agendaItem}/votes', [DecisionController::class, 'vote']);
-    Route::middleware('screen.permission:decisions,approve')
+    Route::middleware(['screen.permission:decisions,approve', 'meeting.member'])
         ->post('meetings/{meeting}/agenda/{agendaItem}/decision', [DecisionController::class, 'record']);
     // Stage 42 — a read-only preview of a template merged with this agenda
     // item's own data, sitting behind `view` like the rest of the register
     // reads below (it discloses nothing not already visible on the screen).
-    Route::middleware('screen.permission:decisions,view')
+    Route::middleware(['screen.permission:decisions,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/{agendaItem}/decision-draft', [DecisionController::class, 'draft']);
 
     /*
@@ -738,9 +743,9 @@ Route::middleware('auth:sanctum')->group(function () {
      * DecisionEligibility::isRecused against both the vote and the
      * discussion-feed endpoints), `view` to read who has declared.
      */
-    Route::middleware('screen.permission:decisions,add')
+    Route::middleware(['screen.permission:decisions,add', 'meeting.member'])
         ->post('meetings/{meeting}/agenda/{agendaItem}/conflict-of-interest', [ConflictOfInterestController::class, 'store']);
-    Route::middleware('screen.permission:decisions,view')
+    Route::middleware(['screen.permission:decisions,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/{agendaItem}/conflict-of-interest', [ConflictOfInterestController::class, 'index']);
 
     /*

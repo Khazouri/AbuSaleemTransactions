@@ -3,7 +3,9 @@
 namespace App\Services\Registers;
 
 use App\Models\MeetingRequest;
+use App\Models\User;
 use App\Services\AgendaOrderingService;
+use App\Services\MeetingVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -235,5 +237,16 @@ class AgendaRegister extends Register
         }
 
         return $value ? 'Yes' : 'No';
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return $query->whereHas('meeting', fn (Builder $m) => app(MeetingVisibility::class)->apply($m, $actor));
     }
 }

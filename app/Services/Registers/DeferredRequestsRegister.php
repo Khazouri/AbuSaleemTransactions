@@ -3,6 +3,9 @@
 namespace App\Services\Registers;
 
 use App\Models\Decision;
+use App\Models\User;
+use App\Services\MeetingVisibility;
+use App\Services\RequestVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -95,5 +98,18 @@ class DeferredRequestsRegister extends Register
             'legal_period' => $model->deferral_legal_period,
             'current_status' => $this->localName($requestRecord?->status, $locale),
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return $query->where(fn (Builder $either) => $either
+            ->whereHas('meetingRequest.meeting', fn (Builder $m) => app(MeetingVisibility::class)->apply($m, $actor))
+            ->orWhereHas('meetingRequest.request', fn (Builder $r) => app(RequestVisibility::class)->apply($r, $actor)));
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Services\MeetingVisibility;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -65,6 +66,25 @@ class User extends Authenticatable
     ];
 
     /**
+     * Memoized screenPermissions() result, per model instance.
+     *
+     * Not an attribute — a plain property, so it never reaches toArray(), the
+     * database or a serialized payload. Memoizing matters now that resolving
+     * the map also asks whether the user holds a committee seat:
+     * RequestVisibility::apply() calls hasScreenPermission() three times and
+     * canView() wraps apply(), so an unmemoized map would run that seat query
+     * on every one of them.
+     *
+     * Per-instance rather than static or container-level on purpose: a real
+     * request resolves one actor, while a test that seats a user between two
+     * calls gets a fresh instance from the database and so is never stale.
+     * Where an instance IS mutated in place, call forgetScreenPermissions().
+     *
+     * @var array<string, array<string, bool>>|null
+     */
+    private ?array $screenPermissionsCache = null;
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -117,6 +137,19 @@ class User extends Authenticatable
         return $this->hasMany(User::class, 'manager_id');
     }
 
+    /**
+     * Seats this user holds on committees.
+     *
+     * Membership gate — the inverse relation that did not exist before it was
+     * needed: nothing in the app could ask "which committees is this person
+     * on" without querying CommitteeMember directly, which is why the three
+     * pre-existing membership checks each spelled that query out inline.
+     */
+    public function committeeMemberships(): HasMany
+    {
+        return $this->hasMany(CommitteeMember::class);
+    }
+
     /** Roles held by this user — the source of all their capabilities. */
     public function roles(): BelongsToMany
     {
@@ -161,6 +194,10 @@ class User extends Authenticatable
      */
     public function screenPermissions(): array
     {
+        if ($this->screenPermissionsCache !== null) {
+            return $this->screenPermissionsCache;
+        }
+
         $roleIds = $this->roles()->pluck('roles.id');
 
         $rows = ScreenRolePermission::query()
@@ -177,7 +214,52 @@ class User extends Authenticatable
             }
         }
 
+        return $this->screenPermissionsCache = $this->hideMeetingsSectionIfUnseated($map);
+    }
+
+    /**
+     * Membership gate — a user with no committee seat does not get the
+     * meetings section at all.
+     *
+     * Applied HERE, inside the resolved map, because this method is the single
+     * source of truth every consumer reads: CheckScreenPermission on the API,
+     * UserResource for the SPA's router guard and v-can, and ScreenController
+     * for the sidebar. Gating any one of those alone would let them disagree —
+     * a sidebar that lists links the API refuses, or a guard that admits a
+     * route whose every call then 403s.
+     *
+     * ONLY can_view is suppressed. See MeetingVisibility::GATED_SCREENS for
+     * why touching the other flags would break request visibility for R11,
+     * R02, R03 and R12.
+     *
+     * @param  array<string, array<string, bool>>  $map
+     * @return array<string, array<string, bool>>
+     */
+    private function hideMeetingsSectionIfUnseated(array $map): array
+    {
+        if (app(MeetingVisibility::class)->sitsOnAnyCommittee($this)) {
+            return $map;
+        }
+
+        foreach (MeetingVisibility::GATED_SCREENS as $code) {
+            if (isset($map[$code])) {
+                $map[$code]['can_view'] = false;
+            }
+        }
+
         return $map;
+    }
+
+    /**
+     * Drop the memoized permission map.
+     *
+     * Needed only where roles or committee membership change on an instance
+     * that has already answered once — in practice a test, since a real
+     * request resolves the actor fresh.
+     */
+    public function forgetScreenPermissions(): void
+    {
+        $this->screenPermissionsCache = null;
     }
 
     /**

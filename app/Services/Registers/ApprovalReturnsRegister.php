@@ -3,6 +3,8 @@
 namespace App\Services\Registers;
 
 use App\Models\ApprovalReturn;
+use App\Models\User;
+use App\Services\RequestVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -91,5 +93,16 @@ class ApprovalReturnsRegister extends Register
             'resolved_at' => $this->date($model->resolved_at),
             'resolved_by' => $model->resolvedBy?->name,
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return $query->whereHas('requestRecord', fn (Builder $r) => app(RequestVisibility::class)->apply($r, $actor));
     }
 }

@@ -3,6 +3,8 @@
 namespace App\Services\Registers;
 
 use App\Models\Request;
+use App\Models\User;
+use App\Services\RequestVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -87,5 +89,16 @@ class ClosureRegister extends Register
             'file_storage_location' => $closure['file_storage_location'] ?? null,
             'closed_by' => $model->closedBy?->name,
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return app(RequestVisibility::class)->apply($query, $actor);
     }
 }

@@ -37,7 +37,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(2);
+        [$committee, $members] = $this->committeeWithMembers(2, $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         foreach ($members as $member) {
             $this->invite($meeting, $member, 'confirmed');
@@ -62,7 +62,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(2);
+        [$committee, $members] = $this->committeeWithMembers(2, $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         foreach ($members as $member) {
             $this->invite($meeting, $member, 'confirmed');
@@ -77,7 +77,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(2);
+        [$committee, $members] = $this->committeeWithMembers(2, $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         foreach ($members as $member) {
             $this->invite($meeting, $member, 'confirmed');
@@ -97,7 +97,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(3);
+        [$committee, $members] = $this->committeeWithMembers(3, $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         // Only one of three confirms — majority of 3 requires 2.
         $this->invite($meeting, $members[0], 'confirmed');
@@ -120,7 +120,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(2);
+        [$committee, $members] = $this->committeeWithMembers(2, $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         // Only invite one of the two active members.
         $this->invite($meeting, $members[0], 'confirmed');
@@ -135,7 +135,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(2);
+        [$committee, $members] = $this->committeeWithMembers(2, $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         foreach ($members as $member) {
             $this->invite($meeting, $member, 'confirmed');
@@ -151,7 +151,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(2);
+        [$committee, $members] = $this->committeeWithMembers(2, $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         $this->invite($meeting, $members[0], 'confirmed');
         $this->invite($meeting, $members[1], 'pending');
@@ -166,7 +166,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(2);
+        [$committee, $members] = $this->committeeWithMembers(2, $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         foreach ($members as $member) {
             $this->invite($meeting, $member, 'confirmed');
@@ -187,7 +187,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee] = $this->committeeWithMembers(2);
+        [$committee] = $this->committeeWithMembers(2, $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         // No agenda, no invitations confirmed — definitely not ready.
 
@@ -209,7 +209,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee] = $this->committeeWithMembers(2);
+        [$committee] = $this->committeeWithMembers(2, $head);
         $meeting = $this->scheduleMeeting($committee, $head);
         $meeting->update(['status' => 'completed']);
 
@@ -225,7 +225,11 @@ class MeetingReadinessTest extends TestCase
         $head = $this->userWithRole('R03');
         $member = $this->userWithRole('R04');
 
-        [$committee] = $this->committeeWithMembers(2);
+        [$committee] = $this->committeeWithMembers(2, $head);
+        // Membership gate — this test's own name says "a member", and now it
+        // has to be one: reading readiness needs a seat, and only convening
+        // needs the R03 edit grant. That is the split under test.
+        CommitteeMember::create(['committee_id' => $committee->id, 'user_id' => $member->id]);
         $meeting = $this->scheduleMeeting($committee, $head);
 
         $this->actingAs($member, 'sanctum')
@@ -242,7 +246,7 @@ class MeetingReadinessTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
 
-        [$committee, $members] = $this->committeeWithMembers(2);
+        [$committee, $members] = $this->committeeWithMembers(2, $head);
         $meeting = $this->scheduleMeeting($committee, $head, now()->addDay());
         $this->invite($meeting, $members[0], 'confirmed');
         // Second member left pending -> not fully ready.
@@ -274,7 +278,7 @@ class MeetingReadinessTest extends TestCase
     }
 
     /** @return array{0: Committee, 1: User[]} */
-    private function committeeWithMembers(int $count): array
+    private function committeeWithMembers(int $count, User $head): array
     {
         // Stage 73 — a committee now has to carry its own transcribed quorum
         // rule: the readiness gate no longer supplies ceil(members / 2) for a
@@ -291,8 +295,14 @@ class MeetingReadinessTest extends TestCase
             'quorum_comparator' => 'more_than',
             'quorum_text' => 'أكثر من نصف الأعضاء',
         ]);
-        $members = [];
-        for ($i = 0; $i < $count; $i++) {
+        // Membership gate — the acting head must sit on the committee they
+        // are assessing. Seated AS one of the $count members rather than in
+        // addition to them: the readiness percentages and the quorum are all
+        // computed from the roster size, so an extra seat with no matching
+        // invitation would change every figure these tests assert.
+        CommitteeMember::create(['committee_id' => $committee->id, 'user_id' => $head->id, 'is_head' => true]);
+        $members = [$head];
+        for ($i = 1; $i < $count; $i++) {
             $user = User::factory()->create(['is_active' => true]);
             CommitteeMember::create(['committee_id' => $committee->id, 'user_id' => $user->id]);
             $members[] = $user;

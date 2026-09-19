@@ -487,6 +487,11 @@ class EmployeeNoticeTest extends TestCase
             'is_active' => true,
         ]);
 
+        // Membership gate — whoever creates a sitting sits on its committee;
+        // MeetingController::store() has required exactly that since Stage 84,
+        // so the fixture is only reproducing the invariant it would enforce.
+        $committee->members()->firstOrCreate(['user_id' => $creator->id]);
+
         return Meeting::create([
             'committee_id' => $committee->id,
             'meeting_number' => 'PM-MTG/2026/'.fake()->unique()->numerify('##'),

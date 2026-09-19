@@ -3,6 +3,8 @@
 namespace App\Services\Registers;
 
 use App\Models\Request;
+use App\Models\User;
+use App\Services\RequestVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -90,5 +92,16 @@ class ExecutionRegister extends Register
             'executed_by' => $model->executedBy?->name,
             'evidence_count' => $model->execution_evidence_count,
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return app(RequestVisibility::class)->apply($query, $actor);
     }
 }

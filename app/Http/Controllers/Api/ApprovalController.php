@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Approval\StoreApprovalRequest;
 use App\Http\Resources\RequestResource;
 use App\Models\Request;
+use App\Services\Tasks\PendingTaskCollector;
 use App\Services\WorkflowService;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -24,44 +25,40 @@ class ApprovalController extends Controller
     // Stage 57 — the `authority` checkpoint (competent_authority) is gone: no
     // standard document names a fourth post-committee approving party. R07
     // keeps exactly one approval screen now, `final`.
-    private const LEVELS = [
-        'reviewer' => ['stage' => 'requirements_check', 'role' => 'R02'],
-        'committee-head' => ['stage' => 'receive_from_committee', 'role' => 'R03'],
-        'admin-manager' => ['stage' => 'approval_by_authority', 'role' => 'R05'],
-        'ministry' => ['stage' => 'local_governance_ministry', 'role' => 'R06'],
-        'final' => ['stage' => 'final_approval_archiving', 'role' => 'R07'],
+    /**
+     * The five approval checkpoints: stage, the one role that may approve it,
+     * and the screen whose `approve` flag carries that capability.
+     *
+     * Public because it is one fact with three readers — this queue, the
+     * pending-task inbox, and RequestController::actorCanApproveCurrentLevel()
+     * — which used to spell the stage-to-screen half out separately. The
+     * `screen` entries are not menu entries: those five screens carry no route
+     * any more, and exist purely as the per-checkpoint segregation of duties
+     * the whole approval chain rests on.
+     */
+    public const LEVELS = [
+        'reviewer' => ['stage' => 'requirements_check', 'role' => 'R02', 'screen' => 'reviewer_approval'],
+        'committee-head' => ['stage' => 'receive_from_committee', 'role' => 'R03', 'screen' => 'committee_head_approval'],
+        'admin-manager' => ['stage' => 'approval_by_authority', 'role' => 'R05', 'screen' => 'admin_manager_approval'],
+        'ministry' => ['stage' => 'local_governance_ministry', 'role' => 'R06', 'screen' => 'ministry_approval'],
+        'final' => ['stage' => 'final_approval_archiving', 'role' => 'R07', 'screen' => 'final_approval'],
     ];
 
     // Stage 18 — role-specific pending approval queues.
-    public function index(HttpRequest $request, string $level): AnonymousResourceCollection
+    public function index(HttpRequest $request, string $level, PendingTaskCollector $tasks): AnonymousResourceCollection
     {
         $configuration = $this->configuration($level);
 
-        $requests = Request::query()
+        // One definition of "pending approval", shared with the task inbox:
+        // the self-created exclusion and the terminal-status list live there
+        // now. This narrows it to the single checkpoint this queue is for.
+        $requests = $tasks->approvalsQuery($request->user(), [$configuration['stage']])
             ->with([
                 'department:id,name_ar,name_en,code',
                 'requestType:id,code,name_ar,name_en,decision_grade_threshold',
                 'status:id,code,name_ar,name_en,color',
                 'currentStage:id,order_no,code,name_ar,name_en',
             ])
-            ->whereHas('currentStage', fn ($query) => $query->where('code', $configuration['stage']))
-            // Do not advertise a record in an approval queue when the only
-            // available actor is also its creator; WorkflowService repeats
-            // this prohibition at the write boundary.
-            ->where(function ($query) use ($request) {
-                $query->whereNull('created_by_user_id')
-                    ->orWhere('created_by_user_id', '!=', $request->user()->id);
-            })
-            // Stage 37: final approval moves to in_execution; keeping that
-            // status out prevents the stage-11 self-loop being approved
-            // twice. Stage 64, Track J: decision_withdrawn/decision_amended
-            // mirror WorkflowService::hasTerminalStatus()'s own list — an
-            // appeal that already overturned/amended this decision leaves
-            // nothing left to approve here.
-            ->whereDoesntHave('status', fn ($query) => $query->whereIn(
-                'code',
-                ['cancelled', 'archived', 'not_approved', 'in_execution', 'executed', 'completed_closed', 'decision_withdrawn', 'decision_amended'],
-            ))
             ->latest('submitted_at')
             ->paginate(20)
             ->withQueryString();

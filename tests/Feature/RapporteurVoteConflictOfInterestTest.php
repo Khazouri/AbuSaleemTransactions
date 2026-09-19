@@ -106,9 +106,11 @@ class RapporteurVoteConflictOfInterestTest extends TestCase
 
         $outsider = $this->userWithRole('R04');
 
+        // Membership gate — 404 rather than the old 422: an outsider cannot see
+        // this sitting, and refusing them by name would confirm it exists.
         $this->actingAs($outsider, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/conflict-of-interest", [])
-            ->assertStatus(422);
+            ->assertStatus(404);
     }
 
     public function test_a_role_without_decisions_add_cannot_declare_a_conflict_of_interest(): void

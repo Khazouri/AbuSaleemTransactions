@@ -47,7 +47,7 @@ class RegisterController extends Controller
         $definition = $this->resolve($register);
         $locale = $request->registerLocale();
 
-        $page = $definition->query($request->filters())
+        $page = $definition->query($request->filters(), $request->user())
             ->paginate($request->validated('per_page') ?? 25)
             ->withQueryString();
 
@@ -78,7 +78,7 @@ class RegisterController extends Controller
 
         // Not paginated: an export that silently stopped at page one would be
         // worse than no export. The filters bound the size.
-        $rows = $definition->query($filters)->get();
+        $rows = $definition->query($filters, $request->user())->get();
 
         return $exporter->download(
             $definition->document($rows, $locale, $this->metaLines($filters, $locale)),

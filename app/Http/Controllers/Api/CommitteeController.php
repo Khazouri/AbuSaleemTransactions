@@ -11,7 +11,9 @@ use App\Http\Resources\CommitteeResource;
 use App\Models\Committee;
 use App\Models\CommitteeMember;
 use App\Models\User;
+use App\Services\MeetingVisibility;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 
@@ -25,9 +27,20 @@ use Illuminate\Support\Facades\DB;
  */
 class CommitteeController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function __construct(private readonly MeetingVisibility $visibility) {}
+
+    /**
+     * Membership gate — committees the caller sits on.
+     *
+     * Unscoped this returned every committee WITH its full roster eager-loaded,
+     * to anyone holding `meetings,view` — which is seeded '*'. Narrowing it
+     * also makes the picker honest: store() has refused to schedule for a
+     * committee you do not sit on since Stage 84, so an unscoped list was
+     * offering choices the very next endpoint rejects.
+     */
+    public function index(HttpRequest $request): AnonymousResourceCollection
     {
-        $committees = Committee::query()
+        $committees = $this->visibility->applyToCommittees(Committee::query(), $request->user())
             ->withCount(['members', 'meetings'])
             ->with(['members.user:id,name'])
             ->orderBy('name_ar')
@@ -36,9 +49,26 @@ class CommitteeController extends Controller
         return CommitteeResource::collection($committees);
     }
 
+    /**
+     * Membership gate — forming a committee seats you on it.
+     *
+     * Without this the creator immediately loses sight of what they just made:
+     * index() now lists only committees you sit on, and MeetingController
+     * ::store() has refused to schedule for a committee you do not sit on
+     * since Stage 84 — so an unseated creator could produce a committee they
+     * could neither find nor convene. Seated as a plain member, not as head:
+     * `meetings,add` is held by R02 (المقرر) as well as R03, and making the
+     * rapporteur the chair would be a governance claim this action has no
+     * business making. addMember() still assigns the chair seat explicitly.
+     */
     public function store(StoreCommitteeRequest $request): JsonResponse
     {
-        $committee = Committee::create($request->validated());
+        $committee = DB::transaction(function () use ($request) {
+            $committee = Committee::create($request->validated());
+            $committee->members()->create(['user_id' => $request->user()->id]);
+
+            return $committee;
+        });
 
         return (new CommitteeResource($committee->loadCount(['members', 'meetings'])->load('members.user:id,name')))
             ->response()
@@ -47,14 +77,18 @@ class CommitteeController extends Controller
 
     public function update(UpdateCommitteeRequest $request, Committee $committee): CommitteeResource
     {
+        $this->authorizeCommittee($request->user(), $committee);
+
         $committee->update($request->validated());
 
         return new CommitteeResource($committee->loadCount(['members', 'meetings'])->load('members.user:id,name'));
     }
 
     /** Flip is_active, the same soft-disable pattern DepartmentController uses. */
-    public function toggleActive(Committee $committee): CommitteeResource
+    public function toggleActive(HttpRequest $request, Committee $committee): CommitteeResource
     {
+        $this->authorizeCommittee($request->user(), $committee);
+
         $committee->update(['is_active' => ! $committee->is_active]);
 
         return new CommitteeResource($committee->loadCount(['members', 'meetings'])->load('members.user:id,name'));
@@ -65,8 +99,10 @@ class CommitteeController extends Controller
      * history (agenda, attendance, minutes) must stay attached to a resolvable
      * committee, mirroring DepartmentController::destroy's "empty it first" rule.
      */
-    public function destroy(Committee $committee): JsonResponse
+    public function destroy(HttpRequest $request, Committee $committee): JsonResponse
     {
+        $this->authorizeCommittee($request->user(), $committee);
+
         if ($committee->meetings()->exists()) {
             return response()->json([
                 'message' => 'لا يمكن حذف لجنة عقدت اجتماعات. لا يمكن حذف السجل التاريخي المرتبط بها.',
@@ -94,6 +130,8 @@ class CommitteeController extends Controller
      */
     public function addMember(StoreCommitteeMemberRequest $request, Committee $committee): JsonResponse
     {
+        $this->authorizeCommittee($request->user(), $committee);
+
         $data = $request->validated();
 
         if (($data['seat'] ?? null) === 'chair') {
@@ -105,7 +143,11 @@ class CommitteeController extends Controller
                 $committee->members()->where('is_head', true)->update(['is_head' => false]);
             }
 
-            return $committee->members()->create($data);
+            // updateOrCreate, not create: there is no unique index on
+            // (committee_id, user_id), and store() now always seats the
+            // creator — so promoting that same person to a named seat would
+            // otherwise leave the committee holding two rows for one person.
+            return $committee->members()->updateOrCreate(['user_id' => $data['user_id']], $data);
         });
 
         return (new CommitteeMemberResource($member->load('user:id,name')))
@@ -113,8 +155,10 @@ class CommitteeController extends Controller
             ->setStatusCode(201);
     }
 
-    public function removeMember(Committee $committee, CommitteeMember $member): JsonResponse
+    public function removeMember(HttpRequest $request, Committee $committee, CommitteeMember $member): JsonResponse
     {
+        $this->authorizeCommittee($request->user(), $committee);
+
         abort_unless($member->committee_id === $committee->id, 404);
 
         $member->delete();
@@ -130,6 +174,19 @@ class CommitteeController extends Controller
      * pick people here without being handed the broader Users administration
      * screen just to do it.
      */
+    /**
+     * Membership gate — you may only act on a committee you can see.
+     *
+     * 404 rather than 403, matching the meeting gate and RequestVisibility:
+     * refusing by name would confirm the committee exists. Without this,
+     * index() would hide a committee that every write endpoint below still
+     * accepted from anyone holding `meetings,edit` and an id to guess.
+     */
+    private function authorizeCommittee(User $actor, Committee $committee): void
+    {
+        abort_unless($this->visibility->canViewCommittee($actor, $committee), 404);
+    }
+
     public function userOptions(): JsonResponse
     {
         return response()->json([

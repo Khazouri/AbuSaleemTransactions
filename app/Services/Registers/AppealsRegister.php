@@ -3,6 +3,7 @@
 namespace App\Services\Registers;
 
 use App\Models\Appeal;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -84,5 +85,22 @@ class AppealsRegister extends Register
             'outcome_executed_at' => $this->date($model->outcome_executed_at),
             'closed_at' => $this->date($model->closed_at),
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        // An appeal is its appellant's own, or readable by whoever may act on
+        // appeals at all — exactly Appeal::isVisibleTo()'s rule, as a scope.
+        if ($actor->hasScreenPermission('appeals', 'can_edit')) {
+            return $query;
+        }
+
+        return $query->where('appellant_user_id', $actor->id);
     }
 }

@@ -3,9 +3,11 @@
 namespace App\Services\Performance;
 
 use App\Models\Request;
+use App\Models\User;
 use App\Services\EmployeeNoticeService;
 use App\Services\Lifecycle\RequestResponsibilityService;
 use App\Services\ReportMetricsService;
+use App\Services\RequestVisibility;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -69,9 +71,9 @@ class EarlyWarningService
      * @param  array<string, mixed>  $filters
      * @return list<array<string, mixed>>
      */
-    public function alerts(array $filters = [], string $locale = 'ar', ?int $limit = null): array
+    public function alerts(array $filters = [], string $locale = 'ar', ?int $limit = null, ?User $actor = null): array
     {
-        $requests = $this->population($filters);
+        $requests = $this->population($filters, $actor);
 
         if ($requests->isEmpty()) {
             return [];
@@ -176,11 +178,11 @@ class EarlyWarningService
      * @param  array<string, mixed>  $filters
      * @return list<array<string, mixed>>
      */
-    public function summary(array $filters = [], string $locale = 'ar'): array
+    public function summary(array $filters = [], string $locale = 'ar', ?User $actor = null): array
     {
         $counts = [];
 
-        foreach ($this->alerts($filters, $locale) as $row) {
+        foreach ($this->alerts($filters, $locale, null, $actor) as $row) {
             foreach ($row['warnings'] as $warning) {
                 $counts[$warning['key']] = ($counts[$warning['key']] ?? 0) + 1;
             }
@@ -206,9 +208,21 @@ class EarlyWarningService
      * @param  array<string, mixed>  $filters
      * @return Collection<int, Request>
      */
-    private function population(array $filters): Collection
+    private function population(array $filters, ?User $actor = null): Collection
     {
-        return $this->metrics->query($filters)
+        // Membership gate — Appendix 10's alerts name a request and its
+        // reference number, so this is a ROW listing wearing a KPI's clothes
+        // and is scoped like one. The indicators and the periodic reports are
+        // genuine aggregates and stay whole; whoever may export a report reads
+        // this whole too, for the reason ReportMetricsService::rowsQuery()
+        // records.
+        $query = $this->metrics->query($filters);
+
+        if ($actor !== null && ! $actor->hasScreenPermission('reports', 'can_export')) {
+            $query = app(RequestVisibility::class)->apply($query, $actor);
+        }
+
+        return $query
             ->whereDoesntHave('status', fn ($query) => $query->whereIn('code', self::SETTLED_STATUSES))
             ->with([
                 'status:id,code,name_ar,name_en',

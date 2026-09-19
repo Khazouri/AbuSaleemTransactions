@@ -19,11 +19,14 @@ class StoreCommitteeMemberRequest extends FormRequest
         $committee = $this->route('committee');
 
         $rules = [
-            'user_id' => [
-                'required', 'integer', 'exists:users,id',
-                Rule::unique('committee_members', 'user_id')
-                    ->where('committee_id', $committee->id),
-            ],
+            // Deliberately NOT unique per committee: this endpoint sets a
+            // person's membership rather than only creating one, and the
+            // controller upserts on (committee, user). It has to, now that
+            // CommitteeController::store() seats the creator automatically —
+            // otherwise that person could never afterwards be given a named
+            // seat on the committee they just formed. One row per person is
+            // still guaranteed, by the upsert rather than by a refusal.
+            'user_id' => ['required', 'integer', 'exists:users,id'],
             'is_head' => ['sometimes', 'boolean'],
             'seat' => ['sometimes', 'nullable', Rule::in(CommitteeMember::SEATS)],
         ];

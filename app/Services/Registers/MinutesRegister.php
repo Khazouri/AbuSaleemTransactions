@@ -3,6 +3,8 @@
 namespace App\Services\Registers;
 
 use App\Models\MeetingMinutes;
+use App\Models\User;
+use App\Services\MeetingVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -88,5 +90,16 @@ class MinutesRegister extends Register
             'approved_at' => $this->date($model->approved_at),
             'signatures' => $model->signed_count.'/'.$model->signatures_count,
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return $query->whereHas('meeting', fn (Builder $m) => app(MeetingVisibility::class)->apply($m, $actor));
     }
 }

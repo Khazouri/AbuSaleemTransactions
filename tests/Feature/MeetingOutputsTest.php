@@ -49,7 +49,11 @@ class MeetingOutputsTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
         ]);
 
-        $response = $this->actingAs($member, 'sanctum')
+        // `meeting_outputs.view` is no longer '*': this screen is the
+        // post-decision execution tracker, so it is narrowed to the roles that
+        // act on it (R02/R03/R12). The chair reads it; a plain member (R04)
+        // does not, which the assertion below now pins.
+        $response = $this->actingAs($head, 'sanctum')
             ->getJson("/api/meetings/{$meeting->id}/outputs")
             ->assertOk()
             ->assertJsonPath('data.meeting.id', $meeting->id)

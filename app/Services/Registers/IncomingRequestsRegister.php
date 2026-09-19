@@ -3,6 +3,8 @@
 namespace App\Services\Registers;
 
 use App\Models\Request;
+use App\Models\User;
+use App\Services\RequestVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -83,5 +85,16 @@ class IncomingRequestsRegister extends Register
             'status' => $this->localName($model->status, $locale),
             'current_stage' => $this->localName($model->currentStage, $locale),
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return app(RequestVisibility::class)->apply($query, $actor);
     }
 }

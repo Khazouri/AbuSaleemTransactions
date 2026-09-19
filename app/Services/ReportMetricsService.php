@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Request;
 use App\Models\RequestStatus;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -133,9 +134,30 @@ class ReportMetricsService
      * @param  array<string, mixed>  $filters
      * @return Builder<Request>
      */
-    public function rowsQuery(array $filters): Builder
+    /**
+     * Membership gate — the per-request ROW listing narrows to files the
+     * reader may open; the aggregate KPIs above deliberately do not.
+     *
+     * The split is the point. Every KPI is a count, a share or an average and
+     * carries no person and no file, which is what Art. 107 requires of the
+     * periodic report; scoping them would also make them WRONG rather than
+     * private, since a completion rate over one reader's own subset is a
+     * meaningless figure that still looks authoritative. Personal data lives
+     * in the rows, so that is what is scoped.
+     *
+     * Whoever may EXPORT the report reads it whole, for the same reason the
+     * registers carve that out: `export` is seeded to the approving and
+     * oversight bodies, who hold little RequestVisibility reach of their own.
+     */
+    public function rowsQuery(array $filters, ?User $actor = null): Builder
     {
-        return $this->query($filters)
+        $query = $this->query($filters);
+
+        if ($actor !== null && ! $actor->hasScreenPermission('reports', 'can_export')) {
+            $query = app(RequestVisibility::class)->apply($query, $actor);
+        }
+
+        return $query
             ->with([
                 'department:id,name_ar,name_en,code',
                 'requestType:id,code,name_ar,name_en',

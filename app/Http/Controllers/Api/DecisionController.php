@@ -18,15 +18,18 @@ use App\Models\Decision;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Models\Template;
+use App\Models\User;
 use App\Models\Vote;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\CommitteeVotingRules;
 use App\Services\DecisionDraftComposer;
 use App\Services\DecisionEligibility;
 use App\Services\DecisionStructureRules;
+use App\Services\MeetingVisibility;
 use App\Services\NotificationDispatcher;
 use App\Services\Reports\ReportDocument;
 use App\Services\Reports\ReportExporter;
+use App\Services\RequestVisibility;
 use App\Services\WorkflowService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -51,6 +54,11 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class DecisionController extends Controller
 {
+    public function __construct(
+        private readonly MeetingVisibility $meetingVisibility,
+        private readonly RequestVisibility $requestVisibility,
+    ) {}
+
     /**
      * Column headings and outcome labels for the exported register.
      *
@@ -693,7 +701,7 @@ class DecisionController extends Controller
      */
     public function index(IndexDecisionRequest $request): AnonymousResourceCollection
     {
-        $rows = $this->registerQuery($request->filters())
+        $rows = $this->registerQuery($request->filters(), $request->user())
             ->paginate($request->validated('per_page') ?? 25)
             ->withQueryString();
 
@@ -769,7 +777,7 @@ class DecisionController extends Controller
 
         // Not paginated: an export that silently stopped at page one would be
         // worse than no export. The filters bound the size.
-        $rows = $this->registerQuery($filters)->get();
+        $rows = $this->registerQuery($filters, $request->user())->get();
 
         $document = new ReportDocument(
             slug: 'decisions-register',
@@ -792,9 +800,38 @@ class DecisionController extends Controller
      * @param  array<string, mixed>  $filters
      * @return Builder<Decision>
      */
-    private function registerQuery(array $filters): Builder
+    /**
+     * Membership gate — the register, scoped in TWO branches.
+     *
+     * `decisions` was deliberately pulled out of the meetings group as a
+     * shared system-wide record, so hiding the screen would contradict that
+     * sourced decision. Its ROWS are narrowed instead, and by a union rather
+     * than a single rule, because two different people legitimately read this
+     * register for two different reasons: a committee member looking at what
+     * their own committee decided, and anyone who can already open the
+     * underlying request looking at the decision on a file they hold. An
+     * employee therefore still finds the decision on their own request, while
+     * they stop reading the whole municipality's decisions.
+     *
+     * Both halves reuse the existing services rather than restating either
+     * rule, so this cannot drift from the screens those rules already govern.
+     */
+    private function registerQuery(array $filters, User $actor): Builder
     {
+        $committeeIds = $this->meetingVisibility->visibleCommitteeIds($actor);
+
         return Decision::query()
+            ->when($committeeIds !== null, fn (Builder $query) => $query->where(
+                fn (Builder $mine) => $mine
+                    ->whereHas(
+                        'meetingRequest.meeting',
+                        fn (Builder $meeting) => $meeting->whereIn('committee_id', $committeeIds),
+                    )
+                    ->orWhereHas(
+                        'meetingRequest.request',
+                        fn (Builder $requestRecord) => $this->requestVisibility->apply($requestRecord, $actor),
+                    ),
+            ))
             ->with([
                 'decidedBy:id,name',
                 'template:id,code,name_ar,name_en',

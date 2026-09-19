@@ -2417,5 +2417,27 @@
       "noTarget": "No expected duration is recorded for this step.",
       "concluded": "This request has concluded."
     }
+  },
+  "myTasks": {
+    "title": "Pending Tasks",
+    "lede": "Everything waiting on you, in one place.",
+    "refresh": "Refresh",
+    "loadFailed": "Could not load your tasks.",
+    "empty": "Nothing is waiting on you right now.",
+    "all": "All",
+    "total": "Total tasks: {count}",
+    "overdue": "Overdue: {count}",
+    "waiting": "{days} days waiting",
+    "late": "Overdue",
+    "due": "Due {date}",
+    "truncated": "Only part of your tasks is shown — there are a lot of them.",
+    "sources": {
+      "approval": "Awaiting your approval",
+      "vote": "Awaiting your vote",
+      "candidate": "Committee candidates",
+      "legal_review": "Awaiting legal review",
+      "minutes_signature": "Minutes awaiting your signature",
+      "completion": "My requests needing completion"
+    }
   }
 }

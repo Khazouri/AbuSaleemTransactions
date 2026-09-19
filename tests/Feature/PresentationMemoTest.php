@@ -189,9 +189,13 @@ class PresentationMemoTest extends TestCase
     public function test_the_rapporteur_generates_a_memo_while_a_member_and_an_outsider_are_refused(): void
     {
         $this->seed(DatabaseSeeder::class);
-        [, $member, , $meeting, $agendaItem] = $this->committeeMeetingWithRequestItem();
+        [, $member, $committee, $meeting, $agendaItem] = $this->committeeMeetingWithRequestItem();
 
         $rapporteur = $this->userWithRole('R02');
+        // Membership gate — the rapporteur drafts the memo for a committee they
+        // sit on. The two refusals below are unaffected: the screen permission
+        // runs ahead of the membership check, so both still answer 403.
+        $committee->members()->create(['user_id' => $rapporteur->id]);
         $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/presentation-memo/generate")
             ->assertOk();

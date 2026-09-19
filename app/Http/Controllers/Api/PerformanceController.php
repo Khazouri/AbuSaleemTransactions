@@ -41,7 +41,7 @@ class PerformanceController extends Controller
 
         return response()->json([
             'data' => $this->indicators->indicators($filters, $locale),
-            'warnings' => $this->warnings->summary($filters, $locale),
+            'warnings' => $this->warnings->summary($filters, $locale, $request->user()),
             'meta' => [
                 'source' => 'Art. 106',
                 'formats' => ReportExporter::FORMATS,
@@ -61,8 +61,8 @@ class PerformanceController extends Controller
         $locale = $request->performanceLocale();
 
         return response()->json([
-            'data' => $this->warnings->alerts($request->filters(), $locale, 100),
-            'summary' => $this->warnings->summary($request->filters(), $locale),
+            'data' => $this->warnings->alerts($request->filters(), $locale, 100, $request->user()),
+            'summary' => $this->warnings->summary($request->filters(), $locale, $request->user()),
             'meta' => ['source' => 'Appendix 10'],
         ]);
     }

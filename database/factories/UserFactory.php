@@ -30,6 +30,14 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            // Mirrors the column's own default. Without it the RETURNED model
+            // carries is_active = null in memory even though the row is true,
+            // and actingAs() hands that exact instance to the request — so any
+            // visibility rule reading $actor->is_active (RequestVisibility and
+            // MeetingVisibility both do) silently sees an inactive user and
+            // 404s everything. A test that wants an inactive user still gets
+            // one by passing is_active => false explicitly.
+            'is_active' => true,
         ];
     }
 

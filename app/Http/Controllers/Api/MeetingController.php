@@ -32,6 +32,7 @@ use App\Services\ArtifactNumberGenerator;
 use App\Services\DocumentCompletenessService;
 use App\Services\Lifecycle\DocumentConflictService;
 use App\Services\Lifecycle\UrgencyRules;
+use App\Services\MeetingVisibility;
 use App\Services\NotificationDispatcher;
 use App\Services\StudySequenceRules;
 use Illuminate\Http\JsonResponse;
@@ -50,11 +51,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class MeetingController extends Controller
 {
-    public function index(IndexMeetingRequest $request): AnonymousResourceCollection
+    // Membership gate — the list half of the same rule CheckMeetingMembership
+    // enforces per row, so a sitting this omits is never one whose detail
+    // endpoint would have opened.
+    public function index(IndexMeetingRequest $request, MeetingVisibility $visibility): AnonymousResourceCollection
     {
         $filters = $request->validated();
 
-        $meetings = Meeting::query()
+        $meetings = $visibility->apply(Meeting::query(), $request->user())
             ->with('committee:id,name_ar,name_en')
             ->withCount(['attendees', 'agendaItems'])
             ->when($filters['committee_id'] ?? null, fn ($query, int $committeeId) => $query->where('committee_id', $committeeId))
@@ -462,9 +466,16 @@ class MeetingController extends Controller
             ->orderBy('acted_at')
             ->get();
 
+        // Membership gate — [C] §6 names the الطلبات السابقة tab, but bound to
+        // files that actually reached the committee: a reference_number is
+        // Art. 20's قيد, the point at which a matter becomes the committee's
+        // own. Before it, Art. 15 is explicit that the file is not theirs, so
+        // an employee's unregistered intakes are not the sitting's business.
+        // Same bound RequestVisibility's own closer clause already uses.
         $previousRequests = Request::query()
             ->where('created_by_user_id', $requestRecord->created_by_user_id)
             ->where('id', '!=', $requestRecord->id)
+            ->whereNotNull('reference_number')
             ->with('status:id,code,name_ar,name_en,color')
             ->orderByDesc('submitted_at')
             ->limit(10)

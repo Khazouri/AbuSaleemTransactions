@@ -76,9 +76,14 @@ class MeetingAgendaItemContextTest extends TestCase
     public function test_context_is_refused_for_a_non_request_agenda_item(): void
     {
         $this->seed(DatabaseSeeder::class);
-        [, , , $meeting, , $adminItem] = $this->committeeMeetingWithRequestItem(withAdminItem: true);
+        [, , $committee, $meeting, , $adminItem] = $this->committeeMeetingWithRequestItem(withAdminItem: true);
 
-        $this->actingAs($this->userWithRole('R03'), 'sanctum')
+        // Membership gate — seated, so the request reaches the item-type check
+        // this test is actually about rather than stopping at the gate.
+        $chair = $this->userWithRole('R03');
+        $committee->members()->create(['user_id' => $chair->id]);
+
+        $this->actingAs($chair, 'sanctum')
             ->getJson("/api/meetings/{$meeting->id}/agenda/{$adminItem->id}/context")
             ->assertStatus(422);
     }

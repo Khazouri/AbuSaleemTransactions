@@ -106,9 +106,12 @@ class AppealCommitteePresentationTest extends TestCase
 
         $stranger = $this->userWithRole('R04');
 
+        // Membership gate — with no seat this is a 404: the sitting is not
+        // visible to them, so there is nothing to explain. Once seated below
+        // they get the reasoned 422 for not having attended.
         $this->actingAs($stranger, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'appeal_accept'])
-            ->assertStatus(422);
+            ->assertStatus(404);
 
         $committee->members()->create(['user_id' => $stranger->id]);
 

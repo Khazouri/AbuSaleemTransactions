@@ -4,6 +4,9 @@ namespace App\Services\Registers;
 
 use App\Models\Decision;
 use App\Models\Request;
+use App\Models\User;
+use App\Services\MeetingVisibility;
+use App\Services\RequestVisibility;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -121,5 +124,18 @@ class DecisionsRegister extends Register
                 ? ($locale === 'ar' ? 'مقفلة' : 'Closed')
                 : ($locale === 'ar' ? 'مفتوحة' : 'Open'),
         ];
+    }
+
+    /**
+     * Membership gate — see Register::scopeToActor().
+     *
+     * @param  Builder<Model>  $query
+     * @return Builder<Model>
+     */
+    protected function scopeToActor(Builder $query, User $actor): Builder
+    {
+        return $query->where(fn (Builder $either) => $either
+            ->whereHas('meetingRequest.meeting', fn (Builder $m) => app(MeetingVisibility::class)->apply($m, $actor))
+            ->orWhereHas('meetingRequest.request', fn (Builder $r) => app(RequestVisibility::class)->apply($r, $actor)));
     }
 }
