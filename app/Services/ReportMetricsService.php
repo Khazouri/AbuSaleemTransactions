@@ -33,6 +33,21 @@ class ReportMetricsService
     public const ABANDONED_STATUSES = ['cancelled', 'rejected', 'not_approved'];
 
     /**
+     * Everything that has left the pipeline, completed or abandoned — i.e. no
+     * longer anyone's job.
+     *
+     * Named here rather than restated at each call site because this codebase
+     * already carries three overlapping definitions of "finished" (this one,
+     * WorkflowService::hasTerminalStatus(), and
+     * RequestController::REOPENABLE_STATUS_CODES), each differing for its own
+     * documented reason. overdueQuery() below composed this union inline;
+     * Stage 89's employee tracking screen needed the same answer for its
+     * open/concluded toggle, and a second inline copy is how the fourth
+     * definition gets born.
+     */
+    public const CONCLUDED_STATUSES = [...self::COMPLETED_STATUSES, ...self::ABANDONED_STATUSES];
+
+    /**
      * Aggregates are recomputed at most once every five minutes per filter
      * combination. Dashboards get reloaded constantly and these are the only
      * queries in the app that scan the whole requests table.
@@ -176,10 +191,7 @@ class ReportMetricsService
     {
         return $this->query($filters)
             ->whereNotNull('overdue_at')
-            ->whereHas('status', fn (Builder $query) => $query->whereNotIn(
-                'code',
-                [...self::COMPLETED_STATUSES, ...self::ABANDONED_STATUSES],
-            ));
+            ->whereHas('status', fn (Builder $query) => $query->whereNotIn('code', self::CONCLUDED_STATUSES));
     }
 
     /**

@@ -71,6 +71,15 @@ const routes = [
         meta: { screenCode: 'request_intake' },
       },
       {
+        // Stage 89 — «متابعة طلباتي», the employee's own view of the files
+        // they filed. A separate path from `requests` on purpose: that is the
+        // internal work queue ("work I can act on"), this is ownership.
+        path: 'my-requests',
+        name: 'request_tracking',
+        component: () => import('../views/RequestTrackingView.vue'),
+        meta: { screenCode: 'request_tracking' },
+      },
+      {
         // Stage 15 — request workspace with workflow actions and timeline.
         path: 'requests/:id',
         name: 'request_details',

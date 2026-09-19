@@ -571,7 +571,9 @@
     "details": "Details",
     "viewDetails": "View details",
     "empty": "No requests match the current filters.",
-    "noReference": "Not generated yet"
+    "noReference": "Not generated yet",
+    "search": "Search",
+    "searchPlaceholder": "Tracking number, receipt number or subject…"
   },
   "intake": {
     "title": "New request intake",
@@ -2353,6 +2355,32 @@
         "outcome": "Determination",
         "determination_note": "Statement of the legal effect"
       }
+    }
+  },
+  "tracking": {
+    "title": "My Requests",
+    "intro": "Track the requests you filed: where each one has got to, who has it now, what happens next, and when the current step is expected to finish.",
+    "search": "Search my requests",
+    "searchPlaceholder": "Tracking number, receipt number or subject…",
+    "scope": "Tracking scope",
+    "scopes": {
+      "open": "In progress",
+      "concluded": "Concluded",
+      "all": "All"
+    },
+    "apply": "Search",
+    "empty": "No matching requests.",
+    "currentStep": "Current step",
+    "showDetail": "Show progress",
+    "hideDetail": "Hide progress",
+    "noNotices": "You have not been sent any notices about this request yet.",
+    "documentsIncomplete": "This request is missing required documents. Please review the required documents and supply what is outstanding.",
+    "expected": {
+      "label": "Expected for this step",
+      "by": "This step is expected to finish by {date}",
+      "overdue": "past the expected date",
+      "noTarget": "No expected duration is recorded for this step.",
+      "concluded": "This request has concluded."
     }
   }
 }

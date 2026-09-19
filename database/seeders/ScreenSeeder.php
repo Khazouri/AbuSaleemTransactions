@@ -11,7 +11,8 @@ use Illuminate\Database\Seeder;
  * to the original 22 for the meetings-unit redesign; Stage 57 later removes
  * one, `authority_approval`), plus `departments` (see the note beside it
  * below), Stage 58's `appeals`, Stage 68's `legal_review`, Stage 80's
- * `registers`, the maintenance console and `request_types` = 34 total.
+ * `registers`, the maintenance console, `request_types` and Stage 89's
+ * `request_tracking` = 35 total.
  *
  * Two consumers:
  *   - the sidebar (Stage 5) renders these rows, filtered by can_view
@@ -42,6 +43,13 @@ class ScreenSeeder extends Seeder
             ['dashboard',                'لوحة التحكم الرئيسية',       'Dashboard',                    '/dashboard',                'gauge',        null],
             ['requests',             'الطلبات',                  'Requests',                 '/requests',             'list',         null],
             ['request_intake',       'إرسال الطلب',            'Request Intake',           '/requests/create',      'inbox',        null],
+            // Stage 89 — «متابعة طلباتي», the employee's own view of the files
+            // they filed. Top-level and ungrouped beside the two other
+            // employee-facing request screens, not inside any committee block:
+            // tracking your own request is the counterpart of submitting it,
+            // which is why it sits here rather than beside `requests` (the
+            // internal work queue, whose framing is "work I can act on").
+            ['request_tracking',     'متابعة طلباتي',           'My Requests',              '/my-requests',          'compass',      null],
             ['request_details',      'تفاصيل الطلب',            'Request Details',          '/requests/:id',         'file-text',    null],
             ['notes_attachments',        'الملاحظات والمرفقات',        'Notes & Attachments',          '/requests/:id/notes',   'paperclip',    null],
             // Stage 58 — appeals (تظلمات) against an already-decided request.

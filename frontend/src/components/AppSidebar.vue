@@ -47,6 +47,8 @@ const ICON_BY_CODE = {
   departments: 'git-branch',
   requests: 'file-text',
   request_intake: 'file-plus',
+  // Stage 89 — the employee's own view of the files they filed.
+  request_tracking: 'compass',
   request_details: 'file-text',
   meetings: 'calendar',
   decisions: 'check-circle',

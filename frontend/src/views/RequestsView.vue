@@ -16,7 +16,10 @@ const filters = ref(blankFilters())
 const uploadRequest = ref(null)
 
 function blankFilters() {
-  return { status: '', department_id: '', type_id: '', date_from: '', date_to: '' }
+  // Stage 89 — `search` has been on this endpoint since Stage 20 with no UI
+  // exposing it; the employee tracking screen is the first that does, and
+  // leaving the internal queue without one would have closed that gap by half.
+  return { search: '', status: '', department_id: '', type_id: '', date_from: '', date_to: '' }
 }
 
 const isBusy = computed(() => loading.value || loadingOptions.value)
@@ -93,6 +96,10 @@ onMounted(async () => {
     <form class="card filters" @submit.prevent="applyFilters">
       <h3>{{ t('requests.filters') }}</h3>
       <div class="filter-grid">
+        <label>
+          {{ t('requests.search') }}
+          <input v-model="filters.search" type="search" :placeholder="t('requests.searchPlaceholder')" />
+        </label>
         <label>
           {{ t('requests.status') }}
           <select v-model="filters.status" :disabled="loadingOptions">

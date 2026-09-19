@@ -61,6 +61,8 @@ const icons = {
   // Neutral fallback for any screen without a mapped glyph.
   // Stage: request-type catalogue — stacked sheets, i.e. a set of kinds.
   layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.57 3.9a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  // Stage 89 — «متابعة طلباتي»: tracking where your own file has got to.
+  compass: '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
   dot: '<circle cx="12" cy="12" r="3.5"/>',
 }
 

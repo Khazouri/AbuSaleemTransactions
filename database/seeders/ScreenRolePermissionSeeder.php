@@ -8,8 +8,10 @@ use App\Models\ScreenRolePermission;
 use Illuminate\Database\Seeder;
 
 /**
- * Builds the starting permission matrix: every screen x every role
- * (33 x 11 rows), each with seven action flags.
+ * Builds the starting permission matrix: one row per screen per role, each with
+ * seven action flags. (Phrased without the figures on purpose — both counts
+ * have drifted here before, and the seeder derives them rather than asserting
+ * them: it loops over whatever ScreenSeeder and RoleSeeder actually produced.)
  *
  * How the rules below are applied:
  *   - R08 (System Admin) is granted every action on every screen.
@@ -40,6 +42,18 @@ class ScreenRolePermissionSeeder extends Seeder
         // Intake: the roles that actually register incoming paperwork.
         // R07 is absent — the dean approves, they don't do data entry.
         'request_intake' => ['view' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'edit' => ['R01', 'R02', 'R05']],
+
+        // Stage 89 — «متابعة طلباتي». Deliberately request_intake's own view
+        // list rather than the '*' that requests/request_details/appeals carry.
+        // Those three are '*' because their controllers scope per row while the
+        // POPULATION is shared; this screen's population is "the files I
+        // filed", so the roles that can file are exactly the roles with
+        // something to track. R07 is absent for the same reason it is absent
+        // from intake above — the dean approves, they don't file — and an
+        // always-empty sidebar entry is noise, not access. Nothing is hidden by
+        // this: requests and request_details below stay '*'.
+        'request_tracking' => ['view' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'print' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06']],
+
         'request_details' => ['view' => '*', 'print' => '*', 'export' => '*'],
 
         // Notes/attachments: broad read, narrower write.

@@ -14,6 +14,261 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-19 09:40 EET — Claude — Stage 89 complete («متابعة طلباتي» employee tracking)
+
+Built per the plan below. **No migration, no new derivation, and exactly one new backend field** —
+which is the check that the stage's own Note was right that this is "packaging and discoverability,
+not new data". Full suite **635 tests / 4090 assertions** green (was 626/4032 — exactly this stage's
++9 tests and +58 assertions, and **no pre-existing test needed changing**).
+
+**One new screen, `request_tracking` at `/my-requests`, because the Done-when is literal.** An
+employee had no screen of their own: `GET /requests` is the internal work queue, framed as "work I
+can act on", and its UI exposed no search box at all even though the `search` param has been on that
+endpoint since Stage 20. The new screen is seeded top-level and ungrouped beside `request_intake`
+(sort 4), and named متابعة طلباتي in the sidebar.
+
+**Scoped by ownership, deliberately NOT through `RequestVisibility`, and that containment is the
+point.** `created_by_user_id = $actor->id` is that service's own first and narrowest clause, so
+every row this screen lists is by construction a row the request workspace would also open — the
+tracking list can never offer a file that 404s when clicked. Re-running the full visibility query
+would have widened the population back to work the caller merely holds a role on, i.e. the very
+queue this screen exists to be distinct from. `show()` is `abort_unless(created_by === actor, 404)`,
+Stage 88's draft shape, **with no admin exemption**: «طلباتي» means mine, and R08 reaches every file
+through `/requests/{id}` exactly as before (a test asserts both halves — R08 gets 404 here and 200
+there, so nothing was taken away by scoping this screen).
+
+**Grants mirror `request_intake`'s own view list (R01–R06), not the `'*'` its neighbours carry.**
+`requests`/`request_details`/`appeals` are `'*'` because their controllers scope per row while the
+*population* is shared; this screen's population is "the files I filed", so the roles that can file
+are exactly the roles with something to track. R07 is absent for the same reason it is absent from
+intake — the dean approves, they do not file — and an always-empty sidebar entry is noise, not
+access. Nothing is hidden by the choice: `requests` and `request_details` stay `'*'`.
+
+**The one genuinely new backend field: `stage_timeliness.expected_by`.** That method answered
+`level`/`elapsed_days`/`target_days_*` plus the Appendix 38 escalation rung — everything an internal
+RAG dot needs and nothing that answers "expected to reach the next step by ⟨date⟩". One line adds
+the current stage's entry `acted_at` plus `target_days_max` (the outer bound, not the amber
+threshold), in calendar days to match that method's existing arithmetic. Added to the shared method
+rather than the tracking resource so there is one derivation, and computed server-side because
+re-deriving a date in the browser from an already-rounded `elapsed_days` is a timezone bug waiting
+to happen. Null stays null for the three stages Appendix 37 names no duration for — the screen says
+so rather than fabricating a date, which a dedicated test pins.
+
+**⚠ A real flaw caught mid-build and worth not reintroducing: `is_concluded` has to be on the LIST,
+not only the panel.** The first cut derived it only on the tracking detail payload, so a row showed
+an expected-by date until the reader expanded it. That is not hypothetical — the live smoke run's
+request **#41 is `completed_closed` and still carries `expected_by: 2026-09-14`**, because
+`final_approval_archiving` seeds a 1–2 day target that nothing is counting against any more. Only
+`is_concluded` stops the screen telling an employee a closed file is expected to finish next week.
+Fixed by deriving it **in the resource from the status**, so every row carries it with no extra
+query, and by having the list use `RequestTrackingResource` too — its three heavy registers are
+gated on `array_key_exists`, the same "did the caller compute this?" idiom `RequestResource` already
+uses for `attachments_count`, so a list row carries the tracking block and none of the per-file
+histories.
+
+**No fourth definition of "finished" was invented.** The open/concluded toggle reads
+`ReportMetricsService::CONCLUDED_STATUSES`, a new const holding the union of `COMPLETED_STATUSES`
+and `ABANDONED_STATUSES` — which `overdueQuery()` was already composing inline, so this **removes**
+a duplication rather than adding one. This codebase already carries three overlapping definitions
+(that union, `WorkflowService::hasTerminalStatus()`, `RequestController::REOPENABLE_STATUS_CODES`),
+each differing for its own documented reason; a fourth born inline in a screen filter is exactly the
+drift their comments warn about. Note the toggle's consequence, proven live: a **refused** file
+counts as concluded even though it never "completed", which is right for the employee — it is over.
+
+**`employeeNotices()` moved out of `RequestController` into `App\Services\EmployeeNoticeRegister`.**
+It was private, and the tracking panel needs the same register; two copies of that query would be
+free to drift about what "what was I told about this file" means. No behaviour change.
+`EmployeeNoticeService` is deliberately not the home — its own docblock says it "owns the mapping
+only", and reading the register back is a fourth concern from the three it keeps apart.
+
+**The tracking payload deliberately omits the committee's own machinery** — control gates, the
+jurisdiction test, the closure audit, the approval-return/referral registers, the available-actions
+preview — and a test asserts their absence so a later widening has to be a decision rather than a
+side effect. This narrows nothing: `/requests/{id}` is untouched and still shows its creator
+everything it showed before. This is a second, smaller window on the same file.
+
+**Deliberately NOT built: a «المرحلة X من N» progress counter.** `current_stage.order_no` is already
+on the payload and the temptation is obvious, but **Stage 93 owns reconciling [G]'s «1 من 11», [F]'s
+ten steps and this system's twelve `workflow_stages` rows** — printing a total now would bake in the
+number that stage exists to decide. The screen names the current step instead, and the comment in
+the view says why.
+
+**Also, beyond the Build bullet but named by it:** the search box was added to `RequestsView.vue`
+too (searching reference/title), since the stage records "no UI exposes it" as a defect and closing
+it by half would be worse. The tracking screen's own search additionally matches
+`intake_receipt_number`, because before the قيد that is the only number the employee actually holds.
+
+Frontend: new `RequestTrackingView.vue` — search, the three-way scope toggle, and one card per file
+carrying the tracking number, subject, status, **named** current step, Appendix 17/18's "who has it
+now" / "what happens next", and the expected-by line in employee language (on time / past the
+expected date / no expected duration recorded / concluded — never a RAG level or an escalation
+rung). A per-row panel lazily fetches the show endpoint and renders Art. 100's timeline, Art. 101's
+notices and Appendix 71's ten segments, reusing the existing `requestDetail.*`/`employeeNotices.*`
+keys rather than duplicating forty of them. New `compass` glyph, `ICON_BY_CODE` entry, route, and a
+`tracking.*` locale block. Locale parity verified programmatically: **1914 keys each side, zero
+on-one-side-only**, and the diff is 30 lines per file — the 2-space indentation was preserved, the
+reformatting trap the Stage 81 note records.
+
+Verification: new `tests/Feature/RequestTrackingTest.php` (9 tests — the list is mine with a
+colleague's genuinely absent and the heavy registers omitted from rows; search matching the
+reference, the receipt and an Arabic title; the scope toggle splitting open from concluded with a
+refused file counted as concluded and a bad scope 422ing; `expected_by` equal to the entry date plus
+the stage's own target; a target-less stage reporting no timeliness at all; the panel's three
+registers with the internal keys asserted absent; a concluded file reported as such; someone else's
+file 404ing for R02 **and** R08 while the workspace still opens it for R08; and R07 refused for want
+of the grant). Full suite **635/4090** green, Pint clean on all eleven touched/new PHP files (one
+auto-fix on the new test — import ordering, not a manual edit), `npm run build` passes with
+`RequestTrackingView` as its own 8.37 kB lazy chunk (then reverted the tracked `frontend/dist`, per
+every prior stage), `php artisan migrate` reports **nothing to migrate** — as designed — and both
+seeders were re-run **twice** against the real MySQL/Homestead database, confirmed stable and
+idempotent by script: **35 screens**, the `request_tracking` row at `/my-requests` ungrouped at sort
+4, R01–R06 holding view+print, R07/R09/R10/R11 holding nothing, R08 everything, and the matrix
+complete at **385 = 35 × 11**.
+
+Smoke-tested end to end over real HTTP against Homestead as the seeded `r01.employee@`, against the
+**four real pre-existing requests, all of which happen to be theirs**: the list returned all four
+with the responsibility pair in Arabic (قسم شؤون الموظفين / إحالة الطلب للجهة المعنية) and an
+expected-by date each; the scope toggle split them **3 open / 1 concluded**; a receipt search
+returned exactly one row; a bad scope 422'd; the panel for #42 returned a 3-entry timeline
+(intake → submit → forward), 10 time-card segments and **none** of the five internal keys; #41
+showed the suppressed-date case above; and R07 was refused **403** on both endpoints (the screen
+gate fires before the ownership check — the 404 path is the one R02 exercises in the suite, since
+R02 holds the grant and reaches the controller). Read-only throughout: both minted tokens revoked
+and the database confirmed back to **4 requests / 16 users / 2 pre-existing tokens**.
+
+**Docs:** STAGE_PLAN.md's own status line said "Stages 1–85 are built. Track M's remaining stages
+(86–93) are not", which was already wrong for 86, 88 and 91 before this stage and would have been
+wrong for a fourth. Corrected, along with the queue block. `ScreenSeeder`'s docblock count went 34 →
+35, and `ScreenRolePermissionSeeder`'s stale "33 x 11" was **rephrased without figures** rather than
+re-stated with today's: that seeder loops over whatever the other two produced, so a hard-coded
+count there can only ever drift again — the same lesson the 2026-09-12 note recorded about counting
+a seeder's rows rather than trusting a docblock.
+
+**Open items for whoever builds Stage 90+.** (1) **The tracking screen has no progress indicator by
+design** — see the Stage 93 note above; whichever stage settles the count should add it here, since
+this is the screen an employee actually reads it on. (2) **A file with no stage log yet reports no
+timeliness at all**, because `stageTimeliness()` measures from `latestStageLog.acted_at` — true
+today for a request that has never moved, and honest, but it means a brand-new intake shows "no
+expected duration" rather than counting from submission; measuring the first stage from
+`submitted_at` would be a change to Stage 52's own derivation, not a tracking-screen fix. (3)
+**Nothing on this screen lets the employee act** — no استكمال upload path, no withdrawal, no appeal
+link — deliberately, since Stage 89's Build bullet is a tracking *view*; Stage 90's intake-fidelity
+work and Art. 19's استكمال loop are where an employee-facing action would belong, and the panel
+already names the missing documents through `documents_complete`. (4) **The expected-by date is
+calendar days**, so it can land on a Friday; the sources say أيام عمل, but Stage 17 established
+calendar days for the hard SLA and two deadline mechanisms disagreeing about what a day is would be
+worse than one uniformly approximate — worth revisiting only if both move together.
+
+---
+
+### 2026-09-19 08:45 EET — Claude — Stage 89 implementation plan (متابعة طلباتي employee tracking)
+
+Building Stage 89 per STAGE_PLAN.md Track M. The stage's own Note is the scope: **"packaging and
+discoverability, not new data — the backing payload is already complete."** Verified that before
+designing: `RequestVisibility::apply()`'s very first clause is `created_by_user_id = actor.id`, so
+every request an employee filed is already visible to them, and `RequestDetailResource` already
+carries Art. 100's timeline, Appendix 17/18's responsibility pair, Art. 101's notices register and
+Appendix 71's time card. What does not exist is a screen that says any of it in the employee's own
+terms — the only list route is `GET /requests`, the internal work queue, whose framing is "work I
+can act on" and whose UI exposes no search box at all.
+
+**One new screen, `request_tracking`, not a filter on the existing one.** The Done-when is literal
+("an employee reaches a screen named متابعة طلباتي"), and a screen has to exist as a `screens` row
+for the sidebar to name it and the Stage 9 route guard to gate it. `ScreenSeeder` gains one
+top-level ungrouped row beside `request_intake` (the employee block), and
+`ScreenRolePermissionSeeder` gains `'request_tracking' => ['view' => ['R01','R02','R03','R04',
+'R05','R06'], 'print' => …]` — **deliberately mirroring `request_intake`'s own view list rather
+than the `'*'` that `requests`/`request_details`/`appeals` carry.** Those three are `'*'` because
+their controllers scope per row while the *population* is shared; this screen's population is "the
+files I filed", so the roles that can file are exactly the roles with something to track. R07 holds
+no `request_intake` grant ("the dean approves, they don't do data entry", that seeder's own
+comment), so an always-empty sidebar entry for them would be noise. R08 is granted everything
+automatically. Nothing is hidden by this choice — `requests` and `request_details` stay `'*'`.
+
+**Two new endpoints on a new `RequestTrackingController`, scoped by ownership, not by
+`RequestVisibility`.** `GET /my-requests` and `GET /my-requests/{requestRecord}`, both behind
+`screen.permission:request_tracking,view`, both filtered to `created_by_user_id = $actor->id`.
+Ownership is the *narrowest* clause inside `RequestVisibility` rather than a parallel rule, so the
+tracking list can never offer a row the detail workspace would 404 on — that containment is the
+reason for not routing this through the visibility service a second time. The show endpoint
+`abort_unless($requestRecord->created_by_user_id === $actor->id, 404)`, the same shape Stage 88's
+draft endpoints already use, **including for R08**: "متابعة طلباتي" means mine, and an admin
+reaches every file through `/requests/{id}` as before. A dedicated controller rather than a `mine`
+filter on `RequestController::index()` because a new screen must be gated by its own screen code
+(AGENTS.md's own convention) — the `committee_candidates` worklist is the direct precedent for a
+scoped read over `requests` with its own controller and its own grant.
+
+**Filters: search plus a coarse scope, and no invented vocabulary for either.** `search` already
+exists on `IndexRequest` and matches reference number or title; the tracking screen is the first UI
+to expose it. The scope toggle is `open|concluded|all`, and **"concluded" is
+`[...ReportMetricsService::COMPLETED_STATUSES, ...ABANDONED_STATUSES]` read verbatim** — the same
+union `overdueQuery()` already treats as "has left the pipeline". This codebase already carries
+three overlapping definitions of finished (that union, `WorkflowService::hasTerminalStatus()`, and
+`RequestController::REOPENABLE_STATUS_CODES`); adding a fourth for a screen filter would be the
+drift every one of those comments warns about. Department/type/status filters are deliberately
+absent: they are internal framing, and asking an employee to pick from 39 status codes is not
+tracking.
+
+**The one genuinely new backend field, because the Done-when requires it and nothing produces it:
+`stage_timeliness.expected_by`.** `Request::stageTimeliness()` today answers `level`,
+`elapsed_days`, `target_days_min|max` and the Appendix 38 escalation rung — everything needed for
+the internal RAG dot and nothing that answers "expected to reach the next step by ⟨date⟩". One line
+adds `expected_by` = the current stage's entry `acted_at` plus `target_days_max`, in calendar days
+to match that method's existing arithmetic (Stage 52's own documented simplification). Added to the
+shared method rather than computed in the tracking resource so there is one derivation, and
+computed server-side rather than in the browser because re-deriving a date from an already-rounded
+`elapsed_days` is a timezone bug waiting to happen. `null` stays `null` for the three stages
+Appendix 37 names no duration for — the screen says "no target duration recorded for this step"
+rather than fabricating one.
+
+**`employeeNotices()` moves out of `RequestController` into
+`App\Services\EmployeeNoticeRegister`.** It is a private method today and the tracking payload
+needs the same register; copying the query would give one fact two readers free to drift. No
+behaviour change — `RequestController` calls the service. `EmployeeNoticeService` is deliberately
+not the home: its own docblock says it "owns the mapping only", and reading back what was delivered
+is a fourth concern from the three that class already keeps apart.
+
+**`RequestTrackingResource` extends `RequestResource`**, the same way `RequestDetailResource`
+does, and carries exactly the stage's enumerated list — the timeline, the notices register, the
+time card — plus `description`, Stage 51's `documents_complete` ([A] §7's own employee-facing
+field: "is my file still missing documents") and a derived `is_concluded` so the screen can suppress
+an expected-by line for a file that has no next step. It deliberately does **not** carry the control
+gates, the jurisdiction test, the closure audit, the approval-return/referral registers or the
+available-actions preview: those are the committee's internal machinery, and this payload is the
+employee's file. (`/requests/{id}` is unchanged and still shows R01 everything it shows today —
+narrowing that is not this stage's scope.)
+
+**Frontend:** new `RequestTrackingView.vue` at `/my-requests` — a search box, the scope toggle, a
+table of my own files (tracking number, subject, type, status, current step, "who has it now" and
+"what happens next" from `responsibility`, and the expected-by line), and a per-row expandable
+tracking panel that lazily fetches the show endpoint and renders the timeline, the notices and the
+time card. One screen rather than a second detail route: a tracking page is one place, and the
+existing `/requests/:id` workspace stays exactly as it is. New `tracking.*` locale keys for the
+genuinely new copy; the timeline/notices/time-card labels reuse the existing `requestDetail.*` keys
+rather than duplicating forty of them.
+
+**Also, three lines beyond the Build bullet but named by it:** the `search` box is added to
+`RequestsView.vue` too, since the stage records "the `search` param exists on
+`RequestController::index()` and no UI exposes it" as a defect and leaving it half-closed would be
+worse than closing it.
+
+**Deliberately NOT built: a «المرحلة X من N» progress counter.** `current_stage.order_no` is
+already on the payload and the temptation is obvious, but **Stage 93 owns reconciling [G]'s «1 من
+11», [F]'s ten steps and this system's twelve `workflow_stages` rows** — printing a total now would
+bake in the number that stage exists to decide. The tracking screen names the current step instead.
+
+**No migration, no new data.** Verification: new `tests/Feature/RequestTrackingTest.php` (the list
+shows only my own files and a colleague's are absent; search narrows by reference and by title; the
+scope toggle splits open from concluded using the existing union; `expected_by` is the entry date
+plus the stage's own target and is null for a stage with no sourced target; the show endpoint
+returns the timeline/notices/time card for my own file and 404s on someone else's, R08 included; a
+role without the grant is refused), plus the full PHPUnit suite, Pint on every touched file,
+`npm run build` (then reverting the tracked `frontend/dist`), locale key-parity checked
+programmatically, both seeders re-run against the real MySQL/Homestead database, and
+`php artisan migrate` reporting nothing to migrate — as designed.
+
+---
+
 ### 2026-09-19 00:05 EET — Claude — Stage 88 complete (intake drafts and the review step)
 
 Built per the plan below, from [G] sub-step 5 + system action 1 + employee note 1. One migration (two new

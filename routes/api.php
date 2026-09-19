@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\RequestController;
 use App\Http\Controllers\Api\RequestDraftController;
 use App\Http\Controllers\Api\RequestLegalReviewController;
 use App\Http\Controllers\Api\RequestLifecycleController;
+use App\Http\Controllers\Api\RequestTrackingController;
 use App\Http\Controllers\Api\RequestTypeController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
@@ -262,6 +263,19 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('requests/duplicate-check', [RequestLifecycleController::class, 'duplicateCheck']);
     Route::middleware('screen.permission:request_intake,add')
         ->post('requests', [RequestController::class, 'store']);
+
+    /*
+     * Stage 89 — «متابعة طلباتي». Its own path prefix rather than a `mine`
+     * filter on `requests`, so the screen can be gated by its own screen code
+     * per AGENTS.md's convention — the Stage 32 committee-candidates worklist
+     * is the same shape: a scoped read over `requests` with its own controller
+     * and its own grant. No ordering hazard with the wildcards below, since
+     * nothing else claims the `my-requests` prefix.
+     */
+    Route::middleware('screen.permission:request_tracking,view')->group(function () {
+        Route::get('my-requests', [RequestTrackingController::class, 'index']);
+        Route::get('my-requests/{requestRecord}', [RequestTrackingController::class, 'show']);
+    });
 
     /*
      * Stage 88 — an intake that can be put down and picked up.

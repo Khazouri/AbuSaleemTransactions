@@ -37,6 +37,7 @@ use App\Services\ApprovalReferralService;
 use App\Services\ApprovalReturnService;
 use App\Services\ApprovalSignatureStorage;
 use App\Services\ArtifactNumberGenerator;
+use App\Services\EmployeeNoticeRegister;
 use App\Services\ExecutionSoundnessService;
 use App\Services\IntakeGateService;
 use App\Services\Lifecycle\DuplicatePolicy;
@@ -55,7 +56,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -1219,12 +1219,14 @@ class RequestController extends Controller
         // enforce with, so the screen and the refusal can never disagree.
         $requestRecord->setAttribute('control_gates', $this->controlGateState($requestRecord));
         // Stage 79 — [D] Art. 101's notices actually delivered for this file.
-        // Read back from Laravel's own `notifications` rows rather than from a
-        // table of our own: an in-app notification IS the delivery record, and
-        // Stage 61's AppealFileCompiler already reads إثبات التبليغ the same
-        // way. Email and SMS keep no delivery log anywhere in this system, so
-        // this register is honestly the in-app half and says so on screen.
-        $requestRecord->setAttribute('employee_notices', $this->employeeNotices($requestRecord));
+        // Stage 89 moved the query into EmployeeNoticeRegister so this card and
+        // the employee tracking panel read one register rather than two copies
+        // of the same question; see that class for why it reads Laravel's own
+        // `notifications` rows and why it is honestly the in-app half only.
+        $requestRecord->setAttribute(
+            'employee_notices',
+            app(EmployeeNoticeRegister::class)->for($requestRecord),
+        );
         // Stage 80 — [D] Art. 100's six-column السجل الزمني. Computed here
         // rather than in the resource because the linked-document column is
         // derived from three other tables; see RequestTimelineCompiler.
@@ -1266,53 +1268,6 @@ class RequestController extends Controller
         ])->values()->all());
 
         return new RequestDetailResource($requestRecord);
-    }
-
-    /**
-     * The Art. 101 notices this request's own employee has actually received.
-     *
-     * Ordered oldest-first so the card reads as the file's notification
-     * history, which is also what Art. 100's timeline wants of it. The moment
-     * is carried in the stored payload, so nothing here re-derives it — a
-     * notice says what it said when it was sent, even if the mapping later
-     * changes.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function employeeNotices(Request $requestRecord): array
-    {
-        if ($requestRecord->created_by_user_id === null) {
-            return [];
-        }
-
-        return DatabaseNotification::query()
-            ->where('notifiable_type', User::class)
-            ->where('notifiable_id', $requestRecord->created_by_user_id)
-            // Both kinds, because this card answers "what was this employee
-            // actually told about this file" and leaving one out makes that
-            // answer wrong. `reference_assigned` is not one of Art. 101's
-            // twelve moments, so it carries a null `moment`/`moment_number`
-            // — its payload otherwise mirrors RequestNoticeNotification's
-            // shape precisely so this one mapper serves both.
-            ->whereIn('data->event_type', ['request_notice', 'reference_assigned'])
-            ->where('data->request_id', $requestRecord->getKey())
-            ->oldest('created_at')
-            ->get()
-            ->map(fn (DatabaseNotification $notice): array => [
-                'id' => $notice->id,
-                // Carried so the screen can label a notice that has no Art.
-                // 101 moment number instead of rendering a blank.
-                'event_type' => $notice->data['event_type'] ?? null,
-                'moment' => $notice->data['moment'] ?? null,
-                'moment_number' => $notice->data['moment_number'] ?? null,
-                'title_ar' => $notice->data['title_ar'] ?? null,
-                'title_en' => $notice->data['title_en'] ?? null,
-                'body_ar' => $notice->data['body_ar'] ?? null,
-                'body_en' => $notice->data['body_en'] ?? null,
-                'sent_at' => $notice->created_at?->toIso8601String(),
-                'read_at' => $notice->read_at?->toIso8601String(),
-            ])
-            ->all();
     }
 
     /**

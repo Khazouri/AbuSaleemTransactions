@@ -439,6 +439,24 @@ class Request extends Model
             'elapsed_days' => $elapsedDays,
             'target_days_min' => $stage->target_days_min,
             'target_days_max' => $stage->target_days_max,
+            // Stage 89 — the same measurement said as a date rather than as a
+            // RAG level, because that is what «الوقت المتوقع للمرحلة» asks of
+            // it: an employee is owed "expected to reach the next step by
+            // ⟨date⟩", not a colour and an escalation rung.
+            //
+            // The outer bound, not the warning threshold: target_days_max is
+            // when the step is expected to be *done*, while target_days_min
+            // only marks where the amber window opens. Calendar days, matching
+            // the arithmetic above — the sources say أيام عمل, but Stage 17
+            // established plain calendar days for the hard SLA and two
+            // deadline mechanisms disagreeing about what a day is would be
+            // worse than one that is uniformly approximate.
+            //
+            // Derived here rather than in the browser so there is one
+            // derivation: recomputing it client-side from `elapsed_days` would
+            // re-derive a date from an already-rounded difference, across
+            // whatever timezone the reader happens to be in.
+            'expected_by' => $enteredAt->copy()->startOfDay()->addDays($stage->target_days_max)->toDateString(),
             // Stage 71 — how far up Appendix 38's ladder this request has
             // already been escalated at its current stage; null once a
             // transition restarts the clock (see escalatedLevel()).
