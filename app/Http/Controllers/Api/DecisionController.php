@@ -19,7 +19,6 @@ use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Models\Template;
 use App\Models\Vote;
-use App\Services\ApprovalSignatureStorage;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\CommitteeVotingRules;
 use App\Services\DecisionDraftComposer;
@@ -183,8 +182,7 @@ class DecisionController extends Controller
      */
     // Stage 35 — three richer outcomes alongside the original three, each
     // still mapping onto one workflow_transitions row at stage 7. See
-    // WorkflowTransitionSeeder and this stage's AGENT_NOTES entry for why
-    // none of the three new ones need a signature.
+    // WorkflowTransitionSeeder and this stage's AGENT_NOTES entry.
     // Stage 49 — a seventh outcome, `no_jurisdiction`, on the same terms.
     private const ACTIONS = [
         'approve' => 'approve',
@@ -249,15 +247,15 @@ class DecisionController extends Controller
      * ask for a re-vote instead.
      *
      * WorkflowService re-checks the actor's role and the transition's own
-     * requires_comment/signature rules under its row lock, so this method
-     * does not duplicate that validation.
+     * requires_comment rule under its row lock, so this method does not
+     * duplicate that validation. Approving is a plain confirmation —
+     * signatures have been removed from the system.
      */
     public function record(
         StoreDecisionRequest $request,
         Meeting $meeting,
         MeetingRequest $agendaItem,
         WorkflowService $workflow,
-        ApprovalSignatureStorage $signatureStorage,
         NotificationDispatcher $notifications,
         ArtifactNumberGenerator $numbers,
         DecisionStructureRules $structure,
@@ -334,15 +332,11 @@ class DecisionController extends Controller
         $referralAuthority = $request->validated('referral_authority');
         $actor = $request->user();
 
-        $signaturePath = $action === 'approve' && $request->hasFile('signature')
-            ? $signatureStorage->store($request->file('signature'), $agendaItem->request)
-            : null;
-
         try {
             $decision = DB::transaction(function () use (
-                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $signaturePath, $outcome, $tally, $abstainCount, $referralAuthority, $numbers, $structured,
+                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $outcome, $tally, $abstainCount, $referralAuthority, $numbers, $structured,
             ) {
-                $workflow->transition($agendaItem->request, $action, $actor, $comment, $signaturePath);
+                $workflow->transition($agendaItem->request, $action, $actor, $comment);
 
                 // Stage 34 — the live runner's own progress state follows a
                 // recorded decision automatically; the runner's manual state
@@ -388,8 +382,6 @@ class DecisionController extends Controller
                 ]);
             });
         } catch (WorkflowTransitionException $exception) {
-            $signatureStorage->delete($signaturePath);
-
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
@@ -538,10 +530,8 @@ class DecisionController extends Controller
      *
      * Every outcome requires a non-empty comment (generalizing "رفض مسبب"'s
      * explicit "reasoned" requirement to all five, the same kind of call
-     * Stage 62's jurisdiction-test generalization made) and none requires a
-     * signature (unlike `approve`, whose signature requirement is a side
-     * effect of WorkflowService::APPROVAL_LEVELS gating a real multi-tier
-     * approval chain that has no appeal equivalent).
+     * Stage 62's jurisdiction-test generalization made). Approving is a
+     * plain confirmation — signatures have been removed from the system.
      *
      * No notification is fired here — Stage 65's own Build bullet is
      * explicitly "a new appeal_decided event"; firing a generic

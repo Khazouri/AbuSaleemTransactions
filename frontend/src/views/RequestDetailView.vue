@@ -10,7 +10,6 @@ import RequestSoundnessPanel from '../components/RequestSoundnessPanel.vue'
 import RequestSuspensionPanel from '../components/RequestSuspensionPanel.vue'
 import ApprovalTrail from '../components/ApprovalTrail.vue'
 import FileUpload from '../components/FileUpload.vue'
-import SignaturePad from '../components/SignaturePad.vue'
 import RequestClosurePanel from '../components/RequestClosurePanel.vue'
 import RequestLifecyclePanel from '../components/RequestLifecyclePanel.vue'
 import RequestNotes from '../components/RequestNotes.vue'
@@ -37,8 +36,9 @@ const activeAction = ref('')
 const selectedException = ref(null)
 const exceptionReason = ref('')
 const exceptionError = ref('')
-const signaturePad = ref(null)
-const signatureReady = ref(false)
+// Signatures have been removed from the system — approving now just asks
+// for a plain confirmation before submitting.
+const pendingApprove = ref(false)
 const selectedAttachment = ref(null)
 const attachmentPreviewUrl = ref('')
 const attachmentPreviewing = ref(false)
@@ -127,7 +127,6 @@ const transitions = computed(() => {
 const normalActions = computed(() => transitions.value.filter((item) => !item.is_exception))
 const exceptionActions = computed(() => transitions.value.filter((item) => item.is_exception))
 const canAct = computed(() => transitions.value.length > 0)
-const requiresSignature = computed(() => normalActions.value.some((item) => item.action === 'approve'))
 // Stage 56 — advisory only; the manager can still pick any of the 3 routes.
 const ADMINISTRATIVE_ROUTE_ACTIONS = {
   hr: 'route_to_hr',
@@ -373,31 +372,23 @@ async function load() {
 
 async function transition(action, suppliedComment = comment.value) {
   if (acting.value) return
-  const signature = action === 'approve' ? await signaturePad.value?.toFile() : null
-  if (action === 'approve' && !signature) {
-    actionError.value = t('signature.required')
-    return false
-  }
 
   acting.value = true
   activeAction.value = action
   actionError.value = ''
   try {
-    const form = new FormData()
-    form.append('action', action)
-    if (suppliedComment.trim()) form.append('comment', suppliedComment.trim())
-    if (signature) form.append('signature', signature)
-    const { data } = await api.post(`/requests/${request.value.id}/transition`, form)
-    if (signature) signaturePad.value?.clear()
+    const payload = { action }
+    if (suppliedComment.trim()) payload.comment = suppliedComment.trim()
+    const { data } = await api.post(`/requests/${request.value.id}/transition`, payload)
     request.value = data.data
     comment.value = ''
     selectedException.value = null
     exceptionReason.value = ''
     exceptionError.value = ''
+    pendingApprove.value = false
     return true
   } catch (requestError) {
     const message = requestError.response?.data?.errors?.action?.[0]
-      ?? requestError.response?.data?.errors?.signature?.[0]
       ?? requestError.response?.data?.message
       ?? t('requestDetail.actionFailed')
     if (selectedException.value) exceptionError.value = message
@@ -407,6 +398,21 @@ async function transition(action, suppliedComment = comment.value) {
     acting.value = false
     activeAction.value = ''
   }
+}
+
+// Signatures have been removed from the system — clicking "Approve" opens a
+// plain confirmation before the transition actually submits.
+function openApproveConfirm() {
+  pendingApprove.value = true
+}
+
+function closeApproveConfirm() {
+  if (acting.value) return
+  pendingApprove.value = false
+}
+
+async function confirmApprove() {
+  await transition('approve')
 }
 
 // Stage 16 — exception actions pause for an explicit reason before execution.
@@ -639,12 +645,6 @@ onBeforeUnmount(clearAttachmentPreview)
           {{ t('requestDetail.comment') }}
           <textarea v-model="comment" rows="2" maxlength="5000" :disabled="acting" />
         </label>
-        <SignaturePad
-          v-if="requiresSignature"
-          ref="signaturePad"
-          :disabled="acting"
-          @change="signatureReady = $event"
-        />
         <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
         <div class="action-buttons">
           <button
@@ -652,8 +652,8 @@ onBeforeUnmount(clearAttachmentPreview)
             :key="item.action"
             class="primary"
             type="button"
-            :disabled="acting || (item.action === 'approve' && !signatureReady)"
-            @click="transition(item.action)"
+            :disabled="acting"
+            @click="item.action === 'approve' ? openApproveConfirm() : transition(item.action)"
           >
             {{ acting && activeAction === item.action ? t('requestDetail.processing') : actionLabel(item.action) }}
           </button>
@@ -1187,7 +1187,7 @@ onBeforeUnmount(clearAttachmentPreview)
                     · {{ dateTime(entry.acted_at) }}
                   </small>
                   <!-- Stage 80 — Art. 100's المستند المرتبط. Each item states
-                       its own kind, so a signature is never read as a document
+                       its own kind, so a decision is never read as a document
                        someone attached. -->
                   <ul v-if="entry.documents?.length" class="entry-documents">
                     <li v-for="(doc, docIndex) in entry.documents" :key="docIndex">
@@ -1312,6 +1312,27 @@ onBeforeUnmount(clearAttachmentPreview)
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+
+        <div v-if="pendingApprove" class="modal-backdrop" @click.self="closeApproveConfirm">
+          <section
+            class="reason-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-approve-title"
+          >
+            <h3 id="confirm-approve-title">{{ t('requestDetail.confirmApprove.title') }}</h3>
+            <p>{{ t('requestDetail.confirmApprove.body') }}</p>
+            <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
+            <div class="modal-actions">
+              <button class="ghost" type="button" :disabled="acting" @click="closeApproveConfirm">
+                {{ t('common.cancel') }}
+              </button>
+              <button class="primary" type="button" :disabled="acting" @click="confirmApprove">
+                {{ acting ? t('requestDetail.processing') : t('requestDetail.confirmApprove.confirm') }}
+              </button>
+            </div>
           </section>
         </div>
       </Teleport>

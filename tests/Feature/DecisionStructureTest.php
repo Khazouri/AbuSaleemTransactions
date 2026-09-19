@@ -19,7 +19,6 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Tests\RecordsStructuredDecisions;
 use Tests\RunsStudySequence;
 use Tests\TestCase;
@@ -150,7 +149,6 @@ class DecisionStructureTest extends TestCase
 
         $this->recordWith($head, $meeting, $agendaItem, $this->decisionPayload('approve', [
             'instrument' => 'opinion',
-            'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
         ]))
             ->assertCreated()
             ->assertJsonPath('data.instrument', 'opinion');

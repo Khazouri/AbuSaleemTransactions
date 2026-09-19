@@ -7,12 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Approval\StoreApprovalRequest;
 use App\Http\Resources\RequestResource;
 use App\Models\Request;
-use App\Services\ApprovalSignatureStorage;
 use App\Services\WorkflowService;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 /**
  * Stage 18 approval work queues.
@@ -77,7 +75,6 @@ class ApprovalController extends Controller
         Request $requestRecord,
         string $level,
         WorkflowService $workflow,
-        ApprovalSignatureStorage $signatureStorage,
     ): RequestResource {
         $configuration = $this->configuration($level);
         $currentStageCode = $requestRecord->currentStage()->value('code');
@@ -127,26 +124,17 @@ class ApprovalController extends Controller
             throw ValidationException::withMessages(['request' => [$gateRefusal]]);
         }
 
-        $signaturePath = $signatureStorage->store($request->file('signature'), $requestRecord);
-
         try {
             $requestRecord = $workflow->transition(
                 $requestRecord,
                 'approve',
                 $request->user(),
                 $request->validated('comment'),
-                $signaturePath,
             );
         } catch (WorkflowTransitionException $exception) {
-            $signatureStorage->delete($signaturePath);
-
             throw ValidationException::withMessages([
                 'request' => [$exception->getMessage()],
             ]);
-        } catch (Throwable $exception) {
-            $signatureStorage->delete($signaturePath);
-
-            throw $exception;
         }
 
         return new RequestResource($requestRecord->load([

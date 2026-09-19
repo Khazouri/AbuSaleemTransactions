@@ -14,6 +14,84 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-19 18:20 EET — Claude — Signatures removed system-wide; approving is now a plain confirmation
+
+User request: "remove signitures from the system" / "only approve buttom with confirmation." Removed the
+canvas-drawing/PNG-capture mechanism (`SignaturePad.vue`, `ApprovalSignatureStorage`,
+`ApprovalSignatureController`, `approvals.signature_path`, `meeting_minute_signatures.signature_path`) from
+every place that used it: the ordinary approval chain (reviewer/committee-head/admin-manager/ministry/final,
+both the dedicated approval queue and the generic request-detail transition endpoint), a committee's
+recorded `approve` decision, and each attendee's sign-off on meeting minutes. Clicking "Approve"/"Sign" now
+opens a plain yes/no confirmation modal (the Teleported `.modal-backdrop`/`.reason-modal` shell already used
+everywhere else in this app for a destructive/consequential action) — the click itself is the record, the
+same way every other one-shot workflow action here already works via its own comment, no drawing.
+
+**Scope was deliberately narrow, and the boundary is worth restating so nobody re-opens it.** This removed
+only the drawing/PNG-capture artifact. It did **not** rename, restructure, or touch: the `Approval` ledger
+(who/what/when/comment — unchanged, just without a `signature_path` column), the `MeetingMinuteSignature`
+model/table/relation/`allSigned()` predicate or the draft→pending_signatures→approved minutes lifecycle
+(Stage 36's structure — [D] Appendix 8/Art. 28's signature-completeness requirement is still satisfied, an
+"electronic signature" is the act of recording assent electronically, and a confirmation click is just as
+legitimate an implementation as a drawn image), or the several genuinely unrelated "signature" concepts this
+codebase already carries as real government-manual vocabulary: `ApprovalReturn::REASONS['missing_signature']`
+(a formal return reason citing a physical/wet signature missing from an uploaded document, Art. 94/Appendix
+34), `DocumentValidityRules`'s `'signature'` check, `Committee.minutes_signature_rule` (Appendix 65 free
+text), `MinutesQualityRules::ENFORCED_ELSEWHERE = ['signatures_complete']` (still means what it meant — a
+محضر can't reach `approved` until every attendee has confirmed), `frontend/src/lib/lifecycle.js`'s
+`signature` field code, `frontend/src/lib/controlGates.js`'s `signatures_complete`/
+`enforced_by_signature_lifecycle`, and `scripts/build-guide-pdf.php`'s emoji→"(بتوقيع)" substitution (guide
+content describing a wet signature on a real document, unrelated).
+
+**Backend**: two new migrations dropping `approvals.signature_path` and `meeting_minute_signatures
+.signature_path` (both reversible — `down()` re-adds the column rather than editing the historical
+migrations that created it), applied and round-trip tested (migrate → rollback → re-migrate) against the
+real MySQL/Homestead database. `WorkflowService::transition()`/`applyRule()` dropped the `?string
+$signaturePath` parameter and the `if ($approvalLevel !== null && $signaturePath === null) { throw
+WorkflowTransitionException::signatureRequired(); }` gate entirely — approving is now unconditionally a
+plain confirmation at every level; `WorkflowTransitionException::signatureRequired()` deleted.
+`ApprovalController::store()`, `RequestController::transition()` and `DecisionController::record()` all
+dropped their signature-store/cleanup-on-failure blocks and the now-unused `ApprovalSignatureStorage`
+constructor injection; `RequestController::detailResource()`'s `approvals` eager-load column list dropped
+`signature_path` (this one was load-bearing — leaving it would have been a SQL error against the
+now-column-less table). The three Form Requests (`StoreApprovalRequest`, `TransitionRequest`,
+`StoreDecisionRequest`) dropped the `signature` validation rule and its messages.
+`MeetingMinutesController::sign()` rewritten to a bodyless `Illuminate\Http\Request` — same status/one-shot/
+self-action-block/last-signature-auto-approves logic, no file; `StoreMeetingMinuteSignatureRequest` and
+`signatureImage()` (plus its route) deleted since there is no image left to stream.
+`RequestTimelineCompiler::documentsFor()` lost the `approval_signature`-producing block and the `$log`
+parameter that fed it (dead once that block was gone). `ApprovalResource`/`MeetingMinuteSignatureResource`
+dropped their `signature_url` computed field; `Approval`/`MeetingMinuteSignature` dropped `signature_path`
+from `$fillable`. `config/backup.php` dropped `'signatures'` from `file_directories`.
+
+**Frontend**: `SignaturePad.vue` deleted; `SIGNATURE_OUTCOMES` dropped from `lib/decisionOutcomes.js`.
+`RequestDetailView.vue`, `ApprovalQueueView.vue` and `AgendaItemDecisionPanel.vue` all gained a
+`pendingApprove`/`confirmTarget` ref and the same Teleported confirm-modal shell (reusing the
+`.modal-backdrop`/`.reason-modal`/`.modal-actions` CSS classes already duplicated across ~15 views in this
+codebase — confirmed no shared `Modal.vue` exists, so this follows the established copy-paste convention
+rather than introducing a new one) gating the approve click; `RequestDetailView`/`AgendaItemDecisionPanel`
+also switched their transition/`recordDecision` payload from `FormData` to a plain object now that there's
+no file to attach. `MeetingMinutesView.vue`'s "Signature image thumbnails" block deleted, `sign()` simplified
+to a bodyless POST, same confirm-modal pattern added. `ApprovalTrail.vue` rewritten to a plain text-only
+approval-history list (level/role/actor/comment/timestamp) — no more blob-fetching or `<img>`. Locale files:
+the `signature.*` block replaced by a smaller `approvalTrail.*` block (title/empty/approvedBy), new
+`confirmApprove`/`confirmSign` sub-blocks added under `requestDetail`/`approvals`/`decisions`/
+`meetingsUnit.minutes.signatures`, a dead `requestDetail.linkedDocuments.kinds.approval_signature` key
+removed — verified exact key-parity between `ar.json`/`en.json` (1938 keys each, 0 on-one-side-only).
+
+**Verification**: full PHPUnit suite green at **657 passed / 4146 assertions** (26 test files touched —
+mechanical signature-payload/import removal in most, heavier rewrites in `WorkflowServiceTest`,
+`ApprovalChainTest`, `ControlGateTest` and `MeetingMinutesTest` where the removed gate was the actual thing
+under test), Pint clean, `npm run build` passes with no `SignaturePad`/`toFile` string anywhere in `dist/`,
+both migrations applied/rolled-back/re-applied cleanly against the real database. Post-hoc completeness
+sweep (grepping the whole tree for `signature` after all edits) turned up nothing left to fix beyond one
+stale comment in `WorkflowTransitionSeeder.php` (a contrast against "the plain `approve` action" requiring a
+signature, which is no longer true now that nothing does) — trimmed to keep only the still-true point about
+not writing an `Approval` ledger row.
+
+No open items — the removal is complete and self-consistent across backend, tests, frontend and locales.
+
+---
+
 ### 2026-09-19 17:05 EET — Claude — Stage 92 complete (execution recorded by the executing body) — Track M finished
 
 Built per the plan below, after the "decide before building" question was put to the user directly

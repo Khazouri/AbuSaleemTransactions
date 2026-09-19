@@ -14,7 +14,6 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Tests\RecordsStructuredDecisions;
 use Tests\RunsStudySequence;
 use Tests\TestCase;
@@ -41,12 +40,8 @@ class DecisionVotingTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
             ->assertCreated();
 
-        $signature = UploadedFile::fake()->image('signature.png', 10, 10);
-
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
-                'signature' => $signature,
-            ]))
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve'))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'approve')
             ->assertJsonPath('data.votes_approve_count', 2);
@@ -98,9 +93,7 @@ class DecisionVotingTest extends TestCase
             ->assertJsonPath('data.vote', 'abstain');
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
-                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ]))
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve'))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'approve')
             ->assertJsonPath('data.votes_approve_count', 2)
@@ -155,9 +148,7 @@ class DecisionVotingTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
-                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ]))
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve'))
             ->assertStatus(422)
             ->assertJsonPath('message', 'لا يجوز للمستخدم اعتماد طلبه الخاص.');
 

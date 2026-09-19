@@ -25,9 +25,6 @@ export const DECISION_OUTCOMES = [
  */
 export const VOTE_OPTIONS = [...DECISION_OUTCOMES, 'abstain']
 
-/** Outcomes still counted as an "approval" for signature-pad purposes. */
-export const SIGNATURE_OUTCOMES = ['approve']
-
 /**
  * Stage 63 — Art. 75 point 5's five-outcome appeal vocabulary, a second and
  * completely independent outcome set from DECISION_OUTCOMES: an `appeal`

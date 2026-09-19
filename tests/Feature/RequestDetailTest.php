@@ -26,8 +26,7 @@ class RequestDetailTest extends TestCase
         // outbound action is now `submit` (manager-gated hops follow), which
         // isn't this test's subject. Start past the new front-half stages,
         // at reviewer_review, so this stays a plain role-gated `forward`
-        // advance with no signature involved (that's `approve`'s concern,
-        // covered by the approval-chain tests).
+        // advance (approving is covered by the approval-chain tests).
         $requestRecord = $this->newRequest('reviewer_review', 'in_review');
         $reviewer = $this->userWithRole('R02');
 

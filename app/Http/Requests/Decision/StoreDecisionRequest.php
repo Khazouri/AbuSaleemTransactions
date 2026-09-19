@@ -16,11 +16,12 @@ class StoreDecisionRequest extends FormRequest
     }
 
     /**
-     * Only format-level checks live here. Whether a comment or signature is
-     * actually required depends on the tallied outcome, resolved in
+     * Only format-level checks live here. Whether a comment is actually
+     * required depends on the tallied outcome, resolved in
      * DecisionController::record — WorkflowService enforces that the same
-     * way it enforces every other transition's requires_comment/signature
-     * rule, so this request does not duplicate that check.
+     * way it enforces every other transition's requires_comment rule, so
+     * this request does not duplicate that check. Approving is a plain
+     * confirmation — signatures have been removed from the system.
      */
     public function rules(): array
     {
@@ -57,14 +58,6 @@ class StoreDecisionRequest extends FormRequest
                 'integer',
                 Rule::exists('templates', 'id')->where(fn ($query) => $query->where('is_active', true)),
             ],
-            'signature' => [
-                'nullable',
-                'file',
-                'image',
-                'mimes:png',
-                'max:2048',
-                'dimensions:min_width=2,min_height=2,max_width=2400,max_height=1200',
-            ],
         ];
     }
 
@@ -85,10 +78,6 @@ class StoreDecisionRequest extends FormRequest
             'deferral_required_document.max' => 'لا يمكن أن يتجاوز بيان المستند المطلوب 2000 حرف.',
             'deferral_legal_period.max' => 'لا يمكن أن تتجاوز المدة المقررة 255 حرفاً.',
             'template_id.exists' => 'القالب المحدد غير صالح.',
-            'signature.image' => 'يجب أن يكون التوقيع صورة صالحة.',
-            'signature.mimes' => 'يجب حفظ التوقيع بصيغة PNG.',
-            'signature.max' => 'لا يمكن أن يتجاوز حجم التوقيع 2 ميجابايت.',
-            'signature.dimensions' => 'أبعاد صورة التوقيع غير صالحة.',
         ];
     }
 }

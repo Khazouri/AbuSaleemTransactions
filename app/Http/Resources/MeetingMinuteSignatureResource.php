@@ -16,11 +16,6 @@ class MeetingMinuteSignatureResource extends JsonResource
                 'name' => $this->user->name,
             ]),
             'signed_at' => $this->signed_at?->toIso8601String(),
-            // The private path never crosses the API boundary — same pattern
-            // ApprovalResource uses for its own signature_url.
-            'signature_url' => $this->signature_path
-                ? route('meeting-minutes.signature', ['signature' => $this->id])
-                : null,
         ];
     }
 }

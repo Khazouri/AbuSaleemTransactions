@@ -142,9 +142,8 @@ class WorkflowService
      * Move a request through one configured workflow transition.
      *
      * The optional comment is unused by the Stage 14 happy path, but belongs at
-     * this boundary because Stage 16 exception rules can require it. Approval
-     * transitions also require the private signature path introduced in Stage
-     * 19, even when this service is called outside an HTTP controller.
+     * this boundary because Stage 16 exception rules can require it. Approving
+     * is a plain confirmation — signatures have been removed from the system.
      *
      * @throws WorkflowTransitionException
      */
@@ -154,7 +153,6 @@ class WorkflowService
         string $action,
         User $actor,
         ?string $comment = null,
-        ?string $signaturePath = null,
     ): Request {
         if (! $requestRecord->exists) {
             throw WorkflowTransitionException::requestNotPersisted();
@@ -166,7 +164,6 @@ class WorkflowService
 
         $action = trim($action);
         $comment = filled($comment) ? trim($comment) : null;
-        $signaturePath = filled($signaturePath) ? trim($signaturePath) : null;
 
         if ($action === '') {
             throw WorkflowTransitionException::actionRequired();
@@ -190,7 +187,7 @@ class WorkflowService
         // therefore mints on the approve hop instead.
         $referenceBeforeMove = $requestRecord->reference_number;
 
-        [$movedRequest, $fromStage, $toStage] = DB::transaction(function () use ($requestRecord, $action, $actor, $comment, $signaturePath) {
+        [$movedRequest, $fromStage, $toStage] = DB::transaction(function () use ($requestRecord, $action, $actor, $comment) {
             $lockedRequest = Request::query()
                 ->lockForUpdate()
                 ->findOrFail($requestRecord->getKey());
@@ -227,7 +224,7 @@ class WorkflowService
             /** @var WorkflowTransition $rule */
             $rule = $allowed->first();
 
-            return $this->applyRule($lockedRequest, $rule, $action, $actor, $comment, $signaturePath);
+            return $this->applyRule($lockedRequest, $rule, $action, $actor, $comment);
         });
 
         // Outside the request: the notifications describe a move that has
@@ -317,7 +314,6 @@ class WorkflowService
             $action,
             $actor,
             $comment,
-            null,
         );
 
         $this->notifications->stageChanged($movedRequest, $actor, $action, $fromStageModel, $toStageModel);
@@ -423,7 +419,7 @@ class WorkflowService
 
     /**
      * Apply an already-resolved rule: validate its own constraints (comment,
-     * signature, overdue-only), write the stage/status move and its two
+     * overdue-only), write the stage/status move and its two
      * history rows, and hand back the moved request plus both stage
      * models. This is the single write shape both transition() (after its
      * actor check picks a rule) and applySystemTransition() (which skips the
@@ -486,7 +482,6 @@ class WorkflowService
         string $action,
         User $actor,
         ?string $comment,
-        ?string $signaturePath,
     ): array {
         if ($rule->action === 'deadline_expired' && ! $lockedRequest->isOverdue()) {
             throw WorkflowTransitionException::deadlineNotExpired();
@@ -497,9 +492,6 @@ class WorkflowService
         }
 
         $approvalLevel = $this->approvalLevel($rule);
-        if ($approvalLevel !== null && $signaturePath === null) {
-            throw WorkflowTransitionException::signatureRequired();
-        }
 
         $fromStageId = $lockedRequest->current_stage_id;
         $fromStatusId = $lockedRequest->status_id;
@@ -533,7 +525,6 @@ class WorkflowService
                 'approved_by_user_id' => $actor->id,
                 'action' => $action,
                 'comment' => $comment,
-                'signature_path' => $signaturePath,
                 'approved_at' => $occurredAt,
             ]);
         }

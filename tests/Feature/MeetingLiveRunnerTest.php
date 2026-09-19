@@ -14,7 +14,6 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Tests\PassesControlGates;
 use Tests\RecordsStructuredDecisions;
 use Tests\RunsStudySequence;
@@ -130,9 +129,7 @@ class MeetingLiveRunnerTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
             ->assertCreated();
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
-                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ]))
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve'))
             ->assertCreated();
 
         // Both agenda items resolved, but the minutes haven't even been
@@ -149,22 +146,18 @@ class MeetingLiveRunnerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'pending_signatures');
 
-        // Signed by only one of the two attendees — still not approved.
+        // Confirmed by only one of the two attendees — still not approved.
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/minutes/sign", [
-                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ])
+            ->post("/api/meetings/{$meeting->id}/minutes/sign")
             ->assertOk()
             ->assertJsonPath('data.status', 'pending_signatures');
         $this->actingAs($head, 'sanctum')
             ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])
             ->assertStatus(422);
 
-        // Both attendees signed — minutes auto-approve, and the meeting can close.
+        // Both attendees confirmed — minutes auto-approve, and the meeting can close.
         $this->actingAs($member, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/minutes/sign", [
-                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ])
+            ->post("/api/meetings/{$meeting->id}/minutes/sign")
             ->assertOk()
             ->assertJsonPath('data.status', 'approved');
 
@@ -217,7 +210,7 @@ class MeetingLiveRunnerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'pending_signatures');
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
+            ->post("/api/meetings/{$meeting->id}/minutes/sign")
             ->assertOk()
             ->assertJsonPath('data.status', 'approved');
 

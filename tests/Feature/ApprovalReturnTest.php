@@ -16,8 +16,6 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Tests\ClosesRequests;
 use Tests\TestCase;
 
@@ -234,7 +232,6 @@ class ApprovalReturnTest extends TestCase
      */
     public function test_an_open_return_blocks_approval_through_both_entry_points(): void
     {
-        Storage::fake('local');
         $recorder = $this->userWithRole('R02');
         $approver = $this->userWithRole('R05');
         $requestRecord = $this->requestAt('approval_by_authority', 'awaiting_municipal_approval');
@@ -249,7 +246,6 @@ class ApprovalReturnTest extends TestCase
         $this->actingAs($approver, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/transition", [
                 'action' => 'approve',
-                'signature' => $this->signatureFile(),
             ], ['Accept' => 'application/json'])
             ->assertStatus(422)
             ->assertJsonValidationErrors('action')
@@ -258,9 +254,7 @@ class ApprovalReturnTest extends TestCase
         // The dedicated approval queue — the dual path Stage 54's own note
         // warns about; gating one alone would leave the other open.
         $this->actingAs($approver, 'sanctum')
-            ->post("/api/approvals/admin-manager/{$requestRecord->id}", [
-                'signature' => $this->signatureFile(),
-            ], ['Accept' => 'application/json'])
+            ->post("/api/approvals/admin-manager/{$requestRecord->id}", [], ['Accept' => 'application/json'])
             ->assertStatus(422)
             ->assertJsonPath('errors.request.0', $message);
 
@@ -380,11 +374,6 @@ class ApprovalReturnTest extends TestCase
             'received_at' => now()->toDateString(),
             ...$overrides,
         ];
-    }
-
-    private function signatureFile(): UploadedFile
-    {
-        return UploadedFile::fake()->image('signature.png', 960, 330);
     }
 
     private function requestAt(string $stageCode, string $statusCode, bool $withDecision = false): Request

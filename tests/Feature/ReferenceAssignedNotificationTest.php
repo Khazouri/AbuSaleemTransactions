@@ -93,7 +93,7 @@ class ReferenceAssignedNotificationTest extends TestCase
 
         $service = app(WorkflowService::class);
         $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
-        $service->transition($requestRecord->refresh(), 'approve', $this->userWithRole('R02'), signaturePath: 'signatures/a.png');
+        $service->transition($requestRecord->refresh(), 'approve', $this->userWithRole('R02'));
 
         Notification::assertSentToTimes($employee, RequestReferenceAssignedNotification::class, 1);
     }
@@ -134,7 +134,7 @@ class ReferenceAssignedNotificationTest extends TestCase
         // The pre-move state: past the new قيد point, never numbered.
         $requestRecord = $this->requestAt('requirements_check', 'in_review', $employee);
 
-        app(WorkflowService::class)->transition($requestRecord, 'approve', $this->userWithRole('R02'), signaturePath: 'signatures/a.png');
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $this->userWithRole('R02'));
 
         $this->assertNotNull($requestRecord->refresh()->reference_number);
         Notification::assertSentToTimes($employee, RequestReferenceAssignedNotification::class, 1);

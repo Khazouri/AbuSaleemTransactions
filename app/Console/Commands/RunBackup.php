@@ -15,7 +15,7 @@ use Throwable;
  */
 class RunBackup extends Command
 {
-    protected $signature = 'backup:run {--no-files : Dump the database only, skipping attachments and signatures}';
+    protected $signature = 'backup:run {--no-files : Dump the database only, skipping attachments}';
 
     protected $description = 'Create a database (and optionally file) backup, then prune expired snapshots.';
 

@@ -17,7 +17,6 @@ use App\Models\WorkflowStage;
 use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\PassesControlGates;
 use Tests\RecordsStructuredDecisions;
@@ -99,7 +98,7 @@ class UnifiedNumberingTest extends TestCase
 
         // The completeness check re-stamps code 06 and must NOT re-number:
         // Art. 99 gives a request one number for its whole life.
-        $service->transition($requestRecord, 'approve', $this->userWithRole('R02'), signaturePath: 'signatures/x.png');
+        $service->transition($requestRecord, 'approve', $this->userWithRole('R02'));
         $requestRecord->refresh();
         $this->assertSame('registered', $requestRecord->status->code);
         $this->assertSame('PM-COM/'.now()->format('Y').'/0001', $requestRecord->reference_number);
@@ -137,7 +136,7 @@ class UnifiedNumberingTest extends TestCase
         $first = $requestRecord->refresh()->reference_number;
         $this->assertSame('PM-COM/'.now()->format('Y').'/0001', $first);
 
-        $service->transition($requestRecord, 'approve', $reviewer, signaturePath: 'signatures/a.png');
+        $service->transition($requestRecord, 'approve', $reviewer);
 
         // Back for missing documents, all the way to the front of the chain,
         // then forward again through the same registration hop.
@@ -149,7 +148,7 @@ class UnifiedNumberingTest extends TestCase
         $service->transition($requestRecord, 'forward', $manager);
         $service->transition($requestRecord, 'route_to_hr', $manager);
         $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
-        $service->transition($requestRecord, 'approve', $reviewer, signaturePath: 'signatures/b.png');
+        $service->transition($requestRecord, 'approve', $reviewer);
 
         $requestRecord->refresh();
         $this->assertSame('registered', $requestRecord->status->code);
@@ -232,7 +231,6 @@ class UnifiedNumberingTest extends TestCase
      */
     public function test_a_decision_is_numbered_and_that_number_reaches_the_minutes_and_the_register(): void
     {
-        Storage::fake('local');
         $this->seed(DatabaseSeeder::class);
 
         $head = $this->userWithRole('R03');
@@ -249,9 +247,7 @@ class UnifiedNumberingTest extends TestCase
         $expected = 'PM-DEC/'.now()->format('Y').'/001';
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
-                'signature' => UploadedFile::fake()->image('signature.png', 960, 330),
-            ]), ['Accept' => 'application/json'])
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve'), ['Accept' => 'application/json'])
             ->assertCreated()
             ->assertJsonPath('data.decision_number', $expected);
 

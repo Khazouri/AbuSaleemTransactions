@@ -22,11 +22,14 @@
  *
  * Stage 63 — an `appeal` item votes/records through the same two endpoints,
  * but with its own, completely independent 5-outcome vocabulary
- * (APPEAL_DECISION_OUTCOMES) instead of the 7 employee_request ones. No
- * appeal outcome needs a signature (see DecisionController::
- * recordAppealDecision's docblock), and template drafting isn't wired for
- * appeals (Stage 42's DecisionDraftComposer has no appeal equivalent), so
- * the template picker is hidden for that item type.
+ * (APPEAL_DECISION_OUTCOMES) instead of the 7 employee_request ones.
+ * Template drafting isn't wired for appeals (Stage 42's DecisionDraftComposer
+ * has no appeal equivalent), so the template picker is hidden for that item
+ * type.
+ *
+ * Signatures have been removed from the system — recording a decision whose
+ * predicted outcome is `approve` now asks for a plain confirmation instead
+ * of a drawn/uploaded signature.
  */
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -34,7 +37,6 @@ import {
   APPEAL_DECISION_OUTCOMES,
   APPEAL_VOTE_OPTIONS,
   DECISION_OUTCOMES,
-  SIGNATURE_OUTCOMES,
   VOTE_OPTIONS,
 } from '../lib/decisionOutcomes'
 import {
@@ -46,7 +48,6 @@ import {
 } from '../lib/decisionStructure'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
-import SignaturePad from './SignaturePad.vue'
 
 const props = defineProps({
   meetingId: { type: [Number, String], required: true },
@@ -69,14 +70,15 @@ const referralAuthority = ref('')
 const structure = ref(emptyStructure())
 const decisionError = ref('')
 const decidingBusy = ref(false)
-const signatureReady = ref(false)
+// Signatures have been removed from the system — recording an `approve`
+// outcome now pauses for a plain confirmation instead.
+const pendingApprove = ref(false)
 const selectedTemplateId = ref('')
 const templateDraftBusy = ref(false)
 const templateDraftError = ref('')
 const conflictReason = ref('')
 const conflictBusy = ref(false)
 const conflictError = ref('')
-let signaturePad = null
 
 const myConflictDeclaration = computed(() => (props.item.conflict_declarations ?? [])
   .find((declaration) => declaration.user.id === auth.user?.id) ?? null)
@@ -143,8 +145,6 @@ async function declareConflict() {
   }
 }
 
-function setSignaturePad(instance) { signaturePad = instance }
-
 function templateLabel(template) {
   return locale.value === 'ar' ? (template.name_ar || template.name_en) : (template.name_en || template.name_ar)
 }
@@ -181,10 +181,10 @@ function tally(item) {
 }
 
 // Same plurality rule DecisionController::record/recordAppealDecision
-// applies server-side — used here only to decide whether to show the
-// signature pad before submitting. Stage 41 — counted from the outcome
-// vocabulary only (never abstain), same as the server's $tally: an
-// abstain-heavy vote must never read as "leading" here either.
+// applies server-side — used here only to decide whether to pause for a
+// confirmation before submitting an `approve` outcome. Stage 41 — counted
+// from the outcome vocabulary only (never abstain), same as the server's
+// $tally: an abstain-heavy vote must never read as "leading" here either.
 function predictedOutcome(item) {
   const outcomes = item.item_type === 'appeal' ? APPEAL_DECISION_OUTCOMES : DECISION_OUTCOMES
   const counts = tally(item)
@@ -213,32 +213,44 @@ async function castVote(voteValue) {
   }
 }
 
+// Recording an `approve` outcome pauses for a plain confirmation first
+// (signatures have been removed from the system); every other outcome
+// records immediately, as before.
+function submitDecision() {
+  if (predictedOutcome(props.item) === 'approve' && !pendingApprove.value) {
+    pendingApprove.value = true
+    return
+  }
+  recordDecision()
+}
+
+function closeApproveConfirm() {
+  if (decidingBusy.value) return
+  pendingApprove.value = false
+}
+
 async function recordDecision() {
   decisionError.value = ''
   decidingBusy.value = true
   try {
-    const form = new FormData()
+    const payload = {}
     const comment = decisionComment.value.trim()
-    if (comment) form.append('comment', comment)
+    if (comment) payload.comment = comment
     const referral = referralAuthority.value.trim()
-    if (referral) form.append('referral_authority', referral)
+    if (referral) payload.referral_authority = referral
     // Stage 74 — blanks are simply omitted; the server decides which of them
     // this outcome actually required and says so in Arabic if one is missing.
     for (const [field, value] of Object.entries(structure.value)) {
       const trimmed = String(value ?? '').trim()
-      if (trimmed) form.append(field, trimmed)
+      if (trimmed) payload[field] = trimmed
     }
-    if (selectedTemplateId.value) form.append('template_id', selectedTemplateId.value)
-    if (SIGNATURE_OUTCOMES.includes(predictedOutcome(props.item))) {
-      const signature = await signaturePad?.toFile()
-      if (signature) form.append('signature', signature)
-    }
-    await api.post(`/meetings/${props.meetingId}/agenda/${props.item.id}/decision`, form)
+    if (selectedTemplateId.value) payload.template_id = selectedTemplateId.value
+    await api.post(`/meetings/${props.meetingId}/agenda/${props.item.id}/decision`, payload)
     decisionComment.value = ''
     referralAuthority.value = ''
     structure.value = emptyStructure()
     selectedTemplateId.value = ''
-    signatureReady.value = false
+    pendingApprove.value = false
     emit('refresh')
   } catch (requestError) {
     decisionError.value = requestError.response?.data?.message ?? t('common.none')
@@ -425,20 +437,12 @@ async function recordDecision() {
           :placeholder="t('decisions.referralAuthorityPlaceholder')"
           :aria-label="t('decisions.referralAuthorityPlaceholder')"
         >
-        <SignaturePad
-          v-if="SIGNATURE_OUTCOMES.includes(predictedOutcome(item))"
-          :ref="setSignaturePad"
-          :disabled="decidingBusy"
-          @change="signatureReady = $event"
-        />
         <div class="actions">
           <button
             class="primary"
             type="button"
-            :disabled="decidingBusy || !predictedOutcome(item)
-              || (SIGNATURE_OUTCOMES.includes(predictedOutcome(item)) && !signatureReady)
-              || (isAppeal && !decisionComment.trim())"
-            @click="recordDecision"
+            :disabled="decidingBusy || !predictedOutcome(item) || (isAppeal && !decisionComment.trim())"
+            @click="submitDecision"
           >
             {{ decidingBusy ? t('decisions.recording') : t('decisions.record') }}
           </button>
@@ -446,6 +450,24 @@ async function recordDecision() {
         <p v-if="decisionError" class="alert">{{ decisionError }}</p>
       </div>
     </template>
+
+    <Teleport to="body">
+      <div v-if="pendingApprove" class="modal-backdrop" @click.self="closeApproveConfirm">
+        <section class="reason-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-decision-approve-title">
+          <h3 id="confirm-decision-approve-title">{{ t('decisions.confirmApprove.title') }}</h3>
+          <p>{{ t('decisions.confirmApprove.body') }}</p>
+          <p v-if="decisionError" class="alert">{{ decisionError }}</p>
+          <div class="modal-actions">
+            <button class="ghost" type="button" :disabled="decidingBusy" @click="closeApproveConfirm">
+              {{ t('common.cancel') }}
+            </button>
+            <button class="primary" type="button" :disabled="decidingBusy" @click="recordDecision">
+              {{ decidingBusy ? t('decisions.recording') : t('decisions.confirmApprove.confirm') }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -490,4 +512,10 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); }
 .ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
 .alert { padding: .5rem .65rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .82rem; margin: 0; }
+.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }
+.reason-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }
+.reason-modal h3 { margin: 0; color: var(--color-brand-text); }
+.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+.modal-actions .ghost { margin: 0; }
 </style>

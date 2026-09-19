@@ -7,9 +7,9 @@
  * meeting that produced it. The worklist is the other direction: the agenda
  * items *this* user still owes a vote on, across every committee they sit on.
  *
- * Recording a decision is deliberately NOT here — it needs the signature pad
- * and the full agenda context, so it stays on the meeting screen. Casting a
- * vote posts back to the same Stage 21 endpoint the meeting screen uses.
+ * Recording a decision is deliberately NOT here — it needs the full agenda
+ * context, so it stays on the meeting screen. Casting a vote posts back to
+ * the same Stage 21 endpoint the meeting screen uses.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'

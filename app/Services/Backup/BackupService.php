@@ -15,9 +15,9 @@ use ZipArchive;
  * Stage 26 — takes a snapshot of the system and records that it happened.
  *
  * A snapshot is one .zip holding `database.sql` plus, by default, the private
- * attachment and signature trees. The two travel together deliberately: a
- * restored database whose requests point at files that no longer exist is
- * not a restored system.
+ * attachment tree. The two travel together deliberately: a restored database
+ * whose requests point at files that no longer exist is not a restored
+ * system.
  *
  * There is no restore counterpart here, on purpose. Reloading a database is a
  * server-side operation performed deliberately by an administrator, not

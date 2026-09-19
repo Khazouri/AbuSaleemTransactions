@@ -82,7 +82,6 @@ class WorkflowServiceTest extends TestCase
                 $requestRecord,
                 $action,
                 $actors[$roleCode],
-                signaturePath: $action === 'approve' ? "signatures/test-{$from}.png" : null,
             );
 
             $this->assertSame($to, $requestRecord->currentStage->code);
@@ -379,7 +378,6 @@ class WorkflowServiceTest extends TestCase
                 $requestRecord,
                 $action,
                 $actors[$role],
-                signaturePath: $action === 'approve' ? 'signatures/test.png' : null,
             );
         }
 
@@ -391,7 +389,6 @@ class WorkflowServiceTest extends TestCase
             $requestRecord,
             'approve',
             $actors['R05'],
-            signaturePath: 'signatures/admin-manager.png',
         );
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
@@ -402,7 +399,6 @@ class WorkflowServiceTest extends TestCase
             $requestRecord,
             'approve',
             $actors['R07'],
-            signaturePath: 'signatures/final.png',
         );
 
         $this->assertSame('in_execution', $requestRecord->status->code);
@@ -413,26 +409,25 @@ class WorkflowServiceTest extends TestCase
         ]);
     }
 
-    public function test_approval_transition_requires_a_signature_path_before_mutating_state(): void
+    /**
+     * Signatures have been removed from the system — approving is a plain
+     * confirmation, so a bare `transition('approve', ...)` call with no
+     * signature evidence must succeed and still write the approval ledger
+     * row.
+     */
+    public function test_approval_transition_succeeds_with_no_signature_evidence(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $requestRecord = $this->newRequest('requirements_check', 'in_review');
         $reviewer = $this->userWithRole('R02');
 
-        try {
-            app(WorkflowService::class)->transition($requestRecord, 'approve', $reviewer);
-            $this->fail('An approval must not be recorded without signature evidence.');
-        } catch (WorkflowTransitionException $exception) {
-            $this->assertSame(
-                'يجب إرفاق التوقيع الإلكتروني لإتمام الاعتماد.',
-                $exception->getMessage(),
-            );
-        }
+        $requestRecord = app(WorkflowService::class)->transition($requestRecord, 'approve', $reviewer);
 
-        $this->assertSame('requirements_check', $requestRecord->refresh()->currentStage->code);
-        $this->assertDatabaseCount('approvals', 0);
-        $this->assertDatabaseCount('request_stage_logs', 0);
+        $this->assertSame('reviewer_review', $requestRecord->currentStage->code);
+        $this->assertSame('registered', $requestRecord->status->code);
+        $this->assertDatabaseCount('approvals', 1);
+        $this->assertDatabaseCount('request_stage_logs', 1);
     }
 
     public function test_actor_cannot_skip_the_admin_manager_checkpoint(): void

@@ -50,15 +50,15 @@ class ArtThirtyEightStatusTest extends TestCase
         // takes the ministry path rather than Stage 57's bypass.
         $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting', decisionGrade: 10);
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R03'), signaturePath: 'signatures/a.png');
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R03'));
         $this->assertSame('approval_by_authority', $requestRecord->currentStage->code);
         $this->assertSame('awaiting_municipal_approval', $requestRecord->status->code);
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R05'), signaturePath: 'signatures/b.png');
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R05'));
         $this->assertSame('local_governance_ministry', $requestRecord->currentStage->code);
         $this->assertSame('awaiting_central_approval', $requestRecord->status->code);
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R06'), signaturePath: 'signatures/c.png');
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R06'));
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
     }
@@ -73,14 +73,14 @@ class ArtThirtyEightStatusTest extends TestCase
         $workflow = app(WorkflowService::class);
         $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting', decisionGrade: 1);
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R03'), signaturePath: 'signatures/a.png');
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R03'));
         $this->assertSame('awaiting_municipal_approval', $requestRecord->status->code);
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R05'), signaturePath: 'signatures/b.png');
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R05'));
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R07'), signaturePath: 'signatures/d.png');
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R07'));
         $this->assertSame('in_execution', $requestRecord->status->code);
     }
 

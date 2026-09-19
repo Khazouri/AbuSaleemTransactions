@@ -2,11 +2,14 @@
 /**
  * Stage 36 — the minutes lifecycle: generate a compiled draft, the head's
  * review (approve / send back with a reason), then each present attendee's
- * own signature. The last signature (or review itself, if nobody attended)
- * auto-approves — see MeetingMinutesController's docblock. Approved minutes
- * are what MeetingController::update()'s close gate now requires.
+ * own confirmation. The last confirmation (or review itself, if nobody
+ * attended) auto-approves — see MeetingMinutesController's docblock. Approved
+ * minutes are what MeetingController::update()'s close gate now requires.
+ *
+ * Signatures have been removed from the system — an attendee's sign-off is
+ * now a plain confirmation click, not a drawn/uploaded image.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { VOTE_OPTIONS } from '../lib/decisionOutcomes'
@@ -14,7 +17,6 @@ import { DEFERRAL_FIELDS } from '../lib/decisionStructure'
 import api from '../lib/api'
 import { MINUTES_QUALITY_CHECKS, MINUTES_REVIEWER_CHECK } from '../lib/controlGates'
 import { useAuthStore } from '../stores/auth'
-import SignaturePad from '../components/SignaturePad.vue'
 
 const route = useRoute()
 const { t, locale } = useI18n()
@@ -119,50 +121,35 @@ async function review(decision) {
 
 const signing = ref(false)
 const signError = ref('')
-const signatureReady = ref(false)
-let signaturePad = null
-function setSignaturePad(instance) { signaturePad = instance }
+// Signatures have been removed from the system — signing is a plain
+// confirmation click, so the button just pauses to ask "are you sure?".
+const pendingSign = ref(false)
 
 const mySignature = computed(() => (minutes.value?.signatures ?? [])
   .find((signature) => signature.user.id === auth.user?.id))
+
+function openSignConfirm() {
+  pendingSign.value = true
+}
+
+function closeSignConfirm() {
+  if (signing.value) return
+  pendingSign.value = false
+}
 
 async function sign() {
   signError.value = ''
   signing.value = true
   try {
-    const file = await signaturePad?.toFile()
-    if (!file) return
-    const form = new FormData()
-    form.append('signature', file)
-    const { data } = await api.post(`/meetings/${meetingId.value}/minutes/sign`, form)
+    const { data } = await api.post(`/meetings/${meetingId.value}/minutes/sign`)
     minutes.value = data.data
-    signatureReady.value = false
+    pendingSign.value = false
   } catch (requestError) {
     signError.value = requestError.response?.data?.message ?? t('common.none')
   } finally {
     signing.value = false
   }
 }
-
-// --- Signature image thumbnails (bearer-authenticated blobs) --------------------
-
-const signatureImages = ref({})
-async function loadSignatureImages() {
-  const images = {}
-  await Promise.all((minutes.value?.signatures ?? []).map(async (signature) => {
-    if (!signature.signature_url) return
-    try {
-      const { data } = await api.get(signature.signature_url, { responseType: 'blob' })
-      images[signature.id] = URL.createObjectURL(data)
-    } catch {
-      // Left unset — the template falls back to a "signed" label with no image.
-    }
-  }))
-  Object.values(signatureImages.value).forEach((url) => URL.revokeObjectURL(url))
-  signatureImages.value = images
-}
-watch(() => (minutes.value?.signatures ?? []).map((s) => `${s.id}:${s.signature_url}`).join('|'), loadSignatureImages)
-onUnmounted(() => Object.values(signatureImages.value).forEach((url) => URL.revokeObjectURL(url)))
 
 function tallyFor(item) {
   return VOTE_OPTIONS.map((outcome) => ({ outcome, count: item.votes?.[outcome] ?? 0 })).filter((v) => v.count > 0)
@@ -427,7 +414,6 @@ onMounted(loadMeetings)
             <li v-for="signature in minutes.signatures" :key="signature.id">
               <span>{{ signature.user.name }}</span>
               <template v-if="signature.signed_at">
-                <img v-if="signatureImages[signature.id]" :src="signatureImages[signature.id]" :alt="signature.user.name">
                 <span class="pill good small">{{ t('meetingsUnit.minutes.signatures.signed') }} — {{ dateTime(signature.signed_at) }}</span>
               </template>
               <span v-else class="pill small">{{ t('meetingsUnit.minutes.signatures.pending') }}</span>
@@ -435,8 +421,7 @@ onMounted(loadMeetings)
           </ul>
 
           <div v-if="minutes.status === 'pending_signatures' && mySignature && !mySignature.signed_at" v-can="'meeting_minutes.add'" class="sign-panel">
-            <SignaturePad :ref="setSignaturePad" :disabled="signing" @change="signatureReady = $event" />
-            <button class="primary" type="button" :disabled="signing || !signatureReady" @click="sign">
+            <button class="primary" type="button" :disabled="signing" @click="openSignConfirm">
               {{ signing ? t('common.saving') : t('meetingsUnit.minutes.signatures.sign') }}
             </button>
             <p v-if="signError" class="alert">{{ signError }}</p>
@@ -444,6 +429,24 @@ onMounted(loadMeetings)
         </section>
       </template>
     </template>
+
+    <Teleport to="body">
+      <div v-if="pendingSign" class="modal-backdrop" @click.self="closeSignConfirm">
+        <section class="reason-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-sign-title">
+          <h3 id="confirm-sign-title">{{ t('meetingsUnit.minutes.signatures.confirmSign.title') }}</h3>
+          <p>{{ t('meetingsUnit.minutes.signatures.confirmSign.body') }}</p>
+          <p v-if="signError" class="alert">{{ signError }}</p>
+          <div class="modal-actions">
+            <button class="ghost" type="button" :disabled="signing" @click="closeSignConfirm">
+              {{ t('common.cancel') }}
+            </button>
+            <button class="primary" type="button" :disabled="signing" @click="sign">
+              {{ signing ? t('common.saving') : t('meetingsUnit.minutes.signatures.confirmSign.confirm') }}
+            </button>
+          </div>
+        </section>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -503,8 +506,13 @@ textarea { width: 100%; resize: vertical; }
 
 .signature-list { list-style: none; margin: 0 0 .75rem; padding: 0; display: grid; gap: .5rem; }
 .signature-list li { display: flex; align-items: center; gap: .6rem; font-size: .85rem; }
-.signature-list img { display: block; inline-size: 6rem; block-size: 2.5rem; border: 1px solid var(--color-border); border-radius: 6px; background: #fff; object-fit: contain; }
 .sign-panel { display: grid; gap: .5rem; padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
+.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }
+.reason-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }
+.reason-modal h3 { margin: 0; color: var(--color-brand-text); }
+.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+.modal-actions .ghost { margin: 0; }
 
 button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
 button:disabled { cursor: not-allowed; opacity: .6; }

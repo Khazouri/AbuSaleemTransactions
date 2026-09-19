@@ -4,12 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\MeetingMinutes\ReviewMeetingMinutesRequest;
-use App\Http\Requests\MeetingMinutes\StoreMeetingMinuteSignatureRequest;
 use App\Http\Resources\MeetingMinutesResource;
 use App\Models\Meeting;
 use App\Models\MeetingMinutes;
 use App\Models\MeetingMinuteSignature;
-use App\Services\ApprovalSignatureStorage;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\MeetingMinutesCompiler;
 use App\Services\MinutesQualityRules;
@@ -17,16 +15,15 @@ use App\Services\NotificationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Stage 36 — the minutes lifecycle: generate (compile a fresh draft) →
  * review (the head approves or sends it back) → sign (each present attendee
- * signs; the last signature auto-approves). Rides the `meeting_minutes`
+ * confirms; the last confirmation auto-approves). Rides the `meeting_minutes`
  * screen's own action tiers — see ScreenRolePermissionSeeder's comment above
  * that screen's row for why `add` covers both generating and signing while
- * `approve` is the head-only review decision.
+ * `approve` is the head-only review decision. Signatures have been removed
+ * from the system — signing is a plain confirmation, no drawn/uploaded image.
  */
 class MeetingMinutesController extends Controller
 {
@@ -173,15 +170,16 @@ class MeetingMinutesController extends Controller
     }
 
     /**
-     * One attendee's own signature. Once every required signature row has a
-     * signed_at, the parent document auto-advances to approved — no separate
-     * "finalize" click, mirroring DecisionController::record() needing no
-     * confirmation step after the deciding input arrives.
+     * One attendee's own confirmation — a plain click, no drawn/uploaded
+     * image; signatures have been removed from the system. Once every
+     * required row has a signed_at, the parent document auto-advances to
+     * approved — no separate "finalize" click, mirroring
+     * DecisionController::record() needing no confirmation step after the
+     * deciding input arrives.
      */
     public function sign(
-        StoreMeetingMinuteSignatureRequest $request,
+        Request $request,
         Meeting $meeting,
-        ApprovalSignatureStorage $signatureStorage,
         NotificationDispatcher $notifications,
     ): MeetingMinutesResource|JsonResponse {
         $minutes = $meeting->meetingMinutes()->first();
@@ -202,8 +200,7 @@ class MeetingMinutesController extends Controller
             return response()->json(['message' => 'لقد وقّعت على هذا المحضر بالفعل.'], 422);
         }
 
-        $path = $signatureStorage->storeForMeetingMinutes($request->file('signature'), $minutes);
-        $signature->update(['signature_path' => $path, 'signed_at' => now()]);
+        $signature->update(['signed_at' => now()]);
 
         $minutes->refresh()->load('signatures');
         if ($minutes->allSigned()) {
@@ -212,24 +209,5 @@ class MeetingMinutesController extends Controller
         }
 
         return new MeetingMinutesResource($minutes->load(['reviewedBy:id,name', 'signatures.user:id,name']));
-    }
-
-    /** Authenticated read access to one private signature image — same shape as ApprovalSignatureController. */
-    public function signatureImage(MeetingMinuteSignature $signature): StreamedResponse
-    {
-        abort_if(blank($signature->signature_path), 404);
-
-        $disk = Storage::disk('local');
-        abort_unless($disk->exists($signature->signature_path), 404);
-
-        return $disk->response(
-            $signature->signature_path,
-            "meeting-minutes-signature-{$signature->id}.png",
-            [
-                'Content-Type' => 'image/png',
-                'Cache-Control' => 'private, max-age=3600',
-                'X-Content-Type-Options' => 'nosniff',
-            ],
-        );
     }
 }

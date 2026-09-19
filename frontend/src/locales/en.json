@@ -664,6 +664,11 @@
     "empty": "No requests are waiting for this approval.",
     "loadFailed": "The approval queue could not be loaded.",
     "actionFailed": "The approval could not be completed.",
+    "confirmApprove": {
+      "title": "Confirm approval",
+      "body": "Are you sure you want to approve {reference} — {title}?",
+      "confirm": "Confirm approval"
+    },
     "levels": {
       "reviewer": "Reviewer approval",
       "committee-head": "Committee head approval",
@@ -673,16 +678,10 @@
       "final": "Final approval and archiving"
     }
   },
-  "signature": {
-    "title": "Electronic signature",
-    "hint": "Sign inside the box using a mouse, pen, or touch.",
-    "clear": "Clear",
-    "required": "Draw your signature before approving.",
-    "trailTitle": "Approval trail",
-    "trailEmpty": "No approvals have been recorded yet.",
-    "signedBy": "Signed by {name}",
-    "imageAlt": "Signature of {name}",
-    "unavailable": "No signature image is available for this approval."
+  "approvalTrail": {
+    "title": "Approval trail",
+    "empty": "No approvals have been recorded yet.",
+    "approvedBy": "Signed by {name}"
   },
   "attachments": {
     "title": "Attachments",
@@ -736,6 +735,11 @@
     "reason": "Reason",
     "reasonRequired": "Enter a reason before performing this action.",
     "confirmException": "Confirm action",
+    "confirmApprove": {
+      "title": "Confirm approval",
+      "body": "Are you sure you want to approve this request?",
+      "confirm": "Confirm approval"
+    },
     "description": "Request description",
     "noDescription": "No description was supplied for this request.",
     "timeline": "Workflow timeline",
@@ -831,7 +835,6 @@
     "linkedDocuments": {
       "kinds": {
         "attachment": "Attached document",
-        "approval_signature": "Approval signature",
         "decision": "Decision"
       }
     },
@@ -1182,6 +1185,11 @@
     "referralAuthorityPlaceholder": "Authority the matter was referred to (optional)",
     "record": "Record decision",
     "recording": "Recording decision…",
+    "confirmApprove": {
+      "title": "Confirm recording approval",
+      "body": "Are you sure you want to record this decision as approved?",
+      "confirm": "Confirm approval"
+    },
     "decidedBy": "Decided by",
     "decisionNumber": "Decision no.",
     "title": "Decisions & Recommendations",
@@ -1517,7 +1525,12 @@
         "none": "No signatures required.",
         "signed": "Signed",
         "pending": "Pending",
-        "sign": "Sign"
+        "sign": "Sign",
+        "confirmSign": {
+          "title": "Confirm your signature",
+          "body": "Are you sure you have reviewed the minutes and want to sign?",
+          "confirm": "Confirm signature"
+        }
       }
     },
     "outputs": {

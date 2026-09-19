@@ -819,8 +819,7 @@ select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-ho
 .pill.bad { background: var(--color-danger-bg); color: var(--color-danger-fg); border-color: var(--color-danger-border); }
 
 /* Deliberately fixed, not themed: a video feed area reads as a dark screen
-   in both themes — same exception SignaturePad's canvas and ApprovalTrail's
-   signature background make (see AGENTS.md's dark-mode note). */
+   in both themes (see AGENTS.md's dark-mode note). */
 .video-placeholder {
   display: flex; align-items: center; justify-content: center;
   block-size: 10rem; border-radius: 12px; margin-bottom: 1rem;

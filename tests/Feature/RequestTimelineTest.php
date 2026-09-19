@@ -65,9 +65,11 @@ class RequestTimelineTest extends TestCase
     }
 
     /**
-     * المستند المرتبط links the three kinds of artifact a step can produce, and
-     * attributes each to the entry whose window it falls in — a document that
-     * arrived under the next holder belongs to them, not to this entry.
+     * المستند المرتبط links the two kinds of artifact a step can produce
+     * (decision, attachment — signatures have been removed from the system,
+     * so an approval is no longer a linked document), and attributes each to
+     * the entry whose window it falls in — a document that arrived under the
+     * next holder belongs to them, not to this entry.
      */
     public function test_documents_are_attributed_to_the_step_whose_window_they_fall_in(): void
     {
@@ -106,14 +108,15 @@ class RequestTimelineTest extends TestCase
             'updated_at' => now()->subDay(),
         ]);
 
-        // The approval this second entry actually produced.
+        // The approval this second entry actually produced — signatures have
+        // been removed from the system, so an Approval row is no longer a
+        // linked document; it must not appear in the timeline at all.
         Approval::create([
             'request_id' => $requestRecord->id,
             'level' => 1,
             'role_id' => Role::query()->where('code', 'R02')->value('id'),
             'approved_by_user_id' => $actor->id,
             'action' => 'approve',
-            'signature_path' => 'signatures/1.png',
             'approved_at' => now()->subDays(3),
         ]);
 
@@ -132,8 +135,8 @@ class RequestTimelineTest extends TestCase
 
         $this->assertSame($second->id, $timeline[1]['id']);
         $kinds = array_column($timeline[1]['documents'], 'kind');
-        $this->assertContains('approval_signature', $kinds);
         $this->assertContains('attachment', $kinds);
+        $this->assertNotContains('approval_signature', $kinds);
         $this->assertSame(
             $late->original_name,
             collect($timeline[1]['documents'])->firstWhere('kind', 'attachment')['reference'],

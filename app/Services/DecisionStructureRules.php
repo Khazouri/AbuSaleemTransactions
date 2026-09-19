@@ -9,7 +9,7 @@ namespace App\Services;
  * Lives in a service rather than StoreDecisionRequest because requiredness
  * depends on the tallied outcome, which is not known until
  * DecisionController has resolved it — the split that request's own docblock
- * already documents for `comment` and `signature`. Both record() and
+ * already documents for `comment`. Both record() and
  * recordAppealDecision() read this one class, since they are the same
  * committee recording in the same محضر: the CommitteeVotingRules /
  * DecisionEligibility precedent, so an ordinary decision and an appeal

@@ -11,8 +11,6 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Tests\PassesControlGates;
 use Tests\TestCase;
 
@@ -66,7 +64,6 @@ class RequirementsCheckJurisdictionTest extends TestCase
 
     public function test_approve_declare_no_jurisdiction_and_reject_formally_are_refused_until_the_test_is_recorded(): void
     {
-        Storage::fake('local');
         $this->seed(DatabaseSeeder::class);
         $reviewer = $this->userWithRole('R02');
 
@@ -74,9 +71,6 @@ class RequirementsCheckJurisdictionTest extends TestCase
             $requestRecord = $this->requestAt('requirements_check', 'in_review');
 
             $payload = ['action' => $action, 'comment' => 'سبب.'];
-            if ($action === 'approve') {
-                $payload['signature'] = UploadedFile::fake()->image('signature.png', 960, 330);
-            }
 
             $this->actingAs($reviewer, 'sanctum')
                 ->post("/api/requests/{$requestRecord->id}/transition", $payload, ['Accept' => 'application/json'])
@@ -105,7 +99,6 @@ class RequirementsCheckJurisdictionTest extends TestCase
 
     public function test_the_three_gated_actions_succeed_once_the_test_is_recorded(): void
     {
-        Storage::fake('local');
         $this->seed(DatabaseSeeder::class);
         $reviewer = $this->userWithRole('R02');
 
@@ -120,7 +113,6 @@ class RequirementsCheckJurisdictionTest extends TestCase
         $this->actingAs($reviewer, 'sanctum')
             ->post("/api/requests/{$approved->id}/transition", [
                 'action' => 'approve',
-                'signature' => UploadedFile::fake()->image('signature.png', 960, 330),
             ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.current_stage.code', 'reviewer_review')
@@ -181,15 +173,12 @@ class RequirementsCheckJurisdictionTest extends TestCase
 
     public function test_the_reviewer_approval_queue_is_also_gated(): void
     {
-        Storage::fake('local');
         $this->seed(DatabaseSeeder::class);
         $reviewer = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('requirements_check', 'in_review');
 
         $this->actingAs($reviewer, 'sanctum')
-            ->post("/api/approvals/reviewer/{$requestRecord->id}", [
-                'signature' => UploadedFile::fake()->image('signature.png', 960, 330),
-            ], ['Accept' => 'application/json'])
+            ->post("/api/approvals/reviewer/{$requestRecord->id}", [], ['Accept' => 'application/json'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('request');
 

@@ -11,7 +11,7 @@ use Illuminate\Validation\Rule;
  * required (only when the confirmed outcome is `appeal_redo`) depends on a
  * lookup the FormRequest can't perform on its own, resolved in
  * AppealController::executeOutcome — the same split StoreDecisionRequest's
- * own docblock already documents for comment/signature requiredness.
+ * own docblock already documents for comment requiredness.
  */
 class ExecuteAppealOutcomeRequest extends FormRequest
 {

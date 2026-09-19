@@ -3,7 +3,6 @@
 use App\Http\Controllers\Api\AppealAttachmentController;
 use App\Http\Controllers\Api\AppealController;
 use App\Http\Controllers\Api\ApprovalController;
-use App\Http\Controllers\Api\ApprovalSignatureController;
 use App\Http\Controllers\Api\AttachmentController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
@@ -315,15 +314,6 @@ Route::middleware('auth:sanctum')->group(function () {
             [RequestDraftController::class, 'previewAttachment'],
         )->name('requests.drafts.attachments.preview');
     });
-
-    // Stage 19 — private signature images use the same request-detail
-    // visibility gate as the approval trail that renders them.
-    Route::middleware('screen.permission:request_details,view')
-        ->get(
-            'requests/{requestRecord}/approvals/{approval}/signature',
-            [ApprovalSignatureController::class, 'show'],
-        )
-        ->name('requests.approvals.signature');
 
     // Private attachment previews travel through the API so a bearer token,
     // request visibility, and attachment-parent relationship are all
@@ -704,10 +694,6 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::middleware('screen.permission:meeting_minutes,approve')
         ->post('meetings/{meeting}/minutes/review', [MeetingMinutesController::class, 'review']);
-    // Private signature images, same visibility gate as the document itself.
-    Route::middleware('screen.permission:meeting_minutes,view')
-        ->get('meeting-minutes/signatures/{signature}', [MeetingMinutesController::class, 'signatureImage'])
-        ->name('meeting-minutes.signature');
 
     /*
      * Stage 37 — the live, meeting-scoped decision/output tracker. Reading is

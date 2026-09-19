@@ -17,7 +17,6 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Tests\PassesControlGates;
 use Tests\RecordsStructuredDecisions;
 use Tests\RunsStudySequence;
@@ -133,7 +132,11 @@ class MeetingMinutesTest extends TestCase
         $this->assertSame('draft', $meeting->meetingMinutes()->value('status'));
     }
 
-    public function test_signing_rejects_a_non_signer_and_a_double_sign_then_the_last_signature_approves(): void
+    /**
+     * Signatures have been removed from the system — each attendee's sign-off
+     * is now a plain confirmation click, no drawn/uploaded image.
+     */
+    public function test_signing_rejects_a_non_signer_and_a_double_sign_then_the_last_confirmation_approves(): void
     {
         $this->seed(DatabaseSeeder::class);
         [$head, $member, , $meeting] = $this->committeeMeetingWithAttendees();
@@ -143,20 +146,20 @@ class MeetingMinutesTest extends TestCase
         $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())->assertOk();
 
         $this->actingAs($outsider, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
+            ->post("/api/meetings/{$meeting->id}/minutes/sign")
             ->assertStatus(404);
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
+            ->post("/api/meetings/{$meeting->id}/minutes/sign")
             ->assertOk()
             ->assertJsonPath('data.status', 'pending_signatures');
 
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
+            ->post("/api/meetings/{$meeting->id}/minutes/sign")
             ->assertStatus(422);
 
         $response = $this->actingAs($member, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
+            ->post("/api/meetings/{$meeting->id}/minutes/sign")
             ->assertOk()
             ->assertJsonPath('data.status', 'approved');
 
@@ -204,7 +207,7 @@ class MeetingMinutesTest extends TestCase
 
         $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())->assertOk();
         $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
+            ->post("/api/meetings/{$meeting->id}/minutes/sign")
             ->assertOk();
 
         $this->actingAs($head, 'sanctum')
@@ -229,7 +232,7 @@ class MeetingMinutesTest extends TestCase
         $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())->assertOk();
 
         $this->actingAs($member, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/minutes/sign", ['signature' => UploadedFile::fake()->image('s.png', 10, 10)])
+            ->post("/api/meetings/{$meeting->id}/minutes/sign")
             ->assertOk();
     }
 
@@ -286,7 +289,6 @@ class MeetingMinutesTest extends TestCase
 
         $this->actingAs($head, 'sanctum')
             ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
-                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
                 'referral_authority' => 'ديوان البلدية',
             ]))
             ->assertCreated()

@@ -18,8 +18,6 @@ use App\Models\WorkflowStage;
 use App\Services\IntakeGateService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Tests\PassesControlGates;
 use Tests\TestCase;
 
@@ -48,14 +46,12 @@ class ControlGateTest extends TestCase
 
     public function test_the_registration_hop_is_refused_until_every_required_document_is_answered(): void
     {
-        Storage::fake('local');
         $reviewer = $this->userWithRole('R02');
         $requestRecord = $this->requestAtRequirementsCheck();
 
         $this->actingAs($reviewer, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/transition", [
                 'action' => 'approve',
-                'signature' => UploadedFile::fake()->image('s.png', 960, 330),
             ], ['Accept' => 'application/json'])
             ->assertStatus(422)
             ->assertJsonPath(
@@ -130,7 +126,6 @@ class ControlGateTest extends TestCase
 
     public function test_the_facts_attestation_is_required_and_the_gate_passes_once_it_is_given(): void
     {
-        Storage::fake('local');
         $reviewer = $this->userWithRole('R02');
         $requestRecord = $this->requestAtRequirementsCheck();
         $answers = array_fill_keys(
@@ -160,7 +155,6 @@ class ControlGateTest extends TestCase
         $this->actingAs($reviewer, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/transition", [
                 'action' => 'approve',
-                'signature' => UploadedFile::fake()->image('s.png', 960, 330),
             ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.status.code', 'registered');
@@ -173,14 +167,11 @@ class ControlGateTest extends TestCase
      */
     public function test_the_reviewer_approval_queue_is_gated_by_the_same_predicate(): void
     {
-        Storage::fake('local');
         $reviewer = $this->userWithRole('R02');
         $requestRecord = $this->requestAtRequirementsCheck();
 
         $this->actingAs($reviewer, 'sanctum')
-            ->post("/api/approvals/reviewer/{$requestRecord->id}", [
-                'signature' => UploadedFile::fake()->image('s.png', 960, 330),
-            ], ['Accept' => 'application/json'])
+            ->post("/api/approvals/reviewer/{$requestRecord->id}", [], ['Accept' => 'application/json'])
             ->assertStatus(422)
             ->assertJsonPath(
                 'errors.request.0',
@@ -190,9 +181,7 @@ class ControlGateTest extends TestCase
         $this->passIntakeGate($requestRecord);
 
         $this->actingAs($reviewer, 'sanctum')
-            ->post("/api/approvals/reviewer/{$requestRecord->id}", [
-                'signature' => UploadedFile::fake()->image('s.png', 960, 330),
-            ], ['Accept' => 'application/json'])
+            ->post("/api/approvals/reviewer/{$requestRecord->id}", [], ['Accept' => 'application/json'])
             ->assertOk();
     }
 
@@ -295,14 +284,11 @@ class ControlGateTest extends TestCase
 
     public function test_execution_is_refused_until_the_soundness_checklist_is_recorded(): void
     {
-        Storage::fake('local');
         [, $requestRecord] = $this->requestReadyForExecution();
         $approver = $this->userWithRole('R07');
 
         $this->actingAs($approver, 'sanctum')
-            ->post("/api/approvals/final/{$requestRecord->id}", [
-                'signature' => UploadedFile::fake()->image('s.png', 960, 330),
-            ], ['Accept' => 'application/json'])
+            ->post("/api/approvals/final/{$requestRecord->id}", [], ['Accept' => 'application/json'])
             ->assertStatus(422)
             ->assertJsonPath(
                 'errors.request.0',
@@ -312,9 +298,7 @@ class ControlGateTest extends TestCase
         $this->certifySoundness($requestRecord);
 
         $this->actingAs($approver, 'sanctum')
-            ->post("/api/approvals/final/{$requestRecord->id}", [
-                'signature' => UploadedFile::fake()->image('s.png', 960, 330),
-            ], ['Accept' => 'application/json'])
+            ->post("/api/approvals/final/{$requestRecord->id}", [], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.status.code', 'in_execution');
     }
@@ -389,7 +373,6 @@ class ControlGateTest extends TestCase
 
     public function test_an_open_suspension_blocks_approval_through_both_entry_points(): void
     {
-        Storage::fake('local');
         $suspender = $this->userWithRole('R02');
         $approver = $this->userWithRole('R07');
         [, $requestRecord] = $this->requestReadyForExecution();
@@ -403,9 +386,7 @@ class ControlGateTest extends TestCase
             ->assertOk();
 
         $this->actingAs($approver, 'sanctum')
-            ->post("/api/approvals/final/{$requestRecord->id}", [
-                'signature' => UploadedFile::fake()->image('s.png', 960, 330),
-            ], ['Accept' => 'application/json'])
+            ->post("/api/approvals/final/{$requestRecord->id}", [], ['Accept' => 'application/json'])
             ->assertStatus(422)
             ->assertJsonPath(
                 'errors.request.0',
@@ -415,7 +396,6 @@ class ControlGateTest extends TestCase
         $this->actingAs($approver, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/transition", [
                 'action' => 'approve',
-                'signature' => UploadedFile::fake()->image('s.png', 960, 330),
             ], ['Accept' => 'application/json'])
             ->assertStatus(422)
             ->assertJsonPath(

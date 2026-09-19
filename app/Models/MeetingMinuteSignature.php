@@ -5,13 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** Stage 36 — one attendee's required, individually-captured signature on a meeting's minutes. */
+/** Stage 36 — one attendee's required sign-off (a plain confirmation, not a drawn signature) on a meeting's minutes. */
 class MeetingMinuteSignature extends Model
 {
     protected $fillable = [
         'meeting_minutes_id',
         'user_id',
-        'signature_path',
         'signed_at',
     ];
 

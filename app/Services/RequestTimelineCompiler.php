@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Approval;
 use App\Models\Attachment;
 use App\Models\Decision;
 use App\Models\Request;
@@ -27,12 +26,9 @@ use Illuminate\Support\Collection;
  * `request_stage_logs`.** Setting one would mean threading optional metadata
  * through WorkflowService::transition(), which Stage 77 already declined to do
  * to the application's highest-consequence write path — and a column nothing
- * ever populates would be worse than a derivation anyone can check. Three
+ * ever populates would be worse than a derivation anyone can check. Two
  * kinds are linked, each because the link is a fact rather than a guess:
  *
- *   - **approval_signature** — an `approvals` row for this request, signed by
- *     this entry's own actor inside this entry's own window. The signature is
- *     literally the document that action produced.
  *   - **decision** — a `Decision` recorded against this request in the window
  *     this entry opened; the committee's own recorded outcome for the step.
  *   - **attachment** — every document uploaded to the file while it stood
@@ -58,10 +54,9 @@ class RequestTimelineCompiler
             ->values();
 
         $attachments = $this->attachments($requestRecord);
-        $approvals = $this->approvals($requestRecord);
         $decisions = $this->decisions($requestRecord);
 
-        return $logs->map(function (RequestStageLog $log, int $index) use ($logs, $attachments, $approvals, $decisions) {
+        return $logs->map(function (RequestStageLog $log, int $index) use ($logs, $attachments, $decisions) {
             $from = $log->acted_at;
             // The window this entry opened, closed by the next move. The last
             // entry's window is still open, so it has no upper bound.
@@ -81,46 +76,23 @@ class RequestTimelineCompiler
                 'body' => $this->body($log),
                 'acted_at' => $from?->toIso8601String(),
                 // Art. 100's المستند المرتبط.
-                'documents' => $this->documentsFor($log, $from, $until, $attachments, $approvals, $decisions),
+                'documents' => $this->documentsFor($from, $until, $attachments, $decisions),
             ];
         })->all();
     }
 
     /**
      * @param  Collection<int, Attachment>  $attachments
-     * @param  Collection<int, Approval>  $approvals
      * @param  Collection<int, Decision>  $decisions
      * @return list<array<string, mixed>>
      */
     private function documentsFor(
-        RequestStageLog $log,
         ?Carbon $from,
         ?Carbon $until,
         Collection $attachments,
-        Collection $approvals,
         Collection $decisions,
     ): array {
         $documents = [];
-
-        foreach ($approvals as $approval) {
-            if ($approval->approved_by_user_id !== $log->acted_by_user_id) {
-                continue;
-            }
-            if (! $this->within($approval->approved_at, $from, $until)) {
-                continue;
-            }
-
-            $documents[] = [
-                'kind' => 'approval_signature',
-                'label' => 'توقيع الاعتماد — المستوى '.$approval->level,
-                'reference' => null,
-                'section' => 'approval',
-                'url' => $approval->signature_path === null ? null : route('requests.approvals.signature', [
-                    'requestRecord' => $approval->request_id,
-                    'approval' => $approval->id,
-                ]),
-            ];
-        }
 
         foreach ($decisions as $decision) {
             if (! $this->within($decision->decided_at, $from, $until)) {
@@ -221,12 +193,6 @@ class RequestTimelineCompiler
             ->where('request_id', $requestRecord->id)
             ->orderBy('created_at')
             ->get();
-    }
-
-    /** @return Collection<int, Approval> */
-    private function approvals(Request $requestRecord): Collection
-    {
-        return $requestRecord->approvals()->orderBy('approved_at')->get();
     }
 
     /** @return Collection<int, Decision> */

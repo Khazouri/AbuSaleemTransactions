@@ -35,7 +35,6 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\ApprovalReferralService;
 use App\Services\ApprovalReturnService;
-use App\Services\ApprovalSignatureStorage;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\EmployeeNoticeRegister;
 use App\Services\ExecutionSoundnessService;
@@ -500,7 +499,6 @@ class RequestController extends Controller
         TransitionRequest $request,
         Request $requestRecord,
         WorkflowService $workflow,
-        ApprovalSignatureStorage $signatureStorage,
         RequestVisibility $visibility,
     ): RequestDetailResource {
         abort_unless($visibility->canView($request->user(), $requestRecord), 404);
@@ -546,30 +544,17 @@ class RequestController extends Controller
             throw ValidationException::withMessages(['action' => [$gateRefusal]]);
         }
 
-        // Stage 19 — only an approval writes signature evidence; ordinary
-        // forwards and exception commands remain compact JSON/form commands.
-        $signaturePath = $action === 'approve'
-            ? $signatureStorage->store($request->file('signature'), $requestRecord)
-            : null;
-
         try {
             $requestRecord = $workflow->transition(
                 $requestRecord,
                 $action,
                 $request->user(),
                 $request->validated('comment'),
-                $signaturePath,
             );
         } catch (WorkflowTransitionException $exception) {
-            $signatureStorage->delete($signaturePath);
-
             throw ValidationException::withMessages([
                 'action' => [$exception->getMessage()],
             ]);
-        } catch (Throwable $exception) {
-            $signatureStorage->delete($signaturePath);
-
-            throw $exception;
         }
 
         return $this->detailResource($requestRecord, $workflow, $request->user());
@@ -1152,7 +1137,6 @@ class RequestController extends Controller
                     'approved_by_user_id',
                     'action',
                     'comment',
-                    'signature_path',
                     'approved_at',
                 ])
                 ->orderBy('approved_at')

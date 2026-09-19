@@ -328,7 +328,6 @@ class AppealFileTest extends TestCase
 
         $this->actingAs($head, 'sanctum')
             ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
-                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
                 'referral_authority' => 'ديوان البلدية',
             ]))
             ->assertCreated();

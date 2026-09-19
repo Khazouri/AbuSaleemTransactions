@@ -38,10 +38,10 @@ return [
     | Contents and retention
     |--------------------------------------------------------------------------
     |
-    | Attachments and signatures are included by default: a restored database
-    | full of requests pointing at files that no longer exist is not a
-    | restored system. Retention is enforced by `backup:run` after it writes a
-    | new snapshot, so the oldest is only dropped once a newer one exists.
+    | Attachments are included by default: a restored database full of
+    | requests pointing at files that no longer exist is not a restored
+    | system. Retention is enforced by `backup:run` after it writes a new
+    | snapshot, so the oldest is only dropped once a newer one exists.
     |
     */
 
@@ -51,7 +51,9 @@ return [
 
     /*
     | Directories on the private disk that get archived alongside the dump.
+    | Signatures have been removed from the system, so nothing writes into a
+    | `signatures/` directory any more.
     */
-    'file_directories' => ['attachments', 'signatures'],
+    'file_directories' => ['attachments'],
 
 ];

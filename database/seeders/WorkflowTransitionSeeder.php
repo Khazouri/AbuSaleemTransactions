@@ -452,8 +452,8 @@ class WorkflowTransitionSeeder extends Seeder
         // approve/reject(cancel)/defer. `conditional_approve` moves forward
         // like `approve` (same destination stage) but stays an exception row
         // — see DecisionController::ACTIONS and this stage's AGENT_NOTES entry
-        // for why none of the three require a signature or write an Approval
-        // ledger row, unlike the plain `approve` action at this same stage.
+        // for why none of the three write an Approval ledger row, unlike the
+        // plain `approve` action at this same stage.
         $this->seedException(
             $stages['receive_from_committee']->id,
             $stages['approval_by_authority']->id,

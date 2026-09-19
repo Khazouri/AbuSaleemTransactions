@@ -160,7 +160,6 @@ trait PassesControlGates
         foreach ($signers as $signer) {
             $minutes->signatures()->create([
                 'user_id' => $signer->id,
-                'signature_path' => 'meeting-minutes/fixture.png',
                 'signed_at' => now(),
             ]);
         }

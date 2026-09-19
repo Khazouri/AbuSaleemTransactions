@@ -234,7 +234,7 @@ const routes = [
       {
         // Stage 25 — the decisions register and the pending-votes worklist.
         // Recording a decision stays on the meeting screen, where the agenda
-        // context and the signature pad already are.
+        // context already is.
         path: 'decisions',
         name: 'decisions',
         component: () => import('../views/DecisionsView.vue'),

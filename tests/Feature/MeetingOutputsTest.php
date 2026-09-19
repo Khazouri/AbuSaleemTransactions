@@ -17,7 +17,6 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Tests\ClosesRequests;
 use Tests\ExecutesRequests;
 use Tests\PassesControlGates;
@@ -82,9 +81,7 @@ class MeetingOutputsTest extends TestCase
         $this->certifySoundness($requestRecord);
 
         $this->actingAs($finalApprover, 'sanctum')
-            ->post("/api/approvals/final/{$requestRecord->id}", [
-                'signature' => UploadedFile::fake()->image('final.png', 10, 10),
-            ])
+            ->post("/api/approvals/final/{$requestRecord->id}", [])
             ->assertOk()
             ->assertJsonPath('data.status.code', 'in_execution');
 

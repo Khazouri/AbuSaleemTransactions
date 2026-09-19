@@ -14,7 +14,6 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Tests\RecordsStructuredDecisions;
 use Tests\RunsStudySequence;
 use Tests\TestCase;
@@ -211,17 +210,13 @@ class CommitteeSeatRosterTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($chair, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
-                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ]))
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve'))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'approve');
 
         $admin = $this->userWithRole('R05');
         $this->actingAs($admin, 'sanctum')
-            ->post("/api/approvals/admin-manager/{$requestRecord->id}", [
-                'signature' => UploadedFile::fake()->image('signature.png', 10, 10),
-            ])
+            ->post("/api/approvals/admin-manager/{$requestRecord->id}", [])
             ->assertOk();
 
         return $requestRecord;

@@ -27,8 +27,8 @@ use Illuminate\Support\Collection;
  * ever reachable while status=draft, and MeetingMinuteSignature rows are
  * only created later inside review()'s approve branch — a compiled
  * snapshot can never coexist with real signature rows, so embedding
- * signed_at/image data here would always read "nobody has signed yet."
- * Actual signed proof stays exactly where it already lives and is already
+ * signed_at data here would always read "nobody has signed yet." Actual
+ * signed proof stays exactly where it already lives and is already
  * exposed: MeetingMinutes::signatures via MeetingMinutesResource.
  *
  * Stage 73 — the محضر now records the committee's بطاقة تعريف اللجنة and the
