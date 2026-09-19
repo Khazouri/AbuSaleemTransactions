@@ -14,6 +14,184 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-19 13:45 EET — Claude — Stage 93 complete (stage numbering reconciled) — Track M finished
+
+Built per the plan below. **No migration** — no schema change, only a new service class, one resource
+field and one KPI field, exactly as scoped.
+
+**The decision stands as planned: the system's own twelve seeded `workflow_stages` rows are the
+denominator, everywhere.** [F]'s ten steps and [G]'s own «1 من 11» disagree with each other before
+either is even compared against this system, and neither poster is committed to this repo to check a
+mapping against — inventing which two of the twelve stages a ten- or eleven-step poster would collapse
+would be exactly the fabrication this codebase's "honest gap" discipline exists to refuse. Recorded in
+full in `RequestResource::toArray()`'s own comment, not only here, since that is the one field every
+consumer of the shared resource inherits.
+
+**Mechanism, built exactly as planned.** New `App\Services\WorkflowStageCount` — a container singleton
+(`AppServiceProvider::register()`, beside the existing `RequestResponsibilityService` one) wrapping one
+memoised `WorkflowStage::count()`. **Confirmed, not assumed, why a container singleton and not a raw
+class-level static**: `tests/TestCase` is a plain `Illuminate\Foundation\Testing\TestCase` subclass, and
+that base class rebuilds `$this->app` fresh in `setUp()` for every test *method* — a raw static would
+have survived across the whole PHPUnit process instead and could leak a count cached by an early test
+into a later one whose fixture seeds a different number of stage rows. `RequestResource::toArray()`
+gains `stage_progress` (`{current: order_no, total}`, null when there is no current stage) — inherited
+for free by `RequestDetailResource`, `RequestTrackingResource`, and the reports table via
+`ReportController::index()`, since all three extend or reuse this one resource.
+`ReportMetricsService::kpis()` (shared verbatim by the dashboard and the reports screen per its own
+docblock) gains `total_stages` from the same singleton via constructor injection — a plain
+`private readonly WorkflowStageCount $stages` param, safe to add since grep confirmed no call site ever
+does `new ReportMetricsService(...)`, only container-resolved constructor injection everywhere.
+
+**One correction to the plan, caught by Pint, not by me**: `WorkflowStageCount` and `ReportMetricsService`
+both live in the bare `App\Services` namespace, so the `use App\Services\WorkflowStageCount;` I first
+added to `ReportMetricsService.php` was redundant — PHP resolves a same-namespace class name without an
+import — and Pint's `no_unused_imports` fixer correctly stripped it. `RequestResource` (a different
+namespace, `App\Http\Resources`) keeps its import as written.
+
+**Frontend, exactly the four screens plus the shared vocabulary module the plan named.** New
+`frontend/src/lib/stageProgress.js` — one `stageProgressLabel(t, stageProgress)` formatter, mirroring the
+established "mirror the vocabulary once" shape (`lib/fileSections.js`, `lib/agenda.js`, …) so no screen
+can phrase "N of 12" differently from another. `RequestTrackingView.vue`'s Stage-89 placeholder comment
+is gone, replaced with the actual number; `RequestDetailView.vue` and `RequestsView.vue` gained it next
+to their existing stage name/SLA dot; `ReportsView.vue` replaced its raw `${order_no}. ${name}` prefix
+with the same shared label on its own row. `DashboardView.vue` lost its per-bar `stageLabel()` ordinal
+prefix entirely — bars now read `localName(row)` like the by_status/by_department panels always did —
+and gained a **one-time** panel-heading caption sourced from `kpis.total_stages` instead: a deliberate,
+documented distinction from the four per-request screens, since the dashboard's byStage panel is a
+distribution over every request, not one request's own position, and "of 12" repeated on every bar would
+be noise where it is genuinely new information on a single row. New shared locale key
+`requests.stageProgress` ("Stage {current} of {total}" / "المرحلة {current} من {total}"), mirroring the
+existing `requests.page` ("Page {current} of {last}") interpolation shape so it reads as house style.
+`dashboard.byStage`'s own value gained a `{total}` interpolation for the same reason.
+
+**Explicitly out of scope, as planned and for the same reasons**: the exported .xlsx/PDF documents
+(Stage 93's own Done-when says "on screen"); `AppealsView.vue`'s dossier display of a decided,
+usually-concluded original request's stage (a different question this stage's own Build text never
+names); any attempt to literally recreate [F]'s ten-step or [G]'s eleven-step boundaries, which remains
+genuinely not buildable without the sources.
+
+Verification: new `tests/Feature/StageProgressTest.php` (5 tests — the request workspace's
+`stage_progress.current`/`.total` against a hand-placed fixture and `WorkflowStage::count()`, never a
+hard-coded 12; the same field on the work queue; the reports table's per-row field agreeing with its own
+`summary.total_stages`; the dashboard's `kpis.total_stages` matching the same count; a request with no
+current stage reporting `stage_progress: null` rather than a crash). Full suite **647 tests / 4137
+assertions** green (was 642/4125 — exactly this stage's +5 tests/+12 assertions, no regressions), Pint
+clean **repo-wide** (`--test` over `app/` and `tests/` reports zero diffs, not only on touched files),
+`npm run build` passes with `stageProgress` as its own 0.10 kB lazy chunk and every touched view picking
+up the rest in its existing chunk (then reverted `frontend/dist`, tracked in git, per every prior stage's
+note), locale key-parity verified programmatically (1933 keys each side, zero on-one-side-only), and
+`php artisan migrate:status` confirms nothing pending — as designed.
+
+Smoke-tested read-only over real HTTP against the real MySQL/Homestead database as the seeded
+`r01.employee@` account, against the four real pre-existing requests: `/api/dashboard` returned
+`kpis.total_stages: 12`; `/api/requests` returned `data.0.stage_progress: {current: 3, total: 12}`
+against a request whose `current_stage.order_no` is genuinely 3 (`administrative_routing`);
+`/api/reports/requests` agreed on both its own per-row field and its `summary.total_stages`, all reading
+12 in three independent surfaces. No writes were made (three GETs and a logout); the one minted token was
+revoked and no fixture rows were created or left behind.
+
+**With this stage, Track M (Stages 85–93) is as complete as it can be without the source diagrams
+landing in the repo.** Stages 87 and 92 remain genuinely blocked on a process decision, not on code —
+see their own STAGE_PLAN.md entries. **Open item for whoever next gets hold of [F]/[G] themselves**: if
+they land in the repo (the Track K/Stage 67 precedent — transcribe first, then correct anything a later
+stage assumed from prose alone), re-derive their literal step boundaries and re-check this stage's own
+"twelve is authoritative" call against them, rather than assuming this note settled the question for
+good. If the physical materials are what get corrected instead, no code change is needed here at all —
+`WorkflowStageCount::total()` already reads the live seeded count, not a literal.
+
+---
+
+### 2026-09-19 13:10 EET — Claude — Stage 93 implementation plan (stage numbering reconciled)
+
+Building Stage 93 per STAGE_PLAN.md Track M. Re-read the Track M intro's own ⚠ before designing
+anything: **[F] and [G] are chat attachments, never committed to this repo**, so their exact text is
+unavailable this session — only the prose STAGE_PLAN.md itself already carries survives: [F] shows
+**ten** steps, [G]'s own per-stage sheet for step 1 says **«1 من 11»** (eleven total), and this
+system has **twelve** seeded `workflow_stages` rows. Three different counts, and [F]/[G] disagree
+with **each other** before either is even compared against the system.
+
+**The decision, made explicitly rather than guessed at silently: the system's own twelve
+`workflow_stages` rows are the denominator, everywhere.** Reasoning, recorded in code, not just
+here: it is the only one of the three actually verifiable from this codebase — I cannot read [F] or
+[G] to derive which two of the twelve stages a ten-step poster would collapse together, and
+inventing a plausible-sounding mapping to hit "10" or "11" would be exactly the fabrication this
+codebase's whole "honest gap" discipline exists to refuse. Track M's own opening paragraph already
+establishes the precedent this extends: "**[D] remains authoritative**… no stage is created" when a
+poster promises something the manual doesn't — the same call, applied to a total rather than to a
+provision. When the physical materials are eventually reconciled by the process owner, they are what
+should be corrected to say twelve, not this figure guessed to match an unread poster. Stage 93 was
+**not** flagged "decide before building" the way 87/92 are (its own Build text says "Whichever count
+is authoritative" — explicitly leaving the call to whoever builds it), so this is a documented
+judgment call in the pattern this codebase makes constantly, not a stall.
+
+**The concrete, buildable half of the Goal — "one stage count, everywhere an employee can see one" —
+is a real, checkable property independent of which poster is "correct": every employee-visible
+surface must report the SAME total.** Audited every place `current_stage.order_no` reaches an
+employee-visible screen (`requests`/`request_details`/`request_tracking`/`reports`/`dashboard` are
+all seeded `view => '*'`, i.e. R01-visible): `RequestResource::toArray()` already carries the bare
+`current_stage.order_no` (1–12) with **no denominator at all**, and two frontend spots literally
+print it — `DashboardView.vue`'s `stageLabel()` ("5. اسم المرحلة" per bar) and `ReportsView.vue`'s
+current-stage column (`${order_no}. ${name}` per row) — while `RequestsView.vue`/`RequestDetailView
+.vue`/`RequestTrackingView.vue` show only the stage NAME, no number at all (the last of these
+carries the exact placeholder comment naming this stage as the one to close it). So today an
+employee can see a bare "12." on the reports screen implying at least twelve stages exist, while the
+tracking screen they're pointed to by Stage 89 says nothing quantitative — two screens, two
+different (non-)answers, neither stating the count on purpose.
+
+**Mechanism.** New `App\Services\WorkflowStageCount` (top-level `App\Services\`, not
+`App\Services\Lifecycle\` — this is a workflow-engine fact, not one of that namespace's [D]-appendix
+per-request rules), a **container singleton** wrapping a one-line memoised `WorkflowStage::count()` —
+deliberately not a raw class-level static: PHPUnit runs the whole suite in one process, and a plain
+static would leak a cached count from an early test into a later one whose fixture seeds a different
+number of stage rows, whereas `$this->app` (and therefore any singleton hung off it) is rebuilt fresh
+every test method, per Laravel's own `TestCase::setUp()`. Registered in `AppServiceProvider::register()`
+beside the existing `RequestResponsibilityService` singleton, same reasoning. `RequestResource::
+toArray()` gains a new `stage_progress` field (`{current: order_no, total: WorkflowStageCount::total()}`,
+null when there's no current stage) carrying the FULL reconciliation rationale in its own comment —
+this is the one field every consumer of that shared resource inherits for free
+(`RequestDetailResource`, `RequestTrackingResource`, the reports table via `ReportController::index()`),
+so "everywhere" is structural, not four separate implementations that could drift. `ReportMetricsService
+::kpis()` (shared verbatim by the dashboard and the reports screen, per its own docblock) gains a
+`total_stages` key from the same singleton, so the dashboard's aggregate byStage panel can state the
+identical figure the per-request field states, even though that panel is a genuinely different concept
+(a distribution over ALL requests, not one request's own position) and therefore gets a panel-level
+caption rather than a per-bar "of 12" repeated on every row.
+
+**Frontend, four screens plus one shared vocabulary module** (`frontend/src/lib/stageProgress.js`,
+mirroring the `lib/fileSections.js`/`lib/agenda.js`-style "mirror the vocabulary once" precedent this
+codebase uses everywhere — one `stageProgressLabel(t, stageProgress)` formatting helper, so no two
+screens can phrase "N of 12" two different ways): `RequestTrackingView.vue` (replace the Stage-89
+placeholder comment and render the number now), `RequestDetailView.vue` (append it under the current-
+stage `<strong>`, mirroring how the stage-timeliness `<small>` already sits there), `RequestsView.vue`
+(same, next to the existing SLA dot), `ReportsView.vue` (replace the raw `order_no` prefix with the
+shared label). `DashboardView.vue` loses its per-bar `stageLabel()` ordinal prefix entirely (bars use
+`localName(row)` like the by_status/by_department panels already do) and gains a one-time caption on
+the panel heading instead, sourced from `kpis.total_stages` — the aggregate-report reading of "one
+stage count," not a per-row repetition. New shared locale key `requests.stageProgress` ("Stage
+{current} of {total}" / "المرحلة {current} من {total}"), mirroring the existing `requests.page`
+("Page {current} of {last}") interpolation shape exactly so it reads as house style, not a one-off.
+
+**Explicitly out of scope, and why**: the exported .xlsx/PDF report documents (`ReportExporter`/
+`XlsxWriter`/`PdfWriter`) — Stage 93's Done-when says "on screen," and those are a separate rendering
+path this stage doesn't touch. `AppealsView.vue`'s `fileData.original_request.current_stage` display
+(a decided, usually-concluded file's stage shown inside an appeal dossier — a "progress" framing
+there is a different question this stage's own Build text doesn't name). Any attempt to literally
+recreate [F]'s ten-step or [G]'s eleven-step boundaries — genuinely not buildable without the sources,
+flagged as the reason a future re-verification is needed once/if they land in the repo (Track K's
+Stage 67 precedent: transcribe first, then correct anything a later stage assumed from prose alone).
+
+**Verification plan**: new `tests/Feature/StageProgressTest.php` — the request detail screen's
+`stage_progress.current`/`.total` against a hand-placed fixture and `WorkflowStage::count()` (never a
+hard-coded 12, matching the "count a seeder's rows, don't trust a number" discipline this file has
+flagged before); the same field round-tripping through the list endpoint; `/api/reports/requests`
+reporting the identical total in both its per-row `stage_progress` and its `summary.total_stages`;
+`/api/dashboard`'s `kpis.total_stages` matching the same count — the actual property under test being
+that every one of these surfaces agrees, not merely that a number exists somewhere. Plus the full
+PHPUnit suite, Pint on every touched/new file, `npm run build`, and a locale key-parity check. No
+migration — no schema change, only a new service class, a resource field, and a KPI field.
+
+---
+
 ### 2026-09-19 12:10 EET — Claude — Stage 90 complete (intake form fidelity)
 
 Built per the plan below. **No seeder change, no permission change** — every part rides grants that

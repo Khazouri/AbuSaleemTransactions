@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Services\Lifecycle\RequestResponsibilityService;
+use App\Services\WorkflowStageCount;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -58,6 +59,28 @@ class RequestResource extends JsonResource
             // Stage 52 — soft, non-blocking per-stage target; null when the
             // current stage has no sourced target duration.
             'stage_timeliness' => $this->stageTimeliness(),
+            // Stage 93 — [F]'s ten steps and [G]'s own per-stage sheet for
+            // step 1 («1 من 11») disagree with EACH OTHER before either is
+            // compared against this system's twelve `workflow_stages` rows,
+            // and neither poster is committed to this repo to check against
+            // at all (see Track M's own warning in STAGE_PLAN.md). The
+            // system's own count is the denominator here — it is the only
+            // one of the three actually verifiable from this codebase, and
+            // Track M's own opening line already makes [D] (and the system
+            // built to match it) outrank the posters whenever they
+            // conflict; this is that same call, applied to a total rather
+            // than to a provision. When the physical materials are
+            // eventually reconciled, THEY are what should be corrected to
+            // say twelve, not this figure guessed to match an unread
+            // poster. Every screen that names a request's current stage —
+            // the work queue, the request workspace, the tracking screen,
+            // the reports table and the dashboard's own stage breakdown —
+            // reads this one field, so the figure cannot phrase itself two
+            // ways in two places even if the underlying count ever changes.
+            'stage_progress' => $this->currentStage ? [
+                'current' => $this->currentStage->order_no,
+                'total' => app(WorkflowStageCount::class)->total(),
+            ] : null,
             // Stage 83 — [D] Appendices 17 and 18, on the *list* payload and
             // not only the detail one: "يجب أن تظهر في كل معاملة خانة إلزامية
             // باسم: المسؤول الحالي" is a rule about every file, and a list is

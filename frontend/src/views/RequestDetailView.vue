@@ -19,6 +19,7 @@ import api from '../lib/api'
 // screen so both read the same list the same way.
 import { documentCondition, documentLabel, groupDocuments } from '../lib/requiredDocuments'
 import { fileSectionLabel } from '../lib/fileSections'
+import { stageProgressLabel } from '../lib/stageProgress'
 // Stage 75 — [D] Appendix 47's twelve checks, mirrored once for every screen.
 import { AUDIT_CHECKS } from '../lib/requestClosure'
 import { TRACKING_CHECKS } from '../lib/requestExecution'
@@ -470,7 +471,16 @@ onBeforeUnmount(clearAttachmentPreview)
       <section class="card summary">
         <div>
           <span>{{ t('requestDetail.currentStage') }}</span>
-          <strong>{{ name(request.current_stage) }}</strong>
+          <strong>
+            {{ name(request.current_stage) }}
+            <!-- Stage 93 — the same "N of 12" the work queue, the tracking
+                 screen and the reports table all state, so this workspace
+                 can never disagree with any of them about the total. -->
+            <template v-if="request.stage_progress">
+              <br>
+              <small>{{ stageProgressLabel(t, request.stage_progress) }}</small>
+            </template>
+          </strong>
         </div>
         <div>
           <span>{{ t('requests.department') }}</span>

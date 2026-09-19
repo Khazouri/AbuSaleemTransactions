@@ -18,6 +18,7 @@ use App\Observers\RequestStatusNoticeObserver;
 use App\Services\Backup\MysqlDumper;
 use App\Services\Lifecycle\RequestResponsibilityService;
 use App\Services\Sms\LogSmsSender;
+use App\Services\WorkflowStageCount;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -79,6 +80,11 @@ class AppServiceProvider extends ServiceProvider
         // regardless of how many rows it holds. The container is per-request,
         // so the memo can never outlive the data it was built from.
         $this->app->singleton(RequestResponsibilityService::class);
+
+        // Stage 93 — one cheap COUNT(*) memoised per request rather than
+        // once per row of a paginated list. See WorkflowStageCount's own
+        // docblock for why this is a singleton and not a static.
+        $this->app->singleton(WorkflowStageCount::class);
     }
 
     /**

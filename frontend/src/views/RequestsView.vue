@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FileUpload from '../components/FileUpload.vue'
 import api from '../lib/api'
+import { stageProgressLabel } from '../lib/stageProgress'
 
 const { t, locale } = useI18n()
 const requests = ref([])
@@ -188,6 +189,11 @@ onMounted(async () => {
                   :class="`level-${request.stage_timeliness.level}`"
                   :title="t(`requestDetail.stageTimeliness.level.${request.stage_timeliness.level}`)"
                 />
+                <!-- Stage 93 — the same "N of 12" every other request screen
+                     states, so this queue can never disagree with them. -->
+                <small v-if="request.stage_progress" class="stage-progress">
+                  {{ stageProgressLabel(t, request.stage_progress) }}
+                </small>
               </td>
               <td>{{ request.responsibility ? t(`lifecycle.responsibility.parties.${request.responsibility.responsible.code}`) : '' }}</td>
               <td>{{ request.responsibility ? t(`lifecycle.responsibility.actions.${request.responsibility.next_action.code}`) : '' }}</td>
@@ -231,7 +237,7 @@ onMounted(async () => {
 
 <style scoped>
 .heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }.count { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
+h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }.count { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }.stage-progress { display: block; color: var(--color-muted); font-size: .75rem; }
 .filters, .list { padding: 1.25rem; margin-bottom: 1rem; }.filters h3 { margin: 0 0 1rem; font-size: 1rem; }
 .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
 label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }

@@ -28,10 +28,6 @@ function localName(row) {
     : row.name_en || row.name_ar
 }
 
-function stageLabel(row) {
-  return `${row.order_no}. ${localName(row)}`
-}
-
 /** Numbers read right to left in Arabic too, so let Intl place the separators. */
 function number(value) {
   if (value === null || value === undefined) return t('common.none')
@@ -150,11 +146,17 @@ onMounted(load)
         </section>
 
         <section class="card panel">
-          <h3>{{ t('dashboard.byStage') }}</h3>
+          <!-- Stage 93 — the total names itself once here, on the panel
+               rather than per bar: this is a distribution over every
+               request, not one request's own progress, so "of 12" repeated
+               on each row would be noise. RequestDetailView/RequestsView/
+               RequestTrackingView/ReportsView say it per row instead,
+               because there it IS one request's own position. -->
+          <h3>{{ t('dashboard.byStage', { total: kpis.total_stages }) }}</h3>
           <p v-if="breakdowns.by_stage.length === 0" class="state">{{ t('dashboard.empty') }}</p>
           <ul v-else class="bars">
             <li v-for="row in breakdowns.by_stage" :key="row.code">
-              <span class="bar-label">{{ stageLabel(row) }}</span>
+              <span class="bar-label">{{ localName(row) }}</span>
               <span class="bar-track">
                 <span class="bar-fill nav" :style="{ inlineSize: share(breakdowns.by_stage, row.total) }" />
               </span>

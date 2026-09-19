@@ -64,6 +64,8 @@ class ReportMetricsService
      */
     private const GENERATION_KEY = 'reports:generation';
 
+    public function __construct(private readonly WorkflowStageCount $stages) {}
+
     /**
      * Headline numbers for the dashboard tiles.
      *
@@ -96,6 +98,12 @@ class ReportMetricsService
                 'completion_rate' => $total > 0 ? round($completed / $total * 100, 1) : 0.0,
                 'overdue' => $this->overdueQuery($filters)->count(),
                 'average_cycle_days' => $this->averageCycleDays($filters),
+                // Stage 93 — independent of every filter above (it is a
+                // property of the workflow, not of the filtered population),
+                // but cached alongside it so a dashboard tile and the
+                // per-request `stage_progress` field this shares its source
+                // with can never report two different totals.
+                'total_stages' => $this->stages->total(),
             ];
         });
     }

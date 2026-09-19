@@ -19,6 +19,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 import { fileSectionLabel } from '../lib/fileSections'
+import { stageProgressLabel } from '../lib/stageProgress'
 
 const { t, locale } = useI18n()
 
@@ -193,11 +194,16 @@ onMounted(() => load())
               <span v-if="row.request.status" class="status" :style="{ '--status-color': row.request.status.color || 'var(--color-muted)' }">
                 {{ name(row.request.status) }}
               </span>
-              <!-- The step is NAMED, never numbered: Stage 93 owns reconciling
-                   [G]'s «1 من 11», [F]'s ten steps and this system's twelve
-                   stages, and printing a total here would bake in the number
-                   that stage exists to decide. -->
-              <small class="stage">{{ t('tracking.currentStep') }}: {{ name(row.request.current_stage) }}</small>
+              <!-- Stage 93 — the system's own twelve `workflow_stages` rows
+                   are the reconciled denominator (see RequestResource's own
+                   comment); every request screen states this same "N of
+                   TOTAL", tracking included. -->
+              <small class="stage">
+                {{ t('tracking.currentStep') }}: {{ name(row.request.current_stage) }}
+                <template v-if="row.request.stage_progress">
+                  ({{ stageProgressLabel(t, row.request.stage_progress) }})
+                </template>
+              </small>
             </div>
           </div>
 

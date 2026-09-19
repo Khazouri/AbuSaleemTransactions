@@ -18,6 +18,7 @@ import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 import { downloadExport } from '../lib/download'
 import { formatIndicatorValue } from '../lib/performance'
+import { stageProgressLabel } from '../lib/stageProgress'
 
 const { t, locale } = useI18n()
 
@@ -361,7 +362,14 @@ onMounted(async () => {
                 >{{ localName(row.status) }}</span>
                 <span v-else>{{ t('common.none') }}</span>
               </td>
-              <td>{{ row.current_stage ? `${row.current_stage.order_no}. ${localName(row.current_stage)}` : t('common.none') }}</td>
+              <td>
+                <template v-if="row.current_stage">
+                  {{ localName(row.current_stage) }}
+                  <br v-if="row.stage_progress">
+                  <small v-if="row.stage_progress">{{ stageProgressLabel(t, row.stage_progress) }}</small>
+                </template>
+                <span v-else>{{ t('common.none') }}</span>
+              </td>
               <td class="nowrap">
                 {{ date(row.due_date) }}
                 <span v-if="row.is_overdue" class="flag">{{ t('reports.overdueFlag') }}</span>
@@ -497,6 +505,7 @@ table { width: 100%; min-width: 900px; border-collapse: collapse; }
 th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
 th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
 td { font-size: .84rem; }
+td small { display: block; margin-top: .1rem; color: var(--color-muted); }
 tr.overdue td { background: var(--color-warning-bg); }
 .nowrap { white-space: nowrap; }
 .subject { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
