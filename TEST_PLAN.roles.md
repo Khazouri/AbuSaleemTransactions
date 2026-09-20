@@ -78,14 +78,14 @@ list — served by `GET /api/dev/test-users`, which 404s in every other environm
 | 4 | `r04.member1@abusaleem.test` | R04 Committee Member | CMT | Voter |
 | 5 | `r04.member2@abusaleem.test` | R04 Committee Member | CMT | Voter |
 | 6 | `r04.member3@abusaleem.test` | R04 Committee Member | CMT | Voter — **the third seat is what makes a 2-1 plurality reachable**; a tie is refused outright |
-| 7 | `r05.manager@abusaleem.test` | R05 Admin Manager | ADM | Stage 10 approval only — Stage 87 moved the HR-route registration and the stage-8 committee handover off this role, onto R12 and R09 respectively |
+| 7 | `r05.manager@abusaleem.test` | R05 Admin Manager | ADM | Stage 10 approval only — Stage 87 moved the HR-route registration onto R12, and the stage-8 committee handover went to R09 (Stage 86) and then to R02 (Stage 96) |
 | 8 | `r06.ministry@abusaleem.test` | R06 Ministry | ABS | Stage 11; holds `export` on reports, registers and the audit log |
 | 9 | `r07.director@abusaleem.test` | R07 Director / Dean | ABS | Stage 12; **no intake access at all** |
 | 10 | `r08.sysadmin@abusaleem.test` | R08 System Admin | ADM | Administration; keeps `admin@abusaleem.test` free as a spare |
 | 11 | `multi.role@abusaleem.test` | R03 **+** R04 | CMT | Permissions must be a **union**, never an intersection |
 | 12 | `inactive.user@abusaleem.test` | R01, `is_active = false` | FIN | Must be refused at login *and* refused as a workflow actor |
-| 13 | `r09.secretary@abusaleem.test` | R09 Committee Secretary | CMT | Registration on the committee-secretary route; agenda preparation |
-| 14 | `r10.diwan@abusaleem.test` | R10 Diwan Deputy | ABS | Registration on the Diwan route |
+| 13 | `r09.secretary@abusaleem.test` | R09 Committee Secretary | CMT | **Stage 96 — a retained login with no seeded duty.** Everything it held went back to R02 |
+| 14 | `r10.diwan@abusaleem.test` | R10 Diwan Deputy | ABS | **Stage 96 — a retained login with no seeded duty.** The Diwan route is retired |
 | 15 | `r11.legal@abusaleem.test` | R11 Legal Officer | CMT | The only role that may record [D] Art. 21's pre-meeting legal review |
 | 16 | `r12.hr@abusaleem.test` | R12 HR Manager | HR | Registration on the HR route (replaces r05.manager@ there); a bounded, non-controlling reach into stage 7 (`observations`) |
 
@@ -129,7 +129,7 @@ Each of §2–§13 has the same four parts:
 
 ---
 
-## 1. The relay — one request, ten people
+## 1. The relay — one request, nine people
 
 Run this first. It produces the request every later section needs, and it is the only way to see
 that the hand-offs work. Do not shortcut a row by acting as R08: the whole point is that no single
@@ -147,12 +147,12 @@ when it appears at step 5 — later sections call it **REQ-A**.
 | 5 | R02 reviewer | Request detail | Record the jurisdiction test **and** the intake gate, then `approve` with a signature | Stage 6 `مراجعة المقرر`, status `تم التسجيل` — **and the `PM-COM/YYYY/NNNN` reference number is granted here, not at intake** |
 | 6 | R02 reviewer | Request detail | `forward` | Stage 7 `إبداء الملاحظات` |
 | 7 | R02 reviewer | Request detail | `forward` | Stage 8 `تحويل الطلب للجنة`, status `جاهزة` |
-| 8 | R09 secretary | Request detail | `forward` | Stage 9 `استلام الطلب من اللجنة`, status `في الاجتماع` |
-| 9 | R02 or R09 | المراجعة القانونية | Send the file to legal review | Status `تحت المراجعة القانونية` |
+| 8 | R02 reviewer | Request detail | `forward` | Stage 9 `استلام الطلب من اللجنة`, status `في الاجتماع` — Stage 96 returned this hop to المقرر |
+| 9 | R02 reviewer | المراجعة القانونية | Send the file to legal review | Status `تحت المراجعة القانونية` |
 | 10 | **R11 legal** | المراجعة القانونية | Record the review, verdict `سليم قانونيًا وجاهز للعرض` | Status `جاهزة` |
-| 11 | R03 or R09 | الطلبات المرشحة | Nominate | Status `مرشح للجنة` |
+| 11 | R02 or R03 | الطلبات المرشحة | Nominate | Status `مرشح للجنة` |
 | 12 | R03 head | الاجتماعات | Create a committee (R03 as head + the three R04 members), schedule a meeting | — |
-| 13 | R03 or R09 | جدول الأعمال | Add REQ-A to the agenda | — |
+| 13 | R02 or R03 | جدول الأعمال | Add REQ-A to the agenda | — |
 | 14 | R03 head | جاهزية الاجتماع | Convene | — |
 | 15 | R03 + 3 × R04 | مباشرة الاجتماع | Mark attendance, complete [D] Art. 85's study sequence, cast votes | — |
 | 16 | R03 head | مباشرة الاجتماع | Record the decision (`موافقة`) with all four [D] Appendix 27 parts | Stage 10 `اعتماد (حسب الصلاحيات)`, status `بانتظار اعتماد البلدية` |
@@ -661,11 +661,11 @@ These are the segregation-of-duties checks; do both halves of each.
 - [ ] **Create a committee, or schedule a meeting** → refused (`meetings,add` is R02 + R03).
       الدعوة is the chair's under Art. 12 (أ) 1 and إنشاء الاجتماع is المقرر's under Appendix 45.
 - [ ] **Nominate a candidate request**, or defer / return-to-study / request-completion it →
-      refused (`committee_candidates` is R02 + R03 + R09 on both tiers).
+      refused (`committee_candidates` is R02 + R03 on both tiers).
 - [ ] **Generate or edit a presentation memo** → refused. [D] Appendix 6's RACI makes إعداد مذكرة
       العرض مقرر اللجنة's own responsibility; R04 held this only because Stage 46 read "a member
       acting as مقرر" into the grant.
-- [ ] **Add, reorder or remove an agenda item** → refused (`meeting_agenda` is R02 + R03 + R09).
+- [ ] **Add, reorder or remove an agenda item** → refused (`meeting_agenda` is R02 + R03).
 - [ ] **Add committee members**, add attendees, mark attendance, send invitations, or edit a
       meeting → refused (`meetings,edit` is R02 + R03).
 - [ ] **Convene a meeting** → refused (`meeting_readiness,edit` is R03 only).
@@ -677,7 +677,7 @@ These are the segregation-of-duties checks; do both halves of each.
 - [ ] **Close or execute a request**, record an approval return, a suspension, or any lifecycle
       record → refused (`meeting_outputs,edit` is R02 + R03).
 - [ ] **Defer, return-to-study or request-completion** on a candidate → refused
-      (`committee_candidates,edit` is R03 + R09). Nominating is allowed.
+      (`committee_candidates,edit` is R02 + R03). Nominating is allowed.
 - [ ] Record a legal review → **403**.
 - [ ] Every approval queue → **403**.
 - [ ] Every administration screen → **403**.
@@ -692,7 +692,7 @@ These are the segregation-of-duties checks; do both halves of each.
 **Identity.** The administrative-authority approver at stage 10 (`اعتماد (حسب الصلاحيات)`), and
 **only** that, since Stage 87. Before it, R05 also registered the HR route (stage 4) and handed the
 file to the committee (stage 8) — both moved off this role: stage 8 to R09 (أمين سر اللجنة) at
-Stage 86, and stage 4 to R12 (مدير إدارة الموارد البشرية) at Stage 87, once [F]'s own إدارة الموارد
+Stage 86 and on to R02 at Stage 96, and stage 4 to R12 (مدير إدارة الموارد البشرية) at Stage 87, once [F]'s own إدارة الموارد
 البشرية mentions were traced to a role of that name rather than left conflated with this one. If a
 build older than Stage 87 is under test, R05 will still hold the stage-4 registration — check
 `WorkflowTransitionSeeder` before assuming this section describes the running database.
@@ -722,7 +722,7 @@ Sign in as `r05.manager@abusaleem.test`.
       three. R05 holds no `register` row at `receive_and_register` any more — confirm this lands as
       a **404** opening the file, not merely a 422 on the transition, since R05 has lost visibility
       into that stage along with the role, the same way R05 lost `forward_to_committee` at Stage 86.
-- [ ] **`forward` a request out of stage 8** (`تحويل الطلب للجنة`) → refused; that hop is R09's.
+- [ ] **`forward` a request out of stage 8** (`تحويل الطلب للجنة`) → refused; that hop is R02's (R09's between Stages 86 and 96).
 - [ ] Any approval queue other than `اعتماد مدير الإدارة` → **403**.
 - [ ] **Record the jurisdiction test, the intake gate, or correct the financial-impact flag** →
       **403**. All three ride `notes_attachments,edit`, which is R01 + R02 only; R05 holds `add`.
@@ -946,78 +946,84 @@ Sign in as `r08.sysadmin@abusaleem.test` (leave `admin@abusaleem.test` untouched
 
 ## 10. R09 — أمين سر اللجنة / Committee Secretary
 
-**Identity.** The role added by the diagram-alignment redesign: one of the three administrative
-routing destinations, and the person who prepares the committee's agenda once study is complete.
-The sharp edge here is that R09 **builds the agenda but does not schedule the meeting**.
+**Identity.** **A retained login with no seeded duty.** The diagram-alignment redesign created R09
+as one of three administrative routing destinations and as the agenda secretary; Stage 96 folded
+every one of those duties back into مقرر اللجنة (R02), because [D]'s الملحق السادس — the RACI
+matrix this system is being conformed to — has no أمين سر اللجنة column at all and gives the
+agenda, the legal-review dispatch, the candidate worklist and the handover into the committee to
+المقرر as a single مسؤول.
+
+The account is kept so existing logins, audit rows and historical stage logs still resolve a role.
+**This section is therefore almost entirely refusals, and that is the test:** if R09 can still do
+any of them, a seeded grant or a transition row survived the fold.
 
 Sign in as `r09.secretary@abusaleem.test`.
 
 ### A. What they must see
 
-- [ ] **18 sidebar entries** (20 screens) — the fewest of any committee-side role.
-- [ ] **No approval screen.**
-- [ ] **No `استلام الطلب`.**
+- [ ] **10 sidebar entries** (12 screens), observed live: `dashboard`, `requests`, `my_tasks`,
+      `appeals`, `decisions`, `reports`, `registers`, `audit_log`, `notifications`,
+      `user_guide` — plus `request_details` and `notes_attachments`, which the API returns and
+      the menu hides because they need a request id.
+- [ ] **No approval screen**, **no `إرسال الطلب`**, **no `المراجعة القانونية`** — Stage 96
+      narrowed `legal_review,view` to R02 + R11.
+- [ ] **No meetings group at all.** Two layers do this and both should be understood: Stage 96
+      removed R09 from those screens’ `add`/`edit` tiers, and the membership gate hides the whole
+      group from anyone holding no committee seat — which R09 does not. Seat R09 on a committee and
+      the group appears read-only; every action in C is still refused.
 
 ### B. What they must be able to do
 
-- [ ] **Register a committee-secretary-routed file** (stage 4, status
-      `موجّه إلى أمين سر اللجنة`) → stage 5.
-- [ ] `cancel` at stage 4 with a reason.
-- [ ] **Dispatch a file to legal review** (`legal_review,edit`) → status `تحت المراجعة القانونية`.
-- [ ] **Nominate** a candidate request, and **defer / return-to-study / request-completion** on it
-      — R09 shares `committee_candidates,edit` with R03.
-- [ ] **Build the agenda**: add items, reorder by drag-and-drop, apply [D] Art. 83's computed order,
-      set per-item priority and estimated time, and write the departure justification.
-- [ ] Generate and edit a presentation memo.
-- [ ] Read the meetings dashboard and act on it.
+- [ ] Read the request list, the registers, the reports and the audit log.
+- [ ] Set their own notification preferences.
 
 ### C. What they must be refused
 
-- [ ] **Create or edit a committee, or schedule a meeting** → **403**. `meetings` is R02 + R03 on
-      both tiers; R09 holds `view` and `print`. This is deliberate and sourced, not an oversight:
-      [D] Art. 12 (أ) 1 gives الدعوة إلى اجتماعات اللجنة to the chair and Appendix 45 gives إنشاء
-      الاجتماع to المقرر — the secretary is neither. R09 arranges the agenda of a meeting somebody
-      else scheduled, which is exactly their seeded description.
-- [ ] Add attendees, mark attendance, or send invitations → **403**.
-- [ ] Convene a meeting → **403**.
-- [ ] Vote, record a decision, or approve the محضر → **403**.
-- [ ] Close or execute a request, or record any lifecycle record → **403**.
-- [ ] **Record** a legal review → **403** (they dispatch; R11 records).
-- [ ] Register a file routed to HR or to the Diwan → refused.
-- [ ] Add a note or attachment → **403** (view only).
+- [ ] **Register any file at stage 4**, on any route → refused. The single `register` row is R12's
+      and is status-gated on `موجّه إلى الموارد البشرية`.
+- [ ] **`cancel` at stage 4** → refused; that row is R12's too.
+- [ ] **`forward` out of stage 7 or stage 8** → refused. Both hops are R02's again.
+- [ ] **Dispatch a file to legal review** → **403** (`legal_review,edit` is R02 only) — and the
+      screen is not even reachable, which is the stronger check.
+- [ ] **Nominate, defer, return-to-study or request-completion** on a candidate → **403**.
+- [ ] **Build the agenda** — add, reorder or remove an item, apply the computed order, or generate a
+      presentation memo → **403**.
+- [ ] **Add a note or an attachment** → **403**. The `notes_attachments,add` grant went with the
+      `register` row it was bounded to.
 - [ ] Every approval queue and every administration screen → **403**.
 
 ---
 
 ## 11. R10 — وكيل الديوان / Diwan Deputy
 
-**Identity.** The second of the three routing destinations. The narrowest role in the system: R10
-exists to receive and register files routed to the Diwan, and that is nearly all. Its section is
-short on purpose — if R10 can do more than this, the matrix has drifted.
+**Identity.** **A retained login with no seeded duty**, for the same reason as R09: [D]'s الملحق
+السادس has no وكيل الديوان column, and the receiving party it does name is الموارد البشرية / شؤون
+الموظفين — R12. Stage 96 collapsed `administrative_routing` from three routes to one and retired
+the Diwan route with it. The `موجّه إلى وكيل الديوان` **status row is kept** (legacy-status
+precedent, the same treatment `archived` gets) so a historical file still renders; nothing produces
+it any more.
 
 Sign in as `r10.diwan@abusaleem.test`.
 
 ### A. What they must see
 
-- [ ] **18 sidebar entries** (20 screens).
-- [ ] **No approval screen**, **no `استلام الطلب`**.
+- [ ] **10 sidebar entries** (12 screens) — the same footprint as R09.
+- [ ] **No approval screen**, **no `إرسال الطلب`**, **no meetings group**.
 
 ### B. What they must be able to do
 
-- [ ] **Register a Diwan-routed file** (stage 4, status `موجّه إلى وكيل الديوان`) → stage 5.
-- [ ] `cancel` at stage 4 with a reason.
 - [ ] Read the request list, the registers, the reports and the audit log.
+- [ ] Set their own notification preferences.
 
 ### C. What they must be refused
 
-- [ ] **Register a file routed to HR or to the committee secretary** → refused. Run this
-      explicitly: it is the clearest proof that the routing choice is enforced and not decorative.
+- [ ] **Register any file at stage 4** → refused. Run this explicitly: it is the clearest proof that
+      the Diwan route is gone rather than merely unused.
+- [ ] **`cancel` at stage 4** → refused.
 - [ ] File a request → **403**.
 - [ ] Any committee action at all — nominate, agenda, vote, decide, minutes → **403**.
-- [ ] Close or execute a request → **403**.
-- [ ] Add a note or attachment → **403**.
-- [ ] Every approval queue and every administration screen → **403**.
-- [ ] Export anything → **403**.
+- [ ] Close or execute a request, or add a note or an attachment → **403**.
+- [ ] Every approval queue, every administration screen, and any export → **403**.
 
 ---
 
@@ -1065,7 +1071,7 @@ Sign in as `r11.legal@abusaleem.test`.
 ### C. What they must be refused
 
 - [ ] **Dispatch a file to legal review** → **403**. Recording is `legal_review,add` (R11 only);
-      dispatching is `legal_review,edit` (R02 + R09). Test both directions: R11 cannot dispatch, R02
+      dispatching is `legal_review,edit` (R02 only, since Stage 96). Test both directions: R11 cannot dispatch, R02
       cannot record.
 - [ ] **Declare عدم اختصاص on the request itself** — R11's `ملاحظة على الاختصاص` verdict must
       **not** set the request's status to `عدم اختصاص` or terminate it. That decision stays with the
@@ -1086,15 +1092,15 @@ Sign in as `r11.legal@abusaleem.test`.
 and co-owner of the study at stage 7 (`observations`) — and neither belonged to a role of that name
 until Stage 87: the registration destination sat with R05 (مدير إدارة الشؤون الإدارية, a different
 administrative role), and the study had no HR party at all. R12 is that missing seat, and its reach
-into `observations` is deliberately narrow: read the file and add a note, never move it. `forward`
-out of that stage is still R09's and `request_edit`/`cancel` are still R02's — Stage 86's own settled
-rule for who moves the stage.
+into `observations` is deliberately narrow: read the file and add a note, never move it. Every
+rule out of that stage is R02's — `forward` returned to it at Stage 96, and `request_edit`/`cancel`
+never left.
 
 Sign in as `r12.hr@abusaleem.test`.
 
 ### A. What they must see
 
-- [ ] **18 sidebar entries** (20 screens) — the same footprint as R09/R10.
+- [ ] **18 sidebar entries** (20 screens) — one more than R09/R10, which lost `المراجعة القانونية`.
 - [ ] **No approval screen**, **no `إرسال الطلب`**.
 
 ### B. What they must be able to do
@@ -1103,7 +1109,7 @@ Sign in as `r12.hr@abusaleem.test`.
       this is what mints the request's رقم إشاري (see Appendix D) — it replaces r05.manager@ here.
 - [ ] `cancel` at stage 4 with a reason.
 - [ ] **Open a request sitting at stage 7 (`observations`)** that they did not create and hold no
-      registration role on — the one reach R09/R10 do not have.
+      registration role on — a reach no other non-committee role has.
 - [ ] **Add a note** on that same request (`notes_attachments,add`).
 - [ ] Read the request list, the registers, the reports and the audit log.
 - [ ] **Execute a request they did not create**, naming إدارة الموارد البشرية as the executing body
@@ -1263,11 +1269,11 @@ Letters: `v` view · `a` add · `e` edit · `d` delete · `A` approve · `p` pri
 | `notes_attachments` — الملاحظات والمرفقات | va | vae | va | va | va | v | v | vaedApx | v | v | v | va |
 | `request_tracking` — متابعة طلباتي | vp | vp | vp | vp | vp | vp | · | vaedApx | · | · | · | · |
 | `appeals` — التظلمات | vap | vep | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
-| `meetings_dashboard` — لوحة قيادة الاجتماعات | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vaep | vp | vp | vp |
-| `committee_candidates` — الطلبات المرشحة | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vaep | vp | vp | vp |
-| `legal_review` — المراجعة القانونية | vp | vep | vp | vp | vp | vp | vp | vaedApx | vep | vp | vap | vp |
+| `meetings_dashboard` — لوحة قيادة الاجتماعات | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `committee_candidates` — الطلبات المرشحة | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `legal_review` — المراجعة القانونية | p | vep | p | p | p | p | p | vaedApx | p | p | vap | p |
 | `meetings` — الاجتماعات | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
-| `meeting_agenda` — جدول الأعمال | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vaep | vp | vp | vp |
+| `meeting_agenda` — جدول الأعمال | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 | `meeting_readiness` — جاهزية الاجتماع | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 | `meeting_live` — مباشرة الاجتماع | vp | vap | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 | `decisions` — القرارات والتوصيات | vp | vAp | vaAp | vap | vp | vpx | vpx | vaedApx | vp | vp | vp | vp |
@@ -1293,7 +1299,13 @@ Letters: `v` view · `a` add · `e` edit · `d` delete · `A` approve · `p` pri
 | `user_guide` — دليل الاستخدام | vp | vp | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 
 **Screen counts per role** (API total / sidebar total — `request_details` and `notes_attachments`
-are returned by the API but hidden from the menu because they need a request id):
+are returned by the API but hidden from the menu because they need a request id).
+
+> **These are SEEDED-MATRIX counts, and the API can return fewer.** The membership gate hides the
+> seven `meetings_management` screens from anyone holding no committee seat, so an unseated R09,
+> R10, R11 or R12 sees 12 screens / 10 entries, not 19 / 17. The table below also carries drift
+> from stages after 87 — the seeder now has **36** screens, not 35 — which Stage 96 did not
+> re-derive; only the four rows it changed were corrected against the live matrix.
 
 | Role | API | Sidebar | Approval screen |
 |---|---|---|---|
@@ -1305,8 +1317,8 @@ are returned by the API but hidden from the menu because they need a request id)
 | R06 Ministry | 23 | 21 | `اعتماد وزارة الحكم المحلي` |
 | R07 Director | 21 | 19 | `الاعتماد النهائي والأرشفة` |
 | R08 System Admin | 35 | 33 | all five |
-| R09 Committee Secretary | 20 | 18 | — |
-| R10 Diwan Deputy | 20 | 18 | — |
+| R09 Committee Secretary | 19 | 17 | — |
+| R10 Diwan Deputy | 19 | 17 | — |
 | R11 Legal Officer | 20 | 18 | — |
 | R12 HR Manager | 20 | 18 | — |
 | multi.role (R03+R04) | 23 | 21 | `اعتماد رئيس اللجنة` |
@@ -1325,12 +1337,12 @@ route", and neither is expressible as a single role.
 | 1 | `receive_from_municipality` | استلام الطلب من البلدية | R01 | — |
 | 2 | `direct_manager_review` | مراجعة الطلب من المدير المباشر | the submitter's manager | 1 |
 | 3 | `administrative_routing` | إحالة الطلب لأحد المسارات الإدارية | the submitter's manager | 2 |
-| 4 | `receive_and_register` | الاستلام والتسجيل | R12 / R09 / R10 by route | 3 |
+| 4 | `receive_and_register` | الاستلام والتسجيل | R12 (Stage 96 retired the other two routes) | 3 |
 | 5 | `requirements_check` | فحص استيفاء المتطلبات | R02 | 2 |
 | 6 | `reviewer_review` | مراجعة المقرر وفق اللوائح | R02 | 3 |
 | 7 | `observations` | إبداء الملاحظات (إن وجدت) | R02 (R12 co-owns, non-controlling) | 2 |
-| 8 | `forward_to_committee` | تحويل الطلب للجنة القائمة | R09 | — |
-| 9 | `receive_from_committee` | استلام الطلب من اللجنة | R09 (decisions: R03) | 3 |
+| 8 | `forward_to_committee` | تحويل الطلب للجنة القائمة | R02 | — |
+| 9 | `receive_from_committee` | استلام الطلب من اللجنة | R03 | 3 |
 | 10 | `approval_by_authority` | اعتماد (حسب الصلاحيات) | R05 | 2 |
 | 11 | `local_governance_ministry` | وزارة الحكم المحلي | R06 | — |
 | 12 | `final_approval_archiving` | الاعتماد النهائي والأرشفة | R07 | 1–2 |

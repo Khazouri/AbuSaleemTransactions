@@ -229,12 +229,12 @@ get past any step is itself a defect.
 |---|---|---|---|
 | 1 | `receive_from_municipality` | R01 | `submit` (automatic at intake) |
 | 2 | `direct_manager_review` | #2 (the submitter's manager) | `forward` |
-| 3 | `administrative_routing` | same manager | `route_to_hr` / `route_to_diwan` / `route_to_committee_secretary` |
-| 4 | `receive_and_register` | R05 / R10 / R09 — whichever matches the route | `register` |
+| 3 | `administrative_routing` | same manager | `route_to_hr` — Stage 96 retired the Diwan and committee-secretary routes |
+| 4 | `receive_and_register` | R12 (HR) | `register` |
 | 5 | `requirements_check` | R02 | gates, then `approve` — **this is the قيد** |
 | 6 | `reviewer_review` | R02 | `forward` |
 | 7 | `observations` | R02 | `forward` |
-| 8 | `forward_to_committee` | R05 | `forward` |
+| 8 | `forward_to_committee` | R02 | `forward` |
 | 9 | `receive_from_committee` | R03 | vote → record decision |
 | 10 | `approval_by_authority` | R05 | `approve` |
 | 11 | `local_governance_ministry` | R06 | `approve` |

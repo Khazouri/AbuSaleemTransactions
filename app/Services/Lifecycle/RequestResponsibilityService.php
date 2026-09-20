@@ -125,6 +125,10 @@ class RequestResponsibilityService
         'R06' => 'ministry',
         'R07' => 'mayor',
         'R08' => 'staff_affairs',
+        // Stage 96 left these two mappings in place although neither role
+        // holds an outbound rule any more: Appendix 17's party vocabulary is
+        // fixed, the rows cost nothing, and a stage that ever re-seats R09 or
+        // R10 would need them back.
         'R09' => 'staff_affairs',
         'R10' => 'diwan_deputy',
         'R11' => 'legal_member',

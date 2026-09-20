@@ -47,8 +47,9 @@ class HumanResourcesSeatTest extends TestCase
     }
 
     /**
-     * forward_to_committee is R09's outbound stage now (Stage 86); R12 holds
-     * no rule there and the observations-only clause does not cover it. An
+     * forward_to_committee is R02's outbound stage (Stage 86 gave it to R09,
+     * Stage 96 returned it); R12 holds no rule there either way and the
+     * observations-only clause does not cover it. An
      * UNREGISTERED file at that stage is the isolated proof that the
      * $isHrStudyCoOwner bound really is exactly one stage, not "anywhere past
      * intake" — see the next test for why a real, registered file at the same
@@ -113,9 +114,9 @@ class HumanResourcesSeatTest extends TestCase
             ->assertOk();
 
         // Co-owner of the study means visibility and the ability to
-        // contribute a note, never the ability to move the stage — `forward`
-        // out of observations is R09's, and `request_edit`/`cancel` are
-        // R02's (Stage 86's own settled rule).
+        // contribute a note, never the ability to move the stage — every rule
+        // out of observations is R02's (`forward` returned to it in Stage 96;
+        // `request_edit`/`cancel` never left).
         $this->assertSame([], $response->json('data.available_actions'));
     }
 

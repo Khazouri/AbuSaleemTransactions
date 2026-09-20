@@ -23,9 +23,10 @@ use Illuminate\Http\Request;
  * مذكرة العرض مقرر اللجنة's own responsibility, and Art. 15 (أ) أولًا 11
  * lists تجهيز ملفات العرض ومذكرات العرض among the rapporteur's pre-meeting
  * duties. So the drafting audience is now R02 (المقرر), R03 (chair, who
- * reviews and approves the agenda under Art. 12 (أ) 3) and R09 (this
- * system's own agenda secretary); an ordinary member no longer drafts.
- * Read the seeder for the current tiers rather than trusting this comment.
+ * reviews and approves the agenda under Art. 12 (أ) 3). Stage 96 dropped
+ * R09 — [D] Appendix 6 has no أمين سر اللجنة column — so an ordinary member
+ * and the agenda secretary both no longer draft. Read the seeder for the
+ * current tiers rather than trusting this comment.
  */
 class PresentationMemoController extends Controller
 {

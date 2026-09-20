@@ -777,7 +777,7 @@ class MeetingController extends Controller
      * resource's own visibility rule" precedent as departmentOptions()/
      * CommitteeController::userOptions() — AppealController::index() scopes
      * a non-R08/non-`appeals,edit` actor to their own filings, which the
-     * `meeting_agenda,edit` roles (R03/R09) don't hold. Excludes an appeal
+     * `meeting_agenda,edit` roles (R02/R03) don't hold. Excludes an appeal
      * already nominated on some agenda (Appeal::committeeAgendaItem) — once
      * nominated it stays nominated until decided, never re-offered here.
      */

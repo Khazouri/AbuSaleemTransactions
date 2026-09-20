@@ -98,11 +98,13 @@ class WorkflowStageSeeder extends Seeder
             [5,  'requirements_check',        'فحص استيفاء المتطلبات',           'Requirements check',           'R02', 2, 2],
             [6,  'reviewer_review',           'مراجعة المقرر وفق اللوائح',        'Reviewer review',              'R02', 3, 3],
             [7,  'observations',              'إبداء الملاحظات (إن وجدت)',        'Observations (if any)',        'R02', 2, 2],
-            // Stage 86 — R05 -> R09. This field names who the file is sitting
-            // with, and after Stage 86 gave R09 (أمين سر اللجنة) both hops
-            // into the committee, R05 holds no row at this stage at all.
-            [8,  'forward_to_committee',      'تحويل الطلب للجنة القائمة',     'Forward to committee',         'R09', null, null],
-            // Display role only (see docblock): R03 -> R09. The R03
+            // Stage 86 — R05 -> R09; Stage 96 — R09 -> R02. This field names
+            // who the file is sitting with, and both hops into the committee
+            // are مقرر اللجنة's again: [D] Appendix 6 has no أمين سر اللجنة
+            // column, so R09 holds no row at this stage at all.
+            [8,  'forward_to_committee',      'تحويل الطلب للجنة القائمة',     'Forward to committee',         'R02', null, null],
+            // Display role only (see docblock): R09 -> R03, its pre-Stage-86
+            // value, restored by Stage 96 for the same reason. The R03
             // decision-action `required_role_id` on vote/decision transitions
             // is seeded separately in WorkflowTransitionSeeder and is
             // unaffected by this indicative field.
@@ -110,16 +112,14 @@ class WorkflowStageSeeder extends Seeder
             // Stage 86 re-examined this deliberately and KEPT it, rather than
             // letting the field start meaning "who can act". Two reasons it
             // cannot mean that: three stages above are NULL precisely because
-            // the actor is "whoever is this submitter's manager" or one of
-            // three routing destinations, which a role FK cannot express; and
-            // Stage 83's RequestResponsibilityService already derives the
-            // who-can-act answer from the live outbound rules, falling back to
-            // this column only for a stage with no rule at all — so
-            // redefining it would give one question two answers free to
-            // disagree. R09 here is also MORE accurate after Stage 86, not
-            // less: R09 now genuinely hands the file into this stage and holds
-            // it while R03 records the decision — Appendix 6's own RACI split.
-            [9,  'receive_from_committee',    'استلام الطلب من اللجنة',        'Receive from committee',       'R09', 3, 3],
+            // the actor is "whoever is this submitter's manager" or (before
+            // Stage 96) one of three routing destinations, which a role FK
+            // cannot express; and Stage 83's RequestResponsibilityService
+            // already derives the who-can-act answer from the live outbound
+            // rules, falling back to this column only for a stage with no rule
+            // at all — so redefining it would give one question two answers
+            // free to disagree.
+            [9,  'receive_from_committee',    'استلام الطلب من اللجنة',        'Receive from committee',       'R03', 3, 3],
             [10, 'approval_by_authority',     'اعتماد (حسب الصلاحيات)',          'Approval (per permissions)',   'R05', 2, 2],
             [11, 'local_governance_ministry', 'وزارة الحكم المحلي',              'Local Governance Ministry',    'R06', null, null],
             [12, 'final_approval_archiving',  'الاعتماد النهائي والأرشفة',        'Final approval & archiving',   'R07', 1, 2],

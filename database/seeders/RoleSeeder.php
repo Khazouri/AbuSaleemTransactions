@@ -34,8 +34,14 @@ class RoleSeeder extends Seeder
             // Diagram-alignment roles — see AGENT_NOTES.md for the source
             // (the "Employee Affairs Committee request" infographic). Additive
             // only: RoleSeeder upserts on `code`, so nothing above is affected.
-            ['code' => 'R09', 'name_ar' => 'أمين سر اللجنة', 'name_en' => 'Committee Secretary', 'description' => 'يستلم الملف بعد اكتمال الدراسة ويُعِدّ جدول أعمال اللجنة'],
-            ['code' => 'R10', 'name_ar' => 'وكيل الديوان', 'name_en' => 'Diwan Deputy', 'description' => 'أحد مسارات الإحالة الإدارية من المدير المباشر'],
+            // Stage 96 — R09 and R10 keep their logins and hold no seeded duty:
+            // [D] الملحق السادس (مصفوفة المسؤوليات) has no column for either,
+            // and every duty they held belongs to a party that does have one
+            // (المقرر = R02, الموارد البشرية = R12). The rows stay rather than
+            // being deleted so existing accounts, audit rows and historical
+            // stage logs keep resolving a role.
+            ['code' => 'R09', 'name_ar' => 'أمين سر اللجنة', 'name_en' => 'Committee Secretary', 'description' => 'دور محتفظ به بلا مهام مُسنَدة — مهامه السابقة تعود إلى مقرر اللجنة وفق الملحق السادس'],
+            ['code' => 'R10', 'name_ar' => 'وكيل الديوان', 'name_en' => 'Diwan Deputy', 'description' => 'دور محتفظ به بلا مهام مُسنَدة — مسار الإحالة الإدارية يعود إلى إدارة الموارد البشرية وفق الملحق السادس'],
             // Stage 68 (Track K) — [D] Art. 21 / Art. 14 (ب)'s العضو القانوني.
             // Stage 45 gave the committee a `legal` SEAT, but Art. 109 and
             // Appendix 45 both list the legal officer as a system ROLE with

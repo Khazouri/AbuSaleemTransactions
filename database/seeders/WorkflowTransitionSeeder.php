@@ -67,31 +67,27 @@ class WorkflowTransitionSeeder extends Seeder
             // before the committee ever sees the request. Same status as
             // before; the role moved later, in Stage 86 — see below.
             //
-            // Stage 86 — THE TWO HOPS INTO THE COMMITTEE BELONG TO R09
-            // (أمين سر اللجنة), per [F] step 7: the file reaches the committee
-            // through its secretary. They were R02 and R05 respectively, and
-            // R09 — literally named أمين سر اللجنة in RoleSeeder — owned no
-            // transition anywhere in the pre-committee chain except the
-            // `register` row for its own routing destination.
+            // Stage 96 — BOTH HOPS INTO THE COMMITTEE ARE مقرر اللجنة's (R02).
+            // Stage 86 gave them to R09 (أمين سر اللجنة) on [F] step 7, but
+            // [D] Appendix 6 — the governing RACI matrix — has no أمين سر
+            // اللجنة column at all: R09 and R10 are diagram-alignment
+            // inventions (AGENT_NOTES 2026-08-28, from a municipality
+            // infographic, not from [D]), and the appendix gives جدولة/عرض
+            // الملف على اللجنة to مقرر اللجنة as a single مسؤول. So the second
+            // hop lands on R02 rather than returning to its pre-Stage-86 R05:
+            // R05 is a tier of the approving column (Appendix 6's عميد
+            // البلدية / جهة الاعتماد), not the secretariat.
             //
-            // This is a handover the secretary PULLS rather than one the
-            // rapporteur pushes: R02 finishes the study and the presentation
-            // memo at `observations`, and the file then waits for R09 to take
-            // it onward. R02 is not cut out of that stage — its `request_edit`
-            // and `cancel` exception rows keep the file in R02's workspace
-            // (RequestVisibility's assignment clause does not filter
-            // is_exception), so the study can still be sent back.
-            //
-            // Nothing else needed changing for R09 to act here, and that is
-            // the check that this is a re-seed rather than a feature: neither
-            // hop is an approval level (see WorkflowService::APPROVAL_LEVELS
-            // and ApprovalController::LEVELS), both ride
-            // `request_details,view` which is seeded '*', and
+            // Nothing else needed changing for this to take effect, and that
+            // is the check that this is a re-seed rather than a feature:
+            // neither hop is an approval level (see
+            // WorkflowService::APPROVAL_LEVELS and ApprovalController::LEVELS),
+            // both ride `request_details,view` which is seeded '*', and
             // RequestVisibility derives its assignment clause from these very
-            // rows — so R09 gains visibility at both stages, and R05 loses it
-            // at forward_to_committee, automatically.
-            ['observations', 'forward_to_committee', 'forward', 'R09', 'ready'],
-            ['forward_to_committee', 'receive_from_committee', 'forward', 'R09', 'in_meeting'],
+            // rows — so R02 regains visibility at both stages and R09 loses it
+            // automatically.
+            ['observations', 'forward_to_committee', 'forward', 'R02', 'ready'],
+            ['forward_to_committee', 'receive_from_committee', 'forward', 'R02', 'in_meeting'],
             // Stage 69 — Art. 38's code 15 (بانتظار اعتماد البلدية), not the
             // old `decided` (code 12). [D] separates the two because it treats
             // الإحالة إلى السلطة المحلية as its own act; here recording the
@@ -189,44 +185,59 @@ class WorkflowTransitionSeeder extends Seeder
             ],
         );
 
-        // Diagram-alignment redesign: 3-way administrative routing out of the
-        // new administrative_routing stage. Modelled as exceptions (not the
-        // single-row happy path), matching the closest existing precedent —
-        // conditional_approve / request_legal_opinion / refer_to_another_body
-        // — three distinct named outcomes branching from one stage, chosen by
-        // the actor rather than a single deterministic next step. Gated on
-        // the submitter's manager (same actor as direct_manager_review, since
-        // routing is that manager's decision), not a fixed role. The diagram
-        // does not ask for a reason on a routing choice, so requiresComment
-        // is explicitly false here — unlike every other exception in this
-        // file, which defaults to requiring one.
-        $routingActions = [
-            'route_to_hr' => 'routed_to_hr',
-            'route_to_diwan' => 'routed_to_diwan',
-            'route_to_committee_secretary' => 'routed_to_committee_secretary',
-        ];
-        $routingOrder = 26;
-        foreach ($routingActions as $action => $statusCode) {
-            $this->seedException(
-                $stages['administrative_routing']->id,
-                $stages['receive_and_register']->id,
-                $action,
-                null,
-                $statuses[$statusCode]->id,
-                $routingOrder++,
-                requiresSubmitterManager: true,
-                requiresComment: false,
-            );
-        }
+        // Administrative routing out of the administrative_routing stage.
+        // Gated on the submitter's manager (same actor as
+        // direct_manager_review, since routing is that manager's decision),
+        // not a fixed role. The diagram does not ask for a reason on a routing
+        // choice, so requiresComment is explicitly false here — unlike every
+        // other exception in this file, which defaults to requiring one.
+        //
+        // Stage 96 — ONE ROUTE, NOT THREE. The diagram-alignment redesign
+        // seeded route_to_hr / route_to_diwan / route_to_committee_secretary
+        // as three named outcomes, but two of the three destinations are roles
+        // [D] Appendix 6 has no column for (R10 وكيل الديوان, R09 أمين سر
+        // اللجنة). The appendix names الموارد البشرية / شؤون الموظفين as the
+        // receiving party, which is R12, so the remaining route is the HR one.
+        // Still modelled as an exception rather than moved into $transitions:
+        // it is manager-gated, which that array's single-role tuple shape
+        // cannot express, and keeping the row shape unchanged keeps the
+        // action name, its locale key and the SPA's button rendering as they
+        // were.
+        $this->seedException(
+            $stages['administrative_routing']->id,
+            $stages['receive_and_register']->id,
+            'route_to_hr',
+            null,
+            $statuses['routed_to_hr']->id,
+            26,
+            requiresSubmitterManager: true,
+            requiresComment: false,
+        );
 
-        // Diagram-alignment redesign: registration convergence. Three
-        // `register` rows share the SAME action out of receive_and_register,
-        // one per legitimate receiving role (R12/HR, R10/Diwan,
-        // R09/Committee Secretary), each gated on BOTH its role and the
-        // matching routed_to_* status the routing step above stamped —
-        // required_status_id is what makes routing enforceable rather than
-        // decorative: role alone can't tell which of the three routes a file
-        // actually took, so R10 could otherwise register an HR-routed file.
+        // Stage 96 — the two retired routes need their own delete: exception
+        // rows are NOT cleared by the generic delete at the top of run(), so
+        // an existing database would otherwise keep offering a manager three
+        // routes, two of which nobody can then register. The routed_to_diwan /
+        // routed_to_committee_secretary STATUS rows stay seeded (legacy-status
+        // precedent, same as `archived`): a request that already took one of
+        // those hops must still render its own timeline and status.
+        WorkflowTransition::query()
+            ->whereNull('request_type_id')
+            ->where('from_stage_id', $stages['administrative_routing']->id)
+            ->whereIn('action', ['route_to_diwan', 'route_to_committee_secretary'])
+            ->delete();
+
+        // Diagram-alignment redesign: registration convergence. The
+        // `register` row out of receive_and_register is gated on BOTH its role
+        // and the matching routed_to_* status the routing step above stamped —
+        // required_status_id is what keeps routing enforceable rather than
+        // decorative.
+        //
+        // Stage 96 — ONE ROW, NOT THREE. The other two receiving roles (R10
+        // Diwan, R09 Committee Secretary) have no column in [D] Appendix 6;
+        // الموارد البشرية / شؤون الموظفين is the receiving party the appendix
+        // names, and that is R12. The status gate stays even with one row: a
+        // file still has to have been routed before it can be registered.
         // Unlike the routing branch above, this is NOT modelled as an
         // exception: exactly one legitimate actor exists for any given file
         // (the status disambiguates it), so this is the deterministic
@@ -249,8 +260,6 @@ class WorkflowTransitionSeeder extends Seeder
         // AGENT_NOTES.md.
         $registrations = [
             ['R12', 'routed_to_hr'],
-            ['R10', 'routed_to_diwan'],
-            ['R09', 'routed_to_committee_secretary'],
         ];
         foreach ($registrations as $index => [$role, $routedStatusCode]) {
             WorkflowTransition::updateOrCreate(
@@ -311,38 +320,38 @@ class WorkflowTransitionSeeder extends Seeder
             requiresSubmitterManager: true,
         );
 
-        // Stage 86 — the superseded R05 cancel row at forward_to_committee has
-        // to be removed explicitly, unlike the happy-path rows this stage also
-        // changed. Exception rows are NOT cleared by the delete at the top of
-        // run(), and seedException() keys its upsert on required_role_id, so
-        // the old row would otherwise survive beside its R09 replacement —
-        // leaving R05 able to cancel, and (through RequestVisibility's
+        // Stage 86 added this cleanup and Stage 96 keeps it, pointed at R02:
+        // a superseded cancel row at forward_to_committee has to be removed
+        // explicitly, unlike the happy-path rows these stages also changed.
+        // Exception rows are NOT cleared by the delete at the top of run(),
+        // and seedException() keys its upsert on required_role_id, so the old
+        // row would otherwise survive beside its replacement — leaving the
+        // previous owner able to cancel, and (through RequestVisibility's
         // rule-derived assignment clause) still able to see, a stage it no
-        // longer has any part in.
+        // longer has any part in. It has swept R05 (pre-Stage-86) and now
+        // sweeps R09 (pre-Stage-96) alike.
         WorkflowTransition::query()
             ->whereNull('request_type_id')
             ->where('is_exception', true)
             ->where('from_stage_id', $stages['forward_to_committee']->id)
             ->where('action', 'cancel')
-            ->where('required_role_id', '!=', $roles['R09']->id)
+            ->where('required_role_id', '!=', $roles['R02']->id)
             ->delete();
 
         // Cancellation is available to the role responsible for moving each
         // open stage. The self-loop records where work stopped without falsely
         // presenting cancellation as progress to an approval/archive stage.
         //
-        // Stage 86 applied that rule rather than making an exception to it:
-        // forward_to_committee moved R05 -> R09 because R09 now moves that
-        // stage and R05 holds nothing else there, while `observations` keeps
-        // R02 because R02 still moves it — backward, through `request_edit` —
-        // and Appendix 37 maps that stage to إعداد مذكرة العرض, المقرر's own
-        // action. The asymmetry is the one rule read consistently.
+        // Stage 86 applied that rule rather than making an exception to it
+        // (forward_to_committee R05 -> R09), and Stage 96 applies the same
+        // rule again now that both hops into the committee are R02's: R09
+        // moves nothing there any more, so it cancels nothing there either.
         $cancellationRoles = [
             'receive_from_municipality' => 'R02',
             'requirements_check' => 'R02',
             'reviewer_review' => 'R02',
             'observations' => 'R02',
-            'forward_to_committee' => 'R09',
+            'forward_to_committee' => 'R02',
             'receive_from_committee' => 'R03',
             'approval_by_authority' => 'R05',
             'local_governance_ministry' => 'R06',
@@ -386,36 +395,28 @@ class WorkflowTransitionSeeder extends Seeder
         // the top of this method — an old database's R05 row would otherwise
         // survive beside its R12 replacement, exactly the class of bug Stage
         // 86's own cleanup fixed for `cancel` at forward_to_committee.
+        // Stage 96 widened it from "keep R12/R09/R10" to "keep R12 alone", so
+        // the same one query now also sweeps the two retired registrars.
         WorkflowTransition::query()
             ->whereNull('request_type_id')
             ->where('is_exception', true)
             ->where('from_stage_id', $stages['receive_and_register']->id)
             ->where('action', 'cancel')
-            ->whereNotIn('required_role_id', [
-                $roles['R12']->id,
-                $roles['R09']->id,
-                $roles['R10']->id,
-            ])
+            ->where('required_role_id', '!=', $roles['R12']->id)
             ->delete();
 
-        // Diagram-alignment redesign: receive_and_register can be cancelled
-        // by any of the three roles that could legitimately be holding the
-        // file there, matching the plan's "simpler" fallback rather than the
-        // register rows' per-route status gate — cancelling doesn't need to
-        // prove which route was taken, only that the actor is one of the
-        // three receiving roles. Three rows (not one shared row) because
-        // required_role_id must differ per role; the widened seedException()
-        // key keeps them from colliding with each other.
-        foreach (['R12', 'R09', 'R10'] as $registrarRole) {
-            $this->seedException(
-                $stages['receive_and_register']->id,
-                $stages['receive_and_register']->id,
-                'cancel',
-                $roles[$registrarRole]->id,
-                $statuses['cancelled']->id,
-                99,
-            );
-        }
+        // receive_and_register can be cancelled by the role holding the file
+        // there. Stage 96 narrowed this from three rows (R12/R09/R10) to one
+        // alongside the register row itself — R09 and R10 no longer receive
+        // anything, so there is nothing for them to stop.
+        $this->seedException(
+            $stages['receive_and_register']->id,
+            $stages['receive_and_register']->id,
+            'cancel',
+            $roles['R12']->id,
+            $statuses['cancelled']->id,
+            99,
+        );
 
         // Stage 21 — a committee vote to defer keeps the request at the
         // committee stage, status `deferred`, ready to be placed on a future

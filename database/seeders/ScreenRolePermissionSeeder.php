@@ -80,15 +80,14 @@ class ScreenRolePermissionSeeder extends Seeder
         // same way R05's own membership here is: a screen-level capability,
         // narrowed in practice by which requests the actor can even see.
         //
-        // 2026-09-20 — R09 (أمين سر اللجنة) and R10 (وكيل الديوان) added, for
-        // the same reason Stage 87 added R12 and by the same bound. [E] stage
-        // 03 has the receiving body «تستكمل ما يقع ضمن اختصاصها من بيانات
-        // وإفادات» before referring to المقرر, and all three of R12/R10/R09
-        // hold a `register` row at `receive_and_register` — but only R12 was
-        // ever granted this, so two of the three could accept a file and then
-        // attach nothing to it. Visibility already followed the transition
-        // rows, so this closes the capability half of a reach they had.
-        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R09', 'R10', 'R12'], 'edit' => ['R02']],
+        // 2026-09-20 — R09/R10 were added here on the bound that all three of
+        // R12/R10/R09 held a `register` row at `receive_and_register`, so a
+        // receiving body could otherwise accept a file and attach nothing to
+        // it ([E] stage 03: «تستكمل ما يقع ضمن اختصاصها من بيانات وإفادات»).
+        // Stage 96 removed them again with the bound itself: R12 is now the
+        // only receiving body, because [D] Appendix 6 has no column for the
+        // other two.
+        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R12'], 'edit' => ['R02']],
 
         // Stage 58 — appeals against an already-decided request. `view` is
         // broad (like `requests`): the controller scopes the query to the
@@ -111,18 +110,20 @@ class ScreenRolePermissionSeeder extends Seeder
         // Track H stages (29-37) should tighten these per-screen once real
         // actions land (e.g. `meeting_live` almost certainly wants narrower
         // gating once it does something).
-        // Diagram-alignment redesign (see AGENT_NOTES.md): R09 (Committee
-        // Secretary) receives the file once study is complete and prepares
-        // the committee's agenda — the same "add"/"edit" reach R03 (head) and
-        // R04 (member) already hold on these three screens, since agenda
-        // placement is gated by this screen permission inside
-        // CommitteeStatusService, not by a fixed WorkflowService role.
-        'meetings_dashboard' => ['view' => '*', 'add' => ['R03', 'R04', 'R09'], 'edit' => ['R03', 'R09'], 'print' => '*'],
+        // Stage 96 — R09 (Committee Secretary) is out of all four screens the
+        // diagram-alignment redesign gave it: [D] Appendix 6 has no أمين سر
+        // اللجنة column, and every duty it held here is the appendix's own
+        // مقرر اللجنة (R02), which already holds both tiers on
+        // `committee_candidates` and `meeting_agenda`. R02 is deliberately
+        // NOT added to `meetings_dashboard`: its add/edit grants gate no route
+        // at all (only `view` appears in routes/api.php), so a role there
+        // would be decoration.
+        'meetings_dashboard' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
         // Stage 84 — R02 in, R04 out. [D] Appendix 45 gives المقرر القيد ·
         // الفحص · المتابعة, which is precisely this worklist (nominate, defer,
         // return to study, request completion), while Art. 13 (أ) limits
         // ordinary members to studying, discussing and voting.
-        'committee_candidates' => ['view' => '*', 'add' => ['R02', 'R03', 'R09'], 'edit' => ['R02', 'R03', 'R09'], 'print' => '*'],
+        'committee_candidates' => ['view' => '*', 'add' => ['R02', 'R03'], 'edit' => ['R02', 'R03'], 'print' => '*'],
         // Stage 68 — [D] Art. 21's pre-meeting legal review. The two write
         // tiers split by Appendix 6's RACI row for المراجعة القانونية, where
         // the legal member is مسؤول and the rapporteur only منسق:
@@ -130,7 +131,7 @@ class ScreenRolePermissionSeeder extends Seeder
         //          because Art. 14 (ب) makes the legal opinion the legal
         //          member's own act.
         //   edit = dispatch a file TO review — the coordinating act, so the
-        //          rapporteur roles (R02 case officer, R09 committee secretary).
+        //          rapporteur (R02). Stage 96 dropped R09 from both tiers.
         // Membership gate — `view` narrowed from '*' to the three roles that
         // act on this queue. Like meeting_outputs, this screen is exempt from
         // the committee-membership gate: Art. 21's review happens BEFORE a file
@@ -139,7 +140,7 @@ class ScreenRolePermissionSeeder extends Seeder
         // roster mistake. Art. 21's own requirement that committee members can
         // read the recorded opinion at study time is still met — it is on the
         // request's own detail screen, whose `view` remains '*'.
-        'legal_review' => ['view' => ['R02', 'R09', 'R11'], 'add' => ['R11'], 'edit' => ['R02', 'R09'], 'print' => '*'],
+        'legal_review' => ['view' => ['R02', 'R11'], 'add' => ['R11'], 'edit' => ['R02'], 'print' => '*'],
         // Stage 84 — R02 in, R04 out. [D] Appendix 45 gives المقرر إنشاء
         // الاجتماع outright, and Art. 15 (أ) أولًا 12-13 / ثانيًا 1 give them
         // توجيه الدعوات and تسجيل حضور الأعضاء, which is what `edit` gates
@@ -153,9 +154,9 @@ class ScreenRolePermissionSeeder extends Seeder
         // الأعمال, and Art. 15 (أ) أولًا 10-11 give them إعداد مشروع جدول
         // الأعمال and تجهيز ملفات العرض ومذكرات العرض — the `add` tier here is
         // the presentation memo. The chair keeps both tiers (Art. 12 (أ) 3 is
-        // مراجعة واعتماد جدول الأعمال) and R09 keeps them as this system's own
-        // agenda secretary.
-        'meeting_agenda' => ['view' => '*', 'add' => ['R02', 'R03', 'R09'], 'edit' => ['R02', 'R03', 'R09'], 'print' => '*'],
+        // مراجعة واعتماد جدول الأعمال). Stage 96 dropped R09: the appendix
+        // gives إدارة جدول الأعمال to المقرر as a single مسؤول.
+        'meeting_agenda' => ['view' => '*', 'add' => ['R02', 'R03'], 'edit' => ['R02', 'R03'], 'print' => '*'],
         'meeting_readiness' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
         // Stage 84 — R02 joins `add` (the live discussion feed): Art. 15 (أ)
         // ثانيًا 5 makes تدوين المناقشات المقرر's own duty. `edit` — advancing

@@ -20,9 +20,15 @@ use Tests\TestCase;
 /**
  * Diagram-alignment redesign (see AGENT_NOTES.md): the three new front-half
  * stages — direct_manager_review, administrative_routing, receive_and_register
- * — and the manager-gated actor check, 3-way routing branch, and the
+ * — and the manager-gated actor check, the routing branch, and the
  * status-gated registration convergence that makes routing enforceable
  * rather than decorative.
+ *
+ * Stage 96 — the branch is ONE route, not three. [D]'s الملحق السادس has no
+ * column for R10 (وكيل الديوان) or R09 (أمين سر اللجنة), and names الموارد
+ * البشرية / شؤون الموظفين as the receiving party, which is R12. The status
+ * gate survives the collapse and still earns its place: it is now the check
+ * that a file was routed at all before anyone may register it.
  */
 class DirectManagerRoutingTest extends TestCase
 {
@@ -119,79 +125,92 @@ class DirectManagerRoutingTest extends TestCase
         $this->assertSame('direct_manager_review', $requestRecord->refresh()->currentStage->code);
     }
 
-    public function test_each_of_the_three_routes_lands_at_receive_and_register_with_its_own_status(): void
+    public function test_the_one_remaining_route_lands_at_receive_and_register_and_the_two_retired_ones_are_gone(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $manager = User::factory()->create(['is_active' => true]);
         $service = app(WorkflowService::class);
 
-        foreach ([
-            ['route_to_hr', 'routed_to_hr'],
-            ['route_to_diwan', 'routed_to_diwan'],
-            ['route_to_committee_secretary', 'routed_to_committee_secretary'],
-        ] as [$action, $statusCode]) {
-            $employee = $this->userWithRole('R01');
-            $employee->manager_id = $manager->id;
-            $employee->save();
+        $employee = $this->userWithRole('R01');
+        $employee->manager_id = $manager->id;
+        $employee->save();
 
-            $requestRecord = $this->newRequest('administrative_routing', 'in_review', $employee->id);
-            $moved = $service->transition($requestRecord, $action, $manager);
+        $moved = $service->transition(
+            $this->newRequest('administrative_routing', 'in_review', $employee->id),
+            'route_to_hr',
+            $manager,
+        );
 
-            $this->assertSame('receive_and_register', $moved->currentStage->code);
-            $this->assertSame($statusCode, $moved->status->code);
+        $this->assertSame('receive_and_register', $moved->currentStage->code);
+        $this->assertSame('routed_to_hr', $moved->status->code);
+
+        // Stage 96 — the two retired rows are exceptions, which the generic
+        // delete at the top of WorkflowTransitionSeeder::run() does NOT sweep,
+        // so their own targeted delete is the only thing removing them. This
+        // is the assertion that would fail if that delete were dropped.
+        foreach (['route_to_diwan', 'route_to_committee_secretary'] as $retired) {
+            try {
+                $service->transition(
+                    $this->newRequest('administrative_routing', 'in_review', $employee->id),
+                    $retired,
+                    $manager,
+                );
+                $this->fail("{$retired} should no longer exist as a route.");
+            } catch (WorkflowTransitionException $exception) {
+                $this->assertSame(
+                    'هذا الإجراء غير متاح في المرحلة الحالية للطلب.',
+                    $exception->getMessage(),
+                );
+            }
         }
     }
 
-    public function test_each_register_row_requires_both_its_role_and_its_matching_routed_status(): void
+    public function test_the_register_row_requires_both_r12_and_a_routed_status(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $service = app(WorkflowService::class);
-        $registrar = $this->userWithRole('R10'); // Diwan deputy
-        $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr'); // routed to HR, not Diwan
-
-        // R10 holds the right ROLE for a Diwan-routed file, but this file was
-        // routed to HR — the status gate must refuse it. This is the
-        // assertion that proves routing is enforced, not merely advisory.
-        try {
-            $service->transition($requestRecord, 'register', $registrar);
-            $this->fail('R10 must not be able to register an HR-routed file.');
-        } catch (WorkflowTransitionException $exception) {
-            $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
-        }
-
-        // The matching registrar (R12/HR — Stage 87 replaced R05 here) succeeds
-        // on the same file.
         $hrRegistrar = $this->userWithRole('R12');
-        $moved = $service->transition($requestRecord->refresh(), 'register', $hrRegistrar);
+
+        $moved = $service->transition(
+            $this->newRequest('receive_and_register', 'routed_to_hr'),
+            'register',
+            $hrRegistrar,
+        );
         $this->assertSame('requirements_check', $moved->currentStage->code);
         // Art. 38's code 04 (تحت فحص الاكتمال), not 06: accepting the file is
         // not the قيد. المقرر grants that on the approve hop — see
         // UnifiedNumberingTest, which pins that no number is minted here.
         $this->assertSame('in_review', $moved->status->code);
 
-        // And the reverse pairing (R12 attempting a Diwan-routed file) is
-        // equally refused, confirming this isn't a one-way accident.
-        $diwanRequest = $this->newRequest('receive_and_register', 'routed_to_diwan');
+        // The status gate survives the collapse to one route, and this is what
+        // it now enforces: a file that was never routed cannot be registered.
         try {
-            $service->transition($diwanRequest, 'register', $hrRegistrar);
-            $this->fail('R12 must not be able to register a Diwan-routed file.');
+            $service->transition(
+                $this->newRequest('receive_and_register', 'in_review'),
+                'register',
+                $hrRegistrar,
+            );
+            $this->fail('An unrouted file must not be registrable.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
         }
 
-        // Stage 87 — R05 is now refused the very action it used to hold: the
-        // routing destination the poster names as HR is R12's alone, not
-        // R05's, once the reassignment is real rather than additive. A fresh
-        // request, since $requestRecord has already moved past this stage.
-        $anotherHrRequest = $this->newRequest('receive_and_register', 'routed_to_hr');
-        $formerRegistrar = $this->userWithRole('R05');
-        try {
-            $service->transition($anotherHrRequest, 'register', $formerRegistrar);
-            $this->fail('R05 must no longer be able to register an HR-routed file.');
-        } catch (WorkflowTransitionException $exception) {
-            $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
+        // Stage 87 refused R05 here; Stage 96 refuses R10 and R09 the same
+        // way, for the same reason — the receiving party [D] Appendix 6 names
+        // is الموارد البشرية, and none of the three is it.
+        foreach (['R05', 'R10', 'R09'] as $formerRegistrarRole) {
+            try {
+                $service->transition(
+                    $this->newRequest('receive_and_register', 'routed_to_hr'),
+                    'register',
+                    $this->userWithRole($formerRegistrarRole),
+                );
+                $this->fail("{$formerRegistrarRole} must no longer be able to register.");
+            } catch (WorkflowTransitionException $exception) {
+                $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
+            }
         }
     }
 
@@ -237,17 +256,35 @@ class DirectManagerRoutingTest extends TestCase
             $this->assertSame('cancelled', $moved->status->code);
         }
 
-        // Stage 87 — R12, not R05, is the third legitimate receiving role now.
-        foreach (['R12', 'R09', 'R10'] as $registrarRole) {
-            $registrar = $this->userWithRole($registrarRole);
-            $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr');
-            $moved = $service->transition($requestRecord, 'cancel', $registrar, 'ألغيت.');
-            $this->assertSame('receive_and_register', $moved->currentStage->code);
-            $this->assertSame('cancelled', $moved->status->code);
+        // Stage 96 — R12 is the only receiving role, so it is the only one
+        // that can stop a file sitting with it.
+        $moved = $service->transition(
+            $this->newRequest('receive_and_register', 'routed_to_hr'),
+            'cancel',
+            $this->userWithRole('R12'),
+            'ألغيت.',
+        );
+        $this->assertSame('receive_and_register', $moved->currentStage->code);
+        $this->assertSame('cancelled', $moved->status->code);
+
+        // The superseded R09/R10 cancel rows are exceptions, so only their own
+        // targeted delete removes them — this fails if that delete is dropped.
+        foreach (['R09', 'R10'] as $retiredRegistrar) {
+            try {
+                $service->transition(
+                    $this->newRequest('receive_and_register', 'routed_to_hr'),
+                    'cancel',
+                    $this->userWithRole($retiredRegistrar),
+                    'ألغيت.',
+                );
+                $this->fail("{$retiredRegistrar} must no longer hold cancel here.");
+            } catch (WorkflowTransitionException $exception) {
+                $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
+            }
         }
     }
 
-    public function test_the_suggested_administrative_route_is_advisory_only_all_three_routes_stay_available(): void
+    public function test_the_stage_56_route_suggestion_is_inert_now_that_only_one_route_exists(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -269,15 +306,22 @@ class DirectManagerRoutingTest extends TestCase
 
         $response->assertJsonPath('data.request_type.default_administrative_route', 'committee_secretary');
 
-        // The suggestion is advisory, not a gate — every one of the 3
-        // manual routes must still be selectable, matching Stage 56's own
-        // "additive to the existing 3 paths, not a replacement" scope.
+        // Stage 96 — the column and its three-value vocabulary are left
+        // untouched (narrowing them is a decision about Stage 56's own
+        // mechanism, which Stage 96 does not make), but with one route the
+        // badge has nothing to attach to: the SPA renders it only where
+        // item.action === suggestedRoutingAction. This asserts the consequence
+        // rather than hiding it — ten of the twelve seeded types now suggest a
+        // destination that no longer exists.
         $actions = $response->json('data.available_actions');
-        $this->assertContains('route_to_hr', $actions);
-        $this->assertContains('route_to_diwan', $actions);
-        $this->assertContains('route_to_committee_secretary', $actions);
+        $this->assertSame(['route_to_hr'], array_values(array_intersect($actions, [
+            'route_to_hr',
+            'route_to_diwan',
+            'route_to_committee_secretary',
+        ])));
+        $this->assertNotContains('route_to_committee_secretary', $actions);
 
-        // Picking the non-suggested route still works end to end.
+        // The one route still works end to end.
         $service = app(WorkflowService::class);
         $moved = $service->transition($requestRecord->refresh(), 'route_to_hr', $manager);
         $this->assertSame('receive_and_register', $moved->currentStage->code);
@@ -308,50 +352,41 @@ class DirectManagerRoutingTest extends TestCase
      * 2026-09-20 — [E] stage 03: the receiving body «تستكمل ما يقع ضمن
      * اختصاصها من بيانات وإفادات» before referring to المقرر.
      *
-     * All three registrars hold a `register` row at `receive_and_register`,
-     * but `notes_attachments.add` listed only R12 — so R09 and R10 could
-     * accept a file and then attach nothing to it. Walked over real HTTP
-     * because the gap was in the screen-permission middleware, not in any
-     * service: a direct call would have passed the whole time.
+     * Stage 96 — the grant follows the bound rather than outliving it: R09
+     * and R10 were added to `notes_attachments.add` because all three held a
+     * `register` row here, and they were removed again with the row. R12 is
+     * the receiving body [D] Appendix 6 names. Walked over real HTTP because
+     * the gate is screen-permission middleware, not a service: a direct call
+     * would pass either way.
      */
-    public function test_every_receiving_body_can_record_an_ifada_on_a_file_it_accepted(): void
+    public function test_the_receiving_body_can_record_an_ifada_on_a_file_it_accepted(): void
     {
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
 
-        // Each registrar against the routing status its own `register` row is
-        // gated on — the realistic case, and the one visibility resolves.
-        $registrars = [
-            'R12' => 'routed_to_hr',
-            'R10' => 'routed_to_diwan',
-            'R09' => 'routed_to_committee_secretary',
-        ];
+        $actor = $this->userWithRole('R12');
+        $employee = $this->userWithRole('R01');
 
-        foreach ($registrars as $roleCode => $statusCode) {
-            $actor = $this->userWithRole($roleCode);
-            $employee = $this->userWithRole('R01');
+        // Not the creator — a receiving body never is.
+        $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr', $employee->id);
 
-            // Not the creator — a receiving body never is.
-            $requestRecord = $this->newRequest('receive_and_register', $statusCode, $employee->id);
+        $this->actingAs($actor, 'sanctum')
+            ->post("/api/requests/{$requestRecord->id}/attachments", [
+                'file' => UploadedFile::fake()->create('ifada.pdf', 40, 'application/pdf'),
+                'label' => 'إفادة الجهة المعنية',
+                'required_document_key' => 'other',
+                'file_section' => 'supporting_documents',
+            ], ['Accept' => 'application/json'])
+            ->assertCreated();
 
-            $this->actingAs($actor, 'sanctum')
-                ->post("/api/requests/{$requestRecord->id}/attachments", [
-                    'file' => UploadedFile::fake()->create('ifada.pdf', 40, 'application/pdf'),
-                    'label' => 'إفادة الجهة المعنية',
-                    'required_document_key' => 'other',
-                    'file_section' => 'supporting_documents',
-                ], ['Accept' => 'application/json'])
-                ->assertCreated();
-
-            $this->actingAs($actor, 'sanctum')
-                ->postJson("/api/requests/{$requestRecord->id}/notes", [
-                    'body' => 'استكملت الجهة ما يقع ضمن اختصاصها من بيانات.',
-                ])
-                ->assertCreated();
-        }
+        $this->actingAs($actor, 'sanctum')
+            ->postJson("/api/requests/{$requestRecord->id}/notes", [
+                'body' => 'استكملت الجهة ما يقع ضمن اختصاصها من بيانات.',
+            ])
+            ->assertCreated();
 
         // The grant is still bounded — a role that holds no `register` row
-        // here gets nothing, so this widened two seats rather than the screen.
+        // here gets nothing.
         $outsider = $this->userWithRole('R07');
         $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr', $this->userWithRole('R01')->id);
 

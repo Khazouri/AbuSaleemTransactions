@@ -13,6 +13,171 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-20 23:55 EET — Claude — Stage 96 complete (R09/R10 folded back into the matrix's parties)
+
+Built per the plan below. **No migration, no new endpoint and no service logic** — seeded data plus
+comments, which is the check that this is a re-seed rather than a feature. Full suite **684 tests /
+4511 assertions** green (baseline 684/4520: same test count, −9 assertions where three-iteration
+loops collapsed to one), Pint clean on all fifteen touched PHP files, `npm run build` passes and
+`frontend/dist` was reverted, locale parity **1966 keys each side** with nothing added or removed,
+checkbox parity **353 each** across `TEST_PLAN.roles.md`/`.ar.md`, and `php artisan migrate` reports
+nothing to migrate.
+
+**Real-database check, by query rather than assumption.** All four seeders re-run against the real
+MySQL: **12 stages, 49 transitions** (was 55 — two retired `route_to_*` rows, two `register` rows,
+two `cancel` rows), **0 rows pointing at a missing stage**, one route out of
+`administrative_routing`, one `register` row (R12 + `routed_to_hr`), both committee hops R02,
+`cancel` at `forward_to_committee` R02 and at `receive_and_register` R12 alone. **No file is
+stranded by the collapse**: the real database holds **zero** requests in `routed_to_diwan` or
+`routed_to_committee_secretary` — checked, not assumed. Smoke-tested over real HTTP as
+`r09.secretary@`: 12 screens, `legal_review` genuinely absent; the one token that run minted was
+revoked and the database is back to its 2 pre-existing tokens and 5 requests.
+
+**Two cleanups are load-bearing and must not be "simplified" away.** Exception rows survive the
+generic delete at the top of `WorkflowTransitionSeeder::run()`, so the two retired `route_to_*` rows
+and the superseded `cancel` rows each need their own targeted delete — without them an existing
+database keeps offering a manager three routes, two of which nobody can then register. Both are
+pinned by tests that fail if the delete is dropped: `DirectManagerRoutingTest` walks each retired
+route and each retired registrar, and `CommitteeHandoverTest` puts the pre-Stage-96 R09 cancel row
+back by hand before re-seeding, because a fresh database never holds the stale row and seeding twice
+would prove nothing.
+
+**Scope judgment calls, recorded so they are not re-litigated.** (1) **Both** `forward` hops moved,
+not only the one the Build bullet's line number points at: Stage 86 moved both, and Appendix 6 gives
+جدولة/عرض الملف to مقرر اللجنة as a single مسؤول. The second hop lands on **R02**, not its
+pre-Stage-86 R05 — R05 is a tier of the approving column, not the secretariat. (2) **R02 was NOT
+added to `meetings_dashboard`**: its `add`/`edit` grants gate no route at all (only `view` appears
+in `routes/api.php`), so a role there is decoration; R09 was simply removed. `committee_candidates`
+and `meeting_agenda` needed a removal only, since R02 already held both tiers on each. (3) **R09/R10
+came out of `notes_attachments,add`** although the Build bullet does not list it — that grant's own
+seeder comment bounds it to "all three of R12/R10/R09 hold a `register` row at
+`receive_and_register`", which stops being true here. (4) The single remaining route stays an
+**exception** with `requiresComment: false`: `administrative_routing` already showed nothing under
+the normal-actions heading, so nothing regressed, and moving it into `$transitions` is impossible
+anyway — that array's single-role tuple shape cannot express a manager gate.
+
+**Kept on purpose.** The `routed_to_diwan` / `routed_to_committee_secretary` **status rows**, their
+`workflow.actions.route_to_*` locale keys, and `PeriodicReportService`'s `awaiting_administration`
+bucket — a request that already took one of those hops must still render its own timeline
+(legacy-status precedent, same as `archived`). Both **role rows** stay too, with their descriptions
+rewritten to say they carry no duty, so existing logins, audit rows and historical stage logs keep
+resolving a role. `RequestResponsibilityService::ROLE_TO_PARTY`'s now-unreachable R09/R10 entries
+stay, annotated; `PermissionSeeder` (the legacy, unread catalogue) was left alone.
+
+**`NotificationTest` needed a different hop, not a role swap** — worth knowing, because this is the
+second time it has moved. Its two fixtures walk a transition whose actor and next actor must be
+different parties, or there is no handoff left to assert. Stage 86 moved them to
+`reviewer_review → observations` precisely because `observations` had become R09's; Stage 96 gives
+R02 the whole pre-committee chain back, which makes that hop same-role again — and
+`actorsForStage()` excludes the actor. They now walk
+`forward_to_committee → receive_from_committee`: R02 moves it, R03 acts next.
+
+**Test blast radius: six files, every change a legitimate update.** `CommitteeHandoverTest` is Stage
+86's own file, inverted in place — its re-seed-cleanup cases are the most valuable thing in it,
+because this stage re-creates exactly the hazard they pin. `DirectManagerRoutingTest`'s three-route
+and three-registrar cases collapse to one each and gained the retired-row assertions.
+`WorkflowServiceTest`'s happy-path walk, actor maps and seeded-shape counts moved (non-exception
+rules 13 → 11, cancel rows 14 → 12, register rows 3 → 1). `RequestDetailTest` expects `forward`
+first at `observations` again, and `HumanResourcesSeatTest` / `NotificationTest` as above.
+
+**Docs.** STAGE_PLAN marks 96 built and its Track N line lists it. `TEST_PLAN.roles.md`/`.ar.md` had
+§10/§11 rewritten (both roles are now "a retained login with no seeded duty", and the sections are
+almost entirely refusals — **that is the test**: if either can still act, a grant or a row survived
+the fold), plus the account table, the relay (now **nine** people, not ten), four Appendix A rows and
+Appendix B. `TEST_PLAN.md`/`.ar.md` and `USER_GUIDE.ar.md` had their routing/stage tables corrected —
+note that several of those cells were **already stale** (stage 8 still read R05, i.e. pre-Stage-86;
+the guide still gave the HR route to R05, i.e. pre-Stage-87). `compliance-matrix.md` and
+`gap-analysis-appendix-6.md` (git-ignored) record the structural finding as closed.
+
+**⚠ The per-role screen-count table is stale for reasons this stage did not cause, and now says so.**
+It reports seeded-matrix counts, but the membership gate hides the seven `meetings_management`
+screens from anyone with no committee seat — an unseated R09 sees **12 screens / 10 entries**, which
+is what the live smoke run returned, not the 19/17 the matrix implies. The seeder also now holds
+**36** screens, not the 35 the appendix claims. A note under the table states both; only the four
+rows this stage changed were re-derived.
+
+**Open items.** (1) **`request_types.default_administrative_route` (Stage 56) is now vacuous** and was
+deliberately left alone: with one route, ten of the twelve seeded types suggest a destination that no
+longer exists, so the badge never renders and the Request Types admin screen still offers three
+values. Narrowing `RequestType::ADMINISTRATIVE_ROUTES` is a decision about Stage 56's own mechanism
+that this stage's Build bullet does not make, and a stage restoring a destination would have to undo
+it — `DirectManagerRoutingTest` pins the consequence rather than hiding it, and `USER_GUIDE.ar.md`
+dropped the now-uniform suggestion column. (2) **A whole-file Appendix A re-derivation is owed** to
+whoever next touches the role test plans; the methodology is in that file's own header and the drift
+predates this stage. (3) R09/R10 remain in `TestUserSeeder` and `PermissionSeeder`; if a later stage
+decides the logins are not worth keeping, both are one line each.
+
+---
+
+### 2026-09-20 23:20 EET — Claude — Implementation plan: Stage 96 (R09/R10 folded back into the matrix's parties)
+
+Track N decision 3, already taken (2026-09-20) and not re-litigated here: **R09 (أمين سر اللجنة)
+and R10 (وكيل الديوان) have no column in Appendix 6** — both are diagram-alignment inventions
+(AGENT_NOTES 2026-08-28, sourced from a municipality infographic, not from [D]) — so they keep
+their logins and stop holding duties belonging to a column they do not have.
+**Scope: seeded data + comments + tests. No migration, no new endpoint, no service logic.**
+
+1. **`WorkflowTransitionSeeder`** — R09's two `forward` rows (`observations → forward_to_committee`,
+   `forward_to_committee → receive_from_committee`, both given to R09 by Stage 86) return to
+   **R02**. The Build bullet names one line number; it points at the second of the pair, but Stage
+   86 moved both and the goal ("no duty the matrix assigns to a column is held by a role without
+   one") covers both — Appendix 6 gives جدولة/عرض الملف to مقرر اللجنة as a single مسؤول.
+   `cancel` at `forward_to_committee` follows by that seeder's own stated rule (cancellation belongs
+   to whoever moves the stage), R09 → R02, and its **targeted delete flips `!= R09` → `!= R02`** —
+   exception rows survive the generic delete at the top of `run()`, so without that flip the
+   superseded R09 row lives on beside its replacement.
+2. **Routing collapses to one route.** `$routingActions` keeps only `route_to_hr`; the two retired
+   exception rows (`route_to_diwan`, `route_to_committee_secretary`) need their **own targeted
+   delete** for the same is_exception reason. `$registrations` becomes the single
+   `['R12', 'routed_to_hr']` pair (those rows are `is_exception=false`, so the generic delete
+   sweeps the other two), and `cancel` at `receive_and_register` narrows from R12/R09/R10 to R12.
+3. **Statuses retire from the seeded map, rows kept** (legacy-status precedent, same as `archived`):
+   `routed_to_diwan` / `routed_to_committee_secretary` stay in `RequestStatusSeeder` and stay in
+   `PeriodicReportService`'s `awaiting_administration` bucket, and
+   `workflow.actions.route_to_diwan|route_to_committee_secretary` stay in both locale files — a
+   request that already took one of those hops still renders its own timeline.
+4. **`WorkflowStageSeeder`** — the indicative `responsible_role_id`: stage 8 R09 → **R02**, stage 9
+   R09 → **R03** (its pre-Stage-86 value). This field names who the file is sitting with, and
+   `RequestResponsibilityService::partyFromStage()` falls back to it for a stage with no rule.
+5. **`ScreenRolePermissionSeeder`** — R09 out of `meeting_agenda`, `committee_candidates` (R02
+   already holds both tiers on each, so this is a removal, not a move), `legal_review` view+edit,
+   and `meetings_dashboard`. **R02 is deliberately NOT added to `meetings_dashboard`**: its
+   `add`/`edit` grants gate no route at all (verified — only `view` appears in `routes/api.php`), so
+   adding a role there would be decoration. R09/R10 also come out of `notes_attachments,add`: that
+   grant's own seeder comment bounds it to "all three of R12/R10/R09 hold a `register` row at
+   `receive_and_register`", which stops being true here.
+6. **`RoleSeeder`** — R09/R10 rows stay (logins are kept by decision 3); their descriptions, which
+   describe duties they no longer hold, are rewritten to say so.
+7. **Comments only:** `RequestVisibility`, `MeetingController`, `PresentationMemoController`,
+   `routes/api.php` each cite R09 in prose that this stage falsifies.
+
+**Deliberately NOT touched, flagged rather than silently widened:** `request_types
+.default_administrative_route` (Stage 56's advisory badge) becomes **vacuous** — with one route,
+ten of the twelve seeded types suggest a destination that no longer exists, so the badge simply
+stops rendering. Narrowing `RequestType::ADMINISTRATIVE_ROUTES` is a decision about Stage 56's own
+mechanism that this stage's Build bullet does not make, and a future stage restoring a destination
+would have to undo it. Recorded as an open item. Also left alone: `PermissionSeeder` (the legacy,
+unread catalogue) and `RequestResponsibilityService::ROLE_TO_PARTY`'s now-unreachable R09/R10 rows.
+
+**Test blast radius, all legitimate updates rather than regression fixes.**
+`CommitteeHandoverTest` is Stage 86's own test file and is inverted in place — its re-seed-cleanup
+cases are the most valuable thing in it, because this stage re-creates exactly the stale-row hazard
+they pin. `DirectManagerRoutingTest`'s three-route and three-registrar cases collapse to one.
+`WorkflowServiceTest`'s happy-path walk, actor maps and seeded-rule-shape assertions move R09 → R02
+and `['R12','R09','R10']` → `['R12']`. **`NotificationTest` needs a different hop, not a role
+swap:** its two fixtures walk `reviewer_review → observations` as R02 precisely because Stage 86
+made R09 the next actor there; with `observations` back to R02 the actor and the next actor are the
+same role and `actorsForStage()` excludes the actor, so they move to
+`forward_to_committee → receive_from_committee` (R02 acting, R03 next).
+
+**Verify:** full PHPUnit (baseline 684 tests / 4520 assertions), Pint on touched PHP,
+`npm run build` (then revert `frontend/dist`), locale key parity, reseed
+`WorkflowStageSeeder` + `WorkflowTransitionSeeder` + `ScreenRolePermissionSeeder` + `RoleSeeder`
+against the real MySQL and confirm the row shape by query; `php artisan migrate` — expected nothing
+to migrate.
+
+---
+
 
 ### 2026-09-20 22:10 EET — Claude — Stage 97 complete (القيد back to مقرر اللجنة)
 

@@ -34,12 +34,13 @@ class WorkflowServiceTest extends TestCase
         $employee->manager_id = $manager->id;
         $employee->save();
 
-        // Stage 86 added R09 (أمين سر اللجنة): the two hops into the committee
-        // are the secretary's now, not R02's and R05's. Stage 87 added R12
-        // (مدير إدارة الموارد البشرية): the receive_and_register hop on the
-        // HR route is theirs now, not R05's — R05 keeps only its later
-        // approval_by_authority duty, unaffected by either change.
-        $actors = collect(['R02', 'R03', 'R05', 'R06', 'R07', 'R09', 'R12'])
+        // Stage 86 gave the two hops into the committee to R09 (أمين سر
+        // اللجنة) and Stage 96 gave them back to R02 (مقرر اللجنة), because
+        // [D]'s الملحق السادس has no أمين سر اللجنة column. Stage 87 added R12
+        // (مدير إدارة الموارد البشرية): the receive_and_register hop is theirs,
+        // not R05's — R05 keeps only its later approval_by_authority duty,
+        // unaffected by any of it.
+        $actors = collect(['R02', 'R03', 'R05', 'R06', 'R07', 'R12'])
             ->mapWithKeys(fn (string $roleCode) => [
                 $roleCode => $this->userWithRole($roleCode),
             ]);
@@ -64,10 +65,10 @@ class WorkflowServiceTest extends TestCase
             ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
             // Stage 57 collapsed the old two-hop observations ->
             // ministry_endorsement -> forward_to_committee into one; Stage 86
-            // then moved both remaining hops into the committee to R09
-            // (أمين سر اللجنة), from R02 and R05 respectively.
-            ['observations', 'forward_to_committee', 'forward', 'R09', 'ready'],
-            ['forward_to_committee', 'receive_from_committee', 'forward', 'R09', 'in_meeting'],
+            // moved both remaining hops into the committee to R09, and Stage
+            // 96 returned both to R02 (Appendix 6 gives them to المقرر).
+            ['observations', 'forward_to_committee', 'forward', 'R02', 'ready'],
+            ['forward_to_committee', 'receive_from_committee', 'forward', 'R02', 'in_meeting'],
             ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'awaiting_municipal_approval'],
             ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'awaiting_central_approval'],
             // Stage 57 removed competent_authority: ministry approval is now
@@ -163,16 +164,16 @@ class WorkflowServiceTest extends TestCase
             ->get();
 
         // Diagram-alignment redesign: this is no longer literally "one rule
-        // per stage". administrative_routing's only outbound moves are its
-        // three route_to_* branches, all modelled as exceptions (see
+        // per stage". administrative_routing's only outbound move is its
+        // route_to_hr branch, modelled as an exception (see
         // WorkflowTransitionSeeder), so it contributes zero non-exception
-        // rows; receive_and_register converges through three role-scoped
-        // `register` rows instead of one. 11 (the old total) - 1
-        // (administrative_routing) + 3 (register) + 2 (submit, and the new
-        // manager-gated forward into administrative_routing) = 15. Stage 57
-        // then removed two whole stages (ministry_endorsement,
-        // competent_authority), each contributing exactly one row: 15 - 2 = 13.
-        $this->assertCount(13, $rules);
+        // rows. 11 (the old total) - 1 (administrative_routing) + 2 (submit,
+        // and the new manager-gated forward into administrative_routing) = 12.
+        // Stage 57 then removed two whole stages (ministry_endorsement,
+        // competent_authority), each contributing exactly one row: 12 - 2 = 10,
+        // and Stage 96 left receive_and_register with a single `register` row
+        // (it had three, one per receiving role): 10 + 1 = 11.
+        $this->assertCount(11, $rules);
         $this->assertFalse($rules->contains('is_exception', true));
         $this->assertFalse($rules->contains('requires_comment', true));
 
@@ -180,7 +181,7 @@ class WorkflowServiceTest extends TestCase
         foreach ([
             'receive_from_municipality' => 1,
             'direct_manager_review' => 1,
-            'receive_and_register' => 3,
+            'receive_and_register' => 1,
             'requirements_check' => 1,
             'reviewer_review' => 1,
             'observations' => 1,
@@ -198,13 +199,14 @@ class WorkflowServiceTest extends TestCase
         $this->assertArrayNotHasKey('ministry_endorsement', $countsByFromStageCode->all());
         $this->assertArrayNotHasKey('competent_authority', $countsByFromStageCode->all());
 
-        // The three `register` rows are what makes the routing enforceable:
-        // one per legitimate receiving role, all converging on the same
-        // destination stage. Stage 87 — R12 on the HR route, not R05, which
-        // holds no row at this stage at all any more.
+        // Stage 96 — ONE `register` row, not three. R10 and R09 have no
+        // column in [D] Appendix 6, and the receiving party it does name is
+        // الموارد البشرية, which is R12 (Stage 87 put it there, replacing R05).
+        // The status gate on that single row is what still makes routing
+        // enforceable: an unrouted file cannot be registered.
         $registerRules = $rules->where('action', 'register')->values();
-        $this->assertCount(3, $registerRules);
-        $this->assertEqualsCanonicalizing(['R12', 'R09', 'R10'], $registerRules->pluck('requiredRole.code')->all());
+        $this->assertCount(1, $registerRules);
+        $this->assertSame(['R12'], $registerRules->pluck('requiredRole.code')->all());
         $this->assertTrue($registerRules->every(fn (WorkflowTransition $rule) => $rule->toStage->code === 'requirements_check'));
     }
 
@@ -213,10 +215,10 @@ class WorkflowServiceTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        // Stage 86 — cancelling at forward_to_committee followed the forwarding
-        // hop from R05 to R09, per that seeder's own rule that cancellation
-        // belongs to the role responsible for moving the stage.
-        $secretary = $this->userWithRole('R09');
+        // Cancelling at forward_to_committee follows the forwarding hop, per
+        // that seeder's own rule that cancellation belongs to the role
+        // responsible for moving the stage: R05 -> R09 (Stage 86) -> R02
+        // (Stage 96), which is also who forwards out of it again.
         $service = app(WorkflowService::class);
         $paths = [
             ['requirements_check', 'return_missing_docs', $reviewer, 'receive_from_municipality', 'incomplete', 'المستند المالي غير مرفق.'],
@@ -224,7 +226,7 @@ class WorkflowServiceTest extends TestCase
             // R02 keeps this one: the study is still its work, and sending the
             // file back is still its call — only the handover onward moved.
             ['observations', 'request_edit', $reviewer, 'reviewer_review', 'returned', 'يرجى تصحيح بيانات القرار.'],
-            ['forward_to_committee', 'cancel', $secretary, 'forward_to_committee', 'cancelled', 'أُلغي الطلب بناءً على كتاب رسمي.'],
+            ['forward_to_committee', 'cancel', $reviewer, 'forward_to_committee', 'cancelled', 'أُلغي الطلب بناءً على كتاب رسمي.'],
         ];
 
         foreach ($paths as [$from, $action, $actor, $to, $status, $reason]) {
@@ -324,17 +326,15 @@ class WorkflowServiceTest extends TestCase
 
         // Diagram-alignment redesign: 11 (unchanged) + the two new
         // manager-gated stages (direct_manager_review, administrative_routing,
-        // one cancel row each) + receive_and_register's three role-scoped
-        // cancel rows (any of its three legitimate receiving roles may
-        // cancel, unlike `register` this isn't status-gated — see
-        // WorkflowTransitionSeeder) = 16. receive_and_register's order_no
-        // (4) appears three times, once per role-scoped row. Stage 57 then
-        // removed two of those 11 base stages (ministry_endorsement,
-        // competent_authority): 16 - 2 = 14, and every surviving stage from
-        // forward_to_committee onward shifted down one order_no.
-        $this->assertCount(14, $cancelRules);
+        // one cancel row each) + receive_and_register's own row = 14. Stage 57
+        // then removed two of those 11 base stages (ministry_endorsement,
+        // competent_authority): 14 - 2 = 12, and every surviving stage from
+        // forward_to_committee onward shifted down one order_no. Exactly one
+        // cancel row per stage again after Stage 96 — receive_and_register
+        // briefly had three, one per receiving role, and now has only R12's.
+        $this->assertCount(12, $cancelRules);
         $this->assertEqualsCanonicalizing(
-            [1, 2, 3, 4, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
             $cancelRules->pluck('fromStage.order_no')->all(),
         );
         $this->assertTrue($cancelRules->every(
@@ -348,7 +348,7 @@ class WorkflowServiceTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $actors = collect(['R02', 'R03', 'R05', 'R07', 'R09'])
+        $actors = collect(['R02', 'R03', 'R05', 'R07'])
             ->mapWithKeys(fn (string $roleCode) => [
                 $roleCode => $this->userWithRole($roleCode),
             ]);
@@ -361,16 +361,16 @@ class WorkflowServiceTest extends TestCase
         // Stage 57 collapsed observations -> ministry_endorsement ->
         // forward_to_committee into one hop, so only one `forward` step into
         // the committee remains (forward_to_committee ->
-        // receive_from_committee) — not two. Stage 86 then made both hops into
-        // the committee R09's (أمين سر اللجنة), leaving R02 the study half of
-        // the chain only.
+        // receive_from_committee) — not two. Stage 86 made both hops into the
+        // committee R09's (أمين سر اللجنة); Stage 96 returned them to R02,
+        // which therefore walks the whole pre-committee chain again.
         $requestRecord = $this->newRequest(stageCode: 'requirements_check', statusCode: 'in_review', decisionGrade: 9);
 
         foreach ([
             ['approve', 'R02'],
             ['forward', 'R02'],
-            ['forward', 'R09'],
-            ['forward', 'R09'],
+            ['forward', 'R02'],
+            ['forward', 'R02'],
             ['approve', 'R03'],
         ] as [$action, $role]) {
             $requestRecord = $service->transition(

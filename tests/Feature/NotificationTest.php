@@ -46,15 +46,16 @@ class NotificationTest extends TestCase
 
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
-        // Stage 86 — the fixture moved one hop earlier (it used to walk out of
-        // `observations` as R02). That hop is R09's now, so walking it here
-        // would make the actor and the next actor the same role and lose the
-        // handoff this test is about; `reviewer_review -> observations` keeps
-        // two distinct parties, and the next actor at `observations` is the
-        // committee secretary this stage put there.
-        $nextActor = $this->userWithRole('R09');
+        // The fixture needs a hop whose actor and next actor are different
+        // parties, or there is no handoff left to assert. Stage 86 moved it to
+        // `reviewer_review -> observations` because `observations` had become
+        // R09's; Stage 96 gave R02 the whole pre-committee chain back, which
+        // makes that hop same-role again. `forward_to_committee ->
+        // receive_from_committee` is the first hop after which the file
+        // genuinely changes hands: R02 moves it, R03 (the committee) acts next.
+        $nextActor = $this->userWithRole('R03');
         $bystander = $this->userWithRole('R04');
-        $requestRecord = $this->requestAtStage('reviewer_review', $creator);
+        $requestRecord = $this->requestAtStage('forward_to_committee', $creator);
 
         app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
 
@@ -118,8 +119,8 @@ class NotificationTest extends TestCase
 
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
-        $nextActor = $this->userWithRole('R09');
-        $requestRecord = $this->requestAtStage('reviewer_review', $creator);
+        $nextActor = $this->userWithRole('R03');
+        $requestRecord = $this->requestAtStage('forward_to_committee', $creator);
 
         // The next actor drops email but keeps the bell...
         NotificationSetting::create([

@@ -560,7 +560,7 @@ Route::middleware('auth:sanctum')->group(function () {
      *
      * The two write tiers are NOT interchangeable and split by Appendix 6's
      * RACI row: `add` is the legal member recording a verdict (R11 only),
-     * `edit` is the rapporteur handing a file over (R02/R09).
+     * `edit` is the rapporteur handing a file over (R02).
      */
     Route::middleware('screen.permission:legal_review,view')->group(function () {
         Route::get('legal-reviews', [RequestLegalReviewController::class, 'index']);
@@ -605,7 +605,7 @@ Route::middleware('auth:sanctum')->group(function () {
      * permissions rather than `meetings` — building the agenda is that
      * screen's declared domain, not the meeting record's. The two screens'
      * grants were identical when this moved; they are not any more (Stage 84
-     * seats R02/R03/R09 here and R02/R03 on `meetings`), so read the seeder
+     * seats R02/R03 here and on `meetings`), so read the seeder
      * rather than assuming they track each other.
      */
     Route::middleware(['screen.permission:meeting_agenda,view', 'meeting.member'])
@@ -627,7 +627,7 @@ Route::middleware('auth:sanctum')->group(function () {
      * Stage 46 — [D] Art. 22's compiled pre-meeting memo, one per agenda
      * item. `view` is the broad `meeting_agenda` grant (readable before/
      * during the meeting by anyone); `add` is this screen's first real use
-     * of its own `add` tier (R03/R04/R09) rather than `edit` (R03/R09) —
+     * of its own `add` tier rather than `edit` (they differ per screen) —
      * see PresentationMemoController's docblock for why the رئيس/مقرر split
      * matters here.
      */

@@ -222,12 +222,12 @@ npm run dev                    # Vite على http://localhost:5173
 |---|---|---|---|
 | 1 | `receive_from_municipality` | R01 | `submit` (تلقائي عند الاستلام) |
 | 2 | `direct_manager_review` | #2 (المدير المباشر لمقدّم الطلب) | `forward` |
-| 3 | `administrative_routing` | المدير نفسه | `route_to_hr` / `route_to_diwan` / `route_to_committee_secretary` |
-| 4 | `receive_and_register` | R05 / R10 / R09 — بحسب المسار | `register` |
+| 3 | `administrative_routing` | المدير نفسه | `route_to_hr` — أنهت المرحلة ٩٦ مساري الديوان وأمين السر |
+| 4 | `receive_and_register` | R12 (الموارد البشرية) | `register` |
 | 5 | `requirements_check` | R02 | البوابات ثم `approve` — **وهذا هو القيد** |
 | 6 | `reviewer_review` | R02 | `forward` |
 | 7 | `observations` | R02 | `forward` |
-| 8 | `forward_to_committee` | R05 | `forward` |
+| 8 | `forward_to_committee` | R02 | `forward` |
 | 9 | `receive_from_committee` | R03 | تصويت ثم تسجيل القرار |
 | 10 | `approval_by_authority` | R05 | `approve` |
 | 11 | `local_governance_ministry` | R06 | `approve` |

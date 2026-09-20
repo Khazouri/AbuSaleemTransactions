@@ -1677,6 +1677,11 @@ collapses from three routes to one, and the unused `routed_to_diwan` /
 legacy-status precedent).
 **Done when:** every مسؤول cell is held by the column's own role.
 **Source:** [D] Appendix 6, structural finding.
+**Built 2026-09-20.** Seeded data + comments only — both committee hops and their cancel row to R02,
+routing and registration collapsed to the HR pair, four screen grants and `notes_attachments,add`
+dropped for R09/R10, the two indicative stage roles restored. The retired `route_to_*` rows and the
+superseded cancel rows each needed their own targeted delete (exception rows survive the seeder's
+generic sweep). Statuses and locale keys kept, per the legacy-status precedent. See AGENT_NOTES.md.
 
 ---
 
@@ -1761,7 +1766,7 @@ established for exactly this.
 dependency record: it says which stage had to precede which, which is what you need when reading a
 stage's assumptions or judging whether a change to one stage's work disturbs another's.
 
-**Track N (94–101) is mostly planned.** **94** (the docs re-derivation) and **97** (القيد back to R02) are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency.
+**Track N (94–101) is mostly planned.** **94** (the docs re-derivation), **96** (R09/R10 folded back) and **97** (القيد back to R02) are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency.
 
 ```
 94 → 96 → 97                    (independent of 95 — seeded-map work)

@@ -95,9 +95,9 @@ class RequestVisibility
             || $actor->hasScreenPermission('meeting_outputs', 'can_approve');
         // Stage 87 — [F] names إدارة الموارد البشرية as co-owner of the study
         // at `observations`, but R12 holds no outbound workflow_transitions
-        // row there at all: `forward` out of that stage is R09's and
-        // `request_edit`/`cancel` are R02's (Stage 86's own settled rule —
-        // "the asymmetry is the one rule read consistently"). Giving R12 a
+        // row there at all: every rule at that stage is R02's (`forward`
+        // returned to it in Stage 96; `request_edit`/`cancel` never left).
+        // Giving R12 a
         // row of its own would either duplicate that ownership or contradict
         // it, so this is the same bounded, non-controlling reach the R11 and
         // SAL clauses already use for a party consulted on a stage without
