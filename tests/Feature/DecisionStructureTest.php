@@ -95,12 +95,55 @@ class DecisionStructureTest extends TestCase
             'instrument' => 'recommendation',
             'decision_subject' => 'إحالة الموضوع لجهة مختصة',
             'decision_operative' => 'تقرر اللجنة إحالة الموضوع إلى الإدارة القانونية لإبداء الرأي.',
+            // 2026-09-20 — a referral now has to name its destination
+            // (Art. 26 (د)); it is still asked for neither الوقائع nor السند,
+            // which is the split this test is about.
+            'referral_authority' => 'الإدارة القانونية',
             'comment' => 'يحال للإدارة القانونية',
         ])
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'refer_other_body')
             ->assertJsonPath('data.instrument', 'recommendation')
             ->assertJsonPath('data.decision_facts', null);
+    }
+
+    /**
+     * 2026-09-20 — [D] Art. 26 (د) and [E] 13D both require a referral to
+     * «تحدد الجهة أو المسار الإداري المختص». `referral_authority` has existed
+     * since Stage 50 and was nullable, so a committee could hand the matter on
+     * without saying to whom — which also made SUBSTANTIVE_OUTCOMES' own excuse
+     * ("referrals carry their own structured fields instead") untrue.
+     */
+    public function test_a_referral_must_name_where_the_matter_is_going(): void
+    {
+        foreach (['refer_other_body', 'no_jurisdiction'] as $outcome) {
+            [$head, $meeting, $agendaItem] = $this->votedItem($outcome);
+
+            $payload = $this->decisionPayload($outcome, ['comment' => 'إحالة']);
+            unset($payload['referral_authority']);
+
+            $this->recordWith($head, $meeting, $agendaItem, $payload)
+                ->assertStatus(422)
+                ->assertJsonPath('message', 'يجب تحديد الجهة أو المسار الإداري المختص الذي يحال إليه الموضوع.');
+
+            $this->assertSame(0, Decision::where('meeting_request_id', $agendaItem->id)->count());
+
+            $this->recordWith($head, $meeting, $agendaItem, $this->decisionPayload($outcome, [
+                'comment' => 'إحالة',
+                'referral_authority' => 'ديوان الخدمة المدنية',
+            ]))
+                ->assertCreated()
+                ->assertJsonPath('data.outcome', $outcome)
+                ->assertJsonPath('data.referral_authority', 'ديوان الخدمة المدنية');
+        }
+
+        // Bounded to the outcomes that actually hand the matter on. A `defer`
+        // keeps it with this committee, so it is never asked.
+        [$head, $meeting, $agendaItem] = $this->votedItem('defer');
+
+        $this->recordWith($head, $meeting, $agendaItem, $this->decisionPayload('defer', ['comment' => 'تأجيل']))
+            ->assertCreated()
+            ->assertJsonPath('data.referral_authority', null);
     }
 
     public function test_an_unmeasurable_operative_clause_is_refused_but_the_same_phrase_tied_to_an_action_is_not(): void
@@ -110,6 +153,10 @@ class DecisionStructureTest extends TestCase
         $base = [
             'instrument' => 'decision',
             'decision_subject' => 'إحالة الموضوع',
+            // 2026-09-20 — carried so the referral rule cannot be what refuses
+            // these; the منطوق is the subject here. It also pins the ordering:
+            // the unmeasurable-clause check fires before the referral one.
+            'referral_authority' => 'الإدارة القانونية',
             'comment' => 'إحالة',
         ];
 
@@ -264,6 +311,10 @@ class DecisionStructureTest extends TestCase
             'decision_facts' => 'الموضوع يتعلق بالمرتبات.',
             'decision_basis' => 'اختصاص قسم المرتبات والمزايا.',
             'refusal_reason_code' => 'outside_jurisdiction',
+            // 2026-09-20 — عدم اختصاص must also name the competent body
+            // (Art. 26 (د)); the reasoning rule this test is about is
+            // unchanged, and still fires first.
+            'referral_authority' => 'قسم المرتبات والمزايا',
             'comment' => 'عدم اختصاص',
         ])->assertCreated();
     }

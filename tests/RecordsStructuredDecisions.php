@@ -47,6 +47,13 @@ trait RecordsStructuredDecisions
             $payload['refusal_reason_code'] = 'period_condition_unmet';
         }
 
+        // 2026-09-20 — Art. 26 (د) / [E] 13D: a referral must name where it is
+        // going. The exact case the trait's docblock anticipated — one helper
+        // instead of every referring fixture in the suite.
+        if (in_array($outcome, ['no_jurisdiction', 'refer_other_body', 'appeal_refer'], true)) {
+            $payload['referral_authority'] = 'ديوان الخدمة المدنية';
+        }
+
         if ($outcome === 'defer') {
             $payload['deferral_reason'] = 'نقص مستند مؤثر في تحديد المركز الوظيفي.';
             $payload['deferral_required_completion'] = 'كشف الخدمة معتمداً من إدارة الموارد البشرية.';

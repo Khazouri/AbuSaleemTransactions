@@ -35,8 +35,8 @@ class DecisionStructureRules
      * open. Appendix 27's الوقائع and السند describe a قرار that *resolves*
      * a موضوع, so a تأجيل or a referral is not asked for the legal basis of a
      * resolution nobody has reached — those carry their own structured
-     * fields instead (the five deferral columns, or Stage 50's
-     * `referral_authority`).
+     * fields instead (the five deferral columns, or REFERRING_OUTCOMES'
+     * `referral_authority` below).
      */
     private const SUBSTANTIVE_OUTCOMES = [
         'approve',
@@ -57,6 +57,23 @@ class DecisionStructureRules
      */
     private const REASONED_OUTCOMES = ['reject', 'no_jurisdiction', 'appeal_reject'];
 
+    /**
+     * Outcomes that hand the matter to somebody else, and must therefore say
+     * who. [D] Art. 26 (د) and [E] 13D both require عدم الاختصاص to
+     * «تحدد الجهة أو المسار الإداري المختص» — a referral that names nobody
+     * tells the employee only that this committee is done with them.
+     *
+     * `referral_authority` has existed since Stage 50 and was nullable until
+     * 2026-09-20, which is what made SUBSTANTIVE_OUTCOMES' excuse above
+     * ("referrals carry their own structured fields instead") untrue for the
+     * one field it named.
+     *
+     * `legal_opinion` is deliberately absent: Art. 26 lists asking for a legal
+     * opinion among التأجيل's reasons, and it goes to the committee's own legal
+     * member (R11), so it is not a referral *out* to a body that needs naming.
+     */
+    private const REFERRING_OUTCOMES = ['no_jurisdiction', 'refer_other_body', 'appeal_refer'];
+
     public function __construct(private readonly DecisionReasoningRules $reasoning) {}
 
     public function isSubstantive(string $outcome): bool
@@ -67,6 +84,11 @@ class DecisionStructureRules
     public function requiresRefusalReason(string $outcome): bool
     {
         return in_array($outcome, self::REASONED_OUTCOMES, true);
+    }
+
+    public function requiresReferralAuthority(string $outcome): bool
+    {
+        return in_array($outcome, self::REFERRING_OUTCOMES, true);
     }
 
     /**
@@ -121,6 +143,11 @@ class DecisionStructureRules
             if ($problem = $this->refusalProblem($payload, $value)) {
                 return $problem;
             }
+        }
+
+        // Art. 26 (د) / [E] 13D — a referral must name where it is going.
+        if ($this->requiresReferralAuthority($outcome) && $value('referral_authority') === '') {
+            return 'يجب تحديد الجهة أو المسار الإداري المختص الذي يحال إليه الموضوع.';
         }
 
         if ($outcome === 'defer') {

@@ -14,6 +14,160 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-20 EET — Claude — Gap analysis vs. [D] + [E] recorded; two gaps closed; three stale doc rows corrected
+
+Built per the plan below. **No migration** — `referral_authority` has existed since Stage 50 and the
+grant is seeded data, which is the check that both fixes close a hole rather than add a capability.
+Full suite **684 tests / 4520 assertions** green (was 682/4493 — exactly this change's +2 tests),
+Pint clean on all six touched PHP files, `npm run build` passes with `AgendaItemDecisionPanel` picking
+up the change in its existing chunk (then reverted the tracked `frontend/dist`), locale key-parity
+verified programmatically (**1966 keys each side, zero on-one-side-only** — no new copy, the one key
+this needed already existed), and the `ScreenRolePermissionSeeder` reseed ran **twice** against the
+real MySQL/Homestead database, stable at 12 rows / 9 `add` holders both times, with `php artisan
+migrate:status` reporting nothing pending.
+
+**The analysis is at `docs/employee-committee-lifecycle/gap-analysis-D-and-E.md`** (git-ignored,
+local-only, so it will not show in `git status`). It re-derives every finding against the live code
+rather than reading `compliance-matrix.md`, and the headline is that **the process shape is right** —
+every structural demand [D] makes (Art. 10 (أ)'s roster، Art. 45's six questions، Art. 21's legal
+review، Arts. 89–91's structured decision، Art. 98's registers، Art. 106's KPIs، Art. 101's twelve
+moments، Appendix 63's gates، Arts. 34–37's closure) is built and enforced. What is left clusters into
+ten items, four of which need a **decision** rather than a patch.
+
+**⚠ The record had drifted in both directions, and three rows were corrected as part of this.**
+(1) `source-detailed-flow-verbatim.md`'s stage 07 still tagged the قيد **compliant**, citing
+`ArtifactNumberGenerator` minting "at the `requirements_check → approve` completeness outcome" — a hop
+that has minted nothing since 2026-09-18. Now tagged divergent, with the tally moved 19·1·1 → **18·2·1**.
+(2) `compliance-matrix.md`'s **النموذج 12** row still read "no structured 4 parts, no decision number →
+Stages 70, 74" although both stages had long shipped; moved ⚠→✅, Part B headline 62/20 → **63/19**.
+That is the failure mode this table is most prone to and the headline block now says so: the 2026-09-12
+recount fixed *arithmetic* drift but re-tallied the tags as written without re-checking each against the
+code, so **a ⚠ whose note names a closing stage is unverified until that stage is confirmed unbuilt**.
+(3) **[E]'s 8 decision gates and 7 supplementary diagrams were tagged nowhere at all** — grepping the
+matrix for بوابات القرار or الصور المكملة returned zero, so nothing in this repo had ever been checked
+against them. Added as new **Parts C.2 and C.3**; they are not a restatement of the stages but the
+branch conditions, and two of them fail in ways the stage rows do not surface (gate 2 enforced out of
+order, gate 7 on the wrong input).
+
+**Fix A — every receiving body can now record the إفادة.** `notes_attachments.add` gained **R09 (أمين
+سر اللجنة) and R10 (وكيل الديوان)**, by the same bound and for the same reason Stage 87 added R12: all
+three hold a `register` row at `receive_and_register`, so two of the three could accept a file and then
+attach nothing to it, against [E] stage 03's «تستكمل ما يقع ضمن اختصاصها من بيانات وإفادات».
+Deliberately walked **over real HTTP** in the new test — the gap was in the screen-permission
+middleware, so a direct service call would have passed the whole time. Visibility needed nothing:
+`RequestVisibility` already derives from the transition rows, which is why the test passed first run.
+The test also pins the bound — R07, holding no `register` row there, still gets a **403**, so this
+widened two seats rather than the screen.
+
+**Fix B — a referral must now name where it is going.** [D] **Art. 26 (د)** and [E] **13D** both require
+عدم الاختصاص to «تحدد الجهة أو المسار الإداري المختص»; `Decision.referral_authority` was **nullable**,
+so a committee could hand the matter on without saying to whom. New
+`DecisionStructureRules::REFERRING_OUTCOMES` (`no_jurisdiction`, `refer_other_body`, `appeal_refer`) +
+one check in `firstProblem()`, which is read by **both** `record()` and `recordAppealDecision()`, so an
+ordinary and an appeal decision cannot be held to different drafting standards. `structuredPayload()`
+gained the field — it was not reaching the rules at all.
+
+**Two design points in Fix B worth not re-litigating.** (1) **It is NOT a `required_if` in
+`StoreDecisionRequest`**, which is what the plan first said: requiredness depends on the **tallied**
+outcome, which the FormRequest cannot see — that is the documented reason `DecisionStructureRules`
+exists at all. (2) **`refer_other_body` was deliberately NOT added to `REASONED_OUTCOMES` or
+`SUBSTANTIVE_OUTCOMES`**, which the plan also proposed. Art. 91's reasoned cases are *refusals*, and a
+referral is not one — adding it would have demanded an Appendix 28 `refusal_reason_code` for a
+non-refusal; and Art. 26 lists a referral among التأجيل's reasons, so it does not dispose of the matter
+and is rightly excused الوقائع/السند. **The actual bug was only that the field those exclusions point
+at was optional**, so making it required is what makes `SUBSTANTIVE_OUTCOMES`' own comment ("referrals
+carry their own structured fields instead") true. `legal_opinion` is excluded for the same reasoning —
+it goes to the committee's own legal member (R11), not out to a body that needs naming.
+
+**One frontend bug this exposed and fixed in passing.** `AgendaItemDecisionPanel.vue` gates which
+structure fields it shows on the predicted outcome — its own comment says "showing only the relevant
+fields is what keeps the form from asking for a سند on a تأجيل" — but the referral input was
+**unconditional**, so it asked every decision, including an `approve` that refers to nobody, and was
+optional on the two that must answer. Now a `needsReferral` computed mirroring its three siblings,
+with `required` on the input. The record button's `:disabled` was left alone deliberately: none of the
+three sibling conditional fields gate it either, and a disabled button with no explanation is worse
+than the endpoint's own Arabic 422.
+
+**Four pre-existing tests needed legitimate expectation updates, not regression fixes** — every one
+builds a deliberately-incomplete referral payload, which is exactly what this change makes incomplete.
+`RecordsStructuredDecisions` gained the field for the three referring outcomes (the case its own
+docblock anticipated: "a later stage that changes what a decision must carry updates one helper"), and
+three `DecisionStructureTest` cases were updated in place with a comment each. One of those is worth
+knowing: `test_an_unmeasurable_operative_clause_...` now carries `referral_authority` in its `$base` so
+the referral rule cannot be what refuses it — which also **pins the ordering**, since the
+unmeasurable-clause check fires first.
+
+**Open items, all recorded in the analysis with their reasoning.** (1) **The approval path is
+hardcoded and it is the largest gap** — Art. 92 requires جهة الاعتماد determined before the matter is
+presented and Appendix 58 forbids a default («ولا يجوز ملء خانة جهة الاعتماد بصورة افتراضية إذا لم
+يحددها التشريع»), but the branch reads `decision_grade` vs. the type threshold while **four** recorded
+answers to that exact question (Art. 45 Q5/Q6 on `jurisdiction_test`, Appendix 22's
+`approving_body`/`requires_central_approval`) drive nothing. Sharpest form: **the system checks that
+the محضر names an approving body, then routes to a different one.** Ownerless since Stage 57; the
+decision — which input wins, and what happens when two disagree — is the process owner's, and the code
+behind any answer is small. (2) **Art. 38's code 04 (تحت فحص الاكتمال) has no status at all**, and code
+06 (مستوفية ومقيدة) is set on *arrival* at the completeness check — a file reads "complete and
+registered" while its completeness is unverified. That is the 2026-09-18 call, listed so it is not
+re-opened by accident. (3) **An adjourned meeting is structurally unrepresentable** (Appendix 67): no
+`ended_at`, no adjourned status, closing refuses unless every item is resolved, and an item the
+committee never opened is byte-identical to one just presented — plus `agenda_deadline` is compared to
+nothing. (4) **Appendix 46's immutable محضر copy cannot exist** — `meeting_minutes.meeting_id` is
+`unique()`, and `request_corrections` has no `meeting_minutes_id`, so a typo on an approved محضر keeps
+printing. (5) **Art. 67's leave gate does not exist** — every `LEAV` request walks the full pipeline,
+mitigated only by a checklist row asking the submitter to justify it.
+
+---
+
+### 2026-09-20 EET — Claude — Implementation plan: gap analysis vs. [D] + [E], and the two unambiguous fixes it found
+
+User request, twice: a gap analysis of the system against the attached sources — first **[E]**
+(المسار التفصيلي المعتمد: 21 stages, 8 decision gates, 7 supplementary diagrams), then **[D]** (the
+full 142-page، 114-Article، 78-appendix دليل إجراءات لجنة شؤون الموظفين). Both are already this
+repo's declared standard (AGENTS.md) and Track K existed to make the system identical to them, so
+this is a re-derivation against the live code rather than a first comparison — and the existing
+record has drifted in both directions.
+
+**Scope: docs first, then exactly two code fixes.** (1) Write the analysis to
+`docs/employee-committee-lifecycle/gap-analysis-D-and-E.md`. (2) Fix the stale rows the re-derivation
+found: `source-detailed-flow-verbatim.md`'s stage-07 row still tags the قيد compliant citing the
+`requirements_check → approve` hop, which stopped minting anything on 2026-09-18; `compliance-matrix.md`'s
+النموذج 12 row still reads "no structured 4 parts, no decision number" although Stage 74 built the
+parts and Stage 70 built the numbers; and **[E]'s 8 gates and 7 diagrams are tagged nowhere at all** —
+grepping the matrix for بوابات القرار or الصور المكملة returns zero, so nothing in this repo was ever
+checked against them. (3) Close the two gaps that are unambiguous against the source text and need no
+decision from the process owner.
+
+**Fix A — [E] stage 03: two of the three receiving bodies cannot record the إفادة.** [E] stage 03 has
+the concerned body «تستكمل ما يقع ضمن اختصاصها من بيانات وإفادات» before referring to المقرر, but
+`ScreenRolePermissionSeeder`'s `notes_attachments.add` is `[R01,R02,R03,R04,R05,R12]` — **R09 (أمين سر
+اللجنة) and R10 (وكيل الديوان) are absent**, while both hold `register` at `receive_and_register`. They
+can accept a file and then attach nothing to it. R12 was added for this exact reason by Stage 87; the
+other two were never added. One seeder line.
+
+**Fix B — [E] 13D / [D] Art. 26 (د): the competent body need never be named.** عدم اختصاص must «تحدد
+الجهة أو المسار الإداري المختص», but `Decision.referral_authority` is `nullable` and `refer_other_body`
+sits outside `DecisionStructureRules::SUBSTANTIVE_OUTCOMES`, so it requires neither الوقائع nor السند
+either. `DecisionStructureRules`' own comment claims referrals "carry their own structured fields
+instead (… or Stage 50's `referral_authority`)" — a structure it does not enforce. Making it required
+for the two referring outcomes is what makes that comment true.
+
+**Deliberately NOT built here, and each needs a decision rather than a patch** — recorded in the
+analysis, not silently skipped: the hardcoded approval path (Art. 92 + Appendix 58 require جهة الاعتماد
+determined per-matter from the legal text; **four recorded answers exist and routing reads none of
+them**, it reads `decision_grade`); Art. 38's absent code 04 and the قيد's timing (the user's own
+2026-09-18 call); Appendix 67's adjourned meeting, which is structurally unrepresentable (no `ended_at`,
+no adjourned status, and closing refuses unless every item is resolved); Appendix 46's immutable محضر
+copy (`meeting_minutes.meeting_id` is `unique()`, so a second version is impossible by construction);
+and Art. 67's leave gate (every `LEAV` request walks the full eleven-stage pipeline).
+
+**Verification plan**: two new feature tests — R09/R10 can attach at `receive_and_register`; a
+`no_jurisdiction` and a `refer_other_body` decision are each refused without a named body and accepted
+with one — plus the full PHPUnit suite (baseline **682 tests / 4493 assertions**), Pint on every touched
+file, and a `ScreenRolePermissionSeeder` reseed against the real MySQL/Homestead database. **No
+migration** — `referral_authority` already exists and the grant is seeded data.
+
+---
+
 ### 2026-09-19 23:10 EET — Claude — Per-row scoping, a unified task inbox, and a membership-gated meetings section — complete
 
 Built per the plan below. **No migration** — `screens.route` was already nullable and everything else

@@ -44,6 +44,7 @@ import {
   DEFERRAL_FIELDS,
   REFUSAL_REASON_CODES,
   isSubstantiveOutcome,
+  needsReferralAuthority,
   needsRefusalReason,
 } from '../lib/decisionStructure'
 import api from '../lib/api'
@@ -106,6 +107,10 @@ const pendingOutcome = computed(() => predictedOutcome(props.item))
 const needsFactsAndBasis = computed(() => isSubstantiveOutcome(pendingOutcome.value))
 const needsRefusal = computed(() => needsRefusalReason(pendingOutcome.value))
 const needsDeferral = computed(() => pendingOutcome.value === 'defer')
+// 2026-09-20 — Art. 26 (د) / [E] 13D. Same principle as the three above: the
+// field was shown on every decision, including an `approve` that refers to
+// nobody, and was optional on the two outcomes that must name a destination.
+const needsReferral = computed(() => needsReferralAuthority(pendingOutcome.value))
 
 /**
  * Stage 74 — Appendix 22's own answer, recorded by the legal officer before
@@ -432,8 +437,10 @@ async function recordDecision() {
           />
         </label>
         <input
+          v-if="needsReferral"
           v-model="referralAuthority"
           type="text"
+          required
           :placeholder="t('decisions.referralAuthorityPlaceholder')"
           :aria-label="t('decisions.referralAuthorityPlaceholder')"
         >

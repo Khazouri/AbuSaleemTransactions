@@ -13,6 +13,8 @@ use App\Models\WorkflowStage;
 use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -300,6 +302,66 @@ class DirectManagerRoutingTest extends TestCase
 
         // ...and must not hide one execution would accept.
         $this->assertTrue($service->availableActions($requestRecord, $manager)->contains('forward'));
+    }
+
+    /**
+     * 2026-09-20 — [E] stage 03: the receiving body «تستكمل ما يقع ضمن
+     * اختصاصها من بيانات وإفادات» before referring to المقرر.
+     *
+     * All three registrars hold a `register` row at `receive_and_register`,
+     * but `notes_attachments.add` listed only R12 — so R09 and R10 could
+     * accept a file and then attach nothing to it. Walked over real HTTP
+     * because the gap was in the screen-permission middleware, not in any
+     * service: a direct call would have passed the whole time.
+     */
+    public function test_every_receiving_body_can_record_an_ifada_on_a_file_it_accepted(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Storage::fake('local');
+
+        // Each registrar against the routing status its own `register` row is
+        // gated on — the realistic case, and the one visibility resolves.
+        $registrars = [
+            'R12' => 'routed_to_hr',
+            'R10' => 'routed_to_diwan',
+            'R09' => 'routed_to_committee_secretary',
+        ];
+
+        foreach ($registrars as $roleCode => $statusCode) {
+            $actor = $this->userWithRole($roleCode);
+            $employee = $this->userWithRole('R01');
+
+            // Not the creator — a receiving body never is.
+            $requestRecord = $this->newRequest('receive_and_register', $statusCode, $employee->id);
+
+            $this->actingAs($actor, 'sanctum')
+                ->post("/api/requests/{$requestRecord->id}/attachments", [
+                    'file' => UploadedFile::fake()->create('ifada.pdf', 40, 'application/pdf'),
+                    'label' => 'إفادة الجهة المعنية',
+                    'required_document_key' => 'other',
+                    'file_section' => 'supporting_documents',
+                ], ['Accept' => 'application/json'])
+                ->assertCreated();
+
+            $this->actingAs($actor, 'sanctum')
+                ->postJson("/api/requests/{$requestRecord->id}/notes", [
+                    'body' => 'استكملت الجهة ما يقع ضمن اختصاصها من بيانات.',
+                ])
+                ->assertCreated();
+        }
+
+        // The grant is still bounded — a role that holds no `register` row
+        // here gets nothing, so this widened two seats rather than the screen.
+        $outsider = $this->userWithRole('R07');
+        $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr', $this->userWithRole('R01')->id);
+
+        $this->actingAs($outsider, 'sanctum')
+            ->post("/api/requests/{$requestRecord->id}/attachments", [
+                'file' => UploadedFile::fake()->create('ifada.pdf', 40, 'application/pdf'),
+                'required_document_key' => 'other',
+                'file_section' => 'supporting_documents',
+            ], ['Accept' => 'application/json'])
+            ->assertForbidden();
     }
 
     private function newRequest(

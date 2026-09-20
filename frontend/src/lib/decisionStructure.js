@@ -51,6 +51,16 @@ export const SUBSTANTIVE_OUTCOMES = [
  */
 export const REASONED_OUTCOMES = ['reject', 'no_jurisdiction', 'appeal_reject']
 
+/**
+ * Outcomes that hand the matter to somebody else and must therefore say who —
+ * [D] Art. 26 (د) and [E] 13D. Mirrors
+ * DecisionStructureRules::REFERRING_OUTCOMES.
+ *
+ * `legal_opinion` is deliberately absent: it goes to the committee's own legal
+ * member, not out to a body that needs naming.
+ */
+export const REFERRING_OUTCOMES = ['no_jurisdiction', 'refer_other_body', 'appeal_refer']
+
 /** Art. 34's five deferral fields — the first four mandatory, the fifth "إن وجدت". */
 export const DEFERRAL_FIELDS = [
   'deferral_reason',
@@ -66,4 +76,8 @@ export function isSubstantiveOutcome(outcome) {
 
 export function needsRefusalReason(outcome) {
   return REASONED_OUTCOMES.includes(outcome)
+}
+
+export function needsReferralAuthority(outcome) {
+  return REFERRING_OUTCOMES.includes(outcome)
 }

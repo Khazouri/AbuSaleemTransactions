@@ -79,7 +79,16 @@ class ScreenRolePermissionSeeder extends Seeder
         // is what lets them actually contribute once they can. Bounded the
         // same way R05's own membership here is: a screen-level capability,
         // narrowed in practice by which requests the actor can even see.
-        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R12'], 'edit' => ['R02']],
+        //
+        // 2026-09-20 — R09 (أمين سر اللجنة) and R10 (وكيل الديوان) added, for
+        // the same reason Stage 87 added R12 and by the same bound. [E] stage
+        // 03 has the receiving body «تستكمل ما يقع ضمن اختصاصها من بيانات
+        // وإفادات» before referring to المقرر, and all three of R12/R10/R09
+        // hold a `register` row at `receive_and_register` — but only R12 was
+        // ever granted this, so two of the three could accept a file and then
+        // attach nothing to it. Visibility already followed the transition
+        // rows, so this closes the capability half of a reach they had.
+        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R09', 'R10', 'R12'], 'edit' => ['R02']],
 
         // Stage 58 — appeals against an already-decided request. `view` is
         // broad (like `requests`): the controller scopes the query to the

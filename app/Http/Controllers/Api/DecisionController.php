@@ -423,6 +423,7 @@ class DecisionController extends Controller
             'decision_basis',
             'decision_operative',
             'refusal_reason_code',
+            'referral_authority',
             'deferral_reason',
             'deferral_required_completion',
             'deferral_responsible_body',
