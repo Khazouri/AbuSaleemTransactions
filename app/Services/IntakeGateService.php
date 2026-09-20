@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Models\Request;
 
 /**
- * Stage 78 — [D] Appendix 63's بوابة 1, the half of it that did not already
- * exist.
+ * Stage 78 — [D] Appendix 63's بوابة 1 (قبل القيد), the half of it that did
+ * not already exist.
  *
  * Appendix 63 asks "هل الملف صالح للدخول إلى مسار اللجنة؟" and makes the
  * refusal the system's own job: "وتمنع المنظومة الإلكترونية الانتقال إذا كانت
@@ -14,22 +14,12 @@ use App\Models\Request;
  * "هل الوقائع والوثائق صحيحة ومكتملة؟" — and its owners (الموظف + الرئيس
  * المباشر + الموارد البشرية / شؤون الموظفين).
  *
- * This gate sits on the `requirements_check → approve` hop, and half of it is
+ * The قيد in this system is the `requirements_check → approve` hop (Stage 70,
+ * which is where Art. 20's رقم إشاري is minted), and half of this gate is
  * already there: Stage 54 refuses that hop until Art. 45's jurisdiction test
  * is answered. What was missing is the documents. Stage 72 seeded Appendix
  * 57's real per-type matrix onto `request_types.required_documents` and
  * enforced nothing with it — its own note flagged exactly this as unbuilt.
- *
- * NOTE — Appendix 63 calls this gate "قبل القيد", and it no longer is. The
- * قيد moved to the receiving body's own `register` action (see
- * WorkflowService::grantReferenceNumberIfRegistering and AGENT_NOTES.md), so
- * by the time a file reaches this gate it is already numbered. The gate could
- * NOT move with it: only R02 may record it (`notes_attachments.edit`, narrowed
- * to المقرر in Stage 84 per Appendices 6/19), and R02 cannot even open the
- * file while it is still with the receiving body — gating `register` on a
- * record only R02 can write would deadlock. So what this gate now guards is
- * the boundary it can actually guard: entry into the rapporteur's substantive
- * review. Its refusals are worded for that, not for the قيد.
  *
  * The requiredness rule is Stage 72's own data, not an invented one: Appendix
  * 57 writes its conditional items as an inline qualifier ("بحسب الموضوع"،
@@ -43,7 +33,7 @@ use App\Models\Request;
  */
 class IntakeGateService
 {
-    /** The one hop this gate guards, named once. */
+    /** The one hop that grants Art. 20's قيد, named once. */
     public const GATED_STAGE = 'requirements_check';
 
     public const GATED_ACTION = 'approve';
@@ -154,7 +144,7 @@ class IntakeGateService
             $record = $requestRecord->intake_gate;
 
             if (! is_array($record)) {
-                return 'لا يجوز إحالة الملف إلى مراجعة المقرر قبل استيفاء بوابة الرقابة الأولى: التحقق من صحة الوقائع واكتمال الوثائق.';
+                return 'لا يجوز قيد المعاملة قبل استيفاء بوابة الرقابة الأولى: التحقق من صحة الوقائع واكتمال الوثائق.';
             }
 
             $answers = is_array($record['documents'] ?? null) ? $record['documents'] : [];
@@ -175,7 +165,7 @@ class IntakeGateService
             }
 
             if ($answer === 'missing') {
-                return 'لا يجوز متابعة الإجراء قبل اكتمال المستندات المطلوبة. المستند الناقص: '.$document['ar'];
+                return 'لا يجوز القيد قبل اكتمال المستندات المطلوبة. المستند الناقص: '.$document['ar'];
             }
 
             // Appendix 57's own qualifier is what makes "لا ينطبق" honest —
@@ -186,7 +176,7 @@ class IntakeGateService
         }
 
         if ($factsVerified !== true) {
-            return 'لا يجوز متابعة الإجراء قبل التحقق من صحة الوقائع والبيانات المقدمة.';
+            return 'لا يجوز القيد قبل التحقق من صحة الوقائع والبيانات المقدمة.';
         }
 
         return null;

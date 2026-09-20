@@ -56,7 +56,7 @@ class ControlGateTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath(
                 'errors.action.0',
-                'لا يجوز إحالة الملف إلى مراجعة المقرر قبل استيفاء بوابة الرقابة الأولى: التحقق من صحة الوقائع واكتمال الوثائق.',
+                'لا يجوز قيد المعاملة قبل استيفاء بوابة الرقابة الأولى: التحقق من صحة الوقائع واكتمال الوثائق.',
             );
 
         // Still at the same stage, and no قيد was granted.
@@ -99,7 +99,7 @@ class ControlGateTest extends TestCase
             ->assertOk()
             ->assertJsonPath(
                 'data.control_gates.intake.refusal',
-                'لا يجوز متابعة الإجراء قبل اكتمال المستندات المطلوبة. المستند الناقص: '.$documents[$unconditional]['ar'],
+                'لا يجوز القيد قبل اكتمال المستندات المطلوبة. المستند الناقص: '.$documents[$unconditional]['ar'],
             );
 
         // Waiving an unconditional one refuses too.
@@ -141,7 +141,7 @@ class ControlGateTest extends TestCase
             ->assertOk()
             ->assertJsonPath(
                 'data.control_gates.intake.refusal',
-                'لا يجوز متابعة الإجراء قبل التحقق من صحة الوقائع والبيانات المقدمة.',
+                'لا يجوز القيد قبل التحقق من صحة الوقائع والبيانات المقدمة.',
             );
 
         $this->actingAs($reviewer, 'sanctum')
@@ -175,7 +175,7 @@ class ControlGateTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath(
                 'errors.request.0',
-                'لا يجوز إحالة الملف إلى مراجعة المقرر قبل استيفاء بوابة الرقابة الأولى: التحقق من صحة الوقائع واكتمال الوثائق.',
+                'لا يجوز قيد المعاملة قبل استيفاء بوابة الرقابة الأولى: التحقق من صحة الوقائع واكتمال الوثائق.',
             );
 
         $this->passIntakeGate($requestRecord);

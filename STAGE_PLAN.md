@@ -1693,6 +1693,7 @@ then 422s (verified: gates one route, and no test anywhere exercises R02 on deci
 **Done when:** a file is numbered by R02 after its documents are verified, not before.
 **Consequence:** `compliance-matrix.md`'s Appendix 45 row ✅ → ⚠ — تسجيل النتيجة re-opens.
 **Source:** [D] Appendix 6 row 5 + Art. 20 (ب) + Appendix 63 بوابة 1.
+**Built 2026-09-20.** Two seeded fields (`register` → `in_review`; `approve` already `registered`) + copy + R02 out of `decisions,approve`; no service logic. See AGENT_NOTES.md.
 
 ---
 
@@ -1760,7 +1761,7 @@ established for exactly this.
 dependency record: it says which stage had to precede which, which is what you need when reading a
 stage's assumptions or judging whether a change to one stage's work disturbs another's.
 
-**Track N (94–101) is planned, not built.** Only **94** (the docs re-derivation) is done.
+**Track N (94–101) is mostly planned.** **94** (the docs re-derivation) and **97** (القيد back to R02) are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency.
 
 ```
 94 → 96 → 97                    (independent of 95 — seeded-map work)

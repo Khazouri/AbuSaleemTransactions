@@ -600,7 +600,7 @@
     "loadFailed": "The intake form options could not be loaded.",
     "successTitle": "Request created",
     "successBody": "The request has entered the official track. Its intake receipt number is:",
-    "receiptNotice": "This is an intake receipt, not a registration with the Employee Affairs Committee. The committee reference number is granted when the receiving body registers the file, and you will be notified when it is.",
+    "receiptNotice": "This is an intake receipt, not a registration with the Employee Affairs Committee. The committee reference number is granted once the file is confirmed complete.",
     "createAnother": "Enter another request",
     "viewQueue": "View request queue",
     "requiredDocuments": {
@@ -724,7 +724,7 @@
   },
   "requestDetail": {
     "back": "Back to request list",
-    "awaitingRegistration": "Intake receipt — the receiving body has not registered this file yet.",
+    "awaitingRegistration": "Intake receipt — not yet registered with the committee.",
     "tabsLabel": "Request file sections",
     "tabs": {
       "file": "File",
@@ -1837,7 +1837,7 @@
       "route_to_hr": "Route to HR",
       "route_to_diwan": "Route to Diwan Deputy",
       "route_to_committee_secretary": "Route to Committee Secretary",
-      "register": "Register the file and grant its reference number",
+      "register": "Register receipt",
       "return_to_employee": "Return to employee",
       "reject_formally": "Formal rejection with reason",
       "reject_by_committee": "Non-approval with reason",
@@ -2037,7 +2037,7 @@
     "cancel": "Cancel",
     "error": "The action could not be completed.",
     "intake": {
-      "title": "Gate 1 — before referral for review",
+      "title": "Gate 1 — before registration",
       "question": "Are the facts and documents correct and complete?",
       "action": "Record the file check",
       "reviseAction": "Revise the file check",

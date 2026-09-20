@@ -44,27 +44,21 @@ class WorkflowTransitionSeeder extends Seeder
         // one would silently overwrite the other on every re-seed.
         $transitions = [
             ['receive_from_municipality', 'direct_manager_review', 'submit', 'R01', 'in_review'],
-            // Art. 18's "ملف مستوفٍ" outcome: the completeness check passed.
-            // This hop is NO LONGER the قيد — the `register` rows below are
-            // (see their own comment and AGENT_NOTES.md) — so by the time a
-            // file gets here it already holds its رقم إشاري and already sits
-            // on `registered`.
+            // THIS HOP IS THE قيد (Stage 97). Art. 20 grants it "بعد ثبوت اكتمال
+            // الملف" and Appendix 6 row 5 makes القيد مقرر اللجنة's own act, so
+            // it is R02's approve out of the completeness check — Art. 18's
+            // "ملف مستوفٍ" outcome — landing on Art. 38's code 06 (مستوفية
+            // ومقيدة, "اكتملت المتطلبات ومنحت رقمًا مرجعيًا": one event, so the
+            // status and the number arrive together).
             //
-            // It keeps setting `registered` anyway, and that is deliberate on
-            // two counts. Art. 38's code 06 asserts two things, "اكتملت
-            // المتطلبات" AND "منحت رقمًا مرجعيًا", and after the قيد moved no
-            // single hop establishes both — keeping 06 across both rows says
-            // the file is in that band from acceptance until it leaves for the
-            // rapporteur, which is the honest reading without inventing a
-            // status. And any file still mid-pipeline when the قيد moved
-            // (sitting here on `in_review`, never numbered) mints on this hop
-            // instead, so it self-heals rather than being stranded.
-            //
-            // The resulting registered → registered re-stamp is inert, not an
-            // oversight: RequestStatusNoticeObserver skips from==to rows,
-            // RequestTimeCard::timeInStatuses() treats re-entry as a no-op,
-            // and every reader of request_status_history filters on
-            // ready/deferred/incomplete/completion_required, never this one.
+            // The generator is never named here: WorkflowService::applyRule()
+            // keys the reference allocation off the DESTINATION STATUS, and both
+            // endpoints able to run this action (RequestController::transition
+            // and ApprovalController::store) go through it. Stage 70 put the
+            // قيد here; 2026-09-18 moved it to the receiving body's `register`
+            // rows, which contradicted both sources; Stage 97 moved it back.
+            // Appendix 63's بوابة 1 guards this same hop, i.e. it runs BEFORE
+            // the قيد, where the appendix puts it.
             ['requirements_check', 'reviewer_review', 'approve', 'R02', 'registered'],
             ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
             // Stage 57 — collapses the old two-hop observations ->
@@ -225,8 +219,7 @@ class WorkflowTransitionSeeder extends Seeder
             );
         }
 
-        // Diagram-alignment redesign: registration convergence, and — since
-        // the قيد moved here — the hop that grants the reference number. Three
+        // Diagram-alignment redesign: registration convergence. Three
         // `register` rows share the SAME action out of receive_and_register,
         // one per legitimate receiving role (R12/HR, R10/Diwan,
         // R09/Committee Secretary), each gated on BOTH its role and the
@@ -271,23 +264,12 @@ class WorkflowTransitionSeeder extends Seeder
                 [
                     'to_stage_id' => $stages['requirements_check']->id,
                     'requires_submitter_manager' => false,
-                    // THIS HOP IS THE قيد. Accepting the file is what
-                    // registers it, so this row lands on Art. 38's code 06
-                    // (مستوفية ومقيدة) and, because
-                    // WorkflowService::applyRule() keys the reference
-                    // allocation off the DESTINATION STATUS, reaching it is
-                    // also what mints the رقم إشاري. The generator is never
-                    // named here — moving the قيد is this one field.
-                    //
-                    // This deliberately diverges from [D] Art. 20 ("القيد …
-                    // بعد ثبوت اكتمال الملف"), which Stage 70 had put on the
-                    // approve hop out of requirements_check. The user chose
-                    // the receiving body's acceptance as the قيد point after
-                    // being shown that conflict; see AGENT_NOTES.md. All three
-                    // registrars grant it, which is why the loop this sits in
-                    // covers R05/R10/R09 identically rather than singling out
-                    // one route.
-                    'set_status_id' => $statuses['registered']->id,
+                    // Arriving at requirements_check is Art. 38's code 04 (تحت
+                    // فحص الاكتمال), not 06: the file has been delivered to the
+                    // checker, nothing has been checked yet, and accepting it is
+                    // not the قيد. `registered` (06) is set by R02's approve out
+                    // of that stage, where Art. 20 grants the قيد (Stage 97).
+                    'set_status_id' => $statuses['in_review']->id,
                     'is_exception' => false,
                     'requires_comment' => false,
                     'order_no' => 12 + $index,

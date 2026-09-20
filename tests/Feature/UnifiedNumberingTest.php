@@ -29,9 +29,9 @@ use Tests\TestCase;
  *
  * The two halves are tested together because they are one rule: a number
  * granted at the wrong moment is exactly what Art. 15 ("ولا يعد مجرد تقديم
- * الطلب إلى الرئيس المباشر قيدًا") forbids. Where the right moment is was
- * moved deliberately — it is the receiving body's own `register` action, not
- * Stage 70's completeness check; see AGENT_NOTES.md.
+ * الطلب إلى الرئيس المباشر قيدًا") forbids, and Art. 20 defines the right one:
+ * المقرر's act, after completeness — the `requirements_check → approve` hop.
+ * (Stage 97 restored it there after the 2026-09-18 move to `register`.)
  */
 class UnifiedNumberingTest extends TestCase
 {
@@ -42,10 +42,10 @@ class UnifiedNumberingTest extends TestCase
 
     /**
      * Art. 15 — intake produces a receipt and NO reference; the reference
-     * appears the moment the receiving body accepts the file, in Appendix
-     * 15's own shape, and does not change afterwards.
+     * appears on the hop that establishes completeness, in Appendix 15's own
+     * shape, and does not change afterwards.
      */
-    public function test_the_reference_is_granted_when_the_receiving_body_registers_the_file_not_at_intake(): void
+    public function test_the_reference_is_granted_at_the_completeness_check_not_at_intake(): void
     {
         Storage::fake('local');
         $this->seed(DatabaseSeeder::class);
@@ -81,27 +81,28 @@ class UnifiedNumberingTest extends TestCase
         $service->transition($requestRecord, 'route_to_hr', $manager);
         $this->assertNull($requestRecord->refresh()->reference_number);
 
-        // THE قيد. Accepting the file is what registers it, so the status
-        // (Art. 38's code 06) and the رقم إشاري arrive together on this hop.
         // Stage 87 — the HR registrar is R12, not R05.
         $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
         $requestRecord->refresh();
-        $this->assertSame('PM-COM/'.now()->format('Y').'/0001', $requestRecord->reference_number);
-        $this->assertSame('registered', $requestRecord->status->code);
+        $this->assertNull($requestRecord->reference_number);
+        // Art. 38 code 04 (تحت فحص الاكتمال): delivered to be checked, not yet
+        // checked — the receiving body's acceptance is not the قيد.
+        $this->assertSame('in_review', $requestRecord->status->code);
         $this->assertSame('requirements_check', $requestRecord->currentStage->code);
-        // The receipt survives the قيد: it is the employee's own record of a
-        // submission that really did happen before registration.
-        $this->assertSame('PM-RCV/'.now()->format('Y').'/000001', $requestRecord->intake_receipt_number);
 
         $requestRecord->jurisdiction_test = $this->jurisdictionAnswers();
         $requestRecord->save();
 
-        // The completeness check re-stamps code 06 and must NOT re-number:
-        // Art. 99 gives a request one number for its whole life.
+        // Stage 97 — THE قيد is المقرر's act, after completeness (Art. 20,
+        // Appendix 6 row 5). Art. 38's code 06 — "اكتملت المتطلبات ومنحت رقمًا
+        // مرجعيًا" is one event, so the status and the number arrive together.
         $service->transition($requestRecord, 'approve', $this->userWithRole('R02'));
         $requestRecord->refresh();
         $this->assertSame('registered', $requestRecord->status->code);
         $this->assertSame('PM-COM/'.now()->format('Y').'/0001', $requestRecord->reference_number);
+        // The receipt survives the قيد: it is the employee's own record of a
+        // submission that really did happen before registration.
+        $this->assertSame('PM-RCV/'.now()->format('Y').'/000001', $requestRecord->intake_receipt_number);
         $this->assertSame(1, Request::whereNotNull('reference_number')->count());
     }
 
@@ -126,17 +127,13 @@ class UnifiedNumberingTest extends TestCase
         $employee->manager_id = $manager->id;
         $employee->save();
 
-        // Entered through the قيد itself — the receiving body accepting the
-        // file — so the number under test is the one that hop minted.
-        $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr');
+        $requestRecord = $this->requestAt('requirements_check', 'in_review');
         $requestRecord->created_by_user_id = $employee->id;
         $requestRecord->save();
 
-        $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
+        $service->transition($requestRecord, 'approve', $reviewer);
         $first = $requestRecord->refresh()->reference_number;
         $this->assertSame('PM-COM/'.now()->format('Y').'/0001', $first);
-
-        $service->transition($requestRecord, 'approve', $reviewer);
 
         // Back for missing documents, all the way to the front of the chain,
         // then forward again through the same registration hop.
@@ -163,11 +160,9 @@ class UnifiedNumberingTest extends TestCase
         $reviewer = $this->userWithRole('R02');
         $service = app(WorkflowService::class);
 
-        $registrar = $this->userWithRole('R12');
-
         foreach ([1, 2, 3] as $sequence) {
-            $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr');
-            $service->transition($requestRecord, 'register', $registrar);
+            $requestRecord = $this->requestAt('requirements_check', 'in_review');
+            $service->transition($requestRecord, 'approve', $reviewer);
 
             $this->assertSame(
                 'PM-COM/'.now()->format('Y').'/'.sprintf('%04d', $sequence),

@@ -14,6 +14,105 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-20 22:10 EET — Claude — Stage 97 complete (القيد back to مقرر اللجنة)
+
+Built per the plan below. **No migration, no new endpoint, and no service logic** — the behaviour
+change is two seeded values, which is the check that `applyRule()`'s destination-status keying did
+what its docblock promised: the قيد moved twice (Stage 70 → 2026-09-18 → here) without that method
+being edited. Full suite **684 tests / 4520 assertions** green (baseline 684/4520: one test added,
+one redundant one deleted), Pint clean on every touched PHP file (the repo-wide `--test` failure is
+the same `scripts/build-guide-pdf.php` drift as before), `npm run build` passes and `frontend/dist`
+was reverted, locale parity **1966 keys each side** with no key added or removed (values only),
+checkbox parity **361 each** across `TEST_PLAN.roles.md`/`.ar.md`, and `php artisan migrate` reports
+nothing to migrate.
+
+**Real-database check, by query rather than assumption:** all three `register` rows now set
+`in_review`, `requirements_check → approve` sets `registered`, and `decisions,can_approve` is held by
+**R03 and R08 only**. Both seeders were re-run against the real MySQL. Note the standing hazard:
+`ScreenRolePermissionSeeder` resets the whole matrix, so any grant customised through the Roles &
+Permissions screen on that database was reset too — none is known, but on a live install apply the
+one-cell change by hand instead.
+
+**What flipped.** `register` lands on Art. 38 code **04** (تحت فحص الاكتمال) and mints nothing;
+R02's approve is the قيد (code **06** + `PM-COM`) with بوابة 1 guarding the same hop, so the gate is
+*before* the قيد again — and it needed no deadlock workaround, because both now sit where R02 can
+act. The three gate-1 refusal strings, `controlGates.intake.title`, `requestDetail.awaitingRegistration`,
+`intake.receiptNotice`, `workflow.actions.register` (both locales) and USER_GUIDE.ar.md were
+restored, and Art. 101 moment 3's body is back to «باكتمال ما طُلب استكماله» — that wording was
+softened *only because* moment 3 fired at re-registration, and it fires at the completeness hop
+again, so the claim is true again. That closes the "known imprecision" the 09-18 note recorded.
+
+**Kept on purpose:** the `reference_assigned` notice and the `Attachment` classification work from
+the same 09-18 commit — neither depended on where the قيد sits. The notice follows the *allocation*,
+so it simply fires on the approve hop now; its five tests were re-pointed at that hop, and one
+(the "mid-pipeline file mints on approve" case) was deleted as it had become the main path. A new
+assertion pins that `register` announces nothing.
+
+**R02 out of `decisions,approve`** (the smallest item): `WorkflowService` had always refused an R02
+outcome (every committee outcome row requires R03), so the grant passed the 403 gate and 422'd — a
+capability that only looked real. New `DecisionRegisterTest` case pins R03-yes / R02-no. **The trade
+is real and recorded:** `compliance-matrix.md`'s Appendix 45 moved ✅ → ⚠ (تسجيل النتيجة re-opens),
+Part B headline **62/20 → 61/21**, with the reading of Appendix 6 row 10's «توثيق» as documentation
+rather than the tally stated as the assumption it rests on.
+
+**Docs (git-ignored, local only):** `source-detailed-flow-verbatim.md` stage 07 divergent →
+compliant (tally 18·2·1 → **19·1·1**, flipped in this same change per the Stage 94 note),
+`compliance-matrix.md` Appendix 6 note + Appendix 45 + headline, `gap-analysis-appendix-6.md` row 5
+marked resolved. STAGE_PLAN.md marks 97 built and corrects the Track N line that said only 94 was.
+Stage 97 was taken **ahead of 96**, which its own text allows.
+
+**In-flight data:** a file numbered at `register` under the old rule keeps that number (the mint is
+null-only, Art. 99) and simply re-stamps `registered` on approve; a file at `requirements_check`
+unnumbered now mints on approve, which is the intended path. No backfill. The real database holds
+5 requests, 1 of them already numbered; that one keeps its number and nothing was changed on any of them.
+
+**Open items.** (1) `RequestResponsibilityService`/notice copy still says nothing about *who* the
+قيد belongs to on screen — Appendix 6 row 5 is now true in code but the request card does not label
+it; Stage 98's HR step is the natural place to make the pre-قيد hand-offs legible. (2) The
+`register` action's label is once again «تسجيل الاستلام», and R12/R10/R09 all still perform it —
+collapsing three routes to one is Stage 96, untouched here.
+
+---
+
+### 2026-09-20 21:00 EET — Claude — Implementation plan: Stage 97 (القيد back to مقرر اللجنة)
+
+Reverses the 2026-09-18 19:40 move, per Track N decision 2 (already taken; not re-litigated here).
+**Scope: seeded data + copy + tests, no service logic.** `WorkflowService::applyRule()` keys the
+mint off the destination status, so the whole behavioural change is two seeder fields.
+
+1. **Seeder** — the three `register` rows in `WorkflowTransitionSeeder` set `in_review` (Art. 38
+   code 04) instead of `registered`; `requirements_check → approve` keeps `registered` (code 06) and
+   is again the hop that mints. Rewrite the two comments that claim the opposite.
+2. **Copy** — restore Appendix 63 بوابة 1 «قبل القيد»: the three `IntakeGateService` refusal strings
+   (and its docblock NOTE), `controlGates.intake.title`, `requestDetail.awaitingRegistration`,
+   `intake.receiptNotice`, `workflow.actions.register` in both locales; Art. 101 moment 3's
+   `documents_completed` body back to «باكتمال» (that moment fires on the completeness hop again, so
+   the claim is true again). Stale comments in `WorkflowService`, `RequestStatusSeeder`,
+   `ArtifactNumberGenerator`, `EmployeeNoticeService`, `RequestDetailView.vue`.
+3. **Kept on purpose:** the `reference_assigned` notice (added by that same commit, keyed off the
+   allocation not a stage, so it now simply fires on the approve hop) and its tests' logic — only
+   the hop the tests walk changes.
+4. **Smallest item** — `decisions,approve` loses R02 → `['R03']`. Gates one route; no test exercises
+   R02 on decisions, so add one that pins the 403.
+5. **Tests** — flip the assertions commit 8d4c01a flipped (ControlGateTest ×4 strings,
+   DirectManagerRoutingTest, UnifiedNumberingTest ×3, WorkflowServiceTest walk,
+   ReferenceAssignedNotificationTest, HumanResourcesSeatTest / any test asserting a number after
+   `register`). Discover the rest by running the full suite, not by guessing.
+6. **Docs** — `compliance-matrix.md` Appendix 45 ✅ → ⚠ and Appendix 6 row 5 / Art. 20 rows;
+   `source-detailed-flow-verbatim.md` stage 07 → compliant (same commit, per the Stage 94 note);
+   USER_GUIDE.ar.md §1.3/§4.4/§4.5/glossary and both TEST_PLAN.roles files (relay step 4↔5);
+   STAGE_PLAN Stage 97 marked built.
+7. **In-flight data:** a file numbered at `register` under the old rule keeps its number (mint is
+   null-only, Art. 99); it just re-stamps `registered` on approve. No backfill; a file sitting at
+   `requirements_check` unnumbered would now mint on approve — the intended path.
+
+**Verify:** full PHPUnit (baseline 684 tests / 4520 assertions), Pint on touched PHP, `npm run build`
+(then revert `frontend/dist`), locale key parity, reseed `WorkflowTransitionSeeder` +
+`ScreenRolePermissionSeeder` against the real DB and confirm rows by query; `php artisan migrate` —
+expected nothing to migrate.
+
+---
+
 ### 2026-09-20 EET — Claude — Stage 94 (Appendix 6 RACI re-derived cell by cell) — TRACK N opened
 
 **Docs only. No PHP, Vue, migration or seeder was touched, so no PHPUnit/Pint/`npm run build` run

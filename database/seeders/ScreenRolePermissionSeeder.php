@@ -163,13 +163,16 @@ class ScreenRolePermissionSeeder extends Seeder
         // since Art. 12 (أ) 9-10 give إقفال المناقشة and طرح الموضوعات
         // للتصويت to the chair.
         'meeting_live' => ['view' => '*', 'add' => ['R02', 'R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
-        // Stage 84 — two changes here.
+        // Stage 84 — `export` joins R06/R07 (below).
         //
-        // `approve` (recording the tallied result) gains R02: Appendix 45
-        // lists تسجيل النتيجة among المقرر's own capabilities and Art. 15 (أ)
-        // ثانيًا 6 is تسجيل نتيجة التصويت بدقة. The outcome is computed from
-        // the votes, so المقرر cannot record one the committee did not reach
-        // — the thing Art. 16 (أ) 4 actually forbids.
+        // Stage 97 — `approve` (recording the tallied result) is R03 ALONE
+        // again. Stage 84 gave it to R02 on Appendix 45's تسجيل النتيجة, but
+        // every committee outcome row in workflow_transitions requires R03, so
+        // an R02 passed this 403 gate and then 422'd in WorkflowService — a
+        // grant that only ever looked like a capability. Appendix 6 row 10 has
+        // المقرر «توثيق» (documentation, which R02 already holds through
+        // `meeting_minutes,add`), not the tally. The trade re-opens
+        // Appendix 45's تسجيل النتيجة, recorded in compliance-matrix.md.
         //
         // `add` deliberately does NOT gain R02: that tier casts a vote, and
         // Art. 16 (أ) 2 forbids المقرر voting unless قرار التشكيل says
@@ -183,7 +186,7 @@ class ScreenRolePermissionSeeder extends Seeder
         // included — on screen today, and register 6 already exports the same
         // population to them. Art. 102's tally restriction is about صاحب
         // العلاقة, whom Stage 79 excluded from DecisionRecordedNotification.
-        'decisions' => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R02', 'R03'], 'print' => '*', 'export' => ['R06', 'R07']],
+        'decisions' => ['view' => '*', 'add' => ['R03', 'R04'], 'approve' => ['R03'], 'print' => '*', 'export' => ['R06', 'R07']],
         // Stage 36: `add` covers both generating a draft and casting one's
         // own signature (mirrors `decisions,add` covering vote-casting);
         // `approve` is the head's review decision, same split as `decisions`.

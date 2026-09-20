@@ -18,8 +18,8 @@ use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 /**
- * The submitter is told when the قيد replaces their intake receipt with the
- * committee's رقم إشاري.
+ * The submitter is told when the قيد (المقرر's approve out of the completeness
+ * check, Art. 20) replaces their intake receipt with the committee's رقم إشاري.
  *
  * The notice is driven by the ALLOCATION, not by a stage or an action — see
  * WorkflowService::transition() — so these tests pin the property that
@@ -38,20 +38,19 @@ class ReferenceAssignedNotificationTest extends TestCase
     }
 
     /**
-     * The قيد itself: the receiving body accepts an HR-routed file, and the
-     * submitter is told their receipt number has been superseded — with both
-     * numbers named, since the receipt is the only one they were holding.
+     * The قيد itself: المقرر passes the completeness check, and the submitter
+     * is told their receipt number has been superseded — with both numbers
+     * named, since the receipt is the only one they were holding.
      */
-    public function test_registering_the_file_tells_the_submitter_the_reference_changed(): void
+    public function test_the_registration_tells_the_submitter_the_reference_changed(): void
     {
         Notification::fake();
 
         $employee = $this->userWithRole('R01');
-        // Stage 87 — R12 is the HR registrar now, not R05.
-        $registrar = $this->userWithRole('R12');
-        $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr', $employee, 'PM-RCV/2026/000042');
+        $registrar = $this->userWithRole('R02');
+        $requestRecord = $this->requestAt('requirements_check', 'in_review', $employee, 'PM-RCV/2026/000042');
 
-        app(WorkflowService::class)->transition($requestRecord, 'register', $registrar);
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $registrar);
         $requestRecord->refresh();
 
         $this->assertNotNull($requestRecord->reference_number);
@@ -81,10 +80,10 @@ class ReferenceAssignedNotificationTest extends TestCase
 
     /**
      * Art. 99 gives a request one number for life, so this is news exactly
-     * once. The completeness check re-stamps the same status immediately
-     * afterwards and must not re-announce anything.
+     * once. The receiving body's acceptance is NOT the قيد and announces
+     * nothing; only the completeness hop does.
      */
-    public function test_the_notice_fires_once_and_not_again_on_the_completeness_check(): void
+    public function test_the_notice_fires_once_and_not_on_the_receiving_bodys_acceptance(): void
     {
         Notification::fake();
 
@@ -93,6 +92,8 @@ class ReferenceAssignedNotificationTest extends TestCase
 
         $service = app(WorkflowService::class);
         $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
+        Notification::assertNotSentTo($employee, RequestReferenceAssignedNotification::class);
+
         $service->transition($requestRecord->refresh(), 'approve', $this->userWithRole('R02'));
 
         Notification::assertSentToTimes($employee, RequestReferenceAssignedNotification::class, 1);
@@ -121,25 +122,6 @@ class ReferenceAssignedNotificationTest extends TestCase
         Notification::assertNotSentTo($employee, RequestReferenceAssignedNotification::class);
     }
 
-    /**
-     * A request that was already mid-pipeline when the قيد moved mints on the
-     * completeness check instead, and must still be announced — the notice
-     * follows the allocation, not a hardcoded stage.
-     */
-    public function test_a_file_that_mints_on_the_completeness_check_is_announced_too(): void
-    {
-        Notification::fake();
-
-        $employee = $this->userWithRole('R01');
-        // The pre-move state: past the new قيد point, never numbered.
-        $requestRecord = $this->requestAt('requirements_check', 'in_review', $employee);
-
-        app(WorkflowService::class)->transition($requestRecord, 'approve', $this->userWithRole('R02'));
-
-        $this->assertNotNull($requestRecord->refresh()->reference_number);
-        Notification::assertSentToTimes($employee, RequestReferenceAssignedNotification::class, 1);
-    }
-
     /** Muting the event delivers nothing, like every other Stage 23 event. */
     public function test_a_muted_event_delivers_nothing(): void
     {
@@ -154,9 +136,9 @@ class ReferenceAssignedNotificationTest extends TestCase
             'sms' => false,
         ]);
 
-        $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr', $employee);
+        $requestRecord = $this->requestAt('requirements_check', 'in_review', $employee);
 
-        app(WorkflowService::class)->transition($requestRecord, 'register', $this->userWithRole('R12'));
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $this->userWithRole('R02'));
 
         $this->assertNotNull($requestRecord->refresh()->reference_number);
         Notification::assertNotSentTo($employee, RequestReferenceAssignedNotification::class);
@@ -170,9 +152,9 @@ class ReferenceAssignedNotificationTest extends TestCase
     public function test_the_notice_reaches_the_requests_own_notice_register(): void
     {
         $employee = $this->userWithRole('R01');
-        $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr', $employee, 'PM-RCV/2026/000007');
+        $requestRecord = $this->requestAt('requirements_check', 'in_review', $employee, 'PM-RCV/2026/000007');
 
-        app(WorkflowService::class)->transition($requestRecord, 'register', $this->userWithRole('R12'));
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $this->userWithRole('R02'));
 
         $response = $this->actingAs($employee, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")

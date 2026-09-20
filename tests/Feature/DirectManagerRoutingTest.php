@@ -166,10 +166,10 @@ class DirectManagerRoutingTest extends TestCase
         $hrRegistrar = $this->userWithRole('R12');
         $moved = $service->transition($requestRecord->refresh(), 'register', $hrRegistrar);
         $this->assertSame('requirements_check', $moved->currentStage->code);
-        // Registering IS the قيد, so accepting the file lands it on Art. 38's
-        // code 06 and mints its رقم إشاري — see UnifiedNumberingTest.
-        $this->assertSame('registered', $moved->status->code);
-        $this->assertNotNull($moved->reference_number);
+        // Art. 38's code 04 (تحت فحص الاكتمال), not 06: accepting the file is
+        // not the قيد. المقرر grants that on the approve hop — see
+        // UnifiedNumberingTest, which pins that no number is minted here.
+        $this->assertSame('in_review', $moved->status->code);
 
         // And the reverse pairing (R12 attempting a Diwan-routed file) is
         // equally refused, confirming this isn't a one-way accident.

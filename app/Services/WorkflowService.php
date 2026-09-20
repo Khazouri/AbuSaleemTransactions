@@ -26,15 +26,11 @@ class WorkflowService
     // Stage 23 — every path that moves a request comes through this
     // service, so notifying from here means the detail screen, the approval
     // queues and the committee decision all announce a move exactly once.
-    // The numbering generator is a dependency of this service, not of a
-    // controller, because allocation has to happen wherever a move lands the
-    // request on Art. 38's code 06 — today that is the قيد hop
-    // (receive_and_register -> register, driven only by
-    // RequestController::transition()), but the re-stamping approve hop out of
-    // requirements_check is additionally reachable through
-    // ApprovalController::store(), and a file that predates the قيد move mints
-    // there. Allocating from any one controller would leave the others minting
-    // no number at all.
+    // Stage 70 — the numbering generator is a dependency of this service, not
+    // of a controller, because the قيد hop (requirements_check -> approve) is
+    // reachable from two endpoints: RequestController::transition() and
+    // ApprovalController::store(). Allocating from either one alone would
+    // leave the other minting no number at all.
     public function __construct(
         private readonly NotificationDispatcher $notifications,
         private readonly ArtifactNumberGenerator $numbers,
@@ -182,9 +178,8 @@ class WorkflowService
         // grantReferenceNumberIfRegistering() is one-way and idempotent (null
         // -> value, never value -> a different value), so this comparison is
         // true exactly once in a request's life, whichever hop happens to mint
-        // it. Detecting the allocation rather than hardcoding the stage is
-        // what keeps this correct for a file that predates the قيد move and
-        // therefore mints on the approve hop instead.
+        // it. Detecting the allocation rather than hardcoding the stage keeps
+        // it true wherever the seeded map puts the قيد.
         $referenceBeforeMove = $requestRecord->reference_number;
 
         [$movedRequest, $fromStage, $toStage] = DB::transaction(function () use ($requestRecord, $action, $actor, $comment) {
@@ -433,24 +428,20 @@ class WorkflowService
      * @return array{0: Request, 1: ?WorkflowStage, 2: ?WorkflowStage}
      */
     /**
-     * The قيد: allocate the committee reference number the moment, and only
-     * the moment, a move lands the request on Art. 38's code 06 (مستوفية
-     * ومقيدة). Art. 15 is explicit that handing the request to the direct
-     * manager is not a قيد, which is why intake mints only a receipt.
+     * Stage 70 (Track K) — [D] Art. 20's قيد: allocate the committee reference
+     * number the moment, and only the moment, a move lands the request on
+     * Art. 38's code 06 (مستوفية ومقيدة — "اكتملت المتطلبات ومنحت رقمًا
+     * مرجعيًا"). Art. 15 is explicit that everything before that is not a قيد,
+     * which is why intake mints only a receipt.
      *
      * Keyed off the DESTINATION STATUS rather than a hardcoded stage/action
      * pair so the قيد follows the seeded map: whichever rule the seeder says
      * reaches code 06 is the rule that registers, and re-seeding that map
-     * moves this with it. That is not decoration — it is how the قيد was
-     * moved from Stage 70's `requirements_check -> approve` to the receiving
-     * body's own `register` action without editing a line of this method.
-     *
-     * Note the consequence, which is deliberate and is recorded in
-     * AGENT_NOTES.md: the قيد now precedes [D] Appendix 63's بوابة 1 (the
-     * completeness gate on the approve hop), so a file is numbered before its
-     * documents are verified. That gate could not move with it — only R02 may
-     * record it, and R02 cannot open the file while it is still with the
-     * receiving body.
+     * moves this with it. That is not decoration — it is how the قيد was moved
+     * to the receiving body's `register` action on 2026-09-18 and back to
+     * `requirements_check -> approve` in Stage 97 without editing a line of
+     * this method. The gate before it (Appendix 63's بوابة 1) guards that same
+     * hop, so a file is numbered only after its documents are verified.
      *
      * Allocation is conditional on there being no reference yet. Art. 99
      * ("يكون لكل معاملة رقم واحد طوال دورة حياتها") and النموذج 05 ("ولا يجوز

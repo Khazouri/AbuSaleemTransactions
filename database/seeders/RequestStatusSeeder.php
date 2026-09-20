@@ -113,12 +113,11 @@ class RequestStatusSeeder extends Seeder
             // enforce that only the matching receiving role can register it
             // (required_status_id) — see actorMayUse() in WorkflowService.
             //
-            // `registered` is Art. 38's code 06 and is set by the `register`
-            // action itself — accepting the file IS the قيد, and reaching this
+            // `registered` (Art. 38's code 06) is set by R02's approve out of
+            // requirements_check — that hop is the قيد, and reaching this
             // status is what allocates the رقم إشاري (WorkflowService::
             // applyRule() keys the allocation off the destination status).
-            // The approve hop out of requirements_check re-stamps it, which is
-            // a deliberate no-op; both seeder comments explain why.
+            // The `register` rows land on `in_review` (code 04) instead.
             ['routed_to_hr',                   'موجّه إلى الموارد البشرية',        'Routed to HR',                    '#2563eb'],
             ['routed_to_diwan',                'موجّه إلى وكيل الديوان',           'Routed to Diwan Deputy',          '#4f46e5'],
             ['routed_to_committee_secretary',  'موجّه إلى أمين سر اللجنة',         'Routed to Committee Secretary',   '#7c3aed'],

@@ -204,6 +204,18 @@ class DecisionRegisterTest extends TestCase
         $this->actingAs($this->admin(), 'sanctum')->get('/api/decisions/export')->assertOk();
     }
 
+    /**
+     * Stage 97 — recording a result is the chair's. Every committee outcome
+     * row in workflow_transitions requires R03, so an R02 holding this grant
+     * would pass the screen gate and then 422 inside WorkflowService: a
+     * capability that only ever looked real.
+     */
+    public function test_only_the_chair_holds_the_grant_to_record_a_result(): void
+    {
+        $this->assertTrue($this->userWithRole('R03')->hasScreenPermission('decisions', 'can_approve'));
+        $this->assertFalse($this->userWithRole('R02')->hasScreenPermission('decisions', 'can_approve'));
+    }
+
     public function test_an_unrolled_user_cannot_read_the_register(): void
     {
         $this->actingAs(User::factory()->create(['is_active' => true]), 'sanctum')
