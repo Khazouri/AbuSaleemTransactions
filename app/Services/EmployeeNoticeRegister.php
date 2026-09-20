@@ -38,13 +38,15 @@ class EmployeeNoticeRegister
      */
     public function for(Request $requestRecord): array
     {
-        if ($requestRecord->created_by_user_id === null) {
+        // Stage 95 — addressed to صاحب العلاقة, matching who
+        // NotificationDispatcher::requestNotice() actually sent them to.
+        if ($requestRecord->subject_user_id === null) {
             return [];
         }
 
         return DatabaseNotification::query()
             ->where('notifiable_type', User::class)
-            ->where('notifiable_id', $requestRecord->created_by_user_id)
+            ->where('notifiable_id', $requestRecord->subject_user_id)
             // Both kinds, because this card answers "what was this employee
             // actually told about this file" and leaving one out makes that
             // answer wrong. `reference_assigned` is not one of Art. 101's

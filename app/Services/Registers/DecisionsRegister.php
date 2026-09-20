@@ -84,9 +84,9 @@ class DecisionsRegister extends Register
         return Decision::query()->with([
             'meetingRequest:id,meeting_id,request_id',
             'meetingRequest.meeting:id,meeting_number,scheduled_at',
-            'meetingRequest.request:id,reference_number,request_type_id,created_by_user_id,status_id,executed_at,closed_at,closure',
+            'meetingRequest.request:id,reference_number,request_type_id,created_by_user_id,subject_user_id,status_id,executed_at,closed_at,closure',
             'meetingRequest.request.requestType:id,name_ar,name_en',
-            'meetingRequest.request.createdBy:id,name',
+            'meetingRequest.request.subject:id,name',
             'meetingRequest.request.status:id,code,name_ar,name_en',
             'meetingRequest.request.approvalReferrals',
         ]);
@@ -108,7 +108,7 @@ class DecisionsRegister extends Register
             'decision_number' => $model->decision_number,
             'meeting_number' => $model->meetingRequest?->meeting?->meeting_number,
             'reference_number' => $requestRecord?->reference_number,
-            'employee' => $requestRecord?->createdBy?->name,
+            'employee' => $requestRecord?->subject?->name,
             'subject_type' => $this->localName($requestRecord?->requestType, $locale),
             'operative' => $model->decision_operative,
             'meeting_date' => $this->date($model->meetingRequest?->meeting?->scheduled_at),

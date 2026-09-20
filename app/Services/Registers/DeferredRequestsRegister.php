@@ -75,9 +75,9 @@ class DeferredRequestsRegister extends Register
             ->with([
                 'meetingRequest:id,meeting_id,request_id',
                 'meetingRequest.meeting:id,meeting_number',
-                'meetingRequest.request:id,reference_number,title,status_id,created_by_user_id',
+                'meetingRequest.request:id,reference_number,title,status_id,created_by_user_id,subject_user_id',
                 'meetingRequest.request.status:id,name_ar,name_en',
-                'meetingRequest.request.createdBy:id,name',
+                'meetingRequest.request.subject:id,name',
             ]);
     }
 
@@ -88,7 +88,7 @@ class DeferredRequestsRegister extends Register
         return [
             'reference_number' => $requestRecord?->reference_number,
             'title' => $requestRecord?->title,
-            'employee' => $requestRecord?->createdBy?->name,
+            'employee' => $requestRecord?->subject?->name,
             'meeting_number' => $model->meetingRequest?->meeting?->meeting_number,
             'deferred_at' => $this->date($model->decided_at),
             'deferral_reason' => $model->deferral_reason,

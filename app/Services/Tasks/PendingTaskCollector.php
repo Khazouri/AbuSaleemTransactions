@@ -92,10 +92,14 @@ class PendingTaskCollector
         return Request::query()
             ->whereHas('currentStage', fn (Builder $stage) => $stage->whereIn('code', $stageCodes))
             // Never advertise a record whose only available actor is also its
-            // creator; WorkflowService repeats this prohibition when writing.
+            // filer or صاحب العلاقة; WorkflowService repeats this same
+            // prohibition when writing (Stage 95 widened both together).
             ->where(fn (Builder $query) => $query
                 ->whereNull('created_by_user_id')
                 ->orWhere('created_by_user_id', '!=', $actor->id))
+            ->where(fn (Builder $query) => $query
+                ->whereNull('subject_user_id')
+                ->orWhere('subject_user_id', '!=', $actor->id))
             ->whereDoesntHave('status', fn (Builder $status) => $status->whereIn('code', self::TERMINAL_STATUSES));
     }
 
@@ -246,7 +250,11 @@ class PendingTaskCollector
     private function myCompletions(User $actor): ?array
     {
         $rows = Request::query()
-            ->where('created_by_user_id', $actor->id)
+            // Stage 95 — the missing documents are the subject's to supply and
+            // the filer's to chase, so the prompt goes to both.
+            ->where(fn (Builder $mine) => $mine
+                ->where('created_by_user_id', $actor->id)
+                ->orWhere('subject_user_id', $actor->id))
             ->whereHas('status', fn (Builder $status) => $status
                 ->whereIn('code', ['incomplete', 'completion_required', 'returned']))
             ->with(['status:id,code,name_ar,name_en', 'requestType:id,name_ar,name_en'])

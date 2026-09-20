@@ -689,6 +689,17 @@ onBeforeUnmount(clearAttachmentPreview)
                 <span>{{ t('requests.department') }}</span>
                 <strong>{{ name(request.department) }}</strong>
               </div>
+              <!-- Stage 95 — صاحب العلاقة, rendered only when somebody filed
+                   on this employee's behalf. An ordinary self-filed request
+                   would just say the same name twice. -->
+              <div v-if="request.subject && request.subject.id !== request.created_by?.id">
+                <span>{{ t('requestDetail.subjectUser') }}</span>
+                <strong>{{ request.subject.name }}</strong>
+              </div>
+              <div v-if="request.subject && request.subject.id !== request.created_by?.id">
+                <span>{{ t('requestDetail.filedBy') }}</span>
+                <strong>{{ request.created_by?.name }}</strong>
+              </div>
               <div>
                 <span>{{ t('requests.type') }}</span>
                 <strong>{{ name(request.request_type) }}</strong>

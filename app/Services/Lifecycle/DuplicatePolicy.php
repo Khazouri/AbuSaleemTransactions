@@ -13,11 +13,14 @@ use Illuminate\Support\Collection;
  * الموظف وموضوع المعاملة. وعند وجود ملف مفتوح لنفس الموضوع: **لا تنشأ معاملة
  * جديدة.** بل تلحق المستندات بالمعاملة القائمة."
  *
- * **The search is by creator + request type, and that is the structured
- * موضوع this system has.** Track K's own scope decision (1) puts the
- * employment record outside this application, so a request's creator *is* its
- * رقم الموظف; and the request type is the only structured statement of what a
- * file is about. Matching on the free-text title as well would be a
+ * **The search is by صاحب العلاقة + request type, and that is the structured
+ * موضوع this system has.** The appendix's own words are «البحث **برقم
+ * الموظف** وموضوع المعاملة», and Stage 95 gave this system a field for that
+ * employee: before it, this class matched on the filer, so a clerk who filed
+ * a promotion for one employee was then refused filing one for the next.
+ * Track K's scope decision (1) still puts the employment record outside this
+ * application, so `subject_user_id` *is* the رقم الموظف this search has; and
+ * the request type is the only structured statement of what a file is about. Matching on the free-text title as well would be a
  * similarity heuristic reporting a guess as a finding — the same call Stage 81
  * made when it declined to group free-text shortfall reasons into a statistic.
  *
@@ -67,11 +70,17 @@ class DuplicatePolicy
         're_presentation' => 'إعادة عرض الموضوع نفسه لا تقدم كمعاملة جديدة؛ يعاد فتح المعاملة السابقة وفق أسباب إعادة العرض.',
     ];
 
-    /** @return Collection<int, Request> */
-    public function priorRequests(User $actor, int $requestTypeId): Collection
+    /**
+     * Stage 95 — keyed on the employee the file is ABOUT, who is the caller
+     * on an ordinary self-filed intake and somebody else when a clerk files
+     * on their behalf.
+     *
+     * @return Collection<int, Request>
+     */
+    public function priorRequests(User $subject, int $requestTypeId): Collection
     {
         return Request::query()
-            ->where('created_by_user_id', $actor->getKey())
+            ->where('subject_user_id', $subject->getKey())
             ->where('request_type_id', $requestTypeId)
             ->with(['status:id,code,name_ar,name_en', 'currentStage:id,code,name_ar,name_en'])
             ->orderByDesc('id')
@@ -79,9 +88,9 @@ class DuplicatePolicy
     }
 
     /** The open file a new request on this subject would duplicate, if any. */
-    public function openPriorRequest(User $actor, int $requestTypeId): ?Request
+    public function openPriorRequest(User $subject, int $requestTypeId): ?Request
     {
-        return $this->priorRequests($actor, $requestTypeId)
+        return $this->priorRequests($subject, $requestTypeId)
             ->first(fn (Request $prior) => ! $this->isConcluded($prior));
     }
 
@@ -99,7 +108,7 @@ class DuplicatePolicy
      *
      * @param  array<string, mixed>  $data  the validated intake payload
      */
-    public function refusalReason(User $actor, array $data): ?string
+    public function refusalReason(User $subject, array $data): ?string
     {
         $typeId = (int) ($data['request_type_id'] ?? 0);
 
@@ -107,7 +116,7 @@ class DuplicatePolicy
             return null;
         }
 
-        $priors = $this->priorRequests($actor, $typeId);
+        $priors = $this->priorRequests($subject, $typeId);
 
         if ($priors->isEmpty()) {
             return null;

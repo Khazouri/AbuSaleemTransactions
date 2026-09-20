@@ -444,14 +444,17 @@ class MeetingController extends Controller
             'request.department:id,name_ar,name_en',
             'request.requestType:id,name_ar,name_en',
             'request.status:id,code,name_ar,name_en,color',
-            'request.createdBy:id,name,email,phone,department_id,manager_id',
-            'request.createdBy.department:id,name_ar,name_en',
-            'request.createdBy.manager:id,name',
+            // Stage 95 — [C] §6's بيانات الموظف tab is صاحب العلاقة and
+            // THEIR manager; before this stage a file filed on an
+            // employee's behalf showed the clerk's details to the committee.
+            'request.subject:id,name,email,phone,department_id,manager_id',
+            'request.subject.department:id,name_ar,name_en',
+            'request.subject.manager:id,name',
             'request.attachments',
         ]);
 
         $requestRecord = $agendaItem->request;
-        $creator = $requestRecord->createdBy;
+        $employee = $requestRecord->subject;
 
         // "الدراسة" — [C]'s study stage has no free-standing result field to
         // read; the honest equivalent is the actual stage-log entries
@@ -473,7 +476,7 @@ class MeetingController extends Controller
         // an employee's unregistered intakes are not the sitting's business.
         // Same bound RequestVisibility's own closer clause already uses.
         $previousRequests = Request::query()
-            ->where('created_by_user_id', $requestRecord->created_by_user_id)
+            ->where('subject_user_id', $requestRecord->subject_user_id)
             ->where('id', '!=', $requestRecord->id)
             ->whereNotNull('reference_number')
             ->with('status:id,code,name_ar,name_en,color')
@@ -508,19 +511,19 @@ class MeetingController extends Controller
                 'submitted_at' => $requestRecord->submitted_at?->toIso8601String(),
                 'due_date' => $requestRecord->due_date?->toDateString(),
             ],
-            'employee' => $creator ? [
-                'id' => $creator->id,
-                'name' => $creator->name,
-                'email' => $creator->email,
-                'phone' => $creator->phone,
-                'department' => $creator->department ? [
-                    'id' => $creator->department->id,
-                    'name_ar' => $creator->department->name_ar,
-                    'name_en' => $creator->department->name_en,
+            'employee' => $employee ? [
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'email' => $employee->email,
+                'phone' => $employee->phone,
+                'department' => $employee->department ? [
+                    'id' => $employee->department->id,
+                    'name_ar' => $employee->department->name_ar,
+                    'name_en' => $employee->department->name_en,
                 ] : null,
-                'manager' => $creator->manager ? [
-                    'id' => $creator->manager->id,
-                    'name' => $creator->manager->name,
+                'manager' => $employee->manager ? [
+                    'id' => $employee->manager->id,
+                    'name' => $employee->manager->name,
                 ] : null,
             ] : null,
             'study' => $study->map(fn (RequestStageLog $log) => [

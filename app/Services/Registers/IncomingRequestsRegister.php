@@ -65,6 +65,7 @@ class IncomingRequestsRegister extends Register
         return Request::query()->with([
             'requestType:id,name_ar,name_en',
             'createdBy:id,name',
+            'subject:id,name',
             'department:id,name_ar,name_en',
             'status:id,name_ar,name_en',
             'currentStage:id,name_ar,name_en',
@@ -78,7 +79,7 @@ class IncomingRequestsRegister extends Register
             'reference_number' => $model->reference_number,
             'title' => $model->title,
             'request_type' => $this->localName($model->requestType, $locale),
-            'employee' => $model->createdBy?->name,
+            'employee' => $model->subject?->name,
             'department' => $this->localName($model->department, $locale),
             'submitted_at' => $this->date($model->submitted_at),
             'due_date' => $this->date($model->due_date),

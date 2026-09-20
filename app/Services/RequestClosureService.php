@@ -249,7 +249,7 @@ class RequestClosureService
     {
         return DB::transaction(function () use ($requestRecord, $actor, $card, $audit) {
             $locked = Request::query()
-                ->with(['status:id,code', 'createdBy:id,is_active'])
+                ->with(['status:id,code', 'subject:id,is_active'])
                 ->lockForUpdate()
                 ->findOrFail($requestRecord->id);
 
@@ -279,7 +279,9 @@ class RequestClosureService
                     'execution_date' => $card['execution_date'] ?? null,
                     'executing_body' => $card['executing_body'] ?? null,
                     'file_storage_location' => $card['file_storage_location'],
-                    'notice_status' => $locked->createdBy?->is_active
+                    // Stage 95 — reachability of صاحب العلاقة, the person
+                    // Art. 101's notices are actually addressed to.
+                    'notice_status' => $locked->subject?->is_active
                         ? 'notified'
                         : 'requester_unreachable',
                 ],

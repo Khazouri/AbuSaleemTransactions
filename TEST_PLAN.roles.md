@@ -714,7 +714,11 @@ Sign in as `r05.manager@abusaleem.test`.
       threshold, the same `approve` lands directly on stage 12 with status `معتمدة نهائياً`,
       skipping R06 entirely.
 - [ ] `cancel` (reason required) at stage 10 only.
-- [ ] File a request on someone's behalf — R05 holds `request_intake` view/add.
+- [ ] File a request on someone's behalf — R05 holds `request_intake` view/add, **and since
+      Stage 95 its `approve` tier**, which is what actually lets them name a صاحب العلاقة other
+      than themselves. Confirm the intake screen shows the «صاحب العلاقة» picker, that a request
+      filed for another employee reports that employee as صاحب العلاقة and R05 as مقدّم الطلب,
+      and that the **subject's own** direct manager — not R05's — is the one who can forward it.
 
 ### C. What they must be refused
 
@@ -1264,7 +1268,7 @@ Letters: `v` view · `a` add · `e` edit · `d` delete · `A` approve · `p` pri
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `dashboard` — لوحة التحكم الرئيسية | vp | vp | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 | `requests` — الطلبات | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp | vp |
-| `request_intake` — إرسال الطلب | vae | vae | va | va | vae | va | · | vaedApx | · | · | · | · |
+| `request_intake` — إرسال الطلب | vae | vaeA | va | va | vaeA | va | · | vaedApx | · | · | · | · |
 | `request_details` — تفاصيل الطلب | vpx | vpx | vpx | vpx | vpx | vpx | vpx | vaedApx | vpx | vpx | vpx | vpx |
 | `notes_attachments` — الملاحظات والمرفقات | va | vae | va | va | va | v | v | vaedApx | v | v | v | va |
 | `request_tracking` — متابعة طلباتي | vp | vp | vp | vp | vp | vp | · | vaedApx | · | · | · | · |

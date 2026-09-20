@@ -22,24 +22,26 @@ class PresentationMemoCompiler
     {
         $agendaItem->loadMissing([
             'request.department:id,name_ar,name_en',
-            'request.createdBy:id,name,department_id',
-            'request.createdBy.department:id,name_ar,name_en',
+            // Stage 95 — Art. 22's الموظف and جهة عمله are صاحب العلاقة's,
+            // which is the filer on an ordinary self-filed intake.
+            'request.subject:id,name,department_id',
+            'request.subject.department:id,name_ar,name_en',
             'request.attachments',
         ]);
 
         $requestRecord = $agendaItem->request;
-        $creator = $requestRecord->createdBy;
+        $employee = $requestRecord->subject;
 
         return [
             'reference_number' => $requestRecord->reference_number,
-            'employee' => $creator ? ['id' => $creator->id, 'name' => $creator->name] : null,
+            'employee' => $employee ? ['id' => $employee->id, 'name' => $employee->name] : null,
             // جهة عمله — the employee's own department, distinct from the
             // request's own department below even though intake usually
             // sets both the same today.
-            'work_unit' => $creator?->department ? [
-                'id' => $creator->department->id,
-                'name_ar' => $creator->department->name_ar,
-                'name_en' => $creator->department->name_en,
+            'work_unit' => $employee?->department ? [
+                'id' => $employee->department->id,
+                'name_ar' => $employee->department->name_ar,
+                'name_en' => $employee->department->name_en,
             ] : null,
             'subject' => $requestRecord->title,
             'submission_date' => $requestRecord->submitted_at?->toIso8601String(),

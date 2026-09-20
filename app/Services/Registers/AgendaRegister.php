@@ -126,7 +126,7 @@ class AgendaRegister extends Register
             ->select('meeting_requests.*')
             ->with([
                 'meeting:id,meeting_number,scheduled_at',
-                'request:id,reference_number,title,status_id,request_type_id,created_by_user_id',
+                'request:id,reference_number,title,status_id,request_type_id,created_by_user_id,subject_user_id',
                 'appeal:id,appellant_user_id,original_request_id',
                 'appeal.originalRequest:id,reference_number,title',
                 'decision:id,meeting_request_id,outcome',

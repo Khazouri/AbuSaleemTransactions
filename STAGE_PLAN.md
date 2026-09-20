@@ -1663,6 +1663,13 @@ roles that file for others.
 **Done when:** row 2's مسؤول is the subject's own الرئيس المباشر, in code, not by coincidence.
 **⚠ Blast radius:** every fixture assuming creator ≡ subject. Expect a sweep on Stage 84's scale.
 **Source:** [D] Appendix 6 rows 1, 2, 3, 14.
+**Built 2026-09-21.** One nullable column backfilled to the creator, plus a `saving` hook that
+defaults it — which is why the predicted fixture sweep never happened: exactly one test needed a
+deliberately-changed assertion, and the suite went 684/4511 → 694/4554. The manager gate moved to
+the subject in all THREE places that state it (WorkflowService, RequestVisibility's SQL clause,
+NotificationDispatcher), Art. 101/102's audience became صاحب العلاقة, Appendix 16's search became
+per-subject, and the five self-action refusals widened to both parties. Intake gained a picker
+behind `request_intake,approve` (R02/R05). See AGENT_NOTES.md.
 
 ---
 
@@ -1766,7 +1773,7 @@ established for exactly this.
 dependency record: it says which stage had to precede which, which is what you need when reading a
 stage's assumptions or judging whether a change to one stage's work disturbs another's.
 
-**Track N (94–101) is mostly planned.** **94** (the docs re-derivation), **96** (R09/R10 folded back) and **97** (القيد back to R02) are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency.
+**Track N (94–101) is mostly planned.** **94** (the docs re-derivation), **95** (صاحب العلاقة), **96** (R09/R10 folded back) and **97** (القيد back to R02) are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency. **95 is built, so 98 and 101 are unblocked** — they were the track's only hard dependency.
 
 ```
 94 → 96 → 97                    (independent of 95 — seeded-map work)

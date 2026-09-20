@@ -60,6 +60,9 @@ class GateAuthorshipTest extends TestCase
     /**
      * The grant alone is not the whole rule — Appendix 19 is about the person,
      * not the role. An officer who filed the request is still its مقدم الطلب.
+     *
+     * Stage 95 widened the refusal to صاحب العلاقة as well, so these two
+     * messages now name both parties; the rule this test pins is unchanged.
      */
     public function test_the_creator_is_refused_even_when_they_hold_the_grant(): void
     {
@@ -69,12 +72,12 @@ class GateAuthorshipTest extends TestCase
         $this->actingAs($officer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/jurisdiction-test", $this->jurisdictionAnswers())
             ->assertStatus(422)
-            ->assertJsonPath('message', 'لا يجوز لمقدّم الطلب إجراء اختبار الاختصاص على طلبه بنفسه.');
+            ->assertJsonPath('message', 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إجراء اختبار الاختصاص على الطلب بنفسه.');
 
         $this->actingAs($officer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload($requestRecord))
             ->assertStatus(422)
-            ->assertJsonPath('message', 'لا يجوز لمقدّم الطلب إثبات اكتمال ملفه بنفسه.');
+            ->assertJsonPath('message', 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إثبات اكتمال الملف بنفسه.');
 
         $requestRecord->refresh();
         $this->assertNull($requestRecord->jurisdiction_test);

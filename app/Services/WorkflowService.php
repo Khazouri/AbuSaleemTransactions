@@ -168,9 +168,12 @@ class WorkflowService
         // Screen permissions decide who may approve at a level; this separate
         // conflict-of-interest rule still applies when one person holds both
         // the submitter and approver roles.
-        if ($action === 'approve'
-            && $requestRecord->created_by_user_id !== null
-            && $requestRecord->created_by_user_id === $actor->id) {
+        //
+        // Stage 95 — and when the actor is صاحب العلاقة rather than the
+        // filer. Appendix 19's rule names مقدم الطلب, but an employee
+        // approving the matter their own file is ABOUT is the worse of the
+        // two cases, so both are refused.
+        if ($action === 'approve' && $this->actorIsAnInterestedParty($requestRecord, $actor)) {
             throw WorkflowTransitionException::cannotApproveOwnRequest();
         }
 
@@ -553,20 +556,20 @@ class WorkflowService
      *
      * All three gates must hold:
      *   - the existing role check, preserved exactly;
-     *   - if the row is manager-gated, the actor must be the request
-     *     creator's active, non-deleted manager, with no fallback of any
-     *     kind: only that manager may delegate, and a submitter with no
-     *     manager assigned (or whose manager has left or been deactivated)
-     *     has a request that cannot be delegated at all;
+     *   - if the row is manager-gated, the actor must be the active,
+     *     non-deleted manager of صاحب العلاقة — the employee the request is
+     *     ABOUT (Stage 95), who is the filer on an ordinary self-filed
+     *     intake — with no fallback of any kind: only that manager may
+     *     delegate, and a subject with no manager assigned (or whose manager
+     *     has left or been deactivated) has a request that cannot be
+     *     delegated at all;
      *   - if the row is status-gated, the request's CURRENT status must
      *     match — this is what makes three-way administrative routing
      *     enforceable rather than decorative.
      */
     private function actorMayUse(WorkflowTransition $rule, Request $requestRecord, User $actor, Collection $actorRoleIds): bool
     {
-        if ($rule->action === 'approve'
-            && $requestRecord->created_by_user_id !== null
-            && $requestRecord->created_by_user_id === $actor->id) {
+        if ($rule->action === 'approve' && $this->actorIsAnInterestedParty($requestRecord, $actor)) {
             return false;
         }
 
@@ -583,7 +586,7 @@ class WorkflowService
         // action available to anyone, an admin included. Assigning the
         // employee a manager on the Users screen is what releases it.
         if ($rule->requires_submitter_manager
-            && ! $this->actorIsCreatorsActiveManager($requestRecord, $actor)) {
+            && ! $this->actorIsSubjectsActiveManager($requestRecord, $actor)) {
             return false;
         }
 
@@ -595,28 +598,50 @@ class WorkflowService
     }
 
     /**
-     * Is $actor the request creator's manager, and is that manager link
-     * actually live — not soft-deleted (the default Eloquent scope already
-     * excludes trashed rows) and not deactivated? A dangling manager_id
-     * (the manager left, or was never set) simply fails the gate — there is
-     * no override to fall through to, so the request cannot be delegated
-     * until a live manager is assigned.
+     * Is $actor the manager of the employee this request is ABOUT, and is
+     * that manager link actually live — not soft-deleted (the default
+     * Eloquent scope already excludes trashed rows) and not deactivated? A
+     * dangling manager_id (the manager left, or was never set) simply fails
+     * the gate — there is no override to fall through to, so the request
+     * cannot be delegated until a live manager is assigned.
+     *
+     * Stage 95 — the subject, not the creator. [D] Appendix 6 row 2 gives
+     * الإحالة للجهة المعنية to **صاحب العلاقة's own** الرئيس المباشر, and
+     * before this stage a file raised on an employee's behalf went to the
+     * clerk's manager instead, silently. Two other copies of this rule must
+     * stay in step or the gate, the workspace and the prompt name three
+     * different people: RequestVisibility::apply()'s SQL clause (so that
+     * manager can open the file) and NotificationDispatcher's own resolver
+     * (so that manager is the one told).
      */
-    private function actorIsCreatorsActiveManager(Request $requestRecord, User $actor): bool
+    private function actorIsSubjectsActiveManager(Request $requestRecord, User $actor): bool
     {
-        $creatorId = $requestRecord->created_by_user_id;
+        $subjectId = $requestRecord->subject_user_id;
 
-        if ($creatorId === null) {
+        if ($subjectId === null) {
             return false;
         }
 
-        $managerId = User::query()->whereKey($creatorId)->value('manager_id');
+        $managerId = User::query()->whereKey($subjectId)->value('manager_id');
 
         if ($managerId === null || (int) $managerId !== $actor->id) {
             return false;
         }
 
         return User::query()->whereKey($managerId)->where('is_active', true)->exists();
+    }
+
+    /**
+     * Stage 95 — is the actor either the filer or صاحب العلاقة?
+     *
+     * One predicate for both self-action refusals above, so the enforcement
+     * and the button preview cannot disagree about who is disqualified —
+     * the same reason actorMayUse() exists at all.
+     */
+    private function actorIsAnInterestedParty(Request $requestRecord, User $actor): bool
+    {
+        return $requestRecord->created_by_user_id === $actor->id
+            || $requestRecord->subject_user_id === $actor->id;
     }
 
     /**

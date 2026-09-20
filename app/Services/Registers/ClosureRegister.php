@@ -67,6 +67,7 @@ class ClosureRegister extends Register
             ->whereNotNull('closed_at')
             ->with([
                 'createdBy:id,name',
+                'subject:id,name',
                 'closedBy:id,name',
             ]);
     }
@@ -78,7 +79,7 @@ class ClosureRegister extends Register
         return [
             'reference_number' => $model->reference_number,
             'title' => $model->title,
-            'employee' => $model->createdBy?->name,
+            'employee' => $model->subject?->name,
             'closed_at' => $this->date($model->closed_at),
             'final_result' => $closure['final_result_code'] ?? null,
             'final_decision_number' => $closure['final_decision_number'] ?? null,

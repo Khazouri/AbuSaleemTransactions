@@ -143,6 +143,22 @@ class RequestController extends Controller
      */
     private const REOPENABLE_STATUS_CODES = ['cancelled', 'archived', 'not_approved', 'completed_closed', 'decision_withdrawn', 'decision_amended'];
 
+    /**
+     * Stage 95 — is the actor the filer or صاحب العلاقة?
+     *
+     * [D] Appendix 19's separation of duties names مقدم الطلب, but the
+     * employee a file is ABOUT attesting to its own completeness (or testing
+     * its jurisdiction, or reopening it) is the worse of the two cases, so
+     * both are refused. WorkflowService carries the same predicate for the
+     * approve chain — that one has to, since the transition endpoint and the
+     * approval queue both reach it.
+     */
+    private function actorIsAnInterestedParty(Request $requestRecord, User $actor): bool
+    {
+        return $requestRecord->created_by_user_id === $actor->id
+            || $requestRecord->subject_user_id === $actor->id;
+    }
+
     public function index(IndexRequest $request, RequestVisibility $visibility): AnonymousResourceCollection
     {
         $filters = $request->validated();
@@ -198,10 +214,26 @@ class RequestController extends Controller
     }
 
     /** Lookup values for intake are separate from work-queue access rights. */
-    public function intakeOptions(): JsonResponse
+    public function intakeOptions(HttpRequest $request): JsonResponse
     {
+        // Stage 95 — the صاحب العلاقة picker's options, present only for a
+        // caller who may actually name someone else (request_intake,approve).
+        // Folded into the payload the intake screen already fetches rather
+        // than given a route of its own, and deliberately NOT reusing
+        // committees/user-options: Stage 92's membership gate zeroes
+        // `meetings,can_view` for anyone with no committee seat, so an R05
+        // who sits on none would 403 on it.
+        $mayFileForOthers = $request->user()->hasScreenPermission('request_intake', 'can_approve');
+
         return response()->json([
             'data' => [
+                'may_file_for_others' => $mayFileForOthers,
+                'subject_options' => $mayFileForOthers
+                    ? User::query()
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->get(['id', 'name'])
+                    : [],
                 'departments' => Department::query()
                     ->where('is_active', true)
                     ->whereNotNull('code')
@@ -241,6 +273,19 @@ class RequestController extends Controller
         $data = $request->validated();
         $storedPaths = [];
 
+        // Stage 95 — صاحب العلاقة. Defaults to the filer, which is what an
+        // ordinary intake means and what every request before this stage
+        // was. Naming anyone else needs the grant, checked here rather than
+        // in the FormRequest because it is a permission question.
+        $subject = User::query()->find($data['subject_user_id'] ?? null) ?? $request->user();
+
+        if (! $subject->is($request->user())
+            && ! $request->user()->hasScreenPermission('request_intake', 'can_approve')) {
+            throw ValidationException::withMessages([
+                'subject_user_id' => ['لا يجوز تقديم طلب نيابة عن موظف آخر.'],
+            ]);
+        }
+
         // Stage 88 — a submission from a saved draft. The draft supplies the
         // FILES ONLY; every field above still came in this payload and was
         // validated there, so a stale draft can never file something other
@@ -260,7 +305,10 @@ class RequestController extends Controller
         // closed one means the new request must be classified — with تظلم and
         // إعادة عرض refused outright, because in this system those are an
         // `appeals` row and Stage 66's reopen, not a second request.
-        if (($duplicate = $duplicates->refusalReason($request->user(), $data)) !== null) {
+        // Appendix 16 searches «برقم الموظف», so the prior files that matter
+        // are صاحب العلاقة's, not the filer's — otherwise a clerk who files
+        // one promotion could never file the next employee's.
+        if (($duplicate = $duplicates->refusalReason($subject, $data)) !== null) {
             throw ValidationException::withMessages(['request_type_id' => [$duplicate]]);
         }
 
@@ -269,10 +317,10 @@ class RequestController extends Controller
         $priorRelation = $data['prior_relation'] ?? null;
         $priorRequestId = $priorRelation === null
             ? null
-            : $duplicates->priorRequests($request->user(), (int) $data['request_type_id'])->first()?->getKey();
+            : $duplicates->priorRequests($subject, (int) $data['request_type_id'])->first()?->getKey();
 
         try {
-            $requestRecord = DB::transaction(function () use ($data, $request, $numbers, $deadlines, $workflow, $priorRelation, $priorRequestId, $draft, &$storedPaths) {
+            $requestRecord = DB::transaction(function () use ($data, $request, $subject, $numbers, $deadlines, $workflow, $priorRelation, $priorRequestId, $draft, &$storedPaths) {
                 $department = Department::query()->findOrFail($data['department_id']);
                 $type = RequestType::query()->findOrFail($data['request_type_id']);
                 $newStatus = RequestStatus::query()->where('code', 'new')->firstOrFail();
@@ -300,6 +348,9 @@ class RequestController extends Controller
                     'status_id' => $newStatus->id,
                     'current_stage_id' => $firstStage->id,
                     'created_by_user_id' => $request->user()->id,
+                    // Stage 95 — who this file is ABOUT. The filer unless
+                    // somebody with the grant named another employee.
+                    'subject_user_id' => $subject->id,
                     'submitted_at' => $submittedAt,
                     'due_date' => $deadlines->dueDateFor($type, $submittedAt),
                     'decision_grade' => $data['decision_grade'] ?? null,
@@ -603,9 +654,12 @@ class RequestController extends Controller
 
         abort_unless($visibility->canView($actor, $requestRecord), 404);
 
-        if ($requestRecord->created_by_user_id === $actor->id) {
+        // Stage 95 — and not صاحب العلاقة either: Appendix 19's rule names
+        // مقدم الطلب, but an employee testing jurisdiction on the matter their
+        // own file is ABOUT is the worse of the two cases.
+        if ($this->actorIsAnInterestedParty($requestRecord, $actor)) {
             return response()->json([
-                'message' => 'لا يجوز لمقدّم الطلب إجراء اختبار الاختصاص على طلبه بنفسه.',
+                'message' => 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إجراء اختبار الاختصاص على الطلب بنفسه.',
             ], 422);
         }
 
@@ -640,9 +694,9 @@ class RequestController extends Controller
     {
         $actor = $request->user();
 
-        if ($requestRecord->created_by_user_id === $actor->id) {
+        if ($this->actorIsAnInterestedParty($requestRecord, $actor)) {
             return response()->json([
-                'message' => 'لا يجوز لمقدّم الطلب إعادة فتح طلبه بنفسه.',
+                'message' => 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إعادة فتح الطلب بنفسه.',
             ], 422);
         }
 
@@ -963,9 +1017,9 @@ class RequestController extends Controller
 
         abort_unless($visibility->canView($actor, $requestRecord), 404);
 
-        if ($requestRecord->created_by_user_id === $actor->id) {
+        if ($this->actorIsAnInterestedParty($requestRecord, $actor)) {
             return response()->json([
-                'message' => 'لا يجوز لمقدّم الطلب إثبات اكتمال ملفه بنفسه.',
+                'message' => 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إثبات اكتمال الملف بنفسه.',
             ], 422);
         }
 
@@ -1100,6 +1154,7 @@ class RequestController extends Controller
             // collide ("ambiguous column name: request_id").
             'latestStageLog',
             'createdBy:id,name',
+            'subject:id,name',
             // Stage 76 — execution_evidence_type flags which documents are
             // Appendix 70's دليل التنفيذ; omitting it from this restricted
             // list would make AttachmentResource report every document as

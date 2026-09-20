@@ -76,9 +76,9 @@ class IncompleteRequestsRegister extends Register
             ->with([
                 'toStatus:id,code,name_ar,name_en',
                 'changedBy:id,name',
-                'request:id,reference_number,title,status_id,created_by_user_id',
+                'request:id,reference_number,title,status_id,created_by_user_id,subject_user_id',
                 'request.status:id,code,name_ar,name_en',
-                'request.createdBy:id,name',
+                'request.subject:id,name',
             ]);
     }
 
@@ -89,7 +89,7 @@ class IncompleteRequestsRegister extends Register
         return [
             'reference_number' => $model->request?->reference_number,
             'title' => $model->request?->title,
-            'employee' => $model->request?->createdBy?->name,
+            'employee' => $model->request?->subject?->name,
             'shortfall_status' => $this->localName($model->toStatus, $locale),
             'recorded_at' => $this->date($model->changed_at),
             'reason' => $model->reason,

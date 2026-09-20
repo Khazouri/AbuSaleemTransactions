@@ -25,17 +25,19 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  * can act on" and whose UI exposes no search box at all, even though its
  * `search` param has been there since Stage 20.
  *
- * **Scoped by ownership, not through RequestVisibility.** `created_by_user_id =
- * $actor->id` is the *first and narrowest* clause inside that service's own
- * rule, so every row this controller returns is by construction a row the
- * request workspace would also open — the tracking list can never offer a file
+ * **Scoped by ownership, not through RequestVisibility.** Stage 95 — the
+ * caller is either the filer or صاحب العلاقة, which is that service's own
+ * *first and narrowest* clause, so every row this controller returns is by
+ * construction a row the request workspace would also open — the tracking list can never offer a file
  * that 404s when the employee clicks into it. Re-running the full visibility
  * query would widen the population to work the caller merely has a role on,
  * which is the queue this screen exists to be distinct from.
  *
  * That ownership rule has no admin exemption: «طلباتي» means mine, so R08 gets
  * a 404 here on somebody else's file and reaches it through /requests/{id} like
- * always.
+ * always. A file filed on an employee's behalf is «mine» to BOTH of them —
+ * the employee it is about is tracking their own matter, and the clerk is
+ * tracking work they filed.
  */
 class RequestTrackingController extends Controller
 {
@@ -47,6 +49,7 @@ class RequestTrackingController extends Controller
 
         $requests = $this->ownedBy($request)
             ->with([
+                'subject:id,name',
                 'requestType:id,code,name_ar,name_en,decision_grade_threshold,default_administrative_route',
                 'department:id,name_ar,name_en,code',
                 'status:id,code,name_ar,name_en,color',
@@ -96,9 +99,14 @@ class RequestTrackingController extends Controller
         // subject is "files I filed", so a file belonging to someone else is
         // not a permission problem here, it simply is not on this screen. Same
         // shape Stage 88's draft endpoints use.
-        abort_unless($requestRecord->created_by_user_id === $request->user()->id, 404);
+        abort_unless(
+            $requestRecord->created_by_user_id === $request->user()->id
+                || $requestRecord->subject_user_id === $request->user()->id,
+            404,
+        );
 
         $requestRecord->load([
+            'subject:id,name',
             'requestType:id,code,name_ar,name_en,decision_grade_threshold,default_administrative_route',
             'department:id,name_ar,name_en,code',
             'status:id,code,name_ar,name_en,color',
@@ -143,6 +151,8 @@ class RequestTrackingController extends Controller
     /** @return Builder<Request> */
     private function ownedBy(HttpRequest $request): Builder
     {
-        return Request::query()->where('created_by_user_id', $request->user()->id);
+        return Request::query()->where(fn (Builder $mine) => $mine
+            ->where('created_by_user_id', $request->user()->id)
+            ->orWhere('subject_user_id', $request->user()->id));
     }
 }

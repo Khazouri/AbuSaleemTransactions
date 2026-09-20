@@ -82,10 +82,12 @@ class AgendaOrderingService
 
         $items->loadMissing([
             'meeting:id,meeting_number,scheduled_at',
-            'request:id,reference_number,title,status_id,request_type_id,created_by_user_id',
+            'request:id,reference_number,title,status_id,request_type_id,created_by_user_id,subject_user_id',
             'request.status:id,code,name_ar,name_en',
             'request.requestType:id,name_ar,name_en',
-            'request.createdBy:id,name',
+            // Stage 95 — Appendix 24's اسم الموظف is صاحب العلاقة, not the
+            // clerk who filed on their behalf.
+            'request.subject:id,name',
             'request.latestLegalReview',
             'appeal:id,appellant_user_id,original_request_id',
             'appeal.appellant:id,name',
@@ -377,7 +379,7 @@ class AgendaOrderingService
             'item_number' => $item->agenda_order,
             'reference_number' => $item->request?->reference_number
                 ?? $item->appeal?->originalRequest?->reference_number,
-            'employee_name' => $item->request?->createdBy?->name
+            'employee_name' => $item->request?->subject?->name
                 ?? $item->appeal?->appellant?->name,
             'request_type' => $item->request?->requestType
                 ? ['name_ar' => $item->request->requestType->name_ar, 'name_en' => $item->request->requestType->name_en]

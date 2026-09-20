@@ -15,6 +15,13 @@ class RequestDetailResource extends RequestResource
             // Stage 90 — [G]'s «الأسباب», beside the description it used to
             // fold into, so the officer reading the file sees both.
             'reasons' => $this->reasons,
+            // Stage 95 — the employee this file is ABOUT. Equal to created_by
+            // on an ordinary self-filed intake, which is what the SPA checks
+            // before bothering to render it separately.
+            'subject' => $this->subject ? [
+                'id' => $this->subject->id,
+                'name' => $this->subject->name,
+            ] : null,
             'created_by' => $this->createdBy ? [
                 'id' => $this->createdBy->id,
                 'name' => $this->createdBy->name,

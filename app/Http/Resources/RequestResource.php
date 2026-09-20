@@ -93,6 +93,14 @@ class RequestResource extends JsonResource
             // caller explicitly eager-loads createdBy (e.g. the committee
             // candidates worklist); every other caller of this shared
             // resource stays exactly as before.
+            // Stage 95 — صاحب العلاقة, loaded on the same terms as the filer.
+            // Present on both blocks because "who filed it" and "who it is
+            // about" are separate facts, and a screen that shows one without
+            // the other cannot say which it means.
+            'subject' => $this->whenLoaded('subject', fn () => $this->subject ? [
+                'id' => $this->subject->id,
+                'name' => $this->subject->name,
+            ] : null),
             'created_by' => $this->whenLoaded('createdBy', fn () => $this->createdBy ? [
                 'id' => $this->createdBy->id,
                 'name' => $this->createdBy->name,

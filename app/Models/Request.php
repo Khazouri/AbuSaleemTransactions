@@ -21,6 +21,34 @@ class Request extends Model
 {
     use HasFactory;
 
+    /**
+     * Stage 95 — a request that states no صاحب العلاقة is about whoever
+     * filed it, which is what every request created before this stage meant
+     * and what an ordinary self-filed intake still means.
+     *
+     * On every save, not only at creation: several fixtures assign the
+     * creator after the row exists, and "about whoever filed it" is true at
+     * any moment, not just the first one.
+     *
+     * Defaulted here rather than coalesced at each read site so the column
+     * can be queried directly: the visibility scope, Appendix 16's duplicate
+     * search and the tracking scope are all SQL, and a COALESCE in each of
+     * them would buy nothing. It is also why a fixture that builds a Request
+     * without naming a subject stays truthful with no change at all.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $requestRecord): void {
+            // Guarded rather than a bare ??=: a partially-selected model
+            // (the restricted eager loads several registers use) carries
+            // neither column, and assigning null there would mark the
+            // attribute dirty and wipe a real subject on the next save.
+            if ($requestRecord->subject_user_id === null && $requestRecord->created_by_user_id !== null) {
+                $requestRecord->subject_user_id = $requestRecord->created_by_user_id;
+            }
+        });
+    }
+
     protected $fillable = [
         'reference_number',
         'intake_receipt_number',
@@ -34,6 +62,12 @@ class Request extends Model
         'status_id',
         'current_stage_id',
         'created_by_user_id',
+        // Stage 95 — صاحب العلاقة: who the request is ABOUT, as distinct
+        // from who filed it. Nullable, and defaulted to the creator by the
+        // booted() hook below, so a self-filed request — every request
+        // before this stage, and most after it — carries the two as one
+        // person.
+        'subject_user_id',
         'submitted_at',
         'due_date',
         'decision_grade',
@@ -133,6 +167,22 @@ class Request extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * Stage 95 — [D] Appendix 6's صاحب العلاقة.
+     *
+     * Every party the matrix names is named RELATIVE to this person: row 2's
+     * الرئيس المباشر is the subject's own manager, row 3's ملف وظيفي is the
+     * subject's file, and Art. 101's «يتم إشعار الموظف» is the subject being
+     * told. Never null in practice — booted() defaults it to the creator —
+     * but nullable at the database layer for the same reason
+     * created_by_user_id is: a removed account must not take the request
+     * with it.
+     */
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'subject_user_id');
     }
 
     /** Stage 75 — النموذج 18's مسؤول الإقفال. */

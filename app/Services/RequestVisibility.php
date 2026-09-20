@@ -12,8 +12,10 @@ use Illuminate\Database\Eloquent\Builder;
 /**
  * Resolves who may open a request in the direct workspace.
  *
- * A submitted request remains private to its creator until it reaches a
- * workflow step the caller may actually perform. Keeping this as a SQL scope
+ * A submitted request remains private to its filer and to صاحب العلاقة —
+ * the employee it is about, who is the filer unless somebody filed on their
+ * behalf (Stage 95) — until it reaches a workflow step the caller may
+ * actually perform. Keeping this as a SQL scope
  * preserves pagination correctness while making every direct request
  * endpoint share the same rule.
  */
@@ -106,7 +108,14 @@ class RequestVisibility
         $isHrStudyCoOwner = $observationsStageId !== null && $actor->roles()->where('code', 'R12')->exists();
 
         return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser, $isHrStudyCoOwner, $observationsStageId) {
-            $visible->where('requests.created_by_user_id', $actor->id);
+            // Stage 95 — the filer AND صاحب العلاقة. A request raised on an
+            // employee's behalf is that employee's own file: Art. 101 tells
+            // them about it and «متابعة طلباتي» lists it, so without this
+            // they would be notified into a 404 — the same dead end the
+            // bounded clauses above exist to close for consulted parties.
+            // Both, not one: the clerk keeps sight of the work they filed.
+            $visible->where('requests.created_by_user_id', $actor->id)
+                ->orWhere('requests.subject_user_id', $actor->id);
 
             if ($isSalariesReviewer) {
                 $visible->orWhere('requests.has_financial_impact', true);
@@ -233,13 +242,18 @@ class RequestVisibility
                         $manager->orWhere(function ($requiresManager) use ($actor) {
                             $requiresManager
                                 ->where('workflow_transitions.requires_submitter_manager', true)
-                                ->whereExists(function ($creator) use ($actor) {
-                                    $creator->selectRaw('1')
-                                        ->from('users as request_creators')
-                                        ->whereColumn('request_creators.id', 'requests.created_by_user_id')
-                                        ->where('request_creators.manager_id', $actor->id)
-                                        ->where('request_creators.is_active', true)
-                                        ->whereNull('request_creators.deleted_at');
+                                // Stage 95 — the SUBJECT's manager, matching
+                                // WorkflowService::actorIsSubjectsActiveManager()
+                                // exactly. Resolving this from the creator
+                                // while the gate resolves it from the subject
+                                // would 404 the one person allowed to act.
+                                ->whereExists(function ($subject) use ($actor) {
+                                    $subject->selectRaw('1')
+                                        ->from('users as request_subjects')
+                                        ->whereColumn('request_subjects.id', 'requests.subject_user_id')
+                                        ->where('request_subjects.manager_id', $actor->id)
+                                        ->where('request_subjects.is_active', true)
+                                        ->whereNull('request_subjects.deleted_at');
                                 });
                         });
                     })

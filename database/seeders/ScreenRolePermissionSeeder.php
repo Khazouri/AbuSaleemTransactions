@@ -41,7 +41,18 @@ class ScreenRolePermissionSeeder extends Seeder
 
         // Intake: the roles that actually register incoming paperwork.
         // R07 is absent — the dean approves, they don't do data entry.
-        'request_intake' => ['view' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'edit' => ['R01', 'R02', 'R05']],
+        // Stage 95 — `approve` is this screen's previously unused tier and is
+        // what «filing on someone else's behalf» rides: naming a صاحب العلاقة
+        // other than yourself is an act of authority over another employee's
+        // file, so it is a grant rather than something every filer may do.
+        // Exactly the two roles besides R01 that already hold `edit` here —
+        // the pair Stage 88's own comment calls the roles that actually
+        // compose intakes (R02 المقرر, R05 مدير إدارة الشؤون الإدارية). R01 is
+        // the employee filing for themselves, and R03/R04/R06 approve rather
+        // than file. Deliberately narrow: widening it is one line here, and
+        // R12 is left out because it holds no `add` at all, so granting it
+        // on-behalf without filing would be incoherent.
+        'request_intake' => ['view' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06'], 'edit' => ['R01', 'R02', 'R05'], 'approve' => ['R02', 'R05']],
 
         // Stage 89 — «متابعة طلباتي». Deliberately request_intake's own view
         // list rather than the '*' that requests/request_details/appeals carry.

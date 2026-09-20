@@ -66,16 +66,16 @@ class NotificationDispatcher
         ?WorkflowStage $fromStage,
         ?WorkflowStage $toStage,
     ): void {
-        $creator = $this->creatorOf($requestRecord, [$actor->id]);
+        $owners = $this->ownersOf($requestRecord, [$actor->id]);
 
         $this->send(
-            $creator,
+            $owners,
             new RequestStageChangedNotification($requestRecord, $fromStage, $toStage, $action, $actor->name),
         );
 
-        // The creator already heard about this move; sending them the
-        // action prompt too would be the same news twice.
-        $excluded = $creator->pluck('id')->push($actor->id)->all();
+        // Whoever already heard about this move must not also get the
+        // action prompt — that is the same news twice.
+        $excluded = $owners->pluck('id')->push($actor->id)->all();
 
         $this->send(
             $this->actorsForStage($requestRecord, $requestRecord->current_stage_id, $excluded),
@@ -95,7 +95,7 @@ class NotificationDispatcher
     /** Stage 17 sweep — a breach concerns both the owner and whoever can unblock it. */
     public function requestOverdue(Request $requestRecord): void
     {
-        $recipients = $this->creatorOf($requestRecord)
+        $recipients = $this->ownersOf($requestRecord)
             ->concat($this->actorsForStage($requestRecord, $requestRecord->current_stage_id))
             ->unique('id');
 
@@ -187,7 +187,9 @@ class NotificationDispatcher
             ->whereIn('id', $memberIds->all())
             ->where('is_active', true)
             ->whereKeyNot($actor->id)
-            ->whereKeyNot($requestRecord->created_by_user_id ?? 0)
+            // Art. 102 keeps the tally away from صاحب العلاقة — the
+            // employee the matter concerns (Stage 95), not the filer.
+            ->whereKeyNot($requestRecord->subject_user_id ?? 0)
             ->get();
 
         $this->send($recipients, new DecisionRecordedNotification($requestRecord, $decision));
@@ -230,15 +232,18 @@ class NotificationDispatcher
      * Art. 101's own preamble is "يتم إشعار **الموظف**", and Art. 102 narrows
      * the content to "المعلومات التي يحتاجها **صاحب العلاقة**" — so this is
      * deliberately the one dispatch method that resolves no roles, no committee
-     * and no department. The actor is excluded through creatorOf(), so an
-     * employee acting on their own file is never told what they just did.
+     * and no department, and (Stage 95) the one that resolves صاحب العلاقة
+     * ALONE rather than both owners — both articles name the employee the
+     * matter concerns, not the clerk who filed on their behalf. The actor is
+     * excluded, so an employee acting on their own file is never told what
+     * they just did.
      *
      * @param  array{meeting_number: ?string, required_completion: ?string, detail: ?string}  $context
      */
     public function requestNotice(Request $requestRecord, string $moment, array $context = [], ?int $actorId = null): void
     {
         $this->send(
-            $this->creatorOf($requestRecord, $actorId === null ? [] : [$actorId]),
+            $this->subjectOf($requestRecord, $actorId === null ? [] : [$actorId]),
             new RequestNoticeNotification($requestRecord, $moment, $context),
         );
     }
@@ -249,42 +254,78 @@ class NotificationDispatcher
      * on the one move that mints it, so it reaches the submitter exactly once
      * in the request's life.
      *
-     * Addressed to the creator alone: it is their own receipt number that
-     * stopped being the file's identifier, and nobody else was ever given it.
-     * The actor is excluded through creatorOf(), consistent with every other
+     * Addressed to the filer and to صاحب العلاقة (Stage 95): it is the
+     * filer's own receipt number that stopped being the file's identifier, and
+     * the employee the file is about is the one who must quote the new number
+     * from here on. Nobody else was ever given either.
+     * The actor is excluded through ownersOf(), consistent with every other
      * method here — though in practice the registrar is never the submitter.
      */
     public function referenceAssigned(Request $requestRecord, User $actor): void
     {
         $this->send(
-            $this->creatorOf($requestRecord, [$actor->id]),
+            $this->ownersOf($requestRecord, [$actor->id]),
             new RequestReferenceAssignedNotification($requestRecord),
         );
     }
 
     /**
-     * The request's creator, as a collection so callers can concat and
-     * unique() without null checks. Empty when the creator is the actor, is
-     * inactive, or the account has since been removed.
+     * Stage 95 — صاحب العلاقة, the employee the request is ABOUT.
+     *
+     * The audience for anything the source addresses to الموظف by name:
+     * Art. 101's twelve notices, and Art. 102's exclusion from the tally.
      *
      * @param  array<int, int>  $excludeUserIds
      * @return Collection<int, User>
      */
-    private function creatorOf(Request $requestRecord, array $excludeUserIds = []): Collection
+    private function subjectOf(Request $requestRecord, array $excludeUserIds = []): Collection
     {
-        if ($requestRecord->created_by_user_id === null
-            || in_array($requestRecord->created_by_user_id, $excludeUserIds, true)) {
+        return $this->activeUser($requestRecord->subject_user_id, $excludeUserIds);
+    }
+
+    /**
+     * Stage 95 — both people a request belongs to: صاحب العلاقة and whoever
+     * filed it. The same person on an ordinary self-filed intake, which is
+     * every request raised before this stage.
+     *
+     * Used for the progress news — moved, overdue, renumbered — because
+     * either alone is wrong: telling only the subject loses the clerk sight
+     * of work they filed, and telling only the filer leaves the employee the
+     * file is about hearing nothing at all.
+     *
+     * @param  array<int, int>  $excludeUserIds
+     * @return Collection<int, User>
+     */
+    private function ownersOf(Request $requestRecord, array $excludeUserIds = []): Collection
+    {
+        return $this->activeUser($requestRecord->subject_user_id, $excludeUserIds)
+            ->concat($this->activeUser($requestRecord->created_by_user_id, $excludeUserIds))
+            ->unique('id')
+            ->values();
+    }
+
+    /**
+     * One user as a collection so callers can concat and unique() without
+     * null checks. Empty when the id is null or excluded, the account is
+     * inactive, or it has since been removed.
+     *
+     * @param  array<int, int>  $excludeUserIds
+     * @return Collection<int, User>
+     */
+    private function activeUser(?int $userId, array $excludeUserIds = []): Collection
+    {
+        if ($userId === null || in_array($userId, $excludeUserIds, true)) {
             return collect();
         }
 
         return User::query()
-            ->whereKey($requestRecord->created_by_user_id)
+            ->whereKey($userId)
             ->where('is_active', true)
             ->get();
     }
 
     /**
-     * An appeal's appellant, mirroring creatorOf()'s shape for Request —
+     * An appeal's appellant, mirroring activeUser()'s shape for Request —
      * empty when the appellant is the actor, is inactive, or the account has
      * since been removed.
      *
@@ -359,7 +400,7 @@ class NotificationDispatcher
                 ->get();
 
         if ($outboundRules->contains(fn (WorkflowTransition $rule) => $rule->requires_submitter_manager)) {
-            $manager = $this->creatorsActiveManager($requestRecord);
+            $manager = $this->subjectsActiveManager($requestRecord);
 
             if ($manager !== null && ! in_array($manager->id, $excludeUserIds, true)) {
                 $recipients->push($manager);
@@ -370,19 +411,24 @@ class NotificationDispatcher
     }
 
     /**
-     * The request creator's manager, resolved the same way
-     * WorkflowService::actorIsCreatorsActiveManager() resolves it: a dangling
-     * manager_id (never set, or pointing at a since-deactivated/deleted
-     * account) must not name anyone, rather than notifying a manager who
-     * could no longer act on this anyway.
+     * The manager of صاحب العلاقة, resolved the same way
+     * WorkflowService::actorIsSubjectsActiveManager() resolves it: a
+     * dangling manager_id (never set, or pointing at a since-deactivated or
+     * deleted account) must not name anyone, rather than notifying a manager
+     * who could no longer act on this anyway.
+     *
+     * Stage 95 — the subject's, not the filer's. This is the third copy of
+     * that rule (the gate itself and RequestVisibility hold the other two)
+     * and the one that decides who is TOLD; resolving it from a different
+     * person than the gate would prompt a manager the endpoint refuses.
      */
-    private function creatorsActiveManager(Request $requestRecord): ?User
+    private function subjectsActiveManager(Request $requestRecord): ?User
     {
-        if ($requestRecord->created_by_user_id === null) {
+        if ($requestRecord->subject_user_id === null) {
             return null;
         }
 
-        $managerId = User::query()->whereKey($requestRecord->created_by_user_id)->value('manager_id');
+        $managerId = User::query()->whereKey($requestRecord->subject_user_id)->value('manager_id');
 
         if ($managerId === null) {
             return null;

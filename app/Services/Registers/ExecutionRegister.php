@@ -67,6 +67,7 @@ class ExecutionRegister extends Register
             ->whereNotNull('executed_at')
             ->with([
                 'createdBy:id,name',
+                'subject:id,name',
                 'executedBy:id,name',
             ])
             ->withCount([
@@ -82,7 +83,7 @@ class ExecutionRegister extends Register
         return [
             'reference_number' => $model->reference_number,
             'title' => $model->title,
-            'employee' => $model->createdBy?->name,
+            'employee' => $model->subject?->name,
             'executing_body' => $card['executing_body'] ?? null,
             'action_taken' => $card['action_taken'] ?? null,
             'effective_date' => $card['effective_date'] ?? null,

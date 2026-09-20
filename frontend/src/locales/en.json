@@ -657,7 +657,10 @@
       "descriptionTooLong": "The request description cannot exceed 5000 characters.",
       "reasonsTooLong": "The reasons cannot exceed 5000 characters.",
       "fixBeforeReview": "Please complete the required fields before reviewing and submitting."
-    }
+    },
+    "subjectUser": "Employee concerned",
+    "subjectIsMe": "This request is about me",
+    "subjectUserHint": "Pick the employee this request is about if you are filing on their behalf."
   },
   "approvals": {
     "subtitle": "Only requests currently waiting at this checkpoint appear here.",
@@ -862,7 +865,9 @@
       "pending": "not finished yet"
     },
     "reasons": "Reasons for the request",
-    "noReasons": "The submitter stated no reasons."
+    "noReasons": "The submitter stated no reasons.",
+    "subjectUser": "Employee concerned",
+    "filedBy": "Filed by"
   },
   "committees": {
     "title": "Committees",

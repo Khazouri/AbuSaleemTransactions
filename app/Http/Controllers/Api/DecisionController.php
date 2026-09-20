@@ -686,7 +686,8 @@ class DecisionController extends Controller
         $meeting->loadMissing('committee:id,name_ar,name_en');
         $agendaItem->setRelation('meeting', $meeting);
         $agendaItem->loadMissing([
-            'request.createdBy:id,name',
+            // Stage 95 — {{employee_name}} is صاحب العلاقة.
+            'request.subject:id,name',
             'request.department:id,name_ar,name_en',
             'request.requestType:id,name_ar,name_en',
         ]);

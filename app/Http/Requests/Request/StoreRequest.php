@@ -58,6 +58,13 @@ class StoreRequest extends FormRequest
                 'integer',
                 Rule::exists('request_drafts', 'id')->where('created_by_user_id', $this->user()?->id),
             ],
+            // Stage 95 — صاحب العلاقة. Optional, because an ordinary intake
+            // is filed by the employee it is about and Request's own creating
+            // hook defaults it to them. Whether a DIFFERENT person may be
+            // named is a permission question, not a format one, so it is
+            // answered in the controller — the same split this class already
+            // documents for `prior_relation` below.
+            'subject_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('is_active', true)],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             // Stage 90 — [G] lists «الأسباب» as an input of its own, and it

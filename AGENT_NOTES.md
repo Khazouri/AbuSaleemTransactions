@@ -13,6 +13,216 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-21 03:20 EET — Claude — Stage 95 complete (صاحب العلاقة — the person a request is about)
+
+Built per the plan below. **One migration, one model hook, and the ~20 sites that read the filer where
+they meant the employee.** No new screen, no new stage, no new status. Full suite **694 tests / 4554
+assertions** green (baseline 684/4511: +10 new tests, and **exactly one** pre-existing assertion
+changed), Pint clean repo-wide, `npm run build` passes and `frontend/dist` was reverted, locale parity
+**1971 keys each side** with five added per side, checkbox parity **356 each** across
+`TEST_PLAN.roles.md`/`.ar.md`, and the migration plus the `ScreenRolePermissionSeeder` reseed ran clean
+against the real MySQL.
+
+**⚠ The predicted fixture sweep never happened, and the reason is the whole design.** The stage's own
+text warns of "a sweep on Stage 84's scale — every fixture assuming creator ≡ subject". It is not one,
+because `subject_user_id` is **nullable, backfilled to the creator, and defaulted by a model hook**, so
+every existing row and every existing fixture is *correct* rather than merely unbroken. Read sites then
+use the column directly with no `??` — which matters because the visibility scope, Appendix 16's search
+and the tracking scope are all SQL, and a `COALESCE` in each would have bought nothing.
+
+**The hook is `saving`, not `creating`, and that is load-bearing.** `creating` alone passed 683 of 684
+tests; the one that failed (`UnifiedNumberingTest`) assigns `created_by_user_id` *after* `create()`, as
+several fixtures and the reopen path do, so the subject stayed null and the manager gate refused
+everyone. `saving` closes that, **with an explicit null guard rather than a bare `??=`**: a
+partially-selected model (the restricted eager loads several registers use) carries neither column, and
+assigning null there marks the attribute dirty and would wipe a real subject on the next save.
+
+**The gate is stated in THREE places and all three had to move together.** `WorkflowService::
+actorIsSubjectsActiveManager()` is the one the stage names, but `RequestVisibility::apply()` restates it
+in SQL (so that manager can *open* the file) and `NotificationDispatcher::subjectsActiveManager()`
+restates it again (so that manager is the one *told*). Moving one and not the others produces the
+failure this codebase keeps refusing — the prompt names one manager, the button works for another, and
+the file 404s for whoever it actually belongs to. **Proven live over HTTP, not only by test:** R02 filed
+a CTRC for `r01.employee@` (whose seeded manager *is* R02), and R02 was offered `forward` and used it.
+Before this stage that gate read the **filer's** manager — R02 has none — so the file would have stalled
+at `direct_manager_review` with an empty action list for everyone.
+
+**Art. 101/102 name صاحب العلاقة, so the notice audience split in two.** `requestNotice()` (Art. 101's
+twelve moments) and `decisionRecorded()`'s exclusion (Art. 102 keeps the tally from صاحب العلاقة) now
+resolve the **subject alone** — both articles name the employee the matter concerns, not the clerk. The
+progress news — `stageChanged()`, `requestOverdue()`, `referenceAssigned()` — resolves **subject ∪
+creator**, uniqued, because either alone is wrong: only-subject loses the clerk sight of work they
+filed, only-creator leaves the employee hearing nothing. `creatorOf()` became `subjectOf()`/`ownersOf()`
+over one shared `activeUser()`. `EmployeeNoticeRegister` and Stage 75's computed `notice_status` follow
+the subject, since both are about the person those notices were addressed to.
+
+**Appendix 16's search is a correctness fix, not a courtesy.** `DuplicatePolicy`'s own docblock said "a
+request's creator *is* its رقم الموظف" — the sentence this stage removes — and the appendix's words are
+«البحث **برقم الموظف** وموضوع المعاملة». Left alone, a clerk who filed one promotion could never file
+the next employee's: the open-file check matched on the clerk. Shipping the picker without this would
+have shipped a broken feature. Both callers (`store()`, `duplicateCheck()`) pass the resolved subject,
+and the lookup falls back to the caller when someone without the grant asks about another employee.
+
+**Separation of duties widened rather than moved.** The five self-action refusals — `WorkflowService`'s
+two `approve` blocks plus `recordJurisdictionTest()`, `recordIntakeGate()` and `reopen()` — said «لا
+يجوز لمقدّم الطلب». Appendix 19's rule names مقدم الطلب, but صاحب العلاقة attesting to the completeness
+of their own file is the worse case, so each now refuses **both** parties through one predicate per
+class (`WorkflowService::actorIsAnInterestedParty()` for the approve chain, which two endpoints reach;
+`RequestController`'s own for the three gate recorders). `GateAuthorshipTest`'s two message assertions
+are the single legitimate update this stage made to a pre-existing test.
+
+**Who may name someone else: `request_intake`'s previously unused `approve` tier, seeded
+`['R02','R05']`.** The same move Stage 92 made for `meeting_outputs` — an unused action tier on the
+screen that owns the domain, rather than a new screen or a role-code check in a controller. R02 and R05
+are exactly the two roles besides R01 that already hold `request_intake,edit`, i.e. the pair that
+seeder's own Stage 88 comment calls "the roles that actually compose intakes". **R12 was deliberately
+left out**: it holds no `request_intake,add` at all, so granting it on-behalf without filing would be
+incoherent — widening is one seeder line. Without the grant, `subject_user_id` must equal the caller or
+the submission is refused (422 on `subject_user_id`, verified live); the picker is only shown to someone
+who would pass.
+
+**The picker's options ride `intakeOptions()`, which the intake screen already calls** — no new endpoint
+and no new route. `committees/user-options` (the existing narrow user lookup) was **deliberately not
+reused**: Stage 92's membership gate zeroes `meetings,can_view` for anyone with no committee seat, so an
+R05 who sits on none would 403 on it. Verified live: R02 gets `may_file_for_others: true` with 16
+options, R01 gets `false` with none.
+
+**One real SQL bug the suite caught, worth knowing.** Rewriting the task inbox's self-exclusion as
+`whereNot(a = x OR b = x)` is **NULL-unsafe** — a request with no creator yields `NOT (NULL OR NULL)` =
+NULL and drops out of the queue entirely, which emptied `ApprovalChainTest`'s reviewer queue. Restored to
+the original's explicit shape, once per column (`whereNull(...)->orWhere(..., '!=', ...)`). Three-valued
+logic, not Laravel.
+
+**Display sweep, mechanical but not cosmetic:** the eight `'employee' => …->createdBy?->name` sites (six
+registers, `AgendaOrderingService`'s Appendix 24 row, `DecisionDraftComposer`'s `{{employee_name}}`),
+`PresentationMemoCompiler`'s Art. 22 الموظف/جهة عمله, and `MeetingController::agendaItemContext()`'s [C]
+§6 بيانات الموظف tab — which showed the committee the **clerk's** email, phone, department and manager —
+plus its الطلبات السابقة query. Every restricted select that now resolves `subject` gained
+`subject_user_id`; that is the same restricted-eager-load gotcha Stages 52 and 74 already recorded, and
+it fails silently (a null relation, not an error). `MeetingMinutesCompiler`'s `$note->createdBy` is a
+discussion-note author and is **not** in scope.
+
+**Kept on purpose.** Nothing renames `created_by_user_id` and not one read of it was removed — "who
+filed this" stays a separately recorded fact, which is what lets both names appear side by side on the
+workspace when they differ (and neither when they do not, so an ordinary request looks exactly as it
+did). `RequestDraft` keeps `created_by_user_id` as its only owner — a draft is the composer's working
+state, not a file about anyone yet — and gained one nullable field so a half-composed on-behalf intake
+survives a refresh.
+
+**Live smoke, then a clean teardown.** Against Homestead: the picker offered by grant only; R01 refused
+naming a colleague («لا يجوز تقديم طلب نيابة عن موظف آخر.»); R02 filed for `r01.employee@` and the
+workspace reported `subject: موظف تجريبي` / `created_by: مقرر تجريبي`; the **subject**, who did not file
+it, found it on «متابعة طلباتي» and opened it (200); and the forward went through on the subject's
+manager. Deleted the fixture request, its attachment and stored file, 3 stage logs, 3 status-history
+rows and 3 audit rows, revoked **only** this session's three tokens by id (173–175, leaving the two
+pre-existing ones) and removed the two queued jobs naming the deleted request — database confirmed back
+to **5 requests / 2 tokens / 12 pre-existing jobs**, with all 5 rows carrying `subject == creator`.
+
+**Docs.** STAGE_PLAN marks 95 built and records that 98 and 101 are now unblocked — the track's only
+hard dependency. `gap-analysis-appendix-6.md` (git-ignored) moves row 1's ❌ "deepest finding in the
+matrix" to ✅ and rewrites row 2's mechanism paragraph. `TEST_PLAN.roles.md`/`.ar.md` gained the two
+changed Appendix A cells (`vae` → `vaeA` for R02/R05 on `request_intake`) and a rewritten R05 check that
+walks the on-behalf path end to end.
+
+**Open items for whoever builds Stage 98 or 101.** (1) **The subject is a `users` row, so a request can
+only be about someone with an account** — fine today (Track K scope decision (1) puts the employment
+record outside this app), but a stage that wants to file for a non-user employee needs a different
+answer, not a nullable widening of this column. (2) **`subject_user_id` is immutable after intake** —
+there is no "correct the صاحب العلاقة" endpoint, matching every other one-shot intake field; correcting
+one means refiling. If that proves too sharp, it is a small PATCH riding `request_intake,approve`, not a
+change to the column. (3) **Appendix 6 row 1's two «مطلع» cells are still unimplemented** — الرئيس
+المباشر is informed only incidentally (the intake auto-hop's action prompt happens to reach them) and
+الموارد البشرية hears nothing at filing; both are Stage 101's. (4) **The R05 grant is narrow by
+decision** — R12 files nothing today, so HR cannot raise a file about an employee even though Appendix 6
+row 3 makes HR the party that assembles it; Stage 98 should decide whether that row implies
+`request_intake,add`+`approve` for R12 rather than inheriting this stage's narrowness as a constraint.
+
+---
+
+### 2026-09-21 00:40 EET — Claude — Implementation plan: Stage 95 (صاحب العلاقة — the person a request is about)
+
+Track N's one hard dependency (95 blocks 98 and 101), and the stage its own text says deserves its own
+session. **Scope: one migration + one model hook + the ~20 sites that currently read the filer where
+they mean the employee. No new screen, no new stage, no new status.**
+
+**The mechanism that makes the ⚠ blast radius evaporate.** The stage warns to expect a fixture sweep on
+Stage 84's scale — "every fixture assuming creator ≡ subject". It does not have to be one: the column is
+**nullable and defaults to the creator**, so a `creating` model hook (`subject_user_id ??=
+created_by_user_id`) plus a one-line backfill makes every existing row and every existing fixture
+*correct by construction* rather than merely unbroken. Read sites then use `subject_user_id` directly
+with no `??` fallback, which keeps the SQL clauses (visibility, the duplicate search, the tracking
+scope) as simple as they are today. The alternative — nullable with a coalescing fallback at ~20 read
+sites — costs a `COALESCE` in every query for the same answer.
+
+**The gate is the Done-when, and it is enforced in three places that must agree.**
+`WorkflowService::actorIsCreatorsActiveManager()` is the one the stage names, but it is not the only
+copy: `RequestVisibility::apply()` re-states the same rule in SQL (`request_creators.manager_id =
+$actor->id`) so the manager can *see* the file, and `NotificationDispatcher::creatorsActiveManager()`
+re-states it again so the manager is *told*. Moving one and not the others produces exactly the failure
+this codebase keeps refusing: the notification names one manager, the button works for another, and the
+file 404s for whoever it actually belongs to. All three move together.
+
+**Art. 101/102 are about صاحب العلاقة by name, so the employee notices follow the subject.**
+`requestNotice()` (Art. 101's twelve moments) and `decisionRecorded()`'s exclusion (Art. 102 — the tally
+must not reach صاحب العلاقة) resolve the **subject alone**. `stageChanged()`/`requestOverdue()`/
+`referenceAssigned()` resolve **subject ∪ creator**, uniqued: the clerk who filed keeps the progress of
+their own work, and the employee it is about stops being silent. `EmployeeNoticeRegister::for()` and
+`RequestClosureService`'s computed `notice_status` (which reads `createdBy?->is_active` to decide
+whether the employee is reachable) follow the subject for the same reason.
+
+**Appendix 16's duplicate search is a correctness fix, not a courtesy.** `DuplicatePolicy`'s own docblock
+says "a request's creator *is* its رقم الموظف" — that sentence is precisely the assumption this stage
+removes, and the appendix's own words are «البحث **برقم الموظف** وموضوع المعاملة». Left alone, a clerk
+who files a PROM for employee A is then refused filing a PROM for employee B, because the open-file check
+matches on the clerk. Shipping the picker without this ships a broken feature, so `priorRequests()` takes
+a subject id and both callers (`store()`, `duplicateCheck()`) pass the resolved subject.
+
+**Separation of duties widens rather than moves.** The five self-action blocks — `WorkflowService`'s two
+`approve` refusals, `recordJurisdictionTest()`, `recordIntakeGate()`, `reopen()`, and
+`PendingTaskCollector`'s queue exclusion — currently say «لا يجوز لمقدّم الطلب». Appendix 19's rule is
+about مقدم الطلب, but صاحب العلاقة attesting to the completeness of their *own* file is the worse case,
+so each becomes creator **OR** subject. Never lazy about a separation-of-duties rule.
+
+**Who may name a subject other than themselves: `request_intake`'s unused `approve` tier, seeded
+`['R02','R05']`.** Same move Stage 92 made for `meeting_outputs` — an unused action tier on the screen
+that already owns the domain, rather than a new screen or a role-code check in a controller. R02 and R05
+are exactly the two roles besides R01 that hold `request_intake,edit`, i.e. the pair that seeder's own
+Stage 88 comment calls "the roles that actually compose intakes"; R01 is the employee and R03/R04/R06
+approve rather than file. Deliberately narrow: widening is one seeder line, and R12 is left out because
+it holds no `request_intake,add` at all, so granting it on-behalf without filing would be incoherent.
+Without that grant `subject_user_id` must equal the caller or the submission is refused — the server is
+the enforcement, the picker is only shown to someone who would pass.
+
+**The picker's options ride `intakeOptions()`, which the intake screen already calls** — no new endpoint
+and no new route. `committees/user-options` (the existing narrow user lookup) is deliberately NOT reused:
+Stage 92's membership gate zeroes `meetings,can_view` for anyone with no committee seat, so an R05 who
+sits on no committee would 403 on it.
+
+**Display sweep, mechanical:** the eight `'employee' => $x->createdBy?->name` sites (six registers,
+`AgendaOrderingService`, `DecisionDraftComposer`) and `PresentationMemoCompiler`'s الموظف/جهة عمله become
+the subject — those columns are literally صاحب العلاقة, and today they print the clerk.
+`MeetingMinutesCompiler`'s `$note->createdBy` is a discussion-note author and is **not** in scope.
+`RequestResource`/`RequestDetailResource` gain a `subject` block; the SPA shows صاحب العلاقة only when it
+differs from the filer, so an ordinary self-filed request looks exactly as it does today.
+
+**Deliberately NOT touched:** `RequestDraft` keeps `created_by_user_id` as its only owner (a draft is the
+composer's own working state, not a file about anyone yet) — `SaveRequestDraftRequest` gains one nullable
+field so a half-composed on-behalf intake survives a refresh, and nothing else about drafts changes.
+Nothing renames `created_by_user_id` or removes a single read of it: "who filed this" stays a real,
+separately-recorded fact.
+
+**Verify:** new `tests/Feature/RequestSubjectTest.php` — the backfill/creating-hook making an unset
+subject equal the creator; the manager gate answering to the *subject's* manager and refusing the
+creator's, through the transition endpoint AND the visibility gate AND the action-required notification;
+Art. 101's notice reaching the subject and not the clerk while the tally still excludes the subject; the
+Appendix 16 search matching per subject so a clerk can file the same type for two employees; the intake
+refusing a foreign subject without the grant and accepting it with; the duplicate-check lookup and the
+tracking screen both following the subject; a self-filed request behaving exactly as before. Then the
+full PHPUnit suite (baseline 684 tests / 4511 assertions), Pint on touched PHP, `npm run build` (then
+revert `frontend/dist`), locale key parity, `php artisan migrate` against the real MySQL, and a
+`ScreenRolePermissionSeeder` reseed — ⚠ which resets the whole matrix on a live install.
+
+---
 ### 2026-09-20 23:55 EET — Claude — Stage 96 complete (R09/R10 folded back into the matrix's parties)
 
 Built per the plan below. **No migration, no new endpoint and no service logic** — seeded data plus

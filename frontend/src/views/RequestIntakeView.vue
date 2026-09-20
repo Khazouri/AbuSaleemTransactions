@@ -19,7 +19,7 @@ import { DOCUMENT_GROUPS } from '../lib/requiredDocuments'
 
 const { t, locale } = useI18n()
 const auth = useAuthStore()
-const options = ref({ departments: [], types: [] })
+const options = ref({ departments: [], types: [], subject_options: [], may_file_for_others: false })
 const form = ref(blankForm())
 const files = ref([])
 // Stage 90 — files the picker would not take, kept by name with the reason
@@ -202,10 +202,18 @@ function blankForm() {
     request_type_id: '',
     decision_grade: '',
     prior_relation: '',
+    // Stage 95 — صاحب العلاقة. Blank means "me", which is what an ordinary
+    // intake is; the picker below only renders for a caller the server says
+    // may name somebody else.
+    subject_user_id: '',
   }
 }
 
-/** Appendix 16 searches "برقم الموظف وموضوع المعاملة" — the type is the subject. */
+/**
+ * Appendix 16 searches "برقم الموظف وموضوع المعاملة": the type is the موضوع,
+ * and since Stage 95 the رقم الموظف is صاحب العلاقة rather than whoever is
+ * filling this form in.
+ */
 async function checkDuplicates() {
   duplicate.value = null
   form.value.prior_relation = ''
@@ -223,7 +231,10 @@ async function checkDuplicates() {
   duplicateChecking.value = true
   try {
     const { data } = await api.get('/requests/duplicate-check', {
-      params: { request_type_id: form.value.request_type_id },
+      params: {
+        request_type_id: form.value.request_type_id,
+        subject_user_id: form.value.subject_user_id || undefined,
+      },
     })
     duplicate.value = data.data
   } catch {
@@ -587,6 +598,7 @@ function inlinePayload() {
   payload.append('request_type_id', form.value.request_type_id)
   if (form.value.decision_grade !== '') payload.append('decision_grade', form.value.decision_grade)
   if (form.value.prior_relation !== '') payload.append('prior_relation', form.value.prior_relation)
+  if (form.value.subject_user_id !== '') payload.append('subject_user_id', form.value.subject_user_id)
   files.value.forEach(({ file, label, required_document_key: documentKey }, index) => {
     payload.append(`attachments[${index}][file]`, file)
     if (label.trim()) payload.append(`attachments[${index}][label]`, label.trim())
@@ -709,6 +721,18 @@ onMounted(async () => {
                 @blur="markTouched('title')"
               />
               <small v-if="fieldError('title')">{{ fieldError('title') }}</small>
+            </label>
+            <!-- Stage 95 — صاحب العلاقة, shown only to a caller who holds
+                 request_intake,approve. Everyone else files about themselves,
+                 which is what the server assumes when this is absent. -->
+            <label v-if="options.may_file_for_others" class="wide">
+              {{ t('intake.subjectUser') }}
+              <select v-model="form.subject_user_id" @change="checkDuplicates">
+                <option value="">{{ t('intake.subjectIsMe') }}</option>
+                <option v-for="person in options.subject_options" :key="person.id" :value="person.id">{{ person.name }}</option>
+              </select>
+              <small v-if="fieldError('subject_user_id')">{{ fieldError('subject_user_id') }}</small>
+              <small v-else>{{ t('intake.subjectUserHint') }}</small>
             </label>
             <label>
               {{ t('requests.department') }}<span class="required-mark" aria-hidden="true">*</span>
@@ -950,6 +974,10 @@ onMounted(async () => {
           <div><dt>{{ t('requests.department') }}</dt><dd>{{ selectedDepartment ? name(selectedDepartment) : '—' }}</dd></div>
           <div><dt>{{ t('requests.type') }}</dt><dd>{{ selectedType ? name(selectedType) : '—' }}</dd></div>
           <div><dt>{{ t('intake.decisionGrade') }}</dt><dd>{{ form.decision_grade || '—' }}</dd></div>
+          <div v-if="form.subject_user_id">
+            <dt>{{ t('intake.subjectUser') }}</dt>
+            <dd>{{ options.subject_options.find((person) => person.id === form.subject_user_id)?.name || '—' }}</dd>
+          </div>
           <div v-if="form.prior_relation">
             <dt>{{ t('lifecycle.duplicate.classify') }}</dt>
             <dd>{{ t(`lifecycle.duplicate.relations.${form.prior_relation}`) }}</dd>

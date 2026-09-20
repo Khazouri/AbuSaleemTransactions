@@ -44,6 +44,11 @@ class SaveRequestDraftRequest extends FormRequest
             'request_type_id' => ['nullable', 'integer'],
             'decision_grade' => ['nullable', 'integer', 'between:1,100'],
             'prior_relation' => ['nullable', Rule::in(array_keys(DuplicatePolicy::RELATIONS))],
+            // Stage 95 — so a half-composed on-behalf intake survives a
+            // refresh like every other field. A draft is still the composer's
+            // own working state; whether this value may differ from the caller
+            // is decided once, at submission, by StoreRequest's own controller.
+            'subject_user_id' => ['nullable', 'integer'],
         ];
     }
 

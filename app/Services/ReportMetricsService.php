@@ -164,6 +164,7 @@ class ReportMetricsService
                 'status:id,code,name_ar,name_en,color',
                 'currentStage:id,order_no,code,name_ar,name_en',
                 'createdBy:id,name',
+                'subject:id,name',
             ])
             ->latest('id');
     }

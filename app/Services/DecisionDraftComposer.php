@@ -45,7 +45,8 @@ class DecisionDraftComposer
         return [
             '{{reference_number}}' => $requestRecord?->reference_number ?? $none,
             '{{request_title}}' => $requestRecord?->title ?? $none,
-            '{{employee_name}}' => $requestRecord?->createdBy?->name ?? $none,
+            // Stage 95 — صاحب العلاقة, the employee the decision is about.
+            '{{employee_name}}' => $requestRecord?->subject?->name ?? $none,
             '{{department}}' => $this->localName($requestRecord?->department, $locale, $none),
             '{{request_type}}' => $this->localName($requestRecord?->requestType, $locale, $none),
             '{{committee_name}}' => $this->localName($meeting?->committee, $locale, $none),
