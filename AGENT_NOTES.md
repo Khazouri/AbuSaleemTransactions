@@ -14,6 +14,84 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 
 ---
 
+### 2026-09-20 EET — Claude — Stage 94 (Appendix 6 RACI re-derived cell by cell) — TRACK N opened
+
+**Docs only. No PHP, Vue, migration or seeder was touched, so no PHPUnit/Pint/`npm run build` run
+is claimed or warranted** — running them would prove nothing about this change. The only tracked
+files this touches are `STAGE_PLAN.md` and this note; `docs/` is git-ignored, so the analysis and
+the two matrix corrections stay local, as every file in that folder does. (The `graphify-out/*`
+churn in `git status` predates this session and is not mine.)
+
+**The finding that started it: `compliance-matrix.md` carried Appendix 6 as ✅, and the ✅ did not
+hold — for two different reasons, both worth internalising because neither is about this appendix.**
+Stage 84 (2026-09-11) checked **four rows of fifteen**, honestly and well, and the ✅ it earned was
+then read as covering all fifteen. **And one of the four it fixed had since regressed**: the
+2026-09-18 قيد move took registration off مقرر اللجنة — precisely the row Stage 84 corrected — while
+that row's own ✅ note went on *citing القيد as evidence for the ✅*. So: **(1) a ✅ on a
+matrix-shaped appendix only ever means "checked at the grain someone chose that day", and (2) a ✅
+can rot without anyone touching its row.** When a stage moves a mechanism, re-check every appendix
+that cites it, not only the one its Source line names. Both lessons are now in the headline note.
+
+**New `docs/employee-committee-lifecycle/gap-analysis-appendix-6.md`** — the first per-cell
+re-derivation, all **41 populated cells** (15 rows × 7 columns; the other 64 are a literal `—`),
+each verified at file:line against the live seeders/services rather than read off the matrix.
+Score: **مسؤول implemented 10/15**, absent 3 (تجهيز الملف الوظيفي · الإشعار · الأرشفة), contradicted
+1 (القيد), half-live 1; **~13 of ~26** non-مسؤول cells have no implementation. Shape of the result:
+**the system enforces accountability tightly and consultation barely** — every R with a home is
+enforced, often double-enforced, while almost every C and I cell is decorative.
+
+**Four findings worth knowing before touching this area.** (1) **صاحب العلاقة does not exist as a
+field** — `requests` carries only `created_by_user_id`, so the person a request is *about* is always
+its filer, and `actorIsCreatorsActiveManager()` therefore routes a file filed on an employee's
+behalf to *the clerk's* manager, silently. Four rows rest on that column. (2) **تجهيز الملف الوظيفي
+has zero implementation and its duty is discharged by the wrong party** — `DocumentCompletenessService`
+runs at submission, so the *submitter* assembles the documents on a row that gives الموظف a `—`.
+(3) **R02 holds `decisions,approve` but every committee outcome row in `workflow_transitions`
+requires R03** (`:107`, and `:443/458/466/474/492/536/553`, all verified `$roles['R03']`), so an R02
+passes the 403 and then 422s; it works only on the appeal branch, which never touches
+`WorkflowService` — which is why no test caught it, and no test anywhere exercises R02 on decisions.
+(4) **R09/R10 have no column in this appendix at all** (diagram-alignment inventions, AGENT_NOTES
+2026-08-28), yet R09 holds three duties the matrix gives مقرر اللجنة as one مسؤول.
+
+**Three decisions were taken by the user on this analysis — recorded so they are not
+re-litigated.** (1) Conform on **every cell**, not only the accountable ones. (2) **القيد returns to
+مقرر اللجنة**, reversing 2026-09-18 — and note Art. 20 («بعد ثبوت اكتمال الملف») and Appendix 6
+*agree*, so that one change broke both and the revert closes both, restoring Appendix 63's بوابة 1
+to its place before the قيد. (3) **R09/R10 fold back into the matrix's parties**, keeping their
+logins and losing duties belonging to a column they do not have.
+
+**One judgment call made rather than asked, and one interpretation recorded rather than assumed.**
+The approving side is a **single column** while the system has three tiers behind it (R03 → R05 →
+[R06] → R07); no cell says there may be only one, so **the chain is NOT collapsed** — collapsing it
+would be Stage-57-scale blast radius the source never asks for. And row 10's المقرر «توثيق» is read
+as **documentation, not the tally** (Appendix 45 uses a different phrase, «تسجيل النتيجة», for
+recording the result), which is what lets R02 come out of the dead `decisions,approve` grant without
+leaving that cell unimplemented — R02 already holds `meeting_minutes,add`. If a later reader takes
+توثيق as the tally instead, that inverts the smallest item in Stage 97.
+
+**Also corrected:** the Appendix 6 row ✅ → ⚠ and the Part B headline **63/19 → 62/20**. That
+headline moved 62/20 → 63/19 *earlier the same day* for a stale ⚠ (النموذج 12); it now moves back
+for the opposite failure, a stale ✅. Both moves are recorded side by side in the note under the
+table, deliberately — the pair is more instructive than either alone.
+
+**New Track N (Stages 94–101)** in STAGE_PLAN.md, with 94 done. **There is exactly one hard
+dependency: 95 (صاحب العلاقة) blocks 98 and 101**, because both act on the person a request is
+about; everything else is preference and is written as preference, so nobody inherits a constraint
+that was never real. I originally wrote "96 before 97" as a dependency and **corrected it** — 97 is
+a status swap on two seeded rows and does not care how many rows sit beside them; folding R09/R10
+out first only shrinks its diff. **Stage 95 deserves its own session**: it touches the identity of
+every request in the system, with a fixture sweep on Stage 84's scale.
+
+**Open items.** (1) Appendix 45's row stays ✅ but **will need ⚠ when Stage 97 lands**, since
+reverting R02 out of `decisions,approve` re-opens تسجيل النتيجة — the trade is deliberate and is
+written into Stage 97's own entry, not left to be discovered. (2) `source-detailed-flow-verbatim.md`
+stage 07 is tagged divergent for the قيد; Stage 97 flips it to compliant, and whoever does it should
+flip it in the same commit rather than leaving a third file to drift. (3) The analysis cites
+`compliance-matrix.md` **by row, not by line**, on purpose — that file shifts, and an earlier draft
+of this very document already had a stale `:374` in it after one edit.
+
+---
+
 ### 2026-09-20 EET — Claude — Gap analysis vs. [D] + [E] recorded; two gaps closed; three stale doc rows corrected
 
 Built per the plan below. **No migration** — `referral_authority` has existed since Stage 50 and the

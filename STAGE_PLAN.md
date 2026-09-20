@@ -1609,11 +1609,184 @@ progress indicator states the same one as the wall.
 
 ---
 
+# TRACK N — Appendix 6 (مصفوفة المسؤوليات RACI) conformance (Stages 94–101)
+
+**Source:** [D] **الملحق التنظيمي السادس**, p.104 — transcribed verbatim in
+`docs/employee-committee-lifecycle/source-manual-verbatim.md`. A 15-row × 7-column matrix,
+**41 populated cells**, naming for each lifecycle action which party is مسؤول and which are
+مشارك / مطلع or carry a named role (منسق، منظم، توثيق، متابعة، إشراف حسب الاختصاص، اعتماد
+تنظيمي، اعتماد داخلي، مراجعة عند الحاجة، مشارك كعضو، دعم معلومات، مستلم، مسؤول إجرائيًا).
+
+**Why a track and not a fix.** `compliance-matrix.md` carried this appendix as ✅ on Stage
+84's authority. Stage 84 checked **four rows of fifteen**, honestly and well — and one of the
+four has since regressed, because the 2026-09-18 قيد move took registration off مقرر اللجنة.
+The first full per-cell re-derivation is
+`docs/employee-committee-lifecycle/gap-analysis-appendix-6.md`: **مسؤول implemented 10/15,
+absent 3, contradicted 1, half-live 1**, and **~13 of ~26** consultation/information cells with
+no implementation at all. The system enforces accountability tightly and consultation barely.
+
+**Three decisions taken 2026-09-20 — do not re-litigate them:**
+
+1. **Conform on every cell**, not only the accountable ones. مشارك and مطلع become real.
+2. **القيد returns to مقرر اللجنة**, reversing the 2026-09-18 move. Art. 20 («بعد ثبوت اكتمال
+   الملف») and Appendix 6 agree, so that one change broke both and this closes both.
+3. **R09/R10 fold back into the matrix's parties.** They keep their logins and stop holding
+   duties belonging to a column they do not have.
+
+**⚠ One judgment call, recorded so silence is not read as approval:** the approving side is a
+single column («عميد البلدية / جهة الاعتماد») while the system has three tiers behind it
+(R03 → R05 → [R06] → R07). No cell says there may be only one, so **the chain is not
+collapsed** — R05/R06/R07 are recorded as tiers of that column. Collapsing it would be
+Stage-57-scale blast radius the source never asks for.
+
+---
+
+### Stage 94 — Appendix 6 re-derived cell by cell (docs only)
+
+**Goal:** the record says what is actually true, at the grain the appendix is written in.
+**Build:** `gap-analysis-appendix-6.md` (all 41 cells, each verified at file:line);
+`compliance-matrix.md`'s Appendix 6 row ✅ → ⚠ and the Part B headline 63/19 → 62/20; this track.
+**Done when:** no row of the matrix is tagged from a check at a coarser grain than the row.
+**Source:** [D] Appendix 6.
+
+---
+
+### Stage 95 — صاحب العلاقة ⚠ *foundational — blocks rows 1, 2, 3, 14*
+
+**Goal:** the person a request is *about* is a field, not an assumption.
+**Build:** `requests` carries only `created_by_user_id`, so صاحب العلاقة is always the filer.
+Add a nullable `subject_user_id` defaulting to the creator (every existing row stays truthful),
+and resolve the manager gate from the **subject**, not the creator —
+`actorIsCreatorsActiveManager()` (`WorkflowService.php:614-629`) currently sends a file filed on
+an employee's behalf to *the clerk's* manager, silently. Intake gains a subject picker for the
+roles that file for others.
+**Done when:** row 2's مسؤول is the subject's own الرئيس المباشر, in code, not by coincidence.
+**⚠ Blast radius:** every fixture assuming creator ≡ subject. Expect a sweep on Stage 84's scale.
+**Source:** [D] Appendix 6 rows 1, 2, 3, 14.
+
+---
+
+### Stage 96 — R09/R10 folded back into the matrix's parties
+
+**Goal:** no duty the matrix assigns to a column is held by a role without one.
+**Build:** R09's `meeting_agenda`, `legal_review,edit`, `committee_candidates` and
+`meetings_dashboard` grants, and its `forward` row (`WorkflowTransitionSeeder.php:100`), return
+to **R02**. R10's routing folds into the الموارد البشرية column (**R12**); `administrative_routing`
+collapses from three routes to one, and the unused `routed_to_diwan` /
+`routed_to_committee_secretary` statuses retire from the seeded map (rows kept, per the
+legacy-status precedent).
+**Done when:** every مسؤول cell is held by the column's own role.
+**Source:** [D] Appendix 6, structural finding.
+
+---
+
+### Stage 97 — القيد back to مقرر اللجنة
+
+**Goal:** registration is the rapporteur's act, after completeness — as both sources say.
+**Build:** revert the 2026-09-18 swap: `register` sets `in_review` (Art. 38 code 04) and
+`requirements_check → approve` sets `registered` (code 06) and mints.
+`grantReferenceNumberIfRegistering()` is keyed off destination status, so the seeded map carries
+this with no service change. Appendix 63's بوابة 1 returns to its place *before* the قيد, and the
+three gate-1 refusal strings plus `controlGates.intake.title` — reworded off the word القيد by
+Stage 70 — are restored. Smallest item: R02 out of `decisions,approve`, the grant that 403-passes
+then 422s (verified: gates one route, and no test anywhere exercises R02 on decisions).
+**Done when:** a file is numbered by R02 after its documents are verified, not before.
+**Consequence:** `compliance-matrix.md`'s Appendix 45 row ✅ → ⚠ — تسجيل النتيجة re-opens.
+**Source:** [D] Appendix 6 row 5 + Art. 20 (ب) + Appendix 63 بوابة 1.
+
+---
+
+### Stage 98 — تجهيز الملف الوظيفي (the largest missing مسؤول)
+
+**Goal:** HR assembles the employment file, as row 3 says it does.
+**Build:** today this row has *zero* implementation, and the duty is discharged by the wrong
+party — `DocumentCompletenessService` runs at submission (`StoreRequest.php:208`), so the
+**submitter** assembles the documents on a row that gives الموظف a literal `—`. Add a real HR
+preparation-and-attestation step before المقرر's فحص, with الرئيس المباشر «مشارك» able to
+contribute and المقرر «مطلع» on completion.
+**Done when:** the party the matrix holds accountable is the party that acts.
+**Prefer an action on the existing stage** — a new `workflow_stages` row renumbers the chain,
+which is Stage-57 territory.
+**Source:** [D] Appendix 6 row 3.
+
+---
+
+### Stage 99 — the committee's own acts (rows 8, 9, 10, 11)
+
+**Goal:** what the matrix gives اللجنة collectively is not discharged by the chair alone.
+**Build:** **اعتماد تنظيمي** of the agenda (row 8) — no adoption step exists; a repo-wide search
+finds one *comment* citing Art. 12 (أ) 3 with no code. **اعتماد داخلي** of the محضر (row 11) —
+approval is R03 alone, and with nobody marked attended `review()` approves with zero signatures
+(`MeetingMinutesController.php:158-160`); close that hole too. **R11 wired to the committee**:
+`meeting_live` (عضو, row 9), `decisions,add` (مشارك كعضو, row 10), `meeting_minutes` (مراجعة عند
+الحاجة, row 11), and the role bound to Stage 45's `legal` seat, which it has never been.
+**Done when:** the legal member can do the four things the matrix names, and the committee
+adopts its own agenda and محضر.
+**Source:** [D] Appendix 6 rows 8, 9, 10, 11.
+
+---
+
+### Stage 100 — الإشعار ownership, الأرشفة, and execution oversight (rows 13, 14, 15)
+
+**Goal:** the three duties nobody currently holds get a holder.
+**Build:** **المقرر «مسؤول إجرائيًا»** for notices — Art. 101's notices fire from
+`RequestStatusNoticeObserver` on every status write with no endpoint, no permission and no human
+in the loop; ownership today survives only as an `employee_notified` checkbox ticked afterwards.
+**Two-part archiving** — HR owns ملف الخدمة, المقرر owns ملف اللجنة, replacing one free-text
+`file_storage_location` the closer types; restate Track K scope decision (1), which puts the
+service file outside this app, rather than crossing it silently. **جهة الاعتماد «إشراف حسب
+الاختصاص»** on execution — R05/R06/R07 hold nothing on `meeting_outputs` and cannot even see it.
+**Done when:** rows 13, 14 and 15 each name a party that can act.
+**Source:** [D] Appendix 6 rows 13, 14, 15 + Art. 101 + Arts. 34–37.
+
+---
+
+### Stage 101 — the consultation and information layer (~13 cells)
+
+**Goal:** مشارك and مطلع stop being decoration.
+**Build:** the remaining cells — الموارد البشرية consulted on rows 2, 4, 6, 7, 9 and 14;
+الرئيس المباشر informed on rows 1 and 14; اللجنة informed on row 6 (R03 has no `legal_review`
+view at all today). Mechanically these are notification event types, bounded `RequestVisibility`
+clauses and per-stage `notes_attachments` grants — the shapes Stages 47, 68 and 87 already
+established for exactly this.
+**Done when:** every one of the 41 populated cells has an implementation.
+**Source:** [D] Appendix 6, all rows.
+
+---
+
 ## Suggested order
 
-**Every stage, 1–93, is built — Track M is complete.** This block is now purely the
+**Stages 1–93 are built — Tracks A–M are complete.** For those, this block is purely the
 dependency record: it says which stage had to precede which, which is what you need when reading a
 stage's assumptions or judging whether a change to one stage's work disturbs another's.
+
+**Track N (94–101) is planned, not built.** Only **94** (the docs re-derivation) is done.
+
+```
+94 → 96 → 97                    (independent of 95 — seeded-map work)
+94 → 95 → 98 → 101              (95 is the real blocker)
+94 → 99 → 100                   (committee-side; touches no subject and no seeded map)
+```
+
+**There is exactly one hard dependency: 95 blocks 98 and 101.** Stage 95 adds صاحب العلاقة, and
+both of those stages act on the person a request is *about* — HR assembling *whose* employment
+file (98), and informing *whose* direct manager (101). Build either before 95 and it silently
+operates on the filer.
+
+Everything else is preference, and is stated as preference so nobody inherits a constraint that
+was never real:
+
+- **95 deserves its own session** — it touches the identity of every request in the system, with a
+  fixture sweep on Stage 84's scale. That is a scheduling call, not an ordering one.
+- **96 before 97** only shrinks 97's diff (folding R09/R10 out leaves `receive_and_register` with
+  one registering party instead of three). Either order works: 97 is a status swap on two seeded
+  rows and does not care how many rows sit beside them.
+- **101 last** because the consultation layer is additive and wiring notifications before the
+  accountable parties are correct would tell the wrong people.
+
+If only two land, take **94 + 97**: together they close the contradicted row and the false ✅ with
+the smallest diff in the track, and 97 is largely the inverse of a change whose mechanism is
+documented in full.
 
 ```
 1 → 2 → 3 → 4 → 5        (foundation — do these in order)
