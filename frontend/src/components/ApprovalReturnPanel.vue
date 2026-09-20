@@ -105,22 +105,22 @@ async function submitResolution() {
 </script>
 
 <template>
-  <div class="return-panel">
+  <div class="gate-panel">
     <!-- Art. 94's second half: an open return is answered before anything else. -->
     <template v-if="openReturn">
-      <p class="alert">{{ t('approvalReturn.pendingResolution') }}</p>
+      <p class="alert warning">{{ t('approvalReturn.pendingResolution') }}</p>
 
       <button
         v-if="!resolving"
         v-can="'meeting_outputs.edit'"
-        class="primary compact"
+        class="btn btn-sm primary"
         type="button"
         @click="resolving = true"
       >
         {{ t('approvalReturn.resolveAction') }}
       </button>
 
-      <form v-else class="return-form" @submit.prevent="submitResolution">
+      <form v-else class="gate-form" @submit.prevent="submitResolution">
         <p class="hint">
           {{
             openReturn.return_kind === 'substantive'
@@ -133,31 +133,31 @@ async function submitResolution() {
           <textarea v-model="resolution" rows="3" required />
         </label>
 
-        <p v-if="error" class="alert">{{ error }}</p>
+        <p v-if="error" class="alert warning">{{ error }}</p>
 
         <div class="actions">
           <button class="primary" type="submit" :disabled="saving || resolution.trim() === ''">
             {{ saving ? t('approvalReturn.saving') : t('approvalReturn.confirmResolution') }}
           </button>
-          <button type="button" @click="resolving = false">{{ t('approvalReturn.cancel') }}</button>
+          <button class="ghost" type="button" @click="resolving = false">{{ t('approvalReturn.cancel') }}</button>
         </div>
       </form>
     </template>
 
     <template v-else>
-      <p v-if="refusal" class="alert">{{ refusal }}</p>
+      <p v-if="refusal" class="alert warning">{{ refusal }}</p>
 
       <button
         v-else-if="!open"
         v-can="'meeting_outputs.edit'"
-        class="primary compact"
+        class="btn btn-sm primary"
         type="button"
         @click="open = true"
       >
         {{ t('approvalReturn.action') }}
       </button>
 
-      <form v-if="open" class="return-form" @submit.prevent="submit">
+      <form v-if="open" class="gate-form" @submit.prevent="submit">
         <p class="hint">{{ t('approvalReturn.formNote') }}</p>
 
         <div class="field-grid">
@@ -200,78 +200,16 @@ async function submitResolution() {
           }}
         </p>
 
-        <p v-if="error" class="alert">{{ error }}</p>
+        <p v-if="error" class="alert warning">{{ error }}</p>
 
         <div class="actions">
           <button class="primary" type="submit" :disabled="saving || !canSubmit">
             {{ saving ? t('approvalReturn.saving') : t('approvalReturn.confirm') }}
           </button>
-          <button type="button" @click="open = false">{{ t('approvalReturn.cancel') }}</button>
+          <button class="ghost" type="button" @click="open = false">{{ t('approvalReturn.cancel') }}</button>
         </div>
       </form>
     </template>
   </div>
 </template>
 
-<style scoped>
-.return-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.return-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  background: var(--color-surface);
-}
-
-.field-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-}
-
-.return-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-}
-
-.return-form input,
-.return-form select,
-.return-form textarea {
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.35rem;
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  font: inherit;
-}
-
-.hint {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--color-black-500);
-}
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.alert {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-warning-border);
-  border-radius: 0.35rem;
-  background: var(--color-warning-bg);
-  color: var(--color-warning-fg);
-  font-size: 0.85rem;
-}
-</style>

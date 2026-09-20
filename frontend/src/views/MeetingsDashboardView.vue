@@ -110,7 +110,7 @@ onMounted(load)
       <div class="panels">
         <!-- Stage 81 — [D] Appendix 11's ten buckets. The labels are the
              appendix's own, rendered server-side. -->
-        <section class="card panel">
+        <section class="card card-flat panel">
           <h3>{{ t('meetingsUnit.dashboard.board.title') }}</h3>
           <p class="source">{{ t('meetingsUnit.dashboard.board.source') }}</p>
           <ul class="bars">
@@ -134,7 +134,7 @@ onMounted(load)
           </ul>
         </section>
 
-        <section class="card panel">
+        <section class="card card-flat panel">
           <h3>{{ t('meetingsUnit.dashboard.nextMeeting.title') }}</h3>
           <p v-if="!nextMeeting" class="state">{{ t('meetingsUnit.dashboard.nextMeeting.none') }}</p>
           <div v-else class="next-meeting">
@@ -165,7 +165,7 @@ onMounted(load)
              party the file is waiting on, which the appendix requires
              outright: a delay report must say who owes the next action, not
              merely how many days have passed. -->
-        <section class="card panel warnings">
+        <section class="card card-flat panel warnings">
           <h3>{{ t('meetingsUnit.dashboard.warnings.title') }}</h3>
           <p class="source">{{ t('meetingsUnit.dashboard.warnings.source') }}</p>
           <p v-if="firingWarnings.length === 0" class="state">{{ t('meetingsUnit.dashboard.warnings.none') }}</p>
@@ -196,62 +196,48 @@ onMounted(load)
 </template>
 
 <style scoped>
-.page { padding: 1.5rem; max-inline-size: 78rem; }
-.page h1 { margin: 0 0 .3rem; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
-.subtitle { margin: 0 0 1rem; color: var(--color-muted); font-size: .85rem; }
+.page h1 { margin: 0 0 .3rem; }
 
-.state { color: var(--color-muted); font-size: .85rem; margin: 0; }
-.alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: .5rem 0 0; }
-.ghost {
-  display: inline-block; padding: .4rem .65rem; border: 1px solid var(--color-border-hover); border-radius: 8px;
-  background: var(--color-surface); color: var(--color-black-700); font-size: .85rem; cursor: pointer; text-decoration: none;
-}
-.ghost:hover { background: var(--color-surface-hover); }
-
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .85rem; margin-bottom: 1rem; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
 .tile {
-  display: flex; flex-direction: column; gap: .3rem; padding: 1rem 1.1rem;
+  display: flex; flex-direction: column; gap: .3rem; padding: var(--space-4) var(--space-5);
   background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   border-inline-start: 4px solid var(--color-border-hover);
 }
 .tile.good { border-inline-start-color: var(--color-success-fg); }
 .tile.info { border-inline-start-color: var(--color-info-fg); }
 .tile.bad { border-inline-start-color: var(--color-danger-fg); }
-.tile-label { color: var(--color-muted); font-size: .78rem; }
-.tile-value { color: var(--color-brand-text); font-size: 1.6rem; line-height: 1.1; }
+.tile-label { color: var(--color-muted); font-size: var(--text-xs); }
+.tile-value { color: var(--color-brand-text); font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; }
-.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
-.panel h3 { margin: 0 0 1rem; font-size: 1rem; color: var(--color-black-800); }
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
+.panel h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-black-800); }
 
 .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
 .bars li { display: grid; grid-template-columns: minmax(90px, 34%) 1fr auto; align-items: center; gap: .6rem; }
-.bar-label { font-size: .8rem; color: var(--color-black-700); }
-.bar-track { block-size: 9px; background: var(--color-surface-hover); border-radius: 999px; overflow: hidden; }
-.bar-fill { display: block; block-size: 100%; border-radius: 999px; background: var(--color-brand); }
-.bar-value { font-size: .8rem; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.bar-label { font-size: var(--text-sm); color: var(--color-black-700); }
+.bar-track { block-size: 9px; background: var(--color-surface-hover); border-radius: var(--radius-full); overflow: hidden; }
+.bar-fill { display: block; block-size: 100%; border-radius: var(--radius-full); background: var(--color-brand); }
+.bar-value { font-size: var(--text-sm); color: var(--color-muted); font-variant-numeric: tabular-nums; }
 
-.source { margin: -.6rem 0 .9rem; color: var(--color-muted); font-size: .74rem; }
+.source { margin: -.6rem 0 var(--space-3); color: var(--color-muted); font-size: var(--text-xs); }
 .scope-note { display: block; color: var(--color-muted); font-size: .7rem; font-style: normal; }
 .bars li.scope-cross .bar-fill { background: var(--color-danger-fg); }
 .bars li.scope-period .bar-fill { background: var(--color-info-fg); }
 .warnings { grid-column: 1 / -1; }
 .warning-tally, .warning-files { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
-.warning-tally li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: .35rem .55rem; border-radius: 8px; background: var(--color-warning-bg); color: var(--color-warning-fg); font-size: .8rem; }
+.warning-tally li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); padding: .35rem .55rem; border-radius: var(--radius-lg); background: var(--color-warning-bg); color: var(--color-warning-fg); font-size: var(--text-sm); }
 .warning-files { margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--color-border); }
-.warning-files li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: .6rem; font-size: .8rem; }
-.reference { font-family: var(--font-mono); font-size: .76rem; color: var(--color-brand-text); }
-.warning-count { min-inline-size: 1.5rem; text-align: center; padding: .1rem .4rem; border-radius: 999px; background: var(--color-surface-hover); color: var(--color-muted); font-size: .74rem; }
+.warning-files li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; gap: .6rem; font-size: var(--text-sm); }
+.reference { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-brand-text); }
+.warning-count { min-inline-size: 1.5rem; text-align: center; padding: .1rem .4rem; border-radius: var(--radius-full); background: var(--color-surface-hover); color: var(--color-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 .warning-count.level-red, .warning-count.level-critical { background: var(--color-danger-bg); color: var(--color-danger-fg); }
 .warning-count.level-yellow { background: var(--color-warning-bg); color: var(--color-warning-fg); }
-.next-meeting { display: grid; gap: .3rem; font-size: .88rem; }
-.next-meeting strong { color: var(--color-brand-text); font-size: 1rem; }
-.muted { color: var(--color-muted); font-size: .82rem; }
-.counts { display: flex; align-items: center; gap: .6rem; margin: .4rem 0; color: var(--color-black-700); font-size: .82rem; }
-.pill { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .74rem; }
-.pill.good { background: var(--color-success-bg); color: var(--color-success-fg); border: 1px solid var(--color-success-border); }
-.pill.bad { background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); }
-.next-meeting-links { display: flex; gap: .5rem; margin-top: .3rem; }
+.next-meeting { display: grid; gap: .3rem; font-size: var(--text-base); }
+.next-meeting strong { color: var(--color-brand-text); font-size: var(--text-lg); }
+.muted { color: var(--color-muted); font-size: var(--text-sm); }
+.counts { display: flex; align-items: center; gap: .6rem; margin: .4rem 0; color: var(--color-black-700); font-size: var(--text-sm); }
+.next-meeting-links { display: flex; gap: var(--space-2); margin-top: .3rem; }
 .next-meeting-links .ghost { justify-self: start; }
 </style>

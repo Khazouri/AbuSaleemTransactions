@@ -97,12 +97,12 @@ async function submitLift() {
     </ul>
 
     <template v-if="openId">
-      <p class="alert">{{ t('controlGates.suspension.pendingLift') }}</p>
+      <p class="alert warning">{{ t('controlGates.suspension.pendingLift') }}</p>
 
       <button
         v-if="!lifting"
         v-can="'meeting_outputs.edit'"
-        class="primary compact"
+        class="btn btn-sm primary"
         type="button"
         @click="lifting = true"
       >
@@ -125,13 +125,13 @@ async function submitLift() {
           <textarea v-model="lift.resolution_note" rows="3" />
         </label>
 
-        <p v-if="error" class="alert">{{ error }}</p>
+        <p v-if="error" class="alert warning">{{ error }}</p>
 
         <div class="actions">
           <button class="primary" type="submit" :disabled="saving">
             {{ saving ? t('controlGates.saving') : t('controlGates.save') }}
           </button>
-          <button type="button" @click="lifting = false">{{ t('controlGates.cancel') }}</button>
+          <button class="ghost" type="button" @click="lifting = false">{{ t('controlGates.cancel') }}</button>
         </div>
       </form>
     </template>
@@ -142,7 +142,7 @@ async function submitLift() {
       <button
         v-else-if="!open"
         v-can="'meeting_outputs.edit'"
-        class="compact destructive"
+        class="btn btn-sm danger"
         type="button"
         @click="open = true"
       >
@@ -165,105 +165,16 @@ async function submitLift() {
           <textarea v-model="form.detail" rows="3" required />
         </label>
 
-        <p v-if="error" class="alert">{{ error }}</p>
+        <p v-if="error" class="alert warning">{{ error }}</p>
 
         <div class="actions">
           <button class="primary" type="submit" :disabled="saving || !canSubmit">
             {{ saving ? t('controlGates.saving') : t('controlGates.save') }}
           </button>
-          <button type="button" @click="open = false">{{ t('controlGates.cancel') }}</button>
+          <button class="ghost" type="button" @click="open = false">{{ t('controlGates.cancel') }}</button>
         </div>
       </form>
     </template>
   </div>
 </template>
 
-<style scoped>
-.gate-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.gate-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  background: var(--color-surface);
-}
-
-.gate-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-}
-
-.gate-form select,
-.gate-form textarea {
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.35rem;
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  font: inherit;
-}
-
-.rounds {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.rounds li {
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.35rem;
-  font-size: 0.85rem;
-}
-
-.round-head {
-  margin: 0 0 0.25rem;
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.round-detail {
-  margin: 0;
-  color: var(--color-black-500);
-}
-
-.round-open {
-  margin: 0.25rem 0 0;
-  color: var(--color-warning-fg);
-  font-weight: 600;
-}
-
-.hint {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--color-black-500);
-}
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.alert {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-warning-border);
-  border-radius: 0.35rem;
-  background: var(--color-warning-bg);
-  color: var(--color-warning-fg);
-  font-size: 0.85rem;
-}
-</style>

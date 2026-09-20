@@ -178,7 +178,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="decisions">
+  <section class="page decisions">
     <div class="heading no-print">
       <div>
         <h2>{{ t('decisions.title') }}</h2>
@@ -199,23 +199,24 @@ onMounted(async () => {
       </div>
     </div>
 
-    <nav class="tabs no-print" :aria-label="t('decisions.title')">
+    <div class="tabs no-print" role="tablist" :aria-label="t('decisions.title')">
       <button
         v-for="name in ['register', 'pending']"
         :key="name"
         class="tab"
-        :class="{ active: tab === name }"
+        role="tab"
+        :aria-selected="tab === name ? 'true' : 'false'"
         type="button"
         @click="showTab(name)"
       >
         {{ t(`decisions.tabs.${name}`) }}
         <span v-if="name === 'pending' && pending.length" class="count">{{ pending.length }}</span>
       </button>
-    </nav>
+    </div>
 
     <!-- === Register ==================================================== -->
     <template v-if="tab === 'register'">
-      <form class="card filters no-print" @submit.prevent="applyFilters">
+      <form class="card card-flat card-pad filters no-print" @submit.prevent="applyFilters">
         <h3>{{ t('decisions.filters') }}</h3>
         <div class="filter-grid">
           <label>
@@ -261,11 +262,11 @@ onMounted(async () => {
       </p>
       <p v-if="exportError" class="alert no-print">{{ exportError }}</p>
 
-      <div class="card list">
+      <div class="card card-flat card-pad list">
         <p v-if="loading" class="state">{{ t('common.loading') }}</p>
         <p v-else-if="!loadError && rows.length === 0" class="state">{{ t('decisions.empty') }}</p>
         <div v-else-if="!loadError" class="table-wrap">
-          <table>
+          <table class="data-table">
             <thead>
               <tr>
                 <!-- Stage 70 — Appendix 12's سجل القرارات opens with the
@@ -318,7 +319,7 @@ onMounted(async () => {
                   <small v-if="row.context?.meeting" class="muted">{{ date(row.context.meeting.scheduled_at) }}</small>
                 </td>
                 <td>
-                  <span class="outcome" :class="row.outcome">{{ t(`decisions.outcome.${row.outcome}`) }}</span>
+                  <span class="pill outcome" :class="row.outcome">{{ t(`decisions.outcome.${row.outcome}`) }}</span>
                 </td>
                 <td>
                   <span v-if="row.instrument">{{ t(`decisions.instrument.${row.instrument}`) }}</span>
@@ -362,11 +363,11 @@ onMounted(async () => {
         <button class="ghost" type="button" @click="loadPending">{{ t('common.retry') }}</button>
       </p>
 
-      <p v-if="pendingLoading" class="card state">{{ t('common.loading') }}</p>
-      <p v-else-if="!pendingError && pending.length === 0" class="card state">{{ t('decisions.noPending') }}</p>
+      <p v-if="pendingLoading" class="card card-flat card-pad state">{{ t('common.loading') }}</p>
+      <p v-else-if="!pendingError && pending.length === 0" class="card card-flat card-pad state">{{ t('decisions.noPending') }}</p>
 
       <ul v-else-if="!pendingError" class="pending-list">
-        <li v-for="item in pending" :key="item.id" class="card pending-item">
+        <li v-for="item in pending" :key="item.id" class="card card-flat card-pad pending-item">
           <div class="pending-head">
             <div>
               <RouterLink
@@ -423,43 +424,25 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
-.subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
-.heading-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.heading-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
-.tabs { display: flex; gap: .35rem; margin-bottom: 1rem; border-bottom: 1px solid var(--color-border); }
-.tab { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem .9rem; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--color-muted); font-size: .88rem; cursor: pointer; }
-.tab.active { color: var(--color-brand-text); border-bottom-color: var(--color-brand-text); }
-.count { display: inline-block; min-width: 1.25rem; padding: .05rem .35rem; border-radius: 999px; background: var(--color-brand); color: var(--color-on-brand); font-size: .7rem; }
+.count { display: inline-block; min-inline-size: 1.25rem; padding: .05rem .35rem; border-radius: var(--radius-full); background: var(--color-brand); color: var(--color-on-brand); font-size: var(--text-xs); }
 
-.filters, .list { padding: 1.25rem; margin-bottom: 1rem; }
-.filters h3 { margin: 0 0 1rem; font-size: 1rem; }
-.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
-label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }
+.filters, .list { margin-bottom: var(--space-4); }
+.filters h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); }
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-4); }
+label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: var(--text-sm); }
 select, input { min-width: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
 select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
-.actions { display: flex; gap: .5rem; margin-top: 1rem; }
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
-.ghost { padding: .45rem .7rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
-.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
 .ghost.active { border-color: var(--color-brand-text); color: var(--color-brand-text); font-weight: 600; }
-button:disabled { cursor: not-allowed; opacity: .55; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
-.alert .ghost { margin-inline-start: .5rem; }
-.state { padding: 1.25rem; margin: 0; color: var(--color-muted); }
 
-.table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 1150px; border-collapse: collapse; }
-th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
-td { font-size: .84rem; }
+.data-table { min-width: 1150px; }
 .nowrap { white-space: nowrap; }
-.subject { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.reference { font-family: var(--font-mono); font-size: .78rem; color: var(--color-brand-text); }
-.muted { display: block; color: var(--color-muted); font-size: .72rem; }
-.outcome { display: inline-block; padding: .12rem .55rem; border: 1px solid; border-radius: 999px; font-size: .75rem; white-space: nowrap; }
+.subject { max-inline-size: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reference { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-brand-text); }
+.muted { display: block; color: var(--color-muted); font-size: var(--text-xs); }
+/* Seven outcome tones — more than the four generic .pill modifiers cover. */
+.outcome { border: 1px solid; }
 .outcome.approve { color: var(--color-success-fg); border-color: var(--color-success-border); background: var(--color-success-bg); }
 .outcome.reject { color: var(--color-danger-fg); border-color: var(--color-danger-border); background: var(--color-danger-bg); }
 .outcome.defer { color: var(--color-warning-fg); border-color: var(--color-warning-border); background: var(--color-warning-bg); }
@@ -468,12 +451,10 @@ td { font-size: .84rem; }
 .outcome.refer_other_body { color: var(--color-muted); border-color: var(--color-border-hover); background: var(--color-surface-hover); }
 .outcome.no_jurisdiction { color: var(--color-warning-fg); border-color: var(--color-border-hover); background: var(--color-surface-hover); }
 
-.pending-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .75rem; }
-.pending-item { padding: 1rem 1.15rem; }
-.pending-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-.pending-title { display: block; margin-top: .2rem; font-size: .95rem; }
-.pending-meta { text-align: end; font-size: .82rem; }
-.tally { display: flex; gap: 1rem; flex-wrap: wrap; margin: .75rem 0 .5rem; color: var(--color-muted); font-size: .8rem; }
+.pending-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.pending-head { display: flex; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.pending-title { display: block; margin-top: .2rem; font-size: var(--text-base); }
+.pending-meta { text-align: end; font-size: var(--text-sm); }
+.tally { display: flex; gap: var(--space-4); flex-wrap: wrap; margin: var(--space-3) 0 var(--space-2); color: var(--color-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .vote-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
-.pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }
 </style>

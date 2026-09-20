@@ -193,15 +193,19 @@ onMounted(() => {
 </script>
 
 <template>
-  <section>
-    <div class="toolbar">
-      <button v-can="'users.add'" class="primary" @click="startCreate">+ {{ t('users.add') }}</button>
+  <section class="page">
+    <div class="heading">
+      <div>
+        <h2>{{ t('users.title') }}</h2>
+        <p v-if="!loading && !loadError" class="subtitle">{{ users.length }}</p>
+      </div>
+      <button v-can="'users.add'" class="primary" type="button" @click="startCreate">{{ t('users.add') }}</button>
     </div>
 
     <p v-if="formError" class="alert">{{ formError }}</p>
 
     <!-- Create / edit form -->
-    <form v-if="showForm" class="card form" @submit.prevent="save">
+    <form v-if="showForm" class="card card-flat card-pad form" @submit.prevent="save">
       <h3>{{ editingId === null ? t('users.add') : t('users.edit') }}</h3>
 
       <div class="grid">
@@ -276,15 +280,15 @@ onMounted(() => {
     </form>
 
     <!-- List -->
-    <div class="card">
+    <div class="card card-flat card-pad">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
-      <p v-else-if="loadError" class="state error">
+      <p v-else-if="loadError" class="alert">
         {{ t('nav.error') }}
         <button class="ghost" @click="load">{{ t('common.retry') }}</button>
       </p>
       <p v-else-if="users.length === 0" class="state">{{ t('users.empty') }}</p>
 
-      <table v-else>
+      <table v-else class="data-table">
         <thead>
           <tr>
             <th scope="col">{{ t('users.name') }}</th>
@@ -340,45 +344,40 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.toolbar { margin-bottom: 1rem; }
-.card {
-  padding: 1.25rem;
-  margin-bottom: 1rem;
-}
-.form h3 { margin: 0 0 1rem; font-size: 1rem; }
+.form { margin-bottom: var(--space-4); }
+.form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
+  gap: var(--space-4);
 }
 label {
   display: flex;
   flex-direction: column;
   gap: .3rem;
-  font-size: .875rem;
-  color: var(--color-foreground);
+  font-size: var(--text-base);
+  color: var(--color-black-700);
 }
-label.checkbox { flex-direction: row; align-items: center; gap: .5rem; margin-top: 1rem; }
+label.checkbox { flex-direction: row; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
 input[type='text'], input[type='email'], input[type='password'], select {
   padding: .5rem .6rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-hover);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-foreground);
 }
 input:focus, select:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
-.hint { color: var(--color-muted); font-size: .75rem; }
-.field-error { color: var(--color-red); font-size: .78rem; }
+.field-error { color: var(--color-danger-fg); font-size: var(--text-sm); }
 
 .roles-field {
-  margin-top: 1rem;
+  margin-top: var(--space-4);
   padding: .75rem .9rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
 .roles-field legend {
   padding: 0 .4rem;
-  font-size: .8rem;
+  font-size: var(--text-sm);
   color: var(--color-muted);
 }
 .role-option {
@@ -386,69 +385,26 @@ input:focus, select:focus { outline: 2px solid var(--color-brand-text); outline-
   align-items: center;
   gap: .4rem;
   margin: .25rem .9rem .25rem 0;
-  font-size: .85rem;
+  font-size: var(--text-base);
 }
 
-.actions { display: flex; gap: .5rem; margin-top: 1.25rem; }
+.actions { margin-top: var(--space-5); }
 
-table { width: 100%; border-collapse: collapse; }
-th {
-  padding: .5rem;
-  text-align: start;
-  font-size: .78rem;
-  font-weight: 600;
-  color: var(--color-muted);
-  border-bottom: 1px solid var(--color-border);
-}
-td { padding: .6rem .5rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-tr:last-child td { border-bottom: 0; }
 tr.dimmed { opacity: .55; }
-.name { font-size: .9rem; font-weight: 500; }
-.email { color: var(--color-muted); font-size: .8rem; }
-.pill {
-  margin-inline-start: .5rem;
-  padding: .1rem .5rem;
-  background: var(--color-black-100);
-  color: var(--color-muted);
-  border-radius: var(--radius-full);
-  font-size: .72rem;
-}
+.name { font-size: var(--text-lg); font-weight: 500; }
+.email { color: var(--color-muted); font-size: var(--text-sm); }
 .badge {
   display: inline-block;
   margin-inline-end: .3rem;
   padding: .1rem .45rem;
-  background: var(--color-black-100);
-  color: var(--color-foreground);
+  background: var(--color-surface-hover);
+  color: var(--color-black-700);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  font-size: .72rem;
+  font-size: var(--text-xs);
   direction: ltr;
 }
-.meta { color: var(--color-muted); font-size: .82rem; }
+.meta { color: var(--color-muted); font-size: var(--text-sm); }
 .muted { color: var(--color-black-400); }
-.row-actions { text-align: end; white-space: nowrap; }
-.state { padding: .5rem; color: var(--color-muted); font-size: .9rem; margin: 0; }
-.state.error { color: var(--color-red); }
-.alert {
-  padding: .65rem .8rem;
-  background: var(--color-surface);
-  color: var(--color-red);
-  border: 1px solid var(--color-red);
-  border-radius: var(--radius-lg);
-  font-size: .875rem;
-  margin: 0 0 1rem;
-}
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-primary); color: var(--color-on-primary); }
-.ghost {
-  padding: .35rem .6rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  margin-inline-start: .3rem;
-}
-.ghost:hover { background: var(--color-surface-hover); }
-.ghost.danger { color: var(--color-red); border-color: var(--color-red); }
-.ghost:disabled { opacity: .45; cursor: not-allowed; }
-.ghost:disabled:hover { background: var(--color-surface); }
+.row-actions { display: flex; justify-content: flex-end; gap: var(--space-2); white-space: nowrap; }
 </style>

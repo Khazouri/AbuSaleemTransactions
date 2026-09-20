@@ -140,7 +140,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="notifications">
+  <section class="page notifications">
     <div class="heading">
       <div>
         <h2>{{ t('notifications.title') }}</h2>
@@ -161,7 +161,7 @@ onMounted(async () => {
       <button class="ghost" type="button" @click="load(store.page.current_page)">{{ t('common.retry') }}</button>
     </p>
 
-    <div class="card list">
+    <div class="card card-flat card-pad list">
       <p v-if="store.loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="isEmpty" class="state">{{ t('notifications.empty') }}</p>
       <ul v-else class="rows">
@@ -172,7 +172,7 @@ onMounted(async () => {
               <span class="row-body">{{ localised(item, 'body') }}</span>
             </span>
             <span class="row-meta">
-              <span class="event">{{ eventLabel(item.event_type) }}</span>
+              <span class="pill event">{{ eventLabel(item.event_type) }}</span>
               <span class="when">{{ timestamp(item.created_at) }}</span>
             </span>
           </button>
@@ -191,12 +191,12 @@ onMounted(async () => {
     </nav>
 
     <!-- Preferences: one row per event, one checkbox per channel. -->
-    <form class="card prefs" @submit.prevent="saveSettings">
+    <form class="card card-flat card-pad prefs" @submit.prevent="saveSettings">
       <h3>{{ t('notifications.preferences') }}</h3>
       <p class="subtitle">{{ t('notifications.preferencesHint') }}</p>
 
       <div class="table-wrap">
-        <table>
+        <table class="data-table">
           <thead>
             <tr>
               <th>{{ t('notifications.event') }}</th>
@@ -237,20 +237,8 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
-h3 { margin: 0 0 .25rem; font-size: 1rem; }
-.subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
-.head-actions { display: flex; gap: .5rem; }
-.card { padding: 1.25rem; margin-bottom: 1rem; }
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
-.ghost { padding: .4rem .65rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
-.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
-button:disabled { cursor: not-allowed; opacity: .55; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
-.alert .ghost { margin-inline-start: .5rem; }
-.state { padding: .5rem; margin: 0; color: var(--color-muted); }
+h3 { margin: 0 0 .25rem; }
+.head-actions { display: flex; gap: var(--space-2); }
 
 /* -- List ----------------------------------------------------------------- */
 .rows { list-style: none; margin: 0; padding: 0; }
@@ -258,30 +246,26 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .rows li:last-child { border-bottom: 0; }
 /* Unread is marked on the start edge so it mirrors with the page direction. */
 .rows li.unread { border-inline-start: 3px solid var(--color-brand-text); }
-.row { display: flex; align-items: start; justify-content: space-between; gap: 1rem; width: 100%; padding: .8rem .7rem; border: 0; background: transparent; text-align: start; flex-wrap: wrap; }
+.row { display: flex; align-items: start; justify-content: space-between; gap: var(--space-4); width: 100%; padding: .8rem .7rem; border: 0; background: transparent; text-align: start; flex-wrap: wrap; cursor: pointer; }
 .row:hover { background: var(--color-surface-hover); }
 .row-main { display: flex; flex-direction: column; gap: .2rem; min-width: 0; flex: 1 1 18rem; }
-.row-title { font-size: .88rem; font-weight: 600; color: var(--color-foreground); }
+.row-title { font-size: var(--text-lg); font-weight: 600; color: var(--color-foreground); }
 .rows li.unread .row-title { font-weight: 700; }
-.row-body { font-size: .8rem; color: var(--color-black-700); }
+.row-body { font-size: var(--text-sm); color: var(--color-black-700); }
 .row-meta { display: flex; flex-direction: column; align-items: end; gap: .2rem; }
-.event { padding: .12rem .5rem; border-radius: 999px; background: var(--color-black-100); color: var(--color-black-700); font-size: .7rem; white-space: nowrap; }
-.when { color: var(--color-muted); font-size: .72rem; white-space: nowrap; }
-.pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; margin-bottom: 1rem; color: var(--color-muted); font-size: .84rem; }
+.when { color: var(--color-muted); font-size: var(--text-xs); white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* -- Preferences ---------------------------------------------------------- */
-.table-wrap { overflow-x: auto; margin-top: 1rem; }
-table { width: 100%; min-width: 380px; border-collapse: collapse; }
-th, td { padding: .6rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); }
-th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
-.event-name { font-size: .84rem; }
+.table-wrap { overflow-x: auto; margin-top: var(--space-4); }
+.data-table { min-width: 380px; }
+.event-name { font-size: var(--text-sm); }
 .check { text-align: center; }
 .check input { width: 1rem; height: 1rem; cursor: pointer; }
-.phone { display: flex; flex-direction: column; gap: .3rem; max-width: 20rem; margin-top: 1rem; color: var(--color-black-700); font-size: .85rem; }
+.phone { display: flex; flex-direction: column; gap: .3rem; max-width: 20rem; margin-top: var(--space-4); color: var(--color-black-700); font-size: var(--text-base); }
 .phone input { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
 .phone input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
-.phone small { color: var(--color-muted); font-size: .72rem; }
-.actions { display: flex; align-items: center; gap: .75rem; margin-top: 1rem; }
-.saved { color: var(--color-success-fg); font-size: .8rem; }
-.failed { color: var(--color-danger-fg); font-size: .8rem; }
+.phone small { color: var(--color-muted); font-size: var(--text-xs); }
+.actions { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-4); }
+.saved { color: var(--color-success-fg); font-size: var(--text-sm); }
+.failed { color: var(--color-danger-fg); font-size: var(--text-sm); }
 </style>

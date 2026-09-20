@@ -70,20 +70,20 @@ async function submit() {
 </script>
 
 <template>
-  <div class="closure-panel">
-    <p v-if="refusal" class="alert">{{ refusal }}</p>
+  <div class="gate-panel">
+    <p v-if="refusal" class="alert warning">{{ refusal }}</p>
 
     <button
       v-else-if="!open"
       v-can="'meeting_outputs.approve'"
-      class="primary compact"
+      class="btn btn-sm primary"
       type="button"
       @click="open = true"
     >
       {{ t('requestClosure.action') }}
     </button>
 
-    <form v-if="open" class="closure-form" @submit.prevent="submit">
+    <form v-if="open" class="gate-form" @submit.prevent="submit">
       <p class="hint">{{ t('requestClosure.formNote') }}</p>
 
       <div class="field-grid">
@@ -111,7 +111,7 @@ async function submit() {
 
       <h4>{{ t('requestClosure.auditTitle') }}</h4>
       <p class="hint">{{ t('requestClosure.auditNote') }}</p>
-      <ul class="audit-list">
+      <ul class="checklist">
         <li v-for="check in CLOSER_CHECKS" :key="check">
           <span class="question">{{ t(`requestClosure.checks.${check}`) }}</span>
           <select v-model="audit[check]">
@@ -122,109 +122,15 @@ async function submit() {
         </li>
       </ul>
 
-      <p v-if="error" class="alert">{{ error }}</p>
+      <p v-if="error" class="alert warning">{{ error }}</p>
 
       <div class="actions">
         <button class="primary" type="submit" :disabled="saving || !canSubmit">
           {{ saving ? t('requestClosure.saving') : t('requestClosure.confirm') }}
         </button>
-        <button type="button" @click="open = false">{{ t('requestClosure.cancel') }}</button>
+        <button class="ghost" type="button" @click="open = false">{{ t('requestClosure.cancel') }}</button>
       </div>
     </form>
   </div>
 </template>
 
-<style scoped>
-.closure-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.closure-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  background: var(--color-surface);
-}
-
-.field-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-}
-
-.field-grid label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-}
-
-.field-grid input {
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.35rem;
-  background: var(--color-surface);
-  color: var(--color-foreground);
-}
-
-h4 {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.hint {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--color-black-500);
-}
-
-.audit-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.audit-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  font-size: 0.85rem;
-}
-
-.audit-list select {
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.35rem;
-  background: var(--color-surface);
-  color: var(--color-foreground);
-}
-
-.question {
-  flex: 1;
-  text-align: start;
-}
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.alert {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-warning-border);
-  border-radius: 0.35rem;
-  background: var(--color-warning-bg);
-  color: var(--color-warning-fg);
-  font-size: 0.85rem;
-}
-</style>

@@ -233,7 +233,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="reports">
+  <section class="page reports">
     <div class="heading">
       <div>
         <h2>{{ t('reports.title') }}</h2>
@@ -256,19 +256,19 @@ onMounted(async () => {
     </div>
 
     <!-- Stage 81 — one filter bar, three views of the same population. -->
-    <nav class="tabs" :aria-label="t('reports.title')">
+    <div class="tabs" role="tablist" :aria-label="t('reports.title')">
       <button
         v-for="key in ['requests', 'indicators', 'periodic']"
         :key="key"
         type="button"
         class="tab"
-        :class="{ active: tab === key }"
-        :aria-pressed="tab === key"
+        role="tab"
+        :aria-selected="tab === key ? 'true' : 'false'"
         @click="selectTab(key)"
       >{{ t(`reports.tabs.${key}`) }}</button>
-    </nav>
+    </div>
 
-    <form class="card filters" @submit.prevent="applyFilters">
+    <form class="card card-flat card-pad filters" @submit.prevent="applyFilters">
       <h3>{{ t('reports.filters') }}</h3>
       <div class="filter-grid">
         <label>
@@ -326,11 +326,11 @@ onMounted(async () => {
       </article>
     </div>
 
-    <div v-if="tab === 'requests'" class="card list">
+    <div v-if="tab === 'requests'" class="card card-flat card-pad list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="!loadError && rows.length === 0" class="state">{{ t('reports.empty') }}</p>
       <div v-else-if="!loadError" class="table-wrap">
-        <table>
+        <table class="data-table">
           <thead>
             <tr>
               <th>{{ t('reports.reference') }}</th>
@@ -395,7 +395,7 @@ onMounted(async () => {
          stated purpose beside it: the article is a two-column table, and an
          indicator shown without its purpose invites being read as something
          it does not measure. -->
-    <div v-if="tab === 'indicators'" class="card list">
+    <div v-if="tab === 'indicators'" class="card card-flat card-pad list">
       <p v-if="loadingPerformance" class="state">{{ t('common.loading') }}</p>
       <template v-else-if="!loadError">
         <p class="source">{{ t('reports.performance.indicatorsSource') }}</p>
@@ -429,18 +429,18 @@ onMounted(async () => {
     <!-- Stage 81 — Art. 107's periodic report, Appendix 39's monthly and
          Appendix 40's annual. All three are counts and averages by design:
          Art. 107 excludes personal data outright. -->
-    <div v-if="tab === 'periodic'" class="card list">
-      <nav class="tabs inner" :aria-label="t('reports.tabs.periodic')">
+    <div v-if="tab === 'periodic'" class="card card-flat card-pad list">
+      <div class="tabs inner" role="tablist" :aria-label="t('reports.tabs.periodic')">
         <button
           v-for="key in PERIODIC_REPORTS"
           :key="key"
           type="button"
           class="tab"
-          :class="{ active: periodicKey === key }"
-          :aria-pressed="periodicKey === key"
+          role="tab"
+          :aria-selected="periodicKey === key ? 'true' : 'false'"
           @click="selectPeriodicReport(key)"
         >{{ t(`reports.performance.reports.${key}`) }}</button>
-      </nav>
+      </div>
 
       <p v-if="loadingPerformance" class="state">{{ t('common.loading') }}</p>
       <template v-else-if="!loadError && periodicReport">
@@ -475,61 +475,41 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
-.subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
-.export-actions { display: flex; gap: .5rem; }
-.filters, .list { padding: 1.25rem; margin-bottom: 1rem; }
-.filters h3 { margin: 0 0 1rem; font-size: 1rem; }
-.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
-label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }
+.export-actions { display: flex; gap: var(--space-2); }
+.filters { margin-bottom: var(--space-4); }
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-4); }
+label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: var(--text-sm); }
 select, input { min-width: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
 select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
-.actions { display: flex; gap: .5rem; margin-top: 1rem; }
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
-.ghost { padding: .45rem .7rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
-.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
-button:disabled { cursor: not-allowed; opacity: .55; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
-.alert .ghost { margin-inline-start: .5rem; }
-.state { padding: .5rem; margin: 0; color: var(--color-muted); }
+.actions { margin-top: var(--space-4); }
 
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
 .tile { padding: .8rem .9rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-xl); }
-.tile-label { display: block; color: var(--color-muted); font-size: .75rem; }
-.tile-value { display: block; margin-top: .2rem; color: var(--color-brand-text); font-size: 1.3rem; }
+.tile-label { display: block; color: var(--color-muted); font-size: var(--text-xs); }
+.tile-value { display: block; margin-top: .2rem; color: var(--color-brand-text); font-size: 1.3rem; font-variant-numeric: tabular-nums; }
 
-.table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 900px; border-collapse: collapse; }
-th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
-td { font-size: .84rem; }
+.data-table { min-width: 900px; }
 td small { display: block; margin-top: .1rem; color: var(--color-muted); }
 tr.overdue td { background: var(--color-warning-bg); }
 .nowrap { white-space: nowrap; }
 .subject { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.reference { font-family: var(--font-mono); font-size: .78rem; color: var(--color-brand-text); }
-.status { display: inline-block; padding: .12rem .5rem; border: 1px solid; border-radius: 999px; font-size: .75rem; white-space: nowrap; }
-.flag { display: inline-block; margin-inline-start: .35rem; padding: .05rem .4rem; border-radius: 999px; background: var(--color-danger-bg); color: var(--color-danger-fg); font-size: .68rem; }
-.tabs { display: flex; gap: .4rem; margin-bottom: 1rem; flex-wrap: wrap; }
-.tabs.inner { margin-bottom: 1rem; }
-.tab { padding: .45rem .85rem; border: 1px solid var(--color-border-hover); border-radius: 999px; background: var(--color-surface); color: var(--color-black-700); font-size: .82rem; }
-.tab.active { border-color: var(--color-brand); background: var(--color-brand); color: var(--color-on-brand); }
-.source { margin: 0 0 1rem; color: var(--color-muted); font-size: .78rem; }
-.indicator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: .75rem; }
+.reference { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-brand-text); }
+.status { display: inline-block; padding: .12rem .5rem; border: 1px solid; border-radius: var(--radius-full); font-size: var(--text-xs); white-space: nowrap; }
+.flag { display: inline-block; margin-inline-start: .35rem; padding: .05rem .4rem; border-radius: var(--radius-full); background: var(--color-danger-bg); color: var(--color-danger-fg); font-size: .68rem; }
+.tabs.inner { margin-bottom: var(--space-4); }
+.source { margin: 0 0 var(--space-4); color: var(--color-muted); font-size: var(--text-sm); }
+.indicator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-3); }
 .indicator { display: flex; align-items: center; gap: .7rem; padding: .75rem .85rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); }
-.indicator-number { flex: none; width: 1.6rem; height: 1.6rem; display: grid; place-items: center; border-radius: 999px; background: var(--color-surface-hover); color: var(--color-muted); font-size: .72rem; }
+.indicator-number { flex: none; width: 1.6rem; height: 1.6rem; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--color-surface-hover); color: var(--color-muted); font-size: var(--text-xs); }
 .indicator > div { flex: 1; min-width: 0; }
-.indicator-label { display: block; font-size: .84rem; }
-.indicator-purpose { display: block; margin-top: .1rem; color: var(--color-muted); font-size: .72rem; }
-.indicator-value { flex: none; color: var(--color-brand-text); font-size: 1.1rem; }
-.warnings { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--color-border); }
-.warnings h3, .report-section h3 { margin: 0 0 .4rem; font-size: .95rem; }
+.indicator-label { display: block; font-size: var(--text-sm); }
+.indicator-purpose { display: block; margin-top: .1rem; color: var(--color-muted); font-size: var(--text-xs); }
+.indicator-value { flex: none; color: var(--color-brand-text); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.warnings { margin-top: var(--space-6); padding-top: var(--space-5); border-top: 1px solid var(--color-border); }
+.warnings h3, .report-section h3 { margin: 0 0 .4rem; font-size: var(--text-lg); }
 .warning-list, .report-items { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
-.warning-list li, .report-items li { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: .4rem .6rem; border-radius: var(--radius-lg); background: var(--color-surface-hover); font-size: .82rem; }
+.warning-list li, .report-items li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); padding: .4rem .6rem; border-radius: var(--radius-lg); background: var(--color-surface-hover); font-size: var(--text-sm); }
 .warning-list strong { color: var(--color-warning-fg); }
-.report-section { margin-bottom: 1.25rem; }
+.report-section { margin-bottom: var(--space-5); }
 .report-section.narrative .report-items li { background: transparent; border: 1px dashed var(--color-border-hover); }
-.pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }
 </style>

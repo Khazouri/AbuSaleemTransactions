@@ -308,8 +308,8 @@ async function recordDecision() {
         </ul>
       </div>
 
-      <p v-if="myConflictDeclaration" class="alert">{{ t('decisions.conflict.declared') }}</p>
-      <p v-else-if="isNonVotingRapporteur" class="alert">{{ t('decisions.conflict.rapporteurNoVote') }}</p>
+      <p v-if="myConflictDeclaration" class="alert warning">{{ t('decisions.conflict.declared') }}</p>
+      <p v-else-if="isNonVotingRapporteur" class="alert warning">{{ t('decisions.conflict.rapporteurNoVote') }}</p>
 
       <div v-if="!myConflictDeclaration" v-can="'decisions.add'" class="conflict-declare">
         <input
@@ -322,7 +322,7 @@ async function recordDecision() {
           {{ conflictBusy ? t('decisions.conflict.declaring') : t('decisions.conflict.declare') }}
         </button>
       </div>
-      <p v-if="conflictError" class="alert">{{ conflictError }}</p>
+      <p v-if="conflictError" class="alert warning">{{ conflictError }}</p>
 
       <div class="tally">
         <span v-for="outcome in voteOptions" :key="outcome">
@@ -343,7 +343,7 @@ async function recordDecision() {
           {{ t(`decisions.vote.${option}`) }}
         </button>
       </div>
-      <p v-if="votingError" class="alert">{{ votingError }}</p>
+      <p v-if="votingError" class="alert warning">{{ votingError }}</p>
 
       <div v-can="'decisions.approve'" class="record-decision">
         <div v-if="templates.length && !isAppeal" class="template-picker">
@@ -357,7 +357,7 @@ async function recordDecision() {
             {{ templateDraftBusy ? t('decisions.template.drafting') : t('decisions.template.use') }}
           </button>
         </div>
-        <p v-if="templateDraftError" class="alert">{{ templateDraftError }}</p>
+        <p v-if="templateDraftError" class="alert warning">{{ templateDraftError }}</p>
 
         <!-- Stage 74 - Art. 90: which of the three the committee is issuing,
              pre-selected from the legal card but always the recorder's own
@@ -447,16 +447,16 @@ async function recordDecision() {
             {{ decidingBusy ? t('decisions.recording') : t('decisions.record') }}
           </button>
         </div>
-        <p v-if="decisionError" class="alert">{{ decisionError }}</p>
+        <p v-if="decisionError" class="alert warning">{{ decisionError }}</p>
       </div>
     </template>
 
     <Teleport to="body">
       <div v-if="pendingApprove" class="modal-backdrop" @click.self="closeApproveConfirm">
-        <section class="reason-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-decision-approve-title">
+        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-decision-approve-title">
           <h3 id="confirm-decision-approve-title">{{ t('decisions.confirmApprove.title') }}</h3>
           <p>{{ t('decisions.confirmApprove.body') }}</p>
-          <p v-if="decisionError" class="alert">{{ decisionError }}</p>
+          <p v-if="decisionError" class="alert warning">{{ decisionError }}</p>
           <div class="modal-actions">
             <button class="ghost" type="button" :disabled="decidingBusy" @click="closeApproveConfirm">
               {{ t('common.cancel') }}
@@ -472,50 +472,156 @@ async function recordDecision() {
 </template>
 
 <style scoped>
-.decision-block { display: grid; gap: .5rem; padding: .65rem .75rem; background: var(--color-surface-hover); border: 1px solid var(--color-border); border-radius: 8px; margin-bottom: .75rem; }
-.decision-result { margin: 0; color: var(--color-brand-text); font-size: .82rem; font-weight: 600; }
-.decision-template { margin: 0; color: var(--color-muted); font-size: .78rem; }
-.decision-comment { margin: 0; color: var(--color-muted); font-size: .8rem; }
-.conflict-list { font-size: .78rem; color: var(--color-muted); }
-.conflict-list ul { margin: .2rem 0 0; padding-inline-start: 1.1rem; }
-.conflict-declare { display: flex; gap: .4rem; }
-.conflict-declare input {
-  flex: 1; min-width: 0; padding: .4rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px;
-  background: var(--color-surface); color: var(--color-foreground); font: inherit; box-sizing: border-box;
+/* Everything button/alert/modal-shaped comes from the global primitives; the
+   markup below carries only what genuinely belongs to this panel's own
+   layout: the decision result block, the tally, and the structured-decision
+   form's fields. */
+.decision-block {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-3);
 }
-.tally { display: flex; gap: .85rem; flex-wrap: wrap; color: var(--color-muted); font-size: .78rem; }
-.vote-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
-.vote-actions button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
-.record-decision { display: grid; gap: .5rem; margin-top: .25rem; padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
-.template-picker { display: flex; gap: .4rem; }
-.template-picker select { flex: 1; min-width: 0; }
+.decision-result {
+  margin: 0;
+  color: var(--color-brand-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.decision-template,
+.decision-instrument {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+.decision-comment {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+.conflict-list {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.conflict-list ul {
+  margin: 0.2rem 0 0;
+  padding-inline-start: 1.1rem;
+}
+.conflict-declare {
+  display: flex;
+  gap: var(--space-2);
+}
+.conflict-declare input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  font: inherit;
+  box-sizing: border-box;
+}
+.tally {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+.vote-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.vote-actions button.active {
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+  border-color: var(--color-brand);
+}
+.record-decision {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: 0.25rem;
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border-hover);
+}
+.template-picker {
+  display: flex;
+  gap: var(--space-2);
+}
+.template-picker select {
+  flex: 1;
+  min-width: 0;
+}
 .record-decision textarea,
 .record-decision input,
 .record-decision select {
-  width: 100%; padding: .45rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px;
-  background: var(--color-surface); color: var(--color-foreground); resize: vertical; font: inherit; box-sizing: border-box;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  resize: vertical;
+  font: inherit;
+  box-sizing: border-box;
 }
-.record-decision .actions { margin: 0; display: flex; justify-content: flex-end; }
-.field { display: grid; gap: .25rem; }
-.field > span { color: var(--color-muted); font-size: .76rem; font-weight: 600; }
-.hint { color: var(--color-muted); font-size: .72rem; margin: 0; }
-.deferral { display: grid; gap: .45rem; margin: 0; padding: .55rem .65rem; border: 1px solid var(--color-warning-border); background: var(--color-warning-bg); border-radius: 8px; }
-.deferral legend { padding: 0 .3rem; color: var(--color-warning-fg); font-size: .78rem; font-weight: 600; }
-.deferral input { width: 100%; padding: .45rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px; background: var(--color-surface); color: var(--color-foreground); font: inherit; box-sizing: border-box; }
-.decision-instrument { margin: 0; color: var(--color-muted); font-size: .78rem; }
-.decision-parts { display: grid; grid-template-columns: auto 1fr; gap: .15rem .6rem; margin: 0; font-size: .78rem; }
-.decision-parts dt { color: var(--color-muted); font-weight: 600; }
-.decision-parts dd { margin: 0; color: var(--color-foreground); }
-button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
-button:disabled { cursor: not-allowed; opacity: .55; }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); }
-.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
-.alert { padding: .5rem .65rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .82rem; margin: 0; }
-.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }
-.reason-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }
-.reason-modal h3 { margin: 0; color: var(--color-brand-text); }
-.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }
-.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
-.modal-actions .ghost { margin: 0; }
+.record-decision .actions {
+  margin: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+.field > span {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.deferral {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-warning-border);
+  background: var(--color-warning-bg);
+  border-radius: var(--radius-lg);
+}
+.deferral legend {
+  padding: 0 0.3rem;
+  color: var(--color-warning-fg);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.deferral input {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  font: inherit;
+  box-sizing: border-box;
+}
+.decision-parts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem var(--space-2);
+  margin: 0;
+  font-size: var(--text-xs);
+}
+.decision-parts dt {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+.decision-parts dd {
+  margin: 0;
+  color: var(--color-foreground);
+}
 </style>

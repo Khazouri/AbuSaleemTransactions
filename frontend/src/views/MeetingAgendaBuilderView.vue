@@ -385,10 +385,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="page">
-    <h1>{{ t('meetingsUnit.agenda.title') }}</h1>
+  <section class="page agenda-builder">
+    <div class="heading">
+      <div>
+        <h2>{{ t('meetingsUnit.agenda.title') }}</h2>
+      </div>
+    </div>
 
-    <div class="card picker">
+    <div class="card card-flat card-pad picker">
       <label>
         {{ t('meetingsUnit.agenda.chooseMeeting') }}
         <select v-model="meetingId">
@@ -408,7 +412,7 @@ onMounted(async () => {
     <template v-else-if="meeting">
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
 
-      <section v-if="stats" class="card stats">
+      <section v-if="stats" class="card card-flat card-pad stats">
         <div class="stat"><span>{{ t('meetingsUnit.agenda.stats.totalItems') }}</span><strong>{{ stats.total_items }}</strong></div>
         <div class="stat"><span>{{ t('meetingsUnit.agenda.stats.totalMinutes') }}</span><strong>{{ stats.total_estimated_minutes }}</strong></div>
         <div class="stat">
@@ -436,7 +440,7 @@ onMounted(async () => {
       <!-- Stage 82 — [D] Art. 83's ordering. Offered, not imposed: the
            article's fifth rule leaves the arrangement to the chair, and
            Appendix 24 only requires a departure to be written down. -->
-      <section v-if="ordering" class="card ordering">
+      <section v-if="ordering" class="card card-flat card-pad ordering">
         <h3>{{ t('meetings.agenda.ordering.title') }}</h3>
         <p :class="ordering.matches_rule ? 'state' : 'alert'">
           {{ ordering.matches_rule ? t('meetings.agenda.ordering.matches') : t('meetings.agenda.ordering.departs') }}
@@ -467,7 +471,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-if="showGroups && stats" class="card groups">
+      <section v-if="showGroups && stats" class="card card-flat card-pad groups">
         <div class="groups-header">
           <h3>{{ t('meetingsUnit.agenda.stats.groupsTitle') }}</h3>
           <div class="group-by-toggle">
@@ -502,7 +506,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-can="'meeting_agenda.edit'" class="card add-form">
+      <section v-can="'meeting_agenda.edit'" class="card card-flat card-pad add-form">
         <h3>{{ t('meetingsUnit.agenda.addItem') }}</h3>
         <div class="type-toggle">
           <button
@@ -600,7 +604,7 @@ onMounted(async () => {
         <p v-if="addError" class="alert">{{ addError }}</p>
       </section>
 
-      <section class="card items">
+      <section class="card card-flat card-pad items">
         <h3>{{ t('meetings.agenda.title') }}</h3>
         <p v-if="!meeting.agenda_items?.length" class="state">{{ t('meetings.agenda.empty') }}</p>
         <ol v-else>
@@ -757,76 +761,68 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.page { padding: 1.5rem; max-inline-size: 68rem; }
-.page h1 { margin: 0 0 1rem; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; }
-.card h3 { margin: 0 0 .6rem; color: var(--color-brand-text); font-size: 1rem; }
-.card h4 { margin: .5rem 0 .3rem; color: var(--color-black-700); font-size: .88rem; }
+.page.agenda-builder { max-inline-size: 68rem; }
+.card h3 { margin: 0 0 var(--space-3); color: var(--color-brand-text); font-size: var(--text-lg); }
+.card h4 { margin: .5rem 0 .3rem; color: var(--color-black-700); font-size: var(--text-base); }
+.picker, .stats, .ordering, .groups, .add-form, .items { margin-bottom: var(--space-4); }
 
-.picker label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); }
+.picker label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
 select, input[type='text'], input[type='number'] {
   padding: .5rem .6rem;
   border: 1px solid var(--color-border-hover);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-foreground);
   font: inherit;
 }
 
-.state { color: var(--color-muted); font-size: .85rem; margin: 0; }
-.alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: .5rem 0 0; }
-
-.stats { display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem; }
+.stats { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5); }
 .stat { display: grid; gap: .2rem; }
-.stat span { color: var(--color-muted); font-size: .76rem; }
-.stat strong { color: var(--color-black-700); font-size: .88rem; }
+.stat span { color: var(--color-muted); font-size: var(--text-xs); }
+.stat strong { color: var(--color-black-700); font-size: var(--text-lg); }
 
-.groups-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.groups-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .groups-header h3 { margin: 0; }
 .group-by-toggle { display: flex; gap: .4rem; }
-.group-by-toggle button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
-.groups .group { padding: .5rem 0; border-bottom: 1px solid var(--color-border); }
+.groups .group { padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border); }
 .groups .group:last-child { border-bottom: 0; }
-.groups ul { margin: 0; padding-inline-start: 1.2rem; font-size: .84rem; color: var(--color-black-700); }
+.groups ul { margin: 0; padding-inline-start: 1.2rem; font-size: var(--text-sm); color: var(--color-black-700); }
 
-.type-toggle { display: flex; gap: .4rem; margin-bottom: .85rem; }
-.type-toggle button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .85rem; margin-bottom: .85rem; }
+/* A segmented filter/type toggle, not a semantic tablist — filled brand when
+   the option is selected, shared by the group-by and item-type controls. */
+.ghost.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
+
+.type-toggle { display: flex; gap: .4rem; margin-bottom: var(--space-3); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-3); }
 .span-2 { grid-column: 1 / -1; }
-label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); margin-bottom: .6rem; }
+label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); margin-bottom: var(--space-2); }
 
-.results { display: grid; gap: .4rem; padding: 0; margin: .5rem 0 0; list-style: none; }
-.result { display: flex; align-items: center; justify-content: space-between; gap: .5rem; font-size: .84rem; }
-.ref { color: var(--color-muted); font-size: .78rem; margin-inline-end: .5rem; }
+.results { display: grid; gap: .4rem; padding: 0; margin: var(--space-2) 0 0; list-style: none; }
+.result { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); font-size: var(--text-sm); }
+.ref { color: var(--color-muted); font-size: var(--text-sm); margin-inline-end: var(--space-2); }
 
-.items ol { display: grid; gap: .6rem; padding: 0; margin: 0; list-style: none; }
-.items li { display: grid; gap: .5rem; padding-bottom: .75rem; border-bottom: 1px solid var(--color-border); font-size: .86rem; }
-.items li .row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.items ol { display: grid; gap: var(--space-3); padding: 0; margin: 0; list-style: none; }
+.items li { display: grid; gap: var(--space-2); padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); font-size: var(--text-base); }
+.items li .row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .items li .row-main { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 .agenda-item[draggable='true'] { transition: opacity .15s, border-color .15s; }
 .agenda-item.dragging { opacity: .45; }
 .agenda-item.drag-over { border-top: 2px solid var(--color-brand); }
 .drag-handle { display: inline-flex; align-items: center; color: var(--color-muted); cursor: grab; }
 .agenda-item.dragging .drag-handle { cursor: grabbing; }
-.pill { margin-inline-start: .5rem; padding: .1rem .5rem; background: var(--color-surface-hover); color: var(--color-black-600); border-radius: 999px; font-size: .72rem; }
-.memo-link { margin-inline-start: .5rem; padding: .1rem .5rem; font-size: .72rem; text-decoration: none; }
+.pill { margin-inline-start: var(--space-2); }
+.memo-link { margin-inline-start: var(--space-2); padding: .1rem .5rem; font-size: var(--text-xs); text-decoration: none; }
 .item-actions { white-space: nowrap; }
-.edit-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.edit-row { display: flex; gap: var(--space-4); flex-wrap: wrap; }
 .edit-row label { margin-bottom: 0; }
 .edit-row label.wide { flex: 1 1 100%; }
 
 /* Stage 82 — Art. 83's ordering panel and Appendix 24's per-item fields. */
-.ordering-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .75rem; }
+.ordering-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
 .ordering-actions label.wide { flex: 1 1 22rem; margin-bottom: 0; }
 .appendix24 { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .4rem .9rem; margin: .6rem 0 0; padding-block-start: .6rem; border-block-start: 1px dashed var(--color-border); }
-.appendix24 dt { color: var(--color-black-600); font-size: .72rem; }
-.appendix24 dd { margin: 0; font-size: .82rem; }
+.appendix24 dt { color: var(--color-black-600); font-size: var(--text-xs); }
+.appendix24 dd { margin: 0; font-size: var(--text-sm); }
 
-.actions { display: flex; justify-content: flex-end; }
-button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
-button:disabled { cursor: not-allowed; opacity: .6; }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); }
-.ghost:hover { background: var(--color-surface-hover); }
-.ghost.danger { color: var(--color-danger-fg); border-color: var(--color-danger-border); }
+.actions { justify-content: flex-end; }
 </style>

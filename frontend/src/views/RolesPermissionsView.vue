@@ -146,12 +146,18 @@ onMounted(load)
 </script>
 
 <template>
-  <section>
+  <section class="page">
+    <div class="heading">
+      <div>
+        <h2>{{ t('rolesPermissions.title') }}</h2>
+      </div>
+    </div>
+
     <p v-if="formError" class="alert">{{ formError }}</p>
     <p v-if="saveSuccess" class="alert success">{{ t('rolesPermissions.saveSuccess') }}</p>
 
     <p v-if="loading" class="state">{{ t('common.loading') }}</p>
-    <p v-else-if="loadError" class="state error">
+    <p v-else-if="loadError" class="alert">
       {{ t('nav.error') }}
       <button class="ghost" @click="load">{{ t('common.retry') }}</button>
     </p>
@@ -162,7 +168,7 @@ onMounted(load)
           v-for="role in roles"
           :key="role.id"
           type="button"
-          class="role-tab"
+          class="chip"
           :class="{ active: role.id === activeRoleId }"
           :title="role.description ?? ''"
           @click="selectRole(role.id)"
@@ -171,7 +177,7 @@ onMounted(load)
         </button>
       </div>
 
-      <div class="card">
+      <div class="card card-flat card-pad">
         <table>
           <thead>
             <tr>
@@ -209,7 +215,7 @@ onMounted(load)
         <button v-can="'roles_permissions.edit'" class="primary" type="button" :disabled="saving || !dirty" @click="save">
           {{ saving ? t('common.saving') : t('common.save') }}
         </button>
-        <span v-if="dirty" class="hint">{{ t('rolesPermissions.unsavedChanges') }}</span>
+        <span v-if="dirty" class="hint dirty-hint">{{ t('rolesPermissions.unsavedChanges') }}</span>
       </div>
     </template>
   </section>
@@ -219,32 +225,17 @@ onMounted(load)
 .role-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: .4rem;
-  margin-bottom: 1rem;
-}
-.role-tab {
-  padding: .4rem .8rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  font-size: .82rem;
-  cursor: pointer;
-}
-.role-tab:hover { background: var(--color-surface-hover); }
-.role-tab.active {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  border-color: var(--color-primary);
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
-.card { padding: 1.25rem; margin-bottom: 1rem; overflow-x: auto; }
+.card { margin-bottom: var(--space-4); overflow-x: auto; }
 
 table { width: 100%; border-collapse: collapse; }
 th {
   padding: .5rem;
   text-align: center;
-  font-size: .78rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--color-muted);
   border-bottom: 1px solid var(--color-border);
@@ -253,34 +244,10 @@ th {
 th:first-child { text-align: start; }
 td { padding: .55rem .5rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
 tr:last-child td { border-bottom: 0; }
-.name { font-size: .88rem; }
+.name { font-size: var(--text-lg); }
 .action-col { text-align: center; }
 .select-all { display: flex; justify-content: center; margin-top: .3rem; }
 
-.state { padding: .5rem; color: var(--color-muted); font-size: .9rem; margin: 0 0 1rem; }
-.state.error { color: var(--color-red); }
-.alert {
-  padding: .65rem .8rem;
-  background: var(--color-surface);
-  color: var(--color-red);
-  border: 1px solid var(--color-red);
-  border-radius: var(--radius-lg);
-  font-size: .875rem;
-  margin: 0 0 1rem;
-}
-.alert.success { color: var(--color-primary); border-color: var(--color-primary); }
-
-.actions { display: flex; align-items: center; gap: .75rem; }
-.hint { color: var(--color-muted); font-size: .8rem; }
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-primary); color: var(--color-on-primary); }
-.primary:disabled { opacity: .5; cursor: not-allowed; }
-.ghost {
-  padding: .35rem .6rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  margin-inline-start: .3rem;
-}
-.ghost:hover { background: var(--color-surface-hover); }
+.actions { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-4); }
+.dirty-hint { margin: 0; }
 </style>

@@ -235,16 +235,20 @@ onMounted(load)
 </script>
 
 <template>
-  <section>
-    <div class="toolbar">
-      <button v-can="'request_types.add'" class="primary" @click="startCreate">
-        + {{ t('requestTypes.add') }}
+  <section class="page">
+    <div class="heading">
+      <div>
+        <h2>{{ t('requestTypes.title') }}</h2>
+        <p v-if="!loading && !loadError" class="subtitle">{{ types.length }}</p>
+      </div>
+      <button v-can="'request_types.add'" class="primary" type="button" @click="startCreate">
+        {{ t('requestTypes.add') }}
       </button>
     </div>
 
     <p v-if="formError" class="alert">{{ formError }}</p>
 
-    <form v-if="showForm" class="card form" @submit.prevent="save">
+    <form v-if="showForm" class="card card-flat card-pad form" @submit.prevent="save">
       <h3>{{ editingId === null ? t('requestTypes.add') : t('requestTypes.edit') }}</h3>
 
       <div class="grid">
@@ -369,14 +373,14 @@ onMounted(load)
       </div>
     </form>
 
-    <div class="card list">
+    <div class="card card-flat card-pad list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
-      <p v-else-if="loadError" class="state error">
+      <p v-else-if="loadError" class="alert">
         {{ t('nav.error') }}
         <button class="ghost" @click="load">{{ t('common.retry') }}</button>
       </p>
       <p v-else-if="types.length === 0" class="state">{{ t('requestTypes.empty') }}</p>
-      <table v-else>
+      <table v-else class="data-table">
         <thead>
           <tr>
             <th>{{ t('requestTypes.code') }}</th>
@@ -460,68 +464,37 @@ onMounted(load)
 </template>
 
 <style scoped>
-.toolbar { margin-bottom: 1rem; }
-.card { padding: 1.25rem; margin-bottom: 1rem; }
-.form h3 { margin: 0 0 1rem; font-size: 1rem; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
-label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; }
-label.checkbox { flex-direction: row; align-items: center; gap: .5rem; }
-.checks { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 1rem; }
+.form { margin-bottom: var(--space-4); }
+.form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
+label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
+label.checkbox { flex-direction: row; align-items: center; gap: var(--space-2); }
+.checks { display: flex; flex-wrap: wrap; gap: var(--space-5); margin-bottom: var(--space-4); }
 input, select {
   padding: .5rem .6rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-hover);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-foreground);
 }
-.documents { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1rem; margin-bottom: 1rem; }
-.documents legend { padding: 0 .4rem; font-size: .875rem; }
+.documents { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-4); margin-bottom: var(--space-4); }
+.documents legend { padding: 0 .4rem; font-size: var(--text-base); color: var(--color-muted); }
 .document-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: .75rem;
+  gap: var(--space-3);
   align-items: end;
-  padding: .75rem 0;
+  padding: var(--space-3) 0;
   border-bottom: 1px solid var(--color-border);
 }
 .document-row .remove { align-self: end; }
-.document-section h4 { margin: .5rem 0 .25rem; font-size: .8rem; color: var(--color-muted); }
-.document-section ul { margin: 0 0 .5rem; padding-inline-start: 1.1rem; font-size: .84rem; }
-.documents-row td { background: var(--color-black-100); }
-.hint, .state { color: var(--color-muted); font-size: .8rem; }
-.field-error, .state.error { color: var(--color-red); }
-.actions { display: flex; gap: .5rem; margin-top: 1rem; }
-.alert {
-  padding: .65rem .8rem;
-  color: var(--color-red);
-  border: 1px solid var(--color-red);
-  border-radius: var(--radius-lg);
-  margin: 0 0 1rem;
-}
+.document-section h4 { margin: .5rem 0 .25rem; font-size: var(--text-sm); color: var(--color-muted); }
+.document-section ul { margin: 0 0 .5rem; padding-inline-start: 1.1rem; font-size: var(--text-base); }
+.documents-row td { background: var(--color-surface-hover); }
+.field-error { color: var(--color-danger-fg); }
+.actions { margin-top: var(--space-4); }
 .list { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-th { text-align: start; color: var(--color-muted); font-size: .78rem; }
-th, td { padding: .6rem .5rem; border-bottom: 1px solid var(--color-border); }
-tr:last-child td { border-bottom: 0; }
 tr.dimmed { opacity: .55; }
-.usage { font-size: .8rem; color: var(--color-muted); display: flex; flex-direction: column; gap: .15rem; }
-.pill {
-  margin-inline-start: .5rem;
-  padding: .1rem .5rem;
-  background: var(--color-black-100);
-  color: var(--color-muted);
-  border-radius: var(--radius-full);
-  font-size: .72rem;
-}
-.row-actions { text-align: end; white-space: nowrap; }
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-primary); color: var(--color-on-primary); }
-.ghost {
-  padding: .35rem .6rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  margin-inline-start: .3rem;
-}
-.ghost.danger { color: var(--color-red); border-color: var(--color-red); }
+.usage { font-size: var(--text-sm); color: var(--color-muted); display: flex; flex-direction: column; gap: .15rem; }
+.row-actions { display: flex; justify-content: flex-end; gap: var(--space-2); white-space: nowrap; }
 </style>

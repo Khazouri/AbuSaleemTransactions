@@ -127,14 +127,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="audit">
+  <section class="page audit">
     <div class="heading">
       <div>
         <h2>{{ t('auditLog.title') }}</h2>
         <p class="subtitle">{{ t('auditLog.subtitle') }}</p>
       </div>
       <div class="heading-end">
-        <p v-if="!loading && !loadError" class="count">{{ t('auditLog.entries', { count: page.total }) }}</p>
+        <p v-if="!loading && !loadError" class="subtitle">{{ t('auditLog.entries', { count: page.total }) }}</p>
         <!-- Stage 24 — reading the trail and taking a copy of it are separate
              grants, hence the export-specific v-can. -->
         <div v-can="'audit_log.export'" class="export-actions">
@@ -148,7 +148,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <form class="card filters" @submit.prevent="applyFilters">
+    <form class="card card-flat card-pad filters" @submit.prevent="applyFilters">
       <h3>{{ t('auditLog.filters') }}</h3>
       <div class="filter-grid">
         <label>
@@ -197,11 +197,11 @@ onMounted(async () => {
     </p>
     <p v-if="exportError" class="alert">{{ exportError }}</p>
 
-    <div class="card list">
+    <div class="card card-flat card-pad list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="!loadError && logs.length === 0" class="state">{{ t('auditLog.empty') }}</p>
       <div v-else-if="!loadError" class="table-wrap">
-        <table>
+        <table class="data-table">
           <thead>
             <tr>
               <th>{{ t('auditLog.when') }}</th>
@@ -282,49 +282,33 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
-.subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
-.count { margin: 0; color: var(--color-muted); font-size: .82rem; }
-.heading-end { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
-.export-actions { display: flex; gap: .5rem; }
-.filters, .list { padding: 1.25rem; margin-bottom: 1rem; }
-.filters h3 { margin: 0 0 1rem; font-size: 1rem; }
-.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
-label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }
+.heading-end { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.export-actions { display: flex; gap: var(--space-2); }
+.filters { margin-bottom: var(--space-4); }
+.filters h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); }
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-4); }
+label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: var(--text-sm); }
 select, input { min-width: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
 select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
-.actions { display: flex; gap: .5rem; margin-top: 1rem; }
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
-.ghost { padding: .4rem .65rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
-.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
-button:disabled { cursor: not-allowed; opacity: .55; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
-.alert .ghost { margin-inline-start: .5rem; }
-.state { padding: .5rem; margin: 0; color: var(--color-muted); }
-.table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 760px; border-collapse: collapse; }
-th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
-td { font-size: .84rem; }
+.actions { margin-top: var(--space-4); }
+
+.data-table { min-width: 760px; }
 .when { white-space: nowrap; }
 .system { color: var(--color-muted); }
-.action { display: inline-block; padding: .12rem .5rem; border-radius: 999px; font-size: .75rem; white-space: nowrap; }
+.action { display: inline-block; padding: .12rem .5rem; border-radius: var(--radius-full); font-size: var(--text-xs); white-space: nowrap; }
 .action.created { color: var(--color-success-fg); background: var(--color-success-bg); }
 .action.updated { color: var(--color-warning-fg); background: var(--color-warning-bg); }
 .action.deleted { color: var(--color-danger-fg); background: var(--color-danger-bg); }
 .action.restored { color: var(--color-info-fg); background: var(--color-info-bg); }
 .model { margin-inline-end: .35rem; font-weight: 600; }
-.record-id, .record-link { display: inline-block; font-family: var(--font-mono); font-size: .75rem; color: var(--color-muted); }
+.record-id, .record-link { display: inline-block; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); }
 .record-link { color: var(--color-brand-text); }
-.origin { font-family: var(--font-mono); font-size: .75rem; color: var(--color-muted); }
+.origin { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); }
 .details-row > td { background: var(--color-surface-hover); }
-.diff { min-width: 0; }
-.diff th, .diff td { padding: .4rem .5rem; border-bottom: 1px solid var(--color-border); font-size: .8rem; }
+.diff { min-width: 0; width: 100%; border-collapse: collapse; }
+.diff th, .diff td { padding: .4rem .5rem; border-bottom: 1px solid var(--color-border); font-size: var(--text-sm); }
 .diff .field { font-weight: 600; }
 .diff .old { color: var(--color-danger-fg); }
 .diff .new { color: var(--color-success-fg); }
-.agent { margin: .6rem 0 0; color: var(--color-muted); font-size: .72rem; word-break: break-all; }
-.pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }
+.agent { margin: .6rem 0 0; color: var(--color-muted); font-size: var(--text-xs); word-break: break-all; }
 </style>

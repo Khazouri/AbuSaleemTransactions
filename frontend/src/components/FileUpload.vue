@@ -243,5 +243,17 @@ async function upload() {
 </template>
 
 <style scoped>
-.file-upload { display: grid; gap: .75rem; }.file-upload label { display: grid; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }.file-upload input, .file-upload select { min-inline-size: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }.hint, .selected { margin: -.4rem 0 0; color: var(--color-muted); font-size: .78rem; }.outstanding { color: var(--color-warning-fg); }.selected { overflow-wrap: anywhere; }.selected-preview { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-hover); }.selected-preview img, .selected-preview iframe { display: block; inline-size: 100%; max-block-size: 16rem; border: 0; object-fit: contain; }.selected-preview iframe { block-size: 16rem; }.error { margin: 0; color: var(--color-danger-fg); font-size: .82rem; }.primary { justify-self: start; padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; }.primary:disabled { cursor: not-allowed; opacity: .55; }.progress { block-size: .4rem; overflow: hidden; border-radius: var(--radius-full); background: var(--color-border); }.progress span { display: block; block-size: 100%; background: var(--color-primary); transition: inline-size .15s ease; }
+.file-upload { display: grid; gap: var(--space-3); }
+.file-upload label { display: grid; gap: .3rem; color: var(--color-black-700); font-size: var(--text-base); }
+.file-upload input, .file-upload select { min-inline-size: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
+.hint, .selected { margin: -.4rem 0 0; color: var(--color-muted); font-size: var(--text-sm); }
+.outstanding { color: var(--color-warning-fg); }
+.selected { overflow-wrap: anywhere; }
+.selected-preview { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface-hover); }
+.selected-preview img, .selected-preview iframe { display: block; inline-size: 100%; max-block-size: 16rem; border: 0; object-fit: contain; }
+.selected-preview iframe { block-size: 16rem; }
+.error { margin: 0; color: var(--color-danger-fg); font-size: var(--text-sm); }
+.primary { justify-self: start; }
+.progress { block-size: .4rem; overflow: hidden; border-radius: var(--radius-full); background: var(--color-border); }
+.progress span { display: block; block-size: 100%; background: var(--color-primary); transition: inline-size .15s ease; }
 </style>

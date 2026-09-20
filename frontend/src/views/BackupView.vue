@@ -111,7 +111,7 @@ onMounted(() => load())
 </script>
 
 <template>
-  <section class="backup">
+  <section class="page backup">
     <div class="heading">
       <div>
         <h2>{{ t('backup.title') }}</h2>
@@ -129,18 +129,18 @@ onMounted(() => load())
     </div>
 
     <p v-if="creating" class="notice">{{ t('backup.creatingHint') }}</p>
-    <p v-if="actionMessage" class="notice success">{{ actionMessage }}</p>
+    <p v-if="actionMessage" class="alert success">{{ actionMessage }}</p>
     <p v-if="actionError" class="alert">{{ actionError }}</p>
     <p v-if="loadError" class="alert">
       {{ t('nav.error') }}
       <button class="ghost" type="button" @click="load(page.current_page)">{{ t('common.retry') }}</button>
     </p>
 
-    <div class="card list">
+    <div class="card card-flat card-pad list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="!loadError && rows.length === 0" class="state">{{ t('backup.empty') }}</p>
       <div v-else-if="!loadError" class="table-wrap">
-        <table>
+        <table class="data-table">
           <thead>
             <tr>
               <th>{{ t('backup.columns.filename') }}</th>
@@ -160,7 +160,7 @@ onMounted(() => load())
               </td>
               <td class="nowrap">{{ size(row.size_bytes) }}</td>
               <td>
-                <span class="pill">
+                <span class="pill info">
                   {{ row.includes_files ? t('backup.databaseAndFiles') : t('backup.databaseOnly') }}
                 </span>
               </td>
@@ -209,38 +209,18 @@ onMounted(() => load())
 </template>
 
 <style scoped>
-.heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
-.subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
-.create { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
-.checkbox { display: inline-flex; align-items: center; gap: .35rem; color: var(--color-black-700); font-size: .85rem; }
+.create { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.checkbox { display: inline-flex; align-items: center; gap: .35rem; color: var(--color-black-700); font-size: var(--text-sm); }
 
-.list { padding: 1.25rem; margin-bottom: 1rem; }
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
-.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
-.ghost.danger { color: var(--color-danger-fg); border-color: var(--color-danger-border); }
-button:disabled { cursor: not-allowed; opacity: .55; }
+.list { margin-bottom: var(--space-4); }
+.notice { padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-4); border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); font-size: var(--text-base); }
 
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
-.alert .ghost { margin-inline-start: .5rem; }
-.notice { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); font-size: .85rem; }
-.notice.success { border-color: var(--color-success-border); color: var(--color-success-fg); background: var(--color-success-bg); }
-.state { padding: .5rem; margin: 0; color: var(--color-muted); }
-
-.table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 800px; border-collapse: collapse; }
-th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
-td { font-size: .84rem; }
+.data-table { min-width: 800px; }
 tr.failed td { background: var(--color-danger-bg); }
 .nowrap { white-space: nowrap; }
-.filename { font-family: var(--font-mono); font-size: .78rem; }
-.muted { display: block; color: var(--color-muted); font-size: .72rem; }
-.error { display: block; color: var(--color-danger-fg); font-size: .72rem; }
-.pill { display: inline-block; padding: .12rem .5rem; border: 1px solid var(--color-border-hover); border-radius: 999px; font-size: .72rem; white-space: nowrap; }
-.row-actions { display: flex; gap: .35rem; }
-.pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }
-.restore-note { margin-top: 1.25rem; padding: .75rem .9rem; border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-muted); font-size: .8rem; }
+.filename { font-family: var(--font-mono); font-size: var(--text-sm); }
+.muted { display: block; color: var(--color-muted); font-size: var(--text-xs); }
+.error { display: block; color: var(--color-danger-fg); font-size: var(--text-xs); }
+.row-actions { display: flex; gap: var(--space-2); justify-content: flex-end; }
+.restore-note { margin-top: var(--space-5); padding: var(--space-3) var(--space-4); border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-muted); font-size: var(--text-sm); }
 </style>

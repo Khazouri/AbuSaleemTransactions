@@ -165,9 +165,9 @@ function signInAs({ email: testEmail }) {
         <input v-model="password" type="password" required autocomplete="current-password" dir="ltr" />
       </label>
 
-      <p v-if="error" class="error">{{ error }}</p>
+      <p v-if="error" class="alert">{{ error }}</p>
 
-      <button type="submit" :disabled="auth.loading">
+      <button class="primary" type="submit" :disabled="auth.loading">
         {{ auth.loading ? t('auth.loggingIn') : t('auth.login') }}
       </button>
     </form>
@@ -191,49 +191,35 @@ function signInAs({ email: testEmail }) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  padding: 1.5rem 0;
+  gap: var(--space-4);
+  padding: var(--space-5) 0;
   background: var(--color-background);
 }
 .card {
-  width: min(400px, 92vw);
+  inline-size: min(400px, 92vw);
   background: var(--color-surface);
-  padding: 2rem;
+  padding: var(--space-6);
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
 }
-h1 { margin: 0; font-size: 1.35rem; color: var(--color-brand-text); text-align: center; }
-.sub { margin: 0; text-align: center; color: var(--color-muted); font-size: .9rem; }
-label { display: flex; flex-direction: column; gap: .35rem; font-size: .9rem; color: var(--color-black-700); }
+h1 { margin: 0; font-size: var(--text-xl); color: var(--color-brand-text); text-align: center; }
+.sub { margin: 0; text-align: center; color: var(--color-muted); font-size: var(--text-base); }
+label { display: flex; flex-direction: column; gap: .35rem; font-size: var(--text-base); color: var(--color-black-700); }
 input {
-  padding: .6rem .7rem;
+  padding: var(--space-3);
   border: 1px solid var(--color-border-hover);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
-  font-size: 1rem;
+  font-size: var(--text-lg);
 }
 input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 button {
-  padding: .7rem;
-  border: 0;
-  border-radius: 8px;
-  background: var(--color-brand);
-  color: var(--color-on-brand);
-  font-size: 1rem;
-  cursor: pointer;
-}
-button:disabled { opacity: .6; cursor: default; }
-.error {
-  margin: 0;
-  padding: .6rem .7rem;
-  background: var(--color-danger-bg);
-  color: var(--color-danger-fg);
-  border: 1px solid var(--color-danger-border);
-  border-radius: 8px;
-  font-size: .875rem;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-lg);
 }
 </style>

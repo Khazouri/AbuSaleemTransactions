@@ -128,7 +128,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="registers">
+  <section class="page registers">
     <div class="heading">
       <div>
         <h2>{{ t('registers.title') }}</h2>
@@ -144,22 +144,23 @@ onMounted(async () => {
       </div>
     </div>
 
-    <nav class="tabs" :aria-label="t('registers.title')">
+    <div class="tabs" role="tablist" :aria-label="t('registers.title')">
       <button
         v-for="register in registers"
         :key="register.code"
         type="button"
         class="tab"
-        :class="{ active: register.code === activeCode }"
+        role="tab"
+        :aria-selected="register.code === activeCode ? 'true' : 'false'"
         :disabled="loading"
         @click="selectRegister(register.code)"
       >
         <span class="tab-number">{{ register.number }}</span>
         {{ registerName(register) }}
       </button>
-    </nav>
+    </div>
 
-    <form class="card filters" @submit.prevent="applyFilters">
+    <form class="card card-flat card-pad filters" @submit.prevent="applyFilters">
       <div class="filter-grid">
         <label>
           {{ t('registers.dateFrom') }}
@@ -186,11 +187,11 @@ onMounted(async () => {
     </p>
     <p v-if="exportError" class="alert">{{ exportError }}</p>
 
-    <div class="card list">
+    <div class="card card-flat card-pad list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="!loadError && rows.length === 0" class="state">{{ t('registers.empty') }}</p>
       <div v-else-if="!loadError" class="table-wrap">
-        <table>
+        <table class="data-table">
           <thead>
             <tr>
               <th v-for="column in columns" :key="column.key">{{ column.label }}</th>
@@ -223,38 +224,20 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
-.subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
-.export-actions { display: flex; gap: .5rem; }
+.export-actions { display: flex; gap: var(--space-2); }
 
-.tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
-.tab { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .7rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-black-700); font-size: .8rem; cursor: pointer; }
-.tab:hover:not(:disabled) { background: var(--color-surface-hover); }
-.tab.active { border-color: var(--color-brand); background: var(--color-brand); color: var(--color-on-brand); }
-.tab-number { display: inline-flex; align-items: center; justify-content: center; min-width: 1.25rem; height: 1.25rem; border-radius: 999px; background: var(--color-surface-hover); color: var(--color-muted); font-size: .68rem; }
-.tab.active .tab-number { background: var(--color-on-brand); color: var(--color-brand); }
+.tab { display: inline-flex; align-items: center; gap: .4rem; }
+.tab-number { display: inline-flex; align-items: center; justify-content: center; min-width: 1.25rem; height: 1.25rem; border-radius: var(--radius-full); background: var(--color-surface-hover); color: var(--color-muted); font-size: .68rem; }
+.tab[aria-selected='true'] .tab-number { background: var(--color-brand); color: var(--color-on-brand); }
 
-.filters, .list { padding: 1.25rem; margin-bottom: 1rem; }
-.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
-label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }
+.filters { margin-bottom: var(--space-4); }
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-4); }
+label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: var(--text-sm); }
 input { min-width: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
 input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
-.actions { display: flex; gap: .5rem; margin-top: 1rem; }
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
-.ghost { padding: .45rem .7rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
-.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
-button:disabled { cursor: not-allowed; opacity: .55; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
-.alert .ghost { margin-inline-start: .5rem; }
-.state { padding: .5rem; margin: 0; color: var(--color-muted); }
-.count { margin: .75rem 0 0; color: var(--color-muted); font-size: .78rem; }
+.actions { margin-top: var(--space-4); }
+.count { margin: var(--space-3) 0 0; color: var(--color-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 
-.table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 900px; border-collapse: collapse; }
-th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: top; }
-th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
-td { font-size: .84rem; max-width: 320px; }
-.pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }
+.data-table { min-width: 900px; }
+.data-table td { max-width: 320px; vertical-align: top; }
 </style>

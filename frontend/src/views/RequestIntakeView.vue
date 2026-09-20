@@ -2,6 +2,7 @@
 /** Stage 13 — single-submit request intake, including private attachments. */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import RequestStageRail from '../components/RequestStageRail.vue'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 // Stage 72 — [D] Appendix 57's grouped document matrix, shared with the
@@ -619,15 +620,22 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="intake">
+  <section class="page intake">
     <div class="heading">
       <div>
         <h2>{{ t('intake.title') }}</h2>
-        <p>{{ t('intake.subtitle') }}</p>
+        <p class="subtitle">{{ t('intake.subtitle') }}</p>
       </div>
     </div>
 
-    <section v-if="created" class="card success" role="status">
+    <RequestStageRail
+      v-if="!created"
+      variant="steps"
+      :steps="[t('intake.stepData'), t('intake.stepReview')]"
+      :active-step="step === 'form' ? 0 : 1"
+    />
+
+    <section v-if="created" class="card card-flat card-pad success" role="status">
       <h3>{{ t('intake.successTitle') }}</h3>
       <p>{{ t('intake.successBody') }}</p>
       <strong class="reference ltr">{{ created.intake_receipt_number }}</strong>
@@ -648,7 +656,7 @@ onMounted(async () => {
       <!-- Stage 88 — the drafts this employee can pick back up. Shown above a
            blank form rather than resumed automatically: silently reopening a
            half-filled intake somebody had set aside is worse than offering it. -->
-      <section v-if="canDraft && drafts.length" class="card drafts">
+      <section v-if="canDraft && drafts.length" class="card card-flat card-pad drafts">
         <h3>{{ t('intake.draft.resumeTitle') }}</h3>
         <ul>
           <li v-for="draft in drafts" :key="draft.id">
@@ -668,7 +676,7 @@ onMounted(async () => {
            bubble so it cannot compete with the live messages below; the
            `required` attributes STAY, because they are the accessibility
            semantics a screen reader announces, not the UI. -->
-      <form v-show="step === 'form'" class="card form" novalidate @submit.prevent="review">
+      <form v-show="step === 'form'" class="card card-flat card-pad form" novalidate @submit.prevent="review">
         <p v-if="error" class="alert" role="alert">{{ error }}</p>
         <p v-if="loadingOptions || resuming" class="state">{{ t('common.loading') }}</p>
 
@@ -802,41 +810,48 @@ onMounted(async () => {
         </fieldset>
 
         <!--
-          Stage 72 — [D] Appendix 57's document matrix for the chosen type, grouped
-          by the appendix's own أساسية مشتركة / خاصة بالنوع split.
-
-          Stage 85 — no longer merely informational: a row the appendix states
-          without an inline qualifier has to be covered by one of the attached
-          files before the form will submit, and the server refuses it either way.
+          Restyled pass — the checklist and the uploader are one task (answer
+          which required document each file provides), so they now sit inside
+          one visually joined group instead of two separate cards' worth of
+          fieldsets. No script or validation logic changed here.
         -->
-        <fieldset v-if="documentOptionGroups.length" class="checklist" :disabled="isBusy">
-          <legend>{{ t('intake.requiredDocuments.title') }}</legend>
-          <p class="hint">{{ t('intake.requiredDocuments.hint') }}</p>
-          <p class="hint">{{ t('intake.requiredDocuments.mandatoryHint') }}</p>
-          <div v-for="section in documentOptionGroups" :key="section.group" class="doc-group">
-            <h3>{{ t(`intake.requiredDocuments.groups.${section.group}`) }}</h3>
-            <ul>
-              <li
-                v-for="(doc, index) in section.items"
-                :key="index"
-                :class="{
-                  covered: coveredDocumentKeys.has(doc.key),
-                  outstanding: isMandatory(doc) && !coveredDocumentKeys.has(doc.key),
-                }"
-              >
-                <span aria-hidden="true" class="tick">{{ coveredDocumentKeys.has(doc.key) ? '✓' : '•' }}</span>
-                {{ docLabel(doc) }}
-                <!-- Appendix 57 states this row without a qualifier, so it binds. -->
-                <span v-if="isMandatory(doc)" class="doc-required">({{ t('intake.requiredDocuments.mandatory') }})</span>
-                <span v-if="docCondition(doc)" class="doc-condition">({{ docCondition(doc) }})</span>
-                <span v-if="coveredDocumentKeys.has(doc.key)" class="sr-only">{{ t('intake.requiredDocuments.attached') }}</span>
-              </li>
-            </ul>
-          </div>
-        </fieldset>
+        <div class="documents-group">
+          <!--
+            Stage 72 — [D] Appendix 57's document matrix for the chosen type, grouped
+            by the appendix's own أساسية مشتركة / خاصة بالنوع split.
 
-        <fieldset :disabled="isBusy">
-          <legend>{{ t('attachments.title') }}</legend>
+            Stage 85 — no longer merely informational: a row the appendix states
+            without an inline qualifier has to be covered by one of the attached
+            files before the form will submit, and the server refuses it either way.
+          -->
+          <fieldset v-if="documentOptionGroups.length" class="checklist" :disabled="isBusy">
+            <legend>{{ t('intake.requiredDocuments.title') }}</legend>
+            <p class="hint">{{ t('intake.requiredDocuments.hint') }}</p>
+            <p class="hint">{{ t('intake.requiredDocuments.mandatoryHint') }}</p>
+            <div v-for="section in documentOptionGroups" :key="section.group" class="doc-group">
+              <h3>{{ t(`intake.requiredDocuments.groups.${section.group}`) }}</h3>
+              <ul>
+                <li
+                  v-for="(doc, index) in section.items"
+                  :key="index"
+                  :class="{
+                    covered: coveredDocumentKeys.has(doc.key),
+                    outstanding: isMandatory(doc) && !coveredDocumentKeys.has(doc.key),
+                  }"
+                >
+                  <span aria-hidden="true" class="tick">{{ coveredDocumentKeys.has(doc.key) ? '✓' : '•' }}</span>
+                  {{ docLabel(doc) }}
+                  <!-- Appendix 57 states this row without a qualifier, so it binds. -->
+                  <span v-if="isMandatory(doc)" class="doc-required">({{ t('intake.requiredDocuments.mandatory') }})</span>
+                  <span v-if="docCondition(doc)" class="doc-condition">({{ docCondition(doc) }})</span>
+                  <span v-if="coveredDocumentKeys.has(doc.key)" class="sr-only">{{ t('intake.requiredDocuments.attached') }}</span>
+                </li>
+              </ul>
+            </div>
+          </fieldset>
+
+          <fieldset :disabled="isBusy">
+            <legend>{{ t('attachments.title') }}</legend>
           <!-- Stage 90 — intake's own hint and `accept` list, not the shared
                attachments.* keys: those are read by FileUpload.vue on the
                committee-cycle path, which still takes DOC/DOCX. -->
@@ -895,7 +910,8 @@ onMounted(async () => {
               </small>
             </article>
           </div>
-        </fieldset>
+          </fieldset>
+        </div>
 
         <p v-if="unclassifiedFiles" class="hint">{{ t('intake.classifyFiles') }}</p>
         <!-- Stage 85 — the outstanding rows by name, so "why can I not submit?"
@@ -924,7 +940,7 @@ onMounted(async () => {
            read back, and every attached file beside the Appendix 57 row it
            declares. Kept mounted alongside the form (v-show above) so stepping
            back does not re-create the component and lose an in-memory File. -->
-      <section v-if="step === 'review'" class="card review">
+      <section v-if="step === 'review'" class="card card-flat card-pad review">
         <h3>{{ t('intake.review.title') }}</h3>
         <p class="hint">{{ t('intake.review.hint') }}</p>
         <p v-if="error" class="alert" role="alert">{{ error }}</p>
@@ -970,9 +986,14 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.heading { margin-bottom: 1rem; }.heading h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }.heading p { margin: .25rem 0 0; color: var(--color-muted); font-size: .88rem; }
-.card { padding: 1.25rem; }.form, .review { max-inline-size: 52rem; }.form fieldset { min-inline-size: 0; padding: 0; margin: 0 0 1.5rem; border: 0; }.form legend { margin-bottom: .85rem; color: var(--color-brand-text); font-weight: 700; }.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.wide { grid-column: 1 / -1; }
+.form, .review { max-inline-size: 52rem; }.form fieldset { min-inline-size: 0; padding: 0; margin: 0 0 1.5rem; border: 0; }.form legend { margin-bottom: .85rem; color: var(--color-brand-text); font-weight: 700; }.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.wide { grid-column: 1 / -1; }
 label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .85rem; }input, select, textarea { min-inline-size: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }textarea { resize: vertical; }small { color: var(--color-danger-fg); font-size: .78rem; }.field-hint, .hint, .state { color: var(--color-muted); font-size: .78rem; }.hint, .state { margin: 0 0 .75rem; }.file-input { max-inline-size: 100%; }
+/* Restyled pass — the checklist and uploader read as one joined block: a
+   shared border with the seam between them muted, rather than two separate
+   fieldsets with equal weight. */
+.documents-group { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1rem 1.1rem; margin: 0 0 1.5rem; }
+.documents-group fieldset { margin-bottom: 0; }
+.documents-group fieldset:first-child { padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px dashed var(--color-border); }
 .checklist ul { display: grid; gap: .35rem; padding-inline-start: 0; margin: 0; color: var(--color-black-700); font-size: .85rem; list-style: none; }
 .checklist li.covered { color: var(--color-success-fg); }.checklist li.outstanding { color: var(--color-black-700); font-weight: 600; }.doc-required { color: var(--color-danger-fg); font-size: .75rem; }.outstanding-list { display: block; margin-block-start: .25rem; font-weight: 600; }.checklist .tick { display: inline-block; min-inline-size: 1rem; }
 .sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -980,7 +1001,7 @@ label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .8
 .rejected { display: grid; gap: .4rem; padding: .5rem .6rem; margin: .6rem 0 0; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); background: var(--color-danger-bg); list-style: none; }.rejected li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; align-items: baseline; }.rejected-reason { color: var(--color-danger-fg); font-size: .76rem; }
 [aria-invalid='true'] { border-color: var(--color-danger-border); }
 .doc-group + .doc-group { margin-block-start: .85rem; }.doc-group h3 { margin: 0 0 .35rem; color: var(--color-black-700); font-size: .8rem; font-weight: 600; }.doc-condition { color: var(--color-black-500); font-size: .75rem; }
-.files { display: grid; gap: .6rem; margin-top: .85rem; }.file-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, auto) minmax(8rem, 1fr) auto; gap: .5rem; align-items: center; padding: .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.file-row .row-error { grid-column: 1 / -1; }.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.actions { display: flex; gap: .5rem; }.primary, .ghost { padding: .5rem .9rem; border-radius: var(--radius-lg); font-size: .85rem; cursor: pointer; }.primary { border: 0; color: var(--color-on-brand); background: var(--color-brand); }.ghost { border: 1px solid var(--color-border-hover); color: var(--color-black-700); background: var(--color-surface); }.link-button { text-decoration: none; }.primary:disabled, .ghost:disabled, fieldset:disabled { cursor: not-allowed; opacity: .65; }.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }.success { max-inline-size: 38rem; }.success h3 { margin: 0; color: var(--color-brand-text); }.success p { color: var(--color-black-700); }.reference { display: block; margin: 1rem 0; color: var(--color-primary); font-size: 1.15rem; }.receipt-notice { padding: .6rem .7rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-lg); color: var(--color-info-fg); background: var(--color-info-bg); font-size: .8rem; }
+.files { display: grid; gap: .6rem; margin-top: .85rem; }.file-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, auto) minmax(8rem, 1fr) auto; gap: .5rem; align-items: center; padding: .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.file-row .row-error { grid-column: 1 / -1; }.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.link-button { text-decoration: none; }fieldset:disabled { cursor: not-allowed; opacity: .65; }.success { max-inline-size: 38rem; }.success h3 { margin: 0; color: var(--color-brand-text); }.success p { color: var(--color-black-700); }.reference { display: block; margin: 1rem 0; color: var(--color-primary); font-size: 1.15rem; }.receipt-notice { padding: .6rem .7rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-lg); color: var(--color-info-fg); background: var(--color-info-bg); font-size: .8rem; }
 .drafts { margin-bottom: 1rem; max-inline-size: 52rem; }.drafts h3 { margin: 0 0 .6rem; color: var(--color-brand-text); font-size: .95rem; }.drafts ul { display: grid; gap: .5rem; padding-inline-start: 0; margin: 0; list-style: none; }.drafts li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem; align-items: center; padding: .55rem .65rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.draft-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-black-700); font-size: .85rem; }.draft-meta { color: var(--color-muted); font-size: .75rem; }
 .draft-state { display: flex; gap: .5rem; align-items: center; margin: 0 0 1rem; color: var(--color-muted); font-size: .78rem; }.linkish { padding: 0; border: 0; color: var(--color-danger-fg); background: none; font: inherit; text-decoration: underline; cursor: pointer; }
 .review h3 { margin: 0 0 .35rem; color: var(--color-brand-text); font-size: 1rem; }.review h4 { margin: 1.25rem 0 .5rem; color: var(--color-black-700); font-size: .85rem; }.review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; margin: 0 0 .5rem; }.review-grid dt { color: var(--color-muted); font-size: .75rem; }.review-grid dd { margin: .2rem 0 0; color: var(--color-black-700); font-size: .88rem; }.prewrap { white-space: pre-wrap; }

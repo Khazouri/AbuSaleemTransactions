@@ -400,11 +400,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="page">
-    <h1>{{ t('meetingsUnit.live.title') }}</h1>
-    <p class="subtitle">{{ t('meetingsUnit.live.subtitle') }}</p>
+  <section class="page live-meeting">
+    <div class="heading">
+      <div>
+        <h2>{{ t('meetingsUnit.live.title') }}</h2>
+        <p class="subtitle">{{ t('meetingsUnit.live.subtitle') }}</p>
+      </div>
+    </div>
 
-    <div class="card picker">
+    <div class="card card-flat card-pad picker">
       <label>
         {{ t('meetingsUnit.live.chooseMeeting') }}
         <select v-model="meetingId">
@@ -421,7 +425,7 @@ onMounted(async () => {
     </div>
 
     <template v-else-if="meeting">
-      <div v-if="!meeting.convened_at" class="card notice warning">
+      <div v-if="!meeting.convened_at" class="card card-flat card-pad notice warning">
         <span>{{ t('meetingsUnit.live.notConvened') }}</span>
         <RouterLink :to="{ name: 'meeting_readiness', query: { meeting: meeting.id } }">
           {{ t('meetingsUnit.live.goToReadiness') }}
@@ -454,7 +458,7 @@ onMounted(async () => {
       <p v-if="closeError" class="alert" role="alert">{{ closeError }}</p>
 
       <div class="columns">
-        <aside class="card side">
+        <aside class="card card-flat card-pad side">
           <h3>{{ t('meetingsUnit.live.presentAttendees') }}</h3>
           <p v-if="!presentAttendees.length" class="state">{{ t('meetingsUnit.live.noAttendees') }}</p>
           <ul v-else class="attendee-list">
@@ -477,7 +481,7 @@ onMounted(async () => {
           </ol>
         </aside>
 
-        <section v-if="currentItem" class="card current-item">
+        <section v-if="currentItem" class="card card-flat card-pad current-item">
           <div class="item-heading">
             <div>
               <template v-if="currentItem.request">
@@ -563,13 +567,14 @@ onMounted(async () => {
           />
 
           <div v-if="currentItem.item_type === 'employee_request'" class="info-tabs">
-            <div class="tab-bar">
+            <div class="tabs" role="tablist" :aria-label="t('meetingsUnit.live.title')">
               <button
                 v-for="tab in INFO_TABS"
                 :key="tab"
                 type="button"
-                class="ghost"
-                :class="{ active: activeTab === tab }"
+                class="tab"
+                role="tab"
+                :aria-selected="activeTab === tab ? 'true' : 'false'"
                 @click="activeTab = tab"
               >
                 {{ t(`meetingsUnit.live.tabs.${tab}`) }}
@@ -589,7 +594,7 @@ onMounted(async () => {
                 <dd>{{ context.request.department ? name(context.request.department) : t('common.none') }}</dd>
                 <dt>{{ t('meetingsUnit.live.context.summary.status') }}</dt>
                 <dd>
-                  <span class="pill" :style="{ background: context.request.status?.color }">
+                  <span class="status" :style="{ '--status-color': context.request.status?.color || 'var(--color-muted)' }">
                     {{ locale === 'ar' ? context.request.status?.name_ar : context.request.status?.name_en }}
                   </span>
                 </dd>
@@ -651,7 +656,7 @@ onMounted(async () => {
                   <li v-for="previous in context.previous_requests" :key="previous.id">
                     <span class="ltr">{{ previous.reference_number || `#${previous.id}` }}</span>
                     <span>{{ previous.title }}</span>
-                    <span class="pill" :style="{ background: previous.status?.color }">
+                    <span class="status" :style="{ '--status-color': previous.status?.color || 'var(--color-muted)' }">
                       {{ locale === 'ar' ? previous.status?.name_ar : previous.status?.name_en }}
                     </span>
                   </li>
@@ -782,7 +787,7 @@ onMounted(async () => {
             <p v-if="notesError" class="alert">{{ notesError }}</p>
           </div>
         </section>
-        <section v-else class="card current-item">
+        <section v-else class="card card-flat card-pad current-item">
           <p class="state">{{ t('meetingsUnit.live.noItems') }}</p>
         </section>
       </div>
@@ -791,91 +796,78 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.page { padding: 1.5rem; max-inline-size: 84rem; }
-.page h1 { margin: 0 0 .3rem; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
-.subtitle { margin: 0 0 1rem; color: var(--color-muted); font-size: .85rem; }
+.page.live-meeting { max-inline-size: 84rem; }
+.picker { margin-bottom: var(--space-4); }
+.picker label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); max-inline-size: 24rem; }
+select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font: inherit; }
 
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; }
-.picker label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); max-inline-size: 24rem; }
-select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px; background: var(--color-surface); color: var(--color-foreground); font: inherit; }
-
-.state { color: var(--color-muted); font-size: .85rem; margin: 0; }
-.alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: .5rem 0 0; }
-.notice { font-size: .85rem; color: var(--color-black-700); display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.notice.warning { background: var(--color-warning-bg); color: var(--color-warning-fg); border-color: var(--color-warning-border); }
+.notice { margin-bottom: var(--space-4); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .notice a { color: inherit; font-weight: 600; }
 
-.runner-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .5rem; }
-.committee { margin: 0 0 .2rem; color: var(--color-muted); font-size: .8rem; }
+.runner-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-2); }
+.committee { margin: 0 0 .2rem; color: var(--color-muted); font-size: var(--text-sm); }
 .runner-header h2 { margin: 0; color: var(--color-brand-text); }
-.header-actions { display: flex; align-items: center; gap: .6rem; }
+.header-actions { display: flex; align-items: center; gap: var(--space-2); }
 .header-actions a.ghost { display: inline-block; text-decoration: none; }
 
-.pill { display: inline-block; padding: .25rem .7rem; border-radius: 999px; font-size: .8rem; background: var(--color-surface-hover); border: 1px solid var(--color-border); }
-.pill.small { font-size: .7rem; padding: .15rem .5rem; }
-.pill.good { background: var(--color-success-bg); color: var(--color-success-fg); border-color: var(--color-success-border); }
-.pill.bad { background: var(--color-danger-bg); color: var(--color-danger-fg); border-color: var(--color-danger-border); }
+.pill.small { font-size: var(--text-xs); padding: .15rem .5rem; }
 
-.columns { display: grid; grid-template-columns: minmax(220px, 26%) 1fr; gap: 1rem; align-items: start; }
+.columns { display: grid; grid-template-columns: minmax(220px, 26%) 1fr; gap: var(--space-4); align-items: start; }
 @media (max-width: 60rem) { .columns { grid-template-columns: 1fr; } }
 
-.side h3 { margin: 0 0 .5rem; font-size: .9rem; color: var(--color-black-800); }
-.side h3:not(:first-child) { margin-top: 1rem; }
-.attendee-list { list-style: none; margin: 0 0 .5rem; padding: 0; display: grid; gap: .3rem; font-size: .82rem; color: var(--color-black-700); }
+.side h3 { margin: 0 0 var(--space-2); font-size: var(--text-lg); color: var(--color-black-800); }
+.side h3:not(:first-child) { margin-top: var(--space-4); }
+.attendee-list { list-style: none; margin: 0 0 var(--space-2); padding: 0; display: grid; gap: .3rem; font-size: var(--text-sm); color: var(--color-black-700); }
 
 .agenda-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
-.agenda-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem .6rem; border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; font-size: .82rem; }
+.agenda-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: .5rem .6rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); cursor: pointer; font-size: var(--text-sm); }
 .agenda-row:hover { background: var(--color-surface-hover); }
 .agenda-row.active { border-color: var(--color-brand); background: var(--color-surface-hover); }
 .agenda-row.resolved .agenda-label { color: var(--color-muted); text-decoration: line-through; }
 .agenda-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.item-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: .75rem; }
-.item-heading .ref { font-size: .78rem; color: var(--color-muted); margin-inline-end: .4rem; }
-.timer { margin: 0; font-size: .85rem; color: var(--color-black-700); white-space: nowrap; }
+.item-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.item-heading .ref { font-size: var(--text-sm); color: var(--color-muted); margin-inline-end: .4rem; }
+.timer { margin: 0; font-size: var(--text-sm); color: var(--color-black-700); white-space: nowrap; }
 .timer strong { font-variant-numeric: tabular-nums; color: var(--color-brand-text); }
 
-.state-controls { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }
+/* A sequential state-progression control, not a tab strip — advancing it
+   performs an action, so it stays a filled button group rather than the
+   underline role="tab" style the info-tabs strip below uses. */
+.state-controls { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: var(--space-3); }
 .state-controls button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
 
-.info-tabs { margin-bottom: .75rem; padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
-.tab-bar { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .75rem; }
-.tab-bar button.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
-.tab-panel { font-size: .85rem; }
+.info-tabs { margin-bottom: var(--space-3); padding-top: var(--space-2); border-top: 1px dashed var(--color-border-hover); }
+.info-tabs .tabs { margin-bottom: var(--space-3); }
+.tab-panel { font-size: var(--text-sm); }
 .info-grid { display: grid; grid-template-columns: max-content 1fr; gap: .35rem .75rem; margin: 0; }
-.info-grid dt { color: var(--color-muted); font-size: .78rem; }
+.info-grid dt { color: var(--color-muted); font-size: var(--text-sm); }
 .info-grid dd { margin: 0; color: var(--color-black-700); }
 .attachment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
-.attachment-list li { display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem; background: var(--color-surface-hover); border-radius: 8px; flex-wrap: wrap; }
-.attachment-list .muted { color: var(--color-muted); font-size: .78rem; }
+.attachment-list li { display: flex; align-items: center; gap: var(--space-2); padding: .5rem .6rem; background: var(--color-surface-hover); border-radius: var(--radius-lg); flex-wrap: wrap; }
+.attachment-list .muted { color: var(--color-muted); font-size: var(--text-sm); }
 
 /* Stage 82 — النموذج 11's card on the current item. */
-.study-sequence { padding-top: .6rem; margin-bottom: .8rem; border-top: 1px dashed var(--color-border-hover); }
-.study-sequence h3 { margin: 0 0 .4rem; font-size: .9rem; color: var(--color-brand-text); }
+.study-sequence { padding-top: var(--space-2); margin-bottom: var(--space-3); border-top: 1px dashed var(--color-border-hover); }
+.study-sequence h3 { margin: 0 0 .4rem; font-size: var(--text-lg); color: var(--color-brand-text); }
 .study-sequence .steps { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .3rem; }
-.study-sequence .steps li label { display: flex; align-items: center; gap: .45rem; font-size: .84rem; }
+.study-sequence .steps li label { display: flex; align-items: center; gap: .45rem; font-size: var(--text-base); }
 .study-sequence .steps li.done .step-name { font-weight: 600; }
 .study-sequence .steps li.na .step-name,
 .study-sequence .steps li.derived .step-name { color: var(--color-black-600); }
 
-.discussion { padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
-.discussion h4 { margin: 0 0 .5rem; font-size: .88rem; color: var(--color-black-800); }
+.discussion { padding-top: var(--space-2); border-top: 1px dashed var(--color-border-hover); }
+.discussion h4 { margin: 0 0 var(--space-2); font-size: var(--text-lg); color: var(--color-black-800); }
 
-.memo-panel h4 { margin: .9rem 0 .5rem; font-size: .88rem; color: var(--color-black-800); }
-.memo-generate { margin-bottom: .75rem; }
-.memo-authored { display: grid; gap: .6rem; margin-top: .9rem; padding-top: .75rem; border-top: 1px dashed var(--color-border-hover); }
-.memo-authored label { display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; color: var(--color-black-700); }
-.memo-authored textarea { box-sizing: border-box; width: 100%; }
-.notes { list-style: none; margin: 0 0 .6rem; padding: 0; display: grid; gap: .5rem; max-block-size: 14rem; overflow-y: auto; }
-.notes li { padding: .5rem .6rem; background: var(--color-surface-hover); border-radius: 8px; }
-.note-meta { display: flex; justify-content: space-between; gap: .5rem; font-size: .78rem; color: var(--color-muted); }
-.notes p { margin: .25rem 0 0; font-size: .85rem; color: var(--color-black-700); }
-.note-form { display: flex; gap: .5rem; align-items: flex-start; }
+.memo-panel h4 { margin: var(--space-4) 0 var(--space-2); font-size: var(--text-lg); color: var(--color-black-800); }
+.memo-generate { margin-bottom: var(--space-3); }
+.memo-authored { display: grid; gap: .6rem; margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px dashed var(--color-border-hover); }
+.memo-authored label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-sm); color: var(--color-black-700); }
+.memo-authored textarea { box-sizing: border-box; inline-size: 100%; }
+.notes { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: grid; gap: var(--space-2); max-block-size: 14rem; overflow-y: auto; }
+.notes li { padding: .5rem .6rem; background: var(--color-surface-hover); border-radius: var(--radius-lg); }
+.note-meta { display: flex; justify-content: space-between; gap: var(--space-2); font-size: var(--text-sm); color: var(--color-muted); }
+.notes p { margin: .25rem 0 0; font-size: var(--text-sm); color: var(--color-black-700); }
+.note-form { display: flex; gap: var(--space-2); align-items: flex-start; }
 .note-form textarea { flex: 1; box-sizing: border-box; }
-
-button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
-button:disabled { cursor: not-allowed; opacity: .6; }
-.ghost { padding: .4rem .65rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); }
-.ghost:hover { background: var(--color-surface-hover); }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
 </style>

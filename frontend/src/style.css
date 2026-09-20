@@ -139,6 +139,33 @@
   --radius-2xl: 16px;
   --radius-full: 9999px;
 
+  /* -- Spacing ---------------------------------------------------------------
+     Every component used to hand-write its own rem values (.85rem, 1.1rem,
+     1.25rem…), which is how ten near-identical numbers crept into the app
+     with no shared meaning. Use these instead of a literal. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* -- Type scale --------------------------------------------------------- */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  /* A readable measure for a page's own content column. Views widened this
+     ad hoc, from 68rem to 90rem, for no reason tied to their content. */
+  --page-max: 80rem;
+
   font-family: var(--font-sans);
   line-height: 1.6;
   color: var(--color-foreground);
@@ -449,7 +476,555 @@ textarea {
   animation: scaleIn 0.2s ease-out forwards;
 }
 
-/* -- Print ----------------------------------------------------------------
+/* ===========================================================================
+ * Shared primitives
+ * ===========================================================================
+ * Buttons, alerts, pills, page chrome and tables were being redefined per
+ * component (`.ghost` 28 times, `.alert` 37, `.card` 21…) with values that had
+ * drifted apart — 12px where --radius-xl already existed, 999px where
+ * --radius-full already existed. These are the single definitions; delete a
+ * component's local copy once it needs nothing beyond what's here, but a
+ * scoped style still wins on specificity, so nothing breaks until it does.
+ * ------------------------------------------------------------------------ */
+
+/* -- Buttons ---------------------------------------------------------------
+   One shape, three fills. `.btn` alone is the reset; combine it with a fill
+   class. `.btn-sm` is a size modifier, usable with any fill. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  font: inherit;
+  font-size: var(--text-base);
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--color-brand-text);
+  outline-offset: 2px;
+}
+.btn.primary {
+  color: var(--color-on-brand);
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+}
+.btn.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-brand) 88%, var(--color-black-950));
+}
+.btn.ghost {
+  color: var(--color-black-700);
+  background: var(--color-surface);
+  border-color: var(--color-border-hover);
+}
+.btn.ghost:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+.btn.danger {
+  color: var(--color-danger-fg);
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+}
+.btn.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger-bg) 70%, var(--color-danger-border));
+}
+.btn.warning {
+  color: var(--color-warning-fg);
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+}
+.btn.warning:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-warning-bg) 70%, var(--color-warning-border));
+}
+.btn-sm {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+/* Bare class names kept for the many existing templates that already use
+   them without the .btn base — same visual result either way. */
+.ghost {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-lg);
+  color: var(--color-black-700);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: var(--text-base);
+  cursor: pointer;
+  text-decoration: none;
+}
+.ghost:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+.ghost:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+/* A destructive secondary action (a delete/remove button that must not read
+   as the default choice) — recurs across every admin CRUD screen. */
+.ghost.danger {
+  color: var(--color-danger-fg);
+  border-color: var(--color-danger-border);
+}
+.ghost.danger:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+}
+.primary {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: var(--color-on-brand);
+  background: var(--color-brand);
+  font: inherit;
+  font-size: var(--text-base);
+  cursor: pointer;
+  text-decoration: none;
+}
+.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-brand) 88%, var(--color-black-950));
+}
+.primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* -- Alerts ------------------------------------------------------------- */
+.alert {
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-danger-fg);
+  background: var(--color-danger-bg);
+  font-size: var(--text-base);
+}
+.alert.warning {
+  border-color: var(--color-warning-border);
+  color: var(--color-warning-fg);
+  background: var(--color-warning-bg);
+}
+.alert.info {
+  border-color: var(--color-info-border);
+  color: var(--color-info-fg);
+  background: var(--color-info-bg);
+}
+.alert.success {
+  border-color: var(--color-success-border);
+  color: var(--color-success-fg);
+  background: var(--color-success-bg);
+}
+.alert .ghost {
+  margin-inline-start: var(--space-2);
+}
+
+/* -- Pills & status chips ------------------------------------------------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+  color: var(--color-black-700);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+/* Recurring tone modifiers — a readiness/status verdict rendered as a small
+   pill appears on nine-plus screens (meeting readiness, legal review, the
+   maintenance console…), each redeclaring the same four colour pairs. */
+.pill.good, .pill.success { background: var(--color-success-bg); color: var(--color-success-fg); border-color: var(--color-success-border); }
+.pill.bad, .pill.danger { background: var(--color-danger-bg); color: var(--color-danger-fg); border-color: var(--color-danger-border); }
+.pill.warn, .pill.warning { background: var(--color-warning-bg); color: var(--color-warning-fg); border-color: var(--color-warning-border); }
+.pill.info { background: var(--color-info-bg); color: var(--color-info-fg); border-color: var(--color-info-border); }
+.chip {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  border-radius: var(--radius-full);
+  padding: 0.3rem 0.8rem;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.chip.active {
+  background: var(--color-brand);
+  border-color: var(--color-brand);
+  color: var(--color-on-brand);
+}
+/* A workflow status pill: a filled dot in --status-color, set inline by the
+   component from the row's own status.color. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius-full);
+  color: var(--color-black-700);
+  background: var(--color-surface-hover);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.status::before {
+  content: '';
+  inline-size: 0.55rem;
+  block-size: 0.55rem;
+  border-radius: 50%;
+  background: var(--status-color, var(--color-muted));
+}
+
+/* -- Cards ---------------------------------------------------------------
+   `.card` (above) is the unpadded surface contract every component already
+   expects. These two add the two things that vary. */
+.card-pad {
+  padding: var(--space-5);
+}
+.card-flat {
+  box-shadow: none;
+}
+
+/* -- Page chrome ---------------------------------------------------------- */
+.page {
+  padding: var(--space-5) 0;
+  max-inline-size: var(--page-max);
+  margin-inline: auto;
+}
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+.heading h1,
+.heading h2 {
+  margin: 0;
+  color: var(--color-brand-text);
+  font-size: var(--text-xl);
+}
+.subtitle {
+  margin: 0.15rem 0 0;
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+.hint {
+  margin: 0 0 var(--space-3);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+/* A form field's own validation message, under its input — 8 near-identical
+   copies across the admin CRUD screens. */
+.field-error {
+  color: var(--color-danger-fg);
+  font-size: var(--text-sm);
+}
+.state {
+  padding: var(--space-2);
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--text-base);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* -- Tables ----------------------------------------------------------------
+   A number in a register lines up in columns; tabular-nums is what makes
+   that true wherever a figure — a reference, a date, a day count — appears. */
+.table-wrap {
+  overflow-x: auto;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.data-table th,
+.data-table td {
+  padding: var(--space-3) var(--space-2);
+  text-align: start;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.data-table th {
+  position: sticky;
+  inset-block-start: 0;
+  color: var(--color-muted);
+  background: var(--color-surface);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.data-table tr:last-child td {
+  border-bottom: 0;
+}
+.data-table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* -- Modals ----------------------------------------------------------------
+   Character-identical across three components before this; one copy now. */
+.modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--color-overlay);
+}
+.modal {
+  inline-size: min(32rem, 100%);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-2xl);
+}
+.modal h3 {
+  margin: 0;
+  color: var(--color-brand-text);
+}
+.modal > p {
+  margin: 0.35rem 0 var(--space-4);
+  color: var(--color-muted);
+  font-size: var(--text-base);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.modal-actions .ghost {
+  margin: 0;
+}
+
+/* -- Label/value grids ------------------------------------------------------ */
+.info-grid,
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-4);
+}
+.info-grid > div,
+.summary > div {
+  display: grid;
+  gap: 0.2rem;
+}
+.info-grid span,
+.summary span {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+.info-grid strong,
+.summary strong {
+  color: var(--color-black-700);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.wide {
+  grid-column: 1 / -1;
+}
+
+/* -- Tabs --------------------------------------------------------------- */
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+}
+.tab {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: var(--text-base);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tab:hover {
+  color: var(--color-black-700);
+}
+.tab:focus-visible {
+  outline: 2px solid var(--color-brand-text);
+  outline-offset: -2px;
+}
+.tab[aria-selected='true'] {
+  color: var(--color-brand-text);
+  border-bottom-color: var(--color-brand);
+  font-weight: 600;
+}
+
+/* -- Control-gate panels ---------------------------------------------------
+   The request workspace's gate/closure/execution/suspension panels
+   (IntakeGatePanel, RequestSoundnessPanel, RequestSuspensionPanel,
+   RequestClosurePanel, RequestExecutionPanel) all share one shape: a small
+   trigger button that expands into a bordered form holding a question/answer
+   checklist. Five near-identical ~150-line copies of this collapse into one
+   definition here. */
+.gate-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.gate-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.gate-form h4 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+/* .hint/.recorded-by inside a gate form rely on the flex gap for spacing, so
+   the generic .hint's own bottom margin (meant for a standalone paragraph)
+   would double it up — scoped back to zero here rather than changing what
+   .hint means everywhere else. */
+.gate-panel > .hint,
+.gate-form > .hint,
+.recorded-by {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-black-500);
+}
+.gate-form label,
+.field-grid label,
+.field-grid .wide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-sm);
+}
+.gate-form label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+.gate-form label em,
+.question em {
+  display: block;
+  font-size: var(--text-xs);
+  font-style: normal;
+  color: var(--color-black-500);
+}
+.gate-form select,
+.gate-form textarea,
+.gate-form input,
+.field-grid input,
+.field-grid select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  font: inherit;
+}
+.field-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+.checklist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: var(--text-sm);
+}
+.checklist li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.checklist select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+}
+.question {
+  flex: 1;
+  text-align: start;
+}
+.answer {
+  font-weight: 600;
+}
+.answer.yes, .answer.present { color: var(--color-success-fg); }
+.answer.no, .answer.missing { color: var(--color-danger-fg); }
+.answer.not_applicable, .answer.pending { color: var(--color-black-500); }
+
+/* A register of past rounds/rows — Art. 105's suspension history
+   (RequestSuspensionPanel) and the request lifecycle panel's five append-only
+   registers (conflicts, special cases, corrections, withdrawals) share this
+   shape: a heading line, a detail line, and an "still open" callout. */
+.rounds {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.rounds li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0.6rem var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+.round-head {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  inline-size: 100%;
+}
+.round-detail {
+  margin: 0;
+  color: var(--color-black-500);
+}
+.round-open {
+  margin: 0.25rem 0 0;
+  color: var(--color-warning-fg);
+  font-weight: 600;
+}
+
+/* -- Print ---------------------------------------------------------------------
    Stage 25/27 — the `print` grant seeded on the decisions and user-guide
    screens finally has a use, so the shell needs to get out of the way.
 
@@ -498,5 +1073,13 @@ textarea {
   }
   body {
     background: #fff;
+  }
+  /* A tabbed page (e.g. the request workspace) must still print as one whole
+     file — paper has no click. */
+  .tabs {
+    display: none;
+  }
+  [role='tabpanel'] {
+    display: block !important;
   }
 }

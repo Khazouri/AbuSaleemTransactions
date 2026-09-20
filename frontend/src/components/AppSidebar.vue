@@ -237,9 +237,9 @@ const entries = computed(() => {
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: var(--space-3);
   height: 4rem;
-  padding: 0 1rem;
+  padding: 0 var(--space-4);
   flex-shrink: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -257,30 +257,30 @@ const entries = computed(() => {
   background: var(--color-primary);
   color: var(--color-on-primary);
   font-weight: 700;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 .brand-text {
   display: flex;
   flex-direction: column;
-  line-height: 1.25;
+  line-height: var(--leading-tight);
   min-width: 0;
 }
 .brand-text strong {
-  font-size: 0.95rem;
+  font-size: var(--text-lg);
   color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .brand-text small {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   opacity: 0.55;
 }
 
 /* -- Nav ------------------------------------------------------------------ */
 .nav {
   flex: 1;
-  padding: 0.75rem;
+  padding: var(--space-3);
   overflow-y: auto;
 }
 ul {
@@ -289,18 +289,18 @@ ul {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-1);
 }
 
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.65rem 0.75rem;
+  gap: var(--space-3);
+  padding: 0.65rem var(--space-3);
   border-radius: var(--radius-xl);
   color: rgba(255, 255, 255, 0.7);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 500;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
@@ -339,8 +339,8 @@ ul {
 }
 
 .state {
-  padding: 0.75rem;
-  font-size: 0.85rem;
+  padding: var(--space-3);
+  font-size: var(--text-base);
   opacity: 0.75;
   margin: 0;
 }
@@ -354,13 +354,13 @@ ul {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.65rem 0.75rem;
+  gap: var(--space-2);
+  padding: 0.65rem var(--space-3);
   background: none;
   border: none;
   border-radius: var(--radius-xl);
   color: rgba(255, 255, 255, 0.55);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -386,8 +386,8 @@ ul {
 }
 .nav-group-items {
   list-style: none;
-  margin: 0.15rem 0 0.25rem;
-  padding-inline-start: 0.5rem;
+  margin: 0.15rem 0 var(--space-1);
+  padding-inline-start: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: 0.2rem;

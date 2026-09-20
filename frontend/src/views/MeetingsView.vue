@@ -35,6 +35,13 @@ function dateTime(value) {
   }).format(new Date(value))
 }
 
+/** scheduled/completed/cancelled — the only three meetings.status values. */
+function meetingStatusTone(status) {
+  if (status === 'completed') return 'good'
+  if (status === 'cancelled') return 'danger'
+  return 'info'
+}
+
 // --- Committees ------------------------------------------------------------
 
 const committeeErrors = ref({})
@@ -253,18 +260,20 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section>
+  <section class="page committees-meetings">
     <!-- Committees ------------------------------------------------------- -->
-    <div class="toolbar">
-      <h2>{{ t('committees.title') }}</h2>
+    <div class="heading">
+      <div>
+        <h2>{{ t('committees.title') }}</h2>
+      </div>
       <button v-can="'meetings.add'" class="primary" type="button" @click="startCreateCommittee">
-        + {{ t('committees.add') }}
+        {{ t('committees.add') }}
       </button>
     </div>
 
     <p v-if="committeeFormError" class="alert">{{ committeeFormError }}</p>
 
-    <form v-if="showCommitteeForm" class="card form" @submit.prevent="saveCommittee">
+    <form v-if="showCommitteeForm" class="card card-flat card-pad form" @submit.prevent="saveCommittee">
       <h3>{{ editingCommitteeId === null ? t('committees.add') : t('committees.edit') }}</h3>
       <div class="grid">
         <label>
@@ -429,10 +438,10 @@ onMounted(async () => {
       </div>
     </form>
 
-    <div class="card">
+    <div class="card card-flat card-pad list">
       <p v-if="loadingCommittees" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="committees.length === 0" class="state">{{ t('committees.empty') }}</p>
-      <table v-else>
+      <table v-else class="data-table">
         <tbody>
           <template v-for="committee in committees" :key="committee.id">
             <tr :class="{ dimmed: !committee.is_active }">
@@ -447,19 +456,21 @@ onMounted(async () => {
                 <span>{{ committee.members_count }} {{ t('committees.members') }}</span>
                 <span>{{ committee.meetings_count }} {{ t('committees.meetingsHeld') }}</span>
               </td>
-              <td class="row-actions">
-                <button class="ghost" type="button" @click="toggleMembers(committee)">
-                  {{ expandedCommitteeId === committee.id ? t('committees.hideMembers') : t('committees.manageMembers') }}
-                </button>
-                <button v-can="'meetings.edit'" class="ghost" type="button" @click="startEditCommittee(committee)">
-                  {{ t('common.edit') }}
-                </button>
-                <button v-can="'meetings.edit'" class="ghost" type="button" @click="toggleCommitteeActive(committee)">
-                  {{ committee.is_active ? t('common.deactivate') : t('common.activate') }}
-                </button>
-                <button v-can="'meetings.delete'" class="ghost danger" type="button" @click="removeCommittee(committee)">
-                  {{ t('common.delete') }}
-                </button>
+              <td>
+                <div class="row-actions">
+                  <button class="ghost" type="button" @click="toggleMembers(committee)">
+                    {{ expandedCommitteeId === committee.id ? t('committees.hideMembers') : t('committees.manageMembers') }}
+                  </button>
+                  <button v-can="'meetings.edit'" class="ghost" type="button" @click="startEditCommittee(committee)">
+                    {{ t('common.edit') }}
+                  </button>
+                  <button v-can="'meetings.edit'" class="ghost" type="button" @click="toggleCommitteeActive(committee)">
+                    {{ committee.is_active ? t('common.deactivate') : t('common.activate') }}
+                  </button>
+                  <button v-can="'meetings.delete'" class="ghost danger" type="button" @click="removeCommittee(committee)">
+                    {{ t('common.delete') }}
+                  </button>
+                </div>
               </td>
             </tr>
             <tr v-if="expandedCommitteeId === committee.id" class="members-row">
@@ -514,10 +525,12 @@ onMounted(async () => {
     </div>
 
     <!-- Meetings ----------------------------------------------------------- -->
-    <div class="toolbar">
-      <h2>{{ t('meetings.title') }}</h2>
+    <div class="heading">
+      <div>
+        <h2>{{ t('meetings.title') }}</h2>
+      </div>
       <button v-can="'meetings.add'" class="primary" type="button" @click="startScheduleMeeting">
-        + {{ t('meetings.schedule') }}
+        {{ t('meetings.schedule') }}
       </button>
     </div>
 
@@ -529,20 +542,22 @@ onMounted(async () => {
       @cancel="cancelMeetingForm"
     />
 
-    <div class="card">
+    <div class="card card-flat card-pad list">
       <p v-if="loadingMeetings" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="meetings.length === 0" class="state">{{ t('meetings.empty') }}</p>
-      <table v-else>
+      <table v-else class="data-table">
         <tbody>
           <tr v-for="meeting in meetings" :key="meeting.id">
             <td>
               <RouterLink :to="{ name: 'meeting_details', params: { id: meeting.id } }">
                 {{ meeting.title }}
               </RouterLink>
-              <span class="pill status">{{ t(`meetings.status${meeting.status.charAt(0).toUpperCase()}${meeting.status.slice(1)}`) }}</span>
+              <span class="pill" :class="meetingStatusTone(meeting.status)">
+                {{ t(`meetings.status${meeting.status.charAt(0).toUpperCase()}${meeting.status.slice(1)}`) }}
+              </span>
             </td>
             <td class="meta">{{ name(meeting.committee) }}</td>
-            <td class="meta">{{ dateTime(meeting.scheduled_at) }}</td>
+            <td class="meta nowrap">{{ dateTime(meeting.scheduled_at) }}</td>
             <td class="meta">
               <span>{{ meeting.attendees_count }} {{ t('meetings.attendees') }}</span>
               <span>{{ meeting.agenda_items_count }} {{ t('meetings.agendaItems') }}</span>
@@ -555,56 +570,42 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.toolbar { display: flex; align-items: center; justify-content: space-between; margin: 1.5rem 0 1rem; }
-.toolbar:first-child { margin-top: 0; }
-.toolbar h2 { margin: 0; font-size: 1.05rem; color: var(--color-brand-text); }
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
-.form h3 { margin: 0 0 1rem; font-size: 1rem; color: var(--color-brand-text); }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.heading:not(:first-child) { margin-top: var(--space-6); }
+.list { margin-bottom: var(--space-4); }
+.form { margin-bottom: var(--space-4); }
+.form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); }
 .span-2 { grid-column: 1 / -1; }
-.card-fields { margin: 1.25rem 0 0; padding: 1rem; border: 1px dashed var(--color-border-hover); border-radius: 10px; }
-.card-fields legend { padding: 0 .4rem; font-size: .85rem; color: var(--color-brand-text); }
-.card-fields .hint { margin: 0 0 .85rem; color: var(--color-muted); font-size: .78rem; line-height: 1.6; }
-label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); }
-label.checkbox { flex-direction: row; align-items: center; gap: .5rem; margin-top: 1rem; }
+.card-fields { margin: var(--space-5) 0 0; padding: var(--space-4); border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); }
+.card-fields legend { padding: 0 .4rem; font-size: var(--text-sm); color: var(--color-brand-text); }
+.card-fields .hint { margin: 0 0 var(--space-3); line-height: 1.6; }
+label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
+label.checkbox { flex-direction: row; align-items: center; gap: .5rem; margin-top: var(--space-4); }
 input[type='text'], input[type='datetime-local'], select, textarea {
   padding: .5rem .6rem;
   border: 1px solid var(--color-border-hover);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   font: inherit;
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
-.field-error { color: var(--color-danger-fg); font-size: .78rem; }
-.actions { display: flex; gap: .5rem; margin-top: 1.25rem; }
+.field-error { color: var(--color-danger-fg); font-size: var(--text-sm); }
 
-table { width: 100%; border-collapse: collapse; }
-td { padding: .55rem .5rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-tr:last-child td { border-bottom: 0; }
-tr.dimmed { opacity: .55; }
-.meta { color: var(--color-muted); font-size: .78rem; white-space: nowrap; }
-.meta span { margin-inline-end: .75rem; }
-.row-actions { text-align: end; white-space: nowrap; }
-.pill { margin-inline-start: .5rem; padding: .1rem .5rem; background: var(--color-surface-hover); color: var(--color-muted); border-radius: 999px; font-size: .72rem; }
-.pill.status { background: var(--color-success-bg); color: var(--color-success-fg); }
-.pill.warn { background: var(--color-warning-bg); color: var(--color-warning-fg); }
-.state { padding: .5rem; color: var(--color-muted); font-size: .9rem; margin: 0; }
-.alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: 0 0 1rem; }
-button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
-button:disabled { cursor: not-allowed; opacity: .6; }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); margin-inline-start: .3rem; }
-.ghost:hover { background: var(--color-surface-hover); }
-.ghost.danger { color: var(--color-danger-fg); border-color: var(--color-danger-border); }
+.data-table tr.dimmed { opacity: .55; }
+.meta { color: var(--color-muted); font-size: var(--text-sm); white-space: nowrap; }
+.meta span { margin-inline-end: var(--space-3); }
+.nowrap { white-space: nowrap; }
+.row-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
+.pill { margin-inline-start: var(--space-2); }
 
 .members-row td { background: var(--color-surface-hover); }
-.seat-summary { display: flex; flex-wrap: wrap; gap: .5rem; padding: 0; margin: 0 0 .85rem; list-style: none; }
-.seat-summary li { display: flex; flex-direction: column; gap: .15rem; padding: .35rem .6rem; border: 1px dashed var(--color-border-hover); border-radius: 8px; font-size: .75rem; min-width: 7rem; }
+.seat-summary { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: 0 0 var(--space-3); list-style: none; }
+.seat-summary li { display: flex; flex-direction: column; gap: .15rem; padding: .35rem .6rem; border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); font-size: var(--text-xs); min-inline-size: 7rem; }
 .seat-summary li.filled { border-style: solid; border-color: var(--color-success-border); background: var(--color-success-bg); }
 .seat-summary .seat-label { color: var(--color-muted); }
 .seat-summary li.filled .seat-occupant { color: var(--color-success-fg); font-weight: 600; }
-.members { display: grid; gap: .4rem; padding: 0; margin: 0 0 .75rem; list-style: none; }
-.members li { display: flex; align-items: center; gap: .5rem; font-size: .85rem; }
+.members { display: grid; gap: .4rem; padding: 0; margin: 0 0 var(--space-3); list-style: none; }
+.members li { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-base); }
 .add-member { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 
 a { color: var(--color-brand-text); text-decoration: none; font-weight: 600; }

@@ -344,13 +344,13 @@ function goBack() {
     <!-- Step 4: review & agenda order -------------------------------------------- -->
     <section v-else-if="step === 4" class="step-body">
       <h4>{{ t('meetings.wizard.reviewDetails') }}</h4>
-      <dl class="summary">
-        <div><dt>{{ t('meetings.committee') }}</dt><dd>{{ name(selectedCommittee) }}</dd></div>
-        <div><dt>{{ t('meetings.meetingTitle') }}</dt><dd>{{ details.title }}</dd></div>
-        <div><dt>{{ t('meetings.meetingType') }}</dt><dd>{{ t(`meetings.type${details.meeting_type.charAt(0).toUpperCase()}${details.meeting_type.slice(1)}`) }}</dd></div>
-        <div><dt>{{ t('meetings.scheduledAt') }}</dt><dd class="ltr">{{ details.scheduled_at || t('common.none') }}</dd></div>
-        <div v-if="details.location"><dt>{{ t('meetings.location') }}</dt><dd>{{ details.location }}</dd></div>
-      </dl>
+      <div class="summary">
+        <div><span>{{ t('meetings.committee') }}</span><strong>{{ name(selectedCommittee) }}</strong></div>
+        <div><span>{{ t('meetings.meetingTitle') }}</span><strong>{{ details.title }}</strong></div>
+        <div><span>{{ t('meetings.meetingType') }}</span><strong>{{ t(`meetings.type${details.meeting_type.charAt(0).toUpperCase()}${details.meeting_type.slice(1)}`) }}</strong></div>
+        <div><span>{{ t('meetings.scheduledAt') }}</span><strong class="ltr">{{ details.scheduled_at || t('common.none') }}</strong></div>
+        <div v-if="details.location"><span>{{ t('meetings.location') }}</span><strong>{{ details.location }}</strong></div>
+      </div>
 
       <h4>{{ t('meetings.wizard.reviewAgenda') }}</h4>
       <p v-if="!selectedRequests.length" class="state">{{ t('meetings.wizard.noRequestsSelected') }}</p>
@@ -369,16 +369,16 @@ function goBack() {
     <!-- Step 5: approve & schedule ---------------------------------------------- -->
     <section v-else class="step-body">
       <h4>{{ t('meetings.wizard.reviewDetails') }}</h4>
-      <dl class="summary">
-        <div><dt>{{ t('meetings.committee') }}</dt><dd>{{ name(selectedCommittee) }}</dd></div>
-        <div><dt>{{ t('meetings.meetingTitle') }}</dt><dd>{{ details.title }}</dd></div>
-        <div><dt>{{ t('meetings.scheduledAt') }}</dt><dd class="ltr">{{ details.scheduled_at || t('common.none') }}</dd></div>
-      </dl>
+      <div class="summary">
+        <div><span>{{ t('meetings.committee') }}</span><strong>{{ name(selectedCommittee) }}</strong></div>
+        <div><span>{{ t('meetings.meetingTitle') }}</span><strong>{{ details.title }}</strong></div>
+        <div><span>{{ t('meetings.scheduledAt') }}</span><strong class="ltr">{{ details.scheduled_at || t('common.none') }}</strong></div>
+      </div>
       <p class="counts">
         {{ t('meetings.wizard.selectedRequests') }}: {{ selectedRequests.length }}
         · {{ t('meetings.wizard.extraInvitees') }}: {{ extraInvitees.length }}
       </p>
-      <p v-if="submitError" class="alert">{{ submitError }}</p>
+      <p v-if="submitError" class="alert warning">{{ submitError }}</p>
       <p v-if="submitting" class="state">{{ submitPhase }}</p>
     </section>
 
@@ -400,51 +400,130 @@ function goBack() {
 </template>
 
 <style scoped>
-.wizard { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
-.steps { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .25rem; }
-.step-pill { padding: .25rem .6rem; border-radius: 999px; background: var(--color-surface-hover); color: var(--color-muted); font-size: .74rem; }
-.step-pill.active { background: var(--color-brand); color: var(--color-on-brand); }
-.step-pill.done { background: var(--color-success-bg); color: var(--color-success-fg); }
-.step-label { margin: 0 0 1rem; color: var(--color-muted); font-size: .78rem; }
-.step-body h4 { margin: 1rem 0 .5rem; color: var(--color-brand-text); font-size: .92rem; }
-.step-body h4:first-child { margin-top: 0; }
+/* The step strip and step-scoped form layout are this wizard's own; the
+   buttons/alert/state/pill/summary primitives all come from the global
+   sheet. */
+.wizard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+.step-pill {
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-hover);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+.step-pill.active {
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+}
+.step-pill.done {
+  background: var(--color-success-bg);
+  color: var(--color-success-fg);
+}
+.step-label {
+  margin: 0 0 var(--space-4);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+.step-body h4 {
+  margin: var(--space-4) 0 var(--space-2);
+  color: var(--color-brand-text);
+  font-size: var(--text-lg);
+}
+.step-body h4:first-child {
+  margin-top: 0;
+}
 
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
-.span-2 { grid-column: 1 / -1; }
-label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); }
-input[type='text'], input[type='number'], input[type='datetime-local'], select, textarea {
-  padding: .5rem .6rem;
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+.span-2 {
+  grid-column: 1 / -1;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: var(--text-base);
+  color: var(--color-black-700);
+}
+input[type='text'],
+input[type='number'],
+input[type='datetime-local'],
+select,
+textarea {
+  padding: 0.5rem 0.6rem;
   border: 1px solid var(--color-border-hover);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-foreground);
   font: inherit;
 }
-input:focus, select:focus, textarea:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
-.field-error { color: var(--color-danger-fg); font-size: .78rem; }.readonly-note small { color: var(--color-muted); font-size: .76rem; }
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--color-brand-text);
+  outline-offset: 1px;
+}
+.readonly-note small {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
 
-.results, .selected { display: grid; gap: .4rem; padding: 0; margin: .5rem 0 1rem; list-style: none; }
-.selected.ordered { list-style: none; }
-.results li, .selected li { display: flex; align-items: center; justify-content: space-between; gap: .5rem; font-size: .84rem; }
-.ref { color: var(--color-muted); font-size: .78rem; margin-inline-end: .5rem; }
-.item-actions { white-space: nowrap; }
-.pill { padding: .1rem .5rem; background: var(--color-surface-hover); color: var(--color-muted); border-radius: 999px; font-size: .72rem; }
-.state { color: var(--color-muted); font-size: .85rem; margin: 0; }
-.alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: 0 0 .75rem; }
+.results,
+.selected {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0;
+  margin: var(--space-2) 0 var(--space-4);
+  list-style: none;
+}
+.results li,
+.selected li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.ref {
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+  margin-inline-end: var(--space-2);
+}
+.item-actions {
+  white-space: nowrap;
+}
+.counts {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
 
-.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; margin: 0 0 1rem; }
-.summary dt { color: var(--color-muted); font-size: .76rem; margin: 0; }
-.summary dd { margin: .1rem 0 0; color: var(--color-black-700); font-size: .88rem; }
-.counts { color: var(--color-muted); font-size: .85rem; }
+.add-member {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.ltr {
+  direction: ltr;
+  unicode-bidi: embed;
+}
 
-.add-member { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
-.ltr { direction: ltr; unicode-bidi: embed; }
-
-.actions { display: flex; gap: .5rem; margin-top: 1.25rem; }
-button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
-button:disabled { cursor: not-allowed; opacity: .6; }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); }
-.ghost:hover { background: var(--color-surface-hover); }
-.ghost.danger { color: var(--color-danger-fg); border-color: var(--color-danger-border); }
+.actions {
+  margin-top: var(--space-5);
+}
 </style>

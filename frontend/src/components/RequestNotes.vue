@@ -70,5 +70,14 @@ onMounted(load)
 </template>
 
 <style scoped>
-.notes h3 { margin: 0 0 .8rem; color: var(--color-brand-text); font-size: 1rem; }.note-list { display: grid; gap: .65rem; padding: 0; margin: 0; list-style: none; }.note-list li { padding: .7rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }.note-list p { margin: 0 0 .35rem; white-space: pre-wrap; }.note-list small, .state { color: var(--color-muted); font-size: .78rem; }.error { color: var(--color-danger-fg); }.composer { display: grid; gap: .65rem; margin-top: 1rem; }.composer label { display: grid; gap: .3rem; font-size: .85rem; }.composer textarea { resize: vertical; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); font: inherit; }.primary { justify-self: start; padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; }.primary:disabled { cursor: not-allowed; opacity: .6; }
+.notes h3 { margin: 0 0 var(--space-3); color: var(--color-brand-text); font-size: var(--text-lg); }
+.note-list { display: grid; gap: var(--space-2); padding: 0; margin: 0; list-style: none; }
+.note-list li { padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+.note-list p { margin: 0 0 .35rem; white-space: pre-wrap; }
+.note-list small, .state { color: var(--color-muted); font-size: var(--text-sm); }
+.error { color: var(--color-danger-fg); }
+.composer { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
+.composer label { display: grid; gap: .3rem; font-size: var(--text-base); }
+.composer textarea { resize: vertical; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); font: inherit; }
+.primary { justify-self: start; }
 </style>

@@ -150,11 +150,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="page">
-    <h1>{{ t('meetingsUnit.candidates.title') }}</h1>
-    <p class="subtitle">{{ t('meetingsUnit.candidates.subtitle') }}</p>
+  <section class="page candidates">
+    <div class="heading">
+      <div>
+        <h2>{{ t('meetingsUnit.candidates.title') }}</h2>
+        <p class="subtitle">{{ t('meetingsUnit.candidates.subtitle') }}</p>
+      </div>
+    </div>
 
-    <div class="card filters">
+    <div class="card card-flat card-pad filters">
       <label>
         {{ t('meetingsUnit.candidates.filters.status') }}
         <select v-model="statusFilter">
@@ -181,80 +185,84 @@ onMounted(async () => {
     </div>
     <p v-else-if="!rows.length" class="state">{{ t('meetingsUnit.candidates.empty') }}</p>
 
-    <div v-else class="card table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>{{ t('meetingsUnit.candidates.table.reference') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.title') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.employee') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.requestType') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.department') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.status') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.submitted') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.waiting') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.fileCompleteness') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.priority') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.proposedMeeting') }}</th>
-            <th>{{ t('meetingsUnit.candidates.table.actions') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in rows" :key="row.id">
-            <td class="ltr">{{ row.reference_number || `#${row.id}` }}</td>
-            <td>{{ row.title }}</td>
-            <td>{{ row.created_by?.name ?? t('common.none') }}</td>
-            <td>{{ row.request_type ? name(row.request_type) : t('common.none') }}</td>
-            <td>{{ row.department ? name(row.department) : t('common.none') }}</td>
-            <td>
-              <span class="pill" :style="{ background: row.status?.color }">
-                {{ locale === 'ar' ? row.status?.name_ar : row.status?.name_en }}
-              </span>
-              <span v-if="row.is_overdue" class="pill danger">{{ t('meetingsUnit.candidates.table.overdue') }}</span>
-            </td>
-            <td>{{ date(row.submitted_at) }}</td>
-            <td>{{ waitingDays(row) }}</td>
-            <td>
-              <span class="pill" :class="row.attachments_count ? 'good' : 'bad'">
-                {{ row.attachments_count ?? 0 }}
-              </span>
-            </td>
-            <td>
-              <span v-if="row.proposed_meeting?.priority" class="pill">
-                {{ t(`meetings.agenda.priority.${row.proposed_meeting.priority}`) }}
-              </span>
-              <span v-else>{{ t('common.none') }}</span>
-            </td>
-            <td>
-              <template v-if="row.proposed_meeting">
-                {{ row.proposed_meeting.title }} — {{ date(row.proposed_meeting.scheduled_at) }}
-              </template>
-              <template v-else>{{ t('meetingsUnit.candidates.table.noProposedMeeting') }}</template>
-            </td>
-            <td class="actions">
-              <RouterLink class="ghost" :to="{ name: 'request_details', params: { id: row.id } }">
-                {{ t('meetingsUnit.candidates.actions.openFile') }}
-              </RouterLink>
-              <button v-can="'committee_candidates.add'" class="ghost" type="button" @click="openPrompt('nominate', row)">
-                {{ t('meetingsUnit.candidates.actions.nominate') }}
-              </button>
-              <button v-can="'committee_candidates.edit'" class="ghost" type="button" @click="openPrompt('defer', row)">
-                {{ t('meetingsUnit.candidates.actions.defer') }}
-              </button>
-              <button v-can="'committee_candidates.edit'" class="ghost" type="button" @click="openPrompt('returnToStudy', row)">
-                {{ t('meetingsUnit.candidates.actions.returnToStudy') }}
-              </button>
-              <button v-can="'committee_candidates.edit'" class="ghost" type="button" @click="openPrompt('requestCompletion', row)">
-                {{ t('meetingsUnit.candidates.actions.requestCompletion') }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div v-else class="card card-flat card-pad list">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>{{ t('meetingsUnit.candidates.table.reference') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.title') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.employee') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.requestType') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.department') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.status') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.submitted') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.waiting') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.fileCompleteness') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.priority') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.proposedMeeting') }}</th>
+              <th>{{ t('meetingsUnit.candidates.table.actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="row.id">
+              <td class="ltr">{{ row.reference_number || `#${row.id}` }}</td>
+              <td>{{ row.title }}</td>
+              <td>{{ row.created_by?.name ?? t('common.none') }}</td>
+              <td>{{ row.request_type ? name(row.request_type) : t('common.none') }}</td>
+              <td>{{ row.department ? name(row.department) : t('common.none') }}</td>
+              <td>
+                <span class="status" :style="{ '--status-color': row.status?.color || 'var(--color-muted)' }">
+                  {{ locale === 'ar' ? row.status?.name_ar : row.status?.name_en }}
+                </span>
+                <span v-if="row.is_overdue" class="pill danger">{{ t('meetingsUnit.candidates.table.overdue') }}</span>
+              </td>
+              <td class="nowrap">{{ date(row.submitted_at) }}</td>
+              <td class="nowrap">{{ waitingDays(row) }}</td>
+              <td>
+                <span class="pill" :class="row.attachments_count ? 'good' : 'warn'">
+                  {{ row.attachments_count ?? 0 }}
+                </span>
+              </td>
+              <td>
+                <span v-if="row.proposed_meeting?.priority" class="pill">
+                  {{ t(`meetings.agenda.priority.${row.proposed_meeting.priority}`) }}
+                </span>
+                <span v-else>{{ t('common.none') }}</span>
+              </td>
+              <td>
+                <template v-if="row.proposed_meeting">
+                  {{ row.proposed_meeting.title }} — {{ date(row.proposed_meeting.scheduled_at) }}
+                </template>
+                <template v-else>{{ t('meetingsUnit.candidates.table.noProposedMeeting') }}</template>
+              </td>
+              <td>
+                <div class="row-actions">
+                  <RouterLink class="ghost" :to="{ name: 'request_details', params: { id: row.id } }">
+                    {{ t('meetingsUnit.candidates.actions.openFile') }}
+                  </RouterLink>
+                  <button v-can="'committee_candidates.add'" class="ghost" type="button" @click="openPrompt('nominate', row)">
+                    {{ t('meetingsUnit.candidates.actions.nominate') }}
+                  </button>
+                  <button v-can="'committee_candidates.edit'" class="ghost" type="button" @click="openPrompt('defer', row)">
+                    {{ t('meetingsUnit.candidates.actions.defer') }}
+                  </button>
+                  <button v-can="'committee_candidates.edit'" class="ghost" type="button" @click="openPrompt('returnToStudy', row)">
+                    {{ t('meetingsUnit.candidates.actions.returnToStudy') }}
+                  </button>
+                  <button v-can="'committee_candidates.edit'" class="ghost" type="button" @click="openPrompt('requestCompletion', row)">
+                    {{ t('meetingsUnit.candidates.actions.requestCompletion') }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <div v-if="promptAction" class="overlay" @click.self="closePrompt">
-      <div class="card modal">
+    <div v-if="promptAction" class="modal-backdrop" @click.self="closePrompt">
+      <div class="modal candidates-modal">
         <h3>{{ t(`meetingsUnit.candidates.actions.${promptAction}`) }}</h3>
         <label>
           {{ t('meetingsUnit.candidates.commentLabel') }}
@@ -280,53 +288,26 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.page { padding: 1.5rem; max-inline-size: 78rem; }
-.page h1 { margin: 0 0 .3rem; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
-.subtitle { margin: 0 0 1rem; color: var(--color-muted); font-size: .85rem; }
-
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; }
-
-.filters { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; }
-.filters label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); }
+.filters { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: end; margin-bottom: var(--space-4); }
+.filters label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
 .filters .grow { flex: 1; min-inline-size: 220px; }
 select, input[type='text'], textarea {
   padding: .5rem .6rem;
   border: 1px solid var(--color-border-hover);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-foreground);
   font: inherit;
 }
 
-.state { color: var(--color-muted); font-size: .85rem; margin: 0; }
-.alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: .5rem 0 0; }
-
-.table-wrap { padding: 0; overflow-x: auto; }
-table { inline-size: 100%; border-collapse: collapse; font-size: .85rem; }
-th, td { padding: .65rem .85rem; text-align: start; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
-th { color: var(--color-muted); font-weight: 600; font-size: .76rem; }
+.list { margin-bottom: var(--space-4); }
 .ltr { direction: ltr; unicode-bidi: isolate; }
+.nowrap { white-space: nowrap; }
 
-.pill { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .74rem; color: #fff; }
-.pill.danger { background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); margin-inline-start: .35rem; }
-.pill.good { background: var(--color-success-bg); color: var(--color-success-fg); border: 1px solid var(--color-success-border); }
-.pill.bad { background: var(--color-warning-bg); color: var(--color-warning-fg); border: 1px solid var(--color-warning-border); }
+.pill.danger { margin-inline-start: .35rem; }
+.row-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
 
-.actions { white-space: normal; display: flex; flex-wrap: wrap; gap: .35rem; }
-button, a.ghost { cursor: pointer; border-radius: 8px; font-size: .8rem; }
-button:disabled { cursor: not-allowed; opacity: .6; }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); text-decoration: none; display: inline-block; }
-.ghost:hover { background: var(--color-surface-hover); }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-
-.overlay {
-  position: fixed; inset: 0; background: var(--color-overlay);
-  display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 50;
-}
-.modal { inline-size: min(28rem, 100%); }
-.modal h3 { margin: 0 0 .75rem; color: var(--color-brand-text); font-size: 1rem; }
-.modal label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); }
-.modal .hint { font-size: .74rem; color: var(--color-muted); }
+.candidates-modal { inline-size: min(28rem, 100%); }
+.modal label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
 .modal textarea { resize: vertical; }
-.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
 </style>

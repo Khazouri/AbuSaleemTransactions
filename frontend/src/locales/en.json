@@ -550,7 +550,10 @@
   },
   "requests": {
     "title": "Requests",
-    "filters": "Filter requests",
+    "filters": {
+      "more": "More filters",
+      "less": "Hide filters"
+    },
     "status": "Status",
     "department": "Department",
     "type": "Request type",
@@ -580,6 +583,8 @@
     "title": "New request intake",
     "subtitle": "Enter the request details and supporting documents before sending it to stage one.",
     "open": "New request",
+    "stepData": "Details & documents",
+    "stepReview": "Review & submit",
     "basicData": "Basic details",
     "subject": "Request subject",
     "description": "Description",
@@ -720,6 +725,18 @@
   "requestDetail": {
     "back": "Back to request list",
     "awaitingRegistration": "Intake receipt — the receiving body has not registered this file yet.",
+    "tabsLabel": "Request file sections",
+    "tabs": {
+      "file": "File",
+      "gates": "Control gates",
+      "approvals": "Approvals",
+      "legal": "Committee & legal",
+      "outputs": "Outputs",
+      "empty": "No data in this section yet."
+    },
+    "stageRail": {
+      "stepsLabel": "Intake steps"
+    },
     "currentStage": "Current stage",
     "submittedAt": "Submitted",
     "dueDate": "Due date",

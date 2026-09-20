@@ -106,10 +106,10 @@ async function submitResult() {
 </script>
 
 <template>
-  <div class="referral-panel">
+  <div class="gate-panel">
     <!-- Art. 30's inward half: an outstanding referral is answered first. -->
     <template v-if="openReferral">
-      <p class="alert">
+      <p class="alert info">
         {{ t('approvalReferral.pendingResult', {
           letter: openReferral.letter_number,
           body: openReferral.referred_to_body,
@@ -119,14 +119,14 @@ async function submitResult() {
       <button
         v-if="!answering"
         v-can="'meeting_outputs.edit'"
-        class="primary compact"
+        class="btn btn-sm primary"
         type="button"
         @click="answering = true"
       >
         {{ t('approvalReferral.resultAction') }}
       </button>
 
-      <form v-else class="referral-form" @submit.prevent="submitResult">
+      <form v-else class="gate-form" @submit.prevent="submitResult">
         <div class="field-grid">
           <label>
             <span>{{ t('approvalReferral.fields.result_outcome') }} *</span>
@@ -154,31 +154,31 @@ async function submitResult() {
           <textarea v-model="result.result_note" rows="3" />
         </label>
 
-        <p v-if="error" class="alert">{{ error }}</p>
+        <p v-if="error" class="alert warning">{{ error }}</p>
 
         <div class="actions">
           <button class="primary" type="submit" :disabled="saving || !canSubmitResult">
             {{ saving ? t('approvalReferral.saving') : t('approvalReferral.confirmResult') }}
           </button>
-          <button type="button" @click="answering = false">{{ t('approvalReferral.cancel') }}</button>
+          <button class="ghost" type="button" @click="answering = false">{{ t('approvalReferral.cancel') }}</button>
         </div>
       </form>
     </template>
 
     <template v-else>
-      <p v-if="refusal" class="alert">{{ refusal }}</p>
+      <p v-if="refusal" class="alert info">{{ refusal }}</p>
 
       <button
         v-else-if="!open"
         v-can="'meeting_outputs.edit'"
-        class="primary compact"
+        class="btn btn-sm primary"
         type="button"
         @click="open = true"
       >
         {{ t('approvalReferral.action') }}
       </button>
 
-      <form v-if="open" class="referral-form" @submit.prevent="submit">
+      <form v-if="open" class="gate-form" @submit.prevent="submit">
         <p class="hint">{{ t('approvalReferral.formNote') }}</p>
 
         <div class="field-grid">
@@ -196,28 +196,16 @@ async function submitResult() {
           </label>
         </div>
 
-        <p v-if="error" class="alert">{{ error }}</p>
+        <p v-if="error" class="alert warning">{{ error }}</p>
 
         <div class="actions">
           <button class="primary" type="submit" :disabled="saving || !canSubmit">
             {{ saving ? t('approvalReferral.saving') : t('approvalReferral.confirm') }}
           </button>
-          <button type="button" @click="open = false">{{ t('approvalReferral.cancel') }}</button>
+          <button class="ghost" type="button" @click="open = false">{{ t('approvalReferral.cancel') }}</button>
         </div>
       </form>
     </template>
   </div>
 </template>
 
-<style scoped>
-.referral-panel { display: flex; flex-direction: column; gap: 0.75rem; }
-.referral-form { display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: 0.5rem; background: var(--color-surface); }
-.field-grid { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
-.referral-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; }
-.referral-form input,
-.referral-form select,
-.referral-form textarea { padding: 0.45rem 0.6rem; border: 1px solid var(--color-border); border-radius: 0.35rem; background: var(--color-surface); color: var(--color-foreground); font: inherit; }
-.hint { margin: 0; font-size: 0.8rem; color: var(--color-black-500); }
-.actions { display: flex; gap: 0.5rem; }
-.alert { margin: 0; padding: 0.5rem 0.75rem; border: 1px solid var(--color-info-border); border-radius: 0.35rem; background: var(--color-info-bg); color: var(--color-info-fg); font-size: 0.85rem; }
-</style>

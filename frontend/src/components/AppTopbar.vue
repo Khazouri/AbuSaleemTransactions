@@ -294,7 +294,7 @@ async function signOut() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-4);
   height: 4rem;
   padding: 0 1.25rem;
   background: var(--color-surface);
@@ -304,11 +304,11 @@ async function signOut() {
 .side {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 .title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -319,7 +319,7 @@ async function signOut() {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.5rem;
+  padding: var(--space-2);
   border: none;
   background: transparent;
   color: var(--color-black-700);
@@ -331,10 +331,10 @@ async function signOut() {
   background: var(--color-black-100);
 }
 .icon-btn.wide {
-  padding-inline: 0.5rem 0.7rem;
+  padding-inline: var(--space-2) 0.7rem;
 }
 .lang {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 /* Unread count, pinned to the top-end corner of the bell. */
@@ -373,23 +373,23 @@ async function signOut() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  font-size: 0.875rem;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  font-size: var(--text-base);
   color: var(--color-foreground);
 }
 .link {
   border: none;
   background: transparent;
   color: var(--color-brand-text);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   cursor: pointer;
 }
 .notif-state {
   margin: 0;
-  padding: 0.75rem 0.5rem;
+  padding: var(--space-3) var(--space-2);
   color: var(--color-muted);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
 }
 .notif-item {
   display: flex;
@@ -413,7 +413,7 @@ async function signOut() {
   border-inline-start: 3px solid var(--color-brand-text);
 }
 .notif-title {
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-foreground);
 }
@@ -421,7 +421,7 @@ async function signOut() {
   font-weight: 700;
 }
 .notif-body {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--color-black-700);
   /* Two lines is enough to know what it is; the full text is on the screen. */
   display: -webkit-box;
@@ -441,8 +441,8 @@ async function signOut() {
 .user-trigger {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.5rem;
+  gap: var(--space-2);
+  padding: 0.35rem var(--space-2);
   border: none;
   background: transparent;
   border-radius: var(--radius-lg);
@@ -461,7 +461,7 @@ async function signOut() {
   border-radius: var(--radius-full);
   background: var(--color-primary);
   color: var(--color-on-primary);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   border: 2px solid var(--color-surface);
   box-shadow: var(--shadow-sm);
@@ -472,7 +472,7 @@ async function signOut() {
   font-size: 0.9rem;
 }
 .user-name {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--color-foreground);
 }
@@ -494,7 +494,7 @@ async function signOut() {
 /* -- Dropdown panel ------------------------------------------------------- */
 .dropdown {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: calc(100% + var(--space-2));
   /* Anchor to the end edge so it opens inward in both LTR and RTL. */
   inset-inline-end: 0;
   min-width: 14rem;
@@ -509,7 +509,7 @@ async function signOut() {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.5rem;
+  padding: var(--space-2);
 }
 .who {
   display: flex;
@@ -517,14 +517,14 @@ async function signOut() {
   min-width: 0;
 }
 .who strong {
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .who small {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--color-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -544,7 +544,7 @@ async function signOut() {
   border: none;
   background: transparent;
   border-radius: var(--radius-lg);
-  font-size: 0.875rem;
+  font-size: var(--text-base);
   color: var(--color-black-700);
   cursor: pointer;
   /* Icon then label read from the start edge in both directions. */

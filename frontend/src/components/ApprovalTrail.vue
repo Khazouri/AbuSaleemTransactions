@@ -24,7 +24,7 @@ const dateTime = (value) => value
 </script>
 
 <template>
-  <section class="card approval-trail">
+  <section class="card card-flat card-pad approval-trail">
     <h3>{{ t('approvalTrail.title') }}</h3>
     <p v-if="!approvals.length" class="state">{{ t('approvalTrail.empty') }}</p>
     <ol v-else>
@@ -44,5 +44,13 @@ const dateTime = (value) => value
 </template>
 
 <style scoped>
-.approval-trail { padding: 1.1rem; }.approval-trail h3 { margin: 0 0 .75rem; color: var(--color-brand-text); font-size: 1rem; }.approval-trail ol { display: grid; gap: .75rem; padding: 0; margin: 0; list-style: none; }.approval-trail li { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: .7rem; padding-bottom: .75rem; border-bottom: 1px solid var(--color-border); }.approval-trail li:last-child { padding-bottom: 0; border-bottom: 0; }.level { display: grid; place-items: center; align-self: start; inline-size: 2rem; block-size: 2rem; border-radius: 50%; color: var(--color-on-brand); background: var(--color-brand); font-size: .8rem; font-weight: 700; }.approval-copy { display: grid; gap: .25rem; min-inline-size: 0; }.approval-copy strong { color: var(--color-black-700); font-size: .88rem; }.approval-copy small, .state { color: var(--color-muted); font-size: .76rem; }.approval-copy p { margin: .2rem 0; color: var(--color-black-700); font-size: .82rem; white-space: pre-wrap; }
+.approval-trail h3 { margin: 0 0 var(--space-3); color: var(--color-brand-text); font-size: var(--text-lg); }
+.approval-trail ol { display: grid; gap: var(--space-3); padding: 0; margin: 0; list-style: none; }
+.approval-trail li { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
+.approval-trail li:last-child { padding-bottom: 0; border-bottom: 0; }
+.level { display: grid; place-items: center; align-self: start; inline-size: 2rem; block-size: 2rem; border-radius: 50%; color: var(--color-on-brand); background: var(--color-brand); font-size: var(--text-sm); font-weight: 700; font-variant-numeric: tabular-nums; }
+.approval-copy { display: grid; gap: .25rem; min-inline-size: 0; }
+.approval-copy strong { color: var(--color-black-700); font-size: var(--text-lg); }
+.approval-copy small, .state { color: var(--color-muted); font-size: var(--text-sm); }
+.approval-copy p { margin: .2rem 0; color: var(--color-black-700); font-size: var(--text-sm); white-space: pre-wrap; }
 </style>

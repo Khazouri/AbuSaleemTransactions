@@ -562,7 +562,7 @@ onMounted(() => load())
 </script>
 
 <template>
-  <section class="appeals">
+  <section class="page appeals">
     <div class="heading">
       <div>
         <h2>{{ t('appeals.title') }}</h2>
@@ -570,16 +570,16 @@ onMounted(() => load())
       </div>
     </div>
 
-    <div v-if="newAppealId" v-can="'appeals.add'" class="card create">
+    <div v-if="newAppealId" v-can="'appeals.add'" class="card card-flat card-pad create">
       <h3>{{ t('appeals.create.attachmentsHeading') }}</h3>
-      <p v-if="createMessage" class="notice success">{{ createMessage }}</p>
+      <p v-if="createMessage" class="alert success">{{ createMessage }}</p>
       <FileUpload :upload-url="`/appeals/${newAppealId}/attachments`" :require-section="false" />
       <button class="ghost" type="button" @click="finishAttachments">
         {{ t('appeals.create.finish') }}
       </button>
     </div>
 
-    <div v-else v-can="'appeals.add'" class="card create">
+    <div v-else v-can="'appeals.add'" class="card card-flat card-pad create">
       <h3>{{ t('appeals.create.heading') }}</h3>
 
       <div v-if="!selectedRequest" class="search-block">
@@ -645,7 +645,7 @@ onMounted(() => load())
         <textarea v-model="newFactsDeclaration" rows="2" :placeholder="t('appeals.create.newFactsDeclarationHint')"></textarea>
       </label>
 
-      <p v-if="createMessage" class="notice success">{{ createMessage }}</p>
+      <p v-if="createMessage" class="alert success">{{ createMessage }}</p>
       <p v-if="createError" class="alert">{{ createError }}</p>
 
       <button class="primary" type="button" :disabled="creating" @click="createAppeal">
@@ -653,7 +653,7 @@ onMounted(() => load())
       </button>
     </div>
 
-    <div v-if="verifyTarget" v-can="'appeals.edit'" class="card create">
+    <div v-if="verifyTarget" v-can="'appeals.edit'" class="card card-flat card-pad create">
       <h3>{{ t('appeals.verify.heading') }}</h3>
       <p class="subtitle">{{ t('appeals.verify.hint') }}</p>
       <div class="selected">
@@ -706,7 +706,7 @@ onMounted(() => load())
       </button>
     </div>
 
-    <div v-if="jurisdictionTarget" v-can="'appeals.edit'" class="card create">
+    <div v-if="jurisdictionTarget" v-can="'appeals.edit'" class="card card-flat card-pad create">
       <h3>{{ t('appeals.jurisdiction.heading') }}</h3>
       <p class="subtitle">{{ t('appeals.jurisdiction.hint') }}</p>
       <div class="selected">
@@ -728,7 +728,7 @@ onMounted(() => load())
         </label>
       </fieldset>
 
-      <p v-if="jurisdictionCompetentBody && jurisdictionCompetentBody !== 'committee'" class="notice">
+      <p v-if="jurisdictionCompetentBody && jurisdictionCompetentBody !== 'committee'" class="alert info">
         {{ t('appeals.jurisdiction.terminationWarning') }}
       </p>
       <p v-if="jurisdictionError" class="alert">{{ jurisdictionError }}</p>
@@ -741,7 +741,7 @@ onMounted(() => load())
       </button>
     </div>
 
-    <div v-if="legalReviewTarget" v-can="'appeals.edit'" class="card create">
+    <div v-if="legalReviewTarget" v-can="'appeals.edit'" class="card card-flat card-pad create">
       <h3>{{ t('appeals.legalReview.heading') }}</h3>
       <p class="subtitle">{{ t('appeals.legalReview.hint') }}</p>
       <div class="selected">
@@ -806,7 +806,7 @@ onMounted(() => load())
       </button>
     </div>
 
-    <div v-if="executionTarget" v-can="'appeals.edit'" class="card create">
+    <div v-if="executionTarget" v-can="'appeals.edit'" class="card card-flat card-pad create">
       <h3>{{ t('appeals.execution.heading') }}</h3>
       <p class="subtitle">{{ t('appeals.execution.hint') }}</p>
       <div class="selected">
@@ -831,7 +831,7 @@ onMounted(() => load())
             </option>
           </select>
         </label>
-        <p class="notice">{{ t('appeals.execution.redoHint') }}</p>
+        <p class="alert info">{{ t('appeals.execution.redoHint') }}</p>
         <p v-if="redoStagesLoading" class="state">{{ t('common.loading') }}</p>
         <p v-if="redoStagesError" class="alert">{{ redoStagesError }}</p>
       </fieldset>
@@ -846,7 +846,7 @@ onMounted(() => load())
       </button>
     </div>
 
-    <div v-if="closureTarget" v-can="'appeals.edit'" class="card create">
+    <div v-if="closureTarget" v-can="'appeals.edit'" class="card card-flat card-pad create">
       <h3>{{ t('appeals.closure.heading') }}</h3>
       <p class="subtitle">{{ t('appeals.closure.hint') }}</p>
       <div class="selected">
@@ -896,7 +896,7 @@ onMounted(() => load())
       </button>
     </div>
 
-    <div v-if="reopenTarget" v-can="'appeals.edit'" class="card create">
+    <div v-if="reopenTarget" v-can="'appeals.edit'" class="card card-flat card-pad create">
       <h3>{{ t('appeals.reopen.heading') }}</h3>
       <p class="subtitle">{{ t('appeals.reopen.hint') }}</p>
       <div class="selected">
@@ -939,7 +939,7 @@ onMounted(() => load())
       <button class="ghost" type="button" @click="load(page.current_page)">{{ t('common.retry') }}</button>
     </p>
 
-    <div class="card list">
+    <div class="card card-flat card-pad list">
       <div class="filters">
         <label>
           {{ t('appeals.filters.status') }}
@@ -955,7 +955,7 @@ onMounted(() => load())
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="!loadError && rows.length === 0" class="state">{{ t('appeals.empty') }}</p>
       <div v-else-if="!loadError" class="table-wrap">
-        <table>
+        <table class="data-table">
           <thead>
             <tr>
               <th>{{ t('appeals.columns.request') }}</th>
@@ -997,7 +997,7 @@ onMounted(() => load())
                   {{ t('appeals.verify.action') }}
                 </button>
                 <div v-else-if="row.formal_verification" class="verification-summary">
-                  <span class="pill" :class="row.status?.code === 'rejected' ? 'rejected' : 'passed'">
+                  <span class="pill" :class="row.status?.code === 'rejected' ? 'bad' : 'good'">
                     {{ row.status?.code === 'rejected' ? t('appeals.verify.resultRejected') : t('appeals.verify.resultPassed') }}
                   </span>
                   <small class="muted">{{ deadlineLabel(row.formal_verification.checks.deadline_met) }}</small>
@@ -1019,7 +1019,7 @@ onMounted(() => load())
                   {{ t('appeals.jurisdiction.action') }}
                 </button>
                 <div v-else-if="row.jurisdiction_test" class="verification-summary">
-                  <span class="pill" :class="row.jurisdiction_test.competent_body === 'committee' ? 'passed' : 'rejected'">
+                  <span class="pill" :class="row.jurisdiction_test.competent_body === 'committee' ? 'good' : 'bad'">
                     {{ competentBodyLabel(row.jurisdiction_test.competent_body) }}
                   </span>
                   <small v-if="row.jurisdiction_test.tested_by" class="muted">
@@ -1039,7 +1039,7 @@ onMounted(() => load())
                   {{ t('appeals.legalReview.action') }}
                 </button>
                 <div v-else-if="row.legal_review" class="verification-summary">
-                  <span class="pill passed">{{ t('appeals.legalReview.recorded') }}</span>
+                  <span class="pill good">{{ t('appeals.legalReview.recorded') }}</span>
                   <small v-if="row.legal_review.reviewed_by" class="muted">
                     {{ row.legal_review.reviewed_by.name }}
                   </small>
@@ -1057,7 +1057,7 @@ onMounted(() => load())
                   {{ t('appeals.execution.action') }}
                 </button>
                 <div v-else-if="row.outcome_execution" class="verification-summary">
-                  <span class="pill passed">{{ t('decisions.outcome.' + row.committee_decision?.outcome) }}</span>
+                  <span class="pill good">{{ t('decisions.outcome.' + row.committee_decision?.outcome) }}</span>
                   <small v-if="row.outcome_execution.redo_stage" class="muted">
                     {{ t('appeals.execution.redoStageLabel') }}: {{ locale === 'ar' ? row.outcome_execution.redo_stage.name_ar : row.outcome_execution.redo_stage.name_en }}
                   </small>
@@ -1079,7 +1079,7 @@ onMounted(() => load())
                   {{ t('appeals.closure.action') }}
                 </button>
                 <div v-else-if="row.closure" class="verification-summary">
-                  <span class="pill passed">{{ finalResultLabel(row.closure.final_result_code) }}</span>
+                  <span class="pill good">{{ finalResultLabel(row.closure.final_result_code) }}</span>
                   <small class="muted">{{ t('appeals.closure.noticeStatus.' + row.closure.notice_status) }}</small>
                   <small v-if="row.closure.closed_by" class="muted">
                     {{ t('appeals.closure.closedBy') }}: {{ row.closure.closed_by.name }}
@@ -1098,7 +1098,7 @@ onMounted(() => load())
                   {{ t('appeals.reopen.action') }}
                 </button>
                 <div v-else-if="row.reopen" class="verification-summary">
-                  <span class="pill passed">{{ t(`reopenReasons.${row.reopen.reason_code}`) }}</span>
+                  <span class="pill good">{{ t(`reopenReasons.${row.reopen.reason_code}`) }}</span>
                   <small v-if="row.reopen.reopened_by" class="muted">
                     {{ t('appeals.reopen.reopenedBy') }}: {{ row.reopen.reopened_by.name }}
                   </small>
@@ -1284,67 +1284,46 @@ onMounted(() => load())
 </template>
 
 <style scoped>
-.heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
-h3 { margin: 0 0 .75rem; color: var(--color-black-700); font-size: 1rem; }
-.subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
+h3 { margin: 0 0 var(--space-3); color: var(--color-black-700); font-size: var(--text-lg); }
 
-.card { border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); padding: 1.25rem; margin-bottom: 1rem; }
-.create label { display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; color: var(--color-black-700); margin-bottom: .75rem; }
-.create label.full { margin-bottom: .75rem; }
-.create input, .create select, .create textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: .85rem; font-family: inherit; resize: vertical; }
-.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem 1rem; margin-bottom: .75rem; }
+.create { margin-bottom: var(--space-4); }
+.create label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-sm); color: var(--color-black-700); margin-bottom: var(--space-3); }
+.create label.full { margin-bottom: var(--space-3); }
+.create input, .create select, .create textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: var(--text-base); font-family: inherit; resize: vertical; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
 
-.filters { display: flex; align-items: end; gap: .75rem; margin-bottom: 1rem; }
-.filters label { display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; color: var(--color-black-700); }
-.filters select { padding: .4rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: .85rem; }
+.list { margin-bottom: var(--space-4); }
+.filters { display: flex; align-items: end; gap: var(--space-3); margin-bottom: var(--space-4); }
+.filters label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-sm); color: var(--color-black-700); }
+.filters select { padding: .4rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: var(--text-base); }
 
 .verification-summary { display: flex; flex-direction: column; gap: .2rem; align-items: start; }
-.pill.passed { border-color: var(--color-success-border); color: var(--color-success-fg); background: var(--color-success-bg); }
-.pill.rejected { border-color: var(--color-danger-border); color: var(--color-danger-fg); background: var(--color-danger-bg); }
 
 .file-panel { background: var(--color-surface-hover); }
-.dossier { display: flex; flex-direction: column; gap: 1rem; padding: .5rem 0; }
-.dossier-section { border-inline-start: 3px solid var(--color-border-hover); padding-inline-start: .75rem; }
-.dossier-section h4 { margin: 0 0 .5rem; color: var(--color-brand-text); font-size: .92rem; }
-.dossier-section h5 { margin: .6rem 0 .3rem; color: var(--color-black-700); font-size: .82rem; }
-.dossier-section p { margin: .25rem 0; font-size: .84rem; color: var(--color-foreground); }
-.info-grid { display: grid; grid-template-columns: max-content 1fr; gap: .3rem .75rem; margin: 0; font-size: .84rem; }
+.dossier { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-2) 0; }
+.dossier-section { border-inline-start: 3px solid var(--color-border-hover); padding-inline-start: var(--space-3); }
+.dossier-section h4 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
+.dossier-section h5 { margin: .6rem 0 .3rem; color: var(--color-black-700); font-size: var(--text-sm); }
+.dossier-section p { margin: .25rem 0; font-size: var(--text-sm); color: var(--color-foreground); }
+.info-grid { display: grid; grid-template-columns: max-content 1fr; gap: .3rem .75rem; margin: 0; font-size: var(--text-sm); }
 .info-grid dt { color: var(--color-muted); }
 .info-grid dd { margin: 0; color: var(--color-foreground); }
 .text-block { white-space: pre-line; }
-.doc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; font-size: .82rem; }
+.doc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-sm); }
 .doc-list li { display: flex; align-items: center; gap: .4rem; }
-.link { padding: 0; border: 0; background: none; color: var(--color-brand-text); text-decoration: underline; font-size: inherit; }
+.link { padding: 0; border: 0; background: none; color: var(--color-brand-text); text-decoration: underline; font-size: inherit; cursor: pointer; }
 
-.results, .search-block ul.state { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; max-height: 12rem; overflow-y: auto; }
-.results button { width: 100%; display: flex; gap: .5rem; align-items: center; text-align: start; }
-.selected { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem .75rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); margin-bottom: .75rem; }
+.results, .search-block ul.state { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; max-block-size: 12rem; overflow-y: auto; }
+.results button { inline-size: 100%; display: flex; gap: var(--space-2); align-items: center; text-align: start; }
+.selected { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: .6rem .75rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); margin-bottom: var(--space-3); }
 .selected > div { display: flex; gap: .6rem; align-items: baseline; }
 
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.create > .ghost { margin-top: .75rem; }
-.create > .ghost + .ghost { margin-inline-start: .5rem; }
-.create > .primary + .ghost { margin-top: .75rem; margin-inline-start: .5rem; }
-.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
-.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
-button:disabled { cursor: not-allowed; opacity: .55; }
+.create > .ghost { margin-top: var(--space-3); }
+.create > .ghost + .ghost { margin-inline-start: var(--space-2); }
+.create > .primary + .ghost { margin-top: var(--space-3); margin-inline-start: var(--space-2); }
 
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
-.alert .ghost { margin-inline-start: .5rem; }
-.notice { padding: .65rem .8rem; margin: 0 0 .75rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); font-size: .85rem; }
-.notice.success { border-color: var(--color-success-border); color: var(--color-success-fg); background: var(--color-success-bg); }
-.state { padding: .5rem; margin: 0; color: var(--color-muted); }
-
-.table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 900px; border-collapse: collapse; }
-th, td { padding: .7rem .55rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-th { color: var(--color-muted); font-size: .75rem; font-weight: 600; white-space: nowrap; }
-td { font-size: .84rem; }
+.data-table { min-width: 900px; }
 .nowrap { white-space: nowrap; }
-.ref { font-family: var(--font-mono); font-size: .78rem; }
-.muted { display: block; color: var(--color-muted); font-size: .72rem; }
-.pill { display: inline-block; padding: .12rem .5rem; border: 1px solid var(--color-border-hover); border-radius: 999px; font-size: .72rem; white-space: nowrap; }
-.pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; color: var(--color-muted); font-size: .84rem; }
+.ref { font-family: var(--font-mono); font-size: var(--text-sm); }
+.muted { display: block; color: var(--color-muted); font-size: var(--text-xs); }
 </style>

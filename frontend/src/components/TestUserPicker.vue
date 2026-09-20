@@ -126,87 +126,121 @@ function pick(user) {
 
 <style scoped>
 .dev-users {
-  width: min(400px, 92vw);
+  inline-size: min(400px, 92vw);
   background: var(--color-warning-bg);
   color: var(--color-warning-fg);
   border: 1px dashed var(--color-warning-border);
-  border-radius: 14px;
-  padding: .85rem 1rem;
-  font-size: .85rem;
+  border-radius: var(--radius-2xl);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
 }
 header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: .5rem;
+  gap: var(--space-2);
 }
-.title { font-weight: 600; }
+.title {
+  font-weight: 600;
+}
 .toggle {
   border: 0;
   background: none;
   padding: 0;
   color: inherit;
-  font-size: .8rem;
+  font-size: var(--text-xs);
   text-decoration: underline;
   cursor: pointer;
 }
-.body { margin-top: .6rem; }
-.hint { margin: 0 0 .5rem; font-size: .8rem; opacity: .85; }
+.body {
+  margin-top: var(--space-2);
+}
+.hint {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  opacity: 0.85;
+  color: inherit;
+}
 ul {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: .35rem;
+  gap: 0.35rem;
   /* Twelve accounts would otherwise push the sign-in button off a laptop
      screen, which defeats the purpose of a shortcut. */
-  max-height: 15rem;
+  max-block-size: 15rem;
   overflow-y: auto;
 }
 .user {
-  width: 100%;
+  inline-size: 100%;
   display: flex;
   align-items: center;
-  gap: .55rem;
-  padding: .4rem .5rem;
+  gap: 0.55rem;
+  padding: 0.4rem 0.5rem;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-black-700);
   text-align: start;
   cursor: pointer;
 }
-.user:hover:not(:disabled) { background: var(--color-surface-hover); }
-.user:disabled { opacity: .6; cursor: default; }
-.user.inactive, .user.missing { border-style: dashed; color: var(--color-muted); }
+.user:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+.user:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.user.inactive,
+.user.missing {
+  border-style: dashed;
+  color: var(--color-muted);
+}
 .roles {
   flex-shrink: 0;
-  padding: .15rem .4rem;
-  border-radius: 6px;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-md);
   background: var(--color-brand);
   color: var(--color-on-brand);
-  font-size: .7rem;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
-.user.inactive .roles, .user.missing .roles { background: var(--color-muted); }
-.who { display: flex; flex-direction: column; min-width: 0; }
-.name { font-size: .82rem; }
-.flag { font-size: .72rem; color: var(--color-muted); }
+.user.inactive .roles,
+.user.missing .roles {
+  background: var(--color-muted);
+}
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.name {
+  font-size: var(--text-sm);
+}
+.flag {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
 .email {
-  font-size: .72rem;
+  font-size: var(--text-xs);
   color: var(--color-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.throttle { margin: .5rem 0 0; font-size: .75rem; opacity: .85; }
+.throttle {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  opacity: 0.85;
+}
 code {
   display: inline-block;
-  padding: .05rem .3rem;
-  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-black-700);
-  font-size: .72rem;
+  font-size: var(--text-xs);
 }
 </style>

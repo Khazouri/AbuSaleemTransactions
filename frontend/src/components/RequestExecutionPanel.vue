@@ -89,18 +89,18 @@ async function submit() {
 </script>
 
 <template>
-  <div class="execution-panel">
+  <div class="gate-panel">
     <button
       v-if="!open"
       v-can="'meeting_outputs.approve'"
-      class="primary compact"
+      class="btn btn-sm primary"
       type="button"
       @click="open = true"
     >
       {{ t('requestExecution.action') }}
     </button>
 
-    <form v-if="open" class="execution-form" @submit.prevent="submit">
+    <form v-if="open" class="gate-form" @submit.prevent="submit">
       <p class="hint">{{ t('requestExecution.formNote') }}</p>
 
       <div class="field-grid">
@@ -138,10 +138,10 @@ async function submit() {
 
       <h4>{{ t('requestExecution.evidenceTitle') }}</h4>
       <p class="hint">{{ t('requestExecution.evidenceNote') }}</p>
-      <p v-if="attachments.length === 0" class="alert">
+      <p v-if="attachments.length === 0" class="alert warning">
         {{ t('requestExecution.noAttachments') }}
       </p>
-      <ul v-else class="evidence-list">
+      <ul v-else class="checklist">
         <li v-for="attachment in attachments" :key="attachment.id">
           <span class="question">{{ attachment.original_name }}</span>
           <select v-model="evidence[attachment.id]">
@@ -155,7 +155,7 @@ async function submit() {
 
       <h4>{{ t('requestExecution.checklistTitle') }}</h4>
       <p class="hint">{{ t('requestExecution.checklistNote') }}</p>
-      <ul class="check-list">
+      <ul class="checklist">
         <li v-for="check in EXECUTOR_CHECKS" :key="check">
           <span class="question">
             {{ t(`requestExecution.checks.${check}`) }}
@@ -176,122 +176,15 @@ async function submit() {
         </li>
       </ul>
 
-      <p v-if="error" class="alert">{{ error }}</p>
+      <p v-if="error" class="alert warning">{{ error }}</p>
 
       <div class="actions">
         <button class="primary" type="submit" :disabled="saving || !canSubmit">
           {{ saving ? t('requestExecution.saving') : t('requestExecution.confirm') }}
         </button>
-        <button type="button" @click="open = false">{{ t('requestExecution.cancel') }}</button>
+        <button class="ghost" type="button" @click="open = false">{{ t('requestExecution.cancel') }}</button>
       </div>
     </form>
   </div>
 </template>
 
-<style scoped>
-.execution-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.execution-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  background: var(--color-surface);
-}
-
-.field-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-}
-
-.field-grid label,
-.wide {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-}
-
-.field-grid input,
-.wide textarea {
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.35rem;
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  font: inherit;
-}
-
-h4 {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.hint {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--color-black-500);
-}
-
-.evidence-list,
-.check-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.evidence-list li,
-.check-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  font-size: 0.85rem;
-}
-
-.evidence-list select,
-.check-list select {
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.35rem;
-  background: var(--color-surface);
-  color: var(--color-foreground);
-}
-
-.question {
-  flex: 1;
-  text-align: start;
-}
-
-.question em {
-  display: block;
-  font-size: 0.75rem;
-  font-style: normal;
-  color: var(--color-black-500);
-}
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.alert {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-warning-border);
-  border-radius: 0.35rem;
-  background: var(--color-warning-bg);
-  color: var(--color-warning-fg);
-  font-size: 0.85rem;
-}
-</style>

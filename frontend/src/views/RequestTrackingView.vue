@@ -17,9 +17,9 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import RequestStageRail from '../components/RequestStageRail.vue'
 import api from '../lib/api'
 import { fileSectionLabel } from '../lib/fileSections'
-import { stageProgressLabel } from '../lib/stageProgress'
 
 const { t, locale } = useI18n()
 
@@ -146,16 +146,16 @@ onMounted(() => load())
 </script>
 
 <template>
-  <section class="tracking">
+  <section class="page tracking">
     <div class="heading">
       <div>
         <h2>{{ t('tracking.title') }}</h2>
-        <p class="intro">{{ t('tracking.intro') }}</p>
+        <p class="subtitle intro">{{ t('tracking.intro') }}</p>
       </div>
       <RouterLink v-can="'request_intake.add'" class="primary" :to="{ name: 'request_intake' }">{{ t('intake.open') }}</RouterLink>
     </div>
 
-    <form class="card controls" @submit.prevent="applySearch">
+    <form class="card card-flat card-pad controls" @submit.prevent="applySearch">
       <label class="search">
         {{ t('tracking.search') }}
         <input v-model="search" type="search" :placeholder="t('tracking.searchPlaceholder')" />
@@ -179,11 +179,11 @@ onMounted(() => load())
       <button class="ghost" type="button" @click="load(page.current_page)">{{ t('common.retry') }}</button>
     </p>
 
-    <div class="card list">
+    <div class="card card-flat card-pad list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="!loadError && requests.length === 0" class="state">{{ t('tracking.empty') }}</p>
       <ul v-else-if="!loadError" class="files">
-        <li v-for="row in rows" :key="row.request.id" class="file">
+        <li v-for="row in rows" :key="row.request.id" class="card card-flat file">
           <div class="file-head">
             <div class="identity">
               <span class="reference ltr">{{ trackingNumber(row.request) }}</span>
@@ -198,12 +198,13 @@ onMounted(() => load())
                    are the reconciled denominator (see RequestResource's own
                    comment); every request screen states this same "N of
                    TOTAL", tracking included. -->
-              <small class="stage">
-                {{ t('tracking.currentStep') }}: {{ name(row.request.current_stage) }}
-                <template v-if="row.request.stage_progress">
-                  ({{ stageProgressLabel(t, row.request.stage_progress) }})
-                </template>
-              </small>
+              <small class="stage">{{ t('tracking.currentStep') }}: {{ name(row.request.current_stage) }}</small>
+              <RequestStageRail
+                v-if="row.request.stage_progress"
+                variant="compact"
+                :stage-progress="row.request.stage_progress"
+                :stage-timeliness="row.request.stage_timeliness"
+              />
             </div>
           </div>
 
@@ -235,7 +236,7 @@ onMounted(() => load())
             <p v-if="trackedLoading" class="state">{{ t('common.loading') }}</p>
             <p v-else-if="trackedError" class="alert">{{ t('nav.error') }}</p>
             <template v-else-if="tracked">
-              <p v-if="!tracked.documents_complete" class="alert soft">{{ t('tracking.documentsIncomplete') }}</p>
+              <p v-if="!tracked.documents_complete" class="alert warning">{{ t('tracking.documentsIncomplete') }}</p>
 
               <!-- [D] Art. 100's السجل الزمني, the same six columns the
                    workspace renders. -->
@@ -310,34 +311,22 @@ onMounted(() => load())
 </template>
 
 <style scoped>
-.tracking { max-inline-size: 72rem; }
-.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-.heading h2 { margin: 0; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
-.intro { margin: .3rem 0 0; color: var(--color-muted); font-size: .85rem; max-inline-size: 46rem; }
-.card { padding: 1.1rem; margin-bottom: 1rem; }
-.controls { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; }
-.search { display: grid; gap: .3rem; flex: 1 1 18rem; font-size: .85rem; color: var(--color-black-700); }
+.controls, .list { margin-bottom: var(--space-4); }
+.controls { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); }
+.search { display: grid; gap: .3rem; flex: 1 1 18rem; font-size: var(--text-sm); color: var(--color-black-700); }
 .search input { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font: inherit; }
 .scopes { display: flex; gap: .3rem; }
-.scope { padding: .5rem .8rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); cursor: pointer; font: inherit; font-size: .84rem; }
+.scope { padding: .5rem .8rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); cursor: pointer; font: inherit; font-size: var(--text-sm); }
 .scope.active { color: var(--color-on-brand); background: var(--color-brand); border-color: var(--color-brand); }
-.primary { padding: .5rem .9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; text-decoration: none; }
-.primary:disabled { cursor: not-allowed; opacity: .6; }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); cursor: pointer; font: inherit; font-size: .82rem; text-decoration: none; }
-.ghost:disabled { cursor: not-allowed; opacity: .6; }
-.alert { padding: .75rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
-.alert.soft { border-color: var(--color-warning-border); color: var(--color-warning-fg); background: var(--color-warning-bg); font-size: .84rem; }
-.state, .hint { color: var(--color-muted); font-size: .8rem; }
-.files { display: grid; gap: 1rem; padding: 0; margin: 0; list-style: none; }
-.file { padding: .95rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); }
-.file-head { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: .75rem; }
+.state, .hint { color: var(--color-muted); font-size: var(--text-sm); }
+.files { display: grid; gap: var(--space-4); padding: 0; margin: 0; list-style: none; }
+.file { padding: var(--space-4); }
+.file-head { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--space-3); }
 .identity { display: grid; gap: .2rem; }
-.identity strong { color: var(--color-black-700); font-size: .95rem; }
-.identity small, .stage { color: var(--color-muted); font-size: .76rem; }
-.reference { color: var(--color-muted); font-family: var(--font-mono); font-size: .76rem; }
+.identity strong { color: var(--color-black-700); font-size: var(--text-lg); }
+.identity small, .stage { color: var(--color-muted); font-size: var(--text-xs); }
+.reference { color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-xs); }
 .state-block { display: grid; gap: .25rem; justify-items: end; }
-.status { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .55rem; border-radius: var(--radius-full); color: var(--color-black-700); background: var(--color-surface-hover); font-size: .8rem; }
-.status::before { content: ''; inline-size: .5rem; block-size: .5rem; border-radius: 50%; background: var(--status-color); }
 .answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .75rem; margin: .85rem 0 0; }
 .answers div { display: grid; gap: .2rem; }
 .answers dt { color: var(--color-muted); font-size: .74rem; }

@@ -171,7 +171,7 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="guide">
+  <section class="page guide">
     <div class="heading no-print">
       <div>
         <h2>{{ t('guide.title') }}</h2>
@@ -266,7 +266,7 @@ onMounted(load)
                 @click="selectedId = article.id"
               >
                 {{ title(article) }}
-                <span v-if="!article.is_active" class="pill">{{ t('guide.draft') }}</span>
+                <span v-if="!article.is_active" class="pill warn">{{ t('guide.draft') }}</span>
               </button>
             </li>
           </ul>
@@ -299,10 +299,7 @@ onMounted(load)
 </template>
 
 <style scoped>
-.heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
-.subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; }
-.heading-actions { display: flex; gap: .5rem; }
+.heading-actions { display: flex; gap: var(--space-2); }
 
 .layout { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: 1rem; align-items: start; }
 @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
@@ -333,18 +330,7 @@ textarea { resize: vertical; line-height: 1.7; }
 input:focus, textarea:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 .hint, .muted { color: var(--color-muted); font-size: .72rem; }
 .field-error { color: var(--color-danger-fg); font-size: .72rem; }
-.actions { display: flex; gap: .5rem; margin-top: 1rem; }
-
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
-.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
-.ghost.danger { color: var(--color-danger-fg); border-color: var(--color-danger-border); }
-button:disabled { cursor: not-allowed; opacity: .55; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); }
-.alert .ghost { margin-inline-start: .5rem; }
-.state { padding: .75rem .25rem; margin: 0; color: var(--color-muted); font-size: .85rem; }
-.pill { padding: .05rem .4rem; border-radius: 999px; background: var(--color-warning-bg); color: var(--color-warning-fg); font-size: .68rem; }
+.actions { margin-top: var(--space-4); }
 
 @media print {
   .layout { display: block; }

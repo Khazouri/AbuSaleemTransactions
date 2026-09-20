@@ -137,9 +137,13 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="page">
-    <h1>{{ t('meetingsUnit.legalReview.title') }}</h1>
-    <p class="subtitle">{{ t('meetingsUnit.legalReview.subtitle') }}</p>
+  <section class="page legal-review">
+    <div class="heading">
+      <div>
+        <h2>{{ t('meetingsUnit.legalReview.title') }}</h2>
+        <p class="subtitle">{{ t('meetingsUnit.legalReview.subtitle') }}</p>
+      </div>
+    </div>
 
     <p v-if="loading" class="state">{{ t('common.loading') }}</p>
     <div v-else-if="loadError" class="alert" role="alert">
@@ -147,44 +151,48 @@ onMounted(load)
     </div>
     <p v-else-if="!rows.length" class="state">{{ t('meetingsUnit.legalReview.empty') }}</p>
 
-    <div v-else class="card table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>{{ t('meetingsUnit.legalReview.table.reference') }}</th>
-            <th>{{ t('meetingsUnit.legalReview.table.title') }}</th>
-            <th>{{ t('meetingsUnit.legalReview.table.employee') }}</th>
-            <th>{{ t('meetingsUnit.legalReview.table.requestType') }}</th>
-            <th>{{ t('meetingsUnit.legalReview.table.department') }}</th>
-            <th>{{ t('meetingsUnit.legalReview.table.submitted') }}</th>
-            <th>{{ t('meetingsUnit.legalReview.table.rounds') }}</th>
-            <th>{{ t('meetingsUnit.legalReview.table.actions') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in rows" :key="row.id">
-            <td class="ltr">{{ row.reference_number || `#${row.id}` }}</td>
-            <td>{{ row.title }}</td>
-            <td>{{ row.created_by?.name ?? t('common.none') }}</td>
-            <td>{{ row.request_type ? name(row.request_type) : t('common.none') }}</td>
-            <td>{{ row.department ? name(row.department) : t('common.none') }}</td>
-            <td>{{ date(row.submitted_at) }}</td>
-            <td>{{ row.legal_reviews_count ?? 0 }}</td>
-            <td class="actions">
-              <RouterLink class="ghost" :to="{ name: 'request_details', params: { id: row.id } }">
-                {{ t('meetingsUnit.legalReview.actions.openFile') }}
-              </RouterLink>
-              <button v-can="'legal_review.add'" class="primary" type="button" @click="openReview(row)">
-                {{ t('meetingsUnit.legalReview.actions.review') }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div v-else class="card card-flat card-pad list">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>{{ t('meetingsUnit.legalReview.table.reference') }}</th>
+              <th>{{ t('meetingsUnit.legalReview.table.title') }}</th>
+              <th>{{ t('meetingsUnit.legalReview.table.employee') }}</th>
+              <th>{{ t('meetingsUnit.legalReview.table.requestType') }}</th>
+              <th>{{ t('meetingsUnit.legalReview.table.department') }}</th>
+              <th>{{ t('meetingsUnit.legalReview.table.submitted') }}</th>
+              <th>{{ t('meetingsUnit.legalReview.table.rounds') }}</th>
+              <th>{{ t('meetingsUnit.legalReview.table.actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="row.id">
+              <td class="ltr">{{ row.reference_number || `#${row.id}` }}</td>
+              <td>{{ row.title }}</td>
+              <td>{{ row.created_by?.name ?? t('common.none') }}</td>
+              <td>{{ row.request_type ? name(row.request_type) : t('common.none') }}</td>
+              <td>{{ row.department ? name(row.department) : t('common.none') }}</td>
+              <td class="nowrap">{{ date(row.submitted_at) }}</td>
+              <td>{{ row.legal_reviews_count ?? 0 }}</td>
+              <td>
+                <div class="row-actions">
+                  <RouterLink class="ghost" :to="{ name: 'request_details', params: { id: row.id } }">
+                    {{ t('meetingsUnit.legalReview.actions.openFile') }}
+                  </RouterLink>
+                  <button v-can="'legal_review.add'" class="primary" type="button" @click="openReview(row)">
+                    {{ t('meetingsUnit.legalReview.actions.review') }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <div v-if="openRow" class="overlay" @click.self="closeReview">
-      <div class="card modal">
+    <div v-if="openRow" class="modal-backdrop" @click.self="closeReview">
+      <div class="modal legal-modal">
         <h3>{{ t('meetingsUnit.legalReview.form.title') }}</h3>
         <p class="hint ltr">{{ openRow.reference_number || `#${openRow.id}` }} — {{ openRow.title }}</p>
 
@@ -192,7 +200,7 @@ onMounted(load)
         <p v-else-if="detailError" class="alert">{{ detailError }}</p>
 
         <template v-else>
-          <p v-if="detail?.legal_basis?.procedural_note" class="note">
+          <p v-if="detail?.legal_basis?.procedural_note" class="alert info">
             <strong>{{ t('meetingsUnit.legalReview.form.appendix21') }}</strong>
             {{ detail.legal_basis.procedural_note }}
           </p>
@@ -202,7 +210,7 @@ onMounted(load)
             <h4>{{ t('meetingsUnit.legalReview.form.history') }}</h4>
             <ul>
               <li v-for="review in detail.reviews" :key="review.id">
-                <span class="pill" :class="review.permits_agenda ? 'good' : 'bad'">
+                <span class="pill" :class="review.permits_agenda ? 'good' : 'warn'">
                   {{ t(`meetingsUnit.legalReview.verdicts.${review.verdict}`) }}
                 </span>
                 <span class="meta">{{ review.reviewed_by?.name ?? t('common.none') }} · {{ date(review.reviewed_at) }}</span>
@@ -298,62 +306,34 @@ onMounted(load)
 </template>
 
 <style scoped>
-.page { padding: 1.5rem; max-inline-size: 78rem; }
-.page h1 { margin: 0 0 .3rem; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
-.subtitle { margin: 0 0 1rem; color: var(--color-muted); font-size: .85rem; }
-
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; }
-
-.state { color: var(--color-muted); font-size: .85rem; margin: 0; }
-.alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: .5rem 0 0; }
-.note { padding: .55rem .7rem; background: var(--color-info-bg); color: var(--color-info-fg); border: 1px solid var(--color-info-border); border-radius: 8px; font-size: .8rem; margin: .5rem 0; }
-
-.table-wrap { padding: 0; overflow-x: auto; }
-table { inline-size: 100%; border-collapse: collapse; font-size: .85rem; }
-th, td { padding: .65rem .85rem; text-align: start; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
-th { color: var(--color-muted); font-weight: 600; font-size: .76rem; }
+.list { margin-bottom: var(--space-4); }
 .ltr { direction: ltr; unicode-bidi: isolate; }
+.nowrap { white-space: nowrap; }
+.row-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
 
-.pill { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .74rem; }
-.pill.good { background: var(--color-success-bg); color: var(--color-success-fg); border: 1px solid var(--color-success-border); }
-.pill.bad { background: var(--color-warning-bg); color: var(--color-warning-fg); border: 1px solid var(--color-warning-border); }
-
-.actions { white-space: normal; display: flex; flex-wrap: wrap; gap: .35rem; }
-button, a.ghost { cursor: pointer; border-radius: 8px; font-size: .8rem; }
-button:disabled { cursor: not-allowed; opacity: .6; }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); text-decoration: none; display: inline-block; }
-.ghost:hover { background: var(--color-surface-hover); }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-
-.overlay {
-  position: fixed; inset: 0; background: var(--color-overlay);
-  display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 50;
-  overflow-y: auto;
-}
-.modal { inline-size: min(46rem, 100%); max-block-size: 90vh; overflow-y: auto; }
-.modal h3 { margin: 0 0 .35rem; color: var(--color-brand-text); font-size: 1rem; }
-.modal h4 { margin: 1rem 0 .5rem; color: var(--color-black-700); font-size: .85rem; }
-.modal label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); }
-.hint { font-size: .74rem; color: var(--color-muted); margin: 0 0 .5rem; }
+/* The dedicated legal-review modal is wider and scrolls internally — the
+   global .modal primitive supplies the surface/border/shadow, this adds the
+   size/scroll delta on top of it. */
+.legal-modal { inline-size: min(46rem, 100%); max-block-size: 90vh; overflow-y: auto; }
+.modal h4 { margin: var(--space-4) 0 var(--space-2); color: var(--color-black-700); font-size: var(--text-sm); }
+.modal label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
 .modal textarea { resize: vertical; }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .75rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: var(--space-3); }
 .grid .wide { grid-column: 1 / -1; }
 
 select, input[type='text'], textarea {
   padding: .5rem .6rem;
   border: 1px solid var(--color-border-hover);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-foreground);
   font: inherit;
 }
 
-.history { border: 1px solid var(--color-border); border-radius: 8px; padding: .6rem .8rem; }
-.history ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
-.history li { border-bottom: 1px solid var(--color-border); padding-block-end: .5rem; }
+.history { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: .6rem .8rem; }
+.history ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.history li { border-bottom: 1px solid var(--color-border); padding-block-end: var(--space-2); }
 .history li:last-child { border-bottom: 0; padding-block-end: 0; }
-.meta { font-size: .76rem; color: var(--color-muted); margin: .25rem 0 0; }
-
-.modal-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-block-start: 1rem; }
+.meta { font-size: var(--text-xs); color: var(--color-muted); margin: .25rem 0 0; }
 </style>

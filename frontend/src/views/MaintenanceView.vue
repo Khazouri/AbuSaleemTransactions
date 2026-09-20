@@ -201,7 +201,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="maintenance">
+  <section class="page maintenance">
     <div class="heading">
       <div>
         <h2>{{ t('maintenance.title') }}</h2>
@@ -222,7 +222,7 @@ onMounted(() => {
       <p v-if="!enabled" class="alert">{{ t('maintenance.disabledBanner') }}</p>
 
       <!-- ── Diagnostics ─────────────────────────────────────────────── -->
-      <div class="card diagnostics">
+      <div class="card card-flat card-pad diagnostics">
         <h3>{{ t('maintenance.diagnostics.title') }}</h3>
         <p class="hint">{{ t('maintenance.diagnostics.hint') }}</p>
 
@@ -322,7 +322,7 @@ onMounted(() => {
       <!-- ── Commands ────────────────────────────────────────────────── -->
       <p v-if="runError" class="alert">{{ runError }}</p>
 
-      <div v-for="block in grouped" :key="block.group" class="card commands">
+      <div v-for="block in grouped" :key="block.group" class="card card-flat card-pad commands">
         <h3>{{ t(`maintenance.groups.${block.group}`) }}</h3>
         <ul class="command-list">
           <li v-for="command in block.items" :key="command.code" :class="{ destructive: command.destructive }">
@@ -350,10 +350,10 @@ onMounted(() => {
         </ul>
       </div>
 
-      <p v-if="runningCode" class="notice">{{ t('maintenance.runningHint') }}</p>
+      <p v-if="runningCode" class="alert warning">{{ t('maintenance.runningHint') }}</p>
 
       <!-- ── The last run's output ───────────────────────────────────── -->
-      <div v-if="lastRun" class="card result" :class="lastRun.status">
+      <div v-if="lastRun" class="card card-flat card-pad result" :class="lastRun.status">
         <h3>
           {{ isArabic ? lastRun.label_ar : lastRun.label_en }}
           —
@@ -368,7 +368,7 @@ onMounted(() => {
       </div>
 
       <!-- ── History ─────────────────────────────────────────────────── -->
-      <div class="card history">
+      <div class="card card-flat card-pad history">
         <div class="history-head">
           <h3>{{ t('maintenance.history.title') }}</h3>
           <button v-can="'maintenance.delete'" class="ghost danger" type="button" @click="clearHistory">
@@ -378,7 +378,7 @@ onMounted(() => {
         <p v-if="historyLoading" class="state">{{ t('common.loading') }}</p>
         <p v-else-if="runs.length === 0" class="state">{{ t('maintenance.history.empty') }}</p>
         <div v-else class="table-wrap">
-          <table>
+          <table class="data-table">
             <thead>
               <tr>
                 <th>{{ t('maintenance.history.command') }}</th>
@@ -439,7 +439,7 @@ onMounted(() => {
     </template>
 
     <!-- ── Destructive confirmation ──────────────────────────────────── -->
-    <div v-if="confirmTarget" class="overlay" @click.self="confirmTarget = null">
+    <div v-if="confirmTarget" class="modal-backdrop" @click.self="confirmTarget = null">
       <div class="modal">
         <h3>{{ t('maintenance.confirm.title') }}</h3>
         <p class="modal-command">
@@ -468,47 +468,40 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-h2 { margin: 0; color: var(--color-brand-text); font-size: 1.2rem; }
-h3 { margin: 0 0 .5rem; color: var(--color-brand-text); font-size: .95rem; }
-.subtitle { margin: .15rem 0 0; color: var(--color-muted); font-size: .82rem; max-width: 60ch; }
-.hint { margin: 0 0 .9rem; color: var(--color-muted); font-size: .78rem; }
+h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
+.subtitle { max-inline-size: 60ch; }
+.hint { max-inline-size: 60ch; }
 
-.card { padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
-button { cursor: pointer; border-radius: var(--radius-lg); font-size: .85rem; }
-.primary { padding: .45rem .9rem; border: 0; color: var(--color-on-brand); background: var(--color-brand); white-space: nowrap; }
+.diagnostics, .commands, .result, .history { margin-bottom: var(--space-4); }
 .primary.danger { background: var(--color-danger-fg); color: var(--color-surface); }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-black-700); }
-.ghost:hover:not(:disabled) { background: var(--color-surface-hover); }
-.ghost.danger { color: var(--color-danger-fg); border-color: var(--color-danger-border); }
-button:disabled { cursor: not-allowed; opacity: .5; }
+.primary.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--color-danger-fg) 88%, var(--color-black-950)); }
 
-.alert { padding: .6rem .8rem; margin: 0 0 .9rem; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); color: var(--color-danger-fg); background: var(--color-danger-bg); font-size: .82rem; }
-.notice { padding: .6rem .8rem; margin: 0 0 1rem; border: 1px solid var(--color-warning-border); border-radius: var(--radius-lg); color: var(--color-warning-fg); background: var(--color-warning-bg); font-size: .82rem; }
-.state { padding: .4rem; margin: 0; color: var(--color-muted); font-size: .84rem; }
 /* Command lines and log output are LTR whatever the page direction is —
    Arabic-mirroring a shell command makes it unreadable and uncopyable. */
 .ltr { direction: ltr; unicode-bidi: isolate; text-align: start; }
 
-.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .6rem; }
-.fact { padding: .55rem .7rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--space-3); }
+.fact { padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
 .fact.warn { border-color: var(--color-warning-border); background: var(--color-warning-bg); }
 .fact.bad { border-color: var(--color-danger-border); background: var(--color-danger-bg); }
-.key { display: block; color: var(--color-muted); font-size: .7rem; }
-.value { display: block; margin-top: .1rem; font-size: .95rem; font-weight: 600; }
-.note { display: block; margin-top: .15rem; color: var(--color-muted); font-size: .7rem; word-break: break-word; }
+.key { display: block; color: var(--color-muted); font-size: var(--text-xs); }
+.value { display: block; margin-top: .1rem; font-size: var(--text-lg); font-weight: 600; }
+.note { display: block; margin-top: .15rem; color: var(--color-muted); font-size: var(--text-xs); word-break: break-word; }
 .note.danger { color: var(--color-danger-fg); }
 
-.command-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
-.command-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .65rem .8rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+.command-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.command-list li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
 .command-list li.destructive { border-color: var(--color-danger-border); background: var(--color-danger-bg); }
-.command-body { min-width: 0; }
-.command-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.command-head strong { font-size: .88rem; }
-.preview { display: inline-block; margin-top: .25rem; padding: .1rem .4rem; border-radius: var(--radius-sm, 4px); background: var(--color-surface-hover); font-family: var(--font-mono); font-size: .72rem; word-break: break-all; }
-.description { margin: .35rem 0 0; color: var(--color-muted); font-size: .76rem; max-width: 78ch; }
-.blocked { margin: .3rem 0 0; color: var(--color-warning-fg); font-size: .74rem; }
-.pill { display: inline-block; padding: .08rem .45rem; border: 1px solid var(--color-border-hover); border-radius: 999px; font-size: .68rem; white-space: nowrap; }
+.command-body { min-inline-size: 0; }
+.command-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.command-head strong { font-size: var(--text-base); }
+.preview { display: inline-block; margin-top: .25rem; padding: .1rem .4rem; border-radius: var(--radius-sm); background: var(--color-surface-hover); font-family: var(--font-mono); font-size: var(--text-xs); word-break: break-all; }
+.description { margin: .35rem 0 0; color: var(--color-muted); font-size: var(--text-sm); max-inline-size: 78ch; }
+.blocked { margin: .3rem 0 0; color: var(--color-warning-fg); font-size: var(--text-xs); }
+/* Four run-status tones the generic .pill modifiers (good/bad/warn/info)
+   don't name directly — the server's own vocabulary is completed/failed/
+   running, kept outlined-on-neutral rather than filled to read as quieter
+   than the generic tone pills. */
 .pill.danger { border-color: var(--color-danger-border); color: var(--color-danger-fg); }
 .pill.completed { border-color: var(--color-success-border); color: var(--color-success-fg); }
 .pill.failed { border-color: var(--color-danger-border); color: var(--color-danger-fg); }
@@ -516,25 +509,21 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 
 .result.completed { border-inline-start: 3px solid var(--color-success-fg); }
 .result.failed { border-inline-start: 3px solid var(--color-danger-fg); }
-.meta { margin: 0 0 .6rem; color: var(--color-muted); font-size: .76rem; }
-.output { max-height: 22rem; overflow: auto; padding: .7rem .8rem; margin: 0; border-radius: var(--radius-lg); background: var(--color-black-900, #111); color: #e6e6e6; font-family: var(--font-mono); font-size: .74rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.meta { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }
+/* Deliberately fixed dark regardless of site theme, like SignaturePad's
+   canvas and ApprovalTrail's signature background: this is a raw shell log
+   meant to read as a terminal, not a themed surface. */
+.output { max-block-size: 22rem; overflow: auto; padding: var(--space-3) var(--space-4); margin: 0; border-radius: var(--radius-lg); background: #0d1117; color: #c9d1d9; font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 
-.history-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .5rem; }
-.table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 720px; border-collapse: collapse; }
-th, td { padding: .55rem .5rem; text-align: start; border-bottom: 1px solid var(--color-border); vertical-align: top; }
-th { color: var(--color-muted); font-size: .72rem; font-weight: 600; white-space: nowrap; }
-td { font-size: .8rem; }
+.history-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-2); }
+.data-table { min-width: 720px; }
+.data-table th, .data-table td { vertical-align: top; }
 .nowrap { white-space: nowrap; }
 .output-row td { background: var(--color-surface-hover); }
-.pagination { display: flex; align-items: center; justify-content: center; gap: .75rem; margin-top: .75rem; color: var(--color-muted); font-size: .82rem; }
 
-.overlay { position: fixed; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); z-index: 50; }
-.modal { width: min(34rem, 100%); padding: 1.25rem; border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: 0 12px 40px rgb(0 0 0 / .25); }
-.modal-command { margin: 0 0 .75rem; display: flex; flex-direction: column; gap: .25rem; }
-.modal label { display: block; color: var(--color-black-700); font-size: .82rem; }
-.modal input { width: 100%; margin-top: .3rem; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-family: var(--font-mono); }
-.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+.modal-command { margin: 0 0 var(--space-3); display: flex; flex-direction: column; gap: .25rem; }
+.modal label { display: block; color: var(--color-black-700); font-size: var(--text-sm); }
+.modal input { inline-size: 100%; margin-top: .3rem; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-family: var(--font-mono); }
 
-.footnote { margin-top: 1.25rem; padding: .75rem .9rem; border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-muted); font-size: .78rem; max-width: 90ch; }
+.footnote { margin-top: var(--space-5); padding: var(--space-3) var(--space-4); border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-muted); font-size: var(--text-sm); max-inline-size: 90ch; }
 </style>

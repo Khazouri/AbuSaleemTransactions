@@ -263,7 +263,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="detail">
+  <section class="page detail">
     <RouterLink class="back" :to="{ name: 'meetings' }">{{ t('meetings.back') }}</RouterLink>
 
     <p v-if="loading" class="state">{{ t('common.loading') }}</p>
@@ -274,7 +274,7 @@ onMounted(async () => {
     <template v-else-if="meeting">
       <header class="heading">
         <div>
-          <p class="committee ltr-none">{{ name(meeting.committee) }}</p>
+          <p class="committee">{{ name(meeting.committee) }}</p>
           <h2>{{ meeting.title }}</h2>
         </div>
         <div class="header-actions">
@@ -295,7 +295,7 @@ onMounted(async () => {
 
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
 
-      <section class="card summary">
+      <section class="card card-flat card-pad summary">
         <div v-if="meeting.meeting_number">
           <span>{{ t('meetings.meetingNumber') }}</span>
           <strong>{{ meeting.meeting_number }}</strong>
@@ -338,12 +338,12 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-if="meeting.description" class="card">
+      <section v-if="meeting.description" class="card card-flat card-pad">
         <h3>{{ t('meetings.description') }}</h3>
         <p class="description">{{ meeting.description }}</p>
       </section>
 
-      <section v-can="'meeting_minutes.view'" class="card minutes-link">
+      <section v-can="'meeting_minutes.view'" class="card card-flat card-pad minutes-link">
         <h3>{{ t('meetings.minutes') }}</h3>
         <p v-if="meeting.minutes_status" class="minutes-status">
           {{ t(`meetingsUnit.minutes.status.${meeting.minutes_status}`) }}
@@ -354,7 +354,7 @@ onMounted(async () => {
       </section>
 
       <!-- Stage 37 — meeting-scoped outputs follow-up. -->
-      <section v-can="'meeting_outputs.view'" class="card minutes-link">
+      <section v-can="'meeting_outputs.view'" class="card card-flat card-pad minutes-link">
         <h3>{{ t('meetingsUnit.outputs.title') }}</h3>
         <p class="minutes-status">{{ t('meetingsUnit.outputs.detailHint') }}</p>
         <RouterLink class="ghost" :to="{ name: 'meeting_outputs', query: { meeting: meeting.id } }">
@@ -363,7 +363,7 @@ onMounted(async () => {
       </section>
 
       <div class="columns">
-        <section class="card agenda">
+        <section class="card card-flat card-pad agenda">
           <div class="agenda-heading">
             <h3>{{ t('meetings.agenda.title') }}</h3>
             <div class="agenda-heading-links">
@@ -453,7 +453,7 @@ onMounted(async () => {
           </div>
         </section>
 
-        <aside class="card attendance">
+        <aside class="card card-flat card-pad attendance">
           <h3>{{ t('meetings.attendance.title') }}</h3>
           <p v-if="attendanceError" class="alert">{{ attendanceError }}</p>
           <p v-if="!meeting.attendees?.length" class="state">{{ t('meetings.attendance.empty') }}</p>
@@ -503,55 +503,39 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.detail { max-inline-size: 82rem; }
-.back { display: inline-block; margin-bottom: .85rem; color: var(--color-brand-text); font-size: .85rem; text-decoration: none; }
+.back { display: inline-block; margin-bottom: var(--space-3); color: var(--color-brand-text); font-size: var(--text-sm); text-decoration: none; }
 .back:hover { text-decoration: underline; }
-.heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
-.heading h2 { margin: .15rem 0 0; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
-.committee { margin: 0; color: var(--color-muted); font-size: .8rem; }
-.header-actions { display: flex; gap: .5rem; }
-.description { margin: 0; white-space: pre-wrap; color: var(--color-black-700); font-size: .88rem; }
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; }
-.card h3 { margin: 0 0 .6rem; color: var(--color-brand-text); font-size: 1rem; }
-.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 1rem; }
-.summary div { display: grid; gap: .25rem; }
-.summary span { color: var(--color-muted); font-size: .76rem; }
-.summary strong { color: var(--color-black-700); font-size: .88rem; }
-textarea { width: 100%; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px; background: var(--color-surface); resize: vertical; font: inherit; box-sizing: border-box; }
-select { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); border-radius: 8px; background: var(--color-surface); font: inherit; }
-.actions { margin-top: .75rem; }
-button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
-button:disabled { cursor: not-allowed; opacity: .55; }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); margin-inline-start: .3rem; }
-.ghost:hover { background: var(--color-surface-hover); }
-.ghost.danger { color: var(--color-danger-fg); border-color: var(--color-danger-border); }
+.heading h2 { margin: .15rem 0 0; }
+.committee { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.header-actions { display: flex; gap: var(--space-2); }
+.description { margin: 0; white-space: pre-wrap; color: var(--color-black-700); font-size: var(--text-lg); }
+select { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
+.card h3 { margin: 0 0 var(--space-3); color: var(--color-brand-text); font-size: var(--text-lg); }
+.card, .summary, .minutes-link, .agenda, .attendance { margin-bottom: var(--space-4); }
 .minutes-link .ghost { display: inline-block; text-decoration: none; }
-.minutes-status { margin: 0 0 .5rem; color: var(--color-muted); font-size: .82rem; }
-.alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: 0 0 .75rem; }
-.state { color: var(--color-muted); font-size: .85rem; margin: 0; }
+.minutes-status { margin: 0 0 var(--space-2); color: var(--color-muted); font-size: var(--text-sm); }
 
-.columns { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(16rem, .8fr); gap: 1rem; align-items: start; }
-.agenda-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .6rem; }
+.columns { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(16rem, .8fr); gap: var(--space-4); align-items: start; }
+.agenda-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-3); }
 .agenda-heading h3 { margin: 0; }
 .agenda-heading .ghost { text-decoration: none; }
-.agenda-heading-links { display: flex; gap: .5rem; flex-wrap: wrap; }
-.agenda ol { display: grid; gap: .6rem; padding: 0; margin: 0 0 1rem; list-style: none; }
-.agenda li { display: grid; gap: .5rem; padding-bottom: .75rem; border-bottom: 1px solid var(--color-border); font-size: .86rem; }
-.agenda li .row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-.ref { color: var(--color-muted); font-size: .78rem; margin-inline-end: .5rem; }
-.pill { margin-inline-start: .5rem; padding: .1rem .5rem; background: var(--color-surface-hover); color: var(--color-black-600); border-radius: 999px; font-size: .72rem; }
-.item-actions { white-space: nowrap; }
-.agenda-search input { width: 100%; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px; background: var(--color-surface); box-sizing: border-box; }
-.results { display: grid; gap: .4rem; padding: 0; margin: .5rem 0 0; list-style: none; }
-.result { display: flex; align-items: center; justify-content: space-between; gap: .5rem; font-size: .84rem; }
+.agenda-heading-links { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.agenda ol { display: grid; gap: var(--space-3); padding: 0; margin: 0 0 var(--space-4); list-style: none; }
+.agenda li { display: grid; gap: var(--space-2); padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); font-size: var(--text-base); }
+.agenda li .row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.ref { color: var(--color-muted); font-size: var(--text-sm); margin-inline-end: var(--space-2); }
+.pill { margin-inline-start: var(--space-2); }
+.item-actions { white-space: nowrap; display: flex; gap: var(--space-1); }
+.agenda-search input { inline-size: 100%; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); box-sizing: border-box; }
+.results { display: grid; gap: .4rem; padding: 0; margin: var(--space-2) 0 0; list-style: none; }
+.result { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); font-size: var(--text-base); }
 
-.attendance ul { display: grid; gap: .5rem; padding: 0; margin: 0 0 .85rem; list-style: none; }
-.attendance li { display: flex; align-items: center; justify-content: space-between; gap: .5rem; font-size: .85rem; }
+.attendance ul { display: grid; gap: var(--space-2); padding: 0; margin: 0 0 var(--space-3); list-style: none; }
+.attendance li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); font-size: var(--text-base); }
 .attendee-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
-.invitation-status { padding: .2rem .4rem; font-size: .72rem; }
+.invitation-status { padding: .2rem .4rem; font-size: var(--text-xs); }
 label.checkbox { display: flex; align-items: center; gap: .4rem; }
-.add-attendee { display: flex; gap: .5rem; }
+.add-attendee { display: flex; gap: var(--space-2); }
 
 @media (max-width: 720px) { .columns { grid-template-columns: 1fr; } }
 </style>

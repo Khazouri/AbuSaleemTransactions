@@ -92,7 +92,7 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="tasks">
+  <section class="page tasks">
     <header class="head">
       <div>
         <h1>{{ t('myTasks.title') }}</h1>
@@ -107,7 +107,7 @@ onMounted(load)
     <p v-else-if="error" class="alert danger">{{ error }}</p>
 
     <template v-else>
-      <div v-if="!sources.length" class="card empty">
+      <div v-if="!sources.length" class="card card-flat empty">
         <AppIcon name="check-square" />
         <p>{{ t('myTasks.empty') }}</p>
       </div>
@@ -180,14 +180,14 @@ onMounted(load)
 .tasks {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
@@ -200,68 +200,33 @@ h1 {
 .lede {
   margin: 0.25rem 0 0;
   color: var(--color-muted);
-  font-size: 0.9rem;
-}
-
-.ghost {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  border-radius: 0.5rem;
-  padding: 0.4rem 0.9rem;
-  cursor: pointer;
-}
-
-.ghost:hover:not(:disabled) {
-  border-color: var(--color-border-hover);
-  background: var(--color-surface-hover);
+  font-size: var(--text-base);
 }
 
 .muted {
   color: var(--color-muted);
 }
 
-.alert {
-  border-radius: 0.5rem;
-  padding: 0.6rem 0.9rem;
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-.alert.danger {
-  background: var(--color-danger-bg);
-  border: 1px solid var(--color-danger-border);
-  color: var(--color-danger-fg);
-}
-
-.alert.warning {
-  background: var(--color-warning-bg);
-  border: 1px solid var(--color-warning-border);
-  color: var(--color-warning-fg);
-}
-
 .card.empty {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  padding: 2.5rem 1rem;
+  padding: var(--space-6) var(--space-4);
   text-align: center;
   color: var(--color-muted);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .summary {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .count {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .count.overdue {
@@ -273,22 +238,6 @@ h1 {
   display: flex;
   gap: 0.4rem;
   flex-wrap: wrap;
-}
-
-.chip {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  border-radius: 999px;
-  padding: 0.3rem 0.8rem;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.chip.active {
-  background: var(--color-brand);
-  border-color: var(--color-brand);
-  color: var(--color-on-brand);
 }
 
 .group h2 {
@@ -303,10 +252,11 @@ h1 {
 .badge {
   background: var(--color-surface-hover);
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   padding: 0 0.5rem;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .rows {
@@ -329,7 +279,7 @@ h1 {
   /* Logical property: the accent sits on the reading-start edge, so it
      mirrors with the document direction rather than staying on the left. */
   border-inline-start: 3px solid var(--color-border);
-  border-radius: 0.6rem;
+  border-radius: var(--radius-lg);
   padding: 0.7rem 0.9rem;
   text-decoration: none;
   color: inherit;

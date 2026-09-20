@@ -147,11 +147,15 @@ onMounted(loadMeetings)
 </script>
 
 <template>
-  <section class="page">
-    <h1>{{ t('meetingsUnit.readiness.title') }}</h1>
-    <p class="subtitle">{{ t('meetingsUnit.readiness.subtitle') }}</p>
+  <section class="page readiness">
+    <div class="heading">
+      <div>
+        <h2>{{ t('meetingsUnit.readiness.title') }}</h2>
+        <p class="subtitle">{{ t('meetingsUnit.readiness.subtitle') }}</p>
+      </div>
+    </div>
 
-    <div class="card picker">
+    <div class="card card-flat card-pad picker">
       <label>
         {{ t('meetingsUnit.readiness.chooseMeeting') }}
         <select v-model="meetingId">
@@ -168,13 +172,13 @@ onMounted(loadMeetings)
     </div>
 
     <template v-else-if="readiness && meeting">
-      <div v-if="meeting.convened_at" class="card notice">
+      <div v-if="meeting.convened_at" class="card card-flat card-pad notice">
         {{ t('meetingsUnit.readiness.convene.alreadyConvened', { date: dateTime(meeting.convened_at) }) }}
         <span v-if="meeting.readiness_override_reason" class="muted">— {{ meeting.readiness_override_reason }}</span>
       </div>
 
       <div class="grid">
-        <section class="card verdict-card">
+        <section class="card card-flat card-pad verdict-card">
           <div class="donut" :style="donutStyle">
             <div class="donut-hole">
               <strong>{{ overallScore }}%</strong>
@@ -194,7 +198,7 @@ onMounted(loadMeetings)
           </button>
         </section>
 
-        <section class="card panel">
+        <section class="card card-flat card-pad panel">
           <h3>{{ t('meetingsUnit.readiness.quorum.title') }}</h3>
           <p class="quorum-line">
             {{ t('meetingsUnit.readiness.quorum.confirmed') }}: <strong>{{ readiness.quorum_confirmed }}</strong>
@@ -213,7 +217,7 @@ onMounted(loadMeetings)
           <span v-else class="pill bad">{{ t('meetingsUnit.readiness.quorum.notRecorded') }}</span>
         </section>
 
-        <section class="card panel">
+        <section class="card card-flat card-pad panel">
           <h3>{{ t('meetingsUnit.dashboard.funnel.title') }}</h3>
           <ul class="bars">
             <li v-for="row in percentageRows" :key="row.key">
@@ -226,7 +230,7 @@ onMounted(loadMeetings)
           </ul>
         </section>
 
-        <section class="card panel">
+        <section class="card card-flat card-pad panel">
           <h3>{{ t('meetingsUnit.readiness.exceptions.title') }}</h3>
           <p v-if="!readiness.exceptions.length" class="state good-text">{{ t('meetingsUnit.readiness.exceptions.none') }}</p>
           <ul v-else class="exceptions">
@@ -236,8 +240,8 @@ onMounted(loadMeetings)
       </div>
     </template>
 
-    <div v-if="showConvenePrompt" class="overlay" @click.self="showConvenePrompt = false">
-      <div class="card modal">
+    <div v-if="showConvenePrompt" class="modal-backdrop" @click.self="showConvenePrompt = false">
+      <div class="modal">
         <h3>{{ t('meetingsUnit.readiness.convene.title') }}</h3>
         <label>
           {{ t('meetingsUnit.readiness.convene.reasonLabel') }}
@@ -263,65 +267,43 @@ onMounted(loadMeetings)
 </template>
 
 <style scoped>
-.page { padding: 1.5rem; max-inline-size: 78rem; }
-.page h1 { margin: 0 0 .3rem; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
-.subtitle { margin: 0 0 1rem; color: var(--color-muted); font-size: .85rem; }
-
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; }
-.picker label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); max-inline-size: 24rem; }
+.page.readiness { max-inline-size: 78rem; }
+.picker { margin-bottom: var(--space-4); }
+.picker label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); max-inline-size: 24rem; }
 select, textarea {
   padding: .5rem .6rem;
   border: 1px solid var(--color-border-hover);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   color: var(--color-foreground);
   font: inherit;
 }
 
-.state { color: var(--color-muted); font-size: .85rem; margin: 0; }
 .good-text { color: var(--color-success-fg); }
-.alert { padding: .65rem .8rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; margin: .5rem 0 0; }
-.notice { font-size: .85rem; color: var(--color-black-700); }
+.notice { margin-bottom: var(--space-4); font-size: var(--text-base); color: var(--color-black-700); }
 .muted { color: var(--color-muted); }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
-.panel h3 { margin: 0 0 1rem; font-size: 1rem; color: var(--color-black-800); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); }
+.panel h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-black-800); }
 
-.verdict-card { display: flex; flex-direction: column; align-items: center; gap: .75rem; text-align: center; }
+.verdict-card { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; }
 .donut { inline-size: 120px; block-size: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .donut-hole { inline-size: 84px; block-size: 84px; border-radius: 50%; background: var(--color-surface); display: flex; align-items: center; justify-content: center; }
-.donut-hole strong { color: var(--color-brand-text); font-size: 1.2rem; }
+.donut-hole strong { color: var(--color-brand-text); font-size: var(--text-xl); }
 
-.pill { display: inline-block; padding: .25rem .7rem; border-radius: 999px; font-size: .8rem; }
-.pill.good { background: var(--color-success-bg); color: var(--color-success-fg); border: 1px solid var(--color-success-border); }
-.pill.bad { background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); }
-
-.quorum-line { margin: 0 0 .5rem; font-size: .9rem; color: var(--color-black-700); }
-.quorum-source { margin: 0 0 .5rem; font-size: .78rem; color: var(--color-muted); }
+.quorum-line { margin: 0 0 var(--space-2); font-size: var(--text-lg); color: var(--color-black-700); }
+.quorum-source { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--color-muted); }
 
 .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
 .bars li { display: grid; grid-template-columns: minmax(90px, 40%) 1fr auto; align-items: center; gap: .6rem; }
-.bar-label { font-size: .8rem; color: var(--color-black-700); }
-.bar-track { block-size: 9px; background: var(--color-surface-hover); border-radius: 999px; overflow: hidden; }
-.bar-fill { display: block; block-size: 100%; border-radius: 999px; background: var(--color-brand); }
-.bar-value { font-size: .8rem; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.bar-label { font-size: var(--text-sm); color: var(--color-black-700); }
+.bar-track { block-size: 9px; background: var(--color-surface-hover); border-radius: var(--radius-full); overflow: hidden; }
+.bar-fill { display: block; block-size: 100%; border-radius: var(--radius-full); background: var(--color-brand); }
+.bar-value { font-size: var(--text-sm); color: var(--color-muted); font-variant-numeric: tabular-nums; }
 
-.exceptions { margin: 0; padding-inline-start: 1.2rem; display: grid; gap: .4rem; font-size: .85rem; color: var(--color-black-700); }
+.exceptions { margin: 0; padding-inline-start: 1.2rem; display: grid; gap: .4rem; font-size: var(--text-base); color: var(--color-black-700); }
 
-button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
-button:disabled { cursor: not-allowed; opacity: .6; }
-.ghost { padding: .4rem .65rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); }
-.ghost:hover { background: var(--color-surface-hover); }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-
-.overlay {
-  position: fixed; inset: 0; background: var(--color-overlay);
-  display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 50;
-}
-.modal { inline-size: min(28rem, 100%); }
-.modal h3 { margin: 0 0 .75rem; color: var(--color-brand-text); font-size: 1rem; }
-.modal label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); }
-.modal .hint { font-size: .74rem; color: var(--color-muted); }
+.modal label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
+.modal .hint { font-size: var(--text-xs); color: var(--color-muted); }
 .modal textarea { resize: vertical; }
-.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
 </style>

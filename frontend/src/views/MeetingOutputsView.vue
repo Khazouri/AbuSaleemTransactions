@@ -86,7 +86,7 @@ function statusClass(code) {
   if (['in_execution', 'approved', 'decided', 'approved_with_conditions',
     'awaiting_municipal_approval', 'awaiting_central_approval'].includes(code)) return 'info'
   if (['rejected', 'cancelled', 'not_approved'].includes(code)) return 'bad'
-  return 'pending'
+  return 'warn'
 }
 
 let refreshTimer = null
@@ -101,10 +101,10 @@ onUnmounted(() => window.clearInterval(refreshTimer))
 </script>
 
 <template>
-  <section class="page">
-    <div class="page-heading">
+  <section class="page outputs">
+    <div class="heading">
       <div>
-        <h1>{{ t('meetingsUnit.outputs.title') }}</h1>
+        <h2>{{ t('meetingsUnit.outputs.title') }}</h2>
         <p class="subtitle">{{ t('meetingsUnit.outputs.subtitle') }}</p>
       </div>
       <button v-if="meetingId" class="ghost" type="button" :disabled="loading" @click="load()">
@@ -112,7 +112,7 @@ onUnmounted(() => window.clearInterval(refreshTimer))
       </button>
     </div>
 
-    <div class="card picker">
+    <div class="card card-flat card-pad picker">
       <label>
         {{ t('meetingsUnit.outputs.chooseMeeting') }}
         <select v-model="meetingId">
@@ -131,7 +131,7 @@ onUnmounted(() => window.clearInterval(refreshTimer))
     </div>
 
     <template v-else-if="tracker">
-      <section class="card meeting-summary">
+      <section class="card card-flat card-pad meeting-summary">
         <div>
           <span class="eyebrow">{{ tracker.meeting.meeting_number || t('meetingsUnit.outputs.meeting') }}</span>
           <h2>{{ tracker.meeting.title }}</h2>
@@ -140,13 +140,13 @@ onUnmounted(() => window.clearInterval(refreshTimer))
       </section>
 
       <section class="summary-grid" :aria-label="t('meetingsUnit.outputs.summary.title')">
-        <article v-for="card in summaryCards" :key="card.key" class="card summary-card">
+        <article v-for="card in summaryCards" :key="card.key" class="card card-flat card-pad summary-card">
           <span>{{ t(`meetingsUnit.outputs.summary.${card.key}`) }}</span>
           <strong>{{ card.value }}</strong>
         </article>
       </section>
 
-      <section class="card table-card">
+      <section class="card card-flat card-pad table-card">
         <div class="table-heading">
           <div>
             <h3>{{ t('meetingsUnit.outputs.tableTitle') }}</h3>
@@ -156,7 +156,7 @@ onUnmounted(() => window.clearInterval(refreshTimer))
 
         <p v-if="!tracker.outputs.length" class="state">{{ t('meetingsUnit.outputs.empty') }}</p>
         <div v-else class="table-wrap">
-          <table>
+          <table class="data-table">
             <thead>
               <tr>
                 <th>{{ t('meetingsUnit.outputs.columns.request') }}</th>
@@ -229,44 +229,29 @@ onUnmounted(() => window.clearInterval(refreshTimer))
 </template>
 
 <style scoped>
-.page { padding: 1.5rem; max-inline-size: 90rem; }
-.page-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
-.page h1 { margin: 0 0 .3rem; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
-.subtitle { margin: 0; color: var(--color-muted); font-size: .85rem; }
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; }
-.picker label { display: flex; flex-direction: column; gap: .3rem; max-inline-size: 25rem; color: var(--color-black-700); font-size: .875rem; }
-select { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px; background: var(--color-surface); color: var(--color-foreground); font: inherit; }
-.state, .muted { color: var(--color-muted); font-size: .82rem; }
-.alert { padding: .65rem .8rem; margin: 0 0 1rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .875rem; }
-button { cursor: pointer; border-radius: 8px; font: inherit; font-size: .82rem; }
-button:disabled { cursor: not-allowed; opacity: .6; }
-.ghost { padding: .4rem .7rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); }
-.ghost:hover { background: var(--color-surface-hover); }
-.primary { padding: .5rem .8rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-.compact { white-space: nowrap; padding: .4rem .65rem; }
+.page.outputs { max-inline-size: 90rem; }
+.picker, .meeting-summary, .table-card { margin-bottom: var(--space-4); }
+.picker label { display: flex; flex-direction: column; gap: .3rem; max-inline-size: 25rem; color: var(--color-black-700); font-size: var(--text-base); }
+select { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font: inherit; }
+.muted { color: var(--color-muted); font-size: var(--text-sm); }
+
 .meeting-summary { display: flex; justify-content: space-between; align-items: center; }
-.meeting-summary h2 { margin: .2rem 0; color: var(--color-black-800); font-size: 1.1rem; }
-.meeting-summary p { margin: 0; color: var(--color-muted); font-size: .82rem; }
-.eyebrow { color: var(--color-brand-text); font-size: .75rem; font-weight: 700; }
-.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; }
+.meeting-summary h2 { margin: .2rem 0; color: var(--color-black-800); font-size: var(--text-lg); }
+.meeting-summary p { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.eyebrow { color: var(--color-brand-text); font-size: var(--text-xs); font-weight: 700; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
 .summary-card { display: flex; flex-direction: column; gap: .35rem; min-block-size: 4.5rem; }
-.summary-card span { color: var(--color-muted); font-size: .75rem; }
+.summary-card span { color: var(--color-muted); font-size: var(--text-xs); }
 .summary-card strong { color: var(--color-brand-text); font-size: 1.45rem; font-variant-numeric: tabular-nums; }
-.table-heading h3 { margin: 0; color: var(--color-black-800); font-size: 1rem; }
-.table-heading p { margin: .25rem 0 1rem; color: var(--color-muted); font-size: .78rem; }
-.table-wrap { overflow-x: auto; }
-table { inline-size: 100%; border-collapse: collapse; min-inline-size: 75rem; }
-th, td { padding: .65rem .55rem; border-bottom: 1px solid var(--color-border); text-align: start; vertical-align: top; font-size: .78rem; }
-th { color: var(--color-black-700); background: var(--color-surface-hover); white-space: nowrap; }
-td { color: var(--color-black-700); }
+.table-heading h3 { margin: 0; color: var(--color-black-800); font-size: var(--text-lg); }
+.table-heading p { margin: .25rem 0 var(--space-4); color: var(--color-muted); font-size: var(--text-sm); }
+.data-table { min-inline-size: 75rem; }
+.data-table th, .data-table td { vertical-align: top; font-size: var(--text-sm); }
+.data-table th { color: var(--color-black-700); background: var(--color-surface-hover); }
+.data-table td { color: var(--color-black-700); }
 td small { display: block; margin-top: .25rem; color: var(--color-muted); max-inline-size: 18rem; }
 .request-link { display: flex; flex-direction: column; gap: .2rem; color: var(--color-foreground); text-decoration: none; min-inline-size: 12rem; }
 .request-link:hover strong { color: var(--color-brand-text); }
-.ref { color: var(--color-brand-text); font-size: .72rem; }
-.pill { display: inline-block; padding: .22rem .55rem; border: 1px solid var(--color-border); border-radius: 999px; white-space: nowrap; font-size: .72rem; }
-.pill.good { color: var(--color-success-fg); background: var(--color-success-bg); border-color: var(--color-success-border); }
-.pill.info { color: var(--color-info-fg); background: var(--color-info-bg); border-color: var(--color-info-border); }
-.pill.bad { color: var(--color-danger-fg); background: var(--color-danger-bg); border-color: var(--color-danger-border); }
-.pill.pending { color: var(--color-warning-fg); background: var(--color-warning-bg); border-color: var(--color-warning-border); }
-@media (max-width: 720px) { .page { padding: 1rem; } .page-heading { align-items: stretch; flex-direction: column; } }
+.ref { color: var(--color-brand-text); font-size: var(--text-xs); }
+@media (max-width: 720px) { .heading { align-items: stretch; flex-direction: column; } }
 </style>

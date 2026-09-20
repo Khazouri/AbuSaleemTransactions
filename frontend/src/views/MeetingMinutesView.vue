@@ -167,11 +167,15 @@ onMounted(loadMeetings)
 </script>
 
 <template>
-  <section class="page">
-    <h1>{{ t('meetingsUnit.minutes.title') }}</h1>
-    <p class="subtitle">{{ t('meetingsUnit.minutes.subtitle') }}</p>
+  <section class="page minutes">
+    <div class="heading">
+      <div>
+        <h2>{{ t('meetingsUnit.minutes.title') }}</h2>
+        <p class="subtitle">{{ t('meetingsUnit.minutes.subtitle') }}</p>
+      </div>
+    </div>
 
-    <div class="card picker">
+    <div class="card card-flat card-pad picker">
       <label>
         {{ t('meetingsUnit.minutes.chooseMeeting') }}
         <select v-model="meetingId">
@@ -188,7 +192,7 @@ onMounted(loadMeetings)
     </div>
 
     <template v-else-if="meetingId">
-      <div v-if="!minutes" class="card">
+      <div v-if="!minutes" class="card card-flat card-pad">
         <p class="state">{{ t('meetingsUnit.minutes.notGenerated') }}</p>
         <button v-can="'meeting_minutes.add'" class="primary" type="button" :disabled="generating" @click="generate">
           {{ generating ? t('common.saving') : t('meetingsUnit.minutes.generate') }}
@@ -197,7 +201,7 @@ onMounted(loadMeetings)
       </div>
 
       <template v-else>
-        <div class="card status-card">
+        <div class="card card-flat card-pad status-card">
           <span class="pill" :class="minutes.status">{{ t(`meetingsUnit.minutes.status.${minutes.status}`) }}</span>
           <button
             v-if="minutes.status === 'draft'"
@@ -215,7 +219,7 @@ onMounted(loadMeetings)
           {{ t('meetingsUnit.minutes.changesRequestedNote') }}: {{ minutes.review_comment }}
         </p>
 
-        <section class="card content">
+        <section class="card card-flat card-pad content">
           <h3>{{ t('meetingsUnit.minutes.sections.meetingInfo') }}</h3>
           <div class="summary">
             <!-- Stage 70 — [D] Appendix 15's PM-MIN code for the محضر
@@ -360,7 +364,7 @@ onMounted(loadMeetings)
           </ol>
         </section>
 
-        <section v-if="minutes.status === 'draft'" v-can="'meeting_minutes.approve'" class="card review">
+        <section v-if="minutes.status === 'draft'" v-can="'meeting_minutes.approve'" class="card card-flat card-pad review">
           <h3>{{ t('meetingsUnit.minutes.review.title') }}</h3>
           <!-- Stage 78 — [D] Appendix 8: the محضر is not referred for اعتماد
                until sixteen controls are verified. Only this one is a human
@@ -395,7 +399,7 @@ onMounted(loadMeetings)
 
         <!-- Stage 78 — the sixteen as answered at review time, so a later
              reader sees Appendix 8's own list rather than only that it passed. -->
-        <section v-if="minutes.quality_checks" class="card review">
+        <section v-if="minutes.quality_checks" class="card card-flat card-pad review">
           <h3>{{ t('controlGates.minutesQuality.title') }}</h3>
           <ul class="quality-record">
             <li v-for="key in MINUTES_QUALITY_CHECKS" :key="key">
@@ -407,7 +411,7 @@ onMounted(loadMeetings)
           </ul>
         </section>
 
-        <section v-if="minutes.status !== 'draft'" class="card signatures">
+        <section v-if="minutes.status !== 'draft'" class="card card-flat card-pad signatures">
           <h3>{{ t('meetingsUnit.minutes.signatures.title') }}</h3>
           <p v-if="!minutes.signatures.length" class="state">{{ t('meetingsUnit.minutes.signatures.none') }}</p>
           <ul v-else class="signature-list">
@@ -432,7 +436,7 @@ onMounted(loadMeetings)
 
     <Teleport to="body">
       <div v-if="pendingSign" class="modal-backdrop" @click.self="closeSignConfirm">
-        <section class="reason-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-sign-title">
+        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-sign-title">
           <h3 id="confirm-sign-title">{{ t('meetingsUnit.minutes.signatures.confirmSign.title') }}</h3>
           <p>{{ t('meetingsUnit.minutes.signatures.confirmSign.body') }}</p>
           <p v-if="signError" class="alert">{{ signError }}</p>
@@ -451,78 +455,56 @@ onMounted(loadMeetings)
 </template>
 
 <style scoped>
-.page { padding: 1.5rem; max-inline-size: 68rem; }
-.page h1 { margin: 0 0 .3rem; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
-.subtitle { margin: 0 0 1rem; color: var(--color-muted); font-size: .85rem; }
-
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; }
-.card h3 { margin: 1rem 0 .5rem; color: var(--color-brand-text); font-size: .95rem; }
+.page.minutes { max-inline-size: 68rem; }
+.card h3 { margin: var(--space-4) 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
 .card h3:first-child { margin-top: 0; }
-.picker label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); max-inline-size: 24rem; }
-select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: 8px; background: var(--color-surface); color: var(--color-foreground); font: inherit; box-sizing: border-box; }
-textarea { width: 100%; resize: vertical; }
-
-.state { color: var(--color-muted); font-size: .85rem; margin: 0; }
-.alert { padding: .55rem .75rem; background: var(--color-danger-bg); color: var(--color-danger-fg); border: 1px solid var(--color-danger-border); border-radius: 8px; font-size: .82rem; margin: 0 0 .75rem; }
-.alert.warning { background: var(--color-warning-bg); color: var(--color-warning-fg); border-color: var(--color-warning-border); }
+.picker, .status-card, .content, .review, .signatures { margin-bottom: var(--space-4); }
+.picker label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); max-inline-size: 24rem; }
+select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font: inherit; box-sizing: border-box; }
+textarea { inline-size: 100%; resize: vertical; }
 
 .status-card { display: flex; align-items: center; gap: .6rem; }
-.pill { display: inline-block; padding: .25rem .7rem; border-radius: 999px; font-size: .8rem; background: var(--color-surface-hover); border: 1px solid var(--color-border); }
-.pill.small { font-size: .7rem; padding: .15rem .5rem; }
+.pill.small { font-size: var(--text-xs); padding: .15rem .5rem; }
+/* Minutes-lifecycle tones the generic good/bad/warn/info modifiers don't name
+   directly — draft/pending_signatures/approved are the server's own codes. */
 .pill.draft { background: var(--color-warning-bg); color: var(--color-warning-fg); border-color: var(--color-warning-border); }
 .pill.pending_signatures { background: var(--color-info-bg); color: var(--color-info-fg); border-color: var(--color-info-border); }
-.pill.approved, .pill.good { background: var(--color-success-bg); color: var(--color-success-fg); border-color: var(--color-success-border); }
+.pill.approved { background: var(--color-success-bg); color: var(--color-success-fg); border-color: var(--color-success-border); }
 
-.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; margin-bottom: .5rem; }
-.summary div { display: grid; gap: .2rem; }
-.summary span { color: var(--color-muted); font-size: .76rem; }
-.summary strong { color: var(--color-black-700); font-size: .86rem; }
-
-.attendance { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
-.attendance ul { list-style: none; margin: .25rem 0 0; padding: 0; font-size: .82rem; color: var(--color-black-700); }
-.role { color: var(--color-muted); font-size: .76rem; }
-.quorum { margin: .5rem 0 0; font-size: .82rem; }
+.attendance { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--space-4); }
+.attendance ul { list-style: none; margin: .25rem 0 0; padding: 0; font-size: var(--text-sm); color: var(--color-black-700); }
+.role { color: var(--color-muted); font-size: var(--text-sm); }
+.quorum { margin: var(--space-2) 0 0; font-size: var(--text-sm); }
 .quorum-source { color: var(--color-muted); }
-.committee-card { display: grid; grid-template-columns: max-content 1fr; gap: .35rem .75rem; margin: 0 0 1rem; font-size: .85rem; }
+.committee-card { display: grid; grid-template-columns: max-content 1fr; gap: .35rem .75rem; margin: 0 0 var(--space-4); font-size: var(--text-base); }
 .committee-card dt { color: var(--color-muted); }
 .committee-card dd { margin: 0; }
 .quorum.good { color: var(--color-success-fg); }
 .quorum.bad { color: var(--color-danger-fg); }
-.signatories { list-style: none; margin: .25rem 0 0; padding: 0; font-size: .82rem; color: var(--color-black-700); display: grid; gap: .2rem; }
+.signatories { list-style: none; margin: .25rem 0 0; padding: 0; font-size: var(--text-sm); color: var(--color-black-700); display: grid; gap: .2rem; }
 
-.agenda-items { list-style: none; margin: 0; padding: 0; display: grid; gap: .65rem; }
-.agenda-items li { padding-bottom: .65rem; border-bottom: 1px solid var(--color-border); font-size: .85rem; }
+.agenda-items { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.agenda-items li { padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); font-size: var(--text-base); }
 .agenda-items li:last-child { border-bottom: 0; padding-bottom: 0; }
-.item-heading { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .3rem; }
-.item-heading .ref { font-size: .76rem; color: var(--color-muted); }
-.tally { display: flex; gap: .7rem; flex-wrap: wrap; color: var(--color-muted); font-size: .76rem; margin-bottom: .2rem; }
-.decision { margin: .2rem 0; color: var(--color-brand-text); font-size: .82rem; }
-.item-field { margin: .2rem 0; font-size: .8rem; color: var(--color-black-700); list-style: none; padding: 0; }
+.item-heading { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: .3rem; }
+.item-heading .ref { font-size: var(--text-sm); color: var(--color-muted); }
+.tally { display: flex; gap: var(--space-3); flex-wrap: wrap; color: var(--color-muted); font-size: var(--text-sm); margin-bottom: .2rem; font-variant-numeric: tabular-nums; }
+.decision { margin: .2rem 0; color: var(--color-brand-text); font-size: var(--text-sm); }
+.item-field { margin: .2rem 0; font-size: var(--text-sm); color: var(--color-black-700); list-style: none; padding: 0; }
 .item-field li { margin-inline-start: 1.1rem; list-style: disc; }
-.notes { list-style: none; margin: .3rem 0 0; padding: 0; display: grid; gap: .2rem; font-size: .78rem; color: var(--color-black-700); }
+.notes { list-style: none; margin: .3rem 0 0; padding: 0; display: grid; gap: .2rem; font-size: var(--text-sm); color: var(--color-black-700); }
 
-.review .actions { display: flex; gap: .5rem; margin-bottom: .5rem; }
+.review .actions { margin-bottom: var(--space-2); }
 .changes-form { display: grid; gap: .4rem; }
 
-.signature-list { list-style: none; margin: 0 0 .75rem; padding: 0; display: grid; gap: .5rem; }
-.signature-list li { display: flex; align-items: center; gap: .6rem; font-size: .85rem; }
-.sign-panel { display: grid; gap: .5rem; padding-top: .5rem; border-top: 1px dashed var(--color-border-hover); }
-.modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: var(--color-overlay); }
-.reason-modal { inline-size: min(32rem, 100%); padding: 1.2rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); }
-.reason-modal h3 { margin: 0; color: var(--color-brand-text); }
-.reason-modal > p { margin: .35rem 0 1rem; color: var(--color-muted); font-size: .84rem; }
-.modal-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
-.modal-actions .ghost { margin: 0; }
+.signature-list { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: grid; gap: var(--space-2); }
+.signature-list li { display: flex; align-items: center; gap: .6rem; font-size: var(--text-base); }
+.sign-panel { display: grid; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px dashed var(--color-border-hover); }
 
-button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
-button:disabled { cursor: not-allowed; opacity: .6; }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-.ghost { padding: .4rem .65rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); }
-.ghost:hover { background: var(--color-surface-hover); }
-.quality-note { margin: 0 0 .5rem; color: var(--color-muted); font-size: .8rem; }
-.quality-check { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; font-size: .85rem; }
-.quality-record { display: grid; gap: .3rem; padding: 0; margin: .5rem 0 0; list-style: none; font-size: .82rem; }
-.quality-record li { display: flex; justify-content: space-between; gap: .75rem; }
+.quality-note { margin: 0 0 var(--space-2); color: var(--color-muted); font-size: var(--text-sm); }
+.quality-check { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); font-size: var(--text-base); }
+.quality-record { display: grid; gap: .3rem; padding: 0; margin: var(--space-2) 0 0; list-style: none; font-size: var(--text-sm); }
+.quality-record li { display: flex; justify-content: space-between; gap: var(--space-3); }
 .quality-record .answer { font-weight: 600; }
 .quality-record .answer.yes { color: var(--color-success-fg); }
 .quality-record .answer.no { color: var(--color-danger-fg); }

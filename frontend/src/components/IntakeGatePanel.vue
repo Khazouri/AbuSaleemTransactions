@@ -102,8 +102,8 @@ async function submit() {
 
 <template>
   <div class="gate-panel">
-    <p v-if="refusal" class="alert">{{ refusal }}</p>
-    <p v-else class="ok">{{ t('controlGates.intake.passed') }}</p>
+    <p v-if="refusal" class="alert warning">{{ refusal }}</p>
+    <p v-else class="alert success">{{ t('controlGates.intake.passed') }}</p>
 
     <!-- Stage 84 — whose attestation this is. [D] Appendix 19 makes the
          author part of the record, not a detail: the gate is only meaningful
@@ -114,7 +114,7 @@ async function submit() {
 
     <!-- The recorded card, so a later reader sees Appendix 57's own list
          rather than only whether it passed. -->
-    <ul v-if="record?.items?.length" class="recorded">
+    <ul v-if="record?.items?.length" class="checklist">
       <li v-for="item in record.items" :key="item.key">
         <span>{{ locale === 'ar' ? item.label_ar : item.label_en }}</span>
         <!-- Stage 85 — an attested `present` and a proven one read
@@ -128,7 +128,7 @@ async function submit() {
     <button
       v-if="!open"
       v-can="'notes_attachments.edit'"
-      class="primary compact"
+      class="btn btn-sm primary"
       type="button"
       @click="open = true"
     >
@@ -145,7 +145,7 @@ async function submit() {
            derives these and overrides whatever is sent. -->
       <template v-if="coveredDocuments.length">
         <p class="hint">{{ t('controlGates.intake.derivedHint') }}</p>
-        <ul class="derived">
+        <ul class="checklist">
           <li v-for="[key, document] in coveredDocuments" :key="key">
             <span>{{ label(document) }}</span>
             <span class="answer present">{{ t('controlGates.intake.derived') }}</span>
@@ -171,130 +171,15 @@ async function submit() {
         <span>{{ t('controlGates.intake.factsVerified') }}</span>
       </label>
 
-      <p v-if="error" class="alert">{{ error }}</p>
+      <p v-if="error" class="alert warning">{{ error }}</p>
 
       <div class="actions">
         <button class="primary" type="submit" :disabled="saving || !canSubmit">
           {{ saving ? t('controlGates.saving') : t('controlGates.save') }}
         </button>
-        <button type="button" @click="open = false">{{ t('controlGates.cancel') }}</button>
+        <button class="ghost" type="button" @click="open = false">{{ t('controlGates.cancel') }}</button>
       </div>
     </form>
   </div>
 </template>
 
-<style scoped>
-.gate-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.gate-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  background: var(--color-surface);
-}
-
-.gate-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-}
-
-.gate-form label.inline {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.gate-form label em {
-  font-size: 0.75rem;
-  color: var(--color-black-500);
-}
-
-.gate-form select {
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.35rem;
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  font: inherit;
-}
-
-.derived,
-.recorded {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-}
-
-.derived li,
-.recorded li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.answer {
-  font-weight: 600;
-}
-
-.answer.present {
-  color: var(--color-success-fg);
-}
-
-.answer.missing {
-  color: var(--color-danger-fg);
-}
-
-.answer.not_applicable {
-  color: var(--color-black-500);
-}
-
-.hint {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--color-black-500);
-}
-
-.recorded-by {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--color-black-500);
-}
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.alert {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-warning-border);
-  border-radius: 0.35rem;
-  background: var(--color-warning-bg);
-  color: var(--color-warning-fg);
-  font-size: 0.85rem;
-}
-
-.ok {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-success-border);
-  border-radius: 0.35rem;
-  background: var(--color-success-bg);
-  color: var(--color-success-fg);
-  font-size: 0.85rem;
-}
-</style>

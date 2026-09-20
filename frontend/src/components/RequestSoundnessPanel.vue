@@ -80,10 +80,10 @@ async function submit() {
 
 <template>
   <div class="gate-panel">
-    <p v-if="refusal" class="alert">{{ refusal }}</p>
-    <p v-else class="ok">{{ t('controlGates.soundness.passed') }}</p>
+    <p v-if="refusal" class="alert warning">{{ refusal }}</p>
+    <p v-else class="alert success">{{ t('controlGates.soundness.passed') }}</p>
 
-    <ul class="recorded">
+    <ul class="checklist">
       <li v-for="key in SOUNDNESS_CHECKS" :key="key">
         <span>{{ t(`controlGates.soundness.checks.${key}`) }}</span>
         <span
@@ -103,7 +103,7 @@ async function submit() {
     <button
       v-if="!open"
       v-can="'meeting_outputs.edit'"
-      class="primary compact"
+      class="btn btn-sm primary"
       type="button"
       @click="open = true"
     >
@@ -123,112 +123,15 @@ async function submit() {
         </select>
       </label>
 
-      <p v-if="error" class="alert">{{ error }}</p>
+      <p v-if="error" class="alert warning">{{ error }}</p>
 
       <div class="actions">
         <button class="primary" type="submit" :disabled="saving || !canSubmit">
           {{ saving ? t('controlGates.saving') : t('controlGates.save') }}
         </button>
-        <button type="button" @click="open = false">{{ t('controlGates.cancel') }}</button>
+        <button class="ghost" type="button" @click="open = false">{{ t('controlGates.cancel') }}</button>
       </div>
     </form>
   </div>
 </template>
 
-<style scoped>
-.gate-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.gate-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  background: var(--color-surface);
-}
-
-.gate-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-}
-
-.gate-form select {
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.35rem;
-  background: var(--color-surface);
-  color: var(--color-foreground);
-  font: inherit;
-}
-
-.recorded {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-}
-
-.recorded li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.answer {
-  font-weight: 600;
-}
-
-.answer.yes {
-  color: var(--color-success-fg);
-}
-
-.answer.no {
-  color: var(--color-danger-fg);
-}
-
-.answer.not_applicable,
-.answer.pending {
-  color: var(--color-black-500);
-}
-
-.hint {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--color-black-500);
-}
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.alert {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-warning-border);
-  border-radius: 0.35rem;
-  background: var(--color-warning-bg);
-  color: var(--color-warning-fg);
-  font-size: 0.85rem;
-}
-
-.ok {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-success-border);
-  border-radius: 0.35rem;
-  background: var(--color-success-bg);
-  color: var(--color-success-fg);
-  font-size: 0.85rem;
-}
-</style>

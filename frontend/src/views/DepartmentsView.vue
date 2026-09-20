@@ -213,15 +213,19 @@ onMounted(load)
 </script>
 
 <template>
-  <section>
-    <div class="toolbar">
-      <button v-can="'departments.add'" class="primary" @click="startCreate">+ {{ t('departments.add') }}</button>
+  <section class="page">
+    <div class="heading">
+      <div>
+        <h2>{{ t('departments.title') }}</h2>
+        <p v-if="!loading && !loadError" class="subtitle">{{ tree.length }}</p>
+      </div>
+      <button v-can="'departments.add'" class="primary" type="button" @click="startCreate">{{ t('departments.add') }}</button>
     </div>
 
     <p v-if="formError" class="alert">{{ formError }}</p>
 
     <!-- Create / edit form -->
-    <form v-if="showForm" class="card form" @submit.prevent="save">
+    <form v-if="showForm" class="card card-flat card-pad form" @submit.prevent="save">
       <h3>{{ editingId === null ? t('departments.add') : t('departments.edit') }}</h3>
 
       <div class="grid">
@@ -270,15 +274,15 @@ onMounted(load)
     </form>
 
     <!-- Tree -->
-    <div class="card">
+    <div class="card card-flat card-pad">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
-      <p v-else-if="loadError" class="state error">
+      <p v-else-if="loadError" class="alert">
         {{ t('nav.error') }}
         <button class="ghost" @click="load">{{ t('common.retry') }}</button>
       </p>
       <p v-else-if="tree.length === 0" class="state">{{ t('departments.empty') }}</p>
 
-      <table v-else>
+      <table v-else class="data-table">
         <tbody>
           <tr v-for="dept in tree" :key="dept.id" :class="{ dimmed: !dept.is_active }">
             <td>
@@ -315,73 +319,39 @@ onMounted(load)
 </template>
 
 <style scoped>
-.toolbar { margin-bottom: 1rem; }
-.card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 1.25rem;
-  margin-bottom: 1rem;
-}
-.form h3 { margin: 0 0 1rem; font-size: 1rem; color: var(--color-brand-text); }
+.form { margin-bottom: var(--space-4); }
+.form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
+  gap: var(--space-4);
 }
-label { display: flex; flex-direction: column; gap: .3rem; font-size: .875rem; color: var(--color-black-700); }
-label.checkbox { flex-direction: row; align-items: center; gap: .5rem; margin-top: 1rem; }
+label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
+label.checkbox { flex-direction: row; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
 input[type='text'], select {
   padding: .5rem .6rem;
   border: 1px solid var(--color-border-hover);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 input:focus, select:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
-.hint { color: var(--color-muted); font-size: .75rem; }
-.field-error { color: var(--color-danger-fg); font-size: .78rem; }
-.actions { display: flex; gap: .5rem; margin-top: 1.25rem; }
+.field-error { color: var(--color-danger-fg); font-size: var(--text-sm); }
+.actions { margin-top: var(--space-5); }
 
-table { width: 100%; border-collapse: collapse; }
-td { padding: .55rem .5rem; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-tr:last-child td { border-bottom: 0; }
+td { padding: .55rem .5rem; }
 tr.dimmed { opacity: .55; }
-.name { font-size: .9rem; }
+.name { font-size: var(--text-lg); }
 .branch { color: var(--color-muted); margin-inline-end: .3rem; }
 .code {
-  margin-inline-start: .5rem;
+  margin-inline-start: var(--space-2);
   padding: .1rem .4rem;
   background: var(--color-surface-hover);
-  border-radius: 4px;
-  font-size: .75rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
   direction: ltr;
   display: inline-block;
 }
-.pill {
-  margin-inline-start: .5rem;
-  padding: .1rem .5rem;
-  background: var(--color-surface-hover);
-  color: var(--color-muted);
-  border-radius: 999px;
-  font-size: .72rem;
-}
-.meta { color: var(--color-muted); font-size: .78rem; white-space: nowrap; }
-.meta span { margin-inline-end: .75rem; }
-.row-actions { text-align: end; white-space: nowrap; }
-.state { padding: .5rem; color: var(--color-muted); font-size: .9rem; margin: 0; }
-.state.error { color: var(--color-danger-fg); }
-.alert {
-  padding: .65rem .8rem;
-  background: var(--color-danger-bg);
-  color: var(--color-danger-fg);
-  border: 1px solid var(--color-danger-border);
-  border-radius: 8px;
-  font-size: .875rem;
-  margin: 0 0 1rem;
-}
-button { cursor: pointer; border-radius: 8px; font-size: .85rem; }
-.primary { padding: .5rem .9rem; border: 0; background: var(--color-brand); color: var(--color-on-brand); }
-.ghost { padding: .35rem .6rem; border: 1px solid var(--color-border-hover); background: var(--color-surface); color: var(--color-foreground); margin-inline-start: .3rem; }
-.ghost:hover { background: var(--color-surface-hover); }
-.ghost.danger { color: var(--color-danger-fg); border-color: var(--color-danger-border); }
+.meta { color: var(--color-muted); font-size: var(--text-sm); white-space: nowrap; }
+.meta span { margin-inline-end: var(--space-3); }
+.row-actions { display: flex; justify-content: flex-end; gap: var(--space-2); white-space: nowrap; }
 </style>
