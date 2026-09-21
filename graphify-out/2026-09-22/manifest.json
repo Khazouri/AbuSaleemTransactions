@@ -1698,9 +1698,9 @@
     "semantic_hash": ""
   },
   "app/Services/Maintenance/MaintenanceCommandCatalog.php": {
-    "mtime": 1790029083.6649585,
-    "seen": 1790029154.5900352,
-    "ast_hash": "efc8308d9064b191bdd086190c8ae689",
+    "mtime": 1790026769.9260643,
+    "seen": 1790026828.6896095,
+    "ast_hash": "4ed72ff9d477d7c8b0ded77cfe835205",
     "semantic_hash": ""
   },
   "app/Services/Maintenance/MaintenanceRunner.php": {
@@ -4104,21 +4104,9 @@
     "semantic_hash": ""
   },
   "app/Services/Maintenance/BinaryLocator.php": {
-    "mtime": 1790029080.0975692,
-    "seen": 1790029154.5900311,
-    "ast_hash": "b1df49a718a8e59d519b6a839d6c7782",
-    "semantic_hash": ""
-  },
-  "app/Console/Commands/InstallComposer.php": {
-    "mtime": 1790029072.2318127,
-    "seen": 1790029154.5896246,
-    "ast_hash": "ca5cca5b46d98495dfd09d0a9e5ec7f4",
-    "semantic_hash": ""
-  },
-  "tests/Feature/InstallComposerTest.php": {
-    "mtime": 1790029093.5837755,
-    "seen": 1790029154.5904543,
-    "ast_hash": "f892877055b37790582559ec507c4448",
+    "mtime": 1790027106.368526,
+    "seen": 1790027180.1756074,
+    "ast_hash": "0521f627b73663cc5418608b82dff46f",
     "semantic_hash": ""
   }
 }
