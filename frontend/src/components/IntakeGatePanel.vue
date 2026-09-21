@@ -6,6 +6,14 @@
 // entry carries whether the source qualified it with a condition, and that is
 // what decides whether "لا ينطبق" may be offered at all — the server refuses
 // a waiver on an unconditional item, so the picker must not present one.
+//
+// Stage 98 — the same form now serves two cards, because they are the same
+// form: [D] Appendix 6 rows 3 and 4 are two parties answering the same
+// per-document question about two slices of the same matrix (HR over الملف
+// الوظيفي before registering, المقرر over the committee file at the قيد). The
+// four props below are what differs — endpoint, the attestation's own field,
+// the grant that may answer, and which copy block to read. All default to
+// Stage 78's values, so that call site is unchanged.
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
@@ -28,6 +36,11 @@ const props = defineProps({
   // attestation the قيد was resting on.
   recordedBy: { type: Object, default: null },
   recordedAt: { type: String, default: null },
+  // Stage 98 — which card this is. See the header comment.
+  endpoint: { type: String, default: 'intake-gate' },
+  attestationField: { type: String, default: 'facts_verified' },
+  grant: { type: String, default: 'notes_attachments.edit' },
+  copy: { type: String, default: 'intake' },
 })
 
 const emit = defineEmits(['updated'])
@@ -39,7 +52,11 @@ const saving = ref(false)
 const error = ref('')
 
 const answers = reactive({})
-const factsVerified = ref(false)
+const attested = ref(false)
+
+// Stage 98 — every copy key this panel reads is namespaced by `copy`, so the
+// two cards cannot share a sentence by accident.
+const c = (key, params) => t(`controlGates.${props.copy}.${key}`, params ?? {})
 
 const documents = computed(() => Object.entries(props.requiredDocuments))
 
@@ -65,7 +82,7 @@ function seed() {
   for (const [key, document] of documents.value) {
     answers[key] = document.covered ? 'present' : (stored[key] ?? '')
   }
-  factsVerified.value = props.record?.facts_verified === true
+  attested.value = props.record?.[props.attestationField] === true
 }
 
 watch(open, (isOpen) => {
@@ -86,9 +103,9 @@ async function submit() {
   saving.value = true
   error.value = ''
   try {
-    const { data } = await api.patch(`/requests/${props.requestId}/intake-gate`, {
+    const { data } = await api.patch(`/requests/${props.requestId}/${props.endpoint}`, {
       documents: { ...answers },
-      facts_verified: factsVerified.value,
+      [props.attestationField]: attested.value,
     })
     open.value = false
     emit('updated', data.data)
@@ -103,13 +120,13 @@ async function submit() {
 <template>
   <div class="gate-panel">
     <p v-if="refusal" class="alert warning">{{ refusal }}</p>
-    <p v-else class="alert success">{{ t('controlGates.intake.passed') }}</p>
+    <p v-else class="alert success">{{ c('passed') }}</p>
 
     <!-- Stage 84 — whose attestation this is. [D] Appendix 19 makes the
          author part of the record, not a detail: the gate is only meaningful
          if a reader can see it was not signed by the file's own submitter. -->
     <p v-if="recordedBy" class="recorded-by">
-      {{ t('controlGates.intake.recordedBy', { name: recordedBy.name, at: recordedAtLabel }) }}
+      {{ c('recordedBy', { name: recordedBy.name, at: recordedAtLabel }) }}
     </p>
 
     <!-- The recorded card, so a later reader sees Appendix 57's own list
@@ -120,35 +137,35 @@ async function submit() {
         <!-- Stage 85 — an attested `present` and a proven one read
              differently, because they are different claims. -->
         <span :class="['answer', item.answer]">
-          {{ item.covered ? t('controlGates.intake.derived') : t(`controlGates.intake.answers.${item.answer}`) }}
+          {{ item.covered ? c('derived') : c(`answers.${item.answer}`) }}
         </span>
       </li>
     </ul>
 
     <button
       v-if="!open"
-      v-can="'notes_attachments.edit'"
+      v-can="grant"
       class="btn btn-sm primary"
       type="button"
       @click="open = true"
     >
-      {{ record ? t('controlGates.intake.reviseAction') : t('controlGates.intake.action') }}
+      {{ record ? c('reviseAction') : c('action') }}
     </button>
 
     <form v-else class="gate-form" @submit.prevent="submit">
-      <p class="hint">{{ t('controlGates.intake.formNote') }}</p>
+      <p class="hint">{{ c('formNote') }}</p>
 
-      <p v-if="!documents.length" class="hint">{{ t('controlGates.intake.noDocuments') }}</p>
+      <p v-if="!documents.length" class="hint">{{ c('noDocuments') }}</p>
 
       <!-- Stage 85 — rows the submitter's own files already answer. Shown so
            the officer can see the whole matrix, never as inputs: the server
            derives these and overrides whatever is sent. -->
       <template v-if="coveredDocuments.length">
-        <p class="hint">{{ t('controlGates.intake.derivedHint') }}</p>
+        <p class="hint">{{ c('derivedHint') }}</p>
         <ul class="checklist">
           <li v-for="[key, document] in coveredDocuments" :key="key">
             <span>{{ label(document) }}</span>
-            <span class="answer present">{{ t('controlGates.intake.derived') }}</span>
+            <span class="answer present">{{ c('derived') }}</span>
           </li>
         </ul>
       </template>
@@ -156,19 +173,19 @@ async function submit() {
       <label v-for="[key, document] in openDocuments" :key="key">
         <span>
           {{ label(document) }}
-          <em v-if="document.conditional">{{ t('controlGates.intake.conditional') }}</em>
+          <em v-if="document.conditional">{{ c('conditional') }}</em>
         </span>
         <select v-model="answers[key]" required>
-          <option value="" disabled>{{ t('controlGates.intake.choose') }}</option>
+          <option value="" disabled>{{ c('choose') }}</option>
           <option v-for="answer in intakeAnswersFor(document)" :key="answer" :value="answer">
-            {{ t(`controlGates.intake.answers.${answer}`) }}
+            {{ c(`answers.${answer}`) }}
           </option>
         </select>
       </label>
 
       <label class="inline">
-        <input v-model="factsVerified" type="checkbox" />
-        <span>{{ t('controlGates.intake.factsVerified') }}</span>
+        <input v-model="attested" type="checkbox" />
+        <span>{{ c('attestation') }}</span>
       </label>
 
       <p v-if="error" class="alert warning">{{ error }}</p>

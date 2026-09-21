@@ -2050,7 +2050,7 @@
       "noDocuments": "This type has no required documents.",
       "conditional": "(conditional)",
       "choose": "Choose…",
-      "factsVerified": "I certify the facts and data submitted are correct.",
+      "attestation": "I certify the facts and data submitted are correct.",
       "passed": "The file has cleared gate 1.",
       "recordedBy": "Recorded by {name} — {at}",
       "answers": {
@@ -2060,6 +2060,27 @@
       },
       "derived": "Confirmed from the attachments",
       "derivedHint": "Documents the submitter attached are confirmed automatically and are not asked again."
+    },
+    "employmentFile": {
+      "title": "Employment file preparation",
+      "question": "Has the employee’s employment file been assembled and completed?",
+      "action": "Record the employment file",
+      "reviseAction": "Revise the employment file",
+      "formNote": "Answer for every employment-file document the request type’s matrix requires.",
+      "noDocuments": "This type requires no employment-file documents.",
+      "conditional": "(conditional)",
+      "choose": "Choose…",
+      "attestation": "I certify the employee’s employment file is assembled and complete.",
+      "passed": "The employment file is prepared.",
+      "recordedBy": "Prepared by {name} — {at}",
+      "answers": {
+        "present": "Attached",
+        "not_applicable": "Not applicable",
+        "missing": "Missing"
+      },
+      "derived": "Confirmed from the attachments",
+      "derivedHint": "Documents already in the file are confirmed automatically and are not asked again.",
+      "owner": "Human Resources assembles the employment file before the request is registered."
     },
     "soundness": {
       "title": "Decision soundness checklist (Art. 103)",

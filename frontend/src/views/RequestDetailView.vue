@@ -847,6 +847,31 @@ onBeforeUnmount(clearAttachmentPreview)
           <h3>{{ t('controlGates.title') }}</h3>
           <p class="hint">{{ t('controlGates.intro') }}</p>
 
+          <!-- Stage 98 — [D] Appendix 6 row 3. Above gate 1 because it comes
+               before it: HR assembles الملف الوظيفي at receive_and_register,
+               then المقرر checks the committee file at the قيد. -->
+          <div
+            v-if="request.current_stage?.code === 'receive_and_register' || request.control_gates.employment_file.record"
+            class="gate-block"
+          >
+            <h4>{{ t('controlGates.employmentFile.title') }}</h4>
+            <p class="hint">{{ t('controlGates.employmentFile.question') }}</p>
+            <p class="hint">{{ t('controlGates.employmentFile.owner') }}</p>
+            <IntakeGatePanel
+              :request-id="request.id"
+              :required-documents="request.control_gates.employment_file.required_documents"
+              :record="request.control_gates.employment_file.record"
+              :refusal="request.control_gates.employment_file.refusal"
+              :recorded-by="request.control_gates.employment_file.prepared_by"
+              :recorded-at="request.control_gates.employment_file.prepared_at"
+              endpoint="employment-file"
+              attestation-field="assembled"
+              grant="notes_attachments.add"
+              copy="employmentFile"
+              @updated="onGateUpdated"
+            />
+          </div>
+
           <div
             v-if="request.current_stage?.code === 'requirements_check' || request.control_gates.intake.record"
             class="gate-block"

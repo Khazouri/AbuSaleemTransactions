@@ -283,13 +283,17 @@ class RequestDraftTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
         $employee = $this->userWithRole('R01');
-        $type = RequestType::where('code', 'ALLW')->firstOrFail();
+        // Stage 98 — LEAV, not ALLW. [D] Appendix 6 row 3 moved الملف الوظيفي
+        // off the submitter, and البيانات الوظيفية was the *only* mandatory
+        // row a basics-only type had, so ALLW now asks the employee for
+        // nothing at all and cannot demonstrate a completeness refusal.
+        $type = RequestType::where('code', 'LEAV')->firstOrFail();
         $department = Department::where('code', 'ADM')->firstOrFail();
         $draft = $this->draftFor($employee);
 
         $payload = [
             'draft_id' => $draft->id,
-            'title' => 'طلب بدل',
+            'title' => 'طلب إجازة',
             'department_id' => $department->id,
             'request_type_id' => $type->id,
             'decision_grade' => 11,
@@ -306,16 +310,22 @@ class RequestDraftTest extends TestCase
         $this->assertStringContainsString('الرجاء إرفاق المستندات المطلوبة', $refusal);
         $this->assertSame(0, Request::count());
 
-        $mandatoryKey = array_key_first(
-            app(DocumentCompletenessService::class)->mandatoryDocuments($type),
+        // Stage 98 — the submitter's own rows, which is what the submission
+        // rule now reads; الملف الوظيفي is HR's and is asked for at
+        // receive_and_register instead.
+        $mandatoryKeys = array_keys(
+            app(DocumentCompletenessService::class)->mandatorySubmitterDocuments($type),
         );
+        $this->assertNotEmpty($mandatoryKeys);
 
-        $this->actingAs($employee, 'sanctum')
-            ->post("/api/requests/drafts/{$draft->id}/attachments", [
-                'file' => UploadedFile::fake()->create('covered.pdf', 20, 'application/pdf'),
-                'required_document_key' => $mandatoryKey,
-            ], ['Accept' => 'application/json'])
-            ->assertCreated();
+        foreach ($mandatoryKeys as $index => $mandatoryKey) {
+            $this->actingAs($employee, 'sanctum')
+                ->post("/api/requests/drafts/{$draft->id}/attachments", [
+                    'file' => UploadedFile::fake()->create("covered-{$index}.pdf", 20, 'application/pdf'),
+                    'required_document_key' => $mandatoryKey,
+                ], ['Accept' => 'application/json'])
+                ->assertCreated();
+        }
 
         $this->actingAs($employee, 'sanctum')
             ->postJson('/api/requests', $payload)

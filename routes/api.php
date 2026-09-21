@@ -399,6 +399,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:notes_attachments,edit')
         ->patch('requests/{requestRecord}/intake-gate', [RequestController::class, 'recordIntakeGate']);
 
+    // Stage 98 — [D] Appendix 6 row 3's تجهيز الملف الوظيفي. Deliberately
+    // `add` and not `edit` like the three above: the two gates belong to two
+    // parties. `edit` is مقرر اللجنة's alone after Stage 84 (row 4's فحص
+    // اكتمال ملف اللجنة), while `add` is what R12 holds since Stage 87 — so
+    // HR can assemble the employment file without inheriting the
+    // rapporteur's own check of it.
+    Route::middleware('screen.permission:notes_attachments,add')
+        ->patch('requests/{requestRecord}/employment-file', [RequestController::class, 'prepareEmploymentFile']);
+
     // Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path for a
     // concluded request, independent of any Appeal. Rides the same
     // appeals,edit grant (R02 + R08) Track J's other post-decision

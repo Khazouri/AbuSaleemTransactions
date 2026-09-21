@@ -13,6 +13,198 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-21 07:15 EET — Claude — Stage 98 complete (تجهيز الملف الوظيفي — the largest missing مسؤول)
+
+Built per the plan below. **One migration, one service, one endpoint, and one narrowing of an
+existing rule.** No new stage, no new status, no seeder change, no new permission. Full suite **704
+tests / 4590 assertions** green (baseline 694/4554: +10 new tests, and **exactly one** pre-existing
+test changed), Pint clean on every touched PHP file, `npm run build` passes and `frontend/dist` was
+reverted, locale parity **1988 keys each side** with 23 added per side, and the migration ran clean
+against the real MySQL.
+
+**The duty MOVED; it was not added.** Appendix 6 row 3 gives الموارد البشرية the ملف الوظيفي as
+مسؤول and gives الموظف a literal `—`, yet `DocumentCompletenessService::refusalForSubmission()` ran
+at intake — so the **employee** had to attach the employment-record extracts the municipality itself
+holds before the request could be created. `refusalForSubmission()` now reads
+`mandatorySubmitterDocuments()`, the same matrix minus the `service_file` section, and HR answers
+for that section at `receive_and_register` before it may register the file. **`refusalForRequest()`
+is deliberately unchanged**: the agenda gate and the readiness exception still demand every
+mandatory row, so what the committee may be shown is identical — the file is assembled by two
+parties at two moments, which is what row 3 describes.
+
+**The mapping was already in the repo, which is the whole reason this is small.**
+`RequestTypeSeeder::commonDocuments()` says it in its own comment — «The seven service-record
+extracts below are literally الملف الوظيفي; only the first and last of the nine basics are not» —
+and Stage 80 seeded that distinction as each row's `section`, which `RequestType::documentOptions()`
+already exposes. So الملف الوظيفي is exactly the `service_file` rows. No new vocabulary, no second
+list to keep in step, and the keys are the same `IntakeGateService::documentKey()` slugs the
+submitter's picker offers and Stage 78's gate answers under.
+
+**Measured, not estimated: exactly ONE mandatory row moves off the submitter per type** (البيانات
+الوظيفية — the only unconditional one of the seven). Counted live against the seeded data:
+ALLW/APPT/CTRC/EOSV 1→0, LEAV 4→3, SETL 6→5, CONF/GRIV/PROM 7→6, PEVG/SECD 11→10, TRNS 13→12. **The
+four types [D] covers with the shared basics only therefore now require no mandatory document from
+the employee at all** — every one of the nine basics is either conditional or an employment-record
+extract. That reads startling and is exactly what row 3 says; the documents are still demanded, by
+HR, before registration.
+
+**Deliberately an action on an existing stage**, per the stage's own instruction.
+`receive_and_register` is where R12 already holds the `register` row (Stage 96 left it the one
+registering party), so the gate sits on the hop HR already performs; a `workflow_stages` row of its
+own would renumber the chain, which is Stage-57 territory.
+
+**The endpoint rides `notes_attachments,add`, not `edit`, and that distinction is the row-3/row-4
+boundary.** R12 holds `add` (Stage 87); `edit` is R02's alone after Stage 84, and taking it would
+have handed HR فحص اكتمال ملف اللجنة — row 4's cell. `add` also reaches R01, so the
+interested-party refusal is **load-bearing rather than defensive**: row 3 gives الموظف a `—`, so
+neither the filer nor صاحب العلاقة may attest to their own employment file
+(`actorIsAnInterestedParty()`, the Stage 84/95 predicate). Proven live, not only by test.
+
+**`controlGateRefusal()` answers for a non-`approve` action for the first time.** It short-circuited
+on `$action !== 'approve'`; `register` is now answered before that branch, so all three readers pick
+it up unchanged — `ApprovalController` never sees `register` (not an approval level), but
+`detailResource()`'s preview filter does, which is what keeps the SPA from offering a button the
+endpoint refuses. **Worth knowing: none of the four control gates is enforced inside
+`WorkflowService::transition()`** — they live at the HTTP boundary, so a fixture calling the service
+directly walks past all of them. That is why the predicted 10-call-site blast radius was zero: every
+existing `'register'` test calls the service, not the endpoint. The new test file walks it over HTTP.
+
+**المقرر «مطلع» needed no code, and that is a finding rather than a skip.** `register` moves the
+file to `requirements_check`, where R02 is the actor, so `NotificationDispatcher::stageChanged()`
+already fires `action_required` at exactly the moment preparation completes. A seventh notification
+event would have announced the same fact twice.
+
+**الرئيس المباشر «مشارك» is half built, and the half is stated rather than glossed.** One bounded
+`RequestVisibility` clause keeps the file in **صاحب العلاقة's own** manager's sight while it sits at
+`receive_and_register` — the manager holds a manager-gated row at the two stages before that and
+none at this one, so without it the file dropped out of their view at exactly the moment they are
+meant to be contributing. Same shape as Stage 87's `$isHrStudyCoOwner`, read against the subject
+rather than the filer per Stage 95. **Whether they may *attach* still depends on their role holding
+`notes_attachments,add`**, because الرئيس المباشر is a `users.manager_id` relationship and not a
+role a screen grant can name. That is the same question Stage 101 has to answer for HR on rows 2, 4,
+6 and 7, so it belongs there rather than being half-answered here.
+
+**The frontend generalises Stage 78's panel rather than duplicating it.** `IntakeGatePanel.vue` now
+takes four props (`endpoint`, `attestationField`, `grant`, `copy`), all defaulted to Stage 78's
+values so **that call site is byte-unchanged** — rows 3 and 4 are genuinely the same form asked by
+two parties about two slices of one matrix. One locale key was renamed for uniformity
+(`controlGates.intake.factsVerified` → `.attestation`) and a `controlGates.employmentFile.*` block
+added; both locales verified at 1988 keys with zero on-one-side-only.
+
+**One pre-existing test needed a legitimate update, not a regression fix.**
+`RequestDraftTest::test_appendix_57_completeness_is_enforced_against_the_drafts_own_files` used
+`ALLW`, whose single mandatory row was البيانات الوظيفية — so after this stage it can no longer
+produce a completeness refusal at all. Moved to `LEAV` (3 submitter rows) and rewritten to cover
+them all, with the reason commented in place. Everything else in the suite was untouched.
+
+Smoke-tested end to end over real HTTP against Homestead with the seeded `r12.hr@`/`r01.employee@`
+accounts: `register` was refused with «لا يجوز تسجيل المعاملة قبل تجهيز الملف الوظيفي للموظف من قبل
+إدارة الموارد البشرية.»; the card returned **the seven service-record rows** with البيانات الوظيفية
+the only unconditional one; HR recorded it (`prepared_by: مدير الموارد البشرية التجريبي`, refusal
+null) and the same `register` then landed `requirements_check` / `in_review`; and the employee — who
+is both filer and صاحب العلاقة — was refused the attestation on their own file. Deleted the fixture
+request, its stage log, status-history row and 3 audit rows, removed the 3 jobs the run queued and
+revoked **only** this session's two tokens by id — database confirmed back to **5 requests / 2
+tokens / 12 pre-existing jobs**.
+
+**Docs.** STAGE_PLAN marks 98 built and rewrites the Track N status line (the track's one hard
+dependency, 95 before 98 and 101, is now discharged; 99/100/101 remain and none blocks another).
+`gap-analysis-appendix-6.md` (git-ignored) moves row 3 from ❌ to ✅ with the original finding kept
+verbatim underneath, since it records what the duty looked like while the wrong party held it.
+**Also corrected while there: a stale count Stage 97 left behind** — that stage resolved row 5's
+contradicted القيد inline but never updated the verdict table above it, which still read
+«contradicted | 1 | 5 القيد». Now 12/15 implemented, 0 contradicted. Exactly the drift this
+appendix's own headline warns about, found because this stage had to touch the same table.
+
+**Open items for whoever builds Stage 99–101.** (1) **الرئيس المباشر's attach grant** — see above;
+Stage 101 owns it, and it is the same shape of question for four other cells. (2) **The employment
+file is prepared once and is not re-verified**, unlike the agenda gate which reads live coverage — a
+service-file document deleted after preparation would leave the card claiming an assembly the file
+no longer has. Deliberate and consistent with Stage 78's own attestation-vs-live split (the card is
+an attestation and cannot regress; `refusalForRequest()` is the live check, and it still runs before
+the agenda), but a stage that wants HR's card to regress needs the agenda gate's shape, not this
+one's. (3) **There is no "correct the preparation" refusal** — the endpoint overwrites, matching
+Stage 78's revise behaviour; a reopen clears it (`RequestController::reopen()`), which is what stops
+a second lap registering on the first lap's assembly. (4) **Nothing asks HR to actually attach the
+seven documents** — the card answers `present` for a row no file covers, exactly as Stage 78's gate
+does, and only `refusalForRequest()` at the agenda demands real coverage. Making HR's own card
+demand attachments rather than attestations would be Appendix 70's shape (Stage 76's execution
+evidence), and is a decision, not an oversight.
+
+---
+### 2026-09-21 05:30 EET — Claude — Implementation plan: Stage 98 (تجهيز الملف الوظيفي — the largest missing مسؤول)
+
+Appendix 6 row 3 gives **الموارد البشرية** the ملف الوظيفي as **مسؤول**, الرئيس المباشر as **مشارك** and
+المقرر as **مطلع**, and gives الموظف a literal `—`. Today the row has zero implementation *and* the duty
+is discharged by the wrong party: `DocumentCompletenessService::refusalForSubmission()` runs at intake,
+so the **submitter** assembles Appendix 57's mandatory documents — including the employment-record
+extracts the municipality itself holds — before the request can be created at all. This stage moves the
+duty rather than adding a second one.
+
+**The mapping is already in the repo, which is why this is small.** `RequestTypeSeeder::commonDocuments()`
+says it in its own comment — «The seven service-record extracts below are literally الملف الوظيفي; only
+the first and last of the nine basics are not» — and Stage 80 seeded that distinction as each row's
+`section` (`service_file`), which `RequestType::documentOptions()` already exposes and Stage 95 already
+reads. So **الملف الوظيفي = the `service_file`-section rows of this type's Appendix 57 matrix**. No new
+vocabulary, no second list to keep in step.
+
+**1. The submitter stops being asked for it.** `refusalForSubmission()` skips `service_file` rows. Of the
+seven, exactly one (`البيانات الوظيفية`) is unconditional, so today an employee filing any request is
+refused until they upload a statement of their own employment data — the municipality's own record.
+**`refusalForRequest()` is deliberately NOT narrowed**: the agenda gate and the readiness exception keep
+checking every mandatory row. Completeness for the committee is unchanged; it is now assembled by two
+parties at two moments, which is what row 3 describes.
+
+**2. HR prepares it at the stage HR already holds.** New `EmploymentFilePreparationService`,
+`GATED_STAGE = receive_and_register` / `GATED_ACTION = register` — the hop Stage 96 left R12 as the one
+registering party of. **Deliberately an action on an existing stage**, per the stage's own instruction: a
+new `workflow_stages` row renumbers the chain, which is Stage-57 territory. One answer per `service_file`
+row plus an attestation, reusing Stage 78's own three-answer vocabulary (`present|not_applicable|missing`),
+its conditional rule (Appendix 57's own qualifier is what makes «لا ينطبق» honest — an unconditional row
+cannot be waived) and its derived-from-attachments override (a document in the file outranks anything
+anyone recorded about it, in both directions — Art. 104's «ليست إجراءات شكلية»). New
+`requests.employment_file` (json) + `employment_file_prepared_by_user_id` + `_at`, mirroring the
+`intake_gate` columns exactly.
+
+**Endpoint rides `notes_attachments,add`, not `edit`.** R12 holds `add` (Stage 87); `edit` is R02's alone
+after Stage 84, and taking it would hand HR فحص اكتمال ملف اللجنة — row 4's cell, not row 3's. `add` also
+covers R01, so the **interested-party refusal is load-bearing here**, not defensive: row 3 gives الموظف a
+`—`, so neither the filer nor صاحب العلاقة may attest to their own employment file
+(`actorIsAnInterestedParty()`, the Stage 84/95 predicate).
+
+**3. The gate.** `RequestController::controlGateRefusal()` currently short-circuits on
+`$action !== 'approve'`; it widens to answer for `register` too. All three readers pick it up unchanged —
+`register` is not an approval level so `ApprovalController` never reaches it, but `detailResource()`'s
+preview filter does, which is what keeps the SPA from offering a button the endpoint refuses.
+
+**4. المقرر «مطلع» needs no new code, and that is the finding rather than a skip.** `register` moves the
+file to `requirements_check`, where R02 is the actor, so `NotificationDispatcher::stageChanged()` already
+fires `action_required` to R02 at exactly the moment preparation completes. A seventh notification event
+would announce the same fact twice.
+
+**5. الرئيس المباشر «مشارك»** — one bounded `RequestVisibility` clause: صاحب العلاقة's own active manager
+keeps the file while it sits at `receive_and_register`, so they can follow it and contribute a document HR
+is missing. Same shape as Stage 87's `$isHrStudyCoOwner` and Stage 47's SAL clause. **The remaining half is
+flagged, not silently built**: whether the manager may *attach* still depends on their role holding
+`notes_attachments,add`, because الرئيس المباشر is a `users.manager_id` relationship and not a role a screen
+grant can name. That is the same question Stage 101 has to answer for HR on rows 2/4/6/7, so it belongs
+there rather than being half-answered here.
+
+**Blast radius, measured rather than estimated:** exactly 10 `'register'` call sites across 5 test files
+(`DirectManagerRoutingTest`, `ReferenceAssignedNotificationTest`, `RequestTrackingTest`,
+`UnifiedNumberingTest`, `WorkflowServiceTest`). A new `PassesControlGates::prepareEmploymentFile()` supplies
+the record once, the `passIntakeGate()`/`supplyRequiredDocuments()` precedent.
+
+**Verify:** new `tests/Feature/EmploymentFilePreparationTest.php` — a submission missing a `service_file`
+row is accepted while one missing a non-`service_file` mandatory row is still refused; `register` refused
+until prepared, refused on a `missing`, refused on an unanswered row; a conditional row waivable and the
+unconditional one not; a covered row derived `present` over a spoofed `missing`; the filer and صاحب العلاقة
+both refused the attestation while R12 records it; the manager can open the file at that stage; and the
+agenda gate still demands every mandatory row, so nothing was actually dropped. Then the full PHPUnit suite
+(baseline 694/4554), Pint on touched PHP, `npm run build` (then reverting `frontend/dist`), locale parity,
+and the migration against the real MySQL.
+
+---
 ### 2026-09-21 03:20 EET — Claude — Stage 95 complete (صاحب العلاقة — the person a request is about)
 
 Built per the plan below. **One migration, one model hook, and the ~20 sites that read the filer where

@@ -106,8 +106,24 @@ class RequestVisibility
         // moving it.
         $observationsStageId = WorkflowStage::query()->where('code', 'observations')->value('id');
         $isHrStudyCoOwner = $observationsStageId !== null && $actor->roles()->where('code', 'R12')->exists();
+        // Stage 98 — [D] Appendix 6 row 3 makes الرئيس المباشر «مشارك» in
+        // تجهيز الملف الوظيفي, which HR assembles at `receive_and_register`.
+        // The manager holds a manager-gated row at the two stages before that
+        // and none at this one, so the assignment clause below drops the file
+        // out of their sight at exactly the moment they are supposed to be
+        // contributing to it. Bounded to that one stage — the same shape as
+        // the SAL, R11 and R12 clauses above, all of them a party consulted
+        // on a stage without moving it.
+        //
+        // Read against صاحب العلاقة, not the filer: Stage 95 established that
+        // «الرئيس المباشر» means the manager of the employee the file is
+        // about, and WorkflowService/NotificationDispatcher already resolve
+        // the gated rows the same way.
+        $preparationStageId = WorkflowStage::query()
+            ->where('code', EmploymentFilePreparationService::GATED_STAGE)
+            ->value('id');
 
-        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser, $isHrStudyCoOwner, $observationsStageId) {
+        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser, $isHrStudyCoOwner, $observationsStageId, $preparationStageId) {
             // Stage 95 — the filer AND صاحب العلاقة. A request raised on an
             // employee's behalf is that employee's own file: Art. 101 tells
             // them about it and «متابعة طلباتي» lists it, so without this
@@ -123,6 +139,18 @@ class RequestVisibility
 
             if ($isHrStudyCoOwner) {
                 $visible->orWhere('requests.current_stage_id', $observationsStageId);
+            }
+
+            if ($preparationStageId !== null) {
+                $visible->orWhere(function (Builder $beingPrepared) use ($actor, $preparationStageId) {
+                    $beingPrepared->where('requests.current_stage_id', $preparationStageId)
+                        ->whereExists(function ($managed) use ($actor) {
+                            $managed->selectRaw('1')
+                                ->from('users as subjects')
+                                ->whereColumn('subjects.id', 'requests.subject_user_id')
+                                ->where('subjects.manager_id', $actor->id);
+                        });
+                });
             }
 
             if ($isLegalReviewer) {

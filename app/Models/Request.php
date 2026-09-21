@@ -88,6 +88,9 @@ class Request extends Model
         'intake_gate',
         'intake_gate_checked_by_user_id',
         'intake_gate_checked_at',
+        'employment_file',
+        'employment_file_prepared_by_user_id',
+        'employment_file_prepared_at',
         // Stage 75 — [D] Art. 37's closure record. Written only by
         // RequestClosureService (and cleared by RequestController::reopen),
         // but fillable so both write it through one update() call.
@@ -129,6 +132,8 @@ class Request extends Model
             'jurisdiction_tested_at' => 'datetime',
             'intake_gate' => 'array',
             'intake_gate_checked_at' => 'datetime',
+            'employment_file' => 'array',
+            'employment_file_prepared_at' => 'datetime',
             'execution_soundness' => 'array',
             'execution_soundness_checked_at' => 'datetime',
             // Stage 75 — Art. 37's eight closure fields and Appendix 47's
@@ -211,6 +216,12 @@ class Request extends Model
     public function intakeGateCheckedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'intake_gate_checked_by_user_id');
+    }
+
+    /** Stage 98 — who assembled [D] Appendix 6 row 3's الملف الوظيفي. */
+    public function employmentFilePreparedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'employment_file_prepared_by_user_id');
     }
 
     /** Stage 78 — who certified Art. 103's قائمة فحص سلامة القرار. */

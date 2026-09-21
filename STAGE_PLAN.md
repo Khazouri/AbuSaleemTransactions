@@ -1709,7 +1709,7 @@ then 422s (verified: gates one route, and no test anywhere exercises R02 on deci
 
 ---
 
-### Stage 98 — تجهيز الملف الوظيفي (the largest missing مسؤول)
+### Stage 98 — تجهيز الملف الوظيفي (the largest missing مسؤول) — **built**
 
 **Goal:** HR assembles the employment file, as row 3 says it does.
 **Build:** today this row has *zero* implementation, and the duty is discharged by the wrong
@@ -1773,7 +1773,7 @@ established for exactly this.
 dependency record: it says which stage had to precede which, which is what you need when reading a
 stage's assumptions or judging whether a change to one stage's work disturbs another's.
 
-**Track N (94–101) is mostly planned.** **94** (the docs re-derivation), **95** (صاحب العلاقة), **96** (R09/R10 folded back) and **97** (القيد back to R02) are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency. **95 is built, so 98 and 101 are unblocked** — they were the track's only hard dependency.
+**Track N (94–101) is half built.** **94** (the docs re-derivation), **95** (صاحب العلاقة), **96** (R09/R10 folded back), **97** (القيد back to R02) and **98** (تجهيز الملف الوظيفي) are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency. The track's one hard dependency — 95 before 98 and 101 — is discharged. **99, 100 and 101 remain**, and none of them blocks another: 99 is committee-side, 100 gives three ownerless duties a holder, and 101 is last by preference (the consultation layer is additive, and wiring notifications before the accountable parties are correct would tell the wrong people).
 
 ```
 94 → 96 → 97                    (independent of 95 — seeded-map work)

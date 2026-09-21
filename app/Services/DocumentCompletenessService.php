@@ -67,6 +67,34 @@ class DocumentCompletenessService
     }
 
     /**
+     * Stage 98 — the same rows minus الملف الوظيفي, which is HR's to assemble.
+     *
+     * [D] Appendix 6 row 3 makes الموارد البشرية مسؤول for تجهيز الملف
+     * الوظيفي and gives الموظف a literal `—`, so asking a submitter to attach
+     * their own البيانات الوظيفية — a record the municipality holds — was the
+     * duty being discharged by the wrong party. The rows are identified by
+     * the `section` Stage 80 already seeded, not by a second list:
+     * EmploymentFilePreparationService answers for exactly this complement.
+     *
+     * Only the SUBMISSION rule narrows. refusalForRequest() below keeps
+     * checking every mandatory row, so what the committee may be shown is
+     * unchanged — it is assembled by two parties at two moments, which is
+     * what row 3 describes.
+     *
+     * @return array<string, array{ar: string, en: string}>
+     */
+    public function mandatorySubmitterDocuments(?RequestType $type): array
+    {
+        $options = $type?->documentOptions() ?? [];
+
+        return array_filter(
+            $this->mandatoryDocuments($type),
+            fn (string $key) => ($options[$key]['section'] ?? null) !== EmploymentFilePreparationService::SECTION,
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
+    /**
      * Which of them `$coveredKeys` leaves unanswered, in the appendix's own
      * order — a reader told to bring three documents should be told them in
      * the order the matrix lists them.
@@ -134,11 +162,21 @@ class DocumentCompletenessService
      * [G]'s own wording for the same failure, kept verbatim as its first
      * sentence — that message is what this stage exists to make producible.
      *
+     * Stage 98 — over the submitter's own rows only; see
+     * mandatorySubmitterDocuments() for why الملف الوظيفي left this list.
+     *
      * @param  iterable<string|null>  $submittedKeys
      */
     public function refusalForSubmission(?RequestType $type, iterable $submittedKeys): ?string
     {
-        $uncovered = $this->uncovered($type, $submittedKeys);
+        $covered = [];
+        foreach ($submittedKeys as $key) {
+            if (is_string($key) && $key !== '') {
+                $covered[$key] = true;
+            }
+        }
+
+        $uncovered = array_diff_key($this->mandatorySubmitterDocuments($type), $covered);
 
         if ($uncovered === []) {
             return null;

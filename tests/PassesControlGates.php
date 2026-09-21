@@ -9,6 +9,7 @@ use App\Models\Request;
 use App\Models\RequestType;
 use App\Models\User;
 use App\Services\DocumentCompletenessService;
+use App\Services\EmploymentFilePreparationService;
 use App\Services\ExecutionSoundnessService;
 use App\Services\IntakeGateService;
 use App\Services\MeetingMinutesCompiler;
@@ -109,6 +110,28 @@ trait PassesControlGates
         $requestRecord->forceFill([
             'intake_gate' => $gate->record($requestRecord, $answers, true),
             'intake_gate_checked_at' => now(),
+        ])->save();
+
+        return $requestRecord->refresh();
+    }
+
+    /**
+     * Stage 98 — record [D] Appendix 6 row 3's تجهيز الملف الوظيفي, every
+     * service-file document present.
+     *
+     * Written directly for the same reason passIntakeGate() above is: the
+     * callers are mid-walk through a different story, and the `register` hop
+     * they need past is not what they are testing.
+     * EmploymentFilePreparationTest exercises the endpoint itself.
+     */
+    protected function prepareEmploymentFile(Request $requestRecord): Request
+    {
+        $preparation = app(EmploymentFilePreparationService::class);
+        $answers = array_fill_keys(array_keys($preparation->requiredDocuments($requestRecord)), 'present');
+
+        $requestRecord->forceFill([
+            'employment_file' => $preparation->record($requestRecord, $answers, true),
+            'employment_file_prepared_at' => now(),
         ])->save();
 
         return $requestRecord->refresh();

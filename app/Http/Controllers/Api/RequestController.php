@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Request\CloseRequest;
 use App\Http\Requests\Request\IndexRequest;
 use App\Http\Requests\Request\LiftSuspensionRequest;
+use App\Http\Requests\Request\PrepareEmploymentFileRequest;
 use App\Http\Requests\Request\RecordApprovalReferralRequest;
 use App\Http\Requests\Request\RecordApprovalReferralResultRequest;
 use App\Http\Requests\Request\RecordApprovalReturnRequest;
@@ -37,6 +38,7 @@ use App\Services\ApprovalReferralService;
 use App\Services\ApprovalReturnService;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\EmployeeNoticeRegister;
+use App\Services\EmploymentFilePreparationService;
 use App\Services\ExecutionSoundnessService;
 use App\Services\IntakeGateService;
 use App\Services\Lifecycle\DuplicatePolicy;
@@ -94,6 +96,17 @@ class RequestController extends Controller
      */
     public static function controlGateRefusal(Request $requestRecord, string $action): ?string
     {
+        // Stage 98 — [D] Appendix 6 row 3. The only non-`approve` hop with a
+        // gate of its own: HR assembles الملف الوظيفي before registering the
+        // file, at the stage R12 already holds. Answered before the `approve`
+        // short-circuit below rather than folded into it, because it is a
+        // different party checking a different list at a different stage.
+        if ($action === EmploymentFilePreparationService::GATED_ACTION) {
+            return $requestRecord->currentStage()->value('code') === EmploymentFilePreparationService::GATED_STAGE
+                ? app(EmploymentFilePreparationService::class)->refusalReason($requestRecord)
+                : null;
+        }
+
         if ($action !== 'approve') {
             return null;
         }
@@ -778,10 +791,19 @@ class RequestController extends Controller
         // satisfying the `!== null` gate on `requirements_check → approve`
         // using the previous lap's answers — exactly the staleness clearing
         // the other two records was meant to prevent.
+        //
+        // Stage 98 — and HR's employment-file card for the same reason: a
+        // reopened file re-walks `receive_and_register`, and the previous
+        // lap's card would let it register on an assembly nobody re-checked
+        // against whatever the reopen reason changed.
         if ($requestRecord->intake_gate !== null
             || $requestRecord->execution_soundness !== null
+            || $requestRecord->employment_file !== null
             || $requestRecord->jurisdiction_test !== null) {
             $requestRecord->update([
+                'employment_file' => null,
+                'employment_file_prepared_by_user_id' => null,
+                'employment_file_prepared_at' => null,
                 'jurisdiction_test' => null,
                 'jurisdiction_tested_by_user_id' => null,
                 'jurisdiction_tested_at' => null,
@@ -1039,6 +1061,53 @@ class RequestController extends Controller
     }
 
     /**
+     * Stage 98 — record [D] Appendix 6 row 3's تجهيز الملف الوظيفي: one answer
+     * per service-file row of Appendix 57's matrix, plus HR's own attestation
+     * that the file is assembled.
+     *
+     * Rides `notes_attachments,add` rather than `edit`. R12 holds `add`
+     * (Stage 87); `edit` is R02's alone after Stage 84, and taking it would
+     * hand HR فحص اكتمال ملف اللجنة — row 4's cell, not row 3's. No stage
+     * restriction of its own, for the same reason Stage 78's gate has none:
+     * it is a working record HR builds while the file is in front of them,
+     * and `receive_and_register → register` is what reads it.
+     *
+     * `add` also covers R01, so the interested-party refusal here is
+     * load-bearing rather than defensive: row 3 gives الموظف a literal `—`,
+     * so neither the filer nor صاحب العلاقة may attest to their own
+     * employment file.
+     */
+    public function prepareEmploymentFile(
+        PrepareEmploymentFileRequest $request,
+        Request $requestRecord,
+        EmploymentFilePreparationService $preparation,
+        WorkflowService $workflow,
+        RequestVisibility $visibility,
+    ): RequestDetailResource|JsonResponse {
+        $actor = $request->user();
+
+        abort_unless($visibility->canView($actor, $requestRecord), 404);
+
+        if ($this->actorIsAnInterestedParty($requestRecord, $actor)) {
+            return response()->json([
+                'message' => 'لا يجوز لمقدّم الطلب أو صاحب العلاقة تجهيز ملفه الوظيفي بنفسه.',
+            ], 422);
+        }
+
+        $requestRecord->update([
+            'employment_file' => $preparation->record(
+                $requestRecord,
+                $request->validated('documents'),
+                $request->boolean('assembled'),
+            ),
+            'employment_file_prepared_by_user_id' => $actor->id,
+            'employment_file_prepared_at' => now(),
+        ]);
+
+        return $this->detailResource($requestRecord, $workflow, $actor);
+    }
+
+    /**
      * Stage 78 — record [D] Art. 103's قائمة فحص سلامة القرار, the twelve
      * things verified "قبل إحالة النتيجة للتنفيذ".
      *
@@ -1230,6 +1299,7 @@ class RequestController extends Controller
             'suspensions.resolvedBy:id,name',
             'jurisdictionTestedBy:id,name',
             'intakeGateCheckedBy:id,name',
+            'employmentFilePreparedBy:id,name',
             'executionSoundnessCheckedBy:id,name',
         ]);
         $requestRecord->loadCount('legalReviews');
@@ -1334,8 +1404,24 @@ class RequestController extends Controller
     {
         $intake = app(IntakeGateService::class);
         $soundness = app(ExecutionSoundnessService::class);
+        $employmentFile = app(EmploymentFilePreparationService::class);
 
         return [
+            // Stage 98 — [D] Appendix 6 row 3. Not one of Appendix 63's four
+            // gates, and reported beside them rather than inside `intake`
+            // because it is a different party's card: HR assembles الملف
+            // الوظيفي before registering, المقرر then checks the committee
+            // file at the قيد hop.
+            'employment_file' => [
+                'prepared_at' => $requestRecord->employment_file_prepared_at?->toIso8601String(),
+                'prepared_by' => $requestRecord->employmentFilePreparedBy ? [
+                    'id' => $requestRecord->employmentFilePreparedBy->id,
+                    'name' => $requestRecord->employmentFilePreparedBy->name,
+                ] : null,
+                'record' => $requestRecord->employment_file,
+                'required_documents' => $employmentFile->requiredDocuments($requestRecord),
+                'refusal' => $employmentFile->refusalReason($requestRecord),
+            ],
             // بوابة 1 — قبل القيد: هل الملف صالح للدخول إلى مسار اللجنة؟
             'intake' => [
                 'recorded_at' => $requestRecord->intake_gate_checked_at?->toIso8601String(),
