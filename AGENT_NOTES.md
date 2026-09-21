@@ -19,6 +19,54 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-21 22:05 EET — Claude — Filer-only attachments + filer re-submit complete
+
+Built per the plan below. One migration (`workflow_transitions.requires_creator`), applied to the real MySQL, and
+`WorkflowTransitionSeeder` reseeded (confirmed by query: `submit` = `required_role_id null, requires_creator true`;
+the R08 override untouched). Full suite **734 tests / 4709 assertions** (baseline 729/4684: +5 new in
+`FilerAttachmentsAndReturnTest`), Pint clean on every touched file, `npm run build` passes (`dist` reverted), no
+locale change. The rule is `Request::attachmentRight()` (`filer` | `executor` | `hr_service_file` | null), read by
+`AttachmentController::store()` and exposed as `can_attach` on `RequestResource`, which gates both upload widgets.
+
+**Deviation from the plan, deleted rather than kept:** the planned `NotificationDispatcher::actorsForStage()`
+creator branch was dead code — every caller either sends the filer the owner's `stage_changed` notice and excludes
+them from the duplicate prompt, or already unions the owners in. The actual notification fix is the row losing its
+R01 role, so bystanders are no longer prompted; a test pins both halves. **Four pre-existing tests needed
+legitimate updates**, each commented in place: an R08 upload (now the admin is the filer), Stage 91's officer
+completing a gap (now refused, and the filer closes it), R12's `other` إفادة at registration (now refused; a
+service-file row is accepted), and a stranger R01 at intake getting **404, not 422**, which is the privacy leak
+closed. **Open item:** R02's `cancel` row at intake still shows every returned file to every R02 (OPEN_ITEMS.md).
+
+---
+### 2026-09-21 21:30 EET — Claude — Implementation plan: only the filer attaches; the manager returns with a note; the filer re-submits
+
+User request: "attaching files can only be done by the request submitter; the submitter's manager reviews the
+request and files and sends it back if it needs modification or documents are missing, adding a note". Scope put to
+the user and answered: submitter-only **everywhere**, with exactly two carve-outs — (1) execution proof
+(Appendix 70) by a `meeting_outputs,approve` holder while the file is `in_execution`, and (2) R12 uploading a
+`service_file`-section document at `receive_and_register` (Stage 98's duty; the agenda gate demands those rows be
+genuinely attached). No R08 override. Stage 91's staff-completion upload path is deliberately closed: completion now
+goes back to the filer through a return.
+
+**The manager half already exists** — `return_to_employee` at `direct_manager_review` requires a reason, lands on
+`returned`, and Art. 101's moment-8 notice quotes it. What was missing is the return leg: `submit` is **R01-gated**,
+so an on-behalf filer (R02/R05, Stage 95) could not re-submit, and — a real privacy leak found while checking — a
+returned request sat at a stage whose outbound row names R01, so `RequestVisibility`'s assignment clause showed it to
+**every** active R01 and `actorsForStage()` prompted every R01. Fix: a new `workflow_transitions.requires_creator`
+flag (one migration), the `submit` row becomes `required_role_id = null, requires_creator = true`, and the three
+readers of rule rows learn it: `WorkflowService::actorMayUse()` (actor must be the filer), `RequestVisibility` (a
+creator-gated row grants no assignment visibility — the filer already sees their own file; without this a null-role
+row would match EVERYONE via its `whereNull(required_role_id)` branch), `NotificationDispatcher::actorsForStage()`
+(prompts the filer) and `RequestResponsibilityService` (Appendix 17 party `employee`). The intake auto-hop is
+role-independent (`applySystemTransition`) and unaffected; the R08 `submit` override stays.
+
+**Upload rule** lives once in `AttachmentController::store()` (403, Arabic); the SPA hides the widgets by the same
+predicate. **Verify:** new feature tests (filer allowed / R02+R08 refused; both carve-outs and their bounds; the full
+return→upload→re-submit loop incl. an on-behalf filer; the returned file no longer visible or notified to other R01s),
+the pre-existing upload fixtures moved to the filer (legitimate updates), full PHPUnit, Pint, `npm run build` (revert
+`dist`), locale parity, migration + `WorkflowTransitionSeeder` reseed against the real MySQL.
+
+---
 ### 2026-09-21 20:40 EET — Claude — Stage 101 complete (the consultation and information layer) — Track N finished
 
 Built per the plan below. **No migration.** Full suite **729 tests / 4684 assertions** (baseline 719/4653: +10 new

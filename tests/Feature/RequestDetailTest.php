@@ -82,10 +82,13 @@ class RequestDetailTest extends TestCase
         $requestRecord = $this->newRequest();
         $employee = $this->userWithRole('R01');
 
+        // 404, not 422: a request at intake is its filer's alone. `submit` used
+        // to be an R01-gated row, which made every employee an "assignee" of
+        // every file sitting here — including every one a manager returned.
+        // It is creator-gated now, so a stranger cannot even find the file.
         $this->actingAs($employee, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/transition", ['action' => 'forward'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('action');
+            ->assertNotFound();
 
         $requestRecord->refresh();
         $this->assertSame('receive_from_municipality', $requestRecord->currentStage->code);

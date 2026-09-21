@@ -30,6 +30,7 @@ class WorkflowTransition extends Model
         'action',
         'required_role_id',
         'requires_submitter_manager',
+        'requires_creator',
         'required_status_id',
         'set_status_id',
         'is_exception',
@@ -43,6 +44,7 @@ class WorkflowTransition extends Model
             'is_exception' => 'boolean',
             'requires_comment' => 'boolean',
             'requires_submitter_manager' => 'boolean',
+            'requires_creator' => 'boolean',
         ];
     }
 

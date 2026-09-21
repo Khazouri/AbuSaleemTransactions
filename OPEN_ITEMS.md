@@ -13,7 +13,17 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### Every R02 can still see a request returned to intake — filer-only attachments — opened 2026-09-21
+`submit` is creator-gated now, so a returned request no longer reaches every R01. But R02 keeps a
+`cancel` row at `receive_from_municipality`, and `RequestVisibility`'s assignment clause derives
+visibility from outbound rows, so every R02 still sees every returned file there. Pre-existing and
+arguably intended (R02 is قسم شؤون الموظفين), left unchanged. **To close:** decide whether cancelling
+at intake should be the filer's (and R08's) alone; if so, re-gate that cancel row.
+
 ### A manager whose only role is R09, R10 or R11 cannot attach at `receive_and_register` — Stage 101 — opened 2026-09-21
+**Resolved (2026-09-21, filer-only attachments) by decision:** only the request's filer attaches documents
+now (plus the execution-proof and HR service-file exceptions), so no manager attaches at any stage. The
+manager contributes a note and, at `direct_manager_review`, a return with a reason.
 Appendix 6 row 3 makes الرئيس المباشر «مشارك» in تجهيز الملف الوظيفي. Stage 98 lets the subject's
 manager *see* the file there, and Stage 101 pins that they can add a note — but writing rides
 `notes_attachments,add`, held by R01–R07 and R12. الرئيس المباشر is a `users.manager_id` relationship,

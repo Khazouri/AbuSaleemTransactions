@@ -370,6 +370,10 @@ class DirectManagerRoutingTest extends TestCase
         // Not the creator — a receiving body never is.
         $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr', $employee->id);
 
+        // Only the filer attaches documents; HR's one exception is Stage 98's
+        // الملف الوظيفي (Request::attachmentRight()). A free-standing إفادة is
+        // therefore refused as an attachment and recorded as a note instead,
+        // while a service-file row is accepted.
         $this->actingAs($actor, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('ifada.pdf', 40, 'application/pdf'),
@@ -377,7 +381,20 @@ class DirectManagerRoutingTest extends TestCase
                 'required_document_key' => 'other',
                 'file_section' => 'supporting_documents',
             ], ['Accept' => 'application/json'])
-            ->assertCreated();
+            ->assertForbidden();
+
+        $serviceFileKey = collect($requestRecord->requestType->documentOptions())
+            ->filter(fn (array $document) => ($document['section'] ?? null) === 'service_file')
+            ->keys()
+            ->first();
+
+        $this->actingAs($actor, 'sanctum')
+            ->post("/api/requests/{$requestRecord->id}/attachments", [
+                'file' => UploadedFile::fake()->create('service-record.pdf', 40, 'application/pdf'),
+                'required_document_key' => $serviceFileKey,
+            ], ['Accept' => 'application/json'])
+            ->assertCreated()
+            ->assertJsonPath('data.file_section', 'service_file');
 
         $this->actingAs($actor, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/notes", [

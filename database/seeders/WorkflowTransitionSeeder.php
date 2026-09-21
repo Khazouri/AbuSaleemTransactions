@@ -43,7 +43,12 @@ class WorkflowTransitionSeeder extends Seeder
         // the R08 sibling would collide on (from_stage_id, action) alone and
         // one would silently overwrite the other on every re-seed.
         $transitions = [
-            ['receive_from_municipality', 'direct_manager_review', 'submit', 'R01', 'in_review'],
+            // A null role here means creator-gated (`requires_creator`): after
+            // the direct manager returns a request, only its filer re-submits
+            // it — whatever their role, an on-behalf R02/R05 filer included —
+            // and nobody else sees or is prompted by it. The intake auto-hop
+            // is role-independent (applySystemTransition) and unaffected.
+            ['receive_from_municipality', 'direct_manager_review', 'submit', null, 'in_review'],
             // THIS HOP IS THE قيد (Stage 97). Art. 20 grants it "بعد ثبوت اكتمال
             // الملف" and Appendix 6 row 5 makes القيد مقرر اللجنة's own act, so
             // it is R02's approve out of the completeness check — Art. 18's
@@ -121,11 +126,12 @@ class WorkflowTransitionSeeder extends Seeder
                     // Widened so a same-stage/same-action sibling seeded
                     // through seedException() (e.g. the R08 `submit`
                     // override below) can never collide with this row.
-                    'required_role_id' => $roles[$role]->id,
+                    'required_role_id' => $role === null ? null : $roles[$role]->id,
                 ],
                 [
                     'to_stage_id' => $stages[$to]->id,
-                    'required_role_id' => $roles[$role]->id,
+                    'required_role_id' => $role === null ? null : $roles[$role]->id,
+                    'requires_creator' => $role === null,
                     // Neither the direct-manager gate nor the status gate is
                     // used by the happy path yet — set explicitly rather than
                     // relying on the column defaults, since an upsert's UPDATE

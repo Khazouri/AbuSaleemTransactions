@@ -10,6 +10,7 @@ use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestType;
 use App\Services\DocumentCompletenessService;
+use App\Services\EmploymentFilePreparationService;
 use App\Services\RequestVisibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
@@ -46,6 +47,19 @@ class AttachmentController extends Controller
         $fileSection = $documentKey === RequestType::OTHER_DOCUMENT
             ? $request->validated('file_section')
             : $requestRecord->requestType?->sectionForDocument($documentKey) ?? Attachment::DEFAULT_SUBMITTER_SECTION;
+
+        // Only the filer attaches documents — see Request::attachmentRight().
+        // HR's footing covers the service-file rows alone: anything else it
+        // finds missing goes back to the filer, not into the file by HR's hand.
+        $right = $requestRecord->attachmentRight($request->user());
+        $hrOutsideItsRows = $right === 'hr_service_file'
+            && ($documentKey === RequestType::OTHER_DOCUMENT || $fileSection !== EmploymentFilePreparationService::SECTION);
+
+        if ($right === null || $hrOutsideItsRows) {
+            return response()->json([
+                'message' => 'إرفاق المستندات مقصور على مقدّم الطلب.',
+            ], 403);
+        }
 
         $file = $request->file('file');
         $disk = 'local';

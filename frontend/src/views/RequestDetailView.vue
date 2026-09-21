@@ -841,7 +841,9 @@ onBeforeUnmount(clearAttachmentPreview)
                   </div>
                 </li>
               </ul>
-              <FileUpload v-can="'notes_attachments.add'" :request-id="request.id" @uploaded="load" />
+              <!-- Only the filer attaches (Request::attachmentRight()); can_attach is
+                   that same server-side rule, so the form never offers a refused upload. -->
+              <FileUpload v-if="request.can_attach" v-can="'notes_attachments.add'" :request-id="request.id" @uploaded="load" />
             </section>
 
             <section v-if="documentSections.length" class="card card-flat card-pad checklist">

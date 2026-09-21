@@ -88,6 +88,10 @@ class RequestResource extends JsonResource
             // service memoises the seed data both derivations read, so this
             // costs two queries for a whole page rather than two per row.
             'responsibility' => app(RequestResponsibilityService::class)->for($this->resource),
+            // Whether the signed-in user may attach a document here — the same
+            // Request::attachmentRight() the upload endpoint enforces, so the
+            // SPA never offers an upload the server refuses.
+            'can_attach' => $request->user() !== null && $this->attachmentRight($request->user()) !== null,
             'created_at' => $this->created_at?->toIso8601String(),
             // Stage 44 — the requester ("الموظف"), only populated when a
             // caller explicitly eager-loads createdBy (e.g. the committee

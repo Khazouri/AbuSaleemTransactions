@@ -435,6 +435,40 @@ class Request extends Model
             && ($this->decision_grade === null || $this->decision_grade >= $threshold);
     }
 
+    /**
+     * On what footing $actor may attach a document to this request, or null.
+     *
+     * Documents come from the filer — the person who raised the request, at
+     * any stage, and nobody standing in for them (no admin override): a
+     * return from the direct manager is how a missing document is asked for.
+     * Two duties the system already gives someone else are the only
+     * exceptions:
+     *   - `executor` — Appendix 70's proof of execution, by whoever may record
+     *     execution (meeting_outputs,approve) while the file is in_execution;
+     *   - `hr_service_file` — Stage 98's الملف الوظيفي, by R12 while the file
+     *     is with HR at receive_and_register. The caller must still confirm
+     *     the document itself is a service-file row.
+     *
+     * One predicate read by both AttachmentController::store() and the
+     * resource's `can_attach`, so the upload button and the endpoint agree.
+     */
+    public function attachmentRight(User $actor): ?string
+    {
+        if ($this->created_by_user_id === $actor->id) {
+            return 'filer';
+        }
+
+        if ($this->status?->code === 'in_execution' && $actor->hasScreenPermission('meeting_outputs', 'can_approve')) {
+            return 'executor';
+        }
+
+        if ($this->currentStage?->code === 'receive_and_register' && $actor->hasRole('R12')) {
+            return 'hr_service_file';
+        }
+
+        return null;
+    }
+
     /** A breach becomes official only when the scheduled sweep records it. */
     public function isOverdue(): bool
     {

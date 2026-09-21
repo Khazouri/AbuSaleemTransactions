@@ -590,6 +590,13 @@ class WorkflowService
             return false;
         }
 
+        // A creator-gated row (`submit`) is the filer's and nobody else's: a
+        // request the direct manager returned goes back to whoever filed it,
+        // whatever their role — an on-behalf filer included (Stage 95).
+        if ($rule->requires_creator && $requestRecord->created_by_user_id !== $actor->id) {
+            return false;
+        }
+
         if ($rule->required_status_id !== null && $rule->required_status_id !== $requestRecord->status_id) {
             return false;
         }

@@ -279,6 +279,11 @@ class RequestVisibility
                                 });
                         });
                     })
+                    // A creator-gated row (`submit` after a manager's return)
+                    // grants no assignment visibility: the filer already sees
+                    // their own file, and its null role would otherwise match
+                    // every user through the whereNull branch just below.
+                    ->where('workflow_transitions.requires_creator', false)
                     ->where(function ($role) use ($roleIds) {
                         $role->whereNull('workflow_transitions.required_role_id');
 

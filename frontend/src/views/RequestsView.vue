@@ -242,7 +242,7 @@ onMounted(async () => {
               </td>
               <td>{{ date(request.created_at) }}</td>
               <td>
-                <button v-can="'notes_attachments.add'" class="ghost upload-action" type="button" @click="openUpload(request)">
+                <button v-if="request.can_attach" v-can="'notes_attachments.add'" class="ghost upload-action" type="button" @click="openUpload(request)">
                   {{ t('attachments.upload') }}
                 </button>
               </td>

@@ -24,7 +24,9 @@ class AttachmentUploadTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
-        $requestRecord = $this->request();
+        // Only a request's own filer attaches documents — an admin included, so
+        // the admin here is the one who filed it (Request::attachmentRight()).
+        $requestRecord = $this->request($admin->id);
 
         $response = $this->actingAs($admin, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
@@ -132,7 +134,7 @@ class AttachmentUploadTest extends TestCase
             ->assertNotFound();
     }
 
-    private function request(): Request
+    private function request(?int $createdByUserId = null): Request
     {
         return Request::create([
             'title' => 'طلب اختبار المرفقات',
@@ -140,6 +142,7 @@ class AttachmentUploadTest extends TestCase
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
             'status_id' => RequestStatus::where('code', 'new')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
+            'created_by_user_id' => $createdByUserId,
         ]);
     }
 }

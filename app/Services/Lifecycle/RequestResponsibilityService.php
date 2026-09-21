@@ -288,6 +288,11 @@ class RequestResponsibilityService
             return 'direct_manager';
         }
 
+        // `submit` after a manager's return is the filer's own move.
+        if ($applicable->contains(fn (WorkflowTransition $rule) => (bool) $rule->requires_creator)) {
+            return 'employee';
+        }
+
         foreach ($applicable as $rule) {
             $party = $this->partyForRoleId($rule->required_role_id);
 
@@ -317,7 +322,7 @@ class RequestResponsibilityService
     {
         return $this->rules ??= WorkflowTransition::query()
             ->where('is_exception', false)
-            ->get(['from_stage_id', 'request_type_id', 'required_role_id', 'requires_submitter_manager']);
+            ->get(['from_stage_id', 'request_type_id', 'required_role_id', 'requires_submitter_manager', 'requires_creator']);
     }
 
     /** @return array<int, string> */

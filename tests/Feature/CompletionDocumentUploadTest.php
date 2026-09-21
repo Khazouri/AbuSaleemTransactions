@@ -155,9 +155,10 @@ class CompletionDocumentUploadTest extends TestCase
      * The stage's own done-when: a document supplied AFTER intake is read by
      * the officer's gate exactly as one supplied with it.
      *
-     * Walked by the officer (R02) rather than the employee on purpose — that
-     * is the case a role-branched question would have broken, and it is the
-     * case Art. 19's استكمال loop actually produces.
+     * Walked by the filer: only they attach documents now
+     * (Request::attachmentRight()), so the officer who finds the gap is
+     * refused and the file goes back to the employee — which is the loop
+     * Art. 19's استكمال actually describes.
      */
     public function test_a_document_supplied_after_intake_closes_the_gap_it_left(): void
     {
@@ -175,10 +176,17 @@ class CompletionDocumentUploadTest extends TestCase
         $gate = app(IntakeGateService::class);
         $this->assertArrayNotHasKey($missingKey, $gate->derivedAnswers($requestRecord->fresh()));
 
-        // Before Stage 91 this upload could not name the row at all, so the
-        // gap could only be closed by refiling.
-        $officer = $this->userWithRole('R02');
-        $this->actingAs($officer, 'sanctum')
+        // The officer who found the gap may not fill it themselves...
+        $this->actingAs($this->userWithRole('R02'), 'sanctum')
+            ->post("/api/requests/{$requestRecord->id}/attachments", [
+                'file' => UploadedFile::fake()->create('missing.pdf', 10, 'application/pdf'),
+                'required_document_key' => $missingKey,
+            ], ['Accept' => 'application/json'])
+            ->assertForbidden();
+
+        // ...the filer does. Before Stage 91 this upload could not name the
+        // row at all, so the gap could only be closed by refiling.
+        $this->actingAs($requestRecord->createdBy, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('missing.pdf', 10, 'application/pdf'),
                 'required_document_key' => $missingKey,
