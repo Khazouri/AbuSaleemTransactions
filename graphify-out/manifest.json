@@ -2022,10 +2022,10 @@
     "semantic_hash": "155553fbaf52e88e634bc68f30c27063"
   },
   "config/cache.php": {
-    "mtime": 1737752106.0,
-    "seen": 1789906551.3736079,
-    "ast_hash": "488b21f09c887ceb3306242d0500736f",
-    "semantic_hash": "488b21f09c887ceb3306242d0500736f"
+    "mtime": 1790024307.6977258,
+    "seen": 1790025474.4931185,
+    "ast_hash": "6a04598995c2432dfb05b56d2e14ecc0",
+    "semantic_hash": ""
   },
   "config/cors.php": {
     "mtime": 1785663159.4879625,
