@@ -1,0 +1,5 @@
+frontend/src/.*
+frontend/public/.*
+frontend/index.html
+frontend/package.*
+frontend/vite.config.js
