@@ -32,7 +32,6 @@ const form = reactive({
   approving_body: '',
   execution_date: '',
   executing_body: '',
-  file_storage_location: '',
 })
 
 // Tri-state, not a checkbox: Art. 37's four final paths make several of
@@ -41,7 +40,7 @@ const form = reactive({
 const audit = reactive(Object.fromEntries(CLOSER_CHECKS.map((key) => [key, 'yes'])))
 
 const canSubmit = computed(
-  () => form.approving_body.trim() !== '' && form.file_storage_location.trim() !== '',
+  () => form.approving_body.trim() !== '',
 )
 
 watch(open, (isOpen) => {
@@ -90,10 +89,6 @@ async function submit() {
         <label>
           <span>{{ t('requestClosure.fields.approving_body') }} *</span>
           <input v-model="form.approving_body" type="text" required>
-        </label>
-        <label>
-          <span>{{ t('requestClosure.fields.file_storage_location') }} *</span>
-          <input v-model="form.file_storage_location" type="text" required>
         </label>
         <label>
           <span>{{ t('requestClosure.fields.final_decision_number') }}</span>

@@ -1745,7 +1745,7 @@ zero-signature approval branch is a refusal. See AGENT_NOTES.md.
 
 ---
 
-### Stage 100 — الإشعار ownership, الأرشفة, and execution oversight (rows 13, 14, 15)
+### Stage 100 — الإشعار ownership, الأرشفة, and execution oversight (rows 13, 14, 15) — **built**
 
 **Goal:** the three duties nobody currently holds get a holder.
 **Build:** **المقرر «مسؤول إجرائيًا»** for notices — Art. 101's notices fire from
@@ -1757,6 +1757,13 @@ service file outside this app, rather than crossing it silently. **جهة الا
 الاختصاص»** on execution — R05/R06/R07 hold nothing on `meeting_outputs` and cannot even see it.
 **Done when:** rows 13, 14 and 15 each name a party that can act.
 **Source:** [D] Appendix 6 rows 13, 14, 15 + Art. 101 + Arts. 34–37.
+**Built 2026-09-21.** One migration (six columns). The archive split into two records, each by its owner
+— ملف اللجنة on `meeting_outputs,edit` (المقرر), ملف الخدمة on `meeting_outputs,add` (which gated no route,
+reseeded R12) — and closure refuses until the owed halves exist (the service file only when a decision was
+recorded); the closer's free-text `file_storage_location` is gone. المقرر issues Art. 101's notice for the
+file's current state in their own name (`notices/issue`). An approver keeps sight of the files they approved
+through execution (the approval ledger, one `RequestVisibility` clause), and R06/R07 gained
+`notes_attachments,add` to record supervision. See AGENT_NOTES.md.
 
 ---
 
@@ -1779,7 +1786,7 @@ established for exactly this.
 dependency record: it says which stage had to precede which, which is what you need when reading a
 stage's assumptions or judging whether a change to one stage's work disturbs another's.
 
-**Track N (94–101) is mostly built.** **94** (the docs re-derivation), **95** (صاحب العلاقة), **96** (R09/R10 folded back), **97** (القيد back to R02), **98** (تجهيز الملف الوظيفي) and **99** (the committee's own acts) are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency. The track's one hard dependency — 95 before 98 and 101 — is discharged. **100 and 101 remain**, and neither blocks the other: 100 gives three ownerless duties a holder, and 101 is last by preference (the consultation layer is additive, and wiring notifications before the accountable parties are correct would tell the wrong people).
+**Track N (94–101) is mostly built.** **94** through **100** are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency. The track's one hard dependency — 95 before 98 and 101 — is discharged. **Only 101 remains** — the consultation and information layer, now that every accountable party is correct.
 
 ```
 94 → 96 → 97                    (independent of 95 — seeded-map work)

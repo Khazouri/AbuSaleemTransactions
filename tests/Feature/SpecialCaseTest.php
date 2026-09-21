@@ -95,6 +95,8 @@ class SpecialCaseTest extends TestCase
             app(RequestClosureService::class)->refusalReason($requestRecord->fresh()->load('status')),
         );
 
+        $this->archiveFiles($requestRecord);
+
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertStatus(422);
@@ -104,6 +106,8 @@ class SpecialCaseTest extends TestCase
                 'resolution_note' => 'حددت المراجعة القانونية أثر الوفاة واستمرار الإجراء.',
             ])
             ->assertOk();
+
+        $this->archiveFiles($requestRecord);
 
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
@@ -201,6 +205,7 @@ class SpecialCaseTest extends TestCase
 
         $this->assertNull($this->approveRefusal($requestRecord));
 
+        $this->archiveFiles($requestRecord);
         $this->actingAs($this->userWithRole('R03'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertOk();

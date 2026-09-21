@@ -18,6 +18,7 @@ import RequestSoundnessPanel from '../components/RequestSoundnessPanel.vue'
 import RequestSuspensionPanel from '../components/RequestSuspensionPanel.vue'
 import ApprovalTrail from '../components/ApprovalTrail.vue'
 import FileUpload from '../components/FileUpload.vue'
+import RequestArchivePanel from '../components/RequestArchivePanel.vue'
 import RequestClosurePanel from '../components/RequestClosurePanel.vue'
 import RequestLifecyclePanel from '../components/RequestLifecyclePanel.vue'
 import RequestNotes from '../components/RequestNotes.vue'
@@ -333,6 +334,30 @@ async function sendToLegalReview() {
       ?? t('requestDetail.legalReview.sendFailed')
   } finally {
     dispatchingLegalReview.value = false
+  }
+}
+
+// Stage 100 — Appendix 6 row 15: the archive is recordable only while the file
+// stands on one of Art. 37's final paths and is not yet closed.
+const ARCHIVABLE_STATUSES = ['executed', 'not_approved', 'outside_jurisdiction']
+const archiveEditable = computed(() =>
+  !request.value?.closure && ARCHIVABLE_STATUSES.includes(request.value?.status?.code),
+)
+
+// Stage 100 — Appendix 6 row 14: المقرر issues the file's current notice.
+const noticeIssuing = ref(false)
+const noticeError = ref('')
+
+async function issueNotice() {
+  noticeIssuing.value = true
+  noticeError.value = ''
+  try {
+    const { data } = await api.post(`/requests/${request.value.id}/notices/issue`)
+    request.value = data.data
+  } catch (requestError) {
+    noticeError.value = requestError.response?.data?.message ?? t('employeeNotices.issueFailed')
+  } finally {
+    noticeIssuing.value = false
   }
 }
 
@@ -1198,9 +1223,19 @@ onBeforeUnmount(clearAttachmentPreview)
         </section>
 
         <!-- Stage 79 — [D] Art. 101's register for this file. -->
-        <section v-if="request.employee_notices?.length" class="card card-flat card-pad summary closure">
+        <section v-if="request.employee_notices?.length || auth.can('meeting_outputs', 'edit')" class="card card-flat card-pad summary closure">
           <h3>{{ t('employeeNotices.title') }}</h3>
           <p class="hint">{{ t('employeeNotices.intro') }}</p>
+          <button
+            v-can="'meeting_outputs.edit'"
+            class="btn btn-sm"
+            type="button"
+            :disabled="noticeIssuing"
+            @click="issueNotice"
+          >
+            {{ t('employeeNotices.issue') }}
+          </button>
+          <p v-if="noticeError" class="alert warning" role="alert">{{ noticeError }}</p>
           <ul class="notice-list">
             <li v-for="notice in request.employee_notices" :key="notice.id">
               <div class="notice-head">
@@ -1210,6 +1245,7 @@ onBeforeUnmount(clearAttachmentPreview)
                 <span class="notice-date">{{ dateTime(notice.sent_at) }}</span>
               </div>
               <p>{{ noticeText(notice, 'body') }}</p>
+              <small v-if="notice.issued_by">{{ t('employeeNotices.issuedBy', { name: notice.issued_by }) }}</small>
             </li>
           </ul>
         </section>
@@ -1265,6 +1301,20 @@ onBeforeUnmount(clearAttachmentPreview)
         </section>
 
         <!-- Stage 75 — [D] Art. 37's الإقفال. -->
+        <!-- Stage 100 — [D] Appendix 6 row 15's two archive records. -->
+        <section
+          v-if="request.archive && (archiveEditable || request.archive.committee_file || request.archive.service_file)"
+          class="card card-flat card-pad summary closure"
+        >
+          <h3>{{ t('requestArchive.title') }}</h3>
+          <RequestArchivePanel
+            :request-id="request.id"
+            :archive="request.archive"
+            :editable="archiveEditable"
+            @updated="request = $event"
+          />
+        </section>
+
         <section v-if="request.closure || request.closure_eligibility?.can_close" class="card card-flat card-pad summary closure">
           <h3>{{ t('requestClosure.title') }}</h3>
           <template v-if="request.closure">
@@ -1300,10 +1350,6 @@ onBeforeUnmount(clearAttachmentPreview)
               <div>
                 <span>{{ t('requestClosure.fields.notice_status') }}</span>
                 <strong>{{ t(`requestClosure.notice.${request.closure.notice_status}`) }}</strong>
-              </div>
-              <div>
-                <span>{{ t('requestClosure.fields.file_storage_location') }}</span>
-                <strong>{{ request.closure.file_storage_location ?? '—' }}</strong>
               </div>
             </dl>
             <h4>{{ t('requestClosure.auditTitle') }}</h4>

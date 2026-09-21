@@ -68,6 +68,8 @@ class EmployeeNoticeRegister
                 'title_en' => $notice->data['title_en'] ?? null,
                 'body_ar' => $notice->data['body_ar'] ?? null,
                 'body_en' => $notice->data['body_en'] ?? null,
+                // Stage 100 — المقرر who issued it by hand; null when automatic.
+                'issued_by' => $notice->data['issued_by'] ?? null,
                 'sent_at' => $notice->created_at?->toIso8601String(),
                 'read_at' => $notice->read_at?->toIso8601String(),
             ])

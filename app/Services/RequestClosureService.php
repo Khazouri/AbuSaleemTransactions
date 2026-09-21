@@ -56,9 +56,9 @@ class RequestClosureService
      *
      * Three of the twelve are absent from CLOSER_CHECKS below and answered by
      * the server instead: `appeal_path_concluded` (#10) is Appeal::openAgainst(),
-     * `archive_location_set` (#12) is the closure card's own required
-     * `file_storage_location`, and `execution_document_attached` (#9) is Stage
-     * 76's Appendix 70 evidence — which is what closes Stage 75's own open
+     * `archive_location_set` (#12) is Stage 100's two archive records (ملف
+     * اللجنة by المقرر, ملف الخدمة by الموارد البشرية), and
+     * `execution_document_attached` (#9) is Stage 76's Appendix 70 evidence — which is what closes Stage 75's own open
      * item (2), since that check was an attestation only for as long as there
      * was nothing verifiable to read. Asking a human for an answer the system
      * already holds — and would then have to override — is worse than not
@@ -194,6 +194,17 @@ class RequestClosureService
             return $specialCase;
         }
 
+        // Stage 100 — Art. 38's code 20 is مغلقة **ومؤرشفة**, and Appendix 6
+        // row 15 gives the archiving two مسؤول. Each half is its owner's own
+        // act, so the closer cannot stand in for either.
+        if ($requestRecord->committee_file_archived_at === null) {
+            return 'لا تغلق المعاملة قبل أرشفة ملف اللجنة من قبل المقرر.';
+        }
+
+        if ($requestRecord->service_file_archived_at === null && $this->hasRecordedDecision($requestRecord)) {
+            return 'لا تغلق المعاملة قبل أرشفة ملف الخدمة من قبل الموارد البشرية.';
+        }
+
         if ($audit === null) {
             return null;
         }
@@ -226,6 +237,41 @@ class RequestClosureService
         }
 
         return null;
+    }
+
+    /**
+     * Stage 100 — record where one of Appendix 6 row 15's two files went.
+     *
+     * Only while the file stands on one of Art. 37's final paths and is not
+     * yet closed: before that there is nothing final to archive, and after it
+     * the record is part of what closure attested. Overwrites, so a mistyped
+     * location is corrected by recording it again (the Stage 78 precedent).
+     *
+     * @param  'committee'|'service'  $file
+     */
+    public function archive(Request $requestRecord, User $actor, string $file, string $location): Request
+    {
+        if ($requestRecord->closed_at !== null) {
+            throw new \DomainException('المعاملة مقفلة بالفعل.');
+        }
+
+        if (! in_array($requestRecord->status?->code, self::CLOSABLE_STATUSES, true)) {
+            throw new \DomainException('لا يؤرشف الملف قبل بلوغ المعاملة أحد مساراتها النهائية.');
+        }
+
+        $requestRecord->update([
+            "{$file}_file_location" => $location,
+            "{$file}_file_archived_by_user_id" => $actor->id,
+            "{$file}_file_archived_at" => now(),
+        ]);
+
+        return $requestRecord;
+    }
+
+    /** Whether the service-file half of the archive is owed at all. */
+    public function requiresServiceFileArchive(Request $requestRecord): bool
+    {
+        return $this->hasRecordedDecision($requestRecord);
     }
 
     private function hasRecordedDecision(Request $requestRecord): bool
@@ -278,14 +324,13 @@ class RequestClosureService
                     'approving_body' => $card['approving_body'],
                     'execution_date' => $card['execution_date'] ?? null,
                     'executing_body' => $card['executing_body'] ?? null,
-                    'file_storage_location' => $card['file_storage_location'],
                     // Stage 95 — reachability of صاحب العلاقة, the person
                     // Art. 101's notices are actually addressed to.
                     'notice_status' => $locked->subject?->is_active
                         ? 'notified'
                         : 'requester_unreachable',
                 ],
-                'closure_audit' => $this->auditRecord($locked, $audit, $card),
+                'closure_audit' => $this->auditRecord($locked, $audit),
                 'closed_by_user_id' => $actor->id,
                 'closed_at' => now(),
             ]);
@@ -309,10 +354,9 @@ class RequestClosureService
      * the appendix's own list rather than a subset a reader has to reassemble.
      *
      * @param  array<string, string>  $audit
-     * @param  array<string, mixed>  $card
      * @return array<string, string>
      */
-    private function auditRecord(Request $requestRecord, array $audit, array $card): array
+    private function auditRecord(Request $requestRecord, array $audit): array
     {
         $record = [];
 
@@ -331,10 +375,9 @@ class RequestClosureService
                     ->exists()
                         ? 'yes'
                         : 'not_applicable',
-                // #12 — answered by the card's own required field.
-                'archive_location_set' => trim((string) ($card['file_storage_location'] ?? '')) !== ''
-                    ? 'yes'
-                    : 'no',
+                // #12 — Stage 100: the two archive records refusalReason()
+                // demands; reaching here means both owed halves exist.
+                'archive_location_set' => 'yes',
                 default => $audit[$key],
             };
         }

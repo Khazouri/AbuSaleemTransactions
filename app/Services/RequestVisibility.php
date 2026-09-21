@@ -223,6 +223,31 @@ class RequestVisibility
                 });
             }
 
+            // Stage 100 — [D] Appendix 6 row 13 gives جهة الاعتماد «إشراف حسب
+            // الاختصاص» over التنفيذ, but an approver holds rows only at their
+            // own checkpoint, so the file dropped out of their sight the moment
+            // they approved it. «حسب الاختصاص» is read as the files they
+            // approved — the approval ledger itself, no role list — kept
+            // through the execution cycle.
+            $visible->orWhere(function (Builder $supervised) use ($actor) {
+                $supervised->whereIn(
+                    'requests.status_id',
+                    RequestStatus::query()
+                        ->whereIn('code', [
+                            RequestExecutionService::EXECUTABLE_STATUS,
+                            'executed',
+                            RequestSuspensionService::SUSPENDED_STATUS,
+                            'completed_closed',
+                        ])
+                        ->select('id'),
+                )->whereExists(function ($approved) use ($actor) {
+                    $approved->selectRaw('1')
+                        ->from('approvals')
+                        ->whereColumn('approvals.request_id', 'requests.id')
+                        ->where('approvals.approved_by_user_id', $actor->id);
+                });
+            });
+
             $visible->orWhereExists(function ($assignment) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds) {
                 $assignment->selectRaw('1')
                     ->from('workflow_transitions')

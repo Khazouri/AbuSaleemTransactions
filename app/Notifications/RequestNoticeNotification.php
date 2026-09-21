@@ -42,6 +42,8 @@ class RequestNoticeNotification extends SystemNotification
         Request $requestRecord,
         private readonly string $moment,
         array $context = [],
+        // Stage 100 — المقرر who issued it by hand, null for the automatic send.
+        private readonly ?string $issuedBy = null,
     ) {
         $this->requestId = $requestRecord->id;
         $this->reference = (string) $requestRecord->trackingNumber();
@@ -70,6 +72,7 @@ class RequestNoticeNotification extends SystemNotification
             'title_en' => $moment['en'] ?? 'Notice about your request',
             'body_ar' => $bodyAr,
             'body_en' => $bodyEn,
+            'issued_by' => $this->issuedBy,
         ];
     }
 

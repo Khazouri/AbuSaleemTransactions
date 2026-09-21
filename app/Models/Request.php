@@ -98,6 +98,13 @@ class Request extends Model
         'closure_audit',
         'closed_by_user_id',
         'closed_at',
+        // Stage 100 — Appendix 6 row 15's two archive records, one per مسؤول.
+        'committee_file_location',
+        'committee_file_archived_by_user_id',
+        'committee_file_archived_at',
+        'service_file_location',
+        'service_file_archived_by_user_id',
+        'service_file_archived_at',
         // Stage 76 — النموذج 17's execution card and its متابعة التنفيذ
         // checks. Written only by MeetingOutputService::markExecuted() (and
         // cleared by RequestController::reopen), fillable for the same reason
@@ -141,6 +148,8 @@ class Request extends Model
             'closure' => 'array',
             'closure_audit' => 'array',
             'closed_at' => 'datetime',
+            'committee_file_archived_at' => 'datetime',
+            'service_file_archived_at' => 'datetime',
             // Stage 76 — Appendix 70's execution proof and النموذج 17's
             // seven-point tracking checklist.
             'execution' => 'array',
@@ -194,6 +203,18 @@ class Request extends Model
     public function closedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'closed_by_user_id');
+    }
+
+    /** Stage 100 — المقرر, «مسؤول ملف اللجنة». */
+    public function committeeFileArchivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'committee_file_archived_by_user_id');
+    }
+
+    /** Stage 100 — الموارد البشرية, «مسؤول ملف الخدمة». */
+    public function serviceFileArchivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'service_file_archived_by_user_id');
     }
 
     /** Stage 76 — النموذج 17's executing officer. */

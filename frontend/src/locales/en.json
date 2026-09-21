@@ -1728,6 +1728,19 @@
       "outside_jurisdiction": "Outside jurisdiction and closed"
     }
   },
+  "requestArchive": {
+    "title": "Archiving",
+    "intro": "Appendix 6 gives archiving two owners: the rapporteur for the committee file and HR for the service file. The request cannot be closed until each required file is archived.",
+    "files": {
+      "committee_file": "Committee file",
+      "service_file": "Service file"
+    },
+    "pending": "Not archived yet",
+    "notOwed": "Not required — no decision touched the service file",
+    "locationPlaceholder": "File storage location",
+    "record": "Record archiving",
+    "error": "Could not record the archiving."
+  },
   "approvalReturn": {
     "title": "Return from the Approving Body",
     "action": "Record a return from the approving body",
@@ -1981,7 +1994,10 @@
   "employeeNotices": {
     "title": "Notices sent to the employee",
     "intro": "Notices sent to the employee about this request under Art. 101, limited in content by Art. 102. Only in-app delivery is recorded here; this system keeps no email or SMS delivery log.",
-    "moment": "Moment {number}"
+    "moment": "Moment {number}",
+    "issue": "Issue a notice for the current state",
+    "issuedBy": "Issued by the rapporteur: {name}",
+    "issueFailed": "Could not issue the notice."
   },
   "dashboard": {
     "title": "Dashboard",

@@ -12,9 +12,11 @@ use Illuminate\Database\Eloquent\Model;
  * Art. 98's register 12 — سجل الإقفال والأرشفة, over Stage 75's closure record.
  *
  * Its columns are Art. 37's eight closure fields as that stage stored them,
- * plus who closed the file. `file_storage_location` is carried deliberately:
- * this register is the أرشفة half of its own name, and a closure record with
- * no archive location would not say where the file went.
+ * plus who closed the file, and — since Stage 100 — Appendix 6 row 15's two
+ * archive records in place of the single `file_storage_location` the closer
+ * used to type. This register is the أرشفة half of its own name, so it says
+ * where each file went and who put it there. A closure written before Stage 100
+ * shows its old single location under the committee file.
  */
 class ClosureRegister extends Register
 {
@@ -46,7 +48,8 @@ class ClosureRegister extends Register
             'execution_date' => ['ar' => 'تاريخ التنفيذ', 'en' => 'Execution date'],
             'executing_body' => ['ar' => 'الجهة المنفذة', 'en' => 'Executing body'],
             'notice_status' => ['ar' => 'حالة الإشعار', 'en' => 'Notice status'],
-            'file_storage_location' => ['ar' => 'موقع حفظ الملف', 'en' => 'File location'],
+            'committee_file_location' => ['ar' => 'موقع ملف اللجنة', 'en' => 'Committee file location'],
+            'service_file_location' => ['ar' => 'موقع ملف الخدمة', 'en' => 'Service file location'],
             'closed_by' => ['ar' => 'أقفلها', 'en' => 'Closed by'],
         ];
     }
@@ -87,7 +90,8 @@ class ClosureRegister extends Register
             'execution_date' => $closure['execution_date'] ?? null,
             'executing_body' => $closure['executing_body'] ?? null,
             'notice_status' => $closure['notice_status'] ?? null,
-            'file_storage_location' => $closure['file_storage_location'] ?? null,
+            'committee_file_location' => $model->committee_file_location ?? $closure['file_storage_location'] ?? null,
+            'service_file_location' => $model->service_file_location,
             'closed_by' => $model->closedBy?->name,
         ];
     }

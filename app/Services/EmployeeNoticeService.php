@@ -181,6 +181,33 @@ class EmployeeNoticeService
     }
 
     /**
+     * Stage 100 — the moment the file's latest status change represents, and
+     * the reason recorded with it, for المقرر issuing the notice by hand.
+     *
+     * Read from the same history row the observer fired on, through the same
+     * momentFor(), so a hand-issued notice and the automatic one can never
+     * describe the file's state differently.
+     *
+     * @return array{moment: string, reason: ?string}|null
+     */
+    public function currentMoment(Request $requestRecord): ?array
+    {
+        $latest = RequestStatusHistory::query()
+            ->with(['fromStatus:id,code', 'toStatus:id,code'])
+            ->where('request_id', $requestRecord->getKey())
+            ->latest('id')
+            ->first();
+
+        if ($latest?->toStatus === null) {
+            return null;
+        }
+
+        $moment = $this->momentFor($requestRecord, $latest->fromStatus?->code, $latest->toStatus->code);
+
+        return $moment === null ? null : ['moment' => $moment, 'reason' => $latest->reason];
+    }
+
+    /**
      * The facts a notice may quote, gathered once so the notification class
      * stays a pure renderer of scalars (SystemNotification's own rule).
      *

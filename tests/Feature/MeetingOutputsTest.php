@@ -124,6 +124,7 @@ class MeetingOutputsTest extends TestCase
         // close requests that never reached an agenda), so the refusal now
         // comes from RequestClosureService and reads as Appendix 48's own
         // "لا يجوز إقفال معاملة تحت التنفيذ".
+        $this->archiveFiles($requestRecord);
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertStatus(422);
@@ -138,6 +139,8 @@ class MeetingOutputsTest extends TestCase
             ->assertJsonPath('data.outputs.0.next_action.code', 'close_request')
             ->assertJsonPath('data.outputs.0.can_mark_executed', false)
             ->assertJsonPath('data.outputs.0.can_close', true);
+
+        $this->archiveFiles($requestRecord);
 
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
@@ -170,6 +173,8 @@ class MeetingOutputsTest extends TestCase
             'changed_by_user_id' => $head->id,
         ]);
 
+        $this->archiveFiles($requestRecord);
+
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertStatus(422);
@@ -199,6 +204,8 @@ class MeetingOutputsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.outputs.0.execution_status.code', 'executed');
 
+        $this->archiveFiles($requestRecord);
+
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertStatus(422);
@@ -206,6 +213,8 @@ class MeetingOutputsTest extends TestCase
         $this->assertSame('executed', $requestRecord->fresh()->status->code);
 
         $appeal->update(['appeal_status_id' => AppealStatus::where('code', 'notified_closed')->value('id')]);
+
+        $this->archiveFiles($requestRecord);
 
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
@@ -239,6 +248,8 @@ class MeetingOutputsTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute", $this->executionPayload($requestRecord))
             ->assertStatus(422)
             ->assertJsonValidationErrors('action');
+
+        $this->archiveFiles($requestRecord);
 
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())

@@ -223,6 +223,8 @@ class RequestExecutionTest extends TestCase
             ]))
             ->assertOk();
 
+        $this->archiveFiles($requestRecord);
+
         $this->actingAs($executor, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertOk();
@@ -259,6 +261,7 @@ class RequestExecutionTest extends TestCase
             ->assertOk();
 
         // The closer never answers it — CloseRequest does not accept the key.
+        $this->archiveFiles($requestRecord);
         $this->actingAs($executor, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload(auditOverrides: [
                 'execution_document_attached' => 'no',

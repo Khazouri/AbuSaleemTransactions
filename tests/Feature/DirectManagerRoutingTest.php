@@ -386,8 +386,8 @@ class DirectManagerRoutingTest extends TestCase
             ->assertCreated();
 
         // The grant is still bounded — a role that holds no `register` row
-        // here gets nothing.
-        $outsider = $this->userWithRole('R07');
+        // here gets nothing. Stage 100 gave R06/R07 `notes_attachments,add` (Appendix 6 row 13's supervision), so R10 — a retained login with no duty since Stage 96 — is the role that holds no such grant.
+        $outsider = $this->userWithRole('R10');
         $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr', $this->userWithRole('R01')->id);
 
         $this->actingAs($outsider, 'sanctum')

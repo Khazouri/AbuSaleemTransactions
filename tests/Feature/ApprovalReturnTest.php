@@ -281,6 +281,8 @@ class ApprovalReturnTest extends TestCase
                 'لا يجوز إقفال معاملة أعيدت من جهة الاعتماد.',
             );
 
+        $this->archiveFiles($requestRecord);
+
         $this->actingAs($recorder, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertStatus(422)

@@ -20,7 +20,9 @@ use Illuminate\Validation\Rule;
  * path has some body that settled the matter, the committee itself at minimum.
  *
  * `final_result_code` and `notice_status` are absent by design: the service
- * computes both (see RequestClosureService::close).
+ * computes both (see RequestClosureService::close). So is
+ * `file_storage_location` since Stage 100: Appendix 6 row 15 gives the archive
+ * two owners, and each records its own half through its own endpoint.
  */
 class CloseRequest extends FormRequest
 {
@@ -36,7 +38,6 @@ class CloseRequest extends FormRequest
             'approving_body' => ['required', 'string', 'max:255'],
             'execution_date' => ['nullable', 'date'],
             'executing_body' => ['nullable', 'string', 'max:255'],
-            'file_storage_location' => ['required', 'string', 'max:255'],
             'audit' => ['required', 'array'],
         ];
 
@@ -59,8 +60,6 @@ class CloseRequest extends FormRequest
             'approving_body.max' => 'لا يمكن أن يتجاوز اسم جهة الاعتماد 255 حرفاً.',
             'execution_date.date' => 'صيغة تاريخ التنفيذ غير صحيحة.',
             'executing_body.max' => 'لا يمكن أن يتجاوز اسم الجهة المنفذة 255 حرفاً.',
-            'file_storage_location.required' => 'يجب تحديد موقع حفظ الملف.',
-            'file_storage_location.max' => 'لا يمكن أن يتجاوز موقع الحفظ 255 حرفاً.',
             'audit.required' => 'يجب استيفاء قائمة التدقيق النهائية قبل الإقفال.',
         ];
 

@@ -44,6 +44,8 @@ class RequestClosureTest extends TestCase
         $closer = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
 
+        $this->archiveFiles($requestRecord);
+
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertOk()
@@ -54,7 +56,6 @@ class RequestClosureTest extends TestCase
             ->assertJsonPath('data.closure.approving_body', 'عميد البلدية')
             ->assertJsonPath('data.closure.executing_body', 'إدارة الموارد البشرية')
             ->assertJsonPath('data.closure.final_decision_number', 'PM-DEC/2026/001')
-            ->assertJsonPath('data.closure.file_storage_location', 'أرشيف قسم شؤون الموظفين — خزانة 3')
             ->assertJsonPath('data.closure.closed_by.id', $closer->id)
             ->assertJsonPath('data.closure_eligibility.can_close', false)
             // All twelve of Appendix 47's checks are stored, including the two
@@ -86,6 +87,7 @@ class RequestClosureTest extends TestCase
         $closer = $this->userWithRole('R02');
 
         $refused = $this->requestAt('receive_from_committee', 'not_approved', withDecision: true);
+        $this->archiveFiles($refused);
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$refused->id}/close", $this->closurePayload())
             ->assertOk()
@@ -96,6 +98,7 @@ class RequestClosureTest extends TestCase
         // so it carries no decision, no محضر and nothing to execute — which is
         // exactly why the audit is tri-state rather than a set of booleans.
         $outsideJurisdiction = $this->requestAt('requirements_check', 'outside_jurisdiction');
+        $this->archiveFiles($outsideJurisdiction);
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$outsideJurisdiction->id}/close", $this->closurePayload(auditOverrides: [
                 'minutes_approved' => 'not_applicable',
@@ -136,6 +139,8 @@ class RequestClosureTest extends TestCase
         foreach ($cases as $statusCode => $fragment) {
             $requestRecord = $this->requestAt('receive_from_committee', $statusCode);
 
+            $this->archiveFiles($requestRecord);
+
             $response = $this->actingAs($closer, 'sanctum')
                 ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
                 ->assertStatus(422);
@@ -151,6 +156,7 @@ class RequestClosureTest extends TestCase
         // Anything else that simply hasn't reached a final result falls through
         // to Art. 37's own sentence about the four paths.
         $inReview = $this->requestAt('reviewer_review', 'in_review');
+        $this->archiveFiles($inReview);
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$inReview->id}/close", $this->closurePayload())
             ->assertStatus(422)
@@ -174,12 +180,16 @@ class RequestClosureTest extends TestCase
             'appeal_status_id' => AppealStatus::where('code', 'submitted')->value('id'),
         ]);
 
+        $this->archiveFiles($requestRecord);
+
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertStatus(422)
             ->assertJsonFragment(['message' => 'لا يجوز إقفال معاملة مرتبطة بتظلم مفتوح.']);
 
         $appeal->update(['appeal_status_id' => AppealStatus::where('code', 'notified_closed')->value('id')]);
+
+        $this->archiveFiles($requestRecord);
 
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
@@ -197,6 +207,8 @@ class RequestClosureTest extends TestCase
         $closer = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
 
+        $this->archiveFiles($requestRecord);
+
         $response = $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload(auditOverrides: [
                 'employee_notified' => 'no',
@@ -211,6 +223,8 @@ class RequestClosureTest extends TestCase
         // questions.
         $payload = $this->closurePayload();
         unset($payload['audit']['no_party_awaiting_action']);
+
+        $this->archiveFiles($requestRecord);
 
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $payload)
@@ -228,6 +242,8 @@ class RequestClosureTest extends TestCase
         $closer = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
 
+        $this->archiveFiles($requestRecord);
+
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload(auditOverrides: [
                 'service_file_updated' => 'not_applicable',
@@ -238,20 +254,24 @@ class RequestClosureTest extends TestCase
         $this->assertNull($requestRecord->fresh()->closed_at);
     }
 
-    /** Art. 37's card: جهة الاعتماد and موقع حفظ الملف are not optional. */
-    public function test_the_closure_card_requires_the_approving_body_and_the_archive_location(): void
+    /**
+     * Art. 37's card: جهة الاعتماد is not optional. موقع حفظ الملف left the
+     * card in Stage 100 — Appendix 6 row 15's two owners record it themselves.
+     */
+    public function test_the_closure_card_requires_the_approving_body(): void
     {
         $closer = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
 
         $payload = $this->closurePayload();
         $payload['approving_body'] = '';
-        $payload['file_storage_location'] = '';
+
+        $this->archiveFiles($requestRecord);
 
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $payload)
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['approving_body', 'file_storage_location']);
+            ->assertJsonValidationErrors(['approving_body']);
     }
 
     /** النموذج 18's "لا تقفل المعاملة قبل استكمال البطاقة" is one-shot. */
@@ -260,9 +280,13 @@ class RequestClosureTest extends TestCase
         $closer = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
 
+        $this->archiveFiles($requestRecord);
+
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertOk();
+
+        $this->archiveFiles($requestRecord);
 
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
@@ -298,6 +322,8 @@ class RequestClosureTest extends TestCase
 
         $requestRecord = $this->requestAt('final_approval_archiving', 'executed', withDecision: true, creator: $employee);
 
+        $this->archiveFiles($requestRecord);
+
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload([
                 // Deliberately spoofed: neither is accepted from the client.
@@ -317,6 +343,7 @@ class RequestClosureTest extends TestCase
     public function test_closing_requires_the_meeting_outputs_approve_grant(): void
     {
         $requestRecord = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
+        $this->archiveFiles($requestRecord);
 
         $this->actingAs($this->userWithRole('R04'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
@@ -342,6 +369,8 @@ class RequestClosureTest extends TestCase
         $this->actingAs($hr, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")
             ->assertOk();
+
+        $this->archiveFiles($requestRecord);
 
         $this->actingAs($hr, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload([
@@ -379,6 +408,7 @@ class RequestClosureTest extends TestCase
 
         $closer = $this->userWithRole('R02');
         $executed = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
+        $this->archiveFiles($executed);
 
         $this->actingAs($closer, 'sanctum')
             ->getJson("/api/requests/{$executed->id}")

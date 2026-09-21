@@ -98,7 +98,13 @@ class ScreenRolePermissionSeeder extends Seeder
         // Stage 96 removed them again with the bound itself: R12 is now the
         // only receiving body, because [D] Appendix 6 has no column for the
         // other two.
-        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R12'], 'edit' => ['R02']],
+        //
+        // Stage 100 — R06/R07 join: [D] Appendix 6 row 13 gives جهة الاعتماد
+        // «إشراف حسب الاختصاص» over التنفيذ, and a note on the file is how that
+        // supervision is recorded. Bounded, as for everyone here, by what
+        // RequestVisibility lets them open — the files they approved (R05, the
+        // third tier of that column, already held this grant).
+        'notes_attachments' => ['view' => '*', 'add' => ['R01', 'R02', 'R03', 'R04', 'R05', 'R06', 'R07', 'R12'], 'edit' => ['R02']],
 
         // Stage 58 — appeals against an already-decided request. `view` is
         // broad (like `requests`): the controller scopes the query to the
@@ -245,7 +251,12 @@ class ScreenRolePermissionSeeder extends Seeder
         // would revoke the execution and closure reach that exists for them.
         // Narrowing `view` instead keeps an ordinary employee out while leaving
         // R12 able to do the job the grant was created for.
-        'meeting_outputs' => ['view' => ['R02', 'R03', 'R12'], 'add' => ['R03', 'R04'], 'edit' => ['R02', 'R03'], 'approve' => ['R02', 'R03', 'R12'], 'print' => '*'],
+        //
+        // Stage 100 — `add` gated no route before this stage (checked) and is
+        // reseeded R12 alone: it is الموارد البشرية «مسؤول ملف الخدمة» ([D]
+        // Appendix 6 row 15), the half of the archive المقرر's `edit` tier does
+        // not own. Same move Stage 99 made with meeting_minutes,edit.
+        'meeting_outputs' => ['view' => ['R02', 'R03', 'R12'], 'add' => ['R12'], 'edit' => ['R02', 'R03'], 'approve' => ['R02', 'R03', 'R12'], 'print' => '*'],
 
         // One approval screen per authority — single-role by design, so no one
         // can approve at a level that isn't theirs.

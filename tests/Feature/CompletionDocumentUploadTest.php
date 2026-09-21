@@ -219,8 +219,8 @@ class CompletionDocumentUploadTest extends TestCase
     {
         $requestRecord = $this->presentableRequest();
 
-        // R06 holds no notes_attachments,add.
-        $this->actingAs($this->userWithRole('R06'), 'sanctum')
+        // R10 holds no notes_attachments,add. Stage 100 gave R06/R07 `notes_attachments,add` (Appendix 6 row 13's supervision), so R10 — a retained login with no duty since Stage 96 — is the role that holds no such grant.
+        $this->actingAs($this->userWithRole('R10'), 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}/document-options")
             ->assertForbidden();
     }

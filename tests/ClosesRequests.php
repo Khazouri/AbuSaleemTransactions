@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Models\Request;
 use App\Services\RequestClosureService;
 
 /**
@@ -36,5 +37,21 @@ trait ClosesRequests
             'audit' => [...$audit, ...$auditOverrides],
             ...$overrides,
         ];
+    }
+
+    /**
+     * Stage 100 — both of Appendix 6 row 15's archive records, which closure
+     * now demands. Written directly: each half has its own endpoint and its
+     * own owner, and a test about something else should not have to act as
+     * both owners to finish its story.
+     */
+    protected function archiveFiles(Request $requestRecord): void
+    {
+        $requestRecord->forceFill([
+            'committee_file_location' => 'أرشيف لجنة شؤون الموظفين — ملف 7',
+            'committee_file_archived_at' => now(),
+            'service_file_location' => 'ملف الخدمة — الموارد البشرية',
+            'service_file_archived_at' => now(),
+        ])->save();
     }
 }

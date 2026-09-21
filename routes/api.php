@@ -427,6 +427,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:meeting_outputs,approve')
         ->patch('requests/{requestRecord}/close', [RequestController::class, 'close']);
 
+    // Stage 100 — [D] Appendix 6 row 15: الأرشفة has two مسؤول. ملف اللجنة is
+    // المقرر's (the `edit` tier, R02 + R03); ملف الخدمة is الموارد البشرية's,
+    // on `add` — a tier that gated no route before this stage, reseeded R12.
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->patch('requests/{requestRecord}/archive/committee-file', [RequestController::class, 'archiveCommitteeFile']);
+    Route::middleware('screen.permission:meeting_outputs,add')
+        ->patch('requests/{requestRecord}/archive/service-file', [RequestController::class, 'archiveServiceFile']);
+
+    // Stage 100 — Appendix 6 row 14: المقرر «مسؤول إجرائيًا» for Art. 101's
+    // notices. Issues the notice for the file's current state in المقرر's name.
+    Route::middleware('screen.permission:meeting_outputs,edit')
+        ->post('requests/{requestRecord}/notices/issue', [RequestController::class, 'issueNotice']);
+
     /*
      * Stage 77 — [D] Art. 94 / Appendix 34: the approving body sends the file
      * back, and Art. 94 requires a formal إجراء إعادة معالجة recording both the

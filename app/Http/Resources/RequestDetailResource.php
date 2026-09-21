@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Models\User;
+use App\Services\RequestClosureService;
 use Illuminate\Http\Request;
 
 /** Full read model for one request's Stage 15 workspace. */
@@ -97,6 +99,22 @@ class RequestDetailResource extends RequestResource
                 ] : null,
             ],
             'closure_audit' => $this->closure_audit,
+            // Stage 100 — Appendix 6 row 15's two archive records, each its
+            // owner's own act. `service_file_required` is the closure gate's
+            // own condition, so the screen asks only for what closure demands.
+            'archive' => [
+                'committee_file' => $this->archiveRecord(
+                    $this->committee_file_location,
+                    $this->committee_file_archived_at,
+                    $this->committeeFileArchivedBy,
+                ),
+                'service_file' => $this->archiveRecord(
+                    $this->service_file_location,
+                    $this->service_file_archived_at,
+                    $this->serviceFileArchivedBy,
+                ),
+                'service_file_required' => app(RequestClosureService::class)->requiresServiceFileArchive($this->resource),
+            ],
             // Appendix 48's refusal, computed once here so the screen's "why
             // this cannot be closed" and the endpoint's own 422 are the same
             // sentence. Deliberately on the detail resource only — list
@@ -162,6 +180,20 @@ class RequestDetailResource extends RequestResource
             // them per row is exactly the N+1 TimeCardCompiler exists to
             // avoid.
             'time_card' => $this->time_card ?? [],
+        ];
+    }
+
+    /** @return array{location: string, archived_at: ?string, archived_by: ?array{id: int, name: string}}|null */
+    private function archiveRecord(?string $location, mixed $archivedAt, ?User $archivedBy): ?array
+    {
+        if ($location === null) {
+            return null;
+        }
+
+        return [
+            'location' => $location,
+            'archived_at' => $archivedAt?->toIso8601String(),
+            'archived_by' => $archivedBy ? ['id' => $archivedBy->id, 'name' => $archivedBy->name] : null,
         ];
     }
 }

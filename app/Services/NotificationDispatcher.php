@@ -240,11 +240,11 @@ class NotificationDispatcher
      *
      * @param  array{meeting_number: ?string, required_completion: ?string, detail: ?string}  $context
      */
-    public function requestNotice(Request $requestRecord, string $moment, array $context = [], ?int $actorId = null): void
+    public function requestNotice(Request $requestRecord, string $moment, array $context = [], ?int $actorId = null, ?string $issuedBy = null): void
     {
         $this->send(
             $this->subjectOf($requestRecord, $actorId === null ? [] : [$actorId]),
-            new RequestNoticeNotification($requestRecord, $moment, $context),
+            new RequestNoticeNotification($requestRecord, $moment, $context, $issuedBy),
         );
     }
 

@@ -34,5 +34,4 @@ export const CLOSURE_FIELDS = [
   'execution_date',
   'executing_body',
   'notice_status',
-  'file_storage_location',
 ]

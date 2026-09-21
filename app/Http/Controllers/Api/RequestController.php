@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Request\ArchiveFileRequest;
 use App\Http\Requests\Request\CloseRequest;
 use App\Http\Requests\Request\IndexRequest;
 use App\Http\Requests\Request\LiftSuspensionRequest;
@@ -38,6 +39,7 @@ use App\Services\ApprovalReferralService;
 use App\Services\ApprovalReturnService;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\EmployeeNoticeRegister;
+use App\Services\EmployeeNoticeService;
 use App\Services\EmploymentFilePreparationService;
 use App\Services\ExecutionSoundnessService;
 use App\Services\IntakeGateService;
@@ -751,6 +753,18 @@ class RequestController extends Controller
             ]);
         }
 
+        // Stage 100 — both archive records, for the same reason, and outside
+        // the guard above: a file can be archived on a closable status and
+        // reopened (not_approved is both) before anyone closed it.
+        $requestRecord->update([
+            'committee_file_location' => null,
+            'committee_file_archived_by_user_id' => null,
+            'committee_file_archived_at' => null,
+            'service_file_location' => null,
+            'service_file_archived_by_user_id' => null,
+            'service_file_archived_at' => null,
+        ]);
+
         // Stage 76 — the same rule one step earlier, for the same reason: a
         // reopened request that carries the previous lap's execution record
         // would be refused a second, genuine execution by that stage's one-shot
@@ -859,6 +873,85 @@ class RequestController extends Controller
         } catch (DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
+
+        return $this->detailResource($requestRecord, $workflow, $actor);
+    }
+
+    /** Stage 100 — Appendix 6 row 15: المقرر «مسؤول ملف اللجنة». */
+    public function archiveCommitteeFile(
+        ArchiveFileRequest $request,
+        Request $requestRecord,
+        RequestClosureService $closure,
+        WorkflowService $workflow,
+    ): RequestDetailResource|JsonResponse {
+        return $this->recordArchive($request, $requestRecord, $closure, $workflow, 'committee');
+    }
+
+    /** Stage 100 — Appendix 6 row 15: الموارد البشرية «مسؤول ملف الخدمة». */
+    public function archiveServiceFile(
+        ArchiveFileRequest $request,
+        Request $requestRecord,
+        RequestClosureService $closure,
+        WorkflowService $workflow,
+    ): RequestDetailResource|JsonResponse {
+        return $this->recordArchive($request, $requestRecord, $closure, $workflow, 'service');
+    }
+
+    /** @param  'committee'|'service'  $file */
+    private function recordArchive(
+        ArchiveFileRequest $request,
+        Request $requestRecord,
+        RequestClosureService $closure,
+        WorkflowService $workflow,
+        string $file,
+    ): RequestDetailResource|JsonResponse {
+        $requestRecord->loadMissing('status:id,code');
+
+        try {
+            $closure->archive($requestRecord, $request->user(), $file, $request->validated('location'));
+        } catch (DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return $this->detailResource($requestRecord, $workflow, $request->user());
+    }
+
+    /**
+     * Stage 100 — [D] Appendix 6 row 14: المقرر is «مسؤول إجرائيًا» for
+     * Art. 101's notices.
+     *
+     * The notices themselves stay automatic — RequestStatusNoticeObserver is
+     * what makes one impossible to forget. This is the human half: المقرر
+     * issues the notice for the file's CURRENT state in their own name, for
+     * what the automatic send cannot cover (an employee whose account was
+     * inactive when it fired, a notice to be repeated on request). The moment
+     * comes from the same EmployeeNoticeService mapping the observer uses, so
+     * المقرر cannot issue a notice the file's state does not warrant.
+     */
+    public function issueNotice(
+        HttpRequest $request,
+        Request $requestRecord,
+        EmployeeNoticeService $notices,
+        NotificationDispatcher $dispatcher,
+        WorkflowService $workflow,
+    ): RequestDetailResource|JsonResponse {
+        $actor = $request->user();
+        $current = $notices->currentMoment($requestRecord);
+
+        if ($current === null) {
+            return response()->json(['message' => 'لا تستوجب حالة المعاملة الحالية إشعارًا وفق المادة 101.'], 422);
+        }
+
+        if (! $requestRecord->subject?->is_active) {
+            return response()->json(['message' => 'لا يمكن إشعار صاحب العلاقة: لا يوجد له حساب مفعّل.'], 422);
+        }
+
+        $dispatcher->requestNotice(
+            $requestRecord,
+            $current['moment'],
+            $notices->contextFor($requestRecord, $current['moment'], $current['reason']),
+            issuedBy: $actor->name,
+        );
 
         return $this->detailResource($requestRecord, $workflow, $actor);
     }
@@ -1276,6 +1369,9 @@ class RequestController extends Controller
             'latestLegalReview.reviewedBy:id,name',
             // Stage 75 — النموذج 18's مسؤول الإقفال, named on the closure card.
             'closedBy:id,name',
+            // Stage 100 — Appendix 6 row 15's two archive owners.
+            'committeeFileArchivedBy:id,name',
+            'serviceFileArchivedBy:id,name',
             // Stage 76 — النموذج 17's executing officer.
             'executedBy:id,name',
             // Stage 77 — every round of Art. 94's إجراء إعادة معالجة, oldest

@@ -13,6 +13,93 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-21 18:36 EET — Claude — Stage 100 complete (الإشعار ownership, الأرشفة, execution oversight — Appendix 6 rows 13–15)
+
+Built per the plan below. One migration (six `requests` columns) applied to the real MySQL; the
+`ScreenRolePermissionSeeder` reseed confirmed by query (`meeting_outputs,add` = R12 [+R08];
+`notes_attachments,add` now includes R06/R07). Full suite **719 tests / 4653 assertions** (baseline
+711/4625: +8 new in `NoticeArchiveOversightTest`, the rest fixture updates), Pint clean on every touched
+file, `npm run build` passes (`frontend/dist` reverted), locale parity **2010 keys each side**. **No live
+HTTP smoke run** — the three routes were confirmed registered, the behaviour by feature tests only.
+
+**Row 15.** Two archive records, each written by its owner through its own endpoint while the file stands
+on a closable status and is not closed: `archive/committee-file` (`meeting_outputs,edit`, المقرر) and
+`archive/service-file` (`meeting_outputs,add`, which gated no route and is now R12's alone). Closure
+(`RequestClosureService::refusalReason()`) refuses until the committee file is archived and — only when the
+file carries a recorded decision, the same condition Appendix 48 cond. 8 uses — the service file too. The
+closure card's `file_storage_location` is **gone from the request side** (the appeal closure keeps its own,
+untouched); Appendix 47 #12 is derived. `ClosureRegister` prints both locations, falling back to a
+pre-Stage-100 closure's single location under the committee file. `reopen()` clears both records
+**unconditionally**, not inside the `closed_at` guard — `not_approved` is both closable and reopenable, so a
+file can be archived and reopened without ever being closed.
+
+**Row 14.** `POST requests/{r}/notices/issue` (`meeting_outputs,edit`) issues Art. 101's notice for the
+moment the file's **latest status-history row** represents, through the same `momentFor()` the observer
+uses (new `EmployeeNoticeService::currentMoment()`), so a hand-issued notice cannot describe a state the
+automatic one wouldn't. Payload carries `issued_by`; the register shows it. Refused (422) for a state Art. 101
+doesn't name, or an inactive/absent صاحب العلاقة. The automatic send is untouched.
+
+**Row 13.** One `RequestVisibility` clause: a user with an `approvals.approved_by_user_id` row on a file sees
+it while it is `in_execution`/`executed`/`execution_suspended`/`completed_closed`. R06/R07 joined
+`notes_attachments,add` (R05 already held it) so supervision can be written on the file.
+
+**Three pre-existing tests used R06/R07 as "the role with no `notes_attachments,add`"** and now get 404
+(visibility) instead of 403 — switched to R10, a retained login with no duty since Stage 96, commented in
+place. The closure fixtures gained `Tests\ClosesRequests::archiveFiles()`, inserted before each request close.
+
+**Open items.** (1) **The employee_notified checkbox is still an attestation** in the execution and closure
+cards; deriving it from the register was considered and left — the closure moment's own notice fires only
+after closure, and a rule for "notified of the result" is a decision, not a lookup. (2) **`meeting_outputs`
+screen stays invisible to R05–R07** — it is meeting-picked and they hold no seat; supervision lives on the
+request workspace. (3) **Stage 101 is the last Track N stage.** Scripting gotcha re-hit: backslashes in a
+node heredoc collapse (`\` → `\`), so `use App\...` replacements silently matched nothing — imports were
+added with the editor.
+
+---
+
+### 2026-09-21 18:10 EET — Claude — Implementation plan: Stage 100 (الإشعار ownership, الأرشفة, execution oversight — Appendix 6 rows 13–15)
+
+Three ownerless duties get a holder. **One migration (six columns on `requests`), one grant reseeded,
+two grants widened, no new screen, no new status.** (Clock note: the machine reads 18:10 while the
+Stage 99 entry below is stamped 18:40 — the stamps drifted ahead again; position is the ordering.)
+
+**Row 15 — الأرشفة split into its two مسؤول halves.** Six columns: `committee_file_location/_archived_by_user_id/_archived_at`
+(المقرر «مسؤول ملف اللجنة») and `service_file_location/...` (الموارد البشرية «مسؤول ملف الخدمة»), each written by
+its own endpoint while the file sits on one of Art. 37's closable statuses and is not yet closed (overwrites —
+the Stage 78 precedent). Committee file rides `meeting_outputs,edit` (R02+R03, the المقرر grant every Art.
+30/103/105 act already rides). Service file rides **`meeting_outputs,add`, which gates no route today**
+(checked) and is reseeded `['R12']` — the same move Stage 99 made with `meeting_minutes,edit`. Closure refuses
+until the committee file is archived, and the service file too **when the file carries a recorded decision** —
+the exact condition Appendix 48 condition 8 already uses for `service_file_updated`, so a Path 3 pre-committee
+عدم اختصاص is not asked to archive a service file nothing touched. The closure card's free-text
+`file_storage_location` goes; Appendix 47 #12 stays derived, now from the two records. **Track K scope
+decision (1) is restated, not crossed:** ملف الخدمة lives outside this app, so HR's record is where the
+service-file copy was filed, attested by the party that owns it — not a model of the file.
+
+**Row 14 — المقرر «مسؤول إجرائيًا» for الإشعار.** Art. 101's notices stay automatic (Stage 79's observer is
+right to make them unforgettable); what was missing is a human who answers for them. New `POST
+requests/{r}/notices/issue` (`meeting_outputs,edit`) issues Art. 101's notice for the file's **current**
+state — the moment the latest status row represents, via the same `EmployeeNoticeService::momentFor()` the
+observer uses — for the cases the automatic send cannot cover (an employee reactivated after the notice fired,
+a notice to be repeated on request). The notice carries `issued_by`, and the register on the request shows it,
+so the file records who stood behind a notice rather than only that the system sent one. Refused when the
+current state is not one of Art. 101's twelve, or صاحب العلاقة has no active account.
+
+**Row 13 — جهة الاعتماد «إشراف حسب الاختصاص».** One bounded `RequestVisibility` clause: a user who signed an
+`approvals` row on a file keeps sight of it through execution (`in_execution`, `executed`,
+`execution_suspended`, `completed_closed`). «حسب الاختصاص» read as *the files they approved*, which is the
+approval ledger itself — no role list. R06/R07 join `notes_attachments,add` (R05 already holds it) so
+supervision can be recorded on the file, bounded by that same visibility. `meeting_outputs,view` is **not**
+widened: that screen is meeting-picked and the approvers hold no committee seat, so it would open onto an
+empty picker.
+
+**Verify:** new `tests/Feature/NoticeArchiveOversightTest.php`, a `archiveFiles()` helper on
+`Tests\ClosesRequests` for the closure fixtures (a legitimate update — closure now requires the archive), the
+full suite (baseline 711/4625), Pint, `npm run build` (revert `frontend/dist`), locale parity, migration +
+`ScreenRolePermissionSeeder` reseed against the real MySQL.
+
+---
+
 ### 2026-09-21 18:40 EET — Claude — Stage 99 complete (the committee's own acts — Appendix 6 rows 8–11)
 
 Built per the plan below. One migration (`meetings.agenda_adopted_*`, `meeting_minutes.legal_review_*`),
