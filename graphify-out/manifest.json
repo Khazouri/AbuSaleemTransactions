@@ -1692,10 +1692,10 @@
     "semantic_hash": "d380c9525078dee369319847dad485a3"
   },
   "app/Services/Maintenance/MaintenanceBootstrapper.php": {
-    "mtime": 1788959124.3776443,
-    "seen": 1789906551.3735607,
-    "ast_hash": "51bcaf00968cf89146c25c688e40f608",
-    "semantic_hash": "51bcaf00968cf89146c25c688e40f608"
+    "mtime": 1790025669.8749242,
+    "seen": 1790025723.9263911,
+    "ast_hash": "dafa27b20341d1f168e943732a81af64",
+    "semantic_hash": ""
   },
   "app/Services/Maintenance/MaintenanceCommandCatalog.php": {
     "mtime": 1788948983.6260312,
@@ -3576,10 +3576,10 @@
     "semantic_hash": ""
   },
   "tests/Feature/MaintenanceBootstrapTest.php": {
-    "mtime": 1788959249.2874992,
-    "seen": 1789906551.373839,
-    "ast_hash": "c0ed693f55160f6b2d4407a0b7a5323c",
-    "semantic_hash": "c0ed693f55160f6b2d4407a0b7a5323c"
+    "mtime": 1790025690.5302238,
+    "seen": 1790025723.9272327,
+    "ast_hash": "1a8a253691e27743e1fc0778ff24088c",
+    "semantic_hash": ""
   },
   "tests/Feature/MaintenanceConsoleTest.php": {
     "mtime": 1788949917.6067116,
