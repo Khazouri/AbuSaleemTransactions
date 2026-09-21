@@ -240,9 +240,9 @@
     "semantic_hash": "0bfd58d02b2a71ebf5beea37db927779"
   },
   "app/Http/Controllers/Api/RequestController.php": {
-    "mtime": 1790003902.2125442,
-    "seen": 1790004931.0763686,
-    "ast_hash": "4dcc5dcb82f98e6f341d74bb4d1749f0",
+    "mtime": 1789937077.8949997,
+    "seen": 1789939319.2497013,
+    "ast_hash": "3083ed13dd83026930a8fb7c45190ee6",
     "semantic_hash": ""
   },
   "app/Http/Controllers/Api/RequestDraftController.php": {
@@ -1272,9 +1272,9 @@
     "semantic_hash": "f1761c372f90fa0426dcb420b5bef0f4"
   },
   "app/Models/Request.php": {
-    "mtime": 1790003304.0551612,
-    "seen": 1790004931.0766716,
-    "ast_hash": "90974492c195bfe92337387f296180b9",
+    "mtime": 1789937826.9618142,
+    "seen": 1789939319.2499259,
+    "ast_hash": "0acd57d61c23a167a005d30e714358a0",
     "semantic_hash": ""
   },
   "app/Models/RequestCorrection.php": {
@@ -1608,10 +1608,10 @@
     "semantic_hash": ""
   },
   "app/Services/DocumentCompletenessService.php": {
-    "mtime": 1790003337.2639663,
-    "seen": 1790004931.0767868,
-    "ast_hash": "80674e95806a9dbc34049039e4289dbf",
-    "semantic_hash": ""
+    "mtime": 1789753380.7250714,
+    "seen": 1789906551.3735487,
+    "ast_hash": "80d18da4d5e73fe9033f592eadd71781",
+    "semantic_hash": "80d18da4d5e73fe9033f592eadd71781"
   },
   "app/Services/EmployeeNoticeRegister.php": {
     "mtime": 1789936899.0692325,
@@ -1944,9 +1944,9 @@
     "semantic_hash": "831cd37887b8225e5251daa5f9fad474"
   },
   "app/Services/RequestVisibility.php": {
-    "mtime": 1790003460.6810238,
-    "seen": 1790004931.0768778,
-    "ast_hash": "b101cc90a8f34b1c222e593ca4d8bfc6",
+    "mtime": 1789936710.5420618,
+    "seen": 1789939319.2500854,
+    "ast_hash": "9c99314fa124a63c4b264ac4cd6264aa",
     "semantic_hash": ""
   },
   "app/Services/Sms/LogSmsSender.php": {
@@ -2838,9 +2838,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/IntakeGatePanel.vue": {
-    "mtime": 1790003818.188176,
-    "seen": 1790004931.0771804,
-    "ast_hash": "784b25942ea0345a04b2d442a853e839",
+    "mtime": 1789914871.6470718,
+    "seen": 1789922867.1800544,
+    "ast_hash": "06da1b58359b1f003d30fac6f1040027",
     "semantic_hash": ""
   },
   "frontend/src/components/MeetingSchedulingWizard.vue": {
@@ -3006,15 +3006,15 @@
     "semantic_hash": "0ac3f7f4ef5399e84b835e349a8dd52f"
   },
   "frontend/src/locales/ar.json": {
-    "mtime": 1790003857.4681704,
-    "seen": 1790004931.0772696,
-    "ast_hash": "3dcc9e94f0a2c3e7ce17f1b7ef9ec205",
+    "mtime": 1789938381.7297938,
+    "seen": 1789939319.2503378,
+    "ast_hash": "4cfb03889cc1394890923ac2c99884d8",
     "semantic_hash": ""
   },
   "frontend/src/locales/en.json": {
-    "mtime": 1790003857.4710991,
-    "seen": 1790004931.0772717,
-    "ast_hash": "4b4c08d14652aa4cf3d5f903fa1ff7cd",
+    "mtime": 1789938381.7356205,
+    "seen": 1789939319.2503388,
+    "ast_hash": "f55d91822c88befc7e9399b236c28892",
     "semantic_hash": ""
   },
   "frontend/src/main.js": {
@@ -3186,9 +3186,9 @@
     "semantic_hash": ""
   },
   "frontend/src/views/RequestDetailView.vue": {
-    "mtime": 1790003876.6828306,
-    "seen": 1790004931.0773442,
-    "ast_hash": "af26136f8bd812bf33ced08dd7fb1993",
+    "mtime": 1789938368.2552104,
+    "seen": 1789939319.2503755,
+    "ast_hash": "b4cc076f2496d57621e3818483f1d6d7",
     "semantic_hash": ""
   },
   "frontend/src/views/RequestIntakeView.vue": {
@@ -3282,9 +3282,9 @@
     "semantic_hash": "c3cc46536fea38a344791488e7106cf3"
   },
   "routes/api.php": {
-    "mtime": 1790003407.841503,
-    "seen": 1790004931.0773857,
-    "ast_hash": "3dd2836d0a29682abec85b8698ab7e17",
+    "mtime": 1789933749.2818668,
+    "seen": 1789934985.214835,
+    "ast_hash": "a83bbd145b7ed803425ec95f84201947",
     "semantic_hash": ""
   },
   "routes/console.php": {
@@ -3696,10 +3696,10 @@
     "semantic_hash": ""
   },
   "tests/Feature/RequestDraftTest.php": {
-    "mtime": 1790004250.0048459,
-    "seen": 1790004931.077559,
-    "ast_hash": "bce92cce68fad5d0bc089827f0d1fd96",
-    "semantic_hash": ""
+    "mtime": 1789767569.9853678,
+    "seen": 1789906551.3738565,
+    "ast_hash": "fb40f84871f77a5a911e160bc0b7e04d",
+    "semantic_hash": "fb40f84871f77a5a911e160bc0b7e04d"
   },
   "tests/Feature/RequestExecutionTest.php": {
     "mtime": 1789814240.4253535,
@@ -3822,10 +3822,10 @@
     "semantic_hash": ""
   },
   "tests/PassesControlGates.php": {
-    "mtime": 1790003489.931492,
-    "seen": 1790004931.0776136,
-    "ast_hash": "282ede068fc0da24946323d41001a4a1",
-    "semantic_hash": ""
+    "mtime": 1789820686.63153,
+    "seen": 1789906551.3738825,
+    "ast_hash": "43309deb9c4a902e929f65a5b58f2809",
+    "semantic_hash": "43309deb9c4a902e929f65a5b58f2809"
   },
   "tests/RecordsStructuredDecisions.php": {
     "mtime": 1789925231.0834773,
@@ -3894,9 +3894,9 @@
     "semantic_hash": ""
   },
   "AGENT_NOTES.md": {
-    "mtime": 1790004866.7955704,
-    "seen": 1790004931.0776453,
-    "ast_hash": "c0484823fa0808d0615819680c5d4b0f",
+    "mtime": 1789939266.3901174,
+    "seen": 1789939319.2505317,
+    "ast_hash": "c23b7dde559ba966f7c6d042beb514b4",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -3912,9 +3912,9 @@
     "semantic_hash": ""
   },
   "STAGE_PLAN.md": {
-    "mtime": 1790004702.8146296,
-    "seen": 1790004931.0776534,
-    "ast_hash": "1be0733b37f573c0aa6df3f3c87360d0",
+    "mtime": 1789939114.29899,
+    "seen": 1789939319.250536,
+    "ast_hash": "79e6d128b4af16fea578756fb8721340",
     "semantic_hash": ""
   },
   "TEST_PLAN.ar.md": {
@@ -4011,30 +4011,6 @@
     "mtime": 1789938305.1035829,
     "seen": 1789939319.2504973,
     "ast_hash": "325d33106e84c775c63573dfcdf95876",
-    "semantic_hash": ""
-  },
-  "app/Http/Requests/Request/PrepareEmploymentFileRequest.php": {
-    "mtime": 1790003357.2296667,
-    "seen": 1790004931.0765235,
-    "ast_hash": "4dddf3179f0194e60cbbdc5271b44edf",
-    "semantic_hash": ""
-  },
-  "app/Services/EmploymentFilePreparationService.php": {
-    "mtime": 1790003275.7790885,
-    "seen": 1790004931.0767915,
-    "ast_hash": "9bb1966d989a118d370f8f23580bb3b0",
-    "semantic_hash": ""
-  },
-  "database/migrations/2026_09_21_010000_add_employment_file_to_requests_table.php": {
-    "mtime": 1790003197.0764978,
-    "seen": 1790004931.0770922,
-    "ast_hash": "1634cf1dfb653eec8b5e6e0f23491b1b",
-    "semantic_hash": ""
-  },
-  "tests/Feature/EmploymentFilePreparationTest.php": {
-    "mtime": 1790003612.505089,
-    "seen": 1790004931.077486,
-    "ast_hash": "7cd59ac613c0e5b2f687632d4ffed2a9",
     "semantic_hash": ""
   }
 }
