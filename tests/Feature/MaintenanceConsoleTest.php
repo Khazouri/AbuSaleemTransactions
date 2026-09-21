@@ -37,6 +37,23 @@ class MaintenanceConsoleTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
+    /** Known-password logins are offered and accepted only while APP_DEBUG is on. */
+    public function test_the_test_user_seeder_exists_only_when_app_debug_is_on(): void
+    {
+        config()->set('app.debug', false);
+        $this->assertNotContains('db:seed:test-users', MaintenanceCommandCatalog::codes());
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-users'])
+            ->assertStatus(422);
+        $this->assertNull(User::query()->where('email', 'r01.employee@abusaleem.test')->first());
+
+        config()->set('app.debug', true);
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-users'])
+            ->assertOk();
+        $this->assertNotNull(User::query()->where('email', 'r01.employee@abusaleem.test')->first());
+    }
+
     public function test_the_screen_reports_the_hosts_own_limits_and_the_command_catalogue(): void
     {
         $this->actingAs($this->admin(), 'sanctum')

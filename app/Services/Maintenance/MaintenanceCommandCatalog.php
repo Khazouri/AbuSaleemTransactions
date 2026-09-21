@@ -89,6 +89,20 @@ class MaintenanceCommandCatalog
             'description_ar' => 'تشغيل DatabaseSeeder: الأدوار والشاشات والصلاحيات ومراحل سير العمل. كل البذور تستخدم updateOrCreate فلا تُنشئ صفوفاً مكررة — شغّلها بعد أي ترحيل يضيف شاشة أو صلاحية.',
             'description_en' => 'Runs DatabaseSeeder — roles, screens, permissions, workflow stages. Every seeder uses updateOrCreate, so re-running never duplicates rows. Run it after any migration that adds a screen or a grant.',
         ],
+        'db:seed:test-users' => [
+            'kind' => self::KIND_ARTISAN,
+            'artisan' => 'db:seed',
+            'params' => ['--class' => 'TestUserSeeder', '--force' => true],
+            'group' => 'database',
+            'destructive' => false,
+            // Offered (and runnable) only while APP_DEBUG=true: these are
+            // known-password logins, which a production host must never mint.
+            'debug_only' => true,
+            'label_ar' => 'زراعة حسابات الاختبار',
+            'label_en' => 'Seed test users',
+            'description_ar' => 'إنشاء حساب اختبار لكل دور بكلمة المرور password. متاح فقط عند APP_DEBUG=true.',
+            'description_en' => 'Creates one test account per role, password "password". Only available while APP_DEBUG=true.',
+        ],
         'migrate:rollback' => [
             'kind' => self::KIND_ARTISAN,
             'artisan' => 'migrate:rollback',
@@ -322,15 +336,28 @@ class MaintenanceCommandCatalog
     /** The order groups render in; anything unlisted falls to the end. */
     public const GROUPS = ['database', 'cache', 'app', 'dependencies', 'diagnostics'];
 
+    /**
+     * The commands this host may run: debug-only entries drop out unless
+     * APP_DEBUG is on, so they are neither listed nor accepted.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function available(): array
+    {
+        return config('app.debug')
+            ? self::COMMANDS
+            : array_filter(self::COMMANDS, fn (array $d) => empty($d['debug_only']));
+    }
+
     public static function has(string $code): bool
     {
-        return array_key_exists($code, self::COMMANDS);
+        return array_key_exists($code, self::available());
     }
 
     /** @return array<string, mixed>|null */
     public static function find(string $code): ?array
     {
-        return self::COMMANDS[$code] ?? null;
+        return self::available()[$code] ?? null;
     }
 
     public static function isDestructive(string $code): bool
@@ -341,7 +368,7 @@ class MaintenanceCommandCatalog
     /** @return array<int, string> */
     public static function codes(): array
     {
-        return array_keys(self::COMMANDS);
+        return array_keys(self::available());
     }
 
     /**
@@ -355,7 +382,7 @@ class MaintenanceCommandCatalog
     {
         $rows = [];
 
-        foreach (self::COMMANDS as $code => $definition) {
+        foreach (self::available() as $code => $definition) {
             $rows[] = [
                 'code' => $code,
                 'kind' => $definition['kind'],
