@@ -1686,10 +1686,10 @@
     "semantic_hash": "61a13f00592adf9acd76d5bd431a6192"
   },
   "app/Services/Maintenance/EnvironmentProbe.php": {
-    "mtime": 1788949037.0668666,
-    "seen": 1789906551.3735597,
-    "ast_hash": "d380c9525078dee369319847dad485a3",
-    "semantic_hash": "d380c9525078dee369319847dad485a3"
+    "mtime": 1790027121.204024,
+    "seen": 1790027180.17561,
+    "ast_hash": "24e10baad904ba67915a18587d24ac04",
+    "semantic_hash": ""
   },
   "app/Services/Maintenance/MaintenanceBootstrapper.php": {
     "mtime": 1790025669.8749242,
@@ -1698,16 +1698,16 @@
     "semantic_hash": ""
   },
   "app/Services/Maintenance/MaintenanceCommandCatalog.php": {
-    "mtime": 1788948983.6260312,
-    "seen": 1789906551.3735614,
-    "ast_hash": "44be46b21f9ae2669211e6fdb150c9e5",
-    "semantic_hash": "44be46b21f9ae2669211e6fdb150c9e5"
+    "mtime": 1790026769.9260643,
+    "seen": 1790026828.6896095,
+    "ast_hash": "4ed72ff9d477d7c8b0ded77cfe835205",
+    "semantic_hash": ""
   },
   "app/Services/Maintenance/MaintenanceRunner.php": {
-    "mtime": 1788949101.3109257,
-    "seen": 1789906551.373562,
-    "ast_hash": "91580476ec7096e8ad8c17457272582d",
-    "semantic_hash": "91580476ec7096e8ad8c17457272582d"
+    "mtime": 1790027121.2030396,
+    "seen": 1790027180.1756136,
+    "ast_hash": "c9982af61cdd49eb57cd488d7585aece",
+    "semantic_hash": ""
   },
   "app/Services/MeetingMinutesCompiler.php": {
     "mtime": 1789820481.4068525,
@@ -3582,10 +3582,10 @@
     "semantic_hash": ""
   },
   "tests/Feature/MaintenanceConsoleTest.php": {
-    "mtime": 1788949917.6067116,
-    "seen": 1789906551.3738396,
-    "ast_hash": "a1ca61fdf2bf72485d2fa540caf64cad",
-    "semantic_hash": "a1ca61fdf2bf72485d2fa540caf64cad"
+    "mtime": 1790026783.140708,
+    "seen": 1790026828.6901052,
+    "ast_hash": "628d224ddce740f72b19bf7edbcdf860",
+    "semantic_hash": ""
   },
   "tests/Feature/MeetingAgendaBuilderTest.php": {
     "mtime": 1789754660.542406,
@@ -4101,6 +4101,12 @@
     "mtime": 1790021362.2636025,
     "seen": 1790021821.6672988,
     "ast_hash": "8146d972339e0bde8a8c453701a03a67",
+    "semantic_hash": ""
+  },
+  "app/Services/Maintenance/BinaryLocator.php": {
+    "mtime": 1790027106.368526,
+    "seen": 1790027180.1756074,
+    "ast_hash": "0521f627b73663cc5418608b82dff46f",
     "semantic_hash": ""
   }
 }

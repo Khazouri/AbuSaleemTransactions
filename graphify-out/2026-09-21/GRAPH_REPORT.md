@@ -1,24 +1,24 @@
 # Graph Report - AbuSaleemTransactions  (2026-09-21)
 
 ## Corpus Check
-- 678 files · ~664,063 words
+- 678 files · ~664,423 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 25 file(s) not represented in the graph (top: (none) 19, .example 2, .css 2)
+- Unclassified: 26 file(s) not represented in the graph (top: (none) 20, .example 2, .css 2)
 
 ## Summary
-- 6245 nodes · 17124 edges · 403 communities (138 shown, 265 thin omitted)
-- Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 2254 edges (avg confidence: 0.93)
+- 6249 nodes · 17135 edges · 380 communities (169 shown, 211 thin omitted)
+- Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 2289 edges (avg confidence: 0.93)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `69974237`
+- Built from commit: `bdfd8d30`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - Department
 - vue
-- StoreRequest
+- Illuminate\Database\Seeder
 - Illuminate\Foundation\Http\FormRequest
 - Illuminate\Http\Request
 - RequestDetailView.vue
@@ -26,26 +26,26 @@
 - Illuminate\Database\Eloquent\Relations\BelongsTo
 - AppealsView.vue
 - api.js
-- RequestSoundnessPanel.vue
+- MeetingMinutesView.vue
 - RequestDraft
-- Illuminate\Database\Eloquent\Builder
+- AgendaRegister
 - RequestIntakeView.vue
 - WorkflowService
-- NotificationsView.vue
+- TRACK N — Appendix 6 (مصفوفة المسؤوليات RACI) conformance (Stages 94–101)
 - CommitteeStatusService
-- DocumentCompletenessService
+- Request
 - MeetingLiveView.vue
 - composer.json
 - NotificationDispatcher
-- Illuminate\Database\Seeder
+- NotificationsView.vue
 - ReportsView.vue
-- RequestDetailTest
+- RequestStageLog
 - Illuminate\Database\Eloquent\Model
 - loadMeeting
 - MeetingAgendaBuilderView.vue
 - AgendaItemDecisionPanel.vue
-- MeetingMinutesView.vue
 - MeetingReadinessView.vue
+- frontend/package.json
 - MeetingsView.vue
 - Screen
 - AppTopbar.vue
@@ -53,7 +53,7 @@
 - MeetingMinutesCompiler
 - AppealTest
 - MeetingDetailView.vue
-- MeetingOutputsView.vue
+- RequestClosurePanel.vue
 - DecisionsView.vue
 - MaintenanceView.vue
 - TRACK I — Employee Affairs Committee Official Process Alignment
@@ -62,39 +62,39 @@
 - DecisionEligibility
 - RequestLifecyclePanel.vue
 - AuditLog
-- NotificationSetting
+- EmployeeNoticeTest
 - ReportDocument
 - RequestTrackingView.vue
 - RegisterTest
 - RequestTypesView.vue
-- MeetingRequest
+- StudySequenceRules
 - GuideView.vue
 - UsersView.vue
 - package.json
 - AuditLogView.vue
 - ControlGateTest
 - .requestAtStage
-- Backup
+- AppServiceProvider.php
 - RequestSubjectTest
 - ApprovalReturnsRegister
 - CommitteeCandidatesView.vue
-- MeetingVisibility
-- EmployeeNoticeTest
+- CommitteeMember
+- TemplateController.php
 - RegistersView.vue
-- MeetingReadinessTest
+- Illuminate\Support\Collection
 - vue-i18n
 - RequestsView.vue
 - LegalReviewView.vue
 - PeriodicReportService
-- ExportAuditLogRequest
+- SystemNotification
 - MaintenanceRun
 - DepartmentsView.vue
 - TemplatesView.vue
-- .applyRule
+- RequestVisibility
 - DocumentCompletenessTest
 - ReportMetricsService
 - .collect
-- Request
+- User
 - StudySequenceTest
 - RequestExecutionPanel.vue
 - AppealOutcomeExecutionTest
@@ -113,48 +113,48 @@
 - AppealCommitteePresentationTest
 - Abu Saleem Request System — Staged Local Build Plan
 - CommitteeVotingRules
-- ApprovalReferralsRegister
-- 2026-09-19 23:10 EET — Claude — Per-row scoping, a unified task inbox, and a membership-gated meetings section — complete
+- AppealsRegister
+- AppealJurisdictionReviewTest
 - .app
 - FilerAttachmentsAndReturnTest
 - ApprovalReferralPanel.vue
 - RequestLegalReviewTest
 - .requestAt
-- Illuminate\Database\Eloquent\Relations\HasMany
+- RequestTrackingTest
 - EarlyWarningService
 - Test plan — Abu Saleem Transactions
 - Template
 - WorkflowTransitionException
 - خطة الاختبار — نظام أبو سليم للطلبات
-- MaintenanceCommandCatalog
+- DomainException
 - GuideArticle
 - CompletionDocumentUploadTest
 - RequirementsCheckJurisdictionTest
 - .requestAt
-- AppServiceProvider.php
+- ApprovalReferral
 - UnifiedNumberingTest
-- 2026-08-25 20:10 EET — Claude — Stage 36 implementation plan (minutes preparation & approval)
+- RegisterController
 - PerformanceIndicatorService
-- TestUserSeeder
-- IndexDecisionRequest
+- 0. Before you start
+- SmsSender
 - MeetingAgendaBuilderTest
 - Agent handoff notes
-- Register
-- Illuminate\Support\Collection
+- Illuminate\Database\Eloquent\Builder
+- MeetingMinutesTest
 - .decidedAppealFixture
 - BackupTest
 - DecisionRegisterTest
-- ReportExporter
+- PerformanceController
 - DecisionStructureRules
 - UserFactory
 - 4. الرحلة الكاملة للطلب — اثنتا عشرة مرحلة
-- Illuminate\Http\JsonResponse
+- Controller
 - TRACK K — Verbatim-source alignment ([D] and [E] as actually written)
-- ScreenRolePermissionSeeder
+- MeetingLiveRunnerTest
 - AppealReopenTest
 - .requestAt
-- AppealFileCompiler
-- build-guide-pdf.php
+- ShowDecisionDraftRequest
+- MaintenanceRunner.php
 - AppealStatus
 - PassesControlGates
 - 7. الاستثناءات والمسارات البديلة
@@ -163,16 +163,16 @@
 - MeetingsRegister
 - .requestAt
 - DashboardReportTest
-- Appeal
-- RequestTimeCard
+- ApprovalReferralsRegister
+- SpecialCaseTest
 - DecisionVotingTest
-- .screenPermissions
+- TestUserSeeder
 - extractErrorMessage
 - خطة اختبار حسب الدور — نظام معاملات أبو سليم
 - ArtThirtyEightStatusTest
-- IndexRegisterRequest
+- MeetingVisibility
 - DirectManagerRoutingTest
-- IndexReportRequest
+- NotificationSetting
 - FinancialImpactReviewTest
 - GateAuthorshipTest
 - GuideArticleTest
@@ -180,273 +180,253 @@
 - NotificationTest
 - RequestTypeCrudTest
 - MeetingOutputsTest
-- ApprovalReferral
+- CommitteeStatusTransitionException
 - The backend half: deploying with no SSH at all
-- AppealsRegister
+- MaintenanceCommandException
 - ExecutionRegister
 - دليل استخدام النظام — من البداية إلى النهاية
 - TimeCardCompiler
 - CommitteeHandoverTest
 - .requestAt
-- NotificationDispatcher.php
-- RequestWithdrawal
+- Appeal
+- RequestWithdrawalTest
 - ClosureRegister
-- CommitteeOwnActsTest
-- ReopenRequest
+- MaintenanceCommandCatalog
+- RequestArchivePanel.vue
 - DecisionsRegister
 - RequestTimelineTest
 - .requestOwnedBy
 - RapporteurVoteConflictOfInterestTest
-- ApprovalReturn
+- loadCommittees
 - CommitteeStatusServiceTest
-- IntakeGateService
+- RequestStatusHistory
 - MinutesRegister
-- PresentationMemoTest
+- Attachment
 - agenda.js
 - App\Models\User
-- DuplicateRequestTest
+- Open items
 - ApprovalChainTest
-- ScreenTest
-- STAGE_PLAN.md
+- StoreAppealRequest
+- TRACK M — Municipality lifecycle-diagram alignment (Stages 85–93)
 - .requestAtStage
 - .decidedRequest
 - DeferredRequestsRegister
-- StoreCommitteeRequest
+- GatedScreenSideEffectsTest
 - RequestStageRail.vue
 - RequestSuspension
-- ShowDecisionDraftRequest
+- RequestReferenceAssignedNotification
 - MaintenanceRunner
-- DetermineWithdrawalRequest
+- RequestLifecycleController.php
 - DevTestUserTest
-- CommitteeBoardService
+- VerifyAppealRequest
 - 5. دورة اللجنة والاجتماعات
 - .request
 - AGENTS.md
-- WorkflowTransition
-- MeetingMinutesTest
-- StoreRequestTypeRequest
-- StoreConflictOfInterestRequest
+- FinancialImpactReviewNotification
+- RequestOverdueNotification
+- RequestTypeController
+- DecisionDraftComposer
 - .requestAtStage
 - 8. Committee and meetings
 - README.md
 - 14. Cross-role checks
 - 1. المفاهيم الأساسية
 - 9. التظلمات — من التقديم إلى الإغلاق
-- StoreGuideArticleRequest
+- TRACK B — Admin & Master Data (simple CRUD)
 - 10. المتابعة والتقارير والسجلات
 - 11. إدارة النظام (R08)
-- ResolveSpecialCaseRequest
+- RequestCreatedNotification
 - IncomingRequestsRegister
-- StoreSpecialCaseRequest
+- ٠. قبل أن تبدأ
 - Role test plan — Abu Saleem Transactions
 - 12. سيناريوهات كاملة
 - DecisionStructureTest
-- MaintenanceController
-- User
-- Setting
-- StoreApprovalRequest
-- Illuminate\Validation\Rule
+- MaintenanceController.php
+- ٤. R03 — رئيس اللجنة
+- SettingController.php
+- syncMemoDraft
+- ٥. R04 — عضو اللجنة
 - الملاحق
 - CLAUDE.md
 - .requestAt
-- ResolveDocumentConflictRequest
-- StoreAttachmentRequest
+- load
+- StoreRequest
 - ReportController
-- Open items
-- ReorderMeetingAgendaRequest
-- UpdateMeetingRequest
+- 11. R10 — وكيل الديوان / Diwan Deputy
+- 12. R11 — العضو القانوني / Legal Officer
+- 13. R12 — مدير إدارة الموارد البشرية / HR Manager
 - logging.php
 - sanctum.php
-- UpdateMeetingAgendaItemStateRequest
-- IndexNotificationRequest
-- UpdateStudySequenceRequest
+- 2. R01 — الموظف / Employee
+- 3. R02 — المقرر / Reviewer
+- 4. R03 — رئيس اللجنة / Committee Head
 - ExampleTest
-- ReviewMeetingMinutesRequest
+- 5. R04 — عضو اللجنة / Committee Member
 - Illuminate\Database\Migrations\Migration
-- UpdatePresentationMemoRequest
-- MeetingMinutes
+- 7. R06 — وزارة الحكم المحلي / Ministry
+- Illuminate\Database\Eloquent\Relations\HasMany
 - ١٤. فحوص عابرة للأدوار
-- IndexRequest
+- 8. R07 — المدير العام / العميد / Director
 - IntakeFidelityTest
-- RequestDocumentConflict
+- ٧. R06 — وزارة الحكم المحلي
 - CommitteeSeatRosterTest
-- RunMaintenanceCommandRequest
-- RequestLegalReview
-- StoreTemplateRequest
-- StoreDepartmentRequest
-- UpdateDepartmentRequest
-- RequestSpecialCase
-- StoreUserRequest
+- ٢. R01 — الموظف
+- ١٣. R12 — مدير إدارة الموارد البشرية
+- ٣. R02 — المقرر
+- DepartmentController
+- ٨. R07 — المدير العام / العميد
+- ١١. R10 — وكيل الديوان
+- UserResource
 - RequestExecutionService
-- StoreBackupRequest
+- AppealAttachmentController.php
 - ExampleTest
 - argvinput
 - blankClosureForm
 - blankLegalReviewForm
 - blankVerifyForm
 - loadRedoStageOptions
-- requestClosure.js
-- UpdateUserRequest
+- ١٢. R11 — العضو القانوني
+- blankCommitteeForm
 - frontend/README.md
-- PrepareEmploymentFileRequest
-- RecordApprovalReferralRequest
-- loadCommittees
-- RecordExecutionSoundnessRequest
+- console.php
+- 10. R09 — أمين سر اللجنة / Committee Secretary
+- 6. R05 — مدير إدارة الشؤون الإدارية / Admin Manager
+- 9. R08 — مدير النظام / System Admin
 - 8. اللجنة والاجتماعات
 - RequestSlaTest
-- PresentationMemo
-- RequestCorrection
-- RequestStageLog
-- StoreRequestLegalReviewRequest
+- ٦. R05 — مدير إدارة الشؤون الإدارية
+- ١٠. R09 — أمين سر اللجنة
 - MeetingSchedulingWizardTest
-- ExecuteAppealOutcomeRequest
 - EnvironmentProbe
-- StoreCorrectionRequest
-- StoreAppealAttachmentRequest
-- StoreDocumentConflictRequest
-- StoreCommitteeMemberRequest
-- ExecuteMeetingOutputRequest
-- StoreMeetingRequest
+- MeetingOutputsResource
 - RequestDraftAttachment
-- UpdateMeetingAttendeeRequest
-- StoreMeetingDiscussionNoteRequest
-- StoreMeetingAttendeeRequest
-- StoreNoteRequest
 - Meeting
-- CloseRequest
-- RecordApprovalReturnRequest
-- SaveRequestDraftRequest
-- ConflictOfInterestDeclaration
-- Note
-- UpdateNotificationSettingsRequest
-- DuplicatePolicy
-- TRACK A — Local Environment & Foundation
-- 2. Permissions and navigation
-- App\Http\Requests\Request\LiftSuspensionRequest
-- 2. الصلاحيات والتنقل
-- blankCommitteeForm
-- IndexTrackedRequest
+- .permissions
 
 ## God Nodes (most connected - your core abstractions)
 1. `Request` - 450 edges
-2. `User` - 421 edges
+2. `User` - 416 edges
 3. `Department` - 240 edges
 4. `RequestStatus` - 233 edges
 5. `WorkflowStage` - 232 edges
 6. `RequestType` - 227 edges
 7. `Agent handoff notes` - 224 edges
-8. `Role` - 201 edges
+8. `Role` - 198 edges
 9. `Meeting` - 198 edges
-10. `TestCase` - 166 edges
+10. `TestCase` - 162 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `2026-08-15 20:45 EET — Claude — Test-user picker is now backend-gated on `APP_ENV=local`; the 2026-08-11 20:30 note's mechanism is STALE` --references--> `AuthController`  [INFERRED]
-  AGENT_NOTES.md → app/Http/Controllers/Api/AuthController.php
-- `2026-07-30 21:38 EET — Codex — Stage 18 approval chain complete` --references--> `WorkflowService`  [INFERRED]
-  AGENT_NOTES.md → app/Services/WorkflowService.php
-- `2026-07-30 21:00 EET — Codex — Stage 15 transaction workspace complete` --references--> `WorkflowService`  [INFERRED]
-  AGENT_NOTES.md → app/Services/WorkflowService.php
 - `Stage 53 — RequestType catalogue + per-type document checklists` --references--> `RequestType`  [INFERRED]
   STAGE_PLAN.md → app/Models/RequestType.php
 - `Stage 27 — User guide` --references--> `Template`  [INFERRED]
+  STAGE_PLAN.md → app/Models/Template.php
+- `Stage 35 — Decision templates & richer outcomes` --references--> `Template`  [INFERRED]
+  STAGE_PLAN.md → app/Models/Template.php
+- `Stage 42 — Decision-draft auto-generation` --references--> `Template`  [INFERRED]
+  STAGE_PLAN.md → app/Models/Template.php
+- `Stage 74 — Structured decisions, deferrals and refusals` --references--> `Template`  [INFERRED]
   STAGE_PLAN.md → app/Models/Template.php
 
 ## Import Cycles
 - None detected.
 
-## Communities (403 total, 265 thin omitted)
+## Communities (380 total, 211 thin omitted)
 
 ### Community 0 - "Department"
-Cohesion: 0.11
-Nodes (15): Committee, Department, RequestStatus, RequestType, Role, WorkflowStage, DatabaseSeeder, Illuminate\Foundation\Testing\RefreshDatabase (+7 more)
+Cohesion: 0.12
+Nodes (16): Committee, Department, MeetingRequest, RequestStatus, RequestType, Role, WorkflowStage, DatabaseSeeder (+8 more)
 
 ### Community 1 - "vue"
 Cohesion: 0.06
-Nodes (25): icons, markup, props, collapsedGroups, entries, ICON_BY_CODE, label(), labelled() (+17 more)
+Nodes (26): icons, markup, props, collapsedGroups, entries, ICON_BY_CODE, label(), labelled() (+18 more)
 
-### Community 2 - "StoreRequest"
-Cohesion: 0.14
-Nodes (14): 2026-09-02 09:30 EET — Claude — Stage 53 implementation plan (RequestType catalogue + per-type document checklists), 2026-09-02 09:55 EET — Claude — Stage 53 complete (RequestType catalogue + per-type document checklists), 2026-09-07 23:20 EET — Claude — Stage 72 implementation plan (real per-type document checklists), 2026-09-07 23:55 EET — Claude — Stage 72 complete (real per-type document checklists), 2026-09-18 10:15 EET — Claude — RequestType (نوع الطلب) admin CRUD — implementation plan, 2026-09-18 11:40 EET — Claude — RequestType (نوع الطلب) admin CRUD complete, 2026-09-18 19:55 EET — Claude — The submitter names which recommended document each file is — implementation plan, 2026-09-18 21:05 EET — Claude — The submitter names which recommended document each attached file is (+6 more)
+### Community 2 - "Illuminate\Database\Seeder"
+Cohesion: 0.12
+Nodes (15): 2026-09-02 16:45 EET — Claude — Stage 58 complete (appeal entity, schema & status machine), 2026-09-03 10:00 EET — Claude — Stage 60 implementation plan (formal verification gate), 2026-09-03 11:15 EET — Claude — Stage 60 complete (formal verification gate), 2026-09-07 23:20 EET — Claude — Stage 72 implementation plan (real per-type document checklists), 2026-09-07 23:55 EET — Claude — Stage 72 complete (real per-type document checklists), 2026-09-18 10:15 EET — Claude — RequestType (نوع الطلب) admin CRUD — implementation plan, 2026-09-18 11:40 EET — Claude — RequestType (نوع الطلب) admin CRUD complete, 2026-09-18 19:55 EET — Claude — The submitter names which recommended document each file is — implementation plan (+7 more)
 
 ### Community 3 - "Illuminate\Foundation\Http\FormRequest"
-Cohesion: 0.05
-Nodes (11): LoginRequest, IndexCommitteeCandidateRequest, StoreWithdrawalRequest, ConveneMeetingRequest, IndexMeetingRequest, ResolveApprovalReturnRequest, UpdateFinancialImpactRequest, StoreRequestDraftAttachmentRequest (+3 more)
+Cohesion: 0.02
+Nodes (28): ExecuteAppealOutcomeRequest, ReopenAppealRequest, IndexCommitteeCandidateRequest, ExportDecisionRequest, IndexDecisionRequest, IndexMeetingRequest, UpdateMeetingRequest, UpdateMeetingAgendaItemRequest (+20 more)
 
 ### Community 4 - "Illuminate\Http\Request"
 Cohesion: 0.04
-Nodes (28): 2026-08-28 21:45 EET — Claude — Transaction → Request rename complete, 2026-08-31 14:20 EET — Claude — Stage 44 implementation plan (verify remaining [C] fidelity gaps), 2026-09-02 17:15 EET — Claude — Stage 59 implementation plan (appeal intake: real fields + eligibility gates), NoteController, ScreenRolePermissionController, AppealAttachmentResource, ApprovalReferralResource, ApprovalResource (+20 more)
+Nodes (25): NotificationController, ScreenRolePermissionController, IndexNotificationRequest, ApprovalReferralResource, ApprovalResource, ApprovalReturnResource, App\Http\Resources\AttachmentResource, ConflictOfInterestDeclarationResource (+17 more)
 
 ### Community 5 - "RequestDetailView.vue"
 Cohesion: 0.02
 Nodes (76): groupDocuments(), acting, actionError, activeAction, activeTab, ADMINISTRATIVE_ROUTE_ACTIONS, ARCHIVABLE_STATUSES, archiveEditable (+68 more)
 
 ### Community 6 - "WorkflowTransitionSeeder"
-Cohesion: 0.05
-Nodes (49): 2026-07-30 — Claude — Stage 9 done, heads-up for Stage 10+, 2026-08-02 12:05 EET — Claude — Stage 24 dashboard KPIs & reports complete, 2026-08-25 14:30 EET — Claude — Stage 34 implementation plan (live meeting runner), 2026-08-25 15:10 EET — Claude — Stage 34 complete (live meeting runner), 2026-08-25 22:00 EET — Codex — Stage 37 complete (meeting outputs follow-up), 2026-08-28 00:00 EET — Claude — Direct-manager review + 3-way routing + committee-secretary role — implementation plan (Stage 38+), 2026-08-28 15:30 EET — Claude — Diagram-alignment redesign, Phases 4–5 complete (new stages, routing, registration), 2026-08-28 — Claude — Diagram-alignment redesign: intake auto-hop, notifications, permissions/test data (closes the plan) (+41 more)
+Cohesion: 0.09
+Nodes (20): 2026-08-25 22:00 EET — Codex — Stage 37 complete (meeting outputs follow-up), 2026-08-28 00:00 EET — Claude — Direct-manager review + 3-way routing + committee-secretary role — implementation plan (Stage 38+), 2026-08-28 15:30 EET — Claude — Diagram-alignment redesign, Phases 4–5 complete (new stages, routing, registration), 2026-08-28 — Claude — Phase 0 of the committee-secretary/direct-manager redesign complete (order_no → code refactor), 2026-08-28 — Claude — Phases 1–3 of the committee-secretary/direct-manager redesign complete (roles, schema, actorMayUse), 2026-09-01 15:00 EET — Claude — Stage 49 implementation plan (richer committee decision outcomes), 2026-09-01 17:00 EET — Claude — Stage 51 implementation plan (employee-facing visibility), 2026-09-01 17:20 EET — Claude — Stage 51 complete (employee-facing visibility) (+12 more)
 
 ### Community 7 - "Illuminate\Database\Eloquent\Relations\BelongsTo"
-Cohesion: 0.04
-Nodes (4): AppealAttachment, MeetingDiscussionNote, User, Illuminate\Database\Eloquent\Relations\BelongsTo
+Cohesion: 0.03
+Nodes (10): AppealAttachment, ApprovalReturn, PresentationMemo, User, RequestCorrection, RequestDocumentConflict, RequestSpecialCase, RequestWithdrawal (+2 more)
 
 ### Community 8 - "AppealsView.vue"
 Cohesion: 0.03
 Nodes (56): APPEAL_DECISION_OUTCOME_CODES, appealReasons, closureError, closureForm, closureSubmitting, closureTarget, COMPETENT_BODY_OPTIONS, createError (+48 more)
 
 ### Community 9 - "api.js"
-Cohesion: 0.04
-Nodes (58): dependencies, axios, @fontsource/cairo, pinia, vue, vue-i18n, vue-router, devDependencies (+50 more)
+Cohesion: 0.08
+Nodes (24): apply(), api, setUnauthorizedHandler(), TOKEN_KEY, app, auth, pinia, screens (+16 more)
 
-### Community 10 - "RequestSoundnessPanel.vue"
-Cohesion: 0.07
-Nodes (33): canSubmit, checks, describe(), emit, error, open, props, saving (+25 more)
+### Community 10 - "MeetingMinutesView.vue"
+Cohesion: 0.03
+Nodes (56): canSubmit, checks, describe(), emit, error, open, props, saving (+48 more)
 
 ### Community 11 - "RequestDraft"
-Cohesion: 0.12
-Nodes (10): 2026-09-18 23:15 EET — Claude — Stage 88 implementation plan (intake drafts and the review step), AppealAttachmentController, AttachmentController, RequestDraftController, App\Http\Controllers\Controller, RequestDraftResource, RequestDraft, Attachment (+2 more)
+Cohesion: 0.15
+Nodes (5): RequestDraftController, SaveRequestDraftRequest, StoreRequestDraftAttachmentRequest, RequestDraftResource, RequestDraft
 
 ### Community 13 - "RequestIntakeView.vue"
-Cohesion: 0.04
-Nodes (53): acceptedExtensions, auth, blankForm(), canDraft, checkDuplicates(), chooseFiles(), compactPayload(), coveredDocumentKeys (+45 more)
+Cohesion: 0.05
+Nodes (51): acceptedExtensions, auth, blankForm(), canDraft, checkDuplicates(), compactPayload(), coveredDocumentKeys, created (+43 more)
 
 ### Community 14 - "WorkflowService"
-Cohesion: 0.08
-Nodes (28): 2026-08-31 15:10 EET — Claude — Stage 44 complete (verify remaining [C] fidelity gaps), 2026-09-01 13:15 EET — Claude — Stage 47 implementation plan (Salaries & Benefits participation trigger), 2026-09-02 10:20 EET — Claude — Stage 54 implementation plan (committee jurisdiction validation at initial review), 2026-09-02 10:55 EET — Claude — Stage 54 complete (committee jurisdiction validation at initial review), 2026-09-02 13:05 EET — Claude — Stage 56 complete (verify 3-way routing selection rule), 2026-09-08 15:10 EET — Claude — Stage 77 implementation plan (return from the approving body), 2026-09-08 17:30 EET — Claude — Stage 77 complete (return from the approving body), 2026-09-08 19:30 EET — Claude — Stage 78 implementation plan (the four mandatory control gates) (+20 more)
+Cohesion: 0.09
+Nodes (18): 2026-09-01 13:55 EET — Claude — Stage 47 complete (Salaries & Benefits participation trigger), 2026-09-02 10:20 EET — Claude — Stage 54 implementation plan (committee jurisdiction validation at initial review), 2026-09-02 10:55 EET — Claude — Stage 54 complete (committee jurisdiction validation at initial review), 2026-09-02 13:05 EET — Claude — Stage 56 complete (verify 3-way routing selection rule), 2026-09-08 23:30 EET — Claude — Stage 79 implementation plan (Art. 101's twelve notification moments), 2026-09-09 01:10 EET — Claude — Stage 79 complete (Art. 101's twelve notification moments), 2026-09-19 16:10 EET — Claude — Stage 92 implementation plan (execution recorded by the executing body), 2026-09-19 17:05 EET — Claude — Stage 92 complete (execution recorded by the executing body) — Track M finished (+10 more)
 
-### Community 15 - "NotificationsView.vue"
-Cohesion: 0.08
-Nodes (19): reset(), useNotificationsStore, useScreensStore, channels, eventTypes, isEmpty, load(), loadError (+11 more)
+### Community 15 - "TRACK N — Appendix 6 (مصفوفة المسؤوليات RACI) conformance (Stages 94–101)"
+Cohesion: 0.17
+Nodes (11): Adding a stage, Stage 101 — the consultation and information layer (~13 cells) — **built**, Stage 94 — Appendix 6 re-derived cell by cell (docs only), Stage 95 — صاحب العلاقة ⚠ *foundational — blocks rows 1, 2, 3, 14*, Stage 96 — R09/R10 folded back into the matrix's parties, Stage 97 — القيد back to مقرر اللجنة, Stage 98 — تجهيز الملف الوظيفي (the largest missing مسؤول) — **built**, Stage 99 — the committee's own acts (rows 8, 9, 10, 11) — **built** (+3 more)
 
 ### Community 16 - "CommitteeStatusService"
-Cohesion: 0.11
-Nodes (18): 2026-08-24 14:20 EET — Claude — Stages 28–37 (Track H) — the split; full text in STAGE_PLAN.md, 2026-08-24 17:20 EET — Claude — Stage 29 implementation plan (request lifecycle status expansion + CommitteeStatusService), 2026-08-24 17:45 EET — Claude — Stage 29 complete (request lifecycle status expansion + CommitteeStatusService), 2026-08-25 12:00 EET — Claude — Stage 32 implementation plan (candidate-requests worklist + command dashboard), 2026-08-25 12:45 EET — Claude — Stage 32 complete (candidate-requests worklist + command dashboard), 2026-08-31 09:15 EET — Claude — Stage 38 complete (source reconciliation — housekeeping only, no code), 2026-09-01 23:10 EET — Claude — Stage 52 implementation plan (per-stage operational timeframes / soft SLA), 2026-09-01 23:40 EET — Claude — Stage 52 complete (per-stage operational timeframes / soft SLA) (+10 more)
+Cohesion: 0.10
+Nodes (23): 2026-08-24 17:20 EET — Claude — Stage 29 implementation plan (request lifecycle status expansion + CommitteeStatusService), 2026-08-24 17:45 EET — Claude — Stage 29 complete (request lifecycle status expansion + CommitteeStatusService), 2026-08-25 12:00 EET — Claude — Stage 32 implementation plan (candidate-requests worklist + command dashboard), 2026-08-25 12:45 EET — Claude — Stage 32 complete (candidate-requests worklist + command dashboard), 2026-08-31 09:15 EET — Claude — Stage 38 complete (source reconciliation — housekeeping only, no code), 2026-08-31 14:20 EET — Claude — Stage 44 implementation plan (verify remaining [C] fidelity gaps), 2026-09-01 09:40 EET — Claude — Stage 46 implementation plan (presentation memo compiler), 2026-09-01 23:10 EET — Claude — Stage 52 implementation plan (per-stage operational timeframes / soft SLA) (+15 more)
 
-### Community 17 - "DocumentCompletenessService"
-Cohesion: 0.11
-Nodes (16): 2026-09-21 05:30 EET — Claude — Implementation plan: Stage 98 (تجهيز الملف الوظيفي — the largest missing مسؤول), 2026-09-21 07:15 EET — Claude — Stage 98 complete (تجهيز الملف الوظيفي — the largest missing مسؤول), DocumentCompletenessService, App\Services\EmploymentFilePreparationService, EmploymentFilePreparationService, Adding a stage, Stage 101 — the consultation and information layer (~13 cells) — **built**, Stage 94 — Appendix 6 re-derived cell by cell (docs only) (+8 more)
+### Community 17 - "Request"
+Cohesion: 0.04
+Nodes (16): 2026-09-18 23:40 EET — Claude — Stage 85 complete (document completeness becomes binding) — Track M opens, Decision, Request, App\Notifications\DecisionRecordedNotification, App\Notifications\RequestDelayEscalationNotification, DocumentCompletenessService, App\Services\EmployeeNoticeService, App\Services\EmploymentFilePreparationService (+8 more)
 
 ### Community 18 - "MeetingLiveView.vue"
 Cohesion: 0.04
-Nodes (47): activeTab, allResolved, auth, canRunItems, clockNow, closeError, closing, context (+39 more)
+Nodes (39): activeTab, allResolved, auth, canRunItems, clockNow, closeError, closing, context (+31 more)
 
 ### Community 19 - "composer.json"
 Cohesion: 0.04
 Nodes (47): pestphp/pest-plugin, php-http/discovery, autoload, autoload-dev, psr-4, psr-4, config, allow-plugins (+39 more)
 
 ### Community 20 - "NotificationDispatcher"
-Cohesion: 0.13
-Nodes (9): 2026-09-21 00:40 EET — Claude — Implementation plan: Stage 95 (صاحب العلاقة — the person a request is about), 2026-09-21 03:20 EET — Claude — Stage 95 complete (صاحب العلاقة — the person a request is about), 2026-09-21 20:40 EET — Claude — Stage 101 complete (the consultation and information layer) — Track N finished, EscalateDelayedRequests, App\Models\Appeal, RequestNoticeCopyNotification, EmployeeNoticeRegister, NotificationDispatcher (+1 more)
+Cohesion: 0.14
+Nodes (11): 2026-08-28 — Claude — Diagram-alignment redesign: intake auto-hop, notifications, permissions/test data (closes the plan), 2026-09-01 13:15 EET — Claude — Stage 47 implementation plan (Salaries & Benefits participation trigger), 2026-09-21 00:40 EET — Claude — Implementation plan: Stage 95 (صاحب العلاقة — the person a request is about), 2026-09-21 03:20 EET — Claude — Stage 95 complete (صاحب العلاقة — the person a request is about), 2026-09-21 19:45 EET — Claude — Implementation plan: Stage 101 (the consultation and information layer — Appendix 6's مشارك/مطلع cells), 2026-09-21 20:40 EET — Claude — Stage 101 complete (the consultation and information layer) — Track N finished, ActionRequiredNotification, RequestNoticeCopyNotification (+3 more)
 
-### Community 21 - "Illuminate\Database\Seeder"
+### Community 21 - "NotificationsView.vue"
 Cohesion: 0.09
-Nodes (13): 2026-09-01 13:55 EET — Claude — Stage 47 complete (Salaries & Benefits participation trigger), 2026-09-03 10:00 EET — Claude — Stage 60 implementation plan (formal verification gate), 2026-09-03 11:15 EET — Claude — Stage 60 complete (formal verification gate), 2026-09-07 21:15 EET — Claude — Stage 71 implementation plan (real operational durations + escalation routing), 2026-09-07 22:30 EET — Claude — Stage 71 complete (real operational durations + escalation routing), 2026-09-18 22:25 EET — Claude — Stage 86 implementation plan (the committee secretary owns the handover), RecordJurisdictionTestRequest, AppealStatusSeeder (+5 more)
+Nodes (17): useNotificationsStore, channels, eventTypes, isEmpty, load(), loadError, markAllRead(), phone (+9 more)
 
 ### Community 22 - "ReportsView.vue"
-Cohesion: 0.04
-Nodes (55): RFC-5987, decodeErrorBody(), downloadExport(), filenameFrom(), formatIndicatorValue(), actionError, actionMessage, busy (+47 more)
+Cohesion: 0.07
+Nodes (36): formatIndicatorValue(), activeFilters(), applyFilters(), blankFilters(), clearFilters(), exportAs(), exportError, exporting (+28 more)
+
+### Community 23 - "RequestStageLog"
+Cohesion: 0.23
+Nodes (3): App\Models\RequestStageLog, RequestStageLog, RequestDetailTest
 
 ### Community 24 - "Illuminate\Database\Eloquent\Model"
-Cohesion: 0.13
-Nodes (12): 2026-07-31 11:30 EET — Claude — Stage 22 implementation plan, Permission, App\Models\RequestDraft, App\Models\RequestDraftAttachment, App\Models\Screen, App\Models\ScreenRolePermission, AuditObserver, Illuminate\Database\Eloquent\Model (+4 more)
+Cohesion: 0.06
+Nodes (15): 2026-07-31 11:30 EET — Claude — Stage 22 implementation plan, ConflictOfInterestDeclaration, App\Models\MaintenanceRun, MeetingAttendee, MeetingDiscussionNote, Note, Permission, App\Models\RequestDraftAttachment (+7 more)
 
 ### Community 25 - "loadMeeting"
 Cohesion: 0.12
@@ -458,23 +438,23 @@ Nodes (39): actionError, addError, adding, adoptError, adopting, agendaAppealIds
 
 ### Community 27 - "AgendaItemDecisionPanel.vue"
 Cohesion: 0.05
-Nodes (48): auth, castVote(), conflictBusy, conflictError, conflictReason, decidingBusy, decisionComment, decisionError (+40 more)
+Nodes (49): auth, castVote(), conflictBusy, conflictError, conflictReason, decidingBusy, decisionComment, decisionError (+41 more)
 
-### Community 28 - "MeetingMinutesView.vue"
-Cohesion: 0.06
-Nodes (22): auth, changesComment, error, generateError, generating, legalBusy, legalError, legalNote (+14 more)
-
-### Community 29 - "MeetingReadinessView.vue"
+### Community 28 - "MeetingReadinessView.vue"
 Cohesion: 0.09
 Nodes (16): conveneError, conveneReason, convening, donutStyle, error, loading, meeting, meetingId (+8 more)
+
+### Community 29 - "frontend/package.json"
+Cohesion: 0.09
+Nodes (22): dependencies, axios, @fontsource/cairo, pinia, vue, vue-i18n, vue-router, devDependencies (+14 more)
 
 ### Community 30 - "MeetingsView.vue"
 Cohesion: 0.06
 Nodes (23): CARD_FIELDS, committeeErrors, committeeForm, committeeFormError, committees, editingCommitteeId, expandedCommitteeId, loadError (+15 more)
 
 ### Community 31 - "Screen"
-Cohesion: 0.11
-Nodes (3): Screen, ScreenRolePermission, MaintenanceBootstrapTest
+Cohesion: 0.09
+Nodes (4): Screen, ScreenRolePermission, MaintenanceBootstrapTest, ScreenTest
 
 ### Community 32 - "AppTopbar.vue"
 Cohesion: 0.06
@@ -482,19 +462,19 @@ Nodes (29): auth, bellLoading, bellOpen, bellRef, currentTitle, initials, menuOp
 
 ### Community 33 - "FileUpload.vue"
 Cohesion: 0.08
-Nodes (33): acceptedExtensions, choose(), classifiesDocument, clearPreview(), docLabel(), documentKey, documentOptionGroups, documentOptions (+25 more)
+Nodes (34): acceptedExtensions, choose(), classifiesDocument, clearPreview(), docLabel(), documentKey, documentOptionGroups, documentOptions (+26 more)
 
 ### Community 34 - "MeetingMinutesCompiler"
-Cohesion: 0.13
-Nodes (9): 2026-09-01 16:00 EET — Claude — Stage 50 implementation plan (minutes content completeness), 2026-09-01 16:40 EET — Claude — Stage 50 complete (minutes content completeness), MeetingMinutesController, MeetingMinutesResource, MeetingMinuteSignature, MeetingMinutesCompiler, PresentationMemoCompiler, Stage 46 — Presentation memo (مذكرة العرض) compiler (+1 more)
+Cohesion: 0.08
+Nodes (21): 2026-08-31 11:00 EET — Claude — Stage 41 implementation plan (abstain vote option), 2026-08-31 11:20 EET — Claude — Stage 41 complete (abstain vote option), 2026-09-01 15:30 EET — Claude — Stage 49 complete (richer committee decision outcomes), 2026-09-01 16:00 EET — Claude — Stage 50 implementation plan (minutes content completeness), 2026-09-01 16:40 EET — Claude — Stage 50 complete (minutes content completeness), 2026-09-02 17:55 EET — Claude — Stage 59 complete (appeal intake: real fields + eligibility gates), 2026-09-03 13:00 EET — Claude — Stage 61 implementation plan (original file assembly), 2026-09-05 EET — Claude — Stage 61 complete (original file assembly), resuming a disconnected session (+13 more)
 
 ### Community 36 - "MeetingDetailView.vue"
 Cohesion: 0.07
 Nodes (25): actionError, addAttendee(), addToAgenda(), agendaError, agendaRequestIds, agendaResults, agendaSearch, agendaSearching (+17 more)
 
-### Community 37 - "MeetingOutputsView.vue"
-Cohesion: 0.08
-Nodes (18): audit, canSubmit, emit, error, form, open, props, saving (+10 more)
+### Community 37 - "RequestClosurePanel.vue"
+Cohesion: 0.14
+Nodes (14): audit, canSubmit, emit, error, form, open, props, saving (+6 more)
 
 ### Community 38 - "DecisionsView.vue"
 Cohesion: 0.07
@@ -513,20 +493,16 @@ Cohesion: 0.06
 Nodes (23): activeCommittees, availableExtraInvitees, committeeMembers, detailErrors, details, emit, extraInviteeId, extraInviteeIds (+15 more)
 
 ### Community 43 - "DecisionEligibility"
-Cohesion: 0.09
-Nodes (13): 2026-08-02 14:15 EET — Claude — Stages 25–27 complete; `placeholderScreens` is gone, 2026-08-25 11:15 EET — Claude — Stage 31 complete (agenda builder enhancements), 2026-09-01 14:15 EET — Claude — Stage 48 implementation plan (rapporteur/voting-member separation + conflict of interest), 2026-09-01 14:45 EET — Claude — Stage 48 complete (rapporteur/voting-member separation + conflict of interest), 2026-09-05 16:00 EET — Claude — Stage 63 implementation plan (committee presentation & 5-outcome decision), 2026-09-08 00:40 EET — Claude — Stage 73 implementation plan (⚠ committee identity card + configurable quorum), 2026-09-08 02:15 EET — Claude — Stage 73 complete (⚠ committee identity card + configurable quorum), DecisionController (+5 more)
+Cohesion: 0.06
+Nodes (29): 2026-07-31 10:40 EET — Claude — Stage 21 committee voting & decisions complete, 2026-08-02 13:20 EET — Claude — Stages 25–27 implementation plan (the three screens no stage owned), 2026-08-02 14:15 EET — Claude — Stages 25–27 complete; `placeholderScreens` is gone, 2026-08-25 10:00 EET — Claude — Stage 31 implementation plan (agenda builder enhancements), 2026-08-25 11:15 EET — Claude — Stage 31 complete (agenda builder enhancements), 2026-08-25 20:55 EET — Claude — Stage 36 complete (minutes preparation & approval), 2026-08-31 16:05 EET — Claude — Stage 45 complete (fixed 5-seat committee roster), 2026-09-01 14:15 EET — Claude — Stage 48 implementation plan (rapporteur/voting-member separation + conflict of interest) (+21 more)
 
 ### Community 44 - "RequestLifecyclePanel.vue"
 Cohesion: 0.07
 Nodes (39): availableOutcomes, caseCanHalt, conflict, correction, data, describe(), determination, error (+31 more)
 
 ### Community 45 - "AuditLog"
-Cohesion: 0.15
-Nodes (3): AuditLog, Illuminate\Database\Eloquent\Relations\MorphTo, AuditLogTest
-
-### Community 46 - "NotificationSetting"
-Cohesion: 0.07
-Nodes (17): 2026-08-02 10:40 EET — Claude — Stage 23 notifications complete, 2026-09-06 08:00 EET — Claude — Stage 65 complete (notification & closure), SmsSender, NotificationSetting, User, App\Notifications\Channels\SmsChannel, SmsChannel, App\Notifications\SystemNotification (+9 more)
+Cohesion: 0.13
+Nodes (5): App\Models\AuditLog, AuditLog, MaintenanceBootstrapper, Illuminate\Database\Eloquent\Relations\MorphTo, AuditLogTest
 
 ### Community 47 - "ReportDocument"
 Cohesion: 0.12
@@ -539,10 +515,6 @@ Nodes (25): FILE_SECTIONS, fileSectionLabel(), fileSectionName(), applySearch(),
 ### Community 50 - "RequestTypesView.vue"
 Cohesion: 0.08
 Nodes (21): activeName, blankForm(), cancelForm(), editingId, errors, expandedId, form, formError (+13 more)
-
-### Community 51 - "MeetingRequest"
-Cohesion: 0.09
-Nodes (9): MeetingDiscussionNoteController, PresentationMemoController, UpdateMeetingAgendaItemRequest, MeetingDiscussionNoteResource, PresentationMemoResource, MeetingRequest, DecisionDraftComposer, StudySequenceRules (+1 more)
 
 ### Community 52 - "GuideView.vue"
 Cohesion: 0.09
@@ -560,29 +532,33 @@ Nodes (22): devDependencies, autoprefixer, axios, concurrently, laravel-vite-plu
 Cohesion: 0.09
 Nodes (18): applyFilters(), blankFilters(), clearFilters(), exportAs(), exportError, exporting, filters, isBusy (+10 more)
 
-### Community 58 - "Backup"
-Cohesion: 0.13
-Nodes (7): DatabaseDumper, Backup, BackupService, RuntimeException, Symfony\Component\Process\Exception\ProcessFailedException, Symfony\Component\Process\Process, ZipArchive
+### Community 58 - "AppServiceProvider.php"
+Cohesion: 0.07
+Nodes (16): EscalateDelayedRequests, RunBackup, DatabaseDumper, Backup, AppServiceProvider, BackupService, MysqlDumper, Illuminate\Console\Command (+8 more)
 
 ### Community 61 - "CommitteeCandidatesView.vue"
 Cohesion: 0.09
 Nodes (19): acting, ACTION_ENDPOINTS, closePrompt(), departmentFilter, departments, load(), loadError, loading (+11 more)
 
-### Community 62 - "MeetingVisibility"
-Cohesion: 0.08
-Nodes (7): CommitteeController, ConflictOfInterestController, CommitteeMemberResource, CommitteeResource, ConflictOfInterestDeclarationResource, CommitteeMember, MeetingVisibility
+### Community 62 - "CommitteeMember"
+Cohesion: 0.06
+Nodes (9): CommitteeController, StoreCommitteeRequest, UpdateCommitteeRequest, StoreCommitteeMemberRequest, StoreConflictOfInterestRequest, CommitteeMemberResource, CommitteeResource, CommitteeMember (+1 more)
+
+### Community 63 - "TemplateController.php"
+Cohesion: 0.12
+Nodes (4): TemplateController, StoreTemplateRequest, UpdateTemplateRequest, TemplateResource
 
 ### Community 64 - "RegistersView.vue"
-Cohesion: 0.11
-Nodes (21): active, activeCode, activeFilters(), applyFilters(), blankFilters(), clearFilters(), columns, exportAs() (+13 more)
+Cohesion: 0.06
+Nodes (40): RFC-5987, decodeErrorBody(), downloadExport(), filenameFrom(), actionError, actionMessage, busy, createBackup() (+32 more)
 
-### Community 65 - "MeetingReadinessTest"
-Cohesion: 0.10
-Nodes (8): FlagOverdueRequests, RunBackup, RequestDeadlineService, RequestTimelineCompiler, Illuminate\Console\Command, Illuminate\Support\Carbon, MeetingReadinessTest, RequestTrackingTest
+### Community 65 - "Illuminate\Support\Collection"
+Cohesion: 0.06
+Nodes (11): FlagOverdueRequests, AgendaOrderingService, RequestResponsibilityService, SpecialCaseRules, RequestTimeCard, RequestDeadlineService, RequestTimelineCompiler, Carbon\CarbonInterface (+3 more)
 
 ### Community 66 - "vue-i18n"
 Cohesion: 0.07
-Nodes (23): { t, locale }, emit, error, FILES, locations, props, save(), saving (+15 more)
+Nodes (27): { t, locale }, body, error, loading, notes, posting, props, { t, locale } (+19 more)
 
 ### Community 67 - "RequestsView.vue"
 Cohesion: 0.11
@@ -592,6 +568,10 @@ Nodes (19): activeChips, applyFilters(), blankFilters(), clearFilters(), filters
 Cohesion: 0.10
 Nodes (19): blankForm(), CENTRAL_ANSWERS, closeReview(), detail, detailError, detailLoading, form, load() (+11 more)
 
+### Community 70 - "SystemNotification"
+Cohesion: 0.15
+Nodes (9): App\Notifications\MeetingMinutesApprovedNotification, MeetingMinutesApprovedNotification, RequestDelayEscalationNotification, App\Notifications\SystemNotification, SystemNotification, Illuminate\Bus\Queueable, Illuminate\Contracts\Queue\ShouldQueue, Illuminate\Notifications\Messages\MailMessage (+1 more)
+
 ### Community 72 - "DepartmentsView.vue"
 Cohesion: 0.11
 Nodes (19): blankForm(), cancelForm(), departments, editingId, errors, form, formError, load() (+11 more)
@@ -600,37 +580,41 @@ Nodes (19): blankForm(), cancelForm(), departments, editingId, errors, form, for
 Cohesion: 0.12
 Nodes (19): activeName, blankForm(), cancelForm(), decisionPlaceholders, editingId, errors, form, formError (+11 more)
 
-### Community 74 - ".applyRule"
-Cohesion: 0.12
-Nodes (11): 2026-09-01 17:00 EET — Claude — Stage 51 implementation plan (employee-facing visibility), 2026-09-01 17:20 EET — Claude — Stage 51 complete (employee-facing visibility), 2026-09-02 13:40 EET — Claude — Stage 57 implementation plan (⚠ pre-committee ministry stage + approval-tail restructure), 2026-09-02 14:35 EET — Claude — Stage 57 complete (⚠ pre-committee ministry stage + approval-tail restructure), 2026-09-18 23:10 EET — Claude — Stage 86 complete (the committee secretary owns the handover), 2026-09-19 13:10 EET — Claude — Stage 93 implementation plan (stage numbering reconciled), 2026-09-19 13:45 EET — Claude — Stage 93 complete (stage numbering reconciled) — Track M finished, 2026-09-20 22:10 EET — Claude — Stage 97 complete (القيد back to مقرر اللجنة) (+3 more)
+### Community 74 - "RequestVisibility"
+Cohesion: 0.05
+Nodes (51): 2026-07-30 — Claude — Stage 9 done, heads-up for Stage 10+, 2026-08-25 14:30 EET — Claude — Stage 34 implementation plan (live meeting runner), 2026-08-25 15:10 EET — Claude — Stage 34 complete (live meeting runner), 2026-08-25 21:10 EET — Codex — Stage 37 implementation plan (meeting outputs follow-up), 2026-08-31 15:10 EET — Claude — Stage 44 complete (verify remaining [C] fidelity gaps), 2026-09-02 15:15 EET — Claude — Stage 58 sub-staged into TRACK J (planning only, no code), 2026-09-02 16:00 EET — Claude — Stage 58 implementation plan + build (appeal entity, schema & status machine), 2026-09-06 11:30 EET — Claude — TRACK K opened (Stages 67–83): make the system identical to the *verbatim* [D]/[E], plan + Stage 67 (+43 more)
 
 ### Community 76 - "ReportMetricsService"
 Cohesion: 0.15
 Nodes (4): ReportCacheObserver, ReportMetricsService, App\Services\WorkflowStageCount, WorkflowStageCount
 
 ### Community 77 - ".collect"
-Cohesion: 0.05
-Nodes (8): DocumentValidityRules, PendingTaskCollector, AgendaOrderingTest, CommitteeCandidatesDashboardTest, CommitteeVotingRulesTest, DocumentIntegrityTest, MyTasksTest, SpecialCaseTest
+Cohesion: 0.06
+Nodes (7): CommitteeBoardService, PendingTaskCollector, AgendaOrderingTest, CommitteeCandidatesDashboardTest, CommitteeVotingRulesTest, DocumentIntegrityTest, MyTasksTest
 
-### Community 78 - "Request"
-Cohesion: 0.05
-Nodes (11): 2026-09-02 16:00 EET — Claude — Stage 58 implementation plan + build (appeal entity, schema & status machine), Decision, Request, RequestStatusHistory, App\Notifications\DecisionRecordedNotification, App\Notifications\RequestDelayEscalationNotification, RequestDelayEscalationNotification, App\Services\EmployeeNoticeService (+3 more)
+### Community 78 - "User"
+Cohesion: 0.06
+Nodes (7): 2026-08-02 15:40 EET — Claude — Test users for every role + TEST_PLAN.md, User, Carbon\CarbonImmutable, AdminUserSeeder, Illuminate\Notifications\DatabaseNotification, Illuminate\Support\Facades\DB, RequestIntakeTest
 
 ### Community 79 - "StudySequenceTest"
-Cohesion: 0.17
-Nodes (6): 2026-09-21 22:30 EET — Claude — The filer attaches only at stage 1, App\Models\Meeting, App\Models\MeetingRequest, Illuminate\Database\Eloquent\Relations\HasOne, StudySequenceTest, Tests\RecordsStructuredDecisions
+Cohesion: 0.25
+Nodes (5): 2026-09-21 22:30 EET — Claude — The filer attaches only at stage 1, App\Models\Meeting, App\Models\MeetingRequest, StudySequenceTest, Tests\RecordsStructuredDecisions
 
 ### Community 80 - "RequestExecutionPanel.vue"
-Cohesion: 0.12
-Nodes (18): canSubmit, checklist, emit, error, evidence, evidenceEntries, form, open (+10 more)
+Cohesion: 0.07
+Nodes (26): canSubmit, checklist, emit, error, evidence, evidenceEntries, form, open (+18 more)
+
+### Community 81 - "AppealOutcomeExecutionTest"
+Cohesion: 0.13
+Nodes (3): 2026-09-06 08:00 EET — Claude — Stage 65 complete (notification & closure), AppealClosureTest, AppealOutcomeExecutionTest
 
 ### Community 86 - "ApprovalReturnPanel.vue"
 Cohesion: 0.15
 Nodes (17): canSubmit, describe(), emit, error, form, open, props, reasonOptions (+9 more)
 
 ### Community 90 - "IntakeGatePanel.vue"
-Cohesion: 0.11
-Nodes (16): answers, attested, canSubmit, coveredDocuments, describe(), documents, emit, error (+8 more)
+Cohesion: 0.12
+Nodes (15): answers, attested, canSubmit, coveredDocuments, describe(), documents, emit, error (+7 more)
 
 ### Community 91 - "MeetingsDashboardView.vue"
 Cohesion: 0.13
@@ -645,60 +629,48 @@ Cohesion: 0.14
 Nodes (16): blankForm(), cancelForm(), editingId, errors, form, formError, load(), loadError (+8 more)
 
 ### Community 96 - "Abu Saleem Request System — Staged Local Build Plan"
-Cohesion: 0.07
-Nodes (27): Abu Saleem Request System — Staged Local Build Plan, Stage 11 — Requests schema + list view, Stage 12 — File upload component, Stage 13 — Request intake flow, Stage 14 — Transition map + WorkflowService (happy path), Stage 15 — Request detail page + stage actions, Stage 16 — Exception flows, Stage 17 — SLA / deadlines (+19 more)
-
-### Community 97 - "CommitteeVotingRules"
-Cohesion: 0.13
-Nodes (3): CommitteeVotingRules, self, ExecutionSoundnessService
-
-### Community 99 - "2026-09-19 23:10 EET — Claude — Per-row scoping, a unified task inbox, and a membership-gated meetings section — complete"
-Cohesion: 0.24
-Nodes (3): 2026-09-19 23:10 EET — Claude — Per-row scoping, a unified task inbox, and a membership-gated meetings section — complete, MeetingsDashboardController, MeetingsDashboardMetrics
+Cohesion: 0.11
+Nodes (19): Abu Saleem Request System — Staged Local Build Plan, Stage 11 — Requests schema + list view, Stage 12 — File upload component, Stage 13 — Request intake flow, Stage 14 — Transition map + WorkflowService (happy path), Stage 15 — Request detail page + stage actions, Stage 16 — Exception flows, Stage 17 — SLA / deadlines (+11 more)
 
 ### Community 102 - "ApprovalReferralPanel.vue"
 Cohesion: 0.15
 Nodes (15): answering, canSubmit, canSubmitResult, describe(), emit, error, form, open (+7 more)
 
 ### Community 107 - "Test plan — Abu Saleem Transactions"
-Cohesion: 0.11
-Nodes (19): 10.1 Execution proof, 10.2 Closure (gate 4), 10.3 Suspension and reopen, 10. Execution, closure, suspension, reopen, 11. Registers, reports and KPIs, 12. Notifications, 13. Audit log, 14. Admin, backup and maintenance (+11 more)
-
-### Community 109 - "WorkflowTransitionException"
 Cohesion: 0.08
-Nodes (9): CommitteeStatusTransitionException, self, MaintenanceCommandException, self, MeetingOutputTransitionException, self, self, WorkflowTransitionException (+1 more)
+Nodes (24): 10.1 Execution proof, 10.2 Closure (gate 4), 10.3 Suspension and reopen, 10. Execution, closure, suspension, reopen, 11. Registers, reports and KPIs, 12. Notifications, 13. Audit log, 14. Admin, backup and maintenance (+16 more)
 
 ### Community 110 - "خطة الاختبار — نظام أبو سليم للطلبات"
-Cohesion: 0.10
-Nodes (21): 10.1 إثبات التنفيذ, 10.2 الإقفال (البوابة 4), 10.3 الإيقاف وإعادة الفتح, 10. التنفيذ والإقفال والإيقاف وإعادة الفتح, 11. السجلات والتقارير ومؤشرات الأداء, 12. الإشعارات, 13. سجل التدقيق, 14. الإدارة والنسخ الاحتياطي والصيانة (+13 more)
+Cohesion: 0.08
+Nodes (26): 10.1 إثبات التنفيذ, 10.2 الإقفال (البوابة 4), 10.3 الإيقاف وإعادة الفتح, 10. التنفيذ والإقفال والإيقاف وإعادة الفتح, 11. السجلات والتقارير ومؤشرات الأداء, 12. الإشعارات, 13. سجل التدقيق, 14. الإدارة والنسخ الاحتياطي والصيانة (+18 more)
+
+### Community 111 - "DomainException"
+Cohesion: 0.26
+Nodes (3): MeetingOutputTransitionException, self, DomainException
 
 ### Community 112 - "GuideArticle"
-Cohesion: 0.24
-Nodes (3): GuideArticleController, GuideArticleResource, GuideArticle
+Cohesion: 0.17
+Nodes (4): GuideArticleController, StoreGuideArticleRequest, UpdateGuideArticleRequest, GuideArticle
 
-### Community 116 - "AppServiceProvider.php"
-Cohesion: 0.29
-Nodes (4): AppServiceProvider, MysqlDumper, Illuminate\Support\ServiceProvider, Stage 26 — Backup & retention
+### Community 120 - "0. Before you start"
+Cohesion: 0.40
+Nodes (5): 0.1 Bring the system up, 0.2 The 16 test accounts, 0.3 Resetting between passes, 0.5 How to read a role section, 0. Before you start
 
-### Community 118 - "2026-08-25 20:10 EET — Claude — Stage 36 implementation plan (minutes preparation & approval)"
-Cohesion: 0.15
-Nodes (13): 2026-08-24 14:20 EET — Claude — Meetings Management Unit redesign — new logic & UI structure (design of record for Stages 28–37), 2026-08-25 20:10 EET — Claude — Stage 36 implementation plan (minutes preparation & approval), Stage 28 — Meetings-Unit navigation shell, screens & permissions, Stage 29 — Request lifecycle status expansion + workflow wiring, Stage 30 — Meeting scheduling model + 5-step wizard, Stage 31 — Agenda builder enhancements, Stage 32 — Candidate-requests screen + command dashboard, Stage 33 — Meeting readiness control center (+5 more)
-
-### Community 120 - "TestUserSeeder"
-Cohesion: 0.09
-Nodes (26): 2026-08-02 09:56 EET — Claude — Stage 23 implementation plan, 2026-08-11 20:15 EET — Claude — One-click test-user login (dev only) — plan, 2026-08-11 20:30 EET — Claude — One-click test-user login built; it is dev-build-only by construction, 2026-08-28 — Claude — Phase 8 (frontend) complete — the diagram-alignment redesign is now fully built, 2026-09-19 15:10 EET — Claude — Stage 87 complete (إدارة الموارد البشرية gets a seat), TestUserSeeder, 0.1 Bring the system up, 0.2 The 16 test accounts (+18 more)
+### Community 121 - "SmsSender"
+Cohesion: 0.21
+Nodes (5): SmsSender, App\Notifications\Channels\SmsChannel, SmsChannel, LogSmsSender, Illuminate\Support\Facades\Log
 
 ### Community 123 - "Agent handoff notes"
-Cohesion: 0.03
-Nodes (76): 2026-07-30 20:23 EET — Codex — Stage 14 workflow happy path complete, 2026-07-30 21:00 EET — Codex — Stage 15 transaction workspace complete, 2026-07-30 21:00 EET — Codex — Stage 16 exception flows complete, 2026-07-30 21:16 EET — Codex — Stage 17 SLA and deadline escalation complete, 2026-07-30 21:38 EET — Codex — Stage 18 approval chain complete, 2026-07-30 21:47 EET — Codex — Stage 19 implementation plan, 2026-07-30 21:55 EET — Codex — Stage 19 e-signature complete, 2026-07-30 22:10 EET — Claude — Stage 20 implementation plan (+68 more)
+Cohesion: 0.04
+Nodes (85): 2026-07-30 20:23 EET — Codex — Stage 14 workflow happy path complete, 2026-07-30 21:00 EET — Codex — Stage 15 transaction workspace complete, 2026-07-30 21:00 EET — Codex — Stage 16 exception flows complete, 2026-07-30 21:16 EET — Codex — Stage 17 SLA and deadline escalation complete, 2026-07-30 21:38 EET — Codex — Stage 18 approval chain complete, 2026-07-30 21:47 EET — Codex — Stage 19 implementation plan, 2026-07-30 21:55 EET — Codex — Stage 19 e-signature complete, 2026-07-30 22:10 EET — Claude — Stage 20 implementation plan (+77 more)
 
 ### Community 126 - ".decidedAppealFixture"
 Cohesion: 0.24
 Nodes (3): App\Notifications\RequestStageChangedNotification, RequestStageChangedNotification, AppealFileTest
 
-### Community 129 - "ReportExporter"
-Cohesion: 0.05
-Nodes (16): AuditLogController, PerformanceController, RegisterController, CheckMeetingMembership, CheckScreenPermission, ExportPeriodicReportRequest, IndexPerformanceRequest, AuditLogResource (+8 more)
+### Community 129 - "PerformanceController"
+Cohesion: 0.13
+Nodes (3): PerformanceController, ExportPeriodicReportRequest, IndexPerformanceRequest
 
 ### Community 131 - "UserFactory"
 Cohesion: 0.24
@@ -708,33 +680,29 @@ Nodes (4): static, UserFactory, Illuminate\Database\Eloquent\Factories\Factory, 
 Cohesion: 0.12
 Nodes (17): 4.0 شاشة تفاصيل الطلب — حيث يحدث كل شيء, 4.10 المرحلة 10 — اعتماد البلدية (R05), 4.11 المرحلة 11 — وزارة الحكم المحلي (R06), 4.12 المرحلة 12 — الاعتماد النهائي (R07), 4.1 المرحلة 1 — تقديم الطلب (R01), 4.2 المرحلة 2 — مراجعة المدير المباشر, 4.3 المرحلة 3 — الإحالة الإدارية, 4.4 المرحلة 4 — الاستلام والتسجيل (+9 more)
 
-### Community 133 - "Illuminate\Http\JsonResponse"
+### Community 133 - "Controller"
 Cohesion: 0.04
-Nodes (30): 2026-08-28 — Claude — `manager_id` gap closed — the diagram-alignment redesign is fully wired end-to-end, AuthController, BackupController, DashboardController, DepartmentController, DevTestUserController, MyTaskController, NotificationController (+22 more)
+Nodes (22): AuditLogController, ConflictOfInterestController, DashboardController, DevTestUserController, MeetingsDashboardController, MyTaskController, NoteController, RequestLegalReviewController (+14 more)
 
 ### Community 134 - "TRACK K — Verbatim-source alignment ([D] and [E] as actually written)"
 Cohesion: 0.12
-Nodes (16): Stage 67 — Verbatim sources + corrected compliance matrix, Stage 69 — ⚠ Art. 38 status-dictionary reconciliation, Stage 70 — Unified numbering + the قيد point, Stage 71 — Real operational durations + escalation routing, Stage 72 — Real per-type document checklists, Stage 74 — Structured decisions, deferrals and refusals, Stage 75 — Request closure record, Stage 76 — Execution proof (+8 more)
+Nodes (16): Stage 67 — Verbatim sources + corrected compliance matrix, Stage 68 — Pre-meeting legal review (the largest missing mandated step), Stage 69 — ⚠ Art. 38 status-dictionary reconciliation, Stage 70 — Unified numbering + the قيد point, Stage 71 — Real operational durations + escalation routing, Stage 72 — Real per-type document checklists, Stage 74 — Structured decisions, deferrals and refusals, Stage 75 — Request closure record (+8 more)
 
-### Community 135 - "ScreenRolePermissionSeeder"
-Cohesion: 0.11
-Nodes (28): 2026-09-02 15:15 EET — Claude — Stage 58 sub-staged into TRACK J (planning only, no code), 2026-09-02 16:45 EET — Claude — Stage 58 complete (appeal entity, schema & status machine), 2026-09-08 08:10 EET — Claude — Stage 75 implementation plan (request closure record), 2026-09-08 09:55 EET — Claude — Stage 75 complete (request closure record), 2026-09-08 11:20 EET — Claude — Stage 76 implementation plan (execution proof), 2026-09-08 13:05 EET — Claude — Stage 76 complete (execution proof), 2026-09-09 05:40 EET — Claude — Stage 80 complete (Art. 98's twelve official registers), 2026-09-10 01:30 EET — Claude — Maintenance console: the no-shell bootstrap (follow-up to the entry below) (+20 more)
+### Community 138 - "ShowDecisionDraftRequest"
+Cohesion: 0.20
+Nodes (5): 2026-08-31 11:45 EET — Claude — Stage 42 implementation plan (decision-draft auto-generation), 2026-08-31 12:10 EET — Claude — Stage 42 complete (decision-draft auto-generation), ShowDecisionDraftRequest, useTemplate(), braced()
 
-### Community 138 - "AppealFileCompiler"
-Cohesion: 0.19
-Nodes (4): 2026-09-05 EET — Claude — Stage 61 complete (original file assembly), resuming a disconnected session, NotificationResource, AppealFileCompiler, Illuminate\Notifications\DatabaseNotification
-
-### Community 139 - "build-guide-pdf.php"
-Cohesion: 0.25
-Nodes (6): Illuminate\Support\Facades\File, League\CommonMark\Environment\Environment, League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension, League\CommonMark\Extension\GithubFlavoredMarkdownExtension, League\CommonMark\MarkdownConverter, Mpdf\Mpdf
+### Community 139 - "MaintenanceRunner.php"
+Cohesion: 0.17
+Nodes (8): Illuminate\Support\Facades\Cache, Illuminate\Support\Facades\File, League\CommonMark\Environment\Environment, League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension, League\CommonMark\Extension\GithubFlavoredMarkdownExtension, League\CommonMark\MarkdownConverter, Mpdf\Mpdf, Symfony\Component\Process\Process
 
 ### Community 140 - "AppealStatus"
-Cohesion: 0.07
-Nodes (12): 2026-09-05 14:30 EET — Claude — Stage 62 implementation plan (jurisdiction test & legal review), 2026-09-05 15:10 EET — Claude — Stage 62 complete (jurisdiction test & legal review), AppealController, CloseAppealRequest, RecordAppealJurisdictionTestRequest, RecordAppealLegalReviewRequest, ReopenAppealRequest, StoreAppealRequest (+4 more)
+Cohesion: 0.11
+Nodes (9): 2026-09-05 14:30 EET — Claude — Stage 62 implementation plan (jurisdiction test & legal review), 2026-09-05 15:10 EET — Claude — Stage 62 complete (jurisdiction test & legal review), AppealController, CloseAppealRequest, RecordAppealJurisdictionTestRequest, RecordAppealLegalReviewRequest, AppealResource, AppealStatus (+1 more)
 
 ### Community 141 - "PassesControlGates"
-Cohesion: 0.12
-Nodes (4): CommitteeMeetingTest, MeetingLiveRunnerTest, Tests\PassesControlGates, PassesControlGates
+Cohesion: 0.15
+Nodes (3): CommitteeMeetingTest, DuplicateRequestTest, PassesControlGates
 
 ### Community 142 - "7. الاستثناءات والمسارات البديلة"
 Cohesion: 0.13
@@ -744,21 +712,25 @@ Nodes (15): 7.10 عدم الازدواجية, 7.11 المدد والتأخير �
 Cohesion: 0.29
 Nodes (6): Design principles, Frontend Design, Ground your designs in the subject matter, More on writing in design, Process: plan, review against the brief, build, critique, Restraint and self-critique
 
-### Community 148 - "Appeal"
+### Community 151 - "TestUserSeeder"
 Cohesion: 0.11
-Nodes (3): Appeal, App\Notifications\AppealDecidedNotification, AppealDecidedNotification
-
-### Community 151 - ".screenPermissions"
-Cohesion: 0.14
-Nodes (10): 1.1 Bring the system up, 1.2 Resetting between passes, 1.3 Test accounts, 1.4 The login-screen test-account picker, 1. Setup, 1.1 تشغيل النظام, 1.2 إعادة الضبط بين الجولات, 1.3 حسابات الاختبار (+2 more)
+Nodes (16): 2026-08-11 20:15 EET — Claude — One-click test-user login (dev only) — plan, 2026-08-11 20:30 EET — Claude — One-click test-user login built; it is dev-build-only by construction, 2026-08-28 21:15 EET — Claude — Transaction → Request rename — implementation plan, 2026-08-28 — Claude — Phase 8 (frontend) complete — the diagram-alignment redesign is now fully built, TransitionRequest, TestUserSeeder, 1.1 Bring the system up, 1.2 Resetting between passes (+8 more)
 
 ### Community 152 - "extractErrorMessage"
 Cohesion: 0.29
 Nodes (11): createAppeal(), extractErrorMessage(), load(), resetCreateForm(), submitClosure(), submitExecution(), submitJurisdictionTest(), submitLegalReview() (+3 more)
 
 ### Community 153 - "خطة اختبار حسب الدور — نظام معاملات أبو سليم"
-Cohesion: 0.05
-Nodes (43): أ. ما يجب أن يراه, أ. ما يجب أن يراه, أ. ما يجب أن يراه, أ. ما يجب أن يراه, أ. ما يجب أن يراه, أ. ما يجب أن يراه, أ. ما يجب أن يراه, أ. ما يجب أن يراه (+35 more)
+Cohesion: 0.20
+Nodes (10): أ. ما يجب أن يراه, الاعتماد, الملحق ب — مراحل دورة الحياة الاثنتا عشرة, الملحق ج — دليل الحالات, الملحق د — ترقيم الوثائق, ج. ما يجب أن يُرفض عليه, خطة اختبار حسب الدور — نظام معاملات أبو سليم, ١. التتابع — معاملة واحدة، تسعة أشخاص (+2 more)
+
+### Community 155 - "MeetingVisibility"
+Cohesion: 0.07
+Nodes (10): CheckMeetingMembership, ExportRegisterRequest, IndexRegisterRequest, MeetingVisibility, Closure, Illuminate\Foundation\Application, Illuminate\Foundation\Configuration\Exceptions, Illuminate\Foundation\Configuration\Middleware (+2 more)
+
+### Community 157 - "NotificationSetting"
+Cohesion: 0.36
+Nodes (3): 2026-08-02 10:40 EET — Claude — Stage 23 notifications complete, NotificationSetting, User
 
 ### Community 166 - "The backend half: deploying with no SSH at all"
 Cohesion: 0.14
@@ -768,33 +740,49 @@ Nodes (14): After bootstrapping, Before you upload, Bootstrap, once, from a brow
 Cohesion: 0.14
 Nodes (14): 13. استكشاف الأخطاء الشائعة, 2.1 تسجيل الدخول, 2.2 عناصر الواجهة, 2.3 لماذا لا أرى شاشة أو زراً؟, 2. الدخول والتعرف على الواجهة, 3. الأدوار الأحد عشر — من يفعل ماذا, 6. سلسلة الاعتماد والتوقيع الإلكتروني, 8.1 إثبات التنفيذ (+6 more)
 
-### Community 173 - "NotificationDispatcher.php"
-Cohesion: 0.05
-Nodes (16): App\Models\Decision, App\Notifications\ActionRequiredNotification, ActionRequiredNotification, App\Notifications\FinancialImpactReviewNotification, FinancialImpactReviewNotification, App\Notifications\MeetingMinutesApprovedNotification, MeetingMinutesApprovedNotification, App\Notifications\MeetingScheduledNotification (+8 more)
+### Community 173 - "Appeal"
+Cohesion: 0.07
+Nodes (6): App\Models\Appeal, Appeal, Setting, App\Notifications\AppealDecidedNotification, AppealDecidedNotification, Illuminate\Database\Eloquent\Relations\HasOne
 
-### Community 184 - "IntakeGateService"
-Cohesion: 0.08
-Nodes (19): 2026-09-18 17:55 EET — Claude — The قيد moves to the receiving body's acceptance, and the submitter is told — implementation plan, 2026-09-18 19:40 EET — Claude — The قيد now happens at the receiving body's acceptance, and the submitter is told, 2026-09-20 21:00 EET — Claude — Implementation plan: Stage 97 (القيد back to مقرر اللجنة), 2026-09-21 18:36 EET — Claude — Stage 100 complete (الإشعار ownership, الأرشفة, execution oversight — Appendix 6 rows 13–15), RequestStatusNoticeObserver, EmployeeNoticeService, App\Services\IntakeGateService, IntakeGateService (+11 more)
+### Community 177 - "RequestArchivePanel.vue"
+Cohesion: 0.25
+Nodes (8): emit, error, FILES, locations, props, save(), saving, { t }
+
+### Community 182 - "loadCommittees"
+Cohesion: 0.29
+Nodes (7): addMember(), cancelCommitteeForm(), loadCommittees(), removeCommittee(), removeMember(), saveCommittee(), toggleCommitteeActive()
+
+### Community 184 - "RequestStatusHistory"
+Cohesion: 0.09
+Nodes (20): 2026-09-02 11:20 EET — Claude — Stage 54b implementation plan (status-vocabulary reconciliation), 2026-09-02 11:40 EET — Claude — Stage 54b complete (status-vocabulary reconciliation), 2026-09-05 18:30 EET — Claude — Stage 64 implementation plan (⚠ outcome execution: accept / amend / refer / redo), 2026-09-05 19:45 EET — Claude — Stage 64 complete (⚠ outcome execution: accept / amend / refer / redo), 2026-09-06 10:35 EET — Claude — Stage 66 complete (non-reopening rule + the reopen mechanism) — Track J finished, 2026-09-08 15:10 EET — Claude — Stage 77 implementation plan (return from the approving body), 2026-09-08 17:30 EET — Claude — Stage 77 complete (return from the approving body), 2026-09-08 19:30 EET — Claude — Stage 78 implementation plan (the four mandatory control gates) (+12 more)
+
+### Community 186 - "Attachment"
+Cohesion: 0.12
+Nodes (6): 2026-09-18 12:30 EET — Claude — Intake attachments must carry their Appendix 14 classification — implementation plan, App\Http\Requests\Attachment\StoreAttachmentRequest, Attachment, MeetingAgendaItemContextTest, PresentationMemoTest, RequestWorkspaceVisibilityTest
 
 ### Community 187 - "agenda.js"
 Cohesion: 0.25
 Nodes (6): AGENDA_RANKS, agendaRankLabel(), PRIORITY_GROUNDS, PRIORITY_LEVELS, priorityGroundLabel(), STUDY_STEPS
 
 ### Community 188 - "App\Models\User"
-Cohesion: 0.21
-Nodes (22): App\Exceptions\WorkflowTransitionException, App\Models\Approval, App\Models\Attachment, App\Models\Committee, App\Models\Department, App\Models\RequestStageLog, App\Models\RequestStatus, App\Models\RequestStatusHistory (+14 more)
+Cohesion: 0.13
+Nodes (29): App\Exceptions\WorkflowTransitionException, App\Http\Controllers\Controller, App\Models\Approval, App\Models\Attachment, App\Models\Committee, App\Models\Decision, App\Models\Department, App\Models\RequestStatus (+21 more)
 
-### Community 192 - "STAGE_PLAN.md"
-Cohesion: 0.22
-Nodes (7): Stage 84 — Role-matrix and gate-authorship corrections, TRACK L — permission-matrix corrections (Stage 84), Adding to this file, Decisions for the process owner — the diagram vs. [D], Platform items — outside this system's stage plan, Provisions with no stage, Todo later — decided, not scheduled
+### Community 189 - "Open items"
+Cohesion: 0.29
+Nodes (7): A manager whose only role is R09, R10 or R11 cannot attach at `receive_and_register` — Stage 101 — opened 2026-09-21, Approvers cannot open the meeting outputs screen — Stage 100 — opened 2026-09-21, Every R02 can still see a request returned to intake — filer-only attachments — opened 2026-09-21, Open items, Stage 101 — consultation and information layer — Track N — opened 2026-09-21 — **Resolved (2026-09-21, Stage 101)**, The Art. 101 notice copy is in-app only — Stage 101 — opened 2026-09-21, "Was the employee notified?" is still a hand-ticked answer — Stage 100 — opened 2026-09-21
+
+### Community 192 - "TRACK M — Municipality lifecycle-diagram alignment (Stages 85–93)"
+Cohesion: 0.11
+Nodes (16): Stage 84 — Role-matrix and gate-authorship corrections, Stage 85 — Document completeness becomes binding, Stage 87 — إدارة الموارد البشرية gets a seat, Stage 88 — Intake drafts and the review step, Stage 89 — «متابعة طلباتي» employee tracking, Stage 90 — Intake form fidelity, Stage 91 — One document vocabulary for the استكمال loop, Stage 92 — Execution recorded by the executing body (+8 more)
 
 ### Community 197 - "RequestStageRail.vue"
 Cohesion: 0.32
 Nodes (6): label, level, props, { t }, ticks, stageProgressLabel()
 
-### Community 199 - "ShowDecisionDraftRequest"
-Cohesion: 0.22
-Nodes (5): 2026-08-31 11:45 EET — Claude — Stage 42 implementation plan (decision-draft auto-generation), 2026-08-31 12:10 EET — Claude — Stage 42 complete (decision-draft auto-generation), ShowDecisionDraftRequest, useTemplate(), braced()
+### Community 201 - "RequestLifecycleController.php"
+Cohesion: 0.04
+Nodes (12): RequestLifecycleController, DetermineWithdrawalRequest, RecordDocumentValidityRequest, ResolveDocumentConflictRequest, ResolveSpecialCaseRequest, StoreCorrectionRequest, StoreDocumentConflictRequest, StoreSpecialCaseRequest (+4 more)
 
 ### Community 204 - "5. دورة اللجنة والاجتماعات"
 Cohesion: 0.18
@@ -803,6 +791,10 @@ Nodes (11): 5.10 مخرجات الاجتماعات, 5.1 تكوين اللجنة 
 ### Community 206 - "AGENTS.md"
 Cohesion: 0.33
 Nodes (5): Build / run / test commands, Conventions, Cross-agent handoff (Codex ↔ Claude Code), Gotchas, What this is
+
+### Community 209 - "RequestTypeController"
+Cohesion: 0.16
+Nodes (3): RequestTypeController, StoreRequestTypeRequest, UpdateRequestTypeRequest
 
 ### Community 212 - "8. Committee and meetings"
 Cohesion: 0.29
@@ -824,6 +816,10 @@ Nodes (9): 1.1 الطلب (المعاملة), 1.2 المرحلة ≠ الحال�
 Cohesion: 0.22
 Nodes (9): 9.1 تقديم التظلم (R01), 9.2 التحقق الشكلي (R02), 9.3 اختبار الاختصاص (R02), 9.4 المراجعة القانونية (R02), 9.5 ملف التظلم المجمَّع, 9.6 العرض على اللجنة والقرار, 9.7 تنفيذ النتيجة والإقفال, 9.8 إعادة فتح تظلم مقفل (+1 more)
 
+### Community 217 - "TRACK B — Admin & Master Data (simple CRUD)"
+Cohesion: 0.40
+Nodes (5): Stage 6 — Departments CRUD, Stage 7 — Users management, Stage 8 — Permission matrix editor, Stage 9 — Permission enforcement layer, TRACK B — Admin & Master Data (simple CRUD)
+
 ### Community 218 - "10. المتابعة والتقارير والسجلات"
 Cohesion: 0.25
 Nodes (8): 10.1 الإشعارات, 10.2 لوحة التحكم الرئيسية, 10.3 لوحة قيادة الاجتماعات, 10.4 التقارير, 10.5 السجلات الرسمية, 10.6 سجل التدقيق, 10.7 دليل الاستخدام داخل النظام, 10. المتابعة والتقارير والسجلات
@@ -832,33 +828,61 @@ Nodes (8): 10.1 الإشعارات, 10.2 لوحة التحكم الرئيسية,
 Cohesion: 0.25
 Nodes (8): 11.1 المستخدمون, 11.2 الإدارات والأقسام, 11.3 الأدوار والصلاحيات, 11.4 الإعدادات العامة, 11.5 القوالب والنماذج, 11.6 النسخ الاحتياطي, 11.7 الصيانة والنشر, 11. إدارة النظام (R08)
 
+### Community 222 - "٠. قبل أن تبدأ"
+Cohesion: 0.40
+Nodes (5): ٠. قبل أن تبدأ, ٠.١ تشغيل النظام, ٠.٢ حسابات الاختبار الستة عشر, ٠.٣ إعادة الضبط بين الجولات, ٠.٥ كيف تقرأ قسم الدور
+
 ### Community 223 - "Role test plan — Abu Saleem Transactions"
-Cohesion: 0.05
-Nodes (43): 11. R10 — وكيل الديوان / Diwan Deputy, 12. R11 — العضو القانوني / Legal Officer, 13. R12 — مدير إدارة الموارد البشرية / HR Manager, 15. Defect log and sign-off, 1. The relay — one request, nine people, 2. R01 — الموظف / Employee, 3. R02 — المقرر / Reviewer, 4. R03 — رئيس اللجنة / Committee Head (+35 more)
+Cohesion: 0.29
+Nodes (7): 15. Defect log and sign-off, 1. The relay — one request, nine people, Appendix B — the twelve lifecycle stages, Appendix C — the status dictionary, Appendix D — artefact numbering, Role test plan — Abu Saleem Transactions, Sign-off
 
 ### Community 224 - "12. سيناريوهات كاملة"
 Cohesion: 0.29
 Nodes (7): 12. سيناريوهات كاملة, سيناريو 1 — ترقية تمر بالمسار الكامل, سيناريو 2 — ملف ناقص يعود ويستكمل, سيناريو 3 — عدم اختصاص مبكر, سيناريو 4 — تظلم يُقبل جزئياً, سيناريو 5 — تجاوز الوزارة, سيناريو 6 — إعادة من جهة الاعتماد لسبب موضوعي
 
-### Community 226 - "MaintenanceController"
-Cohesion: 0.26
-Nodes (3): MaintenanceController, MaintenanceBootstrapper, Illuminate\Http\Response
+### Community 226 - "MaintenanceController.php"
+Cohesion: 0.09
+Nodes (7): MaintenanceController, StoreApprovalRequest, RunMaintenanceCommandRequest, MaintenanceRunResource, static, Illuminate\Http\Response, Illuminate\Validation\ValidationException
 
-### Community 228 - "User"
-Cohesion: 0.06
-Nodes (15): 2026-08-02 15:40 EET — Claude — Test users for every role + TEST_PLAN.md, 2026-09-18 12:30 EET — Claude — Intake attachments must carry their Appendix 14 classification — implementation plan, 2026-09-18 23:40 EET — Claude — Stage 85 complete (document completeness becomes binding) — Track M opens, App\Http\Requests\Attachment\StoreAttachmentRequest, Attachment, User, AdminUserSeeder, Illuminate\Foundation\Inspiring (+7 more)
+### Community 228 - "٤. R03 — رئيس اللجنة"
+Cohesion: 0.50
+Nodes (4): أ. ما يجب أن يراه, ب. ما يجب أن يستطيع فعله, ج. ما يجب أن يُرفض عليه, ٤. R03 — رئيس اللجنة
 
-### Community 231 - "Illuminate\Validation\Rule"
-Cohesion: 0.05
-Nodes (9): UpdateCommitteeRequest, RecordDocumentValidityRequest, RecordApprovalReferralResultRequest, RecordIntakeGateRequest, SuspendRequest, UpdateTemplateRequest, UrgencyRules, Illuminate\Contracts\Validation\Validator (+1 more)
+### Community 229 - "SettingController.php"
+Cohesion: 0.12
+Nodes (4): SettingController, StoreSettingRequest, UpdateSettingRequest, SettingResource
+
+### Community 230 - "syncMemoDraft"
+Cohesion: 0.50
+Nodes (4): generateMemo(), loadMemo(), saveMemo(), syncMemoDraft()
+
+### Community 231 - "٥. R04 — عضو اللجنة"
+Cohesion: 0.50
+Nodes (4): أ. ما يجب أن يراه, ب. ما يجب أن يستطيع فعله, ج. ما يجب أن يُرفض عليه, ٥. R04 — عضو اللجنة
 
 ### Community 232 - "الملاحق"
 Cohesion: 0.33
 Nodes (6): الملاحق, ملحق أ — المراحل الاثنتا عشرة, ملحق ب — أنواع الطلبات الاثنا عشر, ملحق ج — سلاسل الترقيم, ملحق د — أبرز حالات الطلب, ملحق هـ — مصطلحات
 
-### Community 238 - "Open items"
-Cohesion: 0.29
-Nodes (7): A manager whose only role is R09, R10 or R11 cannot attach at `receive_and_register` — Stage 101 — opened 2026-09-21, Approvers cannot open the meeting outputs screen — Stage 100 — opened 2026-09-21, Every R02 can still see a request returned to intake — filer-only attachments — opened 2026-09-21, Open items, Stage 101 — consultation and information layer — Track N — opened 2026-09-21 — **Resolved (2026-09-21, Stage 101)**, The Art. 101 notice copy is in-app only — Stage 101 — opened 2026-09-21, "Was the employee notified?" is still a hand-ticked answer — Stage 100 — opened 2026-09-21
+### Community 235 - "load"
+Cohesion: 0.50
+Nodes (4): load(), postNote(), setItemState(), toggleStep()
+
+### Community 236 - "StoreRequest"
+Cohesion: 0.10
+Nodes (16): 2026-08-28 21:45 EET — Claude — Transaction → Request rename complete, 2026-09-02 17:15 EET — Claude — Stage 59 implementation plan (appeal intake: real fields + eligibility gates), 2026-09-18 18:10 EET — Claude — Intake attachments now carry their Appendix 14 classification, 2026-09-18 21:50 EET — Claude — Stage 85 implementation plan (document completeness becomes binding), 2026-09-18 23:15 EET — Claude — Stage 88 implementation plan (intake drafts and the review step), 2026-09-18 23:55 EET — Claude — Stage 91 implementation plan (one document vocabulary for the استكمال loop), 2026-09-19 00:05 EET — Claude — Stage 88 complete (intake drafts and the review step), 2026-09-19 01:05 EET — Claude — Stage 91 complete (one document vocabulary for the استكمال loop) (+8 more)
+
+### Community 238 - "11. R10 — وكيل الديوان / Diwan Deputy"
+Cohesion: 0.50
+Nodes (4): 11. R10 — وكيل الديوان / Diwan Deputy, A. What they must see, B. What they must be able to do, C. What they must be refused
+
+### Community 239 - "12. R11 — العضو القانوني / Legal Officer"
+Cohesion: 0.50
+Nodes (4): 12. R11 — العضو القانوني / Legal Officer, A. What they must see, B. What they must be able to do, C. What they must be refused
+
+### Community 240 - "13. R12 — مدير إدارة الموارد البشرية / HR Manager"
+Cohesion: 0.50
+Nodes (4): 13. R12 — مدير إدارة الموارد البشرية / HR Manager, A. What they must see, B. What they must be able to do, C. What they must be refused
 
 ### Community 241 - "logging.php"
 Cohesion: 0.40
@@ -868,62 +892,138 @@ Nodes (4): Monolog\Handler\NullHandler, Monolog\Handler\StreamHandler, Monolog\H
 Cohesion: 0.40
 Nodes (4): Illuminate\Cookie\Middleware\EncryptCookies, Illuminate\Foundation\Http\Middleware\ValidateCsrfToken, Laravel\Sanctum\Http\Middleware\AuthenticateSession, Laravel\Sanctum\Sanctum
 
+### Community 243 - "2. R01 — الموظف / Employee"
+Cohesion: 0.50
+Nodes (4): 2. R01 — الموظف / Employee, A. What they must see, B. What they must be able to do, C. What they must be refused
+
+### Community 244 - "3. R02 — المقرر / Reviewer"
+Cohesion: 0.50
+Nodes (4): 3. R02 — المقرر / Reviewer, A. What they must see, B. What they must be able to do, C. What they must be refused
+
+### Community 246 - "4. R03 — رئيس اللجنة / Committee Head"
+Cohesion: 0.50
+Nodes (4): 4. R03 — رئيس اللجنة / Committee Head, A. What they must see, B. What they must be able to do, C. What they must be refused
+
+### Community 248 - "5. R04 — عضو اللجنة / Committee Member"
+Cohesion: 0.50
+Nodes (4): 5. R04 — عضو اللجنة / Committee Member, A. What they must see, B. What they must be able to do, C. What they must be refused
+
+### Community 255 - "7. R06 — وزارة الحكم المحلي / Ministry"
+Cohesion: 0.50
+Nodes (4): 7. R06 — وزارة الحكم المحلي / Ministry, A. What they must see, B. What they must be able to do, C. What they must be refused
+
+### Community 257 - "Illuminate\Database\Eloquent\Relations\HasMany"
+Cohesion: 0.05
+Nodes (3): MeetingMinutes, App\Models\RequestDraft, Illuminate\Database\Eloquent\Relations\HasMany
+
 ### Community 260 - "١٤. فحوص عابرة للأدوار"
 Cohesion: 0.22
 Nodes (9): ١٤. فحوص عابرة للأدوار, ١٤.١ تعدّد الأدوار اتحاد لا تقاطع, ١٤.٢ المستخدم الموقوف يُرفض مرتين, ١٤.٣ لا أحد يعتمد عمله, ١٤.٤ حدّ محاولات الدخول, ١٤.٥ الرؤية ترجع 404 لا قائمة فارغة, ١٤.٦ الإشعارات, ١٤.٧ اللغة والاتجاه والسمة والطباعة (+1 more)
 
-### Community 346 - "requestClosure.js"
-Cohesion: 0.40
-Nodes (4): AUDIT_CHECKS, CLOSER_CHECKS, CLOSURE_FIELDS, DERIVED_CHECKS
+### Community 261 - "8. R07 — المدير العام / العميد / Director"
+Cohesion: 0.50
+Nodes (4): 8. R07 — المدير العام / العميد / Director, A. What they must see, B. What they must be able to do, C. What they must be refused
 
-### Community 358 - "loadCommittees"
-Cohesion: 0.29
-Nodes (7): addMember(), cancelCommitteeForm(), loadCommittees(), removeCommittee(), removeMember(), saveCommittee(), toggleCommitteeActive()
+### Community 267 - "٧. R06 — وزارة الحكم المحلي"
+Cohesion: 0.50
+Nodes (4): أ. ما يجب أن يراه, ب. ما يجب أن يستطيع فعله, ج. ما يجب أن يُرفض عليه, ٧. R06 — وزارة الحكم المحلي
+
+### Community 275 - "٢. R01 — الموظف"
+Cohesion: 0.50
+Nodes (4): أ. ما يجب أن يراه, ب. ما يجب أن يستطيع فعله, ج. ما يجب أن يُرفض عليه, ٢. R01 — الموظف
+
+### Community 280 - "١٣. R12 — مدير إدارة الموارد البشرية"
+Cohesion: 0.50
+Nodes (4): أ. ما يجب أن يراه, ب. ما يجب أن يستطيع فعله, ج. ما يجب أن يُرفض عليه, ١٣. R12 — مدير إدارة الموارد البشرية
+
+### Community 282 - "٣. R02 — المقرر"
+Cohesion: 0.50
+Nodes (4): أ. ما يجب أن يراه, ب. ما يجب أن يستطيع فعله, ج. ما يجب أن يُرفض عليه, ٣. R02 — المقرر
+
+### Community 284 - "DepartmentController"
+Cohesion: 0.13
+Nodes (4): DepartmentController, StoreDepartmentRequest, UpdateDepartmentRequest, DepartmentResource
+
+### Community 285 - "٨. R07 — المدير العام / العميد"
+Cohesion: 0.50
+Nodes (4): أ. ما يجب أن يراه, ب. ما يجب أن يستطيع فعله, ج. ما يجب أن يُرفض عليه, ٨. R07 — المدير العام / العميد
+
+### Community 287 - "١١. R10 — وكيل الديوان"
+Cohesion: 0.50
+Nodes (4): أ. ما يجب أن يراه, ب. ما يجب أن يستطيع فعله, ج. ما يجب أن يُرفض عليه, ١١. R10 — وكيل الديوان
+
+### Community 288 - "UserResource"
+Cohesion: 0.08
+Nodes (10): 2026-08-15 20:45 EET — Claude — Test-user picker is now backend-gated on `APP_ENV=local`; the 2026-08-11 20:30 note's mechanism is STALE, 2026-08-28 — Claude — `manager_id` gap closed — the diagram-alignment redesign is fully wired end-to-end, AuthController, UserController, LoginRequest, StoreUserRequest, UpdateUserRequest, static (+2 more)
+
+### Community 315 - "AppealAttachmentController.php"
+Cohesion: 0.08
+Nodes (8): AppealAttachmentController, BackupController, StoreAppealAttachmentRequest, StoreBackupRequest, AppealAttachmentResource, BackupResource, Symfony\Component\HttpFoundation\StreamedResponse, Throwable
+
+### Community 346 - "١٢. R11 — العضو القانوني"
+Cohesion: 0.50
+Nodes (4): أ. ما يجب أن يراه, ب. ما يجب أن يستطيع فعله, ج. ما يجب أن يُرفض عليه, ١٢. R11 — العضو القانوني
+
+### Community 354 - "blankCommitteeForm"
+Cohesion: 0.67
+Nodes (3): blankCard(), blankCommitteeForm(), startCreateCommittee()
+
+### Community 357 - "10. R09 — أمين سر اللجنة / Committee Secretary"
+Cohesion: 0.67
+Nodes (3): 10. R09 — أمين سر اللجنة / Committee Secretary, B. What they must be able to do, C. What they must be refused
+
+### Community 358 - "6. R05 — مدير إدارة الشؤون الإدارية / Admin Manager"
+Cohesion: 0.67
+Nodes (3): 6. R05 — مدير إدارة الشؤون الإدارية / Admin Manager, A. What they must see, B. What they must be able to do
+
+### Community 360 - "9. R08 — مدير النظام / System Admin"
+Cohesion: 0.67
+Nodes (3): 9. R08 — مدير النظام / System Admin, A. What they must see, C. What they must be refused
 
 ### Community 362 - "8. اللجنة والاجتماعات"
 Cohesion: 0.29
 Nodes (7): 8.1 اللجان, 8.2 المرشحات والمراجعة القانونية, 8.3 جدول الأعمال (البوابة 2), 8.4 الجاهزية والدعوة للانعقاد, 8.5 إدارة الجلسة والتصويت والقرارات, 8.6 المحاضر (البوابة 3), 8. اللجنة والاجتماعات
 
-### Community 370 - "EnvironmentProbe"
+### Community 364 - "٦. R05 — مدير إدارة الشؤون الإدارية"
+Cohesion: 0.67
+Nodes (3): أ. ما يجب أن يراه, ب. ما يجب أن يستطيع فعله, ٦. R05 — مدير إدارة الشؤون الإدارية
+
+### Community 365 - "١٠. R09 — أمين سر اللجنة"
+Cohesion: 0.67
+Nodes (3): ب. ما يجب أن يستطيع فعله, ج. ما يجب أن يُرفض عليه, ١٠. R09 — أمين سر اللجنة
+
+### Community 375 - "MeetingOutputsResource"
+Cohesion: 0.22
+Nodes (3): MeetingOutputsController, ExecuteMeetingOutputRequest, MeetingOutputsResource
+
+### Community 377 - "RequestDraftAttachment"
 Cohesion: 0.23
-Nodes (6): 2026-07-30 — Codex — Stage 10 settings and templates complete, 2026-09-09 23:10 EET — Claude — Maintenance console implementation plan (cPanel shared hosting), 2026-09-10 00:40 EET — Claude — Maintenance console complete (cPanel shared hosting), Architecture, EnvironmentProbe, Stage 10 — Settings & templates screens
+Nodes (3): RequestDraftAttachment, Illuminate\Contracts\Validation\Validator, RequestDraftTest
 
 ### Community 382 - "Meeting"
-Cohesion: 0.06
-Nodes (22): 2026-08-24 18:10 EET — Claude — Stage 30 implementation plan (meeting scheduling model + 5-step wizard), 2026-08-24 18:55 EET — Claude — Stage 30 complete (meeting scheduling model + 5-step wizard), 2026-08-25 10:00 EET — Claude — Stage 31 implementation plan (agenda builder enhancements), 2026-08-25 13:15 EET — Claude — Stage 33 implementation plan (meeting readiness control center), 2026-08-25 20:55 EET — Claude — Stage 36 complete (minutes preparation & approval), 2026-08-25 21:10 EET — Codex — Stage 37 implementation plan (meeting outputs follow-up), 2026-09-01 09:40 EET — Claude — Stage 46 implementation plan (presentation memo compiler), 2026-09-01 10:35 EET — Claude — Stage 46 complete (presentation memo compiler) (+14 more)
+Cohesion: 0.04
+Nodes (27): 2026-08-24 18:10 EET — Claude — Stage 30 implementation plan (meeting scheduling model + 5-step wizard), 2026-08-24 18:55 EET — Claude — Stage 30 complete (meeting scheduling model + 5-step wizard), 2026-09-01 10:35 EET — Claude — Stage 46 complete (presentation memo compiler), 2026-09-21 17:52 EET — Claude — Implementation plan: Stage 99 (the committee's own acts — Appendix 6 rows 8–11), 2026-09-21 18:40 EET — Claude — Stage 99 complete (the committee's own acts — Appendix 6 rows 8–11), MeetingController, MeetingDiscussionNoteController, MeetingMinutesController (+19 more)
 
-### Community 397 - "TRACK A — Local Environment & Foundation"
-Cohesion: 0.40
-Nodes (5): Stage 1 — Local environment setup, Stage 3 — Base schema (part 2: workflow + lookup tables), Stage 4 — Authentication, Stage 5 — App shell & layout, TRACK A — Local Environment & Foundation
-
-### Community 398 - "2. Permissions and navigation"
-Cohesion: 0.40
-Nodes (5): 2.1 Sidebar per role, 2.2 Guard and API agree, 2.3 `view`, `export` and `approve` are different privileges, 2.4 Deletion is R08-only, 2. Permissions and navigation
-
-### Community 400 - "2. الصلاحيات والتنقل"
-Cohesion: 0.40
-Nodes (5): 2.1 القائمة الجانبية لكل دور, 2.2 اتفاق الحارس مع الـ API, 2.3 العرض والتصدير والاعتماد صلاحيات مختلفة, 2.4 الحذف حكر على R08, 2. الصلاحيات والتنقل
-
-### Community 401 - "blankCommitteeForm"
-Cohesion: 0.67
-Nodes (3): blankCard(), blankCommitteeForm(), startCreateCommittee()
+### Community 397 - ".permissions"
+Cohesion: 0.25
+Nodes (6): Stage 1 — Local environment setup, Stage 2 — Base schema (part 1: org + identity), Stage 3 — Base schema (part 2: workflow + lookup tables), Stage 4 — Authentication, Stage 5 — App shell & layout, TRACK A — Local Environment & Foundation
 
 ## Knowledge Gaps
-- **1227 isolated node(s):** `2026-09-19 20:05 EET — Claude — Video-streaming placeholder removed from the Live Meeting screen`, `2026-09-18 12:05 EET — Claude — STANDING: commit the work when a task is complete`, `2026-09-12 12:55 EET — Claude — The five diagram SVGs regenerated (closes the prior entry's open item 1)`, `2026-09-12 11:10 EET — Claude — Documentation reconciliation plan (docs vs. code drift audit)`, `2026-09-09 07:30 EET — Claude — Stage 81 implementation plan (Art. 106's performance indicators)` (+1222 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 2251 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **265 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **1227 isolated node(s):** `icons`, `markup`, `props`, `collapsedGroups`, `ICON_BY_CODE` (+1222 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 2252 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **211 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `documentCondition()` connect `FileUpload.vue` to `StoreRequest`, `RequestIntakeView.vue`, `RequestDetailView.vue`?**
-  _High betweenness centrality (0.127) - this node is a cross-community bridge._
-- **Why does `Request` connect `Request` to `Department`, `Illuminate\Http\Request`, `WorkflowTransitionSeeder`, `Illuminate\Database\Eloquent\Relations\BelongsTo`, `RequestDraft`, `WorkflowService`, `CommitteeStatusService`, `DocumentCompletenessService`, `NotificationDispatcher`, `Illuminate\Database\Seeder`, `RequestDetailTest`, `Illuminate\Database\Eloquent\Model`, `MeetingMinutesCompiler`, `AppealTest`, `PerformanceIndicatorTest`, `ReportDocument`, `RegisterTest`, `MeetingRequest`, `ControlGateTest`, `.requestAtStage`, `RequestSubjectTest`, `EmployeeNoticeTest`, `MeetingReadinessTest`, `.applyRule`, `DocumentCompletenessTest`, `.collect`, `StudySequenceTest`, `AppealOutcomeExecutionTest`, `ApprovalReferralTest`, `EmploymentFilePreparationTest`, `CommitteeVotingRules`, `.app`, `FilerAttachmentsAndReturnTest`, `RequestLegalReviewTest`, `.requestAt`, `Illuminate\Database\Eloquent\Relations\HasMany`, `EarlyWarningService`, `CompletionDocumentUploadTest`, `RequirementsCheckJurisdictionTest`, `.requestAt`, `AppServiceProvider.php`, `UnifiedNumberingTest`, `PerformanceIndicatorService`, `MeetingAgendaBuilderTest`, `Agent handoff notes`, `Illuminate\Support\Collection`, `.decidedAppealFixture`, `ReportExporter`, `Illuminate\Http\JsonResponse`, `ScreenRolePermissionSeeder`, `.requestAt`, `AppealFileCompiler`, `AppealStatus`, `PassesControlGates`, `.requestAt`, `DashboardReportTest`, `DecisionVotingTest`, `ArtThirtyEightStatusTest`, `DirectManagerRoutingTest`, `FinancialImpactReviewTest`, `GateAuthorshipTest`, `.requestAtStage`, `NotificationTest`, `MeetingOutputsTest`, `ApprovalReferral`, `TimeCardCompiler`, `CommitteeHandoverTest`, `.requestAt`, `NotificationDispatcher.php`, `RequestWithdrawal`, `CommitteeOwnActsTest`, `RequestTimelineTest`, `.requestOwnedBy`, `RapporteurVoteConflictOfInterestTest`, `CommitteeStatusServiceTest`, `IntakeGateService`, `PresentationMemoTest`, `App\Models\User`, `ApprovalChainTest`, `.requestAtStage`, `.decidedRequest`, `RequestSuspension`, `.request`, `.requestAtStage`, `User`, `.requestAt`, `ReportController`, `CommitteeSeatRosterTest`, `RequestExecutionService`, `RequestSlaTest`, `RequestDraftAttachment`, `DuplicatePolicy`?**
-  _High betweenness centrality (0.125) - this node is a cross-community bridge._
-- **Why does `Agent handoff notes` connect `Agent handoff notes` to `StoreRequest`, `Illuminate\Http\Request`, `Illuminate\Http\JsonResponse`, `WorkflowTransitionSeeder`, `ScreenRolePermissionSeeder`, `AppealFileCompiler`, `RequestDraft`, `AppealStatus`, `WorkflowService`, `CommitteeStatusService`, `DocumentCompletenessService`, `NotificationDispatcher`, `Illuminate\Database\Seeder`, `Illuminate\Database\Eloquent\Model`, `loadMeeting`, `MeetingMinutesCompiler`, `DecisionEligibility`, `NotificationSetting`, `ReportDocument`, `RequestTimelineTest`, `IntakeGateService`, `ShowDecisionDraftRequest`, `.applyRule`, `Request`, `StudySequenceTest`, `AGENT_NOTES.md`, `User`, `2026-09-19 23:10 EET — Claude — Per-row scoping, a unified task inbox, and a membership-gated meetings section — complete`, `EnvironmentProbe`, `2026-08-25 20:10 EET — Claude — Stage 36 implementation plan (minutes preparation & approval)`, `PerformanceIndicatorService`, `TestUserSeeder`, `Meeting`?**
-  _High betweenness centrality (0.123) - this node is a cross-community bridge._
-- **Are the 2 inferred relationships involving `User` (e.g. with `2026-08-02 15:40 EET — Claude — Test users for every role + TEST_PLAN.md` and `2026-08-28 — Claude — Phase 8 (frontend) complete — the diagram-alignment redesign is now fully built`) actually correct?**
-  _`User` has 2 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `Agent handoff notes` connect `Agent handoff notes` to `Illuminate\Database\Seeder`, `WorkflowTransitionSeeder`, `ShowDecisionDraftRequest`, `AppealStatus`, `WorkflowService`, `CommitteeStatusService`, `Request`, `NotificationDispatcher`, `TestUserSeeder`, `Illuminate\Database\Eloquent\Model`, `loadMeeting`, `NotificationSetting`, `UserResource`, `MeetingMinutesCompiler`, `DecisionEligibility`, `ReportDocument`, `RequestStatusHistory`, `Attachment`, `RequestVisibility`, `User`, `StudySequenceTest`, `AppealOutcomeExecutionTest`, `AGENT_NOTES.md`, `StoreRequest`, `Meeting`?**
+  _High betweenness centrality (0.126) - this node is a cross-community bridge._
+- **Why does `documentCondition()` connect `FileUpload.vue` to `Illuminate\Database\Seeder`, `RequestIntakeView.vue`, `RequestDetailView.vue`?**
+  _High betweenness centrality (0.109) - this node is a cross-community bridge._
+- **Why does `add()` connect `RequestVisibility` to `Illuminate\Database\Seeder`, `MeetingMinutesCompiler`, `vue-i18n`, `DecisionEligibility`, `StoreRequest`, `CommitteeStatusService`, `NotificationDispatcher`, `Agent handoff notes`, `Meeting`?**
+  _High betweenness centrality (0.106) - this node is a cross-community bridge._
+- **Are the 5 inferred relationships involving `User` (e.g. with `2026-08-02 15:40 EET — Claude — Test users for every role + TEST_PLAN.md` and `2026-08-28 — Claude — Phase 8 (frontend) complete — the diagram-alignment redesign is now fully built`) actually correct?**
+  _`User` has 5 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 22 inferred relationships involving `Department` (e.g. with `2026-09-18 10:15 EET — Claude — RequestType (نوع الطلب) admin CRUD — implementation plan` and `2026-09-18 11:40 EET — Claude — RequestType (نوع الطلب) admin CRUD complete`) actually correct?**
   _`Department` has 22 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 24 inferred relationships involving `RequestStatus` (e.g. with `2026-08-28 21:45 EET — Claude — Transaction → Request rename complete` and `2026-09-01 15:30 EET — Claude — Stage 49 complete (richer committee decision outcomes)`) actually correct?**
