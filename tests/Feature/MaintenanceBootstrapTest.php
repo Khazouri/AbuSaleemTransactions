@@ -85,6 +85,21 @@ class MaintenanceBootstrapTest extends TestCase
         $this->assertTrue($this->consoleIsGrantedToAdmin());
     }
 
+    /** Known-password test accounts only on a debug deployment, never otherwise. */
+    public function test_it_seeds_the_test_users_only_when_app_debug_is_on(): void
+    {
+        config()->set('maintenance.bootstrap_token', self::TOKEN);
+
+        config()->set('app.debug', false);
+        $this->post(self::URL, ['token' => self::TOKEN])->assertOk();
+        $this->assertNull(User::query()->where('email', 'r01.employee@abusaleem.test')->first());
+
+        $this->revokeConsole();
+        config()->set('app.debug', true);
+        $this->post(self::URL, ['token' => self::TOKEN])->assertOk();
+        $this->assertNotNull(User::query()->where('email', 'r01.employee@abusaleem.test')->first());
+    }
+
     /**
      * The one with real consequences.
      *

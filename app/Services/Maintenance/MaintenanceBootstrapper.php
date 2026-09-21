@@ -98,7 +98,7 @@ class MaintenanceBootstrapper
                 return Artisan::output();
             });
 
-            return $steps;
+            return $this->withTestUsers($steps);
         }
 
         /*
@@ -120,6 +120,28 @@ class MaintenanceBootstrapper
         });
 
         $steps[] = $this->step('Grant the maintenance screen to '.self::ADMIN_ROLE, fn () => $this->grantToAdmin());
+
+        return $this->withTestUsers($steps);
+    }
+
+    /**
+     * On a debug deployment (a staging/QA host with no shell) also seed the
+     * known-password test accounts, one per role, so the workflow can be walked
+     * end to end. Gated on APP_DEBUG because DatabaseSeeder deliberately never
+     * calls TestUserSeeder: a production seed must not mint 'password' logins.
+     *
+     * @param  array<int, array{step: string, ok: bool, detail: string}>  $steps
+     * @return array<int, array{step: string, ok: bool, detail: string}>
+     */
+    private function withTestUsers(array $steps): array
+    {
+        if (config('app.debug')) {
+            $steps[] = $this->step('php artisan db:seed --class=TestUserSeeder --force (APP_DEBUG=true)', function () {
+                AuditLog::withoutAuditing(fn () => Artisan::call('db:seed', ['--class' => 'TestUserSeeder', '--force' => true]));
+
+                return Artisan::output();
+            });
+        }
 
         return $steps;
     }
