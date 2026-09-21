@@ -33,15 +33,27 @@ class InstallComposerTest extends TestCase
         ]);
     }
 
-    public function test_a_verified_download_installs_the_phar_and_a_wrapper(): void
+    public function test_a_verified_download_installs_the_phar(): void
     {
         $this->fakeDownload('PHAR', hash('sha256', 'PHAR'));
 
         $this->artisan('maintenance:install-composer')->assertSuccessful();
 
         $dir = BinaryLocator::localBinDirectory();
-        $this->assertSame('PHAR', file_get_contents($dir.'/composer.phar'));
-        $this->assertStringContainsString('composer.phar', file_get_contents($dir.'/composer'));
+        $this->assertSame('PHAR', file_get_contents($dir.'/composer'));
+    }
+
+    /** A php-shebang script runs through a CLI php, never via its own shebang. */
+    public function test_php_scripts_launch_through_a_cli_php(): void
+    {
+        $dir = BinaryLocator::localBinDirectory();
+        mkdir($dir, 0755, true);
+        file_put_contents($dir.'/composer', "#!/usr/bin/env php\n<?php echo 1;");
+        file_put_contents($dir.'/tool', "#!/bin/sh\necho 1\n");
+
+        $this->assertSame([BinaryLocator::phpCli(), $dir.'/composer'], BinaryLocator::launcher($dir.'/composer'));
+        $this->assertSame([$dir.'/tool'], BinaryLocator::launcher($dir.'/tool'));
+        $this->assertSame('cli', trim(shell_exec(escapeshellarg(BinaryLocator::phpCli()).' -r "echo PHP_SAPI;"')));
     }
 
     public function test_a_checksum_mismatch_writes_nothing(): void
@@ -50,6 +62,6 @@ class InstallComposerTest extends TestCase
 
         $this->artisan('maintenance:install-composer')->assertFailed();
 
-        $this->assertFileDoesNotExist(BinaryLocator::localBinDirectory().'/composer.phar');
+        $this->assertFileDoesNotExist(BinaryLocator::localBinDirectory().'/composer');
     }
 }

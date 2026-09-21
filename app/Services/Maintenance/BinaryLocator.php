@@ -2,6 +2,9 @@
 
 namespace App\Services\Maintenance;
 
+use Symfony\Component\Process\Process;
+use Throwable;
+
 /**
  * Finds composer/npm/node/php on a cPanel host and builds the environment they
  * need, shared by EnvironmentProbe (which reports availability) and
@@ -78,22 +81,77 @@ class BinaryLocator
         return storage_path('app/maintenance-home/bin');
     }
 
+    private static ?string $phpCli = null;
+
     /**
-     * A php that can run a script. Under FPM, PHP_BINARY is php-fpm, which
-     * cannot; cPanel's ea-php keeps the CLI at .../usr/bin/php beside
-     * .../usr/sbin/php-fpm.
+     * A php whose SAPI is actually `cli`. The web server's own PHP is php-fpm,
+     * lsphp (LiteSpeed) or php-cgi, and composer refuses to run under any of
+     * those ("cannot be run safely on non-CLI SAPIs"). Each candidate is asked
+     * for PHP_SAPI rather than trusted by name; PHP_BINDIR (this very build's
+     * bin directory, e.g. /opt/cpanel/ea-php82/root/usr/bin) comes first.
      */
     public static function phpCli(): string
     {
-        $php = (string) config('maintenance.binaries.php');
-
-        if (str_contains(basename($php), 'fpm')) {
-            $sibling = dirname($php, 2).'/bin/php';
-
-            return @is_executable($sibling) ? $sibling : self::resolve('php');
+        if (self::$phpCli !== null) {
+            return self::$phpCli;
         }
 
-        return self::resolve($php);
+        $configured = (string) config('maintenance.binaries.php');
+        $version = PHP_MAJOR_VERSION.PHP_MINOR_VERSION;
+
+        $candidates = [
+            $configured,
+            PHP_BINDIR.'/php',
+            dirname($configured).'/php',
+            dirname($configured, 2).'/bin/php',
+            "/opt/cpanel/ea-php{$version}/root/usr/bin/php",
+            "/opt/alt/php{$version}/usr/bin/php",
+            '/usr/local/bin/php',
+            '/usr/bin/php',
+            self::resolve('php'),
+        ];
+
+        foreach (array_unique($candidates) as $candidate) {
+            if (self::isCli($candidate)) {
+                return self::$phpCli = $candidate;
+            }
+        }
+
+        return self::$phpCli = $configured;
+    }
+
+    private static function isCli(string $php): bool
+    {
+        if ($php === '' || ! function_exists('proc_open')) {
+            return false;
+        }
+
+        try {
+            $process = new Process([$php, '-r', 'echo PHP_SAPI;'], timeout: 10);
+            $process->run();
+
+            return $process->isSuccessful() && trim($process->getOutput()) === 'cli';
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * The argv prefix that launches a binary. A PHP script or phar (composer)
+     * runs through phpCli() explicitly instead of via its `#!/usr/bin/env php`
+     * shebang, which on the web user's PATH finds a non-CLI php.
+     *
+     * @return array<int, string>
+     */
+    public static function launcher(string $path): array
+    {
+        $head = (string) @file_get_contents($path, false, null, 0, 128);
+
+        $isPhp = str_ends_with($path, '.phar')
+            || (str_starts_with($head, '#!') && str_contains(strtok($head, "\n"), 'php'))
+            || str_starts_with($head, '<?php');
+
+        return $isPhp ? [self::phpCli(), $path] : [$path];
     }
 
     /** @return array<int, string> */

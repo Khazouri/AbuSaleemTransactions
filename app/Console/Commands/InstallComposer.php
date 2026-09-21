@@ -12,7 +12,7 @@ use Throwable;
  *
  * Downloads the latest stable composer.phar from getcomposer.org, verifies it
  * against the published SHA-256 (a tampered or truncated download is refused,
- * never written), and drops it plus a `composer` wrapper script into
+ * never written), and saves it as `composer` in
  * BinaryLocator::localBinDirectory(), which the locator searches — so the
  * console's composer commands find it with no .env change.
  *
@@ -54,16 +54,16 @@ class InstallComposer extends Command
             return self::FAILURE;
         }
 
-        $pharPath = $dir.DIRECTORY_SEPARATOR.'composer.phar';
-        $wrapper = $dir.DIRECTORY_SEPARATOR.'composer';
+        // Saved as `composer` itself: the phar opens with a php shebang, so
+        // BinaryLocator::launcher() runs it through a verified CLI php rather
+        // than a wrapper script that would bake in whichever php it guessed.
+        $target = $dir.DIRECTORY_SEPARATOR.'composer';
+        file_put_contents($target, $phar);
+        @chmod($target, 0755);
+        @unlink($dir.DIRECTORY_SEPARATOR.'composer.phar'); // an earlier install's copy
+
         $php = BinaryLocator::phpCli();
-
-        file_put_contents($pharPath, $phar);
-        file_put_contents($wrapper, "#!/bin/sh\nexec \"{$php}\" \"{$pharPath}\" \"\$@\"\n");
-        @chmod($pharPath, 0755);
-        @chmod($wrapper, 0755);
-
-        $this->info("Installed composer to {$wrapper} (runs with {$php}).");
+        $this->info("Installed composer to {$target} (runs with {$php}).");
 
         return self::SUCCESS;
     }

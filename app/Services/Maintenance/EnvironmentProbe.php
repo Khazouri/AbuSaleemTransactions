@@ -129,7 +129,7 @@ class EnvironmentProbe
         $flag = $name === 'php' ? '-v' : '--version';
 
         try {
-            $process = new Process([$path, $flag], env: BinaryLocator::environment($path), timeout: 15);
+            $process = new Process([...BinaryLocator::launcher($path), $flag], env: BinaryLocator::environment($path), timeout: 15);
             $process->run();
 
             if (! $process->isSuccessful()) {

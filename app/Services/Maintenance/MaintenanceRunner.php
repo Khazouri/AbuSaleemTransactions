@@ -189,7 +189,7 @@ class MaintenanceRunner
         $cwd = $definition['cwd'] === null ? base_path() : base_path($definition['cwd']);
 
         $process = new Process(
-            array_merge([$path], $definition['args']),
+            array_merge(BinaryLocator::launcher($path), $definition['args']),
             cwd: $cwd,
             env: BinaryLocator::environment($path),
             timeout: (float) config('maintenance.timeout'),
