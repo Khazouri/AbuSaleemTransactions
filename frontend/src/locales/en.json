@@ -1048,6 +1048,12 @@
         "fields": "Item fields (Appendix 24)",
         "none": "Not recorded",
         "notPresented": "No"
+      },
+      "adoption": {
+        "title": "Agenda adoption",
+        "pending": "The agenda has not been adopted. No item may be discussed before it is (Art. 84).",
+        "adopted": "Adopted by {name} on {date}. After adoption only an emerging item may be added.",
+        "adopt": "Adopt agenda"
       }
     },
     "attendance": {
@@ -1500,7 +1506,9 @@
         "previous": {
           "empty": "No previous requests for this employee."
         }
-      }
+      },
+      "agendaNotAdopted": "The agenda has not been adopted yet; no item may be discussed before it is.",
+      "goToAgenda": "Go to the agenda"
     },
     "minutes": {
       "title": "Minutes",
@@ -1552,6 +1560,12 @@
           "body": "Are you sure you have reviewed the minutes and want to sign?",
           "confirm": "Confirm signature"
         }
+      },
+      "legalReview": {
+        "title": "Legal member note",
+        "none": "No legal note on these minutes.",
+        "placeholder": "Legal note on the draft minutes (when needed)",
+        "save": "Save note"
       }
     },
     "outputs": {

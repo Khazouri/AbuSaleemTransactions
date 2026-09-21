@@ -3,6 +3,7 @@
 namespace App\Http\Requests\CommitteeMember;
 
 use App\Models\CommitteeMember;
+use App\Models\Role;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -40,6 +41,14 @@ class StoreCommitteeMemberRequest extends FormRequest
                 ->where('committee_id', $committee->id);
         }
 
+        // Stage 99 — [D] Appendix 6 rows 9–11 name العضو القانوني, and R11 is
+        // that role. Stage 45 left the `legal` seat role-free, so the seat and
+        // the role could name two different people; the seat now requires it.
+        if ($this->input('seat') === 'legal') {
+            $rules['user_id'][] = Rule::exists('role_user', 'user_id')
+                ->where('role_id', Role::query()->where('code', 'R11')->value('id'));
+        }
+
         return $rules;
     }
 
@@ -47,7 +56,9 @@ class StoreCommitteeMemberRequest extends FormRequest
     {
         return [
             'user_id.required' => 'يجب اختيار مستخدم.',
-            'user_id.exists' => 'المستخدم المحدد غير موجود.',
+            'user_id.exists' => $this->input('seat') === 'legal'
+                ? 'مقعد العضو القانوني مقصور على من يحمل دور العضو القانوني.'
+                : 'المستخدم المحدد غير موجود.',
             'user_id.unique' => 'هذا المستخدم عضو بالفعل في اللجنة.',
             'seat.in' => 'المقعد المحدد غير معروف.',
             'seat.unique' => 'هذا المقعد مشغول بالفعل في اللجنة، يجب إزالة شاغله أولاً.',

@@ -37,7 +37,7 @@ class CommitteeSeatRosterTest extends TestCase
 
         $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
         $chair = $this->userWithRole('R03');
-        $legal = $this->userWithRole('R04');
+        $legal = $this->userWithRole('R11');
         $unseated = $this->userWithRole('R04');
 
         // Membership gate — editing a committee's roster needs a seat on it.

@@ -277,6 +277,8 @@ class MeetingLiveRunnerTest extends TestCase
             'title' => 'اجتماع مباشر',
             'scheduled_at' => now()->addDay(),
             'created_by_user_id' => $head->id,
+            // Stage 99 — Art. 84: deliberation waits for the agenda's adoption.
+            'agenda_adopted_at' => now(),
         ]);
         $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
         $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);

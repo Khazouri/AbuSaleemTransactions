@@ -51,6 +51,17 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class MeetingController extends Controller
 {
+    /**
+     * Stage 99 — [D] Art. 84: «اعتماد جدول الأعمال» comes «قبل مناقشة أول بند».
+     * Shared by the two endpoints that record deliberation (item state and
+     * Art. 85's study sequence); voting inherits it through the study
+     * sequence it already requires.
+     */
+    public const AGENDA_NOT_ADOPTED = 'لا تبدأ مناقشة البنود قبل اعتماد جدول الأعمال (المادة 84).';
+
+    /** Stage 99 — the adopted agenda is the one the committee deliberates on. */
+    public const AGENDA_ALREADY_ADOPTED = 'تم اعتماد جدول الأعمال، ولا يجوز تعديل بنوده إلا بإضافة موضوع مستجد.';
+
     // Membership gate — the list half of the same rule CheckMeetingMembership
     // enforces per row, so a sitting this omits is never one whose detail
     // endpoint would have opened.
@@ -252,6 +263,12 @@ class MeetingController extends Controller
 
         $itemType = $validated['item_type'] ?? 'employee_request';
 
+        // Stage 99 — once adopted, the agenda is fixed; an `emerging` item is
+        // the one kind that by definition arises at the sitting itself.
+        if ($meeting->agenda_adopted_at !== null && $itemType !== 'emerging') {
+            return response()->json(['message' => self::AGENDA_ALREADY_ADOPTED], 422);
+        }
+
         if ($itemType === 'appeal') {
             $appeal = Appeal::query()->with('status:id,code')->findOrFail($validated['appeal_id']);
 
@@ -395,6 +412,10 @@ class MeetingController extends Controller
     public function updateItemState(UpdateMeetingAgendaItemStateRequest $request, Meeting $meeting, MeetingRequest $agendaItem): MeetingRequestResource|JsonResponse
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        if ($meeting->agenda_adopted_at === null) {
+            return response()->json(['message' => self::AGENDA_NOT_ADOPTED], 422);
+        }
 
         if ($agendaItem->decision()->exists()) {
             return response()->json([
@@ -588,14 +609,22 @@ class MeetingController extends Controller
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
+        if ($meeting->agenda_adopted_at !== null) {
+            return response()->json(['message' => self::AGENDA_ALREADY_ADOPTED], 422);
+        }
+
         $agendaItem->delete();
 
         return response()->json(null, 204);
     }
 
     /** Rewrites agenda_order 1..n to match the submitted order — see the FormRequest for the exact-set guard. */
-    public function reorderAgenda(ReorderMeetingAgendaRequest $request, Meeting $meeting): AnonymousResourceCollection
+    public function reorderAgenda(ReorderMeetingAgendaRequest $request, Meeting $meeting): AnonymousResourceCollection|JsonResponse
     {
+        if ($meeting->agenda_adopted_at !== null) {
+            return response()->json(['message' => self::AGENDA_ALREADY_ADOPTED], 422);
+        }
+
         DB::transaction(function () use ($request) {
             foreach ($request->validated('order') as $index => $id) {
                 MeetingRequest::query()->where('id', $id)->update(['agenda_order' => $index + 1]);
@@ -605,6 +634,30 @@ class MeetingController extends Controller
         return MeetingRequestResource::collection(
             $meeting->agendaItems()->with(self::AGENDA_ITEM_WITH)->get(),
         );
+    }
+
+    /**
+     * Stage 99 — [D] Appendix 6 row 8: the committee's «اعتماد تنظيمي» of the
+     * agenda, recorded by the chair (Art. 12 (أ) 3, «مراجعة واعتماد جدول
+     * الأعمال قبل الاجتماع»). One-shot: after it the agenda is fixed and
+     * deliberation may begin — see AGENDA_NOT_ADOPTED / AGENDA_ALREADY_ADOPTED.
+     */
+    public function adoptAgenda(HttpRequest $request, Meeting $meeting): MeetingResource|JsonResponse
+    {
+        if ($meeting->agenda_adopted_at !== null) {
+            return response()->json(['message' => 'تم اعتماد جدول الأعمال بالفعل.'], 422);
+        }
+
+        if (! $meeting->agendaItems()->exists()) {
+            return response()->json(['message' => 'لا يمكن اعتماد جدول أعمال فارغ.'], 422);
+        }
+
+        $meeting->update([
+            'agenda_adopted_at' => now(),
+            'agenda_adopted_by_user_id' => $request->user()->id,
+        ]);
+
+        return new MeetingResource($this->loadDetail($meeting));
     }
 
     /**
@@ -628,8 +681,12 @@ class MeetingController extends Controller
      * order. Applying the rule clears any recorded departure justification —
      * it justified a departure that no longer exists.
      */
-    public function applyAgendaOrder(Meeting $meeting, AgendaOrderingService $ordering): AnonymousResourceCollection
+    public function applyAgendaOrder(Meeting $meeting, AgendaOrderingService $ordering): AnonymousResourceCollection|JsonResponse
     {
+        if ($meeting->agenda_adopted_at !== null) {
+            return response()->json(['message' => self::AGENDA_ALREADY_ADOPTED], 422);
+        }
+
         $items = $meeting->agendaItems()->orderBy('agenda_order')->get();
         $sequence = $ordering->orderedIds($items, $ordering->profiles($items));
 
@@ -674,6 +731,10 @@ class MeetingController extends Controller
         StudySequenceRules $sequence,
     ): JsonResponse {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        if ($meeting->agenda_adopted_at === null) {
+            return response()->json(['message' => self::AGENDA_NOT_ADOPTED], 422);
+        }
 
         $agendaItem->loadMissing(['request.latestLegalReview', 'appeal:id,legal_review']);
 
@@ -873,6 +934,7 @@ class MeetingController extends Controller
             'chairman:id,name',
             'rapporteur:id,name',
             'convenedBy:id,name',
+            'agendaAdoptedBy:id,name',
             'meetingMinutes',
             'attendees.user:id,name',
             'agendaItems.request:id,reference_number,title,status_id',

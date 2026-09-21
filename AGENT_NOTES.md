@@ -13,6 +13,91 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-21 18:40 EET — Claude — Stage 99 complete (the committee's own acts — Appendix 6 rows 8–11)
+
+Built per the plan below. One migration (`meetings.agenda_adopted_*`, `meeting_minutes.legal_review_*`),
+applied to the real MySQL, and a `ScreenRolePermissionSeeder` reseed confirmed by query. Full suite
+**711 tests / 4625 assertions** (baseline 704/4590: +7 new, and only fixture updates elsewhere), Pint
+clean on every touched file, `npm run build` passes (`frontend/dist` reverted), locale parity **1998 keys
+each side** (+10), `TEST_PLAN.roles.md`/`.ar.md` at **358 checkboxes each**.
+
+**Agenda adoption is a gate, not a timestamp.** `POST meetings/{m}/agenda/adopt` (new `meeting_agenda,
+approve` tier, R03) is one-shot and refused on an empty agenda. Before it, `updateItemState` and
+`updateStudySequence` refuse (`MeetingController::AGENDA_NOT_ADOPTED`, Art. 84) — voting inherits that
+through the study sequence it already requires. After it, add/remove/reorder/apply-order refuse
+(`AGENDA_ALREADY_ADOPTED`) **except adding an `emerging` item**; `updateAgendaItem` (priority/time) stays
+open. Deliberately **not** a readiness exception, so convene means what it meant before. Only two
+fixtures needed `agenda_adopted_at` (`StudySequenceTest`, `MeetingLiveRunnerTest`) — every other suite
+writes the study sequence directly through `RunsStudySequence`, which bypasses the gate by design.
+
+**R11 is now a sitting member.** `meeting_live,add`, `decisions,add` and `meeting_minutes,add` gained R11
+(the last because signing rides it — an attending legal member without it would hold an unsignable
+row and stall the محضر). `meeting_minutes,edit` **gated no route** before this stage (checked); it now
+gates `POST meetings/{m}/minutes/legal-review` and is `['R11']` — R03 lost a grant that did nothing. The
+note is optional («عند الحاجة»), draft-only, overwrites, and never blocks review. `seat=legal` now
+requires the R11 role (`StoreCommitteeMemberRequest`); `CommitteeSeatRosterTest` seated an R04 there and
+was updated.
+
+**The zero-signature hole is closed by refusal, not by trusting Appendix 8.** The quality gate made it
+nearly unreachable, but every attendee marked absent under a count-0 quorum passed all sixteen checks
+— the new test builds exactly that and gets the 422. `review()`'s `isEmpty()` auto-approve branch and
+its notification call are deleted; `minutesApproved` now fires only from `sign()`.
+
+**Not done: no live HTTP smoke run this session** — covered by the new feature tests only.
+
+**Open items.** (1) The **R09 bullet under row 8** in the gap analysis was already stale (Stage 96);
+annotated, not rewritten. (2) **Appendix A in the role test plans is still stale outside the four rows
+re-derived here** — Stage 96's open item stands; derive the whole table from the DB next time.
+(3) Adoption is recorded by the chair on the committee's behalf; there is no per-member vote on the
+agenda, because [D] Art. 12 (أ) 3 gives اعتماد جدول الأعمال to the chair and Appendix 6's «وفق
+النظام» points at the system's own rule. (4) Stages **100** and **101** remain; neither blocks the other.
+
+---
+
+### 2026-09-21 17:52 EET — Claude — Implementation plan: Stage 99 (the committee's own acts — Appendix 6 rows 8–11)
+
+Four gaps, each tied to a named cell. **One migration (six columns), grant changes, no new screen.**
+
+**Row 8 — اعتماد تنظيمي of the agenda.** Art. 12 (أ) 3 gives the chair «مراجعة واعتماد جدول الأعمال قبل
+الاجتماع» and Art. 84 lists «اعتماد جدول الأعمال» among what happens «قبل مناقشة أول بند». Nothing records
+it today. New `meetings.agenda_adopted_at` + `agenda_adopted_by_user_id`, set by `POST
+meetings/{m}/agenda/adopt` on a new `meeting_agenda,approve` tier seeded `['R03']` (the `decisions`
+add/approve split again). Refused on an empty agenda and when already adopted. **Two consequences make it
+more than a timestamp:** (1) deliberation waits for it — `updateItemState` and `updateStudySequence` refuse
+until the agenda is adopted, which is Art. 84's own order; voting inherits the gate through the study
+sequence it already requires. (2) the adopted agenda is fixed — add/remove/reorder/apply-order are refused
+afterwards, **except adding an `emerging` item**, which by definition arises at the sitting. Metadata edits
+(`updateAgendaItem`: priority/time) stay open. Not added to readiness/convene: Art. 12 says «قبل
+الاجتماع» but the gate that matters is the one before deliberation, and a readiness exception would change
+what convene means for every existing fixture for no sourced gain.
+
+**Row 9/10 — R11 as a sitting member.** `meeting_live,add` and `decisions,add` gain R11. Nothing else is
+needed on the voting side: `DecisionEligibility` checks seat + attendance, never a role.
+
+**Row 11 — R11 «مراجعة عند الحاجة» on the محضر.** New `meeting_minutes.legal_review_note` + who/when,
+written by `POST meetings/{m}/minutes/legal-review` while the محضر is a draft. Rides `meeting_minutes,edit`,
+which **gates no route today** (checked) — reseeded `['R11']`. Optional by the cell's own «عند الحاجة»:
+it never blocks review. R11 also joins `meeting_minutes,add`, because signing rides that tier and an
+attending legal member would otherwise hold a signature row they cannot sign — stalling the محضر forever.
+
+**Row 11 — اعتماد داخلي with zero signatures.** `review()`'s `$signerUserIds->isEmpty()` branch approves
+outright. Appendix 8's gate makes it nearly unreachable (no attendance → «إثبات الحضور» fails), but not
+provably (all absent + a count-0 quorum). The branch is deleted and replaced with a refusal: the محضر is
+the committee's only when attending members confirm it.
+
+**The R11 ↔ `legal` seat binding.** `StoreCommitteeMemberRequest` refuses `seat=legal` for a user
+without R11. Stage 45 left the seat role-free; that is the gap the stage names. Only
+`CommitteeSeatRosterTest` seats `legal` (as R04) — a legitimate fixture update.
+
+**Verify:** new `tests/Feature/CommitteeOwnActsTest.php` (adopt: permission, empty, twice; deliberation
+refused before adoption through both endpoints; freeze with the emerging exception; R11 votes and posts a
+note when seated+attended; legal note recorded only by R11 and only on a draft; legal seat refused to a
+non-R11; zero-signer approval refused), the full suite (baseline 704/4590), Pint on touched PHP,
+`npm run build` (revert `frontend/dist`), locale parity, migration + `ScreenRolePermissionSeeder` reseed
+against the real MySQL.
+
+---
+
 ### 2026-09-21 07:15 EET — Claude — Stage 98 complete (تجهيز الملف الوظيفي — the largest missing مسؤول)
 
 Built per the plan below. **One migration, one service, one endpoint, and one narrowing of an

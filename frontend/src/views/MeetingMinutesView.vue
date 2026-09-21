@@ -97,6 +97,26 @@ const reviewError = ref('')
 const changesComment = ref('')
 const showChangesForm = ref(false)
 
+// Stage 99 — [D] Appendix 6 row 11, العضو القانوني «مراجعة عند الحاجة».
+// Optional: it never gates the chair's review.
+const legalNote = ref('')
+const legalBusy = ref(false)
+const legalError = ref('')
+
+async function saveLegalNote() {
+  legalError.value = ''
+  legalBusy.value = true
+  try {
+    const { data } = await api.post(`/meetings/${meetingId.value}/minutes/legal-review`, { note: legalNote.value.trim() })
+    minutes.value = data.data
+    legalNote.value = ''
+  } catch (requestError) {
+    legalError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    legalBusy.value = false
+  }
+}
+
 async function review(decision) {
   reviewError.value = ''
   reviewBusy.value = true
@@ -218,6 +238,22 @@ onMounted(loadMeetings)
         <p v-if="minutes.status === 'draft' && minutes.review_comment" class="alert warning">
           {{ t('meetingsUnit.minutes.changesRequestedNote') }}: {{ minutes.review_comment }}
         </p>
+
+        <section v-if="minutes.legal_review_note || minutes.status === 'draft'" class="card card-flat card-pad legal-note">
+          <h3>{{ t('meetingsUnit.minutes.legalReview.title') }}</h3>
+          <p v-if="minutes.legal_review_note">
+            {{ minutes.legal_review_note }}
+            <small v-if="minutes.legal_reviewed_by"> — {{ minutes.legal_reviewed_by.name }}</small>
+          </p>
+          <p v-else class="muted">{{ t('meetingsUnit.minutes.legalReview.none') }}</p>
+          <div v-if="minutes.status === 'draft'" v-can="'meeting_minutes.edit'" class="legal-note-form">
+            <textarea v-model="legalNote" rows="3" :placeholder="t('meetingsUnit.minutes.legalReview.placeholder')"></textarea>
+            <button class="ghost" type="button" :disabled="legalBusy || !legalNote.trim()" @click="saveLegalNote">
+              {{ legalBusy ? t('common.saving') : t('meetingsUnit.minutes.legalReview.save') }}
+            </button>
+            <p v-if="legalError" class="alert" role="alert">{{ legalError }}</p>
+          </div>
+        </section>
 
         <section class="card card-flat card-pad content">
           <h3>{{ t('meetingsUnit.minutes.sections.meetingInfo') }}</h3>

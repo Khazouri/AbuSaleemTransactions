@@ -50,6 +50,9 @@ class Meeting extends Model
         'convened_by_user_id',
         'readiness_override_reason',
         'voting_rules_snapshot',
+        // Stage 99 — Art. 84's «اعتماد جدول الأعمال» (Appendix 6 row 8).
+        'agenda_adopted_at',
+        'agenda_adopted_by_user_id',
     ];
 
     protected function casts(): array
@@ -59,6 +62,7 @@ class Meeting extends Model
             'agenda_deadline' => 'datetime',
             'expected_duration_minutes' => 'integer',
             'convened_at' => 'datetime',
+            'agenda_adopted_at' => 'datetime',
             'voting_rules_snapshot' => 'array',
         ];
     }
@@ -86,6 +90,11 @@ class Meeting extends Model
     public function convenedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'convened_by_user_id');
+    }
+
+    public function agendaAdoptedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'agenda_adopted_by_user_id');
     }
 
     public function attendees(): HasMany

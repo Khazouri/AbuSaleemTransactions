@@ -39,6 +39,10 @@ class MeetingMinutes extends Model
         // at the moment the head reviews the draft.
         'quality_checks',
         'approved_at',
+        // Stage 99 — Appendix 6 row 11, العضو القانوني «مراجعة عند الحاجة».
+        'legal_review_note',
+        'legal_reviewed_by_user_id',
+        'legal_reviewed_at',
     ];
 
     protected function casts(): array
@@ -49,6 +53,7 @@ class MeetingMinutes extends Model
             'generated_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'approved_at' => 'datetime',
+            'legal_reviewed_at' => 'datetime',
         ];
     }
 
@@ -65,6 +70,11 @@ class MeetingMinutes extends Model
     public function reviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by_user_id');
+    }
+
+    public function legalReviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'legal_reviewed_by_user_id');
     }
 
     public function signatures(): HasMany

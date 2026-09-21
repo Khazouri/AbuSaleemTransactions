@@ -1724,7 +1724,7 @@ which is Stage-57 territory.
 
 ---
 
-### Stage 99 — the committee's own acts (rows 8, 9, 10, 11)
+### Stage 99 — the committee's own acts (rows 8, 9, 10, 11) — **built**
 
 **Goal:** what the matrix gives اللجنة collectively is not discharged by the chair alone.
 **Build:** **اعتماد تنظيمي** of the agenda (row 8) — no adoption step exists; a repo-wide search
@@ -1736,6 +1736,12 @@ approval is R03 alone, and with nobody marked attended `review()` approves with 
 **Done when:** the legal member can do the four things the matrix names, and the committee
 adopts its own agenda and محضر.
 **Source:** [D] Appendix 6 rows 8, 9, 10, 11.
+**Built 2026-09-21.** One migration (six columns). Agenda adoption is a one-shot chair act on a new
+`meeting_agenda,approve` tier; deliberation (item state, study card — and so voting) waits for it,
+and the adopted agenda is fixed except for an emerging item. R11 joins `meeting_live,add`,
+`decisions,add` and `meeting_minutes,add` (signing rides it), and `meeting_minutes,edit` — which
+gated no route — became R11's legal note on the draft. The `legal` seat now requires R11, and the
+zero-signature approval branch is a refusal. See AGENT_NOTES.md.
 
 ---
 
@@ -1773,7 +1779,7 @@ established for exactly this.
 dependency record: it says which stage had to precede which, which is what you need when reading a
 stage's assumptions or judging whether a change to one stage's work disturbs another's.
 
-**Track N (94–101) is half built.** **94** (the docs re-derivation), **95** (صاحب العلاقة), **96** (R09/R10 folded back), **97** (القيد back to R02) and **98** (تجهيز الملف الوظيفي) are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency. The track's one hard dependency — 95 before 98 and 101 — is discharged. **99, 100 and 101 remain**, and none of them blocks another: 99 is committee-side, 100 gives three ownerless duties a holder, and 101 is last by preference (the consultation layer is additive, and wiring notifications before the accountable parties are correct would tell the wrong people).
+**Track N (94–101) is mostly built.** **94** (the docs re-derivation), **95** (صاحب العلاقة), **96** (R09/R10 folded back), **97** (القيد back to R02), **98** (تجهيز الملف الوظيفي) and **99** (the committee's own acts) are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency. The track's one hard dependency — 95 before 98 and 101 — is discharged. **100 and 101 remain**, and neither blocks the other: 100 gives three ownerless duties a holder, and 101 is last by preference (the consultation layer is additive, and wiring notifications before the accountable parties are correct would tell the wrong people).
 
 ```
 94 → 96 → 97                    (independent of 95 — seeded-map work)

@@ -624,6 +624,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // reason `meetings/department-options` precedes `meetings/{meeting}`.
     Route::middleware(['screen.permission:meeting_agenda,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/ordering', [MeetingController::class, 'agendaOrdering']);
+    // Stage 99 — Art. 84's «اعتماد جدول الأعمال», Appendix 6 row 8. Its own
+    // `approve` tier (R03), the decisions add/approve split: building the
+    // agenda is المقرر's, adopting it is the chair's on the committee's behalf.
+    Route::middleware(['screen.permission:meeting_agenda,approve', 'meeting.member'])
+        ->post('meetings/{meeting}/agenda/adopt', [MeetingController::class, 'adoptAgenda']);
     Route::middleware(['screen.permission:meeting_agenda,edit', 'meeting.member'])->group(function () {
         Route::post('meetings/{meeting}/agenda', [MeetingController::class, 'addAgendaItem']);
         Route::put('meetings/{meeting}/agenda/reorder', [MeetingController::class, 'reorderAgenda']);
@@ -708,6 +713,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::middleware(['screen.permission:meeting_minutes,approve', 'meeting.member'])
         ->post('meetings/{meeting}/minutes/review', [MeetingMinutesController::class, 'review']);
+    // Stage 99 — Appendix 6 row 11, العضو القانوني «مراجعة عند الحاجة».
+    Route::middleware(['screen.permission:meeting_minutes,edit', 'meeting.member'])
+        ->post('meetings/{meeting}/minutes/legal-review', [MeetingMinutesController::class, 'legalReview']);
 
     /*
      * Stage 37 — the live, meeting-scoped decision/output tracker. Reading is

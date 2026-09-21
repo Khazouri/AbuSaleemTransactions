@@ -35,6 +35,12 @@ class MeetingResource extends JsonResource
                 'id' => $this->convenedBy->id,
                 'name' => $this->convenedBy->name,
             ] : null),
+            // Stage 99 — Art. 84's «اعتماد جدول الأعمال» (Appendix 6 row 8).
+            'agenda_adopted_at' => $this->agenda_adopted_at?->toIso8601String(),
+            'agenda_adopted_by' => $this->whenLoaded('agendaAdoptedBy', fn () => $this->agendaAdoptedBy ? [
+                'id' => $this->agendaAdoptedBy->id,
+                'name' => $this->agendaAdoptedBy->name,
+            ] : null),
             'committee' => $this->whenLoaded('committee', fn () => [
                 'id' => $this->committee->id,
                 'name_ar' => $this->committee->name_ar,

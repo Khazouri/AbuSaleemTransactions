@@ -26,6 +26,13 @@ class MeetingMinutesResource extends JsonResource
             ] : null),
             'reviewed_at' => $this->reviewed_at?->toIso8601String(),
             'review_comment' => $this->review_comment,
+            // Stage 99 — Appendix 6 row 11, العضو القانوني «مراجعة عند الحاجة».
+            'legal_review_note' => $this->legal_review_note,
+            'legal_reviewed_by' => $this->whenLoaded('legalReviewedBy', fn () => $this->legalReviewedBy ? [
+                'id' => $this->legalReviewedBy->id,
+                'name' => $this->legalReviewedBy->name,
+            ] : null),
+            'legal_reviewed_at' => $this->legal_reviewed_at?->toIso8601String(),
             // Stage 78 — Appendix 8's sixteen ضوابط جودة المحضر as answered at
             // review time; null on a draft nobody has reviewed yet.
             'quality_checks' => $this->quality_checks,

@@ -76,6 +76,24 @@ async function loadStats() {
   }
 }
 
+// Stage 99 — [D] Art. 84's «اعتماد جدول الأعمال» (Appendix 6 row 8). After it
+// the agenda is fixed and deliberation may begin; the server enforces both.
+const adopting = ref(false)
+const adoptError = ref('')
+
+async function adoptAgenda() {
+  adoptError.value = ''
+  adopting.value = true
+  try {
+    const { data } = await api.post(`/meetings/${meetingId.value}/agenda/adopt`)
+    meeting.value = data.data
+  } catch (requestError) {
+    adoptError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    adopting.value = false
+  }
+}
+
 async function loadMeeting() {
   if (!meetingId.value) {
     meeting.value = null
@@ -435,6 +453,30 @@ onMounted(async () => {
         <button class="ghost" type="button" @click="showGroups = !showGroups">
           {{ showGroups ? t('meetingsUnit.agenda.stats.hideGroups') : t('meetingsUnit.agenda.stats.showGroups') }}
         </button>
+      </section>
+
+      <!-- Stage 99 — the committee's adoption of its own agenda. -->
+      <section class="card card-flat card-pad adoption">
+        <h3>{{ t('meetings.agenda.adoption.title') }}</h3>
+        <p v-if="meeting.agenda_adopted_at" class="state">
+          {{ t('meetings.agenda.adoption.adopted', {
+            name: meeting.agenda_adopted_by?.name ?? t('common.none'),
+            date: new Date(meeting.agenda_adopted_at).toLocaleString(),
+          }) }}
+        </p>
+        <template v-else>
+          <p class="alert">{{ t('meetings.agenda.adoption.pending') }}</p>
+          <button
+            v-can="'meeting_agenda.approve'"
+            class="primary"
+            type="button"
+            :disabled="adopting || !meeting.agenda_items?.length"
+            @click="adoptAgenda"
+          >
+            {{ adopting ? t('common.saving') : t('meetings.agenda.adoption.adopt') }}
+          </button>
+        </template>
+        <p v-if="adoptError" class="alert" role="alert">{{ adoptError }}</p>
       </section>
 
       <!-- Stage 82 — [D] Art. 83's ordering. Offered, not imposed: the

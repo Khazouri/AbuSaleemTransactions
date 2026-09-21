@@ -557,6 +557,10 @@ Sign in as `r03.head@abusaleem.test`.
       recorded, not silent.
 - [ ] Convening **freezes** the committee's voting rules onto the meeting: edit the committee's
       quorum afterwards and confirm the held meeting still reports the rule it was convened under.
+- [ ] **Adopt the agenda** ([D] Art. 84, Appendix 6 row 8) — refused on an empty agenda, one-shot,
+      and **403** for every other role. Before adoption, advancing an item or ticking the study card
+      is refused; after it, adding a non-emerging item, removing one, or reordering is refused, while
+      an **emerging** item may still be added.
 
 **B5 — Running the sitting ([D] Art. 85, Appendix 25).**
 
@@ -1071,6 +1075,10 @@ Sign in as `r11.legal@abusaleem.test`.
 - [ ] Record a review **after** an [D] Art. 105 suspension — this is what unblocks R02/R03's lift.
       Confirm the lift is refused before this review exists and permitted after.
 - [ ] Committee members can read the recorded opinion at study time ([D] Art. 21 requires it).
+- [ ] **As a sitting member (Stage 99, Appendix 6 rows 9–11)** — seated in the committee's
+      `العضو القانوني` seat and marked attended: post to the item's discussion feed, **vote**, sign the
+      محضر, and record a legal note on the **draft** محضر (refused once it is under signature). The
+      seat itself is refused to anyone without R11.
 
 ### C. What they must be refused
 
@@ -1081,7 +1089,7 @@ Sign in as `r11.legal@abusaleem.test`.
       **not** set the request's status to `عدم اختصاص` or terminate it. That decision stays with the
       committee (or with R02 at stage 5). This is [D] Art. 14 (ب)'s limit, and it is the single most
       important refusal in this section.
-- [ ] Vote or record a decision → **403**.
+- [ ] Record a decision → **403** (voting is permitted when seated and attended — see B).
 - [ ] Add an agenda item, convene, or approve minutes → **403**.
 - [ ] Close or execute a request → **403**.
 - [ ] Add a note or attachment → **403** (view only).
@@ -1277,11 +1285,11 @@ Letters: `v` view · `a` add · `e` edit · `d` delete · `A` approve · `p` pri
 | `committee_candidates` — الطلبات المرشحة | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 | `legal_review` — المراجعة القانونية | p | vep | p | p | p | p | p | vaedApx | p | p | vap | p |
 | `meetings` — الاجتماعات | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
-| `meeting_agenda` — جدول الأعمال | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `meeting_agenda` — جدول الأعمال | vp | vaep | vaeAp | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 | `meeting_readiness` — جاهزية الاجتماع | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
-| `meeting_live` — مباشرة الاجتماع | vp | vap | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
-| `decisions` — القرارات والتوصيات | vp | vAp | vaAp | vap | vp | vpx | vpx | vaedApx | vp | vp | vp | vp |
-| `meeting_minutes` — المحاضر | vp | vap | vaeAp | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `meeting_live` — مباشرة الاجتماع | vp | vap | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vap | vp |
+| `decisions` — القرارات والتوصيات | vp | vp | vaAp | vap | vp | vpx | vpx | vaedApx | vp | vp | vap | vp |
+| `meeting_minutes` — المحاضر | vp | vap | vaAp | vap | vp | vp | vp | vaedApx | vp | vp | vaep | vp |
 | `meeting_outputs` — المخرجات | vp | veAp | vaeAp | vap | vp | vp | vp | vaedApx | vp | vp | vp | vAp |
 | `reviewer_approval` — اعتماد المقرر | · | vA | · | · | · | · | · | vaedApx | · | · | · | · |
 | `committee_head_approval` — اعتماد رئيس اللجنة | · | · | vA | · | · | · | · | vaedApx | · | · | · | · |

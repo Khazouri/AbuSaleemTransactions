@@ -32,6 +32,7 @@ class MeetingMinutesController extends Controller
         $minutes = $meeting->meetingMinutes()->with([
             'generatedBy:id,name',
             'reviewedBy:id,name',
+            'legalReviewedBy:id,name',
             'signatures.user:id,name',
         ])->first();
 
@@ -92,10 +93,13 @@ class MeetingMinutesController extends Controller
 
     /**
      * The head's verdict. `approve` creates one signature row per attendee
-     * who actually showed up and moves to pending_signatures — or, if nobody
-     * was marked attended, there is nothing to sign and the document is
-     * approved outright, the same vacuous-pass pattern the readiness/close
-     * gates already use for an empty agenda.
+     * who actually showed up and moves to pending_signatures.
+     *
+     * Stage 99 — [D] Appendix 6 row 11 gives اللجنة «اعتماد داخلي» of the
+     * محضر, and the attendees' signatures are that act. Stage 36 approved a
+     * محضر nobody attended outright; Appendix 8's gate made that nearly
+     * unreachable but not provably so (every attendee marked absent under a
+     * count-0 quorum), so it is now refused rather than passed vacuously.
      *
      * Stage 78 — approving is also [D] Appendix 63's بوابة 3, and Appendix 8
      * says what that gate checks: "لا يحال محضر اللجنة للاعتماد قبل التحقق
@@ -135,11 +139,17 @@ class MeetingMinutesController extends Controller
             return response()->json(['message' => $refusal], 422);
         }
 
+        $signerUserIds = $meeting->attendees()->where('attended', true)->pluck('user_id');
+
+        if ($signerUserIds->isEmpty()) {
+            return response()->json([
+                'message' => 'لا يعتمد المحضر دون حضور مسجل من أعضاء اللجنة يوقعون عليه.',
+            ], 422);
+        }
+
         $qualityRecord = $quality->record($meeting, $minutes, $request->validated('quality_checks') ?? []);
 
-        $minutes = DB::transaction(function () use ($minutes, $meeting, $actor, $request, $qualityRecord) {
-            $signerUserIds = $meeting->attendees()->where('attended', true)->pluck('user_id');
-
+        $minutes = DB::transaction(function () use ($minutes, $actor, $request, $qualityRecord, $signerUserIds) {
             foreach ($signerUserIds as $userId) {
                 MeetingMinuteSignature::firstOrCreate([
                     'meeting_minutes_id' => $minutes->id,
@@ -155,18 +165,38 @@ class MeetingMinutesController extends Controller
                 'quality_checks' => $qualityRecord,
             ]);
 
-            if ($signerUserIds->isEmpty()) {
-                $minutes->update(['status' => MeetingMinutes::STATUS_APPROVED, 'approved_at' => now()]);
-            }
-
             return $minutes;
         });
 
-        if ($minutes->status === MeetingMinutes::STATUS_APPROVED) {
-            app(NotificationDispatcher::class)->minutesApproved($meeting, $actor);
+        return new MeetingMinutesResource($minutes->load(['reviewedBy:id,name', 'signatures.user:id,name']));
+    }
+
+    /**
+     * Stage 99 — [D] Appendix 6 row 11: العضو القانوني «مراجعة عند الحاجة».
+     * «عند الحاجة» makes it optional, so the note never gates review; it is
+     * recorded on the draft, where the reviewing chair reads it, and a second
+     * note replaces the first. Refused once the draft has left `draft` — a
+     * remark on a document already under signature cannot change it.
+     */
+    public function legalReview(Request $request, Meeting $meeting): MeetingMinutesResource|JsonResponse
+    {
+        $data = $request->validate(
+            ['note' => ['required', 'string', 'max:5000']],
+            ['note.required' => 'يجب كتابة الملاحظة القانونية.'],
+        );
+
+        $minutes = $meeting->meetingMinutes()->first();
+        if ($minutes === null || $minutes->status !== MeetingMinutes::STATUS_DRAFT) {
+            return response()->json(['message' => 'تقبل الملاحظة القانونية على مسودة المحضر فقط.'], 422);
         }
 
-        return new MeetingMinutesResource($minutes->load(['reviewedBy:id,name', 'signatures.user:id,name']));
+        $minutes->update([
+            'legal_review_note' => $data['note'],
+            'legal_reviewed_by_user_id' => $request->user()->id,
+            'legal_reviewed_at' => now(),
+        ]);
+
+        return new MeetingMinutesResource($minutes->load('legalReviewedBy:id,name'));
     }
 
     /**

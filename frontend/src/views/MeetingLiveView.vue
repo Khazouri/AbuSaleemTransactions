@@ -432,6 +432,14 @@ onMounted(async () => {
         </RouterLink>
       </div>
 
+      <!-- Stage 99 — Art. 84: no item is discussed before the agenda is adopted. -->
+      <div v-if="!meeting.agenda_adopted_at" class="card card-flat card-pad notice warning">
+        <span>{{ t('meetingsUnit.live.agendaNotAdopted') }}</span>
+        <RouterLink :to="{ name: 'meeting_agenda', query: { meeting: meeting.id } }">
+          {{ t('meetingsUnit.live.goToAgenda') }}
+        </RouterLink>
+      </div>
+
       <header class="runner-header">
         <div>
           <p class="committee">{{ name(meeting.committee) }}</p>
