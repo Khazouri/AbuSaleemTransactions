@@ -72,10 +72,34 @@ class BinaryLocator
         return $env;
     }
 
+    /** Where `maintenance:install-composer` puts its private composer. */
+    public static function localBinDirectory(): string
+    {
+        return storage_path('app/maintenance-home/bin');
+    }
+
+    /**
+     * A php that can run a script. Under FPM, PHP_BINARY is php-fpm, which
+     * cannot; cPanel's ea-php keeps the CLI at .../usr/bin/php beside
+     * .../usr/sbin/php-fpm.
+     */
+    public static function phpCli(): string
+    {
+        $php = (string) config('maintenance.binaries.php');
+
+        if (str_contains(basename($php), 'fpm')) {
+            $sibling = dirname($php, 2).'/bin/php';
+
+            return @is_executable($sibling) ? $sibling : self::resolve('php');
+        }
+
+        return self::resolve($php);
+    }
+
     /** @return array<int, string> */
     private static function searchDirectories(): array
     {
-        $directories = array_filter(explode(PATH_SEPARATOR, (string) getenv('PATH')));
+        $directories = [self::localBinDirectory(), ...array_filter(explode(PATH_SEPARATOR, (string) getenv('PATH')))];
         $directories = [...$directories, '/usr/local/bin', '/usr/bin', '/opt/cpanel/composer/bin'];
 
         // The account home, from the app's own location (/home/<account>/...),

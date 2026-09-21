@@ -257,6 +257,17 @@ class MaintenanceCommandCatalog
             'description_ar' => 'يثبّت حزم PHP من composer.lock بدون حزم التطوير. كثيراً ما يفشل على الاستضافة المشتركة بسبب حد الذاكرة أو مهلة التنفيذ — البديل المعتمد رفع مجلد vendor/ جاهزاً من جهازك.',
             'description_en' => 'Installs PHP packages from composer.lock without dev dependencies. Often fails on shared hosting on the memory limit or the execution timeout — the reliable fallback is uploading a prebuilt vendor/ directory.',
         ],
+        'composer:self-install' => [
+            'kind' => self::KIND_ARTISAN,
+            'artisan' => 'maintenance:install-composer',
+            'params' => [],
+            'group' => 'dependencies',
+            'destructive' => false,
+            'label_ar' => 'تثبيت composer على الخادم',
+            'label_en' => 'Install composer on this host',
+            'description_ar' => 'يحمّل composer.phar من getcomposer.org ويتحقق من بصمته، ثم يضعه في مجلد خاص تجده أوامر composer تلقائياً. للاستضافة التي لا يتوفر فيها composer. تشغيل composer بعدها ما زال يتطلب proc_open.',
+            'description_en' => 'Downloads composer.phar from getcomposer.org, verifies its checksum and places it where the composer commands find it automatically. For hosts with no composer. Running composer afterwards still needs proc_open.',
+        ],
         'composer:dump' => [
             'kind' => self::KIND_SHELL,
             'binary' => 'composer',
