@@ -184,12 +184,14 @@ class MaintenanceRunner
             throw MaintenanceCommandException::binaryNotConfigured($definition['binary']);
         }
 
+        $path = BinaryLocator::resolve((string) $path);
+
         $cwd = $definition['cwd'] === null ? base_path() : base_path($definition['cwd']);
 
         $process = new Process(
             array_merge([$path], $definition['args']),
             cwd: $cwd,
-            env: $this->environment((string) $path),
+            env: BinaryLocator::environment($path),
             timeout: (float) config('maintenance.timeout'),
         );
 
@@ -201,47 +203,6 @@ class MaintenanceRunner
         $output = trim($process->getOutput()."\n".$process->getErrorOutput());
 
         return [$output, $process->getExitCode() ?? 1];
-    }
-
-    /**
-     * Environment for a subprocess: inherited, plus three fixes for the way
-     * shared hosting runs PHP as a web user with no login shell.
-     *
-     * @return array<string, string>
-     */
-    private function environment(string $binaryPath): array
-    {
-        // A writable HOME. Without one composer refuses to start
-        // ("COMPOSER_HOME could not be determined") and npm cannot place its
-        // cache — both under a web user whose real home is often unwritable.
-        $home = storage_path('app/maintenance-home');
-
-        if (! is_dir($home)) {
-            @mkdir($home, 0755, true);
-        }
-
-        $env = [
-            'HOME' => $home,
-            'COMPOSER_HOME' => $home.DIRECTORY_SEPARATOR.'composer',
-            // Composer's own timeout is separate from Symfony's and defaults to
-            // 300s per download; on a slow shared host that is the thing that
-            // actually fires.
-            'COMPOSER_PROCESS_TIMEOUT' => (string) config('maintenance.timeout'),
-            'COMPOSER_ALLOW_SUPERUSER' => '1',
-            'CI' => '1',
-        ];
-
-        // npm invokes node by name, so node must be findable. On cPanel both
-        // live in the same nodevenv bin directory, which is not on the web
-        // user's PATH — prepending the binary's own directory is what makes
-        // `npm run build` resolve its interpreter.
-        $directory = dirname($binaryPath);
-
-        if ($directory !== '' && $directory !== '.' && is_dir($directory)) {
-            $env['PATH'] = $directory.PATH_SEPARATOR.((string) getenv('PATH'));
-        }
-
-        return $env;
     }
 
     /**

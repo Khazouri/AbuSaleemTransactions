@@ -114,7 +114,8 @@ class EnvironmentProbe
                 continue;
             }
 
-            $results[$name] = ['path' => $path, ...$this->probeBinary((string) $path, $name)];
+            $resolved = BinaryLocator::resolve((string) $path);
+            $results[$name] = ['path' => $resolved, ...$this->probeBinary($resolved, $name)];
         }
 
         return $results;
@@ -128,7 +129,7 @@ class EnvironmentProbe
         $flag = $name === 'php' ? '-v' : '--version';
 
         try {
-            $process = new Process([$path, $flag], timeout: 15);
+            $process = new Process([$path, $flag], env: BinaryLocator::environment($path), timeout: 15);
             $process->run();
 
             if (! $process->isSuccessful()) {
