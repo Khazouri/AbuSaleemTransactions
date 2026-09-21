@@ -10,6 +10,7 @@ use App\Models\RequestDraftAttachment;
 use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\WorkflowStage;
 use App\Services\DocumentCompletenessService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -184,6 +185,8 @@ class IntakeFidelityTest extends TestCase
             'department_id' => $department->id,
             'request_type_id' => $type->id,
             'created_by_user_id' => $officer->id,
+            // The filer attaches only at stage 1 (Request::attachmentRight()).
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
         ]);
 
         // Stage 91 — this endpoint asks the same document question intake

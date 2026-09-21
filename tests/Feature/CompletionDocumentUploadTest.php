@@ -30,11 +30,9 @@ use Tests\TestCase;
  * recorded was real: an incomplete file could not be completed through the
  * ordinary upload path at all, only by refiling.
  *
- * The question is NOT branched by who uploads. Art. 19's loop sends an
- * incomplete file back to requirements_check, where R02-R05 routinely attach
- * on the employee's behalf, so a submitter-only question would have left staff
- * unable to close the very gap this closes — which is why the end-to-end case
- * below is walked by the officer, not by the employee.
+ * Since 2026-09-21 only the filer attaches, and only at stage 1 — which an
+ * incomplete file reaches through `return_missing_docs` — so the uploads
+ * below are the filer's, on a file sent back to intake.
  */
 class CompletionDocumentUploadTest extends TestCase
 {
@@ -51,7 +49,7 @@ class CompletionDocumentUploadTest extends TestCase
 
     public function test_an_upload_must_name_the_document_it_answers(): void
     {
-        $requestRecord = $this->requestAtRequirementsCheck();
+        $requestRecord = $this->requestReturnedToIntake();
 
         $this->actingAs($requestRecord->createdBy, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
@@ -78,7 +76,7 @@ class CompletionDocumentUploadTest extends TestCase
      */
     public function test_a_key_belonging_to_another_type_is_refused(): void
     {
-        $requestRecord = $this->requestAtRequirementsCheck();
+        $requestRecord = $this->requestReturnedToIntake();
         $ownKeys = $requestRecord->requestType->documentOptions();
         $foreignKey = array_key_first(array_diff_key(
             RequestType::where('code', 'TRNS')->firstOrFail()->documentOptions(),
@@ -106,7 +104,7 @@ class CompletionDocumentUploadTest extends TestCase
      */
     public function test_a_named_row_derives_its_own_folder_over_a_submitted_one(): void
     {
-        $requestRecord = $this->requestAtRequirementsCheck();
+        $requestRecord = $this->requestReturnedToIntake();
         [$key, $option] = $this->optionWithDeclaredSection($requestRecord->requestType);
 
         $this->actingAs($requestRecord->createdBy, 'sanctum')
@@ -126,7 +124,7 @@ class CompletionDocumentUploadTest extends TestCase
     /** `other` is a real answer, and the only one that leaves a folder unstated. */
     public function test_other_is_an_answer_and_then_the_folder_is_a_real_question(): void
     {
-        $requestRecord = $this->requestAtRequirementsCheck();
+        $requestRecord = $this->requestReturnedToIntake();
 
         $this->actingAs($requestRecord->createdBy, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
@@ -152,15 +150,12 @@ class CompletionDocumentUploadTest extends TestCase
     // --- the loop this stage exists to close ------------------------------
 
     /**
-     * The stage's own done-when: a document supplied AFTER intake is read by
-     * the officer's gate exactly as one supplied with it.
-     *
-     * Walked by the filer: only they attach documents now
-     * (Request::attachmentRight()), so the officer who finds the gap is
-     * refused and the file goes back to the employee — which is the loop
-     * Art. 19's استكمال actually describes.
+     * A committee that finds a missing document cannot have it attached at
+     * its own stage — not by an officer, not by the filer. Filer-only, stage-1
+     * only is the rule (Request::attachmentRight()); the committee defers or
+     * the file goes back through a return.
      */
-    public function test_a_document_supplied_after_intake_closes_the_gap_it_left(): void
+    public function test_a_gap_found_at_the_committee_stage_cannot_be_filled_there(): void
     {
         [$head, $meeting] = $this->committeeMeeting();
         $requestRecord = $this->presentableRequest();
@@ -184,23 +179,17 @@ class CompletionDocumentUploadTest extends TestCase
             ], ['Accept' => 'application/json'])
             ->assertForbidden();
 
-        // ...the filer does. Before Stage 91 this upload could not name the
-        // row at all, so the gap could only be closed by refiling.
+        // ...and nor may the filer, since the file is past stage 1. A document
+        // gets in only after a return sends the file back there — the
+        // folder/key tests above walk that stage-1 upload.
         $this->actingAs($requestRecord->createdBy, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
                 'file' => UploadedFile::fake()->create('missing.pdf', 10, 'application/pdf'),
                 'required_document_key' => $missingKey,
             ], ['Accept' => 'application/json'])
-            ->assertCreated()
-            ->assertJsonPath('data.required_document_key', $missingKey);
+            ->assertForbidden();
 
-        $fresh = $requestRecord->fresh();
-        $this->assertSame('present', $gate->derivedAnswers($fresh)[$missingKey] ?? null);
-        $this->assertNull(app(DocumentCompletenessService::class)->refusalForRequest($fresh));
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestRecord->id])
-            ->assertCreated();
+        $this->assertNotNull(app(DocumentCompletenessService::class)->refusalForRequest($requestRecord->fresh()));
     }
 
     // --- what the form is told --------------------------------------------
@@ -322,15 +311,20 @@ class CompletionDocumentUploadTest extends TestCase
         return $requestRecord->refresh();
     }
 
-    private function requestAtRequirementsCheck(): Request
+    /**
+     * Where an استكمال upload can now happen at all: the filer attaches only at
+     * stage 1 (Request::attachmentRight()), which a file reaches after
+     * `return_missing_docs` sends it back — landing on `incomplete`.
+     */
+    private function requestReturnedToIntake(): Request
     {
         return Request::create([
             'intake_receipt_number' => 'PM-RCV/2026/000001',
-            'title' => 'طلب عند فحص الاكتمال',
+            'title' => 'طلب أعيد لاستكمال النواقص',
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
-            'status_id' => RequestStatus::where('code', 'in_review')->value('id'),
-            'current_stage_id' => WorkflowStage::where('code', 'requirements_check')->value('id'),
+            'status_id' => RequestStatus::where('code', 'incomplete')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
             'created_by_user_id' => $this->userWithRole('R01')->id,
             'submitted_at' => now(),
             'decision_grade' => 10,

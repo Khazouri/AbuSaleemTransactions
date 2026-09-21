@@ -49,6 +49,20 @@ class FilerAttachmentsAndReturnTest extends TestCase
         $this->assertSame(1, $requestRecord->attachments()->count());
     }
 
+    public function test_the_filer_attaches_only_at_stage_one(): void
+    {
+        $filer = $this->userWithRole('R01');
+
+        // Once the file is with the manager, the filer's documents are closed.
+        $atManager = $this->requestAt('direct_manager_review', 'in_review', $filer);
+        $this->upload($filer, $atManager)->assertForbidden();
+
+        $this->actingAs($filer, 'sanctum')
+            ->getJson("/api/requests/{$atManager->id}")
+            ->assertOk()
+            ->assertJsonPath('data.can_attach', false);
+    }
+
     public function test_the_executing_body_attaches_proof_only_while_the_file_is_in_execution(): void
     {
         $filer = $this->userWithRole('R01');

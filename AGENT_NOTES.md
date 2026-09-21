@@ -19,6 +19,20 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-21 22:30 EET — Claude — The filer attaches only at stage 1
+
+User follow-up to the entry below: the filer may attach **only while the request is at stage 1**
+(`receive_from_municipality`), i.e. before it reaches the manager. Intake auto-hops past stage 1, so in practice the
+filer attaches with the intake itself and again only after a return (`return_to_employee`, `return_missing_docs`).
+One condition in `Request::attachmentRight()`; the executor and HR carve-outs are unchanged. **Decision put to the
+user and taken: a committee "completion required" gap cannot be filled at the committee stage by anyone** — the
+committee defers or the file goes back through a return. Consequence worth knowing: Appendix 25's voting freeze in
+`AttachmentController::store()` is now unreachable by any permitted uploader (no one allowed to attach can reach a
+file with an open vote); it stays as a backstop and `StudySequenceTest` says so. Five fixtures moved to stage 1 (their
+subjects are folder derivation, file types, classification — not the stage) and Stage 91's loop test was rewritten to
+pin the refusal. Full suite **735 / 4709**, Pint clean, build passes, no migration.
+
+---
 ### 2026-09-21 22:05 EET — Claude — Filer-only attachments + filer re-submit complete
 
 Built per the plan below. One migration (`workflow_transitions.requires_creator`), applied to the real MySQL, and

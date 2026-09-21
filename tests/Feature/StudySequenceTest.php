@@ -173,8 +173,12 @@ class StudySequenceTest extends TestCase
                 'file_section' => 'supporting_documents',
             ]);
 
-        // Before any vote, the file is still open for documents.
-        $upload()->assertCreated();
+        // Since 2026-09-21 the filer attaches only at stage 1, so at the
+        // committee stage the upload is refused before any vote as well; the
+        // freeze below is checked first and still reports its own reason once
+        // voting has begun. (No permitted uploader can now reach a file with
+        // an open vote — the freeze stays as a backstop, not a live path.)
+        $upload()->assertForbidden();
 
         $this->completeSequence($head, $meeting, $item);
         $this->actingAs($member, 'sanctum')

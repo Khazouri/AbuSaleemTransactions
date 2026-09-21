@@ -438,9 +438,12 @@ class Request extends Model
     /**
      * On what footing $actor may attach a document to this request, or null.
      *
-     * Documents come from the filer — the person who raised the request, at
-     * any stage, and nobody standing in for them (no admin override): a
-     * return from the direct manager is how a missing document is asked for.
+     * Documents come from the filer — the person who raised the request, and
+     * nobody standing in for them (no admin override) — and only while the
+     * file is at stage 1 (receive_from_municipality), before it reaches the
+     * direct manager. Intake auto-hops past stage 1, so in practice that is
+     * after a return (`return_to_employee`, `return_missing_docs`): a return is
+     * how a missing document is asked for, and the only way one gets in.
      * Two duties the system already gives someone else are the only
      * exceptions:
      *   - `executor` — Appendix 70's proof of execution, by whoever may record
@@ -454,7 +457,7 @@ class Request extends Model
      */
     public function attachmentRight(User $actor): ?string
     {
-        if ($this->created_by_user_id === $actor->id) {
+        if ($this->created_by_user_id === $actor->id && $this->currentStage?->code === 'receive_from_municipality') {
             return 'filer';
         }
 

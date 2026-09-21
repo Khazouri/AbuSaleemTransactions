@@ -212,6 +212,9 @@ class RequestTimelineTest extends TestCase
         Storage::fake('local');
         $actor = $this->userWithRole('R02');
         $requestRecord = $this->fixtureRequest($actor);
+        // The filer attaches only at stage 1 (Request::attachmentRight()), and
+        // this test's subject is classification, not the stage.
+        $requestRecord->update(['current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id')]);
 
         $this->actingAs($actor, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
