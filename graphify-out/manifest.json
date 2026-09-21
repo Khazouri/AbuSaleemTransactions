@@ -1686,9 +1686,9 @@
     "semantic_hash": "61a13f00592adf9acd76d5bd431a6192"
   },
   "app/Services/Maintenance/EnvironmentProbe.php": {
-    "mtime": 1790027121.204024,
-    "seen": 1790027180.17561,
-    "ast_hash": "24e10baad904ba67915a18587d24ac04",
+    "mtime": 1790029356.1156964,
+    "seen": 1790029435.3944335,
+    "ast_hash": "8d59466203c198598c4ba6f3c21000d9",
     "semantic_hash": ""
   },
   "app/Services/Maintenance/MaintenanceBootstrapper.php": {
@@ -1704,9 +1704,9 @@
     "semantic_hash": ""
   },
   "app/Services/Maintenance/MaintenanceRunner.php": {
-    "mtime": 1790027121.2030396,
-    "seen": 1790027180.1756136,
-    "ast_hash": "c9982af61cdd49eb57cd488d7585aece",
+    "mtime": 1790029356.1156964,
+    "seen": 1790029435.3944373,
+    "ast_hash": "16dd8aeaae7463f0246e293e56ffb489",
     "semantic_hash": ""
   },
   "app/Services/MeetingMinutesCompiler.php": {
@@ -4104,21 +4104,21 @@
     "semantic_hash": ""
   },
   "app/Services/Maintenance/BinaryLocator.php": {
-    "mtime": 1790029080.0975692,
-    "seen": 1790029154.5900311,
-    "ast_hash": "b1df49a718a8e59d519b6a839d6c7782",
+    "mtime": 1790029360.1952279,
+    "seen": 1790029435.394432,
+    "ast_hash": "135e7b2da8b99d1730de8de34d7da21f",
     "semantic_hash": ""
   },
   "app/Console/Commands/InstallComposer.php": {
-    "mtime": 1790029072.2318127,
-    "seen": 1790029154.5896246,
-    "ast_hash": "ca5cca5b46d98495dfd09d0a9e5ec7f4",
+    "mtime": 1790029384.385954,
+    "seen": 1790029435.3940797,
+    "ast_hash": "92c525e874f5d01e9d0c6d55ac051f2d",
     "semantic_hash": ""
   },
   "tests/Feature/InstallComposerTest.php": {
-    "mtime": 1790029093.5837755,
-    "seen": 1790029154.5904543,
-    "ast_hash": "f892877055b37790582559ec507c4448",
+    "mtime": 1790029390.8481867,
+    "seen": 1790029435.3948555,
+    "ast_hash": "736e6bf1f399e4b8dec8e6649d8096b9",
     "semantic_hash": ""
   }
 }
