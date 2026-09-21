@@ -1,1 +1,0 @@
-var e=[`approve`,`reject`,`defer`,`conditional_approval`,`legal_opinion`,`refer_other_body`],t=[`approve`];export{t as n,e as t};

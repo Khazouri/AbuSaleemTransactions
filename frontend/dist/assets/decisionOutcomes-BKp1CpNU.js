@@ -1,0 +1,1 @@
+var e=[`approve`,`reject`,`defer`,`conditional_approval`,`legal_opinion`,`refer_other_body`,`no_jurisdiction`],t=[...e,`abstain`],n=[`appeal_accept`,`appeal_partial_accept`,`appeal_reject`,`appeal_refer`,`appeal_redo`],r=[...n,`abstain`];export{t as i,r as n,e as r,n as t};

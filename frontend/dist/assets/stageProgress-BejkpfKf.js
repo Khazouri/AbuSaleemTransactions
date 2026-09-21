@@ -1,0 +1,1 @@
+function e(e,t){return t?e(`requests.stageProgress`,{current:t.current,total:t.total}):null}export{e as t};
