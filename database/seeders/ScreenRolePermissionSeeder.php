@@ -157,7 +157,12 @@ class ScreenRolePermissionSeeder extends Seeder
         // roster mistake. Art. 21's own requirement that committee members can
         // read the recorded opinion at study time is still met — it is on the
         // request's own detail screen, whose `view` remains '*'.
-        'legal_review' => ['view' => ['R02', 'R11'], 'add' => ['R11'], 'edit' => ['R02'], 'print' => '*'],
+        // Stage 101 — R03 joins `view`: Appendix 6 row 6 makes اللجنة «مطلع» on
+        // the legal review, and the chair could not otherwise see the queue.
+        // R03 alone, not R04: a queue row opens the request, and an ordinary
+        // member holds no visibility clause that would let them open it (the
+        // Stage 47/68 dead end) — members read the opinion at study time.
+        'legal_review' => ['view' => ['R02', 'R03', 'R11'], 'add' => ['R11'], 'edit' => ['R02'], 'print' => '*'],
         // Stage 84 — R02 in, R04 out. [D] Appendix 45 gives المقرر إنشاء
         // الاجتماع outright, and Art. 15 (أ) أولًا 12-13 / ثانيًا 1 give them
         // توجيه الدعوات and تسجيل حضور الأعضاء, which is what `edit` gates
@@ -175,7 +180,13 @@ class ScreenRolePermissionSeeder extends Seeder
         // gives إدارة جدول الأعمال to المقرر as a single مسؤول.
         // Stage 99 — `approve` is Art. 84's «اعتماد جدول الأعمال», Appendix 6
         // row 8's اللجنة «اعتماد تنظيمي», recorded by the chair (Art. 12 (أ) 3).
-        'meeting_agenda' => ['view' => '*', 'add' => ['R02', 'R03'], 'edit' => ['R02', 'R03'], 'approve' => ['R03'], 'print' => '*'],
+        // Stage 101 — R11 joins `add`: Appendix 6 row 7 makes العضو القانوني
+        // «مشارك» in مذكرة العرض, whose authored `legal_opinion` field is theirs
+        // to write. The whole tier, not that one field — gating a single field
+        // buys nothing for a cell that says only «مشارك». `edit` (the agenda's
+        // structure) stays with المقرر and the chair, and the seat still bounds
+        // it: `meeting.member` requires R11 to sit on the committee (Stage 99).
+        'meeting_agenda' => ['view' => '*', 'add' => ['R02', 'R03', 'R11'], 'edit' => ['R02', 'R03'], 'approve' => ['R03'], 'print' => '*'],
         'meeting_readiness' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
         // Stage 84 — R02 joins `add` (the live discussion feed): Art. 15 (أ)
         // ثانيًا 5 makes تدوين المناقشات المقرر's own duty. `edit` — advancing

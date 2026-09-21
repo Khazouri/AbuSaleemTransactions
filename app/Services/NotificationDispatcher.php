@@ -18,6 +18,7 @@ use App\Notifications\MeetingMinutesApprovedNotification;
 use App\Notifications\MeetingScheduledNotification;
 use App\Notifications\RequestCreatedNotification;
 use App\Notifications\RequestDelayEscalationNotification;
+use App\Notifications\RequestNoticeCopyNotification;
 use App\Notifications\RequestNoticeNotification;
 use App\Notifications\RequestOverdueNotification;
 use App\Notifications\RequestReferenceAssignedNotification;
@@ -45,8 +46,13 @@ class NotificationDispatcher
     /** Stage 13 intake — tell the people who can pick the work up. */
     public function requestCreated(Request $requestRecord, User $actor): void
     {
+        // Stage 101 — Appendix 6 row 1 makes الموارد البشرية «مطلع» at filing.
+        // The subject's manager already arrives through actorsForStage(), since
+        // the intake auto-hop lands on their own stage.
         $this->send(
-            $this->actorsForStage($requestRecord, $requestRecord->current_stage_id, [$actor->id]),
+            $this->actorsForStage($requestRecord, $requestRecord->current_stage_id, [$actor->id])
+                ->concat($this->hrManagers([$actor->id]))
+                ->unique('id'),
             new RequestCreatedNotification($requestRecord, $actor->name),
         );
     }
@@ -246,6 +252,37 @@ class NotificationDispatcher
             $this->subjectOf($requestRecord, $actorId === null ? [] : [$actorId]),
             new RequestNoticeNotification($requestRecord, $moment, $context, $issuedBy),
         );
+
+        // Stage 101 — Appendix 6 row 14: الرئيس المباشر مطلع, الموارد البشرية
+        // مشارك. A copy naming the moment, never the notice itself (Art. 102).
+        // Both this observer-driven send and المقرر's manual issue arrive here,
+        // so neither can skip it. The employee is excluded in case they are
+        // also their own manager or an HR user.
+        $exclude = array_filter([$actorId, $requestRecord->subject_user_id]);
+        $manager = $this->subjectsActiveManager($requestRecord);
+
+        $this->send(
+            $this->hrManagers($exclude)
+                ->when($manager !== null && ! in_array($manager->id, $exclude, true), fn (Collection $all) => $all->push($manager))
+                ->unique('id'),
+            new RequestNoticeCopyNotification($requestRecord, $moment),
+        );
+    }
+
+    /**
+     * Active holders of R12 — الموارد البشرية, the seat Appendix 6 names as
+     * مطلع on a filing and مشارك on a notice.
+     *
+     * @param  array<int, int>  $excludeUserIds
+     * @return Collection<int, User>
+     */
+    private function hrManagers(array $excludeUserIds = []): Collection
+    {
+        return User::query()
+            ->where('is_active', true)
+            ->when($excludeUserIds !== [], fn ($query) => $query->whereKeyNot($excludeUserIds))
+            ->whereHas('roles', fn ($query) => $query->where('roles.code', 'R12'))
+            ->get();
     }
 
     /**

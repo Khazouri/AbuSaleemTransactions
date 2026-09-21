@@ -1988,7 +1988,8 @@
       "appeal_decided": "نتيجة التظلم",
       "delay_escalation": "تصعيد تأخير المعاملة",
       "request_notice": "إشعار المعاملة (المادة 101)",
-      "reference_assigned": "منح الرقم المرجعي"
+      "reference_assigned": "منح الرقم المرجعي",
+      "request_notice_copy": "نسخة من إشعار الموظف"
     }
   },
   "employeeNotices": {

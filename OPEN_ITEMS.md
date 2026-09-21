@@ -13,6 +13,22 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### A manager whose only role is R09, R10 or R11 cannot attach at `receive_and_register` — Stage 101 — opened 2026-09-21
+Appendix 6 row 3 makes الرئيس المباشر «مشارك» in تجهيز الملف الوظيفي. Stage 98 lets the subject's
+manager *see* the file there, and Stage 101 pins that they can add a note — but writing rides
+`notes_attachments,add`, held by R01–R07 and R12. الرئيس المباشر is a `users.manager_id` relationship,
+not a role, so a manager holding only R09/R10/R11 (all retained logins with no duty) is visible-but-
+read-only. **To close:** either accept it (no such manager exists in the seeded data), or let the
+note/attachment routes admit the subject's manager without the screen grant — a change to the
+permission middleware, larger than one cell justifies.
+
+### The Art. 101 notice copy is in-app only — Stage 101 — opened 2026-09-21
+`request_notice_copy` defaults to in-app with email off, like `stage_changed`: it is commentary for
+the manager and HR, not a deadline. If either party needs it by email, that is one line in
+`NotificationSetting::EVENT_TYPES` (or each user's own preference) — deliberately not decided here.
+
+---
+
 ### "Was the employee notified?" is still a hand-ticked answer — Stage 100 — opened 2026-09-21
 
 The `employee_notified` question on the execution card (النموذج 17) and the closure audit
@@ -31,8 +47,11 @@ is picked by meeting, and they hold no committee seat, so they would open it ont
 picker. **To close:** decide whether approvers need a request-based (not meeting-based)
 execution list; if so, add it rather than widening the meeting screen.
 
-### Stage 101 — consultation and information layer — Track N — opened 2026-09-21
+### Stage 101 — consultation and information layer — Track N — opened 2026-09-21 — **Resolved (2026-09-21, Stage 101)**
 
 The last Track N stage is unbuilt: the remaining مشارك / مطلع cells of Appendix 6 (HR
 consulted on rows 2, 4, 6, 7, 9, 14; الرئيس المباشر informed on rows 1 and 14; اللجنة
 informed on row 6). See STAGE_PLAN.md Stage 101.
+
+**Resolved.** Built as planned; seven of the thirteen cells were already true and are now pinned by
+`ConsultationLayerTest`. See AGENT_NOTES.md. The two residues are recorded as their own items below.

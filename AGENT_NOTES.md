@@ -19,6 +19,92 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-21 20:40 EET — Claude — Stage 101 complete (the consultation and information layer) — Track N finished
+
+Built per the plan below. **No migration.** Full suite **729 tests / 4684 assertions** (baseline 719/4653: +10 new
+in `ConsultationLayerTest`, and no pre-existing test needed changing — the check that this was additive), Pint
+clean on every touched PHP file, `npm run build` passes (`frontend/dist` reverted), locale parity **2011 keys each
+side** (+1), `ScreenRolePermissionSeeder` reseeded against the real MySQL and confirmed by query
+(`legal_review.can_view` = R02, R03, R08, R11; `meeting_agenda.can_add` = R02, R03, R08, R11), no pending migration.
+**No live HTTP smoke run** — the behaviour is covered by feature tests only.
+
+**The finding worth keeping: seven of the thirteen cells were already true, and the gap analysis was wrong about
+them.** It was written before Stage 100 and never re-derived. الرئيس المباشر مطلع on row 1 was met by
+`actorsForStage` sending `request_created` to the subject's manager (my first test asserted it and passed before
+any code changed); HR مشارك on rows 6, 7, 9 and «دعم معلومات» holds because R12's `meeting_outputs,approve` puts it
+in `$isCloser`, which shows it every registered file. **That last one is an accident of an unrelated grant** — a
+future change to the execution tier would silently take HR out of four rows — so those cells are pinned by tests
+rather than by a clause of their own. Adding a second, explicit clause would have doubled a rule that already
+holds, which is the more expensive way to get the same protection.
+
+**Built.** (1) `RequestVisibility::$isHrStudyCoOwner` is one clause over three stage ids instead of one:
+`direct_manager_review`, `requirements_check`, `observations` — rows 2 and 4 are pre-قيد, where R12 saw nothing.
+Bounded to exactly those stages: `administrative_routing` stays a 404 (a test pins the bound). (2) R12 joins
+`requestCreated` (row 1). (3) `request_notice_copy` + `RequestNoticeCopyNotification`, sent from
+`NotificationDispatcher::requestNotice()` to the subject's manager and active R12 users (row 14). Hooking the one
+method both the observer and Stage 100's manual `notices/issue` call means neither can skip it. The copy names the
+moment and the tracking number and **never the notice body** (Art. 102), carries no `issued_by`, excludes the actor
+and the subject, and is in-app only. `EmployeeNoticeRegister` is unaffected: it reads `request_notice` rows only,
+and `EmployeeNoticeTest` still passes. (4) `legal_review,view` → R03 (row 6). (5) `meeting_agenda,add` → R11 (row
+7), the whole tier; `edit` stays R02/R03, and a test asserts R11 does not gain it.
+
+**Test plans.** `TEST_PLAN.roles.md`/`.ar.md` gained four checks each (R03 queue read, R11 memo, two for R12) and
+one R12 refusal was **rewritten, not added**: «open a request at any stage other than `observations` → 404» was
+already false after Stage 92 and is now bounded to unregistered files outside stages 2, 5 and 7. Appendix A's two
+cells changed; checkbox parity **359 each side**. **R03's counts were corrected to the live database — 24 screens /
+21 sidebar** (the plan said 23 for both the section and the table, and 20/22 in the multi-role check); the rest of
+that table remains stale in ways this stage did not cause, and its own note says so.
+
+**Two residues, both in OPEN_ITEMS.md.** (1) A manager whose only role is R09/R10/R11 can see the file at
+`receive_and_register` but not attach: الرئيس المباشر is a relationship, and writing rides `notes_attachments,add`.
+No such manager exists in the seeded data; bypassing the screen-permission middleware for one relationship is a
+larger change than one cell justifies. (2) The copy is in-app only. Also fixed while there: AGENTS.md still said
+«Tracks A–L (Stages 1–84) are all built».
+
+**Track N is complete — Stages 94–101, every one of Appendix 6's 41 populated cells has an implementation.**
+Nothing in STAGE_PLAN.md is unbuilt. Whoever picks up next should read OPEN_ITEMS.md; the four open items there
+are the real backlog.
+
+---
+### 2026-09-21 19:45 EET — Claude — Implementation plan: Stage 101 (the consultation and information layer — Appendix 6's مشارك/مطلع cells)
+
+The last Track N stage. **No migration, no new screen, no new endpoint** — every mechanism is one Stages 47, 68,
+87 and 100 already established. Cell-by-cell against the live code (not the gap analysis, which predates Stage
+100's widening of R12's reach): note and attachment writes are `notes_attachments,add` + `RequestVisibility::canView`,
+so a party «participates» in a file iff it holds that grant *and* can see the file.
+
+**Already true, by accident — pinned with tests, not rebuilt.** الرئيس المباشر مطلع on row 1 (`requestCreated`
+already goes to the subject's manager through `actorsForStage`); الرئيس المباشر مشارك on row 3 (Stage 98's clause
+plus `notes_attachments,add` for R01–R07); الموارد البشرية مشارك on rows 6, 7 and 9 and «دعم معلومات» — R12 holds
+`meeting_outputs,approve`, so `$isCloser`'s `reference_number` clause shows it every registered file. That last one
+rides an unrelated grant, so the tests are what stop a later change to `meeting_outputs` silently dropping HR.
+
+**Built.** (1) `$isHrStudyCoOwner` in `RequestVisibility` widens from the single `observations` stage to
+`{direct_manager_review, requirements_check, observations}` — rows 2 and 4 are pre-قيد, where R12 sees nothing today.
+One edited clause, not a new one. (2) R12 joins `requestCreated` recipients (row 1). (3) New event
+`request_notice_copy` (in-app only, the `stage_changed` defaults) + `RequestNoticeCopyNotification`, sent from
+`NotificationDispatcher::requestNotice()` — the one method both the automatic observer and Stage 100's manual
+`notices/issue` call — to the subject's manager and to active R12 users (row 14). The copy carries the tracking
+number and the moment's title only, **never the notice body**: Art. 102 limits notice content to what صاحب العلاقة
+needs, and the copy is not addressed to them. (4) `legal_review,view` gains **R03** (row 6 اللجنة مطلع). (5)
+`meeting_agenda,add` gains **R11** (row 7 العضو القانوني مشارك) — full memo edit, not `legal_opinion` alone; still
+bounded by the committee seat via `meeting.member`, which Stage 99 already tied to R11.
+
+**Two calls put to the user and answered yes-with-defaults; do not re-litigate.** اللجنة مطلع is the R03 queue view
+only: R04 would be listed queue rows it cannot open (the Stage 47/68 dead end), members read the opinion at study
+time through the agenda-item context, and the committee has no identity before an agenda to push a notification to.
+R11's memo grant is the whole `add` tier because field-level gating buys nothing for a cell that says only «مشارك».
+
+**Deliberately not built.** A manager whose only role is R09/R10/R11 holds no `notes_attachments,add`, so cannot
+attach at `receive_and_register` — الرئيس المباشر is a relationship, not a role, and bypassing the screen-permission
+middleware for one relationship is a larger change than this cell justifies. Recorded as an open item, not glossed.
+
+**Verify.** New `tests/Feature/ConsultationLayerTest.php` covering all thirteen cells; full PHPUnit (baseline 719
+tests / 4653 assertions); Pint on touched files; `npm run build` (revert `frontend/dist`); locale key parity;
+`ScreenRolePermissionSeeder` reseed against the real MySQL confirmed by query. TEST_PLAN.roles.md/.ar.md Appendix A
+gains the two changed cells (checkbox parity kept). STAGE_PLAN, OPEN_ITEMS and the gap analysis close with it.
+
+---
 ### 2026-09-21 18:36 EET — Claude — Stage 100 complete (الإشعار ownership, الأرشفة, execution oversight — Appendix 6 rows 13–15)
 
 Built per the plan below. One migration (six `requests` columns) applied to the real MySQL; the

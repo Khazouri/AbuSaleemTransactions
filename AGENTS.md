@@ -120,8 +120,8 @@ Key architectural facts worth knowing before changing things:
   anything customised through Roles & Permissions.
 - **Staged build-out**: [STAGE_PLAN.md](STAGE_PLAN.md) is the source of truth
   for what each stage number means (goal, what gets built, done-when) —
-  consult it before starting or referencing a stage. **Tracks A–L (Stages
-  1–84) are all built**; a stage's own bullet states the counts that were true
+  consult it before starting or referencing a stage. **Tracks A–N (Stages
+  1–101) are all built**; a stage's own bullet states the counts that were true
   when it was written, so verify any figure against the seeders rather than
   quoting it. There is no built-vs-stubbed map any more: Stages 25–27 gave the
   last three screens real UIs and deleted both `PlaceholderView` and the

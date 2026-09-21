@@ -61,6 +61,10 @@ class NotificationSetting extends Model
         // quotes the new one. Same defaults as `request_notice`: news about
         // the reader's own request, which is what email is for.
         'reference_assigned' => ['in_app' => true, 'email' => true, 'sms' => false],
+        // Stage 101 — Appendix 6 row 14: the employee's manager and HR are told
+        // a notice was sent, not sent the notice. Running commentary, so the
+        // `stage_changed` defaults: in-app only, and mutable on its own.
+        'request_notice_copy' => ['in_app' => true, 'email' => false, 'sms' => false],
     ];
 
     /** The preference columns, in the order the preferences screen shows them. */

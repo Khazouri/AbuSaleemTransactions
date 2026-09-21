@@ -1767,7 +1767,7 @@ through execution (the approval ledger, one `RequestVisibility` clause), and R06
 
 ---
 
-### Stage 101 — the consultation and information layer (~13 cells)
+### Stage 101 — the consultation and information layer (~13 cells) — **built**
 
 **Goal:** مشارك and مطلع stop being decoration.
 **Build:** the remaining cells — الموارد البشرية consulted on rows 2, 4, 6, 7, 9 and 14;
@@ -1777,6 +1777,12 @@ clauses and per-stage `notes_attachments` grants — the shapes Stages 47, 68 an
 established for exactly this.
 **Done when:** every one of the 41 populated cells has an implementation.
 **Source:** [D] Appendix 6, all rows.
+**Built 2026-09-21.** No migration. Seven of the thirteen cells were already true (the manager is told at
+filing; HR reaches every registered file through `$isCloser`; the manager can attach at the preparation
+stage) and are now pinned by tests. Built: HR's reach widened to stages 2, 5 and 7 (rows 2 and 4), HR told
+at filing (row 1), a `request_notice_copy` event so the manager and HR are told each Art. 101 notice was sent
+(row 14, moment title only — Art. 102), R03 on the `legal_review` queue (row 6) and R11 on the memo
+(row 7). See AGENT_NOTES.md.
 
 ---
 
@@ -1786,7 +1792,7 @@ established for exactly this.
 dependency record: it says which stage had to precede which, which is what you need when reading a
 stage's assumptions or judging whether a change to one stage's work disturbs another's.
 
-**Track N (94–101) is mostly built.** **94** through **100** are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency. The track's one hard dependency — 95 before 98 and 101 — is discharged. **Only 101 remains** — the consultation and information layer, now that every accountable party is correct.
+**Track N (94–101) is complete.** **94** through **101** are done; 97 was taken ahead of 96, which its own text says is a preference, not a dependency. The track's one hard dependency — 95 before 98 and 101 — was discharged in order. 101 went last because the consultation layer is additive and wiring notifications before the accountable parties were correct would have told the wrong people.
 
 ```
 94 → 96 → 97                    (independent of 95 — seeded-map work)

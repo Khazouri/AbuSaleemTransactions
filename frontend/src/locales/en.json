@@ -1988,7 +1988,8 @@
       "appeal_decided": "Appeal result",
       "delay_escalation": "Request delay escalation",
       "request_notice": "Request notice (Art. 101)",
-      "reference_assigned": "Reference number assigned"
+      "reference_assigned": "Reference number assigned",
+      "request_notice_copy": "Copy of the employee notice"
     }
   },
   "employeeNotices": {

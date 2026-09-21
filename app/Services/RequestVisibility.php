@@ -104,8 +104,18 @@ class RequestVisibility
         // it, so this is the same bounded, non-controlling reach the R11 and
         // SAL clauses already use for a party consulted on a stage without
         // moving it.
-        $observationsStageId = WorkflowStage::query()->where('code', 'observations')->value('id');
-        $isHrStudyCoOwner = $observationsStageId !== null && $actor->roles()->where('code', 'R12')->exists();
+        //
+        // Stage 101 widened the same clause to the two pre-قيد stages Appendix
+        // 6 names HR «مشارك» on — rows 2 (المراجعة الأولية) and 4 (فحص اكتمال
+        // ملف اللجنة). Rows 6, 7, 9 and 14 are all after the قيد, where the
+        // $isCloser's reference_number clause below already shows R12 the file;
+        // ConsultationLayerTest pins that so a change to the execution grant
+        // cannot quietly drop HR out of those rows. Bounded to these stages, not
+        // "anywhere before the قيد" — administrative_routing is row 1's مطلع.
+        $hrStudyStageIds = WorkflowStage::query()
+            ->whereIn('code', ['direct_manager_review', 'requirements_check', 'observations'])
+            ->pluck('id');
+        $isHrStudyCoOwner = $hrStudyStageIds->isNotEmpty() && $actor->roles()->where('code', 'R12')->exists();
         // Stage 98 — [D] Appendix 6 row 3 makes الرئيس المباشر «مشارك» in
         // تجهيز الملف الوظيفي, which HR assembles at `receive_and_register`.
         // The manager holds a manager-gated row at the two stages before that
@@ -123,7 +133,7 @@ class RequestVisibility
             ->where('code', EmploymentFilePreparationService::GATED_STAGE)
             ->value('id');
 
-        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser, $isHrStudyCoOwner, $observationsStageId, $preparationStageId) {
+        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser, $isHrStudyCoOwner, $hrStudyStageIds, $preparationStageId) {
             // Stage 95 — the filer AND صاحب العلاقة. A request raised on an
             // employee's behalf is that employee's own file: Art. 101 tells
             // them about it and «متابعة طلباتي» lists it, so without this
@@ -138,7 +148,7 @@ class RequestVisibility
             }
 
             if ($isHrStudyCoOwner) {
-                $visible->orWhere('requests.current_stage_id', $observationsStageId);
+                $visible->orWhereIn('requests.current_stage_id', $hrStudyStageIds);
             }
 
             if ($preparationStageId !== null) {

@@ -501,7 +501,7 @@ Sign in as `r03.head@abusaleem.test`.
 
 ### A. What they must see
 
-- [ ] **21 sidebar entries** (23 screens), including the whole `إدارة الاجتماعات` group.
+- [ ] **21 sidebar entries** (24 screens), including the whole `إدارة الاجتماعات` group.
 - [ ] Exactly one approval screen: `اعتماد رئيس اللجنة`.
 
 ### B. What they must be able to do
@@ -611,6 +611,9 @@ Sign in as `r03.head@abusaleem.test`.
 - [ ] Everything in §3 B6–B8 (registers, execution, closure, lifecycle records) — R03 shares
       `meeting_outputs,edit` with R02.
 - [ ] Nominate, defer, return-to-study and request-completion on committee candidates.
+- [ ] **Read the legal-review queue** (`GET /api/legal-reviews`, Stage 101 — [D] Appendix 6 row 6,
+      اللجنة «مطلع») → 200, and open a queued file. Recording stays refused (§C); R04 gets **403** on
+      the same queue.
 
 ### C. What they must be refused
 
@@ -1079,6 +1082,9 @@ Sign in as `r11.legal@abusaleem.test`.
       `العضو القانوني` seat and marked attended: post to the item's discussion feed, **vote**, sign the
       محضر, and record a legal note on the **draft** محضر (refused once it is under signature). The
       seat itself is refused to anyone without R11.
+- [ ] **Generate and edit the presentation memo** (Stage 101 — Appendix 6 row 7, «مشارك») — seated
+      in the `العضو القانوني` seat, write the `legal_opinion` field on an agenda item's memo. Adding,
+      reordering or removing agenda items stays refused (§C).
 
 ### C. What they must be refused
 
@@ -1123,6 +1129,13 @@ Sign in as `r12.hr@abusaleem.test`.
 - [ ] **Open a request sitting at stage 7 (`observations`)** that they did not create and hold no
       registration role on — a reach no other non-committee role has.
 - [ ] **Add a note** on that same request (`notes_attachments,add`).
+- [ ] **Open and annotate an unregistered file at stage 2 (`مراجعة المدير المباشر`) and stage 5
+      (`فحص استيفاء المتطلبات`)** — Stage 101, Appendix 6 rows 2 and 4 («مشارك»). Registered files
+      later on are also readable and annotatable, through the execution grant (rows 6, 7, 9).
+- [ ] **Receive the informational notices** (Stage 101): a new-request notice when an employee files
+      (row 1), and `Copy of the employee notice` each time an Art. 101 notice is sent (row 14). The
+      copy names the moment only and never repeats the notice text (Art. 102). Mute it in
+      notification preferences and confirm nothing else is muted.
 - [ ] Read the request list, the registers, the reports and the audit log.
 - [ ] **Execute a request they did not create**, naming إدارة الموارد البشرية as the executing body
       ([D] Appendix 70 — Stage 92: [F] step 10's "who executed" question, now on its own
@@ -1136,9 +1149,9 @@ Sign in as `r12.hr@abusaleem.test`.
       explicitly: it is the clearest proof the routing choice is enforced and not decorative.
 - [ ] **`forward`, `request_edit`, or `cancel` a request at `observations`** → refused for all
       three. Co-ownership of the study is read-and-contribute, never stage control.
-- [ ] **Open a request at any stage other than `observations`** that they are not the registrar or
-      creator for → **404**. This is the check that the reach is bounded to one stage, not "anywhere
-      past intake".
+- [ ] **Open an unregistered request** at a stage outside stages 2, 5 and 7 (for example
+      `التوجيه الإداري`, stage 3) that they are not the registrar or creator for → **404**. The reach
+      is bounded to the stages Appendix 6 names, not "anywhere before the قيد".
 - [ ] File a request → **403**.
 - [ ] Any committee action — nominate, agenda, vote, decide, minutes → **403**.
 - [ ] **Record an approval return, a suspension, or the Art. 103 execution-soundness checklist** →
@@ -1158,7 +1171,7 @@ history. Run them after the role sections.
 
 Sign in as `multi.role@abusaleem.test` (R03 **+** R04).
 
-- [ ] The sidebar shows **20 entries** (22 screens) — R03's set, since R04 adds nothing R03 lacks.
+- [ ] The sidebar shows **21 entries** (24 screens) — R03's set, since R04 adds nothing R03 lacks.
 - [ ] `اعتماد رئيس اللجنة` is visible.
 - [ ] They can **both** vote (`decisions,add`, R03 + R04) **and** record a decision
       (`decisions,approve`, R03 only). If recording is refused, permissions have regressed to an
@@ -1283,9 +1296,9 @@ Letters: `v` view · `a` add · `e` edit · `d` delete · `A` approve · `p` pri
 | `appeals` — التظلمات | vap | vep | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 | `meetings_dashboard` — لوحة قيادة الاجتماعات | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 | `committee_candidates` — الطلبات المرشحة | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
-| `legal_review` — المراجعة القانونية | p | vep | p | p | p | p | p | vaedApx | p | p | vap | p |
+| `legal_review` — المراجعة القانونية | p | vep | vp | p | p | p | p | vaedApx | p | p | vap | p |
 | `meetings` — الاجتماعات | vp | vaep | vaep | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
-| `meeting_agenda` — جدول الأعمال | vp | vaep | vaeAp | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
+| `meeting_agenda` — جدول الأعمال | vp | vaep | vaeAp | vp | vp | vp | vp | vaedApx | vp | vp | vap | vp |
 | `meeting_readiness` — جاهزية الاجتماع | vp | vp | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 | `meeting_live` — مباشرة الاجتماع | vp | vap | vaep | vap | vp | vp | vp | vaedApx | vp | vp | vap | vp |
 | `decisions` — القرارات والتوصيات | vp | vp | vaAp | vap | vp | vpx | vpx | vaedApx | vp | vp | vap | vp |
@@ -1323,7 +1336,7 @@ are returned by the API but hidden from the menu because they need a request id)
 |---|---|---|---|
 | R01 Employee | 22 | 20 | — |
 | R02 Reviewer | 23 | 21 | `اعتماد المقرر` |
-| R03 Committee Head | 23 | 21 | `اعتماد رئيس اللجنة` |
+| R03 Committee Head | 24 | 21 | `اعتماد رئيس اللجنة` |
 | R04 Committee Member | 22 | 20 | — |
 | R05 Admin Manager | 23 | 21 | `اعتماد مدير الإدارة` |
 | R06 Ministry | 23 | 21 | `اعتماد وزارة الحكم المحلي` |
@@ -1333,7 +1346,7 @@ are returned by the API but hidden from the menu because they need a request id)
 | R10 Diwan Deputy | 19 | 17 | — |
 | R11 Legal Officer | 20 | 18 | — |
 | R12 HR Manager | 20 | 18 | — |
-| multi.role (R03+R04) | 23 | 21 | `اعتماد رئيس اللجنة` |
+| multi.role (R03+R04) | 24 | 21 | `اعتماد رئيس اللجنة` |
 
 ---
 
