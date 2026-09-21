@@ -5,6 +5,12 @@ Shared scratchpad between Codex and Claude Code for this repo. See the
 newest entry on top, prune once resolved, durable facts go in AGENTS.md
 instead.
 
+**Unfinished or unclear points go in [OPEN_ITEMS.md](OPEN_ITEMS.md).** Any
+point left open, deferred, ambiguous, or waiting on a decision — including the
+"Open items" of a stage's completion note — must also be added there as its
+own entry (what is open, why, what would close it). Check that file at the
+start of a session, and mark an item resolved there when you close it.
+
 Format:
 
 ```

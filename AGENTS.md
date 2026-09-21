@@ -286,6 +286,9 @@ instead of cramming it in here. Rules:
 - **Format**: `### YYYY-MM-DD HH:MM TZ — <Codex|Claude> — <short title>` followed by 2-4
   sentences: what happened, why it matters to the next agent, any open
   question.
+- **Open items live in [OPEN_ITEMS.md](OPEN_ITEMS.md)** — every unfinished,
+  unclear or deferred point (including a stage note's "Open items") gets its own
+  entry there; mark it resolved in place when closed.
 - **Mark stale notes through a newer entry** — if an older concern is resolved
   or no longer relevant, record that resolution in a new top entry instead of
   deleting the original note. Durable facts still belong in `AGENTS.md`
