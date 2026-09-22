@@ -210,8 +210,11 @@ class MeetingReadinessTest extends TestCase
         $head = $this->userWithRole('R03');
 
         [$committee] = $this->committeeWithMembers(2, $head);
+        // Cancelled rather than completed: a completed meeting is refused earlier by
+        // the concluded-meeting guard in CheckMeetingMembership, which is not what
+        // this test is about.
         $meeting = $this->scheduleMeeting($committee, $head);
-        $meeting->update(['status' => 'completed']);
+        $meeting->update(['status' => 'cancelled']);
 
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/convene", ['reason' => 'أي سبب'])

@@ -19,6 +19,24 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-22 EET — Claude — A concluded meeting is read-only (complete)
+
+Built per the plan below: one guard in `CheckMeetingMembership` (any non-safe method on a `completed` meeting → 422
+`meeting`). New `ConcludedMeetingTest`; `MeetingReadinessTest`'s "convene refused once not scheduled" case now uses a
+`cancelled` meeting, since a completed one is refused by the new guard first. Full suite 741/4738 green, Pint clean.
+No frontend change: edit buttons on a completed meeting still render and now surface the Arabic 422.
+
+---
+### 2026-09-22 EET — Claude — Implementation plan: a concluded meeting is read-only
+
+User: "a meeting that has concluded should not be modified in any way". Plan: every meeting-bound route already
+passes through `CheckMeetingMembership` (`meeting.member`), so one guard there refuses any non-read request on a
+meeting whose `status` is `completed` (422, Arabic) — covers update/delete, attendees, agenda, readiness, live
+runner, votes/decisions, conflict declarations, memo and minutes in one place. **Deliberately exempt:**
+`outputs/{item}/execute` (not behind `meeting.member`; execution happens after the sitting by design). `cancelled`
+is not treated as concluded. Verify: new feature test, full suite, Pint.
+
+---
 ### 2026-09-22 EET — Claude — No sideways scrolling on desktop (≥1024px)
 
 User: side-scrolling pages are not acceptable on desktop. Plan and result, CSS only: the eight views that forced

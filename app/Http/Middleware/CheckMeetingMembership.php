@@ -6,6 +6,7 @@ use App\Models\Meeting;
 use App\Services\MeetingVisibility;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -44,6 +45,17 @@ class CheckMeetingMembership
             $meeting !== null && $this->visibility->canView($request->user(), $meeting),
             404,
         );
+
+        // A concluded sitting is a closed record: its agenda, attendance, votes,
+        // decisions and minutes describe what happened and must not change
+        // afterwards. Every meeting-bound write already passes through here, so
+        // one check covers them all. Execution follow-up (outputs/execute) is
+        // not behind this middleware and stays open by design.
+        if (! $request->isMethodSafe() && $meeting->status === 'completed') {
+            throw ValidationException::withMessages([
+                'meeting' => ['لا يجوز تعديل اجتماع منتهٍ.'],
+            ]);
+        }
 
         return $next($request);
     }
