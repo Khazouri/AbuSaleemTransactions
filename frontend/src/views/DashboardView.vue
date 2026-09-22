@@ -247,8 +247,8 @@ h2 { margin: 0; }
 .key.created, .column.created { background: var(--color-brand); }
 .key.completed, .column.completed { background: var(--color-primary); }
 
-.trend { list-style: none; margin: 0; padding: 0; display: flex; align-items: end; gap: var(--space-2); block-size: 170px; }
-.trend li { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; block-size: 100%; }
+.trend { list-style: none; margin: 0; padding: 0; display: flex; align-items: end; gap: var(--space-2); block-size: 170px; overflow-x: auto; }
+.trend li { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; block-size: 100%; min-inline-size: 2.25rem; }
 .columns { flex: 1; display: flex; align-items: end; justify-content: center; gap: 3px; inline-size: 100%; }
 .column { inline-size: 42%; max-inline-size: 18px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .month { color: var(--color-muted); font-size: var(--text-xs); white-space: nowrap; }

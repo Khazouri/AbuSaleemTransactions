@@ -411,7 +411,10 @@ ul {
     transform: translateX(-100%);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  :global(html[dir='rtl']) .sidebar.mobile {
+  /* Not `:global(html[dir='rtl']) .sidebar.mobile`: Vue compiles that to a bare
+     `html[dir='rtl']` and translated the whole document off-screen in Arabic.
+     :not(.open) keeps this from outranking the open rule below. */
+  :root[dir='rtl'] .sidebar.mobile:not(.open) {
     transform: translateX(100%);
   }
   .sidebar.mobile.open {

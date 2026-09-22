@@ -30,8 +30,13 @@ zooms any field under 16px); `.shell` gets `100dvh`; the topbar tightens and tru
 four tables with no horizontal scroll (Users, Departments, both in MeetingsView) now scroll sideways; and
 every `auto-fit` grid minimum of 220–300px became `min(Npx, 100%)` so it can't exceed the phone width.
 **Deliberately not done:** wide registers stay tables that scroll sideways (card layouts would be a rewrite
-of 16 views). `npm run build` passes (`dist` reverted); **no browser was available, so nothing was looked
-at on a real phone width** — a 375px pass in AR and EN is the open check. Note found in passing: the print
+of 16 views). `npm run build` passes (`dist` reverted); Verified afterwards in headless Chrome (Puppeteer from
+the npx cache): 29 screens × {375, 768}px × {AR, EN} = 116 page views with no page-level sideways overflow, and
+the drawer opens/closes on the correct side in both languages. That pass found **a real pre-existing bug, fixed**:
+AppSidebar's `:global(html[dir='rtl']) .sidebar.mobile` compiled to a bare `html[dir='rtl']` (Vue drops
+everything after `:global()`), so below 1024px in Arabic the whole document was translated off-screen — every
+page blank since the 2026-07-30 shell restyle. Now `:root[dir='rtl'] .sidebar.mobile:not(.open)`. **Never put a
+descendant selector after `:global()` in a scoped block.** The dashboard trend also scrolls in its own card now. Note found in passing: the print
 block's `.shell { height: auto }` is outranked by AppLayout's scoped `.shell[data-v]`, pre-existing and untouched.
 
 ---
