@@ -1686,9 +1686,9 @@
     "semantic_hash": "61a13f00592adf9acd76d5bd431a6192"
   },
   "app/Services/Maintenance/EnvironmentProbe.php": {
-    "mtime": 1790027121.204024,
-    "seen": 1790027180.17561,
-    "ast_hash": "24e10baad904ba67915a18587d24ac04",
+    "mtime": 1790029356.1156964,
+    "seen": 1790029435.3944335,
+    "ast_hash": "8d59466203c198598c4ba6f3c21000d9",
     "semantic_hash": ""
   },
   "app/Services/Maintenance/MaintenanceBootstrapper.php": {
@@ -1704,9 +1704,9 @@
     "semantic_hash": ""
   },
   "app/Services/Maintenance/MaintenanceRunner.php": {
-    "mtime": 1790027121.2030396,
-    "seen": 1790027180.1756136,
-    "ast_hash": "c9982af61cdd49eb57cd488d7585aece",
+    "mtime": 1790029356.1156964,
+    "seen": 1790029435.3944373,
+    "ast_hash": "16dd8aeaae7463f0246e293e56ffb489",
     "semantic_hash": ""
   },
   "app/Services/MeetingMinutesCompiler.php": {
@@ -2802,15 +2802,15 @@
     "semantic_hash": "038a8f1b86981c44276c96765fd469b5"
   },
   "frontend/src/components/AppSidebar.vue": {
-    "mtime": 1789915667.16416,
-    "seen": 1789922867.1800466,
-    "ast_hash": "3652c04afe1946b1a5f21f6c487d3f7e",
+    "mtime": 1790080534.965728,
+    "seen": 1790081686.6259978,
+    "ast_hash": "76cf1a956e810ba7579aeaa31a36e7f4",
     "semantic_hash": ""
   },
   "frontend/src/components/AppTopbar.vue": {
-    "mtime": 1789915754.282072,
-    "seen": 1789922867.1800487,
-    "ast_hash": "64d1c88b92b3698a04042c94792df9aa",
+    "mtime": 1790079933.338996,
+    "seen": 1790080022.4592018,
+    "ast_hash": "9eb9efd5d42545022ed107bf90b90f7a",
     "semantic_hash": ""
   },
   "frontend/src/components/ApprovalReferralPanel.vue": {
@@ -2844,9 +2844,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/MeetingSchedulingWizard.vue": {
-    "mtime": 1789915393.5334477,
-    "seen": 1789922867.1800563,
-    "ast_hash": "f08db71aa2e4d841144e792a585e4379",
+    "mtime": 1790079973.1002235,
+    "seen": 1790080022.459211,
+    "ast_hash": "f8740ea47a377593899362c762c7d9c8",
     "semantic_hash": ""
   },
   "frontend/src/components/RequestClosurePanel.vue": {
@@ -2904,10 +2904,10 @@
     "semantic_hash": "107a7efb648fa0a26ab71e334ddceec0"
   },
   "frontend/src/layouts/AppLayout.vue": {
-    "mtime": 1786899659.4561613,
-    "seen": 1789906551.3737388,
-    "ast_hash": "0b0380fb3d5c45e3854d760bd0ecc0c0",
-    "semantic_hash": "0b0380fb3d5c45e3854d760bd0ecc0c0"
+    "mtime": 1790079927.7661295,
+    "seen": 1790080022.4592288,
+    "ast_hash": "d0f6d118632cce5e4509037c9feaa74a",
+    "semantic_hash": ""
   },
   "frontend/src/lib/agenda.js": {
     "mtime": 1788886696.7993019,
@@ -3048,51 +3048,51 @@
     "semantic_hash": "cf627b227352796fa79b9ecbf508623b"
   },
   "frontend/src/views/AppealsView.vue": {
-    "mtime": 1789914491.9154594,
-    "seen": 1789922867.1801026,
-    "ast_hash": "8f5ea185ed90c14a417891058363fd19",
+    "mtime": 1790082023.0416265,
+    "seen": 1790083247.8054752,
+    "ast_hash": "4d8792bca4227334358626979dc4456f",
     "semantic_hash": ""
   },
   "frontend/src/views/AuditLogView.vue": {
-    "mtime": 1789912811.5048542,
-    "seen": 1789922867.180104,
-    "ast_hash": "68efa2f6a8fbc7d1f19e206905489ff2",
+    "mtime": 1790082023.078943,
+    "seen": 1790083247.805478,
+    "ast_hash": "5c62a80734422c57156940f10e88ed34",
     "semantic_hash": ""
   },
   "frontend/src/views/BackupView.vue": {
-    "mtime": 1789913291.6946023,
-    "seen": 1789922867.180105,
-    "ast_hash": "50aefc309450b4cc7b3f62a391a283ab",
+    "mtime": 1790082023.109393,
+    "seen": 1790083247.8054795,
+    "ast_hash": "718e48694ffbfceccfba2397e64bd713",
     "semantic_hash": ""
   },
   "frontend/src/views/CommitteeCandidatesView.vue": {
-    "mtime": 1789913612.5299566,
-    "seen": 1789922867.180106,
-    "ast_hash": "580bad80061249c7bb73a212ccd20dc2",
+    "mtime": 1790079973.4527404,
+    "seen": 1790080022.459267,
+    "ast_hash": "d77a1aa72ba320d879166c3c6de5bb87",
     "semantic_hash": ""
   },
   "frontend/src/views/DashboardView.vue": {
-    "mtime": 1789912260.6041186,
-    "seen": 1789922867.1801066,
-    "ast_hash": "1d8275c55d9e07af627ae4805dc3027c",
+    "mtime": 1790080915.9878397,
+    "seen": 1790081686.6261365,
+    "ast_hash": "b57e7ecd6e738380f161dd8125e32bcc",
     "semantic_hash": ""
   },
   "frontend/src/views/DecisionsView.vue": {
-    "mtime": 1789913447.806018,
-    "seen": 1789922867.1801078,
-    "ast_hash": "6116a630b9644f5037439ea86ee06f8d",
+    "mtime": 1790082743.8718274,
+    "seen": 1790083247.8054836,
+    "ast_hash": "6afb52b6d2c9662540b360a0428a2f41",
     "semantic_hash": ""
   },
   "frontend/src/views/DepartmentsView.vue": {
-    "mtime": 1789912566.7305446,
-    "seen": 1789922867.1801095,
-    "ast_hash": "bfe80179ec1c1d156fa95541fc1771b2",
+    "mtime": 1790079973.1822033,
+    "seen": 1790080022.459271,
+    "ast_hash": "fb754cf2e04e6f14f1123c23bc5a995a",
     "semantic_hash": ""
   },
   "frontend/src/views/GuideView.vue": {
-    "mtime": 1789913321.9904742,
-    "seen": 1789922867.1801107,
-    "ast_hash": "bf4a7ff41a354d5402fe7ab07166e943",
+    "mtime": 1790079973.2057953,
+    "seen": 1790080022.459272,
+    "ast_hash": "5077628fa2f9c79014c65b3b6fc62517",
     "semantic_hash": ""
   },
   "frontend/src/views/LegalReviewView.vue": {
@@ -3108,9 +3108,9 @@
     "semantic_hash": ""
   },
   "frontend/src/views/MaintenanceView.vue": {
-    "mtime": 1789913723.2131932,
-    "seen": 1789922867.180114,
-    "ast_hash": "a08837f703207e7fccd4487ee90a63ff",
+    "mtime": 1790082023.1848972,
+    "seen": 1790083247.80549,
+    "ast_hash": "0d7da44efe557ee9b137ec66d120abe6",
     "semantic_hash": ""
   },
   "frontend/src/views/MeetingAgendaBuilderView.vue": {
@@ -3144,45 +3144,45 @@
     "semantic_hash": ""
   },
   "frontend/src/views/MeetingReadinessView.vue": {
-    "mtime": 1789914379.135749,
-    "seen": 1789922867.1801214,
-    "ast_hash": "d09573f06e12a5b8ccb315e1426def13",
+    "mtime": 1790079973.2283537,
+    "seen": 1790080022.4592843,
+    "ast_hash": "4a65ffc2565495367036191bbad5e8e0",
     "semantic_hash": ""
   },
   "frontend/src/views/MeetingsDashboardView.vue": {
-    "mtime": 1789912377.9976368,
-    "seen": 1789922867.1801224,
-    "ast_hash": "02caa6d15afa643650fdf2f697ce37c5",
+    "mtime": 1790079973.2514877,
+    "seen": 1790080022.4592857,
+    "ast_hash": "98c98561cfdd7db126e0562eea2995b4",
     "semantic_hash": ""
   },
   "frontend/src/views/MeetingsView.vue": {
-    "mtime": 1789913846.8713822,
-    "seen": 1789922867.1801233,
-    "ast_hash": "c5c3e2ffa4238592a21a7f3d1b398977",
+    "mtime": 1790079973.2762275,
+    "seen": 1790080022.459287,
+    "ast_hash": "8a882063caa474cf43445f68da9f8546",
     "semantic_hash": ""
   },
   "frontend/src/views/MyTasksView.vue": {
-    "mtime": 1789912307.8394866,
-    "seen": 1789922867.1801248,
-    "ast_hash": "0712af7d2a4c261471382fed2f521ea7",
+    "mtime": 1790079979.914724,
+    "seen": 1790080022.4592881,
+    "ast_hash": "39e8690f759c7aba7af12a59cdadf86d",
     "semantic_hash": ""
   },
   "frontend/src/views/NotificationsView.vue": {
-    "mtime": 1789912862.0473647,
-    "seen": 1789922867.1801262,
-    "ast_hash": "375107af361c35b8ce250770bf4d1d27",
+    "mtime": 1790082023.217862,
+    "seen": 1790083247.8055036,
+    "ast_hash": "32a50818a905a24e039e6951bd41937d",
     "semantic_hash": ""
   },
   "frontend/src/views/RegistersView.vue": {
-    "mtime": 1789912989.638817,
-    "seen": 1789922867.1801271,
-    "ast_hash": "7346e8a5da3a21daffb135d88ae3b2d0",
+    "mtime": 1790082023.2626007,
+    "seen": 1790083247.8055046,
+    "ast_hash": "88811baa81b0c1bbc22eb33c6c76da48",
     "semantic_hash": ""
   },
   "frontend/src/views/ReportsView.vue": {
-    "mtime": 1789912952.9843924,
-    "seen": 1789922867.1801286,
-    "ast_hash": "df6ba2cc336a57b42b2d58b346542c8d",
+    "mtime": 1790082023.2913742,
+    "seen": 1790083247.8055058,
+    "ast_hash": "1e1035519ed5ec407295edf9aa9b64ce",
     "semantic_hash": ""
   },
   "frontend/src/views/RequestDetailView.vue": {
@@ -3204,15 +3204,15 @@
     "semantic_hash": ""
   },
   "frontend/src/views/RequestTypesView.vue": {
-    "mtime": 1789912663.379704,
-    "seen": 1789922867.1801357,
-    "ast_hash": "e59ef4de23bfa720859588a3387a305a",
+    "mtime": 1790079973.3249729,
+    "seen": 1790080022.459298,
+    "ast_hash": "faf6ae9c84e9c170a18544d5a679eb90",
     "semantic_hash": ""
   },
   "frontend/src/views/RequestsView.vue": {
-    "mtime": 1790019526.3620346,
-    "seen": 1790020399.5343552,
-    "ast_hash": "84426581029f38c9dc62167e282a01f3",
+    "mtime": 1790079973.4979348,
+    "seen": 1790080022.459299,
+    "ast_hash": "cab86294a20ae23b92f29e4d4f3896a4",
     "semantic_hash": ""
   },
   "frontend/src/views/RolesPermissionsView.vue": {
@@ -3222,21 +3222,21 @@
     "semantic_hash": ""
   },
   "frontend/src/views/SettingsView.vue": {
-    "mtime": 1789912713.1455667,
-    "seen": 1789922867.1801398,
-    "ast_hash": "03f8fa32f229cbfaeb17cd7c0c184df8",
+    "mtime": 1790079973.3494966,
+    "seen": 1790080022.4593015,
+    "ast_hash": "cd0251695951754863f4b1914898cb15",
     "semantic_hash": ""
   },
   "frontend/src/views/TemplatesView.vue": {
-    "mtime": 1789912693.4379172,
-    "seen": 1789922867.180141,
-    "ast_hash": "fcf6824fc5125a516b3a662d6c31ac48",
+    "mtime": 1790079973.3681593,
+    "seen": 1790080022.4593027,
+    "ast_hash": "72f6e2e0f2152883a585e24dc274e7d3",
     "semantic_hash": ""
   },
   "frontend/src/views/UsersView.vue": {
-    "mtime": 1789912610.1249306,
-    "seen": 1789922867.1801424,
-    "ast_hash": "81c4bb2399939fcb0cc4c383f42db3eb",
+    "mtime": 1790079973.4012184,
+    "seen": 1790080022.4593039,
+    "ast_hash": "f06202ca8dd8e4423651b8445f15e001",
     "semantic_hash": ""
   },
   "frontend/vite.config.js": {
@@ -3894,9 +3894,9 @@
     "semantic_hash": ""
   },
   "AGENT_NOTES.md": {
-    "mtime": 1790021800.0190363,
-    "seen": 1790021821.6674771,
-    "ast_hash": "3a12730a2a54c43f1c7d3a0ea00fc57e",
+    "mtime": 1790083224.744233,
+    "seen": 1790083247.8056898,
+    "ast_hash": "60f4d52350e211f26263d52ab88d2f66",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -4104,21 +4104,21 @@
     "semantic_hash": ""
   },
   "app/Services/Maintenance/BinaryLocator.php": {
-    "mtime": 1790029080.0975692,
-    "seen": 1790029154.5900311,
-    "ast_hash": "b1df49a718a8e59d519b6a839d6c7782",
+    "mtime": 1790029360.1952279,
+    "seen": 1790029435.394432,
+    "ast_hash": "135e7b2da8b99d1730de8de34d7da21f",
     "semantic_hash": ""
   },
   "app/Console/Commands/InstallComposer.php": {
-    "mtime": 1790029072.2318127,
-    "seen": 1790029154.5896246,
-    "ast_hash": "ca5cca5b46d98495dfd09d0a9e5ec7f4",
+    "mtime": 1790029384.385954,
+    "seen": 1790029435.3940797,
+    "ast_hash": "92c525e874f5d01e9d0c6d55ac051f2d",
     "semantic_hash": ""
   },
   "tests/Feature/InstallComposerTest.php": {
-    "mtime": 1790029093.5837755,
-    "seen": 1790029154.5904543,
-    "ast_hash": "f892877055b37790582559ec507c4448",
+    "mtime": 1790029390.8481867,
+    "seen": 1790029435.3948555,
+    "ast_hash": "736e6bf1f399e4b8dec8e6649d8096b9",
     "semantic_hash": ""
   }
 }

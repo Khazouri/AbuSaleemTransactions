@@ -1252,7 +1252,7 @@
       "committee": "Committee",
       "meeting": "Meeting",
       "outcome": "Outcome",
-      "tally": "Approve / Reject / Defer / Conditional / Legal / Referred / No jurisdiction / Appeal accepted / Appeal partial / Appeal rejected / Appeal referred / Appeal redo / Abstain",
+      "tally": "Votes",
       "template": "Template",
       "decidedBy": "Decided by",
       "decidedAt": "Decided at"
