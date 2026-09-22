@@ -571,10 +571,10 @@ onMounted(async () => {
 
 <style scoped>
 .heading:not(:first-child) { margin-top: var(--space-6); }
-.list { margin-bottom: var(--space-4); }
+.list { margin-bottom: var(--space-4); overflow-x: auto; }
 .form { margin-bottom: var(--space-4); }
 .form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-4); }
 .span-2 { grid-column: 1 / -1; }
 .card-fields { margin: var(--space-5) 0 0; padding: var(--space-4); border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); }
 .card-fields legend { padding: 0 .4rem; font-size: var(--text-sm); color: var(--color-brand-text); }

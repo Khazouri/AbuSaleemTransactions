@@ -1290,7 +1290,7 @@ h3 { margin: 0 0 var(--space-3); color: var(--color-black-700); font-size: var(-
 .create label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-sm); color: var(--color-black-700); margin-bottom: var(--space-3); }
 .create label.full { margin-bottom: var(--space-3); }
 .create input, .create select, .create textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: var(--text-base); font-family: inherit; resize: vertical; }
-.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
 
 .list { margin-bottom: var(--space-4); }
 .filters { display: flex; align-items: end; gap: var(--space-3); margin-bottom: var(--space-4); }

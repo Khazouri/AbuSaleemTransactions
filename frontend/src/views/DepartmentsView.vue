@@ -282,7 +282,8 @@ onMounted(load)
       </p>
       <p v-else-if="tree.length === 0" class="state">{{ t('departments.empty') }}</p>
 
-      <table v-else class="data-table">
+      <div v-else class="table-wrap">
+      <table class="data-table">
         <tbody>
           <tr v-for="dept in tree" :key="dept.id" :class="{ dimmed: !dept.is_active }">
             <td>
@@ -314,6 +315,7 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
   </section>
 </template>
@@ -323,7 +325,7 @@ onMounted(load)
 .form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: var(--space-4);
 }
 label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }

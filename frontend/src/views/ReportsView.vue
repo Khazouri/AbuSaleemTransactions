@@ -498,7 +498,7 @@ tr.overdue td { background: var(--color-warning-bg); }
 .flag { display: inline-block; margin-inline-start: .35rem; padding: .05rem .4rem; border-radius: var(--radius-full); background: var(--color-danger-bg); color: var(--color-danger-fg); font-size: .68rem; }
 .tabs.inner { margin-bottom: var(--space-4); }
 .source { margin: 0 0 var(--space-4); color: var(--color-muted); font-size: var(--text-sm); }
-.indicator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-3); }
+.indicator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: var(--space-3); }
 .indicator { display: flex; align-items: center; gap: .7rem; padding: .75rem .85rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); }
 .indicator-number { flex: none; width: 1.6rem; height: 1.6rem; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--color-surface-hover); color: var(--color-muted); font-size: var(--text-xs); }
 .indicator > div { flex: 1; min-width: 0; }

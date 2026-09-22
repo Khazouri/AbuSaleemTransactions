@@ -227,7 +227,7 @@ h2 { margin: 0; }
 .tile-value { color: var(--color-brand-text); font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .tile-unit { color: var(--color-muted); font-size: var(--text-xs); }
 
-.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-4); }
 .panel { padding: var(--space-5); }
 .panel.wide { grid-column: 1 / -1; }
 .panel h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-black-800); }

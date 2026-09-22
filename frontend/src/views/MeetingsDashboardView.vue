@@ -211,7 +211,7 @@ onMounted(load)
 .tile-label { color: var(--color-muted); font-size: var(--text-xs); }
 .tile-value { color: var(--color-brand-text); font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 
-.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-4); }
 .panel h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-black-800); }
 
 .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }

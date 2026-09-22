@@ -322,7 +322,7 @@ onMounted(load)
 .editor { padding: 1.25rem; }
 .editor h3 { margin: 0 0 1rem; font-size: 1rem; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
-.grid.bodies { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.grid.bodies { grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); }
 label { display: flex; flex-direction: column; gap: .3rem; color: var(--color-black-700); font-size: .85rem; }
 .checkbox { flex-direction: row; align-items: center; gap: .4rem; }
 input, textarea { min-width: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }

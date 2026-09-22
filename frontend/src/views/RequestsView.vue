@@ -278,7 +278,7 @@ onMounted(async () => {
 
 .filters { margin-bottom: var(--space-4); }
 .search-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
-.search-field { flex: 1; min-inline-size: 12rem; }
+.search-field { flex: 1; min-inline-size: min(12rem, 100%); }
 .search-field input { width: 100%; min-inline-size: 0; padding: 0.5rem 0.6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); }
 .sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 

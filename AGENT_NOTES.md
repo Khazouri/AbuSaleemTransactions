@@ -19,6 +19,22 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-22 EET — Claude — SPA made responsive / mobile-friendly (CSS only)
+
+User request: "turn this system responsive and mobile friendly". Plan: the shell already had an off-canvas
+sidebar below 1024px and the viewport meta, so this is a CSS pass on what breaks at 375px, not a rebuild.
+Done: one `@media (max-width: 640px)` block in `style.css` (tighter `.card-pad`/`.page`/table cells,
+stacked `.heading`, single-column `.field-grid`, scrollable modals with wrapping actions, 2.75rem `.btn`,
+and a 16px floor on form fields — `!important` because scoped `font: inherit` rules outrank it, and iOS
+zooms any field under 16px); `.shell` gets `100dvh`; the topbar tightens and truncates a long title; the
+four tables with no horizontal scroll (Users, Departments, both in MeetingsView) now scroll sideways; and
+every `auto-fit` grid minimum of 220–300px became `min(Npx, 100%)` so it can't exceed the phone width.
+**Deliberately not done:** wide registers stay tables that scroll sideways (card layouts would be a rewrite
+of 16 views). `npm run build` passes (`dist` reverted); **no browser was available, so nothing was looked
+at on a real phone width** — a 375px pass in AR and EN is the open check. Note found in passing: the print
+block's `.shell { height: auto }` is outranked by AppLayout's scoped `.shell[data-v]`, pre-existing and untouched.
+
+---
 ### 2026-09-21 22:30 EET — Claude — The filer attaches only at stage 1
 
 User follow-up to the entry below: the filer may attach **only while the request is at stage 1**

@@ -1024,6 +1024,55 @@ textarea {
   font-weight: 600;
 }
 
+/* -- Phones ------------------------------------------------------------------
+   The shell already turns the sidebar into a drawer below 1024px; this block
+   only reclaims desktop-sized spacing so a 375px screen has room for content.
+   Wide registers keep scrolling sideways inside `.table-wrap` on purpose. */
+@media (max-width: 640px) {
+  .card-pad {
+    padding: var(--space-3);
+  }
+  .page {
+    padding-block: var(--space-3);
+  }
+  .heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .data-table th,
+  .data-table td {
+    padding: var(--space-2) var(--space-1);
+  }
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+  .modal-backdrop {
+    padding: var(--space-2);
+  }
+  .modal {
+    max-block-size: calc(100dvh - 1rem);
+    overflow-y: auto;
+    padding: var(--space-4);
+  }
+  .modal-actions {
+    flex-wrap: wrap;
+  }
+  .modal-actions > * {
+    flex: 1 1 auto;
+  }
+  .btn {
+    min-block-size: 2.75rem;
+  }
+  /* iOS zooms the page into any focused field under 16px and never zooms back
+     out. !important because component-scoped rules set `font: inherit` with
+     higher specificity; this is the one override that must win everywhere. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+}
+
 /* -- Print ---------------------------------------------------------------------
    Stage 25/27 — the `print` grant seeded on the decisions and user-guide
    screens finally has a use, so the shell needs to get out of the way.

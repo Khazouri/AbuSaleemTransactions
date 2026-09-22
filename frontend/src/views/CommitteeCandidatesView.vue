@@ -290,7 +290,7 @@ onMounted(async () => {
 <style scoped>
 .filters { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: end; margin-bottom: var(--space-4); }
 .filters label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
-.filters .grow { flex: 1; min-inline-size: 220px; }
+.filters .grow { flex: 1; min-inline-size: min(220px, 100%); }
 select, input[type='text'], textarea {
   padding: .5rem .6rem;
   border: 1px solid var(--color-border-hover);

@@ -283,7 +283,7 @@ select, textarea {
 .notice { margin-bottom: var(--space-4); font-size: var(--text-base); color: var(--color-black-700); }
 .muted { color: var(--color-muted); }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: var(--space-4); }
 .panel h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-black-800); }
 
 .verdict-card { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; }

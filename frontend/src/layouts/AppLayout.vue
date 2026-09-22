@@ -78,6 +78,8 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
 .shell {
   display: flex;
   height: 100vh;
+  /* dvh tracks a phone's collapsing address bar; 100vh stays as the fallback. */
+  height: 100dvh;
   /* Children scroll internally rather than growing the page. */
   overflow: hidden;
   background: var(--color-background);
@@ -101,5 +103,10 @@ onBeforeUnmount(() => window.removeEventListener('resize', syncViewport))
   z-index: 40;
   background: var(--color-overlay);
   backdrop-filter: blur(1px);
+}
+@media (max-width: 640px) {
+  .content {
+    padding: 0.75rem;
+  }
 }
 </style>

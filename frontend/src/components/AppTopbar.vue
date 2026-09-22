@@ -484,10 +484,27 @@ async function signOut() {
   transform: rotate(180deg);
 }
 
-/* Hide the name on narrow screens so the trigger stays compact. */
+/* Narrow screens: hide the name, tighten the bar, and let a long page title
+   truncate instead of pushing the bell and menu off-screen. */
 @media (max-width: 640px) {
   .user-name {
     display: none;
+  }
+  .topbar {
+    padding: 0 0.75rem;
+    gap: var(--space-2);
+  }
+  .side:first-child {
+    min-width: 0;
+  }
+  .title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-base);
+  }
+  .dropdown {
+    max-width: calc(100vw - 1.5rem);
   }
 }
 

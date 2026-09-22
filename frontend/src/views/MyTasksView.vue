@@ -298,7 +298,7 @@ li.overdue .row {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  min-width: 12rem;
+  min-width: min(12rem, 100%);
 }
 
 .ref {

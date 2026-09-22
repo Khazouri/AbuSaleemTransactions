@@ -88,7 +88,7 @@ onMounted(load)
 <style scoped>
 .form { margin-bottom: var(--space-4); }
 .form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-4); }
 .bodies { margin-top: var(--space-4); }
 label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
 label.checkbox { flex-direction: row; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
