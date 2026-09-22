@@ -516,7 +516,8 @@ h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(
 .output { max-block-size: 22rem; overflow: auto; padding: var(--space-3) var(--space-4); margin: 0; border-radius: var(--radius-lg); background: #0d1117; color: #c9d1d9; font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 
 .history-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-2); }
-.data-table { min-width: 720px; }
+/* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
+@media (max-width: 1023px) { .data-table { min-width: 720px; } }
 .data-table th, .data-table td { vertical-align: top; }
 .nowrap { white-space: nowrap; }
 .output-row td { background: var(--color-surface-hover); }

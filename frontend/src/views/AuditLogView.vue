@@ -292,7 +292,8 @@ select, input { min-width: 0; padding: .5rem .6rem; border: 1px solid var(--colo
 select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 .actions { margin-top: var(--space-4); }
 
-.data-table { min-width: 760px; }
+/* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
+@media (max-width: 1023px) { .data-table { min-width: 760px; } }
 .when { white-space: nowrap; }
 .system { color: var(--color-muted); }
 .action { display: inline-block; padding: .12rem .5rem; border-radius: var(--radius-full); font-size: var(--text-xs); white-space: nowrap; }

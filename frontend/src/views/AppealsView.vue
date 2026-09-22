@@ -1322,7 +1322,8 @@ h3 { margin: 0 0 var(--space-3); color: var(--color-black-700); font-size: var(-
 .create > .ghost + .ghost { margin-inline-start: var(--space-2); }
 .create > .primary + .ghost { margin-top: var(--space-3); margin-inline-start: var(--space-2); }
 
-.data-table { min-width: 900px; }
+/* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
+@media (max-width: 1023px) { .data-table { min-width: 900px; } }
 .nowrap { white-space: nowrap; }
 .ref { font-family: var(--font-mono); font-size: var(--text-sm); }
 .muted { display: block; color: var(--color-muted); font-size: var(--text-xs); }

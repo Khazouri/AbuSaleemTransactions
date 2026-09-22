@@ -19,6 +19,19 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-22 EET — Claude — No sideways scrolling on desktop (≥1024px)
+
+User: side-scrolling pages are not acceptable on desktop. Plan and result, CSS only: the eight views that forced
+`.data-table { min-width: 720–1150px }` now apply it only under `@media (max-width: 1023px)` (phones keep the
+in-card scroll the entry below accepted), `style.css` lets `th` wrap, breaks long cell text anywhere and wraps `.tabs`
+from 1024px up, and DecisionsView's 13-number vote tally lost its `nowrap` (it alone held the register at 893px in a
+670px card). Verified in headless Chrome: 29 screens × {1024, 1280, 1440} × {AR, EN}, plus every tab of registers
+(12), reports, decisions — zero page- or element-level horizontal overflow. **Gotcha:** current Chrome blocks
+`localhost:5173 → abusaleem.test` in Puppeteer (`ERR_NETWORK_ACCESS_DENIED`, the disable-features flags didn't help)
+and the SPA silently bounces to /login, so a naive sweep "passes" on the login page — proxy the API through
+`page.setRequestInterception` + Node `fetch` instead, and assert the URL isn't /login.
+
+---
 ### 2026-09-22 EET — Claude — SPA made responsive / mobile-friendly (CSS only)
 
 User request: "turn this system responsive and mobile friendly". Plan: the shell already had an off-canvas

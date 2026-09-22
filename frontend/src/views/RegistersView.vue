@@ -238,6 +238,7 @@ input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 .actions { margin-top: var(--space-4); }
 .count { margin: var(--space-3) 0 0; color: var(--color-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 
-.data-table { min-width: 900px; }
+/* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
+@media (max-width: 1023px) { .data-table { min-width: 900px; } }
 .data-table td { max-width: 320px; vertical-align: top; }
 </style>
