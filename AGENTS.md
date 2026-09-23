@@ -11,7 +11,7 @@ locale.
 
 Two codebases in one repo:
 
-- **Backend** — Laravel 11 API at the repo root. Stateless, Sanctum
+- **Backend** — Laravel 12 API at the repo root. Stateless, Sanctum
   bearer-token auth, PHP 8.2, MySQL. Served locally through Vagrant/Homestead
   at `http://abusaleem.test`.
 - **Frontend** — Vue 3 SPA in [frontend/](frontend/), built with Vite. Not the

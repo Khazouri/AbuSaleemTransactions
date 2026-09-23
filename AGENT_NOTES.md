@@ -19,6 +19,31 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-23 EET — Claude — Vulnerable dependencies patched; now on Laravel 12.61.1
+
+Built per the plan below: laravel/framework 11.55.0 → **12.61.1**, guzzle 7.15.1 → 7.15.5, commonmark
+2.8.3 → 2.10.3 (both came in through the same `-W` resolve), and nanoid/postcss via `npm audit fix` (lockfile
+only). `composer audit` and `npm audit` both report zero. **No application code changed**: none of the Laravel 12
+breaking-change surfaces apply here (no `HasUuids`, no `image` rule, and the `local` disk root is already explicit).
+Full suite **741 / 4738**, the same as the Laravel 11 baseline taken first. `npm run build` passes (`dist` reverted).
+Pint only flags the pre-existing `scripts/build-guide-pdf.php`. **Gotcha:** 12.61 moved
+`ReflectsClosures` to `Illuminate\Reflection`, and the first `composer require` left a stale optimized classmap
+(fatal "trait not found"); a plain `composer install` re-dumped it. **The next cPanel release must ship the new `vendor/`.**
+The host still needs only PHP ≥ 8.2. Homestead was down, so there was no live HTTP smoke run. Machine-level:
+global Composer TLS re-enabled, and Composer itself was self-updated 2.7.6 → 2.10.3; the old version was also flagged by `diagnose`.
+
+---
+### 2026-09-23 EET — Claude — Implementation plan: patch vulnerable dependencies (Laravel 11 → 12)
+
+`composer audit`: 15 advisories in laravel/framework, guzzlehttp/guzzle, league/commonmark; `npm audit`
+(frontend): nanoid (high), postcss (moderate). **laravel/framework has no fixed 11.x release** — every
+advisory is fixed only in ≥12.60/12.61.1 or 13.x, and 13 needs PHP 8.3 (this machine: 8.2.12), so the
+fix is `laravel/framework ^12.61.1` plus whatever 12 needs of its companions, then `composer update`
+for guzzle/commonmark and `npm audit fix` in `frontend/`. Machine-level: the global Composer config had
+`disable-tls=true`/`secure-http=false`; both were unset *before* downloading anything. Verify: both
+audits clean, full PHPUnit, Pint, `npm run build` (revert `dist`).
+
+---
 ### 2026-09-23 EET — Claude — Agent-tooling cleanup complete
 
 Built per the plan below. This file went 1.37 MB → 148 KB: 31 entries kept, 197 moved unedited into
