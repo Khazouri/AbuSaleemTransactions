@@ -19,6 +19,29 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-23 EET — Claude — scripts/check-layout.mjs added (the frontend's one automated check)
+
+Built per the plan below; AGENTS.md's build section now points at it. Full run: 29 routes × {375, 768, 1024, 1280,
+1440} × {ar, en}, 430 views incl. every tab, ~12 min. **It fails today, for a real reason:** `/decisions` register
+at 1024px overflows its card in both locales (logged in OPEN_ITEMS.md, not fixed here). Proven both ways: a bogus
+token makes every page fail "landed on /login" instead of passing. **Worth knowing:** with the Chrome now in
+`~/.cache/puppeteer`, dropping the proxy no longer reproduces the 09-22 block, so the proxy stays as insurance, and
+the URL guard is what actually protects the check. Also: this session's Bash/PowerShell sandbox blocks all network
+(even example.com), so the check and `curl abusaleem.test` need the sandbox off; Homestead itself was fine.
+
+---
+### 2026-09-23 EET — Claude — Implementation plan: save the headless-Chrome layout check as scripts/check-layout.mjs
+
+Two sessions (2026-09-22) each wrote a throwaway Puppeteer sweep for sideways overflow; one found the SPA
+silently bounces to /login when Chrome blocks `localhost:5173 → abusaleem.test`, so a naive sweep "passes" on
+the login page. Plan: one `scripts/check-layout.mjs`, **no new dependency** — Puppeteer is resolved from the
+npx cache (mermaid-cli already put it there) or `PUPPETEER_PATH`. It logs in as R08 via Node `fetch`, serves
+every API call from Node through `setRequestInterception`, reads the static routes from `router/index.js`
+(so it cannot drift from the route table), and fails any page whose final URL is not the one requested.
+Desktop widths check page- and element-level overflow; 375/768 check the page only (in-card table scroll is
+accepted there). Verify: run it against Homestead + `npm run dev`, and prove it fails on an injected overflow.
+
+---
 ### 2026-09-23 EET — Claude — Vulnerable dependencies patched; now on Laravel 12.61.1
 
 Built per the plan below: laravel/framework 11.55.0 → **12.61.1**, guzzle 7.15.1 → 7.15.5, commonmark

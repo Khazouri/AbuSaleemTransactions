@@ -13,6 +13,14 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The decisions register scrolls sideways at 1024px — layout check — opened 2026-09-23
+`scripts/check-layout.mjs` fails `/decisions` (register tab) at 1024px in both locales: the table
+needs 726px (ar) / 679px (en) in a 670px card. Its 11 columns are already squeezed to ~27px each;
+the date column (`nowrap`, 159px in Arabic), the ellipsised subject (165px) and the vote chips
+(~100px) set the floor. Every other route × width × locale passes. The 2026-09-22 sweep passed this
+page, so it is data-dependent (longer dates or vote tallies on the current database). **To close:**
+let the date wrap, cap the subject lower, or drop a column below ~1280px, then rerun the script.
+
 ### Every R02 can still see a request returned to intake — filer-only attachments — opened 2026-09-21
 `submit` is creator-gated now, so a returned request no longer reaches every R01. But R02 keeps a
 `cancel` row at `receive_from_municipality`, and `RequestVisibility`'s assignment clause derives

@@ -247,7 +247,10 @@ npm run preview                  # preview a production build locally
 ```
 
 There is currently no JS test runner or linter configured in `frontend/` —
-don't assume `npm test` or `npm run lint` exist.
+don't assume `npm test` or `npm run lint` exist. The one automated frontend
+check is `node scripts/check-layout.mjs` (headless Chrome, no sideways
+scrolling on any route × 5 widths × both locales; needs Homestead and
+`npm run dev` up) — run it after any layout/CSS change.
 
 **Deploying the SPA**: see [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md).
 Only `frontend/dist/` is deployable — uploading the source tree serves an
