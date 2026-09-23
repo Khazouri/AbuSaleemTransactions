@@ -3,3 +3,15 @@ frontend/public/.*
 frontend/index.html
 frontend/package.*
 frontend/vite.config.js
+graphify-out/*
+tests/*
+agent-notes-archive/*
+.claude/*
+scripts/*
+AGENT_NOTES.md
+AGENTS.md
+CLAUDE.md
+STAGE_PLAN.md
+OPEN_ITEMS.md
+TEST_PLAN*.md
+USER_GUIDE*.md

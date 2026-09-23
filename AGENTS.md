@@ -281,8 +281,12 @@ instead of cramming it in here. Rules:
 - **Add new entries at the top, don't rewrite history** — keep the newest
   entry first.
 - **Preserve every previous entry** — adding a handoff note means inserting
-  one new note in descending chronological order only. Never remove, replace,
-  rewrite, or prune an older note unless the user explicitly asks for it.
+  one new note in descending chronological order only. Never edit or delete an
+  older note. The only thing that moves one is the size cap: `CLAUDE.md`
+  imports this file into every session, so when it passes 150 KB run
+  `node scripts/archive-agent-notes.mjs`, which moves the oldest entries
+  byte-for-byte unedited into [agent-notes-archive/](agent-notes-archive/)
+  `YYYY-MM.md`. Search the archive before assuming history is missing.
 - **Format**: `### YYYY-MM-DD HH:MM TZ — <Codex|Claude> — <short title>` followed by 2-4
   sentences: what happened, why it matters to the next agent, any open
   question.
@@ -296,7 +300,7 @@ instead of cramming it in here. Rules:
 - If something you learn is actually durable (a convention, an architectural
   fact, a standing gotcha) — put it in the relevant section of `AGENTS.md`
   itself instead of (or in addition to) a note, so it doesn't get lost when
-  the note is pruned.
+  the note is archived.
 
 ## Gotchas
 
