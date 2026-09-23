@@ -23,3 +23,6 @@ yarn-error.log
 /.zed
 /graphify-out/cache
 /graphify-out/cost.json
+
+# graphify keeps a dated snapshot per run; only the current graph is shared
+/graphify-out/20*/

@@ -215,7 +215,7 @@ Key architectural facts worth knowing before changing things:
   "Verified" means the full PHPUnit suite green, Pint clean on every touched
   PHP file, `npm run build` passing (then reverting the tracked
   `frontend/dist` unless the build output is the deliverable), locale
-  key-parity checked, and any new migration/seeder applied to the real
+  key-parity checked (`node scripts/check-locale-parity.mjs`), and any new migration/seeder applied to the real
   database. Put the AGENT_NOTES.md entry in the same commit as the work it
   describes, so the record and the change cannot drift apart. Branch first if
   the current branch is `main`. Pushing and opening a PR stay on explicit
@@ -248,6 +248,13 @@ npm run preview                  # preview a production build locally
 
 There is currently no JS test runner or linter configured in `frontend/` —
 don't assume `npm test` or `npm run lint` exist.
+
+Repo scripts (run from repo root, Node only — no PHP or shell needed):
+
+```bash
+node scripts/check-locale-parity.mjs   # ar.json / en.json key sets identical? exits 1 and lists diffs if not
+node scripts/archive-agent-notes.mjs   # move all but the newest 20 AGENT_NOTES.md entries to agent-notes/
+```
 
 **Deploying the SPA**: see [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md).
 Only `frontend/dist/` is deployable — uploading the source tree serves an
@@ -283,6 +290,15 @@ instead of cramming it in here. Rules:
 - **Preserve every previous entry** — adding a handoff note means inserting
   one new note in descending chronological order only. Never remove, replace,
   rewrite, or prune an older note unless the user explicitly asks for it.
+- **Archive, don't prune, when the file grows** — `CLAUDE.md` imports
+  `AGENT_NOTES.md` into every Claude Code session, so its size is paid on
+  every session (at 1.3 MB it had outgrown a whole context window). When it
+  holds more than ~25 entries, run `node scripts/archive-agent-notes.mjs`
+  (keeps the newest 20). It moves older entries **byte-for-byte** into
+  `agent-notes/YYYY-MM.md`, newest first, and refuses to write if the split
+  would not reassemble to the original — so this is relocation, not the
+  pruning forbidden above. Old "see AGENT_NOTES.md" references in code resolve
+  to `agent-notes/`.
 - **Format**: `### YYYY-MM-DD HH:MM TZ — <Codex|Claude> — <short title>` followed by 2-4
   sentences: what happened, why it matters to the next agent, any open
   question.

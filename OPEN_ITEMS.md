@@ -13,6 +13,18 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The console's "Re-seed reference data" silently resets the permission matrix — agent tooling — opened 2026-09-23
+`MaintenanceCommandCatalog`'s `db:seed` entry is marked non-destructive, and its description
+says to run it "after any migration that adds a screen or a grant". But it runs the full
+`DatabaseSeeder`, and `ScreenRolePermissionSeeder` `updateOrCreate`s every screen × role row
+back to `DEFAULTS`, which discards every change made through Roles & Permissions. AGENTS.md
+and `MaintenanceBootstrapper` already say so. That also leaves **no safe way to give a new
+screen its grants on a live production database**. Found while writing the `new-screen` and
+`cpanel-release` skills; no code changed. **To close:** decide on (a) correcting the label and
+description and marking it destructive, and/or (b) a non-resetting path for new screens: a
+data migration per screen using `insertOrIgnore`, or a seeder mode that only creates missing
+screen × role rows.
+
 ### Every R02 can still see a request returned to intake — filer-only attachments — opened 2026-09-21
 `submit` is creator-gated now, so a returned request no longer reaches every R01. But R02 keeps a
 `cancel` row at `receive_from_municipality`, and `RequestVisibility`'s assignment clause derives

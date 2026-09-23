@@ -1,5 +1,18 @@
-frontend/src/.*
-frontend/public/.*
+# git-ftp matches each line as a SHELL GLOB against the file path (a `case`
+# pattern — see glob_filter() in git-ftp), not as a regex. `*` also crosses
+# `/`, so `dir/*` skips everything under dir. The old `frontend/src/.*`
+# matched only dotfiles, so the whole SPA source was being uploaded.
+
+# SPA source — only frontend/dist is deployable (see frontend/DEPLOYMENT.md)
+frontend/src/*
+frontend/public/*
 frontend/index.html
 frontend/package.*
 frontend/vite.config.js
+
+# Development-only material with no use on the server
+graphify-out/*
+agent-notes/*
+tests/*
+.claude/*
+AGENT_NOTES.md

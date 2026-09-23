@@ -21,6 +21,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-locale-parity.mjs\" --hook",
+            "timeout": 15
+          }
+        ]
+      }
     ]
   }
 }
