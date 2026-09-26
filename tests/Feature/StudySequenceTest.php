@@ -12,6 +12,7 @@ use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Services\DecisionEligibility;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -134,6 +135,28 @@ class StudySequenceTest extends TestCase
             ->assertCreated();
 
         $this->assertSame([$item->id], $this->pendingIds($head));
+    }
+
+    public function test_voting_is_refused_until_the_meeting_is_convened_and_the_worklist_agrees(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, $member, $meeting, $item] = $this->fixture();
+        $this->completeSequence($head, $meeting, $item);
+        $meeting->update(['convened_at' => null]);
+
+        $this->actingAs($member, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/votes", ['vote' => 'approve'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', DecisionEligibility::MEETING_NOT_CONVENED);
+
+        $this->assertSame([], $this->pendingIds($member));
+
+        $meeting->update(['convened_at' => now()]);
+
+        $this->actingAs($member, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/votes", ['vote' => 'approve'])
+            ->assertCreated();
     }
 
     public function test_a_step_cannot_be_untied_once_voting_has_begun(): void
@@ -283,6 +306,8 @@ class StudySequenceTest extends TestCase
             'created_by_user_id' => $head->id,
             // Stage 99 — Art. 84: deliberation waits for the agenda's adoption.
             'agenda_adopted_at' => now(),
+            // A vote is taken only at a convened sitting.
+            'convened_at' => now(),
         ]);
         $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
         $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);

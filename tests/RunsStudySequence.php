@@ -42,6 +42,12 @@ trait RunsStudySequence
             'study_sequence_completed_at' => now(),
         ])->save();
 
+        // A study sequence is run at a sitting, and DecisionEligibility refuses
+        // a vote on a meeting that was never convened.
+        if ($agendaItem->meeting && $agendaItem->meeting->convened_at === null) {
+            $agendaItem->meeting->forceFill(['convened_at' => now()])->save();
+        }
+
         return $agendaItem->refresh();
     }
 }

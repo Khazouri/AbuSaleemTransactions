@@ -21,13 +21,14 @@ use Illuminate\Database\Eloquent\Builder;
  *
  * The conditions, in the order the guard reports them:
  *   1. no binding decision recorded yet (voting closes once the head decides),
- *   2. the actor holds a seat on the meeting's committee,
- *   3. the actor is marked as having attended that meeting,
- *   4. the actor has not declared a conflict of interest on this item (Stage 48),
- *   5. the actor is not this meeting's non-voting rapporteur (Stage 48),
- *   6. the item's Art. 85 study sequence is complete (Stage 82).
+ *   2. the meeting has been convened — a vote belongs to a sitting that opened,
+ *   3. the actor holds a seat on the meeting's committee,
+ *   4. the actor is marked as having attended that meeting,
+ *   5. the actor has not declared a conflict of interest on this item (Stage 48),
+ *   6. the actor is not this meeting's non-voting rapporteur (Stage 48),
+ *   7. the item's Art. 85 study sequence is complete (Stage 82).
  *
- * (2) and (3) are separate on purpose: committee membership is standing, but a
+ * (3) and (4) are separate on purpose: committee membership is standing, but a
  * member who did not attend the sitting does not get a vote on what it decided.
  */
 class DecisionEligibility
@@ -38,6 +39,8 @@ class DecisionEligibility
      * existing votes imply it.
      */
     public const INCOMPLETE_STUDY_SEQUENCE = 'لا يجوز التصويت قبل استكمال تسلسل دراسة البند وإقفال المناقشة (المادة 85).';
+
+    public const MEETING_NOT_CONVENED = 'لا يجوز التصويت قبل مباشرة الاجتماع (المادة 84).';
 
     /**
      * Why this user may not vote on this item, or null if they may.
@@ -58,6 +61,13 @@ class DecisionEligibility
 
         if ($agendaItem->decision()->exists()) {
             return 'تم تسجيل قرار هذا البند بالفعل، لا يمكن التصويت بعد الآن.';
+        }
+
+        // Art. 84 makes صحة الانعقاد a fact about the sitting, and convene()
+        // is where it is established (and the voting rules frozen); a vote
+        // cast before it belongs to no sitting at all.
+        if ($agendaItem->meeting->convened_at === null) {
+            return self::MEETING_NOT_CONVENED;
         }
 
         $isMember = CommitteeMember::query()
@@ -152,6 +162,7 @@ class DecisionEligibility
             ->whereNotNull('meeting_requests.study_sequence_completed_at')
             ->whereHas('meeting', function (Builder $meeting) use ($user) {
                 $meeting
+                    ->whereNotNull('convened_at')
                     ->whereHas('committee.members', fn (Builder $member) => $member->where('user_id', $user->id))
                     ->whereHas('attendees', fn (Builder $attendee) => $attendee
                         ->where('user_id', $user->id)

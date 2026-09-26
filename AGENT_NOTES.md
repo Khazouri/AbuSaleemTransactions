@@ -19,6 +19,25 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 16:55 EET — Claude — A vote requires a convened meeting (complete)
+
+Built per the plan below. `DecisionEligibility` now refuses a vote with `MEETING_NOT_CONVENED` (422) until
+`convened_at` is set, and `pendingVotesQuery()` filters on the same column. New
+`StudySequenceTest` case reproduced the bug first (201 before the fix). Full suite **745 / 4793**; Pint is clean on
+the touched files. Frontend and locales unchanged. **Not gated:** the study-sequence and item-state endpoints still
+check agenda adoption only, so a chair can tick Art. 85 steps before convening; the vote itself still waits for convening.
+
+---
+### 2026-09-26 16:48 EET — Claude — Implementation plan: a vote requires a convened meeting
+
+User: "Voting doesn't check that the meeting was convened." Confirmed: nothing on the vote path reads
+`meetings.convened_at` (set only by `MeetingReadinessController::convene()`). Plan: one condition in
+`DecisionEligibility` — both `reasonBlockingVote()` and its SQL twin `pendingVotesQuery()`, so the endpoint and
+the worklist still agree. `record()` needs no check: zero votes are already refused. Fixtures: `RunsStudySequence`
+also stamps `convened_at`, and `StudySequenceTest`'s fixture convenes. Verify: a new refusal test, full PHPUnit,
+Pint. (Clock note: the machine reads 16:48 while the entry below is stamped 17:25; position gives the order.)
+
+---
 ### 2026-09-26 17:25 EET — Claude — The مقرر is told of every answer to a proposed date (complete)
 
 Built per the plan below, no migration. Each `respond` sends `meeting_invitation_response` to the committee's
