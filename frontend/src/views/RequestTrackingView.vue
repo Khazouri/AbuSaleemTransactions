@@ -18,8 +18,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import RequestStageRail from '../components/RequestStageRail.vue'
+import TimelineDocuments from '../components/TimelineDocuments.vue'
 import api from '../lib/api'
-import { fileSectionLabel } from '../lib/fileSections'
 
 const { t, locale } = useI18n()
 
@@ -49,7 +49,6 @@ const dateTime = (value) => value
   ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
   : t('common.none')
 const actionLabel = (action) => t(`workflow.actions.${action}`)
-const fileSectionName = (code) => fileSectionLabel(t, code)
 // Stage 79 — a notice stores both languages in its payload, so the register
 // reads back the one the viewer is in rather than re-deriving the text.
 const noticeText = (notice, field) => (locale.value === 'ar'
@@ -253,12 +252,7 @@ onMounted(() => load())
                       <small>
                         <template v-if="entry.body">{{ name(entry.body) }} · </template>{{ dateTime(entry.acted_at) }}
                       </small>
-                      <ul v-if="entry.documents?.length" class="entry-documents">
-                        <li v-for="(doc, docIndex) in entry.documents" :key="docIndex">
-                          <span class="doc-label">{{ doc.label }}</span>
-                          <span v-if="doc.section" class="doc-section">{{ fileSectionName(doc.section) }}</span>
-                        </li>
-                      </ul>
+                      <TimelineDocuments v-if="entry.documents?.length" :documents="entry.documents" />
                     </div>
                   </li>
                 </ol>
@@ -338,7 +332,6 @@ onMounted(() => load())
 .panel { padding-top: .9rem; margin-top: .9rem; border-top: 1px solid var(--color-border); display: grid; gap: 1rem; }
 .block h4 { margin: 0 0 .35rem; color: var(--color-brand-text); font-size: .92rem; }
 .timeline { display: grid; gap: 0; padding: 0; margin: .6rem 0 0; list-style: none; }
-/* `>` so an entry's nested document list doesn't inherit the rail and its connector line. */
 .timeline > li { position: relative; display: grid; grid-template-columns: 1.1rem minmax(0, 1fr); gap: .6rem; padding-bottom: .9rem; }
 .timeline > li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .4rem; inset-block-start: .8rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }
 .dot { position: relative; z-index: 1; inline-size: .8rem; block-size: .8rem; margin-top: .2rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }
@@ -346,9 +339,6 @@ onMounted(() => load())
 .timeline p { margin: .15rem 0; color: var(--color-black-700); font-size: .82rem; }
 .timeline small { color: var(--color-muted); font-size: .74rem; }
 .entry-comment { white-space: pre-wrap; }
-.entry-documents { display: grid; gap: .2rem; padding: 0; margin: .3rem 0 0; list-style: none; }
-.entry-documents li { display: flex; flex-wrap: wrap; gap: .4rem; font-size: .74rem; color: var(--color-muted); }
-.doc-label { color: var(--color-black-700); overflow-wrap: anywhere; }
 .notices { display: grid; gap: .7rem; padding: 0; margin: .6rem 0 0; list-style: none; }
 .notices li { padding-bottom: .6rem; border-bottom: 1px solid var(--color-border); }
 .notice-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem; }

@@ -19,6 +19,16 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 18:50 EET — Claude — Timeline documents redesigned (complete)
+
+Built per the plan below. `TimelineDocuments.vue` now renders the documents of every «سجل سير العمل» entry in both views; each view's own list and its CSS are gone. **Gotcha:** the global `.ltr` helper also sets `text-align: left`, which in Arabic throws a filename to the far side of its row, so the component uses `direction: ltr; justify-self: start` instead. Build passes (`dist` reverted). `check-layout.mjs` fails only on the pre-existing `/decisions` 1024px overflow; it skips `/requests/:id`, so that page was checked by screenshot (ar light and en dark at 1280px, ar at 375px). Not seen rendered: a decision row, since no seeded timeline entry carries one.
+
+---
+### 2026-09-26 18:25 EET — Claude — Implementation plan: redesign the documents under each timeline entry
+
+User ran /frontend-design on the «سجل سير العمل» attachment rows fixed just below. Plan: one new `components/TimelineDocuments.vue` used by RequestDetailView and RequestTrackingView (they had drifted — the tracking copy dropped kind and reference). A tinted tray per entry; each row = kind icon (file-text / scale, kind named for screen readers) + label over its LTR reference + folder name at the inline end. A committee decision is the one row in `--color-brand-text`. Tokens only, no new locale keys. Verify: build (revert `dist`), `check-layout.mjs`.
+
+---
 ### 2026-09-26 18:10 EET — Claude — Timeline attachment rows no longer draw the connector line
 
 Bug fix, CSS only. In «سجل سير العمل» (RequestTrackingView and RequestDetailView) the rail rules were `.timeline li`, which also matched each entry's nested `.entry-documents li`, so every attachment row got the timeline grid, padding and vertical connector line. Both now target direct children only; the workspace also gained the `.entry-documents` styles it never had (it rendered as a bulleted list). Build passes (`dist` reverted).
