@@ -232,9 +232,14 @@ h2 { margin: 0; }
 .panel.wide { grid-column: 1 / -1; }
 .panel h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-black-800); }
 
-.bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
-.bars li { display: grid; grid-template-columns: minmax(90px, 34%) 1fr auto; align-items: center; gap: 0.6rem; }
-.bar-label { font-size: var(--text-sm); color: var(--color-black-700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The label column is sized once per panel, to its longest name (capped so the
+   bars keep room), and every row shares it through subgrid so the tracks still
+   start on one line. A name past the cap wraps rather than truncating —
+   department and stage names are long, and an ellipsis hid the part that tells
+   two of them apart. */
+.bars { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: fit-content(60%) 1fr auto; gap: 0.55rem 0.6rem; }
+.bars li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; }
+.bar-label { font-size: var(--text-sm); line-height: 1.35; color: var(--color-black-700); }
 .bar-track { block-size: 9px; background: var(--color-surface-hover); border-radius: var(--radius-full); overflow: hidden; }
 .bar-fill { display: block; block-size: 100%; border-radius: var(--radius-full); background: var(--color-brand); }
 .bar-fill.nav { background: var(--color-brand); }

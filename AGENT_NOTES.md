@@ -19,6 +19,15 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 19:44 EET — Claude — Dashboard distribution labels show the full name
+
+User (/frontend-design): the status, stage and department bars cut names off. The label was a fixed `minmax(90px, 34%)`
+column with an ellipsis. In DashboardView each panel now sizes one shared label column (subgrid) to its longest name,
+capped at 60%, and a longer name wraps instead of truncating. CSS only. Screenshots at ar/en 1280 and ar 375 show no
+clipped label and no page overflow; build passes (`dist` reverted). (Clock: the machine reads 19:44, earlier than the
+entry below; this entry's position shows the order.)
+
+---
 ### 2026-09-26 20:35 EET — Claude — The manager approves in one click (complete)
 
 Built per the plan below; no migration. The manager's `forward` at `direct_manager_review` now lands on
