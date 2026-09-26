@@ -61,6 +61,13 @@ class MeetingController extends Controller
      */
     public const AGENDA_NOT_ADOPTED = 'لا تبدأ مناقشة البنود قبل اعتماد جدول الأعمال (المادة 84).';
 
+    /**
+     * Deliberation, like the vote (DecisionEligibility::MEETING_NOT_CONVENED),
+     * belongs to a sitting that convene() has opened. Adoption itself is not
+     * gated: Art. 12 (أ) 3 puts it «قبل الاجتماع».
+     */
+    public const MEETING_NOT_CONVENED = 'لا تبدأ مناقشة البنود قبل مباشرة الاجتماع (المادة 84).';
+
     /** Stage 99 — the adopted agenda is the one the committee deliberates on. */
     public const AGENDA_ALREADY_ADOPTED = 'تم اعتماد جدول الأعمال، ولا يجوز تعديل بنوده.';
 
@@ -530,6 +537,10 @@ class MeetingController extends Controller
     {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
 
+        if ($meeting->convened_at === null) {
+            return response()->json(['message' => self::MEETING_NOT_CONVENED], 422);
+        }
+
         if ($meeting->agenda_adopted_at === null) {
             return response()->json(['message' => self::AGENDA_NOT_ADOPTED], 422);
         }
@@ -849,6 +860,10 @@ class MeetingController extends Controller
         StudySequenceRules $sequence,
     ): JsonResponse {
         abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        if ($meeting->convened_at === null) {
+            return response()->json(['message' => self::MEETING_NOT_CONVENED], 422);
+        }
 
         if ($meeting->agenda_adopted_at === null) {
             return response()->json(['message' => self::AGENDA_NOT_ADOPTED], 422);

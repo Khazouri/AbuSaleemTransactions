@@ -19,6 +19,22 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 17:10 EET — Claude — Deliberation requires a convened meeting too (complete)
+
+Built per the plan below; this closes the "Not gated" point in the 16:55 entry. Item state and study-sequence
+changes now return `MeetingController::MEETING_NOT_CONVENED` before convening. That check comes before the adoption
+check, so `CommitteeOwnActsTest`'s adoption test now convenes its meeting first. A new test there covers the rule.
+Full suite **746 / 4798**; Pint is clean on the touched files. No frontend change: the live runner shows the Arabic 422.
+
+---
+### 2026-09-26 17:04 EET — Claude — Implementation plan: deliberation requires a convened meeting too
+
+User confirmed the open point from the entry below. Plan: `updateItemState` and `updateStudySequence` in
+`MeetingController` refuse (422, new `MEETING_NOT_CONVENED`) until `convened_at` is set, next to their
+`AGENDA_NOT_ADOPTED` check. Agenda adoption itself stays allowed before convening, because Art. 12 (أ) 3 puts it
+«قبل الاجتماع». Verify: refusal test, fixture updates found by the full suite, and Pint.
+
+---
 ### 2026-09-26 16:55 EET — Claude — A vote requires a convened meeting (complete)
 
 Built per the plan below. `DecisionEligibility` now refuses a vote with `MEETING_NOT_CONVENED` (422) until

@@ -65,6 +65,8 @@ class CommitteeOwnActsTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         [$head, , $meeting] = $this->sitting();
         $item = $this->agendaItem($meeting);
+        // Convened, so the adoption check is the one that answers.
+        $meeting->update(['convened_at' => now()]);
 
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/state", ['item_state' => 'discussion'])
@@ -77,6 +79,30 @@ class CommitteeOwnActsTest extends TestCase
             ->assertJsonPath('message', MeetingController::AGENDA_NOT_ADOPTED);
 
         $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/agenda/adopt")->assertOk();
+
+        $this->actingAs($head, 'sanctum')
+            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/state", ['item_state' => 'discussion'])
+            ->assertOk();
+    }
+
+    public function test_deliberation_waits_for_the_meeting_to_be_convened(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        [$head, , $meeting] = $this->sitting();
+        $item = $this->agendaItem($meeting);
+        $meeting->update(['agenda_adopted_at' => now()]);
+
+        $this->actingAs($head, 'sanctum')
+            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/state", ['item_state' => 'discussion'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', MeetingController::MEETING_NOT_CONVENED);
+
+        $this->actingAs($head, 'sanctum')
+            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/study-sequence", ['step' => 'subject_presented', 'done' => true])
+            ->assertStatus(422)
+            ->assertJsonPath('message', MeetingController::MEETING_NOT_CONVENED);
+
+        $meeting->update(['convened_at' => now()]);
 
         $this->actingAs($head, 'sanctum')
             ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/state", ['item_state' => 'discussion'])
