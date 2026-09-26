@@ -65,6 +65,9 @@ class NotificationSetting extends Model
         // a notice was sent, not sent the notice. Running commentary, so the
         // `stage_changed` defaults: in-app only, and mutable on its own.
         'request_notice_copy' => ['in_app' => true, 'email' => false, 'sms' => false],
+        // Stage 102 — a member accepted or declined the proposed date; the
+        // مقرر acts on a decline, so the `meeting_scheduled` defaults.
+        'meeting_invitation_response' => ['in_app' => true, 'email' => true, 'sms' => false],
     ];
 
     /** The preference columns, in the order the preferences screen shows them. */

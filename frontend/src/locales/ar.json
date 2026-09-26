@@ -1985,7 +1985,8 @@
       "delay_escalation": "تصعيد تأخير المعاملة",
       "request_notice": "إشعار المعاملة (المادة 101)",
       "reference_assigned": "منح الرقم المرجعي",
-      "request_notice_copy": "نسخة من إشعار الموظف"
+      "request_notice_copy": "نسخة من إشعار الموظف",
+      "meeting_invitation_response": "الرد على موعد اجتماع"
     }
   },
   "employeeNotices": {

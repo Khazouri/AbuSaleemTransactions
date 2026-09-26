@@ -272,7 +272,7 @@ class MeetingController extends Controller
      * moment the last member accepts. A decline leaves it awaiting
      * confirmation until the مقرر proposes another date (update()).
      */
-    public function respond(RespondToMeetingInvitationRequest $request, Meeting $meeting): MeetingResource|JsonResponse
+    public function respond(RespondToMeetingInvitationRequest $request, Meeting $meeting, NotificationDispatcher $notifications): MeetingResource|JsonResponse
     {
         $refusal = DB::transaction(function () use ($request, $meeting) {
             $locked = Meeting::query()->lockForUpdate()->findOrFail($meeting->id);
@@ -302,7 +302,10 @@ class MeetingController extends Controller
             return response()->json(['message' => $refusal], 422);
         }
 
-        return new MeetingResource($this->loadDetail($meeting->refresh()));
+        $meeting->refresh();
+        $notifications->invitationAnswered($meeting, $request->user(), $request->validated('response'));
+
+        return new MeetingResource($this->loadDetail($meeting));
     }
 
     /**

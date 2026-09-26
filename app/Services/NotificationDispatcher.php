@@ -14,6 +14,7 @@ use App\Notifications\ActionRequiredNotification;
 use App\Notifications\AppealDecidedNotification;
 use App\Notifications\DecisionRecordedNotification;
 use App\Notifications\FinancialImpactReviewNotification;
+use App\Notifications\MeetingInvitationResponseNotification;
 use App\Notifications\MeetingMinutesApprovedNotification;
 use App\Notifications\MeetingScheduledNotification;
 use App\Notifications\RequestCreatedNotification;
@@ -174,6 +175,25 @@ class NotificationDispatcher
             ->get();
 
         $this->send($recipients, new MeetingScheduledNotification($meeting));
+    }
+
+    /**
+     * The مقرر proposed the date, so the مقرر hears every answer to it —
+     * a decline is theirs to act on (propose another date). The مقرر is the
+     * committee's rapporteur seat, not whoever happened to schedule: that
+     * seat is the one bound to R02 and the one that owns the next step.
+     */
+    public function invitationAnswered(Meeting $meeting, User $member, string $response): void
+    {
+        $rapporteurId = $meeting->committee?->members()->where('seat', 'rapporteur')->value('user_id');
+
+        $recipients = User::query()
+            ->whereKey($rapporteurId ?? 0)
+            ->where('is_active', true)
+            ->whereKeyNot($member->id)
+            ->get();
+
+        $this->send($recipients, new MeetingInvitationResponseNotification($meeting, $member->name, $response));
     }
 
     /**

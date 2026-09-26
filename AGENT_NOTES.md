@@ -19,6 +19,25 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 17:25 EET — Claude — The مقرر is told of every answer to a proposed date (complete)
+
+Built per the plan below, no migration. Each `respond` sends `meeting_invitation_response` to the committee's
+`rapporteur` seat holder (the responder excluded), carrying `response` and `meeting_confirmed`; the last
+acceptance says the meeting is confirmed. It links to the meeting through the existing `meeting_id` handling.
+Full suite **744 / 4783**, Pint clean on touched files, build passes (`dist` reverted), locale parity 2007.
+
+---
+### 2026-09-26 17:10 EET — Claude — Implementation plan: tell the مقرر when a member accepts or declines the date
+
+User: "a notification tells the مقرر when someone declines and approves". Plan: new event
+`meeting_invitation_response` (in-app + email, the `meeting_scheduled` defaults) and
+`MeetingInvitationResponseNotification`, sent from `MeetingController::respond()` through a new
+`NotificationDispatcher::invitationAnswered()` to the committee's `rapporteur` seat holder (never the
+responder). The body names the member and the answer, and says so when that answer confirmed the
+meeting. Locale label in both files. Verify: extend `CommitteeSinglePathTest`, full PHPUnit, Pint,
+build, parity. No migration.
+
+---
 ### 2026-09-26 16:45 EET — Claude — Stage 102 complete (the single committee path)
 
 Built per the plan below; **no migration**. R02's approve now lands on `receive_from_committee` + `registered`;

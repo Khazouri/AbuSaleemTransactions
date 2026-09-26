@@ -11,6 +11,7 @@ use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Notifications\MeetingInvitationResponseNotification;
 use App\Notifications\MeetingScheduledNotification;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -95,6 +96,31 @@ class CommitteeSinglePathTest extends TestCase
             $this->assertSame('pending', $answers[$seats[$seat]->id], $seat);
         }
         Notification::assertSentTo($seats['chair'], MeetingScheduledNotification::class);
+    }
+
+    public function test_the_rapporteur_is_told_of_every_answer(): void
+    {
+        Notification::fake();
+        [$seats, $meeting] = $this->proposedMeeting();
+
+        $this->respond($seats['legal'], $meeting, 'decline')->assertOk();
+        Notification::assertSentTo(
+            $seats['rapporteur'],
+            MeetingInvitationResponseNotification::class,
+            fn ($n, $channels, $notifiable) => $n->toArray($notifiable)['response'] === 'decline'
+                && $n->toArray($notifiable)['meeting_confirmed'] === false,
+        );
+        Notification::assertNotSentTo($seats['legal'], MeetingInvitationResponseNotification::class);
+
+        foreach (['chair', 'legal', 'hr_director', 'ministry_delegate'] as $seat) {
+            $this->respond($seats[$seat], $meeting, 'accept')->assertOk();
+        }
+        Notification::assertSentToTimes($seats['rapporteur'], MeetingInvitationResponseNotification::class, 5);
+        Notification::assertSentTo(
+            $seats['rapporteur'],
+            MeetingInvitationResponseNotification::class,
+            fn ($n, $channels, $notifiable) => $n->toArray($notifiable)['meeting_confirmed'] === true,
+        );
     }
 
     public function test_a_member_answers_only_for_themselves(): void
