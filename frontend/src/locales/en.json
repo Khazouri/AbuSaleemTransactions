@@ -64,7 +64,10 @@
     "users": "users",
     "children": "sub-departments",
     "empty": "No departments yet.",
-    "codeHint": "Used in request reference numbers"
+    "codeHint": "Used in request reference numbers",
+    "head": "Department head",
+    "noHead": "No head",
+    "headHint": "Shown at the top of this department on the Users screen. It doesn’t change who approves requests."
   },
   "requestTypes": {
     "title": "Request Types",
@@ -131,7 +134,25 @@
     "managerHint": "Only the direct manager may delegate this employee's requests. With none assigned, their requests stall at direct manager review and nobody can move them on.",
     "roles": "Roles",
     "empty": "No users yet.",
-    "selfActionBlocked": "You can't do that to your own account."
+    "selfActionBlocked": "You can't do that to your own account.",
+    "views": {
+      "table": "Table",
+      "hierarchy": "By department"
+    },
+    "hierarchy": {
+      "head": "Head of department",
+      "noHead": "No head yet. Choose one with “Make head” on a member below.",
+      "makeHead": "Make head",
+      "addHere": "Add employee here",
+      "moveTo": "Move to…",
+      "reportsTo": "Reports to {name}",
+      "subDepartments": "Sub-departments",
+      "empty": "No one works here yet. Add an employee, or move one in from another department.",
+      "dragHint": "Drag a person onto a department to move them.",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "saveFailed": "Couldn’t save the change. Try again."
+    }
   },
   "rolesPermissions": {
     "title": "Roles & Permissions",

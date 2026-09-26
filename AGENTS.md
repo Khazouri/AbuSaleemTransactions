@@ -69,7 +69,11 @@ Key architectural facts worth knowing before changing things:
   deactivate (`toggle-active`) instead of delete. This "preserve, don't erase"
   pattern is likely to recur for other master-data resources (roles,
   request types, workflow stages) — check for it before assuming a plain
-  `destroy()` is safe.
+  `destroy()` is safe. `departments.manager_user_id` (the head shown by the
+  Users screen's «By department» view) is a **label only**: it must be an
+  active member of that department, `UserController` clears it when the head
+  leaves, is deactivated or deleted, and nothing in the workflow reads it —
+  manager-gated transitions follow each employee's own `users.manager_id`.
 - **Screens/permissions**: `screens`, `roles`, `permissions`,
   `screen_role_permissions` model a menu-and-permission matrix, and it is
   enforced on both sides (Stage 9): the API's `screen.permission:<code>,

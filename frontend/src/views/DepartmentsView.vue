@@ -13,10 +13,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 import AppModal from '../components/AppModal.vue'
+import { flattenDepartments } from '../lib/departmentTree'
 
 const { t, locale } = useI18n()
 
 const departments = ref([])
+/** Only feeds the head picker; see headOptions. */
+const users = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const loadError = ref(null)
@@ -35,6 +38,7 @@ const blankForm = () => ({
   name_en: '',
   code: '',
   parent_id: null,
+  manager_user_id: null,
   is_active: true,
 })
 const form = ref(blankForm())
@@ -46,45 +50,18 @@ function label(dept) {
     : dept.name_en || dept.name_ar
 }
 
+/** The department list in tree order, with a depth for indentation. */
+const tree = computed(() => flattenDepartments(departments.value))
+
 /**
- * Flatten the department list into display order, carrying a depth for
- * indentation.
- *
- * Walks from the roots down, so each department appears directly beneath its
- * parent. Built iteratively with an explicit stack rather than recursion —
- * and note that any department whose parent is missing is treated as a root,
- * so a broken parent link can never hide a row from the screen entirely.
+ * Head picker options: the edited department's active members. Mirrors
+ * UpdateDepartmentRequest's rule, so an option the API would refuse is never
+ * offered. Empty when the viewer can't read the Users screen — the picker is
+ * then hidden rather than shown blank.
  */
-const tree = computed(() => {
-  const byParent = new Map()
-  for (const dept of departments.value) {
-    const key = dept.parent_id ?? null
-    if (!byParent.has(key)) byParent.set(key, [])
-    byParent.get(key).push(dept)
-  }
-
-  const knownIds = new Set(departments.value.map((d) => d.id))
-  // Roots: no parent, or a parent that isn't in the list (orphan safety net).
-  const roots = departments.value.filter(
-    (d) => d.parent_id === null || !knownIds.has(d.parent_id),
-  )
-
-  const rows = []
-  // Reverse so that popping off the stack preserves the original order.
-  const stack = roots.slice().reverse().map((d) => ({ dept: d, depth: 0 }))
-
-  while (stack.length) {
-    const { dept, depth } = stack.pop()
-    rows.push({ ...dept, depth })
-
-    const children = byParent.get(dept.id) ?? []
-    for (let i = children.length - 1; i >= 0; i--) {
-      stack.push({ dept: children[i], depth: depth + 1 })
-    }
-  }
-
-  return rows
-})
+const headOptions = computed(() =>
+  users.value.filter((user) => user.is_active && user.department?.id === editingId.value),
+)
 
 /**
  * Options for the "parent department" dropdown.
@@ -137,6 +114,7 @@ function startEdit(dept) {
     name_en: dept.name_en ?? '',
     code: dept.code ?? '',
     parent_id: dept.parent_id,
+    manager_user_id: dept.manager_user_id ?? null,
     is_active: dept.is_active,
   }
   errors.value = {}
@@ -210,7 +188,11 @@ async function remove(dept) {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  // Optional: a viewer without the Users screen simply gets no head picker.
+  api.get('/users').then(({ data }) => { users.value = data.data ?? data }).catch(() => {})
+})
 </script>
 
 <template>
@@ -263,6 +245,16 @@ onMounted(load)
               </option>
             </select>
             <small v-if="errors.parent_id" class="field-error">{{ errors.parent_id[0] }}</small>
+          </label>
+
+          <label v-if="editingId !== null && headOptions.length">
+            {{ t('departments.head') }}
+            <select v-model="form.manager_user_id">
+              <option :value="null">{{ t('departments.noHead') }}</option>
+              <option v-for="user in headOptions" :key="user.id" :value="user.id">{{ user.name }}</option>
+            </select>
+            <small v-if="errors.manager_user_id" class="field-error">{{ errors.manager_user_id[0] }}</small>
+            <small v-else class="hint">{{ t('departments.headHint') }}</small>
           </label>
         </div>
 

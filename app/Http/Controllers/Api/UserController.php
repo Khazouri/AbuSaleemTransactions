@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Department;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -64,6 +65,8 @@ class UserController extends Controller
             $user->roles()->sync($request->validated('role_ids'));
         }
 
+        $this->releaseHeadSlots($user);
+
         return new UserResource($user->load('department', 'roles', 'manager'));
     }
 
@@ -82,6 +85,7 @@ class UserController extends Controller
         }
 
         $user->update(['is_active' => ! $user->is_active]);
+        $this->releaseHeadSlots($user);
 
         return new UserResource($user->load('department', 'roles', 'manager'));
     }
@@ -100,7 +104,25 @@ class UserController extends Controller
         }
 
         $user->delete();
+        $this->releaseHeadSlots($user);
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Drop any department head slot this user no longer qualifies for — the
+     * same rule UpdateDepartmentRequest enforces on the way in (an active,
+     * live member of that department). A soft delete fires no FK action, so
+     * without this the hierarchy view would name someone who has left.
+     */
+    private function releaseHeadSlots(User $user): void
+    {
+        Department::query()
+            ->where('manager_user_id', $user->id)
+            ->when(
+                $user->is_active && ! $user->trashed(),
+                fn ($query) => $query->where('id', '!=', $user->department_id ?? 0),
+            )
+            ->update(['manager_user_id' => null]);
     }
 }

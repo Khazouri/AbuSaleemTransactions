@@ -71,6 +71,17 @@ class UpdateDepartmentRequest extends FormRequest
                 },
             ],
 
+            // The head must be an active member of THIS department, or the
+            // hierarchy view would crown someone absent from its own list.
+            // Only settable on edit: a new department has no members yet.
+            'manager_user_id' => [
+                'nullable', 'integer',
+                Rule::exists('users', 'id')
+                    ->where('department_id', $department->id)
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at'),
+            ],
+
             'is_active' => ['sometimes', 'boolean'],
         ];
     }
@@ -84,6 +95,7 @@ class UpdateDepartmentRequest extends FormRequest
             'name_ar.required' => 'اسم الإدارة بالعربية مطلوب.',
             'code.unique' => 'هذا الرمز مستخدم لإدارة أخرى.',
             'parent_id.exists' => 'الإدارة الأم المحددة غير موجودة.',
+            'manager_user_id.exists' => 'رئيس الإدارة يجب أن يكون موظفاً نشطاً في هذه الإدارة.',
         ];
     }
 }

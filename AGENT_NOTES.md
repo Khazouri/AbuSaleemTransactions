@@ -19,6 +19,30 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 19:55 EET — Claude — Department hierarchy view on the Users screen (complete)
+
+Built per the plan below. One migration (`departments.manager_user_id`), applied to the real MySQL. The Users screen has
+a «Table / By department» tab switch; `DepartmentHierarchy.vue` shows the tree, the head card and the staff, with
+make-head, a «move to» select, and HTML5 drag onto a tree node (the grip is hidden on touch, where the select is the
+path). The tree flattening moved to `lib/departmentTree.js`, shared with DepartmentsView, whose form gained a head picker.
+Full suite **753 / 4817** (+7 `DepartmentHeadTest`), Pint clean, build passes (`dist` reverted), parity 2024. A
+headless click-through ran make-head, the select and a real drop, then restored the data. That left only audit rows.
+`check-layout.mjs`: 440 views, failing only on the pre-existing `/decisions` 1024px overflow. The head is a label only (AGENTS.md).
+
+---
+### 2026-09-26 19:10 EET — Claude — Implementation plan: department hierarchy view on the Users screen
+
+User: a department-first view of staff where add/edit/delete is easier; decisions put to the user and answered:
+an **explicit department head** (not derived from `manager_id`), plus a «make head» button and drag-and-drop moves
+inside the view. Plan: migration `departments.manager_user_id` (nullable FK); `UpdateDepartmentRequest` requires the
+head to be an active member of that department; `UserController::update`/`destroy` clear a head slot the user leaves.
+The head is a **label only** — approvals still follow each employee's own `manager_id`. SPA: a Table/Hierarchy
+switch on UsersView; the new `components/DepartmentHierarchy.vue` reuses the existing modal and the partial
+`PUT users/{id}` / `PUT departments/{id}` (no new endpoint); native HTML5 drag-and-drop with a keyboard «move to»
+fallback; head picker in the Departments form. Verify: new feature test, full PHPUnit, Pint, build (revert `dist`),
+locale parity, `check-layout.mjs`, migrate the real DB.
+
+---
 ### 2026-09-26 18:50 EET — Claude — Timeline documents redesigned (complete)
 
 Built per the plan below. `TimelineDocuments.vue` now renders the documents of every «سجل سير العمل» entry in both views; each view's own list and its CSS are gone. **Gotcha:** the global `.ltr` helper also sets `text-align: left`, which in Arabic throws a filename to the far side of its row, so the component uses `direction: ltr; justify-self: start` instead. Build passes (`dist` reverted). `check-layout.mjs` fails only on the pre-existing `/decisions` 1024px overflow; it skips `/requests/:id`, so that page was checked by screenshot (ar light and en dark at 1280px, ar at 375px). Not seen rendered: a decision row, since no seeded timeline entry carries one.

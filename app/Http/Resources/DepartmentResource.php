@@ -25,6 +25,9 @@ class DepartmentResource extends JsonResource
             'name_en' => $this->name_en,
             'code' => $this->code,
             'parent_id' => $this->parent_id,
+            // The head shown by the hierarchy view — a label only; approvals
+            // follow each employee's own manager_id, never this.
+            'manager_user_id' => $this->manager_user_id,
             'is_active' => $this->is_active,
 
             // Counts come from withCount() in the controller. whenCounted()

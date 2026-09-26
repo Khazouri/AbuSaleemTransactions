@@ -6,11 +6,16 @@
  * roles), activate/deactivate, and delete. Departments and roles are fetched
  * alongside the user list purely to populate the form's dropdown/checkboxes —
  * neither is editable from here (Stage 6 and Stage 8 own that, respectively).
+ *
+ * Two views of the same list: the table, and a department-first hierarchy
+ * (DepartmentHierarchy) that also moves people and names department heads.
+ * Both open this file's one form and call its one set of handlers.
  */
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 import AppModal from '../components/AppModal.vue'
+import DepartmentHierarchy from '../components/DepartmentHierarchy.vue'
 import { useAuthStore } from '../stores/auth'
 
 const { t, locale } = useI18n()
@@ -19,6 +24,10 @@ const auth = useAuthStore()
 const users = ref([])
 const departments = ref([])
 const roles = ref([])
+/** The hierarchy needs departments before it can pick one to show. */
+const refsLoaded = ref(false)
+/** 'table' | 'hierarchy' */
+const view = ref('table')
 const loading = ref(false)
 const saving = ref(false)
 const loadError = ref(null)
@@ -93,11 +102,18 @@ async function loadRefs() {
   const [deptRes, roleRes] = await Promise.all([api.get('/departments'), api.get('/roles')])
   departments.value = deptRes.data.data ?? deptRes.data
   roles.value = roleRes.data.data ?? roleRes.data
+  refsLoaded.value = true
 }
 
-function startCreate() {
+/** A move or a new head changes both lists (head slots live on departments). */
+async function reloadAll() {
+  await Promise.all([load(), loadRefs()])
+}
+
+/** departmentId pre-fills the form when adding from inside a department. */
+function startCreate(departmentId = null) {
   editingId.value = null
-  form.value = blankForm()
+  form.value = { ...blankForm(), department_id: departmentId }
   errors.value = {}
   formError.value = null
   showForm.value = true
@@ -152,7 +168,7 @@ async function save() {
       await api.put(`/users/${editingId.value}`, payload)
     }
     cancelForm()
-    await load()
+    await reloadAll()
   } catch (e) {
     if (e?.response?.status === 422) {
       errors.value = e.response.data.errors ?? {}
@@ -169,7 +185,7 @@ async function toggleActive(user) {
   formError.value = null
   try {
     await api.patch(`/users/${user.id}/toggle-active`)
-    await load()
+    await reloadAll()
   } catch (e) {
     formError.value = e?.response?.data?.message ?? 'تعذّر تغيير الحالة.'
   }
@@ -181,7 +197,7 @@ async function remove(user) {
   formError.value = null
   try {
     await api.delete(`/users/${user.id}`)
-    await load()
+    await reloadAll()
   } catch (e) {
     formError.value = e?.response?.data?.message ?? 'تعذّر الحذف.'
   }
@@ -200,7 +216,21 @@ onMounted(() => {
         <h2>{{ t('users.title') }}</h2>
         <p v-if="!loading && !loadError" class="subtitle">{{ users.length }}</p>
       </div>
-      <button v-can="'users.add'" class="primary" type="button" @click="startCreate">{{ t('users.add') }}</button>
+      <button v-can="'users.add'" class="primary" type="button" @click="startCreate()">{{ t('users.add') }}</button>
+    </div>
+
+    <div class="tabs view-switch" role="tablist" :aria-label="t('users.title')">
+      <button
+        v-for="option in ['table', 'hierarchy']"
+        :key="option"
+        type="button"
+        class="tab"
+        role="tab"
+        :aria-selected="view === option ? 'true' : 'false'"
+        @click="view = option"
+      >
+        {{ t(`users.views.${option}`) }}
+      </button>
     </div>
 
     <p v-if="formError && !showForm" class="alert">{{ formError }}</p>
@@ -282,8 +312,27 @@ onMounted(() => {
       </form>
     </AppModal>
 
+    <!-- Feature (2026-09-26) — department hierarchy view of the staff roster. -->
+    <template v-if="view === 'hierarchy'">
+      <p v-if="loadError" class="alert">
+        {{ t('nav.error') }}
+        <button class="ghost" @click="load">{{ t('common.retry') }}</button>
+      </p>
+      <p v-else-if="loading && !users.length || !refsLoaded" class="state">{{ t('common.loading') }}</p>
+      <DepartmentHierarchy
+        v-else
+        :users="users"
+        :departments="departments"
+        @add="startCreate"
+        @edit="startEdit"
+        @toggle="toggleActive"
+        @remove="remove"
+        @changed="reloadAll"
+      />
+    </template>
+
     <!-- List -->
-    <div class="card card-flat card-pad">
+    <div v-else class="card card-flat card-pad">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="loadError" class="alert">
         {{ t('nav.error') }}
@@ -393,6 +442,7 @@ input:focus, select:focus { outline: 2px solid var(--color-brand-text); outline-
 
 
 tr.dimmed { opacity: .55; }
+.view-switch { margin-bottom: var(--space-4); }
 .name { font-size: var(--text-lg); font-weight: 500; }
 .email { color: var(--color-muted); font-size: var(--text-sm); }
 .badge {

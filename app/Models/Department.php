@@ -32,6 +32,7 @@ class Department extends Model
         'name_en',
         'code',
         'parent_id',
+        'manager_user_id',
         'is_active',
     ];
 
