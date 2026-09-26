@@ -170,9 +170,9 @@ class WorkflowTransitionSeeder extends Seeder
         // semantics. It is manager-gated rather than role-gated, so it
         // can't live in that array's single-role tuple shape. There is
         // deliberately no R08 sibling (unlike `submit` above): delegating a
-        // request is the submitter's own manager's decision and nobody
-        // else's, so a request whose creator has no live manager stalls here
-        // rather than being pushed on by an admin.
+        // request is the subject's own manager's decision. R08 gets it only
+        // when no live manager exists — WorkflowService::adminMayUnstick(),
+        // which covers every manager-gated row without a sibling each.
         WorkflowTransition::updateOrCreate(
             [
                 'request_type_id' => null,

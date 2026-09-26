@@ -126,7 +126,7 @@ class WorkflowService
 
                 // An ambiguous rule is not genuinely available: execution
                 // would fail closed, so the preview must not invite the click.
-                return $allowed->count() === 1 ? $allowed->first() : null;
+                return $this->pickRule($allowed);
             })
             ->filter()
             ->filter(fn (WorkflowTransition $rule) => $rule->action !== 'deadline_expired' || $requestRecord->isOverdue())
@@ -215,12 +215,11 @@ class WorkflowService
 
             // Multiple matches make the destination depend on row order. Fail
             // closed so a configuration mistake cannot move work unpredictably.
-            if ($allowed->count() > 1) {
+            $rule = $this->pickRule($allowed);
+
+            if ($rule === null) {
                 throw WorkflowTransitionException::ambiguousConfiguration();
             }
-
-            /** @var WorkflowTransition $rule */
-            $rule = $allowed->first();
 
             return $this->applyRule($lockedRequest, $rule, $action, $actor, $comment);
         });
@@ -577,16 +576,15 @@ class WorkflowService
             return false;
         }
 
-        // A manager-gated row is the submitter's own direct manager's
-        // decision and nobody else's. There is deliberately NO admin
-        // override here: a request whose creator has no live manager link
-        // cannot be delegated at all, which is the rule as stated rather
-        // than a gap for R08 to paper over. The consequence is real and
-        // intended — such a request stalls at direct_manager_review with no
-        // action available to anyone, an admin included. Assigning the
-        // employee a manager on the Users screen is what releases it.
+        // A manager-gated row is the subject's own direct manager's decision
+        // and, while that manager is live, nobody else's — an admin
+        // included. 2026-09-26 (user decision): R08 may act only when there
+        // is NO live manager, because otherwise the file stalls with no
+        // action for anyone. Never on its own file, or the fallback would be
+        // a way for an admin to skip review of their own request.
         if ($rule->requires_submitter_manager
-            && ! $this->actorIsSubjectsActiveManager($requestRecord, $actor)) {
+            && ! $this->actorIsSubjectsActiveManager($requestRecord, $actor)
+            && ! $this->adminMayUnstick($requestRecord, $actor)) {
             return false;
         }
 
@@ -623,19 +621,35 @@ class WorkflowService
      */
     private function actorIsSubjectsActiveManager(Request $requestRecord, User $actor): bool
     {
-        $subjectId = $requestRecord->subject_user_id;
+        return $this->subjectsLiveManagerId($requestRecord) === $actor->id;
+    }
 
-        if ($subjectId === null) {
-            return false;
+    /**
+     * The id of صاحب العلاقة's manager if that link is live (set, not
+     * soft-deleted — the default scope excludes trashed rows — and active),
+     * else null. A dangling link counts as no manager.
+     */
+    private function subjectsLiveManagerId(Request $requestRecord): ?int
+    {
+        $managerId = $requestRecord->subject_user_id === null
+            ? null
+            : User::query()->whereKey($requestRecord->subject_user_id)->value('manager_id');
+
+        if ($managerId === null) {
+            return null;
         }
 
-        $managerId = User::query()->whereKey($subjectId)->value('manager_id');
+        return User::query()->whereKey($managerId)->where('is_active', true)->exists()
+            ? (int) $managerId
+            : null;
+    }
 
-        if ($managerId === null || (int) $managerId !== $actor->id) {
-            return false;
-        }
-
-        return User::query()->whereKey($managerId)->where('is_active', true)->exists();
+    /** R08's fallback on a manager-gated row: only a manager-less file, never its own. */
+    private function adminMayUnstick(Request $requestRecord, User $actor): bool
+    {
+        return $actor->hasRole('R08')
+            && ! $this->actorIsAnInterestedParty($requestRecord, $actor)
+            && $this->subjectsLiveManagerId($requestRecord) === null;
     }
 
     /**
@@ -649,6 +663,26 @@ class WorkflowService
     {
         return $requestRecord->created_by_user_id === $actor->id
             || $requestRecord->subject_user_id === $actor->id;
+    }
+
+    /**
+     * The one rule an actor's click resolves to, or null when that is
+     * ambiguous. Two matches are fine when exactly one is the normal path:
+     * the other is an exception (R08's `submit` override beside the creator
+     * row) that exists for people the normal row excludes, so an actor who
+     * satisfies both is simply on the normal path.
+     *
+     * @param  Collection<int, WorkflowTransition>  $allowed
+     */
+    private function pickRule(Collection $allowed): ?WorkflowTransition
+    {
+        if ($allowed->count() === 1) {
+            return $allowed->first();
+        }
+
+        $normal = $allowed->reject(fn (WorkflowTransition $rule) => $rule->is_exception);
+
+        return $normal->count() === 1 ? $normal->first() : null;
     }
 
     /**

@@ -34,7 +34,12 @@ class DirectManagerRoutingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_only_the_assigned_manager_may_delegate_and_r08_holds_no_override(): void
+    /**
+     * 2026-09-26 — R08 unsticks a manager-less file, and ONLY that: while a
+     * live manager exists the step is theirs alone, admin included. Inverted
+     * from the earlier "R08 holds no override" assertion by user decision.
+     */
+    public function test_only_the_assigned_manager_may_delegate_and_r08_only_unsticks(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -56,30 +61,33 @@ class DirectManagerRoutingTest extends TestCase
             $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
         }
 
-        // The assigned manager may act.
-        $requestRecord = $service->transition($requestRecord->refresh(), 'forward', $manager);
-        $this->assertSame('administrative_routing', $requestRecord->currentStage->code);
-
-        // An employee with no manager at all cannot have their request
-        // delegated by anyone — R08 included. This is the rule, not a gap:
-        // delegation is the submitter's own manager's decision.
-        $unmanagedEmployee = $this->userWithRole('R01');
-        $orphanRequest = $this->newRequest('direct_manager_review', 'in_review', $unmanagedEmployee->id);
+        // A live manager owns the step: R08 is refused while one exists.
+        $this->assertFalse($service->availableActions($requestRecord->refresh(), $admin)->contains('forward'));
         try {
-            $service->transition($orphanRequest, 'forward', $admin);
-            $this->fail('R08 must not be able to delegate a request whose creator has no manager.');
+            $service->transition($requestRecord->refresh(), 'forward', $admin);
+            $this->fail('R08 must not act over a live manager.');
         } catch (WorkflowTransitionException $exception) {
             $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
         }
 
-        // The preview must agree with that refusal rather than offering a
-        // button the transition endpoint would reject — the load-bearing
-        // property actorMayUse() exists to keep true for both call sites.
-        $this->assertSame(
-            [],
-            $service->availableActions($orphanRequest->refresh(), $admin)->all(),
-        );
-        $this->assertSame('direct_manager_review', $orphanRequest->refresh()->currentStage->code);
+        // The assigned manager may act.
+        $requestRecord = $service->transition($requestRecord->refresh(), 'forward', $manager);
+        $this->assertSame('administrative_routing', $requestRecord->currentStage->code);
+
+        // An employee with no manager at all: R08 may unstick it, and the
+        // preview offers exactly what the endpoint accepts.
+        $unmanagedEmployee = $this->userWithRole('R01');
+        $orphanRequest = $this->newRequest('direct_manager_review', 'in_review', $unmanagedEmployee->id);
+        $this->assertTrue($service->availableActions($orphanRequest, $admin)->contains('forward'));
+        $this->assertFalse($service->availableActions($orphanRequest, $stranger)->contains('forward'));
+
+        $moved = $service->transition($orphanRequest, 'forward', $admin);
+        $this->assertSame('administrative_routing', $moved->currentStage->code);
+
+        // ...but not its own file: the fallback is not a way round review.
+        $orphanAdmin = $this->userWithRole('R08');
+        $ownRequest = $this->newRequest('direct_manager_review', 'in_review', $orphanAdmin->id);
+        $this->assertFalse($service->availableActions($ownRequest, $orphanAdmin)->contains('forward'));
     }
 
     public function test_an_inactive_manager_leaves_the_request_undelegatable_rather_than_500ing(): void
@@ -108,21 +116,33 @@ class DirectManagerRoutingTest extends TestCase
             $this->assertSame('لا يمكن لمستخدم غير نشط تنفيذ إجراء سير العمل.', $exception->getMessage());
         }
 
-        // ...and neither can R08: a dead manager link is not an admin
-        // override, so the request simply cannot move. Cancelling is refused
-        // on the same grounds, which is what makes this a genuine stall —
-        // recorded here deliberately so a later "usability" change cannot
-        // reintroduce the override without this test failing.
-        foreach (['forward', 'cancel'] as $action) {
-            try {
-                $service->transition($requestRecord->refresh(), $action, $admin, 'محاولة إدارية.');
-                $this->fail("R08 must not be able to {$action} past a dead manager link.");
-            } catch (WorkflowTransitionException $exception) {
-                $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
-            }
-        }
+        // A dead manager link is the stall R08 exists to release (2026-09-26):
+        // forward and cancel are both offered to the admin now.
+        $actions = $service->availableActions($requestRecord->refresh(), $admin);
+        $this->assertTrue($actions->contains('forward'));
+        $this->assertTrue($actions->contains('cancel'));
 
-        $this->assertSame('direct_manager_review', $requestRecord->refresh()->currentStage->code);
+        $moved = $service->transition($requestRecord->refresh(), 'cancel', $admin, 'إلغاء إداري.');
+        $this->assertSame('cancelled', $moved->status->code);
+    }
+
+    /**
+     * An R08 filer matched both `submit` rows (the creator row and the R08
+     * exception), which failed closed as ambiguous — the admin could never
+     * re-submit its own returned request.
+     */
+    public function test_an_admin_filer_can_resubmit_its_own_returned_request(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $admin = $this->userWithRole('R08');
+        $service = app(WorkflowService::class);
+        $requestRecord = $this->newRequest('receive_from_municipality', 'returned', $admin->id);
+
+        $this->assertTrue($service->availableActions($requestRecord, $admin)->contains('submit'));
+
+        $moved = $service->transition($requestRecord, 'submit', $admin);
+        $this->assertSame('direct_manager_review', $moved->currentStage->code);
     }
 
     public function test_the_one_remaining_route_lands_at_receive_and_register_and_the_two_retired_ones_are_gone(): void

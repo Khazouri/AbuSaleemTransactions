@@ -80,20 +80,19 @@ Key architectural facts worth knowing before changing things:
   `screen.permission:<screen_code>,<action>` rather than a bare
   `apiResource()`, and new action buttons should carry
   `v-can="'<screen_code>.<action>'"` (`frontend/src/directives/can.js`).
-- **Manager-gated transitions have NO admin override.** A
-  `workflow_transitions` row with `requires_submitter_manager` may be used by
-  exactly one person: the submitter's own active, non-deleted manager
-  (`users.manager_id`). `WorkflowService::actorMayUse()` deliberately has no
-  R08 fallback, so a request whose creator has no live manager **cannot be
-  delegated, returned or cancelled at all** — it stalls at
-  `direct_manager_review` with an empty action list for every actor,
-  including an admin, until a manager is assigned on the Users screen. This is
-  the rule as specified, not a gap: don't "fix" it by re-adding an override.
-  The six gated rows are `forward`/`return_to_employee`/`cancel` at
-  `direct_manager_review` and the three `route_to_*` plus `cancel` at
-  `administrative_routing`. `RequestVisibility` still lets R08 *see* such a
-  request (read-only, so a stall can be diagnosed) — visibility and capability
-  are deliberately separate here.
+- **Manager-gated transitions: R08 only unsticks.** A `workflow_transitions`
+  row with `requires_submitter_manager` belongs to صاحب العلاقة's own active,
+  non-deleted manager (`users.manager_id`) — while that manager is live,
+  nobody else may use it, an admin included. R08 may use it **only when there
+  is no live manager** (none set, deactivated, or deleted), and never on a
+  file R08 itself filed or is the subject of
+  (`WorkflowService::adminMayUnstick()`, user decision 2026-09-26 — it used to
+  have no override at all, which stalled such files for everyone). Don't widen
+  it into a general override. The five gated rows are
+  `forward`/`return_to_employee`/`cancel` at `direct_manager_review` and
+  `route_to_hr` plus `cancel` at `administrative_routing`. **Approvals stay
+  role-segregated** (R02/R03/R05/R06/R07); R08 holds none of them, so an admin
+  who must approve needs that role on the Users screen.
 - **RTL/i18n**: layout CSS uses logical properties (`margin-inline-start`,
   `text-align: start`, etc.), not `left`/`right`, so the UI mirrors
   automatically when `vue-i18n` flips `dir` on `<html>`. Don't introduce

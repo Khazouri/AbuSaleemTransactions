@@ -19,6 +19,30 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 EET — Claude — R08 unsticks manager-less files; admin re-submit fixed (complete)
+
+Built per the plan below, logic only (no migration, seeder rows, frontend or locale change). `actorMayUse()` gains
+`adminMayUnstick()`, and a new `pickRule()` replaces the "exactly one match" check in both `availableTransitions()`
+and `transition()`, so the preview and the endpoint cannot disagree. AGENTS.md's manager-gate bullet is rewritten; it also
+listed "three `route_to_*`", stale since Stage 96. Full suite **742 / 4743** green, Pint clean on touched files.
+**On the real DB nothing changes for the four open files:** their subject (`r01.employee@`) has a live manager
+(`r02.reviewer@`), so they are that manager's to move, not the admin's. Not done: stalled files don't notify R08,
+and the task inbox doesn't list them; an admin finds them on the requests list.
+
+---
+### 2026-09-26 EET — Claude — Implementation plan: R08 may unstick a manager-less request; admin re-submit un-ambiguated
+
+User: "admins can not submit or approve requests". Probed the real DB: both R08 accounts hold every screen grant
+but `availableTransitions()` offers them nothing, by design (manager-gated rows have no override; approve rows
+are R02/R03/R05/R06/R07). **User decision, put to them and answered "unstick only"** — this narrows AGENTS.md's
+"no admin override" rule rather than removing it: `actorMayUse()` lets R08 use a manager-gated row ONLY when
+صاحب العلاقة has no live manager (none, inactive, or deleted) and R08 is not an interested party itself. A live
+manager still owns the step exclusively; approvals stay role-segregated. **Bug fixed alongside:** an R08 filer
+re-submitting its own returned request matched both `submit` rows (creator row + R08 exception) → "ambiguous";
+now the normal-path row wins when exactly one non-exception row is allowed. Verify: DirectManagerRoutingTest's
+two no-override tests inverted to the new rule, a re-submit test, full PHPUnit, Pint, AGENTS.md bullet updated.
+
+---
 ### 2026-09-23 EET — Claude — scripts/check-layout.mjs added (the frontend's one automated check)
 
 Built per the plan below; AGENTS.md's build section now points at it. Full run: 29 routes × {375, 768, 1024, 1280,
