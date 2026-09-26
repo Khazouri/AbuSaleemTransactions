@@ -80,6 +80,26 @@ Key architectural facts worth knowing before changing things:
   `screen.permission:<screen_code>,<action>` rather than a bare
   `apiResource()`, and new action buttons should carry
   `v-can="'<screen_code>.<action>'"` (`frontend/src/directives/can.js`).
+- **The committee path is single and fixed (Stage 102, user decision
+  2026-09-26 — «this path is the only path»).** R02's `approve` at
+  `requirements_check` (the قيد) lands straight on `receive_from_committee` +
+  `registered`; stages 6–8 (`reviewer_review`, `observations`,
+  `forward_to_committee`) keep their rows for history but no rule reaches or
+  leaves them. `CommitteeStatusService::candidatesQuery()` is the committee's
+  **pending list and the agenda's only source of requests**
+  (`MeetingController::addAgendaItem` refuses anything else); a request picked
+  for a meeting leaves it until decided or the meeting is cancelled, and a
+  deferral puts it back. Agenda items are `employee_request` or `appeal` only.
+  A committee is its five Art. 10 (أ) seats, each bound to a role
+  (`CommitteeMember::SEAT_ROLES`: chair R03, legal R11, hr_director R12,
+  ministry_delegate R04, rapporteur R02); only R02 schedules
+  (`meetings,add`), a meeting needs all five seats filled, invites exactly
+  them, is `regular`, and a committee holds one non-cancelled meeting per
+  calendar month. A new meeting is `pending_confirmation` and becomes
+  `scheduled` only when every attendee accepts through their own
+  `POST meetings/{m}/respond`; a date change resets every answer. Convening
+  already requires `scheduled`, so that is the whole gate. Don't reintroduce
+  ad-hoc attendees, free-text agenda items, or staff-recorded RSVPs.
 - **Manager-gated transitions: R08 only unsticks.** A `workflow_transitions`
   row with `requires_submitter_manager` belongs to صاحب العلاقة's own active,
   non-deleted manager (`users.manager_id`) — while that manager is live,
@@ -119,8 +139,8 @@ Key architectural facts worth knowing before changing things:
   anything customised through Roles & Permissions.
 - **Staged build-out**: [STAGE_PLAN.md](STAGE_PLAN.md) is the source of truth
   for what each stage number means (goal, what gets built, done-when) —
-  consult it before starting or referencing a stage. **Tracks A–N (Stages
-  1–101) are all built**; a stage's own bullet states the counts that were true
+  consult it before starting or referencing a stage. **Tracks A–O (Stages
+  1–102) are all built**; a stage's own bullet states the counts that were true
   when it was written, so verify any figure against the seeders rather than
   quoting it. There is no built-vs-stubbed map any more: Stages 25–27 gave the
   last three screens real UIs and deleted both `PlaceholderView` and the

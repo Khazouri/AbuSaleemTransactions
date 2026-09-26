@@ -232,9 +232,7 @@ get past any step is itself a defect.
 | 3 | `administrative_routing` | same manager | `route_to_hr` — Stage 96 retired the Diwan and committee-secretary routes |
 | 4 | `receive_and_register` | R12 (HR) | `register` |
 | 5 | `requirements_check` | R02 | gates, then `approve` — **this is the قيد** |
-| 6 | `reviewer_review` | R02 | `forward` |
-| 7 | `observations` | R02 | `forward` |
-| 8 | `forward_to_committee` | R02 | `forward` |
+| 6–8 | `reviewer_review` · `observations` · `forward_to_committee` | — | off the path since Stage 102: the `approve` at stage 5 lands on stage 9, the committee's pending list |
 | 9 | `receive_from_committee` | R03 | vote → record decision |
 | 10 | `approval_by_authority` | R05 | `approve` |
 | 11 | `local_governance_ministry` | R06 | `approve` |

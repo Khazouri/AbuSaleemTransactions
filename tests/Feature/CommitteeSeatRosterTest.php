@@ -63,11 +63,13 @@ class CommitteeSeatRosterTest extends TestCase
             ])
             ->assertCreated();
 
-        // A plain member with no named seat is still just a member.
+        // Stage 102 — there is no plain seatless membership any more: the
+        // committee is its five seats, and a member without one is never
+        // invited to a meeting.
         $this->actingAs($chair, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $unseated->id])
-            ->assertCreated()
-            ->assertJsonPath('data.seat', null);
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('seat');
 
         $response = $this->actingAs($chair, 'sanctum')->getJson('/api/committees')->assertOk();
         $row = collect($response->json('data'))->firstWhere('id', $committee->id);
@@ -77,7 +79,7 @@ class CommitteeSeatRosterTest extends TestCase
         $this->assertNull($row['seats']['hr_director']);
         $this->assertNull($row['seats']['ministry_delegate']);
         $this->assertNull($row['seats']['rapporteur']);
-        $this->assertCount(3, $row['members']);
+        $this->assertCount(2, $row['members']);
     }
 
     public function test_a_seat_can_only_be_held_by_one_member_at_a_time(): void
@@ -123,7 +125,12 @@ class CommitteeSeatRosterTest extends TestCase
             ->assertJsonValidationErrors('seat');
     }
 
-    public function test_multiple_unseated_members_are_not_blocked_by_each_other(): void
+    /**
+     * Stage 102 replaced "multiple unseated members": each seat is held by the
+     * role that carries its duties (CommitteeMember::SEAT_ROLES), so a seat
+     * and a role can never name two different people.
+     */
+    public function test_each_seat_is_bound_to_its_role(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -131,15 +138,20 @@ class CommitteeSeatRosterTest extends TestCase
         $chair = $this->userWithRole('R03');
         $committee->members()->create(['user_id' => $chair->id, 'seat' => 'chair', 'is_head' => true]);
 
-        $first = $this->userWithRole('R04');
-        $second = $this->userWithRole('R04');
+        $member = $this->userWithRole('R04');
+        $hr = $this->userWithRole('R12');
 
         $this->actingAs($chair, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $first->id])
+            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'hr_director'])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.user_id.0', 'هذا المقعد مقصور على من يحمل دور «مدير إدارة الموارد البشرية».');
+
+        $this->actingAs($chair, 'sanctum')
+            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $hr->id, 'seat' => 'hr_director'])
             ->assertCreated();
 
         $this->actingAs($chair, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $second->id])
+            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'ministry_delegate'])
             ->assertCreated();
     }
 

@@ -890,13 +890,13 @@
     "rapporteurVotes": "يشارك مقرر اللجنة في التصويت (بموجب قرار التشكيل)",
     "seats": {
       "label": "المقعد",
-      "none": "— بلا مقعد محدد —",
       "empty": "شاغر",
       "chair": "رئيس اللجنة",
       "legal": "عضو الشؤون القانونية",
       "hr_director": "عضو الموارد البشرية",
       "ministry_delegate": "مندوب الخدمة المدنية",
-      "rapporteur": "مقرر اللجنة"
+      "rapporteur": "مقرر اللجنة",
+      "choose": "— اختر المقعد —"
     },
     "card": {
       "title": "بطاقة تعريف اللجنة",
@@ -953,15 +953,10 @@
     "meetingNumber": "رقم الاجتماع",
     "meetingNumberAuto": "يُمنح تلقائياً وفق الترقيم الموحد عند إنشاء الاجتماع.",
     "meetingTitle": "عنوان الاجتماع",
-    "meetingType": "نوع الاجتماع",
-    "typeRegular": "دوري",
-    "typeExtraordinary": "استثنائي",
-    "typeEmergency": "طارئ",
     "scheduledAt": "التاريخ والوقت",
     "location": "المكان",
     "chairman": "رئيس الاجتماع",
     "rapporteur": "مقرر الاجتماع",
-    "chooseUserOptional": "— بدون —",
     "expectedDuration": "المدة المتوقعة (دقيقة)",
     "agendaDeadline": "الموعد النهائي لجدول الأعمال",
     "description": "الوصف",
@@ -988,8 +983,6 @@
       "moveDown": "تحريك لأسفل",
       "noResults": "لا توجد طلبات مطابقة.",
       "openBuilder": "فتح معد جدول الأعمال",
-      "subject": "الموضوع",
-      "department": "الإدارة",
       "estimatedMinutes": "الزمن المتوقع (دقيقة)",
       "minutesShort": "د",
       "itemType": {
@@ -1059,10 +1052,7 @@
     "attendance": {
       "title": "الحضور",
       "empty": "لا يوجد حاضرون بعد.",
-      "add": "إضافة حاضر",
-      "chooseUser": "— اختر مستخدماً —",
       "attended": "حاضر",
-      "remove": "إزالة",
       "invitation": {
         "pending": "بانتظار الرد",
         "confirmed": "تأكيد الحضور",
@@ -1089,11 +1079,6 @@
       "removeRequest": "إزالة",
       "committeeMembers": "أعضاء اللجنة (سيُدعون تلقائياً)",
       "noCommitteeSelected": "اختر اللجنة أولاً لعرض أعضائها.",
-      "extraInvitees": "دعوات إضافية",
-      "chooseInvitee": "— اختر مستخدماً —",
-      "addInvitee": "إضافة",
-      "removeInvitee": "إزالة",
-      "noExtraInvitees": "لا توجد دعوات إضافية.",
       "reviewDetails": "ملخص التفاصيل",
       "reviewAgenda": "ترتيب جدول الأعمال",
       "reviewMembers": "الأعضاء والدعوات",
@@ -1101,9 +1086,21 @@
       "scheduling": "جارٍ الجدولة…",
       "creatingMeeting": "جارٍ إنشاء الاجتماع…",
       "addingAgenda": "جارٍ إضافة بنود جدول الأعمال…",
-      "invitingAttendees": "جارٍ دعوة الأعضاء الإضافيين…",
-      "notifying": "جارٍ إرسال الدعوات…",
-      "success": "تمت جدولة الاجتماع بنجاح."
+      "success": "تمت جدولة الاجتماع بنجاح.",
+      "pendingListHint": "هذه قائمة الطلبات المعلقة للجنة: ما اعتمده المقرر ولم يُدرج بعد في اجتماع.",
+      "acceptanceHint": "يُدعى أعضاء اللجنة الخمسة تلقائيًا، ولا يُعتمد الاجتماع إلا بعد قبول كل منهم للموعد.",
+      "seatsIncomplete": "لا يمكن جدولة اجتماع قبل شغل مقاعد اللجنة الخمسة."
+    },
+    "statusPendingConfirmation": "بانتظار تأكيد الموعد",
+    "changeStatus": "تغيير الحالة…",
+    "rsvp": {
+      "prompt": "دُعيت إلى هذا الاجتماع بتاريخ {date}. هل يناسبك الموعد؟",
+      "accept": "قبول الموعد",
+      "decline": "الاعتذار عن الموعد",
+      "awaiting": "الاجتماع بانتظار قبول جميع الأعضاء لموعده.",
+      "newDate": "موعد جديد مقترح",
+      "proposeDate": "اقتراح الموعد",
+      "proposeHint": "تغيير الموعد يعيد الاجتماع إلى انتظار التأكيد، ويُطلب من جميع الأعضاء قبوله من جديد."
     }
   },
   "decisions": {
@@ -1326,7 +1323,6 @@
       "empty": "لا توجد طلبات مرشحة حالياً.",
       "actions": {
         "openFile": "فتح الملف",
-        "nominate": "إضافة لقائمة اللجنة",
         "defer": "تأجيل",
         "returnToStudy": "إعادة للدراسة",
         "requestCompletion": "طلب استكمال"
@@ -2511,7 +2507,8 @@
       "candidate": "طلبات مرشحة للعرض",
       "legal_review": "بانتظار المراجعة القانونية",
       "minutes_signature": "محاضر بانتظار توقيعك",
-      "completion": "طلباتي المطلوب استكمالها"
+      "completion": "طلباتي المطلوب استكمالها",
+      "meeting_invitation": "مواعيد اجتماعات بانتظار ردك"
     }
   }
 }

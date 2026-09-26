@@ -225,9 +225,7 @@ npm run dev                    # Vite على http://localhost:5173
 | 3 | `administrative_routing` | المدير نفسه | `route_to_hr` — أنهت المرحلة ٩٦ مساري الديوان وأمين السر |
 | 4 | `receive_and_register` | R12 (الموارد البشرية) | `register` |
 | 5 | `requirements_check` | R02 | البوابات ثم `approve` — **وهذا هو القيد** |
-| 6 | `reviewer_review` | R02 | `forward` |
-| 7 | `observations` | R02 | `forward` |
-| 8 | `forward_to_committee` | R02 | `forward` |
+| 6–8 | `reviewer_review` · `observations` · `forward_to_committee` | — | خارج المسار منذ المرحلة ١٠٢: `approve` في المرحلة 5 ينقل الملف إلى المرحلة 9، قائمة الطلبات المعلقة للجنة |
 | 9 | `receive_from_committee` | R03 | تصويت ثم تسجيل القرار |
 | 10 | `approval_by_authority` | R05 | `approve` |
 | 11 | `local_governance_ministry` | R06 | `approve` |

@@ -19,6 +19,41 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 16:45 EET — Claude — Stage 102 complete (the single committee path)
+
+Built per the plan below; **no migration**. R02's approve now lands on `receive_from_committee` + `registered`;
+the rows out of stages 6–8 are removed by a targeted delete, so a re-seed cleans old databases too. The pending
+list is now the agenda's only source. It also takes `reopened_by_appeal` and `reopened_for_representation`:
+without them, a file that reopenAtStage() sent back to the committee could never be scheduled again. Seats are
+now role-bound and required, only R02 schedules, and there is one meeting per month. New status
+`pending_confirmation`, plus the `POST meetings/{m}/respond` endpoint and a «مهامي» inbox source. Ad-hoc
+attendees, staff-set RSVPs, admin/emerging items and `nominate` are gone.
+
+Checks: full suite **743 / 4772** (the pre-existing tests were updated in place, each with a comment, and the new
+`CommitteeSinglePathTest` was added). Pint is clean, the build passes (`dist` reverted), locale parity is 2006,
+and checkbox parity is 362. The real MySQL was reseeded and confirmed by query: 38 rules, 0 touching stages 6–8.
+A live HTTP smoke run on Homestead also passed, and its fixtures, tokens, jobs and audit rows were removed.
+`check-layout.mjs` fails only on the pre-existing `/decisions` overflow at 1024px.
+
+**Watch:** the live committee #16 cannot schedule until its five seats are filled. Four open items are in
+OPEN_ITEMS.md.
+
+---
+### 2026-09-26 15:35 EET — Claude — Implementation plan: Stage 102 (the single committee path)
+
+User: after the مقرر approves a request it joins a pending list; the مقرر schedules one meeting a month,
+invites the five Art. 10 (أ) seats, picks requests from that list and proposes a date; every member must
+accept the date; the sitting discusses and votes — «this path is the only path». **Decisions put to the user
+and answered:** drop the extras (one meeting type, only the five seats invited, no administrative/emerging
+items) but keep appeal items; R02's approve goes straight to `receive_from_committee` (stages 6–8 unreachable,
+rows kept); a decline keeps the meeting `pending_confirmation` and a date change resets every answer; seats
+bound to roles chair→R03, legal→R11, hr_director→R12, ministry_delegate→R04, rapporteur→R02 (R10 stays
+duty-less). Plan: seeder rewiring + targeted deletes, candidate list widened and made the agenda's only
+source, `POST meetings/{m}/respond`, a monthly and all-seats-filled check on `store()`, R12 gains the voting
+grants, `meetings,add` → R02 only, SPA pickers switched to `/committee-candidates`. Verify: new
+`CommitteeSinglePathTest`, full PHPUnit (baseline 742/4743), Pint, build, parity, reseed on the real MySQL.
+
+---
 ### 2026-09-26 EET — Claude — R08 unsticks manager-less files; admin re-submit fixed (complete)
 
 Built per the plan below, logic only (no migration, seeder rows, frontend or locale change). `actorMayUse()` gains
@@ -1789,66 +1824,6 @@ deleted fixture ids, and the real database's pre-existing rows were otherwise un
 updated accordingly — Stage 87 was already built in this working tree (uncommitted, per its own
 2026-09-19 15:10 entry below) going into this session; this stage is what closed the last remaining
 gap. No open items flagged by this stage specifically.
-
----
-
-### 2026-09-19 16:10 EET — Claude — Stage 92 implementation plan (execution recorded by the executing body)
-
-Building Stage 92 per STAGE_PLAN.md Track M — flagged **"Decide before building"** like Stage 87
-before it. Put the question to the user directly, mirroring Stage 87's own process: should the
-executing body itself act in the system, or should the committee side (R02/R03) keep recording on
-its behalf, as today? **Answer: let the executing body — R12, HR Manager, the role Stage 87 added —
-record its own execution and closure**, alongside R02/R03 for cases where some other body executed.
-Recorded here so the decision isn't re-litigated.
-
-**The mechanism is narrower than the approved option's own wording, and that narrowing is deliberate,
-not a reversal.** `meeting_outputs,edit` currently gates six actions —
-`RequestController::close`/`recordApprovalReturn`/`resolveApprovalReturn`/`recordApprovalReferral`/
-`recordExecutionSoundness`/`suspend`/`lift`, plus `MeetingOutputsController::execute` — and only two of
-them, `execute` and `close`, are the "who executed" question Stage 92 is about; the rest are Art.
-30/103/105's rapporteur/chair-only certifications, which [F] step 10 says nothing about and which HR
-has no standing to perform. Widening the whole `edit` tier (the literal mechanism named when the
-option was put to the user) would hand HR five capabilities nobody asked to give it, directly against
-this codebase's own "bounded, not general" discipline every prior party-widening stage has followed
-(R11/SAL/R12's own clauses in `RequestVisibility`, the `decisions.add`/`decisions.approve` split,
-Stage 84's whole audit of over-broad grants). So this stage instead gives `meeting_outputs` a new
-**`approve`** tier — seeded but empty until now, per that seeder's own "any action not listed stays
-false but for R08" rule — and re-routes exactly `execute` and `close` onto it:
-`'approve' => ['R02', 'R03', 'R12']`. `edit` stays `['R02', 'R03']`, untouched, for the other five
-actions. This is the exact `decisions.add`-vs-`decisions.approve` shape (cast a vote vs. record one)
-applied to a different screen.
-
-**Visibility follows the same "not a new disclosure" reasoning Stage 83 already used for
-`$isCloser`.** R12 needs to actually find and open the file to execute/close it, and there is no query
-that filters "requests where I am the executing body" — that fact isn't known until execution is
-recorded — so R12 needs the same reach R02/R03 already have via `$isCloser`'s bound, which Stage 83's
-own comment already justifies as "not a new disclosure: the reports and registers screens already
-list this same population to every role" — and `registers`/`reports` are both `view => '*'`, so R12
-already sees this population there. `RequestVisibility::apply()`'s `$isCloser` becomes
-`can_edit OR can_approve` on `meeting_outputs`, one predicate rather than a second, separately-bounded
-clause — matching the `can_edit`-only actors' existing reach, not a narrower one that would 404 R12
-attaching Appendix 70 evidence to a request it can otherwise act on
-(`AttachmentController::store()` already runs through this same gate, and R12 already holds
-`notes_attachments.add` since Stage 87).
-
-**Files**: `ScreenRolePermissionSeeder.php` (`meeting_outputs.approve`); `routes/api.php` (the
-`execute` and `close` routes' middleware, `meeting_outputs,edit` → `meeting_outputs,approve`, with
-updated comments — the other four `meeting_outputs,edit` routes are untouched); `RequestVisibility.php`
-(`$isCloser`); `MeetingOutputsController.php`/`RequestController.php` docblocks naming the grant;
-`RequestExecutionPanel.vue`/`RequestClosurePanel.vue` (`v-can` from `meeting_outputs.edit` to
-`meeting_outputs.approve` — the other panels riding `meeting_outputs.edit` for the rapporteur/chair
-actions are untouched). `MeetingOutputResource`'s `can_mark_executed`/`can_close` are state-derived,
-not permission-derived, and need no change.
-
-**Verification plan**: rename/extend `RequestExecutionTest::test_only_the_outputs_edit_grant_may_
-prove_execution` and `RequestClosureTest::test_closing_requires_the_meeting_outputs_edit_grant` (both
-currently describe a grant tier this stage renames — legitimate updates, not regressions) to assert
-R12 succeeds at both actions alongside R02/R03, R04 is still refused, and R12 can open (visibility) a
-request it didn't create that is `in_execution`/closable — the same shape Stage 87's own
-`HumanResourcesSeatTest` used for R12's `observations` co-ownership. Then the full PHPUnit suite, Pint
-on every touched file, `npm run build`, a locale key-parity check (none expected — no new copy, only a
-permission-tier rename), and the `ScreenRolePermissionSeeder` reseed against the real MySQL/Homestead
-database if reachable this session.
 
 ---
 

@@ -96,6 +96,11 @@ class WorkflowStageSeeder extends Seeder
             [3,  'administrative_routing',    'إحالة الطلب لأحد المسارات الإدارية', 'Administrative routing',        null, 2, 2],
             [4,  'receive_and_register',      'الاستلام والتسجيل',                'Receive and register',          null, 3, 3],
             [5,  'requirements_check',        'فحص استيفاء المتطلبات',           'Requirements check',           'R02', 2, 2],
+            // Stage 102 — stages 6, 7 and 8 are off the path: the مقرر's approve
+            // at 5 lands on 9 (the committee's pending list), and no rule
+            // reaches or leaves them (WorkflowTransitionSeeder). Kept, like the
+            // routed_to_diwan status, because historical stage logs point at
+            // them; renumbering the chain would be Stage-57-scale churn.
             [6,  'reviewer_review',           'مراجعة المقرر وفق اللوائح',        'Reviewer review',              'R02', 3, 3],
             [7,  'observations',              'إبداء الملاحظات (إن وجدت)',        'Observations (if any)',        'R02', 2, 2],
             // Stage 86 — R05 -> R09; Stage 96 — R09 -> R02. This field names

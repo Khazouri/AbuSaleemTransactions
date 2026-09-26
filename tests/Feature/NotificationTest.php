@@ -50,14 +50,15 @@ class NotificationTest extends TestCase
         // parties, or there is no handoff left to assert. Stage 86 moved it to
         // `reviewer_review -> observations` because `observations` had become
         // R09's; Stage 96 gave R02 the whole pre-committee chain back, which
-        // makes that hop same-role again. `forward_to_committee ->
-        // receive_from_committee` is the first hop after which the file
-        // genuinely changes hands: R02 moves it, R03 (the committee) acts next.
+        // makes that hop same-role again. Stage 102 made the مقرر's approve at
+        // requirements_check the hop onto the committee's pending list — the
+        // first after which the file genuinely changes hands: R02 moves it,
+        // R03 (the committee) acts next.
         $nextActor = $this->userWithRole('R03');
         $bystander = $this->userWithRole('R04');
-        $requestRecord = $this->requestAtStage('forward_to_committee', $creator);
+        $requestRecord = $this->requestAtStage('requirements_check', $creator);
 
-        app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $actor);
 
         Notification::assertSentTo(
             $creator,
@@ -120,7 +121,7 @@ class NotificationTest extends TestCase
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
         $nextActor = $this->userWithRole('R03');
-        $requestRecord = $this->requestAtStage('forward_to_committee', $creator);
+        $requestRecord = $this->requestAtStage('requirements_check', $creator);
 
         // The next actor drops email but keeps the bell...
         NotificationSetting::create([
@@ -139,7 +140,7 @@ class NotificationTest extends TestCase
             'sms' => false,
         ]);
 
-        app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $actor);
 
         Notification::assertSentTo(
             $nextActor,
@@ -186,26 +187,28 @@ class NotificationTest extends TestCase
     {
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
-        $requestRecord = $this->requestAtStage('reviewer_review', $creator);
+        $requestRecord = $this->requestAtStage('requirements_check', $creator);
 
-        app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $actor);
 
-        $this->assertSame(1, $creator->unreadNotifications()->count());
+        // Stage 102 — this hop lands on `registered`, which is also Art. 101's
+        // own moment, so the creator holds the progress update AND the notice.
+        $this->assertSame(2, $creator->unreadNotifications()->count());
 
         $this->actingAs($creator)
             ->getJson('/api/notifications/unread-count')
             ->assertOk()
-            ->assertJsonPath('data.unread', 1);
+            ->assertJsonPath('data.unread', 2);
 
         $listed = $this->actingAs($creator)->getJson('/api/notifications')->assertOk();
-        $listed->assertJsonPath('data.0.event_type', 'stage_changed');
-        $listed->assertJsonPath('data.0.request_id', $requestRecord->id);
+        $stageChanged = collect($listed->json('data'))->firstWhere('event_type', 'stage_changed');
+        $this->assertSame($requestRecord->id, $stageChanged['request_id']);
 
         $this->actingAs($creator)
-            ->postJson("/api/notifications/{$listed->json('data.0.id')}/read")
+            ->postJson("/api/notifications/{$stageChanged['id']}/read")
             ->assertOk();
 
-        $this->assertSame(0, $creator->refresh()->unreadNotifications()->count());
+        $this->assertSame(1, $creator->refresh()->unreadNotifications()->count());
     }
 
     /** The endpoints are scoped to the caller — a permission grant is not a window onto someone else's queue. */
@@ -215,7 +218,7 @@ class NotificationTest extends TestCase
         $actor = $this->userWithRole('R02');
         $stranger = $this->userWithRole('R01');
 
-        app(WorkflowService::class)->transition($this->requestAtStage('reviewer_review', $creator), 'forward', $actor);
+        app(WorkflowService::class)->transition($this->requestAtStage('requirements_check', $creator), 'approve', $actor);
 
         $this->actingAs($stranger)
             ->getJson('/api/notifications')
@@ -228,7 +231,8 @@ class NotificationTest extends TestCase
             ->postJson("/api/notifications/{$othersId}/read")
             ->assertNotFound();
 
-        $this->assertSame(1, $creator->unreadNotifications()->count());
+        // Two: the progress update and Art. 101's notice (see the test above).
+        $this->assertSame(2, $creator->unreadNotifications()->count());
     }
 
     /** Preferences round-trip, and only registered event types may be written. */

@@ -155,7 +155,7 @@ class RequestClosureTest extends TestCase
 
         // Anything else that simply hasn't reached a final result falls through
         // to Art. 37's own sentence about the four paths.
-        $inReview = $this->requestAt('reviewer_review', 'in_review');
+        $inReview = $this->requestAt('requirements_check', 'in_review');
         $this->archiveFiles($inReview);
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$inReview->id}/close", $this->closurePayload())
@@ -298,7 +298,7 @@ class RequestClosureTest extends TestCase
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/reopen", [
                 'reason_code' => 'new_document',
-                'target_stage_id' => WorkflowStage::where('code', 'reviewer_review')->value('id'),
+                'target_stage_id' => WorkflowStage::where('code', 'requirements_check')->value('id'),
             ])
             ->assertOk()
             ->assertJsonPath('data.closure', null)

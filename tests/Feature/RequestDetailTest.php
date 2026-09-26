@@ -22,13 +22,12 @@ class RequestDetailTest extends TestCase
     public function test_a_role_appropriate_actor_can_read_the_detail_and_advance_it(): void
     {
         $this->seed(DatabaseSeeder::class);
-        // Diagram-alignment redesign (see AGENT_NOTES.md): stage one's only
-        // outbound action is now `submit` (manager-gated hops follow), which
-        // isn't this test's subject. Start past the new front-half stages,
-        // at reviewer_review, so this stays a plain role-gated `forward`
-        // advance (approving is covered by the approval-chain tests).
-        $requestRecord = $this->newRequest('reviewer_review', 'in_review');
-        $reviewer = $this->userWithRole('R02');
+        // Stage 102 — the plain R02 `forward` hops this test used went with
+        // stages 6–8. The committee's return_to_study is the role-gated move
+        // left that needs no control-gate fixture (approving is covered by the
+        // approval-chain tests).
+        $requestRecord = $this->newRequest('receive_from_committee', 'in_meeting');
+        $reviewer = $this->userWithRole('R03');
 
         Attachment::create([
             'request_id' => $requestRecord->id,
@@ -51,27 +50,25 @@ class RequestDetailTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $requestRecord->id)
             ->assertJsonPath('data.attachments.0.original_name', 'support.pdf')
-            ->assertJsonPath('data.timeline.0.action', 'intake')
-            ->assertJsonPath('data.available_actions.0', 'forward');
+            ->assertJsonPath('data.timeline.0.action', 'intake');
+
+        $this->assertContains(
+            'return_to_study',
+            $this->actingAs($reviewer, 'sanctum')->getJson("/api/requests/{$requestRecord->id}")->json('data.available_actions'),
+        );
 
         $this->actingAs($reviewer, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/transition", [
-                'action' => 'forward',
-                'comment' => 'تمت الإحالة للمراجعة.',
+                'action' => 'return_to_study',
+                'comment' => 'يلزم استكمال الدراسة.',
             ])
             ->assertOk()
-            ->assertJsonPath('data.current_stage.code', 'observations')
-            ->assertJsonPath('data.status.code', 'in_review')
-            // Stage 86 took the handover out of `observations` away from this
-            // R02 reviewer (it went to R09) and Stage 96 gave it back, since
-            // [D] Appendix 6 has no أمين سر اللجنة column. So `forward` leads
-            // again, ahead of the `request_edit` R02 kept throughout —
-            // CommitteeHandoverTest covers the gate itself.
-            ->assertJsonPath('data.available_actions.0', 'forward');
+            ->assertJsonPath('data.current_stage.code', 'requirements_check')
+            ->assertJsonPath('data.status.code', 'returned');
 
         $this->assertDatabaseHas('request_stage_logs', [
             'request_id' => $requestRecord->id,
-            'action' => 'forward',
+            'action' => 'return_to_study',
             'acted_by_user_id' => $reviewer->id,
         ]);
     }

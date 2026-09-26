@@ -560,15 +560,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /*
      * Stage 32 — the candidate-requests worklist. Rides the `committee_candidates`
-     * screen's own grants (`add` gates nominate, `edit` gates the other three)
+     * screen's own grants (`edit` gates the three actions; Stage 102 removed
+     * `nominate` — picking a request for a meeting is the nomination)
      * rather than `meetings` — see CommitteeCandidateController's
      * docblock for why defer/return-to-study run through WorkflowService while
      * nominate/request-completion run through CommitteeStatusService.
      */
     Route::middleware('screen.permission:committee_candidates,view')
         ->get('committee-candidates', [CommitteeCandidateController::class, 'index']);
-    Route::middleware('screen.permission:committee_candidates,add')
-        ->post('committee-candidates/{requestRecord}/nominate', [CommitteeCandidateController::class, 'nominate']);
     Route::middleware('screen.permission:committee_candidates,edit')->group(function () {
         Route::post('committee-candidates/{requestRecord}/defer', [CommitteeCandidateController::class, 'defer']);
         Route::post('committee-candidates/{requestRecord}/return-to-study', [CommitteeCandidateController::class, 'returnToStudy']);
@@ -615,10 +614,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware(['screen.permission:meetings,edit', 'meeting.member'])->group(function () {
         Route::put('meetings/{meeting}', [MeetingController::class, 'update']);
         Route::post('meetings/{meeting}/send-invitations', [MeetingController::class, 'sendInvitations']);
-        Route::post('meetings/{meeting}/attendees', [MeetingController::class, 'addAttendee']);
+        // Stage 102 — no ad-hoc attendees: a meeting invites exactly the five
+        // seats, so only the roll call is left to record here.
         Route::patch('meetings/{meeting}/attendees/{attendee}', [MeetingController::class, 'markAttendance']);
-        Route::delete('meetings/{meeting}/attendees/{attendee}', [MeetingController::class, 'removeAttendee']);
     });
+    // Stage 102 — each invited member accepts or declines the proposed date
+    // themselves; `meetings,view` is '*', and respond() refuses anyone who is
+    // not on the meeting's own attendee list.
+    Route::middleware(['screen.permission:meetings,view', 'meeting.member'])
+        ->post('meetings/{meeting}/respond', [MeetingController::class, 'respond']);
     Route::middleware(['screen.permission:meetings,delete', 'meeting.member'])
         ->delete('meetings/{meeting}', [MeetingController::class, 'destroy']);
 

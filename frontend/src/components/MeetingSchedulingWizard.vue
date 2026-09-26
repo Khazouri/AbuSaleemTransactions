@@ -2,15 +2,22 @@
 // Stage 30 — meeting scheduling wizard: requests → details → members/invitations
 // → review/agenda → approve/schedule. Everything before the final step lives
 // client-side only; the API calls only fire once the user confirms on step 5
-// (create → add agenda items → invite extras → send invitations), the same
-// one-call-per-REST-action shape the rest of this screen already uses.
-import { computed, ref } from 'vue'
+// (create → add agenda items), the same one-call-per-REST-action shape the rest
+// of this screen already uses.
+//
+// Stage 102 — the مقرر's monthly meeting: requests come only from the
+// committee's pending list, the invitees are exactly the five seats (no
+// extras), and the type, chair and rapporteur are the server's to derive.
+// Creating the meeting already notifies the seats, so there is no separate
+// send-invitations call.
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 
+const SEAT_CODES = ['chair', 'legal', 'hr_director', 'ministry_delegate', 'rapporteur']
+
 const props = defineProps({
   committees: { type: Array, required: true },
-  userOptions: { type: Array, required: true },
 })
 const emit = defineEmits(['scheduled', 'cancel'])
 
@@ -36,24 +43,26 @@ let searchTimer = null
 const selectedRequests = ref([]) // [{id, reference_number, title}]
 const selectedRequestIds = computed(() => new Set(selectedRequests.value.map((r) => r.id)))
 
+async function loadCandidates() {
+  requestSearching.value = true
+  try {
+    const { data } = await api.get('/committee-candidates', {
+      params: { search: requestSearch.value.trim() || undefined, per_page: 50 },
+    })
+    requestResults.value = data.data ?? []
+  } catch {
+    requestResults.value = []
+  } finally {
+    requestSearching.value = false
+  }
+}
+
 function onRequestSearchInput() {
   clearTimeout(searchTimer)
-  if (!requestSearch.value.trim()) {
-    requestResults.value = []
-    return
-  }
-  searchTimer = setTimeout(async () => {
-    requestSearching.value = true
-    try {
-      const { data } = await api.get('/requests', { params: { search: requestSearch.value.trim(), per_page: 5 } })
-      requestResults.value = data.data ?? []
-    } catch {
-      requestResults.value = []
-    } finally {
-      requestSearching.value = false
-    }
-  }, 300)
+  searchTimer = setTimeout(loadCandidates, 300)
 }
+
+onMounted(loadCandidates)
 
 function addRequest(request) {
   if (selectedRequestIds.value.has(request.id)) return
@@ -69,11 +78,8 @@ function removeRequest(request) {
 const details = ref({
   committee_id: '',
   title: '',
-  meeting_type: 'regular',
   scheduled_at: '',
   location: '',
-  chairman_user_id: '',
-  rapporteur_user_id: '',
   expected_duration_minutes: '',
   agenda_deadline: '',
   description: '',
@@ -85,30 +91,12 @@ const selectedCommittee = computed(
 )
 
 const step2Valid = computed(() =>
-  Boolean(details.value.committee_id && details.value.title && details.value.meeting_type && details.value.scheduled_at))
+  Boolean(details.value.committee_id && details.value.title && details.value.scheduled_at))
 
-// --- Step 3: members & invitations -------------------------------------------
+// --- Step 3: the five seats ---------------------------------------------------
 
-const committeeMembers = computed(() => selectedCommittee.value?.members ?? [])
-const extraInviteeId = ref('')
-const extraInvitees = ref([]) // [{id, name}]
-const extraInviteeIds = computed(() => new Set(extraInvitees.value.map((u) => u.id)))
-
-const availableExtraInvitees = computed(() => {
-  const memberIds = new Set(committeeMembers.value.map((m) => m.user.id))
-  return props.userOptions.filter((u) => !memberIds.has(u.id) && !extraInviteeIds.value.has(u.id))
-})
-
-function addExtraInvitee() {
-  if (!extraInviteeId.value) return
-  const user = props.userOptions.find((u) => u.id === Number(extraInviteeId.value))
-  if (user) extraInvitees.value.push(user)
-  extraInviteeId.value = ''
-}
-
-function removeExtraInvitee(user) {
-  extraInvitees.value = extraInvitees.value.filter((u) => u.id !== user.id)
-}
+const seats = computed(() => selectedCommittee.value?.seats ?? {})
+const allSeatsFilled = computed(() => SEAT_CODES.every((seat) => seats.value[seat]))
 
 // --- Step 4: review & agenda order -------------------------------------------
 
@@ -135,11 +123,8 @@ async function submit() {
     const payload = {
       committee_id: details.value.committee_id,
       title: details.value.title,
-      meeting_type: details.value.meeting_type,
       scheduled_at: details.value.scheduled_at,
       location: details.value.location || null,
-      chairman_user_id: details.value.chairman_user_id || null,
-      rapporteur_user_id: details.value.rapporteur_user_id || null,
       expected_duration_minutes: details.value.expected_duration_minutes || null,
       agenda_deadline: details.value.agenda_deadline || null,
       description: details.value.description || null,
@@ -153,16 +138,6 @@ async function submit() {
         await api.post(`/meetings/${meetingId}/agenda`, { request_id: request.id })
       }
     }
-
-    if (extraInvitees.value.length) {
-      submitPhase.value = t('meetings.wizard.invitingAttendees')
-      for (const user of extraInvitees.value) {
-        await api.post(`/meetings/${meetingId}/attendees`, { user_id: user.id })
-      }
-    }
-
-    submitPhase.value = t('meetings.wizard.notifying')
-    await api.post(`/meetings/${meetingId}/send-invitations`)
 
     emit('scheduled', meetingId)
   } catch (e) {
@@ -207,6 +182,7 @@ function goBack() {
 
     <!-- Step 1: candidate requests ------------------------------------------ -->
     <section v-if="step === 1" class="step-body">
+      <p class="hint">{{ t('meetings.wizard.pendingListHint') }}</p>
       <label>
         {{ t('meetings.wizard.searchRequests') }}
         <input
@@ -216,7 +192,7 @@ function goBack() {
           @input="onRequestSearchInput"
         />
       </label>
-      <ul v-if="requestSearch.trim()" class="results">
+      <ul class="results">
         <li v-if="requestSearching" class="state">{{ t('common.loading') }}</li>
         <template v-else>
           <li v-if="!requestResults.length" class="state">{{ t('meetings.wizard.noResults') }}</li>
@@ -267,14 +243,6 @@ function goBack() {
           <small v-if="detailErrors.title" class="field-error">{{ t('meetings.meetingTitle') }}</small>
         </label>
         <label>
-          {{ t('meetings.meetingType') }} *
-          <select v-model="details.meeting_type" required>
-            <option value="regular">{{ t('meetings.typeRegular') }}</option>
-            <option value="extraordinary">{{ t('meetings.typeExtraordinary') }}</option>
-            <option value="emergency">{{ t('meetings.typeEmergency') }}</option>
-          </select>
-        </label>
-        <label>
           {{ t('meetings.scheduledAt') }} *
           <input v-model="details.scheduled_at" type="datetime-local" required />
           <small v-if="detailErrors.scheduled_at" class="field-error">{{ t('meetings.scheduledAt') }}</small>
@@ -282,20 +250,6 @@ function goBack() {
         <label>
           {{ t('meetings.location') }}
           <input v-model="details.location" type="text" />
-        </label>
-        <label>
-          {{ t('meetings.chairman') }}
-          <select v-model="details.chairman_user_id">
-            <option value="">{{ t('meetings.chooseUserOptional') }}</option>
-            <option v-for="user in userOptions" :key="user.id" :value="user.id">{{ user.name }}</option>
-          </select>
-        </label>
-        <label>
-          {{ t('meetings.rapporteur') }}
-          <select v-model="details.rapporteur_user_id">
-            <option value="">{{ t('meetings.chooseUserOptional') }}</option>
-            <option v-for="user in userOptions" :key="user.id" :value="user.id">{{ user.name }}</option>
-          </select>
         </label>
         <label>
           {{ t('meetings.expectedDuration') }}
@@ -316,29 +270,16 @@ function goBack() {
     <section v-else-if="step === 3" class="step-body">
       <h4>{{ t('meetings.wizard.committeeMembers') }}</h4>
       <p v-if="!selectedCommittee" class="state">{{ t('meetings.wizard.noCommitteeSelected') }}</p>
-      <p v-else-if="!committeeMembers.length" class="state">{{ t('committees.noMembers') }}</p>
-      <ul v-else class="selected">
-        <li v-for="member in committeeMembers" :key="member.id">
-          <span>{{ member.user.name }}</span>
-          <span v-if="member.is_head" class="pill">{{ t('committees.head') }}</span>
-        </li>
-      </ul>
-
-      <h4>{{ t('meetings.wizard.extraInvitees') }}</h4>
-      <p v-if="!extraInvitees.length" class="state">{{ t('meetings.wizard.noExtraInvitees') }}</p>
-      <ul v-else class="selected">
-        <li v-for="user in extraInvitees" :key="user.id">
-          <span>{{ user.name }}</span>
-          <button class="ghost danger" type="button" @click="removeExtraInvitee(user)">{{ t('meetings.wizard.removeInvitee') }}</button>
-        </li>
-      </ul>
-      <form class="add-member" @submit.prevent="addExtraInvitee">
-        <select v-model="extraInviteeId" :aria-label="t('meetings.wizard.chooseInvitee')">
-          <option value="">{{ t('meetings.wizard.chooseInvitee') }}</option>
-          <option v-for="user in availableExtraInvitees" :key="user.id" :value="user.id">{{ user.name }}</option>
-        </select>
-        <button class="ghost" type="submit" :disabled="!extraInviteeId">{{ t('meetings.wizard.addInvitee') }}</button>
-      </form>
+      <template v-else>
+        <ul class="selected">
+          <li v-for="seat in SEAT_CODES" :key="seat">
+            <span class="pill">{{ t(`committees.seats.${seat}`) }}</span>
+            <span>{{ seats[seat]?.user?.name ?? t('committees.seats.empty') }}</span>
+          </li>
+        </ul>
+        <p class="hint">{{ t('meetings.wizard.acceptanceHint') }}</p>
+        <p v-if="!allSeatsFilled" class="alert warning">{{ t('meetings.wizard.seatsIncomplete') }}</p>
+      </template>
     </section>
 
     <!-- Step 4: review & agenda order -------------------------------------------- -->
@@ -347,7 +288,6 @@ function goBack() {
       <div class="summary">
         <div><span>{{ t('meetings.committee') }}</span><strong>{{ name(selectedCommittee) }}</strong></div>
         <div><span>{{ t('meetings.meetingTitle') }}</span><strong>{{ details.title }}</strong></div>
-        <div><span>{{ t('meetings.meetingType') }}</span><strong>{{ t(`meetings.type${details.meeting_type.charAt(0).toUpperCase()}${details.meeting_type.slice(1)}`) }}</strong></div>
         <div><span>{{ t('meetings.scheduledAt') }}</span><strong class="ltr">{{ details.scheduled_at || t('common.none') }}</strong></div>
         <div v-if="details.location"><span>{{ t('meetings.location') }}</span><strong>{{ details.location }}</strong></div>
       </div>
@@ -376,7 +316,6 @@ function goBack() {
       </div>
       <p class="counts">
         {{ t('meetings.wizard.selectedRequests') }}: {{ selectedRequests.length }}
-        · {{ t('meetings.wizard.extraInvitees') }}: {{ extraInvitees.length }}
       </p>
       <p v-if="submitError" class="alert warning">{{ submitError }}</p>
       <p v-if="submitting" class="state">{{ submitPhase }}</p>
@@ -389,7 +328,7 @@ function goBack() {
       <button v-if="step < TOTAL_STEPS" class="primary" type="button" @click="goNext">
         {{ t('meetings.wizard.next') }}
       </button>
-      <button v-else class="primary" type="button" :disabled="submitting" @click="submit">
+      <button v-else class="primary" type="button" :disabled="submitting || !allSeatsFilled" @click="submit">
         {{ submitting ? t('meetings.wizard.scheduling') : t('meetings.wizard.schedule') }}
       </button>
       <button class="ghost" type="button" :disabled="submitting" @click="emit('cancel')">
@@ -512,11 +451,10 @@ textarea:focus {
   font-size: var(--text-sm);
 }
 
-.add-member {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+.hint {
+  margin: 0 0 var(--space-2);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
 }
 .ltr {
   direction: ltr;

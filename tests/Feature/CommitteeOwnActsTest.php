@@ -83,21 +83,28 @@ class CommitteeOwnActsTest extends TestCase
             ->assertOk();
     }
 
-    public function test_the_adopted_agenda_is_fixed_except_for_an_emerging_item(): void
+    /**
+     * Stage 102 removed the `emerging` exception with the type itself: once
+     * adopted, nothing is added — not even a request from the pending list.
+     */
+    public function test_the_adopted_agenda_is_fixed(): void
     {
         $this->seed(DatabaseSeeder::class);
         [$head, , $meeting] = $this->sitting();
         $item = $this->agendaItem($meeting);
         $meeting->update(['agenda_adopted_at' => now()]);
+        $candidate = $this->agendaItem($meeting)->request;
+        MeetingRequest::query()->where('request_id', $candidate->id)->delete();
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", ['item_type' => 'administrative', 'subject' => 'بند إداري'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $candidate->id])
             ->assertStatus(422)
             ->assertJsonPath('message', MeetingController::AGENDA_ALREADY_ADOPTED);
 
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['item_type' => 'emerging', 'subject' => 'موضوع مستجد'])
-            ->assertCreated();
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('item_type');
 
         $this->actingAs($head, 'sanctum')
             ->deleteJson("/api/meetings/{$meeting->id}/agenda/{$item->id}")
@@ -166,7 +173,7 @@ class CommitteeOwnActsTest extends TestCase
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/committees/{$meeting->committee_id}/members", ['user_id' => $member->id, 'seat' => 'legal'])
             ->assertStatus(422)
-            ->assertJsonPath('errors.user_id.0', 'مقعد العضو القانوني مقصور على من يحمل دور العضو القانوني.');
+            ->assertJsonPath('errors.user_id.0', 'هذا المقعد مقصور على من يحمل دور «العضو القانوني».');
 
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/committees/{$meeting->committee_id}/members", ['user_id' => $legal->id, 'seat' => 'legal'])

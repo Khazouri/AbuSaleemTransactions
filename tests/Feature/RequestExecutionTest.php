@@ -234,7 +234,7 @@ class RequestExecutionTest extends TestCase
         $this->actingAs($this->userWithRole('R02'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/reopen", [
                 'reason_code' => 'material_error_correction',
-                'target_stage_id' => WorkflowStage::where('code', 'reviewer_review')->value('id'),
+                'target_stage_id' => WorkflowStage::where('code', 'requirements_check')->value('id'),
             ])
             ->assertOk();
 

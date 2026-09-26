@@ -30,7 +30,7 @@ class RequestSlaTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         Carbon::setTestNow('2026-01-20 08:00:00');
 
-        $open = $this->request('reviewer_review', 'in_review', '2026-01-01 10:00:00');
+        $open = $this->request('requirements_check', 'in_review', '2026-01-01 10:00:00');
         $closed = $this->request('final_approval_archiving', 'archived', '2026-01-01 10:00:00');
 
         $this->artisan('requests:flag-overdue')
@@ -51,7 +51,7 @@ class RequestSlaTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         Carbon::setTestNow('2026-01-20 08:00:00');
-        $requestRecord = $this->request('reviewer_review', 'in_review', '2026-01-01 10:00:00');
+        $requestRecord = $this->request('requirements_check', 'in_review', '2026-01-01 10:00:00');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
         $service = app(WorkflowService::class);
 

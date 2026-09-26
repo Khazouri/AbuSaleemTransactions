@@ -890,13 +890,13 @@
     "rapporteurVotes": "The rapporteur votes too (per the committee's formation decision)",
     "seats": {
       "label": "Seat",
-      "none": "— No fixed seat —",
       "empty": "Vacant",
       "chair": "Chair",
       "legal": "Legal affairs member",
       "hr_director": "HR director member",
       "ministry_delegate": "Ministry of Local Governance delegate",
-      "rapporteur": "Committee rapporteur"
+      "rapporteur": "Committee rapporteur",
+      "choose": "— Choose a seat —"
     },
     "card": {
       "title": "Committee identity card",
@@ -953,15 +953,10 @@
     "meetingNumber": "Meeting number",
     "meetingNumberAuto": "Assigned automatically from the unified numbering scheme when the meeting is created.",
     "meetingTitle": "Meeting title",
-    "meetingType": "Meeting type",
-    "typeRegular": "Regular",
-    "typeExtraordinary": "Extraordinary",
-    "typeEmergency": "Emergency",
     "scheduledAt": "Date & time",
     "location": "Location",
     "chairman": "Chairman",
     "rapporteur": "Rapporteur",
-    "chooseUserOptional": "— None —",
     "expectedDuration": "Expected duration (minutes)",
     "agendaDeadline": "Agenda submission deadline",
     "description": "Description",
@@ -988,8 +983,6 @@
       "moveDown": "Move down",
       "noResults": "No matching requests.",
       "openBuilder": "Open agenda builder",
-      "subject": "Subject",
-      "department": "Department",
       "estimatedMinutes": "Estimated time (minutes)",
       "minutesShort": "min",
       "itemType": {
@@ -1059,10 +1052,7 @@
     "attendance": {
       "title": "Attendees",
       "empty": "No attendees yet.",
-      "add": "Add attendee",
-      "chooseUser": "— Choose a user —",
       "attended": "Attended",
-      "remove": "Remove",
       "invitation": {
         "pending": "Awaiting response",
         "confirmed": "Confirmed",
@@ -1089,11 +1079,6 @@
       "removeRequest": "Remove",
       "committeeMembers": "Committee members (invited automatically)",
       "noCommitteeSelected": "Choose the committee first to see its members.",
-      "extraInvitees": "Extra invitees",
-      "chooseInvitee": "— Choose a user —",
-      "addInvitee": "Add",
-      "removeInvitee": "Remove",
-      "noExtraInvitees": "No extra invitees.",
       "reviewDetails": "Details summary",
       "reviewAgenda": "Agenda order",
       "reviewMembers": "Members & invitations",
@@ -1101,9 +1086,21 @@
       "scheduling": "Scheduling…",
       "creatingMeeting": "Creating the meeting…",
       "addingAgenda": "Adding agenda items…",
-      "invitingAttendees": "Inviting extra attendees…",
-      "notifying": "Sending invitations…",
-      "success": "The meeting was scheduled successfully."
+      "success": "The meeting was scheduled successfully.",
+      "pendingListHint": "These are the committee's pending requests: approved by the rapporteur and not yet on a meeting.",
+      "acceptanceHint": "The committee's five members are invited automatically; the meeting is approved only once each of them accepts the date.",
+      "seatsIncomplete": "A meeting can't be scheduled until all five committee seats are filled."
+    },
+    "statusPendingConfirmation": "Awaiting date confirmation",
+    "changeStatus": "Change status…",
+    "rsvp": {
+      "prompt": "You are invited to this meeting on {date}. Does the date suit you?",
+      "accept": "Accept date",
+      "decline": "Decline date",
+      "awaiting": "The meeting is awaiting every member's acceptance of its date.",
+      "newDate": "New proposed date",
+      "proposeDate": "Propose date",
+      "proposeHint": "Changing the date puts the meeting back to awaiting confirmation, and every member is asked to accept it again."
     }
   },
   "decisions": {
@@ -1326,7 +1323,6 @@
       "empty": "No candidate requests right now.",
       "actions": {
         "openFile": "Open file",
-        "nominate": "Add to committee list",
         "defer": "Defer",
         "returnToStudy": "Return to study",
         "requestCompletion": "Request completion"
@@ -2511,7 +2507,8 @@
       "candidate": "Committee candidates",
       "legal_review": "Awaiting legal review",
       "minutes_signature": "Minutes awaiting your signature",
-      "completion": "My requests needing completion"
+      "completion": "My requests needing completion",
+      "meeting_invitation": "Meeting dates awaiting your answer"
     }
   }
 }

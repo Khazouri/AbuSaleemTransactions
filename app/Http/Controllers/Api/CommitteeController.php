@@ -134,9 +134,9 @@ class CommitteeController extends Controller
 
         $data = $request->validated();
 
-        if (($data['seat'] ?? null) === 'chair') {
-            $data['is_head'] = true;
-        }
+        // Stage 102 — every member now holds a seat, so the chair seat alone
+        // decides who is head (DecisionController::chairVote()'s fallback).
+        $data['is_head'] = $data['seat'] === 'chair';
 
         $member = DB::transaction(function () use ($committee, $data) {
             if ($data['is_head'] ?? false) {

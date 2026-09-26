@@ -46,17 +46,30 @@ class CommitteeCandidatesDashboardTest extends TestCase
         $this->assertFalse($ids->contains($alreadyApproved->id));
     }
 
-    public function test_nominate_moves_a_candidate_into_the_committee_pool(): void
+    /**
+     * Stage 102 replaced the nominate test: nomination is no longer a step.
+     * What lands a file on the list now is the مقرر's approve (`registered`),
+     * and a deferral puts it straight back for the next monthly meeting.
+     */
+    public function test_a_registered_or_deferred_request_is_on_the_pending_list(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $head = $this->userWithRole('R03');
-        $requestRecord = $this->committeeRequest('in_meeting');
+        $rapporteur = $this->userWithRole('R02');
+        $registered = $this->committeeRequest('registered');
+        $deferred = $this->committeeRequest('deferred');
 
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/committee-candidates/{$requestRecord->id}/nominate")
+        $ids = collect($this->actingAs($rapporteur, 'sanctum')
+            ->getJson('/api/committee-candidates')
             ->assertOk()
-            ->assertJsonPath('data.status.code', 'nominated_for_committee');
+            ->json('data'))->pluck('id');
+
+        $this->assertTrue($ids->contains($registered->id));
+        $this->assertTrue($ids->contains($deferred->id));
+
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson("/api/committee-candidates/{$registered->id}/nominate")
+            ->assertNotFound();
     }
 
     public function test_index_includes_employee_attachment_count_and_proposed_meeting(): void
@@ -96,11 +109,19 @@ class CommitteeCandidatesDashboardTest extends TestCase
             ->getJson('/api/committee-candidates')
             ->assertOk();
 
+        // Stage 102 — a file picked for a meeting that has not yet decided
+        // it leaves the pending list; cancelling that meeting returns it.
+        $this->assertNull(collect($response->json('data'))->firstWhere('id', $requestRecord->id));
+
+        $meeting->update(['status' => 'cancelled']);
+        $response = $this->actingAs($head, 'sanctum')
+            ->getJson('/api/committee-candidates')
+            ->assertOk();
+
         $row = collect($response->json('data'))->firstWhere('id', $requestRecord->id);
         $this->assertSame($employee->id, $row['created_by']['id']);
         $this->assertSame(1, $row['attachments_count']);
         $this->assertSame($meeting->id, $row['proposed_meeting']['id']);
-        $this->assertSame('high', $row['proposed_meeting']['priority']);
     }
 
     /**
@@ -118,22 +139,12 @@ class CommitteeCandidatesDashboardTest extends TestCase
 
         $member = $this->userWithRole('R04');
         $rapporteur = $this->userWithRole('R02');
-        $toNominate = $this->committeeRequest('in_meeting');
         $toDefer = $this->committeeRequest('in_meeting');
         $toComplete = $this->committeeRequest('in_meeting');
 
         $this->actingAs($member, 'sanctum')
-            ->postJson("/api/committee-candidates/{$toNominate->id}/nominate")
-            ->assertStatus(403);
-
-        $this->actingAs($member, 'sanctum')
             ->postJson("/api/committee-candidates/{$toComplete->id}/request-completion", ['comment' => 'سبب'])
             ->assertStatus(403);
-
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committee-candidates/{$toNominate->id}/nominate")
-            ->assertOk()
-            ->assertJsonPath('data.status.code', 'nominated_for_committee');
 
         // طلب استكمال النواقص is المقرر's own act — Art. 15 (أ) أولًا 6 and
         // Art. 16 (أ) both name it — so the widened `edit` tier really does
@@ -175,13 +186,14 @@ class CommitteeCandidatesDashboardTest extends TestCase
         $this->assertSame($committeeStageId, $requestRecord->refresh()->current_stage_id);
     }
 
-    public function test_return_to_study_sends_the_request_back_to_the_observations_stage(): void
+    /** Stage 102 — back to the مقرر's requirements_check; observations is off the path. */
+    public function test_return_to_study_sends_the_request_back_to_the_rapporteurs_check(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $head = $this->userWithRole('R03');
         $requestRecord = $this->committeeRequest('in_meeting');
-        $observationsStageId = WorkflowStage::where('code', 'observations')->value('id');
+        $studyStageId = WorkflowStage::where('code', 'requirements_check')->value('id');
 
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/committee-candidates/{$requestRecord->id}/return-to-study")
@@ -192,9 +204,9 @@ class CommitteeCandidatesDashboardTest extends TestCase
             ->postJson("/api/committee-candidates/{$requestRecord->id}/return-to-study", ['comment' => 'ينقص مرفق مالي'])
             ->assertOk()
             ->assertJsonPath('data.status.code', 'returned')
-            ->assertJsonPath('data.current_stage.code', 'observations');
+            ->assertJsonPath('data.current_stage.code', 'requirements_check');
 
-        $this->assertSame($observationsStageId, $requestRecord->refresh()->current_stage_id);
+        $this->assertSame($studyStageId, $requestRecord->refresh()->current_stage_id);
     }
 
     public function test_request_completion_requires_a_comment_and_works_before_nomination(): void

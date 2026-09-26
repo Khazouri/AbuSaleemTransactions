@@ -87,7 +87,7 @@ list — served by `GET /api/dev/test-users`, which 404s in every other environm
 | 13 | `r09.secretary@abusaleem.test` | R09 Committee Secretary | CMT | **Stage 96 — a retained login with no seeded duty.** Everything it held went back to R02 |
 | 14 | `r10.diwan@abusaleem.test` | R10 Diwan Deputy | ABS | **Stage 96 — a retained login with no seeded duty.** The Diwan route is retired |
 | 15 | `r11.legal@abusaleem.test` | R11 Legal Officer | CMT | The only role that may record [D] Art. 21's pre-meeting legal review |
-| 16 | `r12.hr@abusaleem.test` | R12 HR Manager | HR | Registration on the HR route (replaces r05.manager@ there); a bounded, non-controlling reach into stage 7 (`observations`) |
+| 16 | `r12.hr@abusaleem.test` | R12 HR Manager | HR | Registration on the HR route (replaces r05.manager@ there); a bounded, non-controlling reach into the study at stages 2 and 5; the `hr_director` committee seat (votes) |
 
 > **The manager link matters.** `r01.employee@`'s `manager_id` points at `r02.reviewer@`. Stage 2
 > (`مراجعة الطلب من المدير المباشر`) and stage 3 (routing) are gated on *"the actor is this
@@ -144,34 +144,32 @@ when it appears at step 5 — later sections call it **REQ-A**.
 | 2 | R02 **as manager** | Request detail | `forward` | Stage 3 `إحالة الطلب لأحد المسارات الإدارية` |
 | 3 | R02 **as manager** | Request detail | `route_to_hr` | Stage 4 `الاستلام والتسجيل`, status `موجّه إلى الموارد البشرية` |
 | 4 | R12 HR manager | Request detail | `register` | Stage 5 `فحص استيفاء المتطلبات`, status `قيد المراجعة` — delivered to be checked, **no reference number yet** |
-| 5 | R02 reviewer | Request detail | Record the jurisdiction test **and** the intake gate, then `approve` with a signature | Stage 6 `مراجعة المقرر`, status `تم التسجيل` — **and the `PM-COM/YYYY/NNNN` reference number is granted here, not at intake** |
-| 6 | R02 reviewer | Request detail | `forward` | Stage 7 `إبداء الملاحظات` |
-| 7 | R02 reviewer | Request detail | `forward` | Stage 8 `تحويل الطلب للجنة`, status `جاهزة` |
-| 8 | R02 reviewer | Request detail | `forward` | Stage 9 `استلام الطلب من اللجنة`, status `في الاجتماع` — Stage 96 returned this hop to المقرر |
-| 9 | R02 reviewer | المراجعة القانونية | Send the file to legal review | Status `تحت المراجعة القانونية` |
-| 10 | **R11 legal** | المراجعة القانونية | Record the review, verdict `سليم قانونيًا وجاهز للعرض` | Status `جاهزة` |
-| 11 | R02 or R03 | الطلبات المرشحة | Nominate | Status `مرشح للجنة` |
-| 12 | R03 head | الاجتماعات | Create a committee (R03 as head + the three R04 members), schedule a meeting | — |
-| 13 | R02 or R03 | جدول الأعمال | Add REQ-A to the agenda | — |
-| 14 | R03 head | جاهزية الاجتماع | Convene | — |
-| 15 | R03 + 3 × R04 | مباشرة الاجتماع | Mark attendance, complete [D] Art. 85's study sequence, cast votes | — |
-| 16 | R03 head | مباشرة الاجتماع | Record the decision (`موافقة`) with all four [D] Appendix 27 parts | Stage 10 `اعتماد (حسب الصلاحيات)`, status `بانتظار اعتماد البلدية` |
-| 17 | R03 + attendees | المحاضر | Generate, review/approve, then every present attendee signs | Minutes `معتمد` |
-| 18 | R05 manager | اعتماد مدير الإدارة | `approve` with a signature | Stage 11 `وزارة الحكم المحلي`, status `بانتظار الاعتماد المركزي` |
-| 19 | R06 ministry | اعتماد وزارة الحكم المحلي | `approve` with a signature | Stage 12 `الاعتماد النهائي والأرشفة`, status `معتمدة نهائياً` |
-| 20 | R02 or R03 | Request detail | Record [D] Art. 103's soundness checklist | — |
-| 21 | R07 director | الاعتماد النهائي | `approve` with a signature | Status `قيد التنفيذ` |
-| 22 | R02 or R03 | المخرجات | Record execution and attach [D] Appendix 70 evidence | Status `منفذة` |
-| 23 | R02 or R03 | Request detail / المخرجات | Close — [D] Appendix 47's twelve-point audit | Status `مكتمل ومغلق` |
+| 5 | R02 reviewer | Request detail | Record the jurisdiction test **and** the intake gate, then `approve` | Stage 9 `استلام الطلب من اللجنة`, status `تم التسجيل` — **the `PM-COM/YYYY/NNNN` reference number is granted here**, and REQ-A is now on the committee's pending list (Stage 102: stages 6–8 are gone) |
+| 6 | R02 reviewer | الاجتماعات | Create the committee and fill its five seats: chair R03, legal R11, HR R12, civil-service delegate R04, rapporteur R02 | — |
+| 7 | R02 reviewer | المراجعة القانونية | Send the file to legal review | Status `تحت المراجعة القانونية` |
+| 8 | **R11 legal** | المراجعة القانونية | Record the review, verdict `سليم قانونيًا وجاهز للعرض` | Status `جاهزة` |
+| 9 | R02 reviewer | الاجتماعات | Schedule this month's meeting, picking REQ-A from the pending list | Meeting `بانتظار تأكيد الموعد`; REQ-A leaves the pending list |
+| 10 | R03, R11, R12, R04 | Meeting page | Each accepts the date themselves | Meeting `مجدول` once the fourth accepts |
+| 11 | R03 head | جدول الأعمال | Adopt the agenda | — |
+| 12 | R03 head | جاهزية الاجتماع | Convene | — |
+| 13 | R03 + R11 + R12 + R04 | مباشرة الاجتماع | Mark attendance, complete [D] Art. 85's study sequence, cast votes | — |
+| 14 | R03 head | مباشرة الاجتماع | Record the decision (`موافقة`) with all four [D] Appendix 27 parts | Stage 10 `اعتماد (حسب الصلاحيات)`, status `بانتظار اعتماد البلدية` |
+| 15 | R03 + attendees | المحاضر | Generate, review/approve, then every present attendee signs | Minutes `معتمد` |
+| 16 | R05 manager | اعتماد مدير الإدارة | `approve` | Stage 11 `وزارة الحكم المحلي`, status `بانتظار الاعتماد المركزي` |
+| 17 | R06 ministry | اعتماد وزارة الحكم المحلي | `approve` | Stage 12 `الاعتماد النهائي والأرشفة`, status `معتمدة نهائياً` |
+| 18 | R02 or R03 | Request detail | Record [D] Art. 103's soundness checklist | — |
+| 19 | R07 director | الاعتماد النهائي | `approve` | Status `قيد التنفيذ` |
+| 20 | R02 or R03 | المخرجات | Record execution and attach [D] Appendix 70 evidence | Status `منفذة` |
+| 21 | R02 or R03 | Request detail / المخرجات | Close — [D] Appendix 47's twelve-point audit | Status `مكتمل ومغلق` |
 
 - [ ] The relay completes and REQ-A reaches `مكتمل ومغلق`.
 - [ ] **No step was performed by R08.** If you had to fall back to the admin to get past a step,
       that step is a defect — log it in §15 naming the role that should have been able to act.
-- [ ] R01 received in-app notifications at several of these points, but not all 23: [D] Art. 101
+- [ ] R01 received in-app notifications at several of these points, but not all 21: [D] Art. 101
       names twelve notifying moments, and the purely internal steps are deliberately silent.
 
 **Branch worth running once.** Repeat the relay with a request whose type has a `decision_grade`
-**below** its type's threshold. At step 18 the file must skip stage 11 entirely and land straight on
+**below** its type's threshold. At step 16 the file must skip stage 11 entirely and land straight on
 stage 12 with status `معتمدة نهائياً`, and R06 must then see nothing for it in their queue. This is
 the ministry-bypass branch, and it is easy to break without noticing.
 
@@ -361,11 +359,12 @@ Sign in as `r02.reviewer@abusaleem.test`.
 - [ ] `reject_formally` (self-loop) requires a reason → status `مرفوضة`.
 - [ ] Neither mints a reference number.
 
-**B4 — Stages 6 and 7.**
+**B4 — Stages 6 to 8 (off the path since Stage 102).**
 
-- [ ] Stage 6: `forward` → stage 7. `reject_review` (reason required) → back to stage 5.
-- [ ] Stage 7: `forward` → stage 8, status `جاهزة`. `request_edit` (reason required) → back to
-      stage 6.
+- [ ] Stage 5's `approve` lands the file directly on stage 9 (`استلام الطلب من اللجنة`), status
+      `تم التسجيل`, and it appears on الطلبات المرشحة — the committee's pending list.
+- [ ] No request can reach stages 6, 7 or 8: `reject_review`, `request_edit` and the three `forward`
+      hops no longer exist, and the committee's `return_to_study` lands on stage 5.
 - [ ] `cancel` is available at every open stage they own and always requires a reason.
 
 **B5 — Dispatch to legal review ([D] Art. 21).**
@@ -993,7 +992,7 @@ Sign in as `r09.secretary@abusaleem.test`.
 - [ ] **Register any file at stage 4**, on any route → refused. The single `register` row is R12's
       and is status-gated on `موجّه إلى الموارد البشرية`.
 - [ ] **`cancel` at stage 4** → refused; that row is R12's too.
-- [ ] **`forward` out of stage 7 or stage 8** → refused. Both hops are R02's again.
+- [ ] **`approve` at stage 5** → refused. The hop onto the committee's pending list is R02's.
 - [ ] **Dispatch a file to legal review** → **403** (`legal_review,edit` is R02 only) — and the
       screen is not even reachable, which is the stronger check.
 - [ ] **Nominate, defer, return-to-study or request-completion** on a candidate → **403**.
@@ -1126,8 +1125,8 @@ Sign in as `r12.hr@abusaleem.test`.
 - [ ] **Register an HR-routed file** (stage 4, status `موجّه إلى الموارد البشرية`) → stage 5, and
       this is what mints the request's رقم إشاري (see Appendix D) — it replaces r05.manager@ here.
 - [ ] `cancel` at stage 4 with a reason.
-- [ ] **Open a request sitting at stage 7 (`observations`)** that they did not create and hold no
-      registration role on — a reach no other non-committee role has.
+- [ ] **Open a request sitting at stage 5 (`فحص استيفاء المتطلبات`)** that they did not create and
+      hold no registration role on — the study reach (Stage 102 moved it off stage 7, which is gone).
 - [ ] **Add a note** on that same request (`notes_attachments,add`).
 - [ ] **Open and annotate an unregistered file at stage 2 (`مراجعة المدير المباشر`) and stage 5
       (`فحص استيفاء المتطلبات`)** — Stage 101, Appendix 6 rows 2 and 4 («مشارك»). Registered files
@@ -1147,9 +1146,9 @@ Sign in as `r12.hr@abusaleem.test`.
 
 - [ ] **Register a file routed to the Diwan or to the committee secretary** → refused. Run this
       explicitly: it is the clearest proof the routing choice is enforced and not decorative.
-- [ ] **`forward`, `request_edit`, or `cancel` a request at `observations`** → refused for all
-      three. Co-ownership of the study is read-and-contribute, never stage control.
-- [ ] **Open an unregistered request** at a stage outside stages 2, 5 and 7 (for example
+- [ ] **`approve`, `return_missing_docs`, or `cancel` a request at `requirements_check`** →
+      refused for all three. Co-ownership of the study is read-and-contribute, never stage control.
+- [ ] **Open an unregistered request** at a stage outside stages 2 and 5 (for example
       `التوجيه الإداري`, stage 3) that they are not the registrar or creator for → **404**. The reach
       is bounded to the stages Appendix 6 names, not "anywhere before the قيد".
 - [ ] File a request → **403**.
@@ -1364,9 +1363,9 @@ route", and neither is expressible as a single role.
 | 3 | `administrative_routing` | إحالة الطلب لأحد المسارات الإدارية | the submitter's manager | 2 |
 | 4 | `receive_and_register` | الاستلام والتسجيل | R12 (Stage 96 retired the other two routes) | 3 |
 | 5 | `requirements_check` | فحص استيفاء المتطلبات | R02 | 2 |
-| 6 | `reviewer_review` | مراجعة المقرر وفق اللوائح | R02 | 3 |
-| 7 | `observations` | إبداء الملاحظات (إن وجدت) | R02 (R12 co-owns, non-controlling) | 2 |
-| 8 | `forward_to_committee` | تحويل الطلب للجنة القائمة | R02 | — |
+| 6 | `reviewer_review` | مراجعة المقرر وفق اللوائح — off the path (Stage 102) | — | — |
+| 7 | `observations` | إبداء الملاحظات (إن وجدت) — off the path (Stage 102) | — | — |
+| 8 | `forward_to_committee` | تحويل الطلب للجنة القائمة — off the path (Stage 102) | — | — |
 | 9 | `receive_from_committee` | استلام الطلب من اللجنة | R03 | 3 |
 | 10 | `approval_by_authority` | اعتماد (حسب الصلاحيات) | R05 | 2 |
 | 11 | `local_governance_ministry` | وزارة الحكم المحلي | R06 | — |

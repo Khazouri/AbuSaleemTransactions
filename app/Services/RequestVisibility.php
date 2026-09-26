@@ -112,8 +112,10 @@ class RequestVisibility
         // ConsultationLayerTest pins that so a change to the execution grant
         // cannot quietly drop HR out of those rows. Bounded to these stages, not
         // "anywhere before the قيد" — administrative_routing is row 1's مطلع.
+        // Stage 102 dropped `observations`: no rule reaches it any more, and a
+        // registered file is already in R12's sight through $isCloser.
         $hrStudyStageIds = WorkflowStage::query()
-            ->whereIn('code', ['direct_manager_review', 'requirements_check', 'observations'])
+            ->whereIn('code', ['direct_manager_review', 'requirements_check'])
             ->pluck('id');
         $isHrStudyCoOwner = $hrStudyStageIds->isNotEmpty() && $actor->roles()->where('code', 'R12')->exists();
         // Stage 98 — [D] Appendix 6 row 3 makes الرئيس المباشر «مشارك» in

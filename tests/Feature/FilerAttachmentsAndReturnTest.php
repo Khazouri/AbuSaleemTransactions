@@ -81,9 +81,10 @@ class FilerAttachmentsAndReturnTest extends TestCase
         $filer = $this->userWithRole('R01');
         $hr = $this->userWithRole('R12');
 
-        // At observations HR co-owns the study (Stage 87) and can open the
-        // file, but the service-file exception is registration's alone.
-        $requestRecord = $this->requestAt('observations', 'in_review', $filer);
+        // At requirements_check HR co-owns the study (Stages 87/101; Stage 102
+        // took observations off the path) and can open the file, but the
+        // service-file exception is registration's alone.
+        $requestRecord = $this->requestAt('requirements_check', 'in_review', $filer);
 
         $this->upload($hr, $requestRecord, $this->serviceFileKey($requestRecord))->assertForbidden();
     }

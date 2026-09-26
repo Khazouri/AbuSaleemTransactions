@@ -171,7 +171,11 @@ class ScreenRolePermissionSeeder extends Seeder
         // This screen also carries committee CRUD (see routes/api.php), so
         // R02 can maintain the committee record too — Appendix 45 has no
         // committee-formation entry, so that coupling is recorded, not split.
-        'meetings' => ['view' => '*', 'add' => ['R02', 'R03'], 'edit' => ['R02', 'R03'], 'print' => '*'],
+        // Stage 102 — `add` is R02 ALONE: in the user's process the مقرر
+        // schedules the monthly meeting and invites the seats; the chair's
+        // part is accepting the date like every other member. `edit` keeps
+        // R03, since closing the sitting rides MeetingController::update().
+        'meetings' => ['view' => '*', 'add' => ['R02'], 'edit' => ['R02', 'R03'], 'print' => '*'],
         // Stage 84 — R02 in, R04 out. Appendix 45 gives المقرر إدارة جدول
         // الأعمال, and Art. 15 (أ) أولًا 10-11 give them إعداد مشروع جدول
         // الأعمال and تجهيز ملفات العرض ومذكرات العرض — the `add` tier here is
@@ -196,7 +200,10 @@ class ScreenRolePermissionSeeder extends Seeder
         // Stage 99 — R11 joins `add`: Appendix 6 row 9 makes العضو القانوني
         // «عضو» of the deliberation. Still bounded by the seat, since the
         // membership gate zeroes this screen for anyone not seated.
-        'meeting_live' => ['view' => '*', 'add' => ['R02', 'R03', 'R04', 'R11'], 'edit' => ['R03'], 'print' => '*'],
+        // Stage 102 — R12 joins `add`, `decisions,add` and `meeting_minutes,add`:
+        // مدير إدارة الموارد البشرية holds the `hr_director` seat (Art. 10 (أ) 3),
+        // a voting member who deliberates, votes and signs like the others.
+        'meeting_live' => ['view' => '*', 'add' => ['R02', 'R03', 'R04', 'R11', 'R12'], 'edit' => ['R03'], 'print' => '*'],
         // Stage 84 — `export` joins R06/R07 (below).
         //
         // Stage 97 — `approve` (recording the tallied result) is R03 ALONE
@@ -223,7 +230,7 @@ class ScreenRolePermissionSeeder extends Seeder
         // Stage 99 — R11 joins `add` (cast a vote): Appendix 6 row 10,
         // «مشارك كعضو». DecisionEligibility still requires the seat and the
         // attendance, never a role, so this grant is the whole change.
-        'decisions' => ['view' => '*', 'add' => ['R03', 'R04', 'R11'], 'approve' => ['R03'], 'print' => '*', 'export' => ['R06', 'R07']],
+        'decisions' => ['view' => '*', 'add' => ['R03', 'R04', 'R11', 'R12'], 'approve' => ['R03'], 'print' => '*', 'export' => ['R06', 'R07']],
         // Stage 36: `add` covers both generating a draft and casting one's
         // own signature (mirrors `decisions,add` covering vote-casting);
         // `approve` is the head's review decision, same split as `decisions`.
@@ -236,7 +243,7 @@ class ScreenRolePermissionSeeder extends Seeder
         // legal member holds a signature row, and without the grant the محضر
         // could never finish. `edit` gated no route until now; it becomes
         // Appendix 6 row 11's «مراجعة عند الحاجة» (the legal note) and is R11's.
-        'meeting_minutes' => ['view' => '*', 'add' => ['R02', 'R03', 'R04', 'R11'], 'approve' => ['R03'], 'edit' => ['R11'], 'print' => '*'],
+        'meeting_minutes' => ['view' => '*', 'add' => ['R02', 'R03', 'R04', 'R11', 'R12'], 'approve' => ['R03'], 'edit' => ['R11'], 'print' => '*'],
         // Stage 37: everyone may follow live outputs; only the head certifies
         // execution completion through `edit`.
         // Stage 75 — R02 joins `edit`: Appendix 47 addresses closure to المقرر

@@ -14,28 +14,32 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\PassesControlGates;
+use Tests\SitsOnCommittee;
 use Tests\TestCase;
 
 class CommitteeMeetingTest extends TestCase
 {
     use PassesControlGates;
     use RefreshDatabase;
+    use SitsOnCommittee;
 
-    public function test_committee_head_can_schedule_a_meeting_that_auto_invites_active_members(): void
+    /**
+     * Stage 102 — the مقرر schedules; the meeting invites exactly the five
+     * seats (a seatless row is never invited) and is only proposed until they
+     * all accept. A seat held by a deactivated user blocks scheduling rather
+     * than silently shrinking the sitting.
+     */
+    public function test_the_rapporteur_schedules_a_meeting_that_invites_exactly_the_five_seats(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $head = $this->userWithRole('R03');
-        $member = $this->userWithRole('R04');
-        $inactiveMember = $this->userWithRole('R04');
-        $inactiveMember->update(['is_active' => false]);
+        $rapporteur = $this->userWithRole('R02');
+        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
+        $seats = $this->fillFiveSeats($committee, ['rapporteur' => $rapporteur]);
+        $seatless = $this->userWithRole('R04');
+        $committee->members()->create(['user_id' => $seatless->id]);
 
-        $committee = Committee::create(['name_ar' => 'لجنة المشتريات']);
-        $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
-        $committee->members()->create(['user_id' => $member->id]);
-        $committee->members()->create(['user_id' => $inactiveMember->id]);
-
-        $response = $this->actingAs($head, 'sanctum')
+        $response = $this->actingAs($rapporteur, 'sanctum')
             ->postJson('/api/meetings', [
                 'committee_id' => $committee->id,
                 'title' => 'الاجتماع الدوري الأول',
@@ -43,16 +47,33 @@ class CommitteeMeetingTest extends TestCase
                 'location' => 'قاعة الاجتماعات',
             ])
             ->assertCreated()
-            ->assertJsonPath('data.title', 'الاجتماع الدوري الأول');
+            ->assertJsonPath('data.title', 'الاجتماع الدوري الأول')
+            ->assertJsonPath('data.status', 'pending_confirmation')
+            ->assertJsonPath('data.meeting_type', 'regular');
 
         $meetingId = $response->json('data.id');
         $attendeeUserIds = collect($response->json('data.attendees'))->pluck('user.id')->sort()->values()->all();
 
-        // Only the two ACTIVE members were invited; the inactive one was skipped.
-        $this->assertSame([$head->id, $member->id], $attendeeUserIds);
+        $this->assertSame(collect($seats)->pluck('id')->sort()->values()->all(), $attendeeUserIds);
+        $this->assertDatabaseCount('meeting_attendees', 5);
+        $this->assertDatabaseHas('meetings', [
+            'id' => $meetingId,
+            'chairman_user_id' => $seats['chair']->id,
+            'rapporteur_user_id' => $rapporteur->id,
+        ]);
+        // The مقرر proposed the date, so only their answer is already in.
+        $this->assertDatabaseHas('meeting_attendees', ['meeting_id' => $meetingId, 'user_id' => $rapporteur->id, 'invitation_status' => 'confirmed']);
+        $this->assertDatabaseHas('meeting_attendees', ['meeting_id' => $meetingId, 'user_id' => $seats['chair']->id, 'invitation_status' => 'pending']);
 
-        $this->assertDatabaseCount('meeting_attendees', 2);
-        $this->assertDatabaseHas('meetings', ['id' => $meetingId, 'committee_id' => $committee->id]);
+        $seats['hr_director']->update(['is_active' => false]);
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson('/api/meetings', [
+                'committee_id' => $committee->id,
+                'title' => 'اجتماع الشهر التالي',
+                'scheduled_at' => now()->addMonths(2)->toDateTimeString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('committee_id');
     }
 
     /**
@@ -66,11 +87,12 @@ class CommitteeMeetingTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $stranger = $this->userWithRole('R03');
-        $seatedHead = $this->userWithRole('R03');
+        // Stage 102 — `meetings,add` is the مقرر's alone, so both actors are R02.
+        $stranger = $this->userWithRole('R02');
+        $seatedRapporteur = $this->userWithRole('R02');
 
         $committee = Committee::create(['name_ar' => 'لجنة لا ينتمي إليها']);
-        $committee->members()->create(['user_id' => $seatedHead->id, 'is_head' => true]);
+        $this->fillFiveSeats($committee, ['rapporteur' => $seatedRapporteur]);
 
         $payload = [
             'committee_id' => $committee->id,
@@ -85,14 +107,19 @@ class CommitteeMeetingTest extends TestCase
 
         $this->assertDatabaseCount('meetings', 0);
 
-        // The seated chair may, and so may R08 — the same administrative
-        // fallback WorkflowService applies to manager-gated transitions.
-        $this->actingAs($seatedHead, 'sanctum')
+        // The seated مقرر may, and so may R08 — the same administrative
+        // fallback WorkflowService applies to manager-gated transitions (a
+        // month later: Stage 102 allows one meeting a month).
+        $this->actingAs($seatedRapporteur, 'sanctum')
             ->postJson('/api/meetings', $payload)
             ->assertCreated();
 
         $this->actingAs($this->userWithRole('R08'), 'sanctum')
-            ->postJson('/api/meetings', [...$payload, 'title' => 'اجتماع بصلاحية إدارية'])
+            ->postJson('/api/meetings', [
+                ...$payload,
+                'title' => 'اجتماع بصلاحية إدارية',
+                'scheduled_at' => now()->addMonths(2)->toDateTimeString(),
+            ])
             ->assertCreated();
     }
 
@@ -181,8 +208,10 @@ class CommitteeMeetingTest extends TestCase
             'title' => "طلب {$suffix}",
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
-            'status_id' => RequestStatus::where('code', 'new')->value('id'),
-            'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
+            // Stage 102 — on the committee's pending list, the only source an
+            // agenda draws requests from.
+            'status_id' => RequestStatus::where('code', 'registered')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
         ]);
 

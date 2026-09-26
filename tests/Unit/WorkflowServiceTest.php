@@ -61,14 +61,9 @@ class WorkflowServiceTest extends TestCase
             // Stage 87 — this is the HR route, so the registrar is R12, not
             // R05, which keeps only its later approval_by_authority duty.
             ['receive_and_register', 'requirements_check', 'register', 'R12', 'in_review'],
-            ['requirements_check', 'reviewer_review', 'approve', 'R02', 'registered'],
-            ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
-            // Stage 57 collapsed the old two-hop observations ->
-            // ministry_endorsement -> forward_to_committee into one; Stage 86
-            // moved both remaining hops into the committee to R09, and Stage
-            // 96 returned both to R02 (Appendix 6 gives them to المقرر).
-            ['observations', 'forward_to_committee', 'forward', 'R02', 'ready'],
-            ['forward_to_committee', 'receive_from_committee', 'forward', 'R02', 'in_meeting'],
+            // Stage 102 — the مقرر's approve lands straight on the committee's
+            // pending list; the three R02 forward hops through stages 6–8 are gone.
+            ['requirements_check', 'receive_from_committee', 'approve', 'R02', 'registered'],
             ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'awaiting_municipal_approval'],
             ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'awaiting_central_approval'],
             // Stage 57 removed competent_authority: ministry approval is now
@@ -97,13 +92,12 @@ class WorkflowServiceTest extends TestCase
 
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('in_execution', $requestRecord->status->code);
-        $this->assertCount(12, $requestRecord->stageLogs);
-        $this->assertCount(12, $requestRecord->statusHistory);
+        $this->assertCount(9, $requestRecord->stageLogs);
+        $this->assertCount(9, $requestRecord->statusHistory);
         $this->assertSame(
             [
                 'direct_manager_review', 'administrative_routing', 'receive_and_register',
-                'requirements_check', 'reviewer_review', 'observations',
-                'forward_to_committee', 'receive_from_committee', 'approval_by_authority',
+                'requirements_check', 'receive_from_committee', 'approval_by_authority',
                 'local_governance_ministry', 'final_approval_archiving',
                 'final_approval_archiving',
             ],
@@ -172,8 +166,10 @@ class WorkflowServiceTest extends TestCase
         // Stage 57 then removed two whole stages (ministry_endorsement,
         // competent_authority), each contributing exactly one row: 12 - 2 = 10,
         // and Stage 96 left receive_and_register with a single `register` row
-        // (it had three, one per receiving role): 10 + 1 = 11.
-        $this->assertCount(11, $rules);
+        // (it had three, one per receiving role): 10 + 1 = 11. Stage 102 took
+        // reviewer_review, observations and forward_to_committee off the path,
+        // one row each: 11 - 3 = 8.
+        $this->assertCount(8, $rules);
         $this->assertFalse($rules->contains('is_exception', true));
         $this->assertFalse($rules->contains('requires_comment', true));
 
@@ -183,9 +179,6 @@ class WorkflowServiceTest extends TestCase
             'direct_manager_review' => 1,
             'receive_and_register' => 1,
             'requirements_check' => 1,
-            'reviewer_review' => 1,
-            'observations' => 1,
-            'forward_to_committee' => 1,
             'receive_from_committee' => 1,
             'approval_by_authority' => 1,
             'local_governance_ministry' => 1,
@@ -198,6 +191,12 @@ class WorkflowServiceTest extends TestCase
         // unreferenced by a non-exception rule.
         $this->assertArrayNotHasKey('ministry_endorsement', $countsByFromStageCode->all());
         $this->assertArrayNotHasKey('competent_authority', $countsByFromStageCode->all());
+        // Stage 102 — no rule of any kind leaves the three retired stages, so a
+        // file can neither reach nor sit on them.
+        $this->assertSame(0, WorkflowTransition::query()
+            ->whereHas('fromStage', fn ($stage) => $stage->whereIn('code', ['reviewer_review', 'observations', 'forward_to_committee']))
+            ->count());
+        $this->assertSame('receive_from_committee', $rules->firstWhere('fromStage.code', 'requirements_check')->toStage->code);
 
         // Stage 96 — ONE `register` row, not three. R10 and R09 have no
         // column in [D] Appendix 6, and the receiving party it does name is
@@ -215,18 +214,15 @@ class WorkflowServiceTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $reviewer = $this->userWithRole('R02');
-        // Cancelling at forward_to_committee follows the forwarding hop, per
-        // that seeder's own rule that cancellation belongs to the role
-        // responsible for moving the stage: R05 -> R09 (Stage 86) -> R02
-        // (Stage 96), which is also who forwards out of it again.
+        $head = $this->userWithRole('R03');
         $service = app(WorkflowService::class);
+        // Stage 102 — reject_review and request_edit went with their stages;
+        // the committee's return_to_study now lands on the مقرر's own
+        // requirements_check, whose approve puts the file back on the list.
         $paths = [
             ['requirements_check', 'return_missing_docs', $reviewer, 'receive_from_municipality', 'incomplete', 'المستند المالي غير مرفق.'],
-            ['reviewer_review', 'reject_review', $reviewer, 'requirements_check', 'rejected', 'الطلب لا تطابق اللائحة.'],
-            // R02 keeps this one: the study is still its work, and sending the
-            // file back is still its call — only the handover onward moved.
-            ['observations', 'request_edit', $reviewer, 'reviewer_review', 'returned', 'يرجى تصحيح بيانات القرار.'],
-            ['forward_to_committee', 'cancel', $reviewer, 'forward_to_committee', 'cancelled', 'أُلغي الطلب بناءً على كتاب رسمي.'],
+            ['receive_from_committee', 'return_to_study', $head, 'requirements_check', 'returned', 'يلزم استكمال الدراسة.'],
+            ['receive_from_committee', 'cancel', $head, 'receive_from_committee', 'cancelled', 'أُلغي الطلب بناءً على كتاب رسمي.'],
         ];
 
         foreach ($paths as [$from, $action, $actor, $to, $status, $reason]) {
@@ -309,13 +305,11 @@ class WorkflowServiceTest extends TestCase
             ->orderBy('from_stage_id')
             ->get();
 
-        // Diagram-alignment redesign: these three corrective rules sit on
-        // pre-existing stages that were only renumbered (requirements_check,
-        // reviewer_review, observations are now order_no 5/6/7, not 2/3/4);
-        // stage IDENTITY (and so which stage each rule targets) is unchanged.
-        $this->assertCount(3, $correctiveRules);
-        $this->assertSame([5, 6, 7], $correctiveRules->pluck('fromStage.order_no')->all());
-        $this->assertSame([1, 5, 6], $correctiveRules->pluck('toStage.order_no')->all());
+        // Stage 102 — reject_review (stage 6) and request_edit (stage 7) went
+        // with their stages; only requirements_check's return survives.
+        $this->assertCount(1, $correctiveRules);
+        $this->assertSame([5], $correctiveRules->pluck('fromStage.order_no')->all());
+        $this->assertSame([1], $correctiveRules->pluck('toStage.order_no')->all());
         $this->assertTrue($correctiveRules->every('is_exception', true));
         $this->assertTrue($correctiveRules->every('requires_comment', true));
 
@@ -332,9 +326,10 @@ class WorkflowServiceTest extends TestCase
         // forward_to_committee onward shifted down one order_no. Exactly one
         // cancel row per stage again after Stage 96 — receive_and_register
         // briefly had three, one per receiving role, and now has only R12's.
-        $this->assertCount(12, $cancelRules);
+        // Stage 102 — stages 6, 7 and 8 are off the path: 12 - 3 = 9.
+        $this->assertCount(9, $cancelRules);
         $this->assertEqualsCanonicalizing(
-            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            [1, 2, 3, 4, 5, 9, 10, 11, 12],
             $cancelRules->pluck('fromStage.order_no')->all(),
         );
         $this->assertTrue($cancelRules->every(
@@ -366,11 +361,10 @@ class WorkflowServiceTest extends TestCase
         // which therefore walks the whole pre-committee chain again.
         $requestRecord = $this->newRequest(stageCode: 'requirements_check', statusCode: 'in_review', decisionGrade: 9);
 
+        // Stage 102 — the three R02 forwards are gone: approve lands on the
+        // committee stage directly.
         foreach ([
             ['approve', 'R02'],
-            ['forward', 'R02'],
-            ['forward', 'R02'],
-            ['forward', 'R02'],
             ['approve', 'R03'],
         ] as [$action, $role]) {
             $requestRecord = $service->transition(
@@ -423,7 +417,7 @@ class WorkflowServiceTest extends TestCase
 
         $requestRecord = app(WorkflowService::class)->transition($requestRecord, 'approve', $reviewer);
 
-        $this->assertSame('reviewer_review', $requestRecord->currentStage->code);
+        $this->assertSame('receive_from_committee', $requestRecord->currentStage->code);
         $this->assertSame('registered', $requestRecord->status->code);
         $this->assertDatabaseCount('approvals', 1);
         $this->assertDatabaseCount('request_stage_logs', 1);
@@ -502,7 +496,8 @@ class WorkflowServiceTest extends TestCase
         $actor = $this->userWithRole('R02');
         $requestRecord = $this->newRequest('receive_from_committee', 'decided');
         $fromStageId = $requestRecord->current_stage_id;
-        $target = WorkflowStage::where('code', 'reviewer_review')->firstOrFail();
+        // Stage 102 — reviewer_review is off the path and refused as a target.
+        $target = WorkflowStage::where('code', 'requirements_check')->firstOrFail();
 
         $moved = app(WorkflowService::class)->reopenAtStage($requestRecord, $target, $actor, 'سبب إعادة الإجراءات');
 

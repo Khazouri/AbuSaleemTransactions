@@ -68,6 +68,9 @@ class WorkflowService
      */
     private const REDO_EXCLUDED_STAGE_CODES = [
         'receive_from_municipality', 'direct_manager_review', 'administrative_routing', 'receive_and_register',
+        // Stage 102 — off the path: nothing leaves them, so a file reopened
+        // there would be stranded.
+        'reviewer_review', 'observations', 'forward_to_committee',
     ];
 
     /**

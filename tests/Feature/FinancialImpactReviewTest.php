@@ -42,9 +42,11 @@ class FinancialImpactReviewTest extends TestCase
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
 
-        $requestRecord = $this->requestAtStage('reviewer_review', $creator, hasFinancialImpact: true);
+        // Stage 102 — the notice fires on arrival at the committee's pending
+        // list, which is now the مقرر's approve out of requirements_check.
+        $requestRecord = $this->requestAtStage('requirements_check', $creator, hasFinancialImpact: true);
 
-        app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $actor);
 
         Notification::assertSentTo($salUser, FinancialImpactReviewNotification::class);
         Notification::assertNotSentTo($inactiveSalUser, FinancialImpactReviewNotification::class);
@@ -59,18 +61,19 @@ class FinancialImpactReviewTest extends TestCase
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
 
-        $requestRecord = $this->requestAtStage('reviewer_review', $creator, hasFinancialImpact: false);
+        $requestRecord = $this->requestAtStage('requirements_check', $creator, hasFinancialImpact: false);
 
-        app(WorkflowService::class)->transition($requestRecord, 'forward', $actor);
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $actor);
 
         Notification::assertNotSentTo($salUser, FinancialImpactReviewNotification::class);
     }
 
     /**
-     * The committee can bounce a request back to observations for re-study
-     * (Stage 32's `return_to_study`) — this should re-notify too, since
-     * stageChanged() fires on every landing at `observations`, not only the
-     * first.
+     * The committee can bounce a request back for re-study (Stage 32's
+     * `return_to_study`). Stage 102 sends it to the مقرر's requirements_check,
+     * so the notice is not repeated on the way out — it fires again when the
+     * مقرر's approve returns the file to the pending list, i.e. on every
+     * arrival there, not only the first.
      */
     public function test_returning_to_study_from_committee_notifies_salaries_and_benefits_again(): void
     {
@@ -87,7 +90,11 @@ class FinancialImpactReviewTest extends TestCase
             status: 'in_meeting',
         );
 
-        app(WorkflowService::class)->transition($requestRecord, 'return_to_study', $chair, 'يحتاج مزيداً من الدراسة');
+        $requestRecord = app(WorkflowService::class)->transition($requestRecord, 'return_to_study', $chair, 'يحتاج مزيداً من الدراسة');
+
+        Notification::assertNotSentTo($salUser, FinancialImpactReviewNotification::class);
+
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $this->userWithRole('R02'));
 
         Notification::assertSentTo($salUser, FinancialImpactReviewNotification::class);
     }
@@ -115,7 +122,7 @@ class FinancialImpactReviewTest extends TestCase
 
         $salUser = $this->userInSalariesDepartment(active: true);
         $reviewer = $this->userWithRole('R02');
-        $requestRecord = $this->requestAtStage('reviewer_review', $reviewer, hasFinancialImpact: false);
+        $requestRecord = $this->requestAtStage('requirements_check', $reviewer, hasFinancialImpact: false);
 
         $this->actingAs($reviewer)
             ->patchJson("/api/requests/{$requestRecord->id}/financial-impact", ['has_financial_impact' => true])
@@ -124,7 +131,9 @@ class FinancialImpactReviewTest extends TestCase
 
         $this->assertTrue($requestRecord->refresh()->has_financial_impact);
 
-        app(WorkflowService::class)->transition($requestRecord, 'forward', $reviewer);
+        // The filer cannot approve their own file (separation of duties), so a
+        // second مقرر takes it onward.
+        app(WorkflowService::class)->transition($requestRecord, 'approve', $this->userWithRole('R02'));
 
         Notification::assertSentTo($salUser, FinancialImpactReviewNotification::class);
     }

@@ -21,7 +21,11 @@ use Illuminate\Validation\ValidationException;
  * request search that used to be the only way a request reached an
  * agenda (see MeetingAgendaBuilderView) with a first-class linking screen.
  *
- * nominate() and requestCompletion() are status-only committee bookkeeping,
+ * Stage 102 — this list is the committee's pending list and the only source
+ * of a meeting's requests; nominate() was removed (picking a request for a
+ * meeting is the nomination).
+ *
+ * requestCompletion() is status-only committee bookkeeping,
  * so they run through CommitteeStatusService and never touch
  * current_stage_id. defer() and returnToStudy() both change what stage the
  * request is officially at (defer is Stage 21's existing 7→7 exception;
@@ -64,11 +68,6 @@ class CommitteeCandidateController extends Controller
             ->withQueryString();
 
         return RequestResource::collection($requests);
-    }
-
-    public function nominate(CommitteeCandidateActionRequest $request, Request $requestRecord, CommitteeStatusService $committeeStatus): RequestResource
-    {
-        return $this->moveStatus($request, $requestRecord, $committeeStatus, 'nominate');
     }
 
     public function requestCompletion(CommitteeCandidateActionRequest $request, Request $requestRecord, CommitteeStatusService $committeeStatus): RequestResource

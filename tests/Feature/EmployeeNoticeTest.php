@@ -200,13 +200,17 @@ class EmployeeNoticeTest extends TestCase
      * Moment 4 is the one with no status behind it — `place_on_agenda` has no
      * caller, so the notice rides the endpoint that actually inserts the item.
      */
-    public function test_agenda_insertion_fires_moment_four_for_a_request_item_and_nothing_for_an_administrative_one(): void
+    /** Stage 102 dropped the administrative half: that item type no longer exists. */
+    public function test_agenda_insertion_fires_moment_four_for_a_request_item(): void
     {
         Notification::fake();
 
         $employee = $this->employee();
         $requestRecord = $this->requestFor($employee);
         $this->passLegalReview($requestRecord);
+        // Stage 102 — only a pending-list request reaches an agenda, and the
+        // مقرر's approve lands it there as `registered`.
+        $requestRecord->update(['status_id' => RequestStatus::where('code', 'registered')->value('id')]);
 
         $chair = $this->userWithRole('R03');
         $meeting = $this->meeting($chair);
@@ -223,17 +227,6 @@ class EmployeeNoticeTest extends TestCase
             RequestNoticeNotification::class,
             fn (RequestNoticeNotification $notice) => $notice->toArray($employee)['moment'] === 'placed_on_agenda',
         );
-
-        Notification::fake();
-
-        $this->actingAs($chair)
-            ->postJson("/api/meetings/{$meeting->id}/agenda", [
-                'item_type' => 'administrative',
-                'subject' => 'بند إداري',
-            ])
-            ->assertCreated();
-
-        Notification::assertNothingSent();
     }
 
     /**

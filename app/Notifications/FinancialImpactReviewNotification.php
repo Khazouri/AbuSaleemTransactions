@@ -5,7 +5,8 @@ namespace App\Notifications;
 use App\Models\Request;
 
 /**
- * A financially-impactful request reached the study stage (`observations`) —
+ * A financially-impactful request reached the committee's pending list
+ * (`receive_from_committee`; `observations` until Stage 102) —
  * Stage 47. Sent to قسم المرتبات والمزايا, who hold no formal seat in
  * workflow_transitions ([D] doesn't name one; see AGENT_NOTES.md), so this is
  * advisory, not an "act on this" prompt tied to a button they'd find.

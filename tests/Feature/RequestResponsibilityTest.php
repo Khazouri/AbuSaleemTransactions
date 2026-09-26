@@ -51,11 +51,13 @@ class RequestResponsibilityTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         $service = app(RequestResponsibilityService::class);
 
+        // Stage 102 — the study stage (observations) is off the path; the two
+        // in_review stages a file can sit at are the check and registration.
         $atCheck = $service->for($this->requestAt('requirements_check', 'in_review'));
-        $atStudy = $service->for($this->requestAt('observations', 'in_review'));
+        $atRegistration = $service->for($this->requestAt('receive_and_register', 'in_review'));
 
         $this->assertSame('completeness_check', $atCheck['next_action']['code']);
-        $this->assertSame('prepare_presentation_memo', $atStudy['next_action']['code']);
+        $this->assertSame('register_request', $atRegistration['next_action']['code']);
     }
 
     /** A status that names its own owner beats whatever the stage would say. */
@@ -63,7 +65,7 @@ class RequestResponsibilityTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         $answer = app(RequestResponsibilityService::class)
-            ->for($this->requestAt('reviewer_review', 'incomplete'));
+            ->for($this->requestAt('requirements_check', 'incomplete'));
 
         $this->assertSame('employee', $answer['responsible']['code']);
         $this->assertSame('complete_documents', $answer['next_action']['code']);

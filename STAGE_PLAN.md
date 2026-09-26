@@ -1786,6 +1786,33 @@ at filing (row 1), a `request_notice_copy` event so the manager and HR are told 
 
 ---
 
+## Track O — the single committee path (user-specified process, 2026-09-26)
+
+### Stage 102 — pending list → monthly meeting → date accepted by all → discuss & vote
+
+**Goal:** the user's own description of the committee process is the only path through it:
+the مقرر's approval puts a request on the committee's pending list; once a month the مقرر
+schedules a meeting for the five Art. 10 (أ) seats, picks requests from that list and proposes
+a date; every member accepts the date before the meeting is approved; the sitting discusses and
+votes.
+**Build:** `requirements_check → approve` lands on `receive_from_committee` (stages 6–8 become
+unreachable, rows kept for history); the pending list (`CommitteeStatusService::candidatesQuery()`)
+gains `registered`/`deferred` and drops files already on a live agenda; the agenda accepts only a
+pending-list request or an appeal; the five seats are bound to roles (chair R03, legal R11,
+hr_director R12, ministry_delegate R04, rapporteur R02) and a meeting needs all five; one meeting
+type, one non-cancelled meeting per committee per calendar month, no ad-hoc attendees; a new
+meeting is `pending_confirmation` until every attendee accepts through their own
+`meetings/{m}/respond`, and a date change resets every answer.
+**Done when:** a request approved by R02 can reach a decision only through that path.
+**Source:** user instruction 2026-09-26 («this path is the only path»); [D] Art. 10 (أ), Art. 81.
+Stages 6–8 of [E] are collapsed by that user decision, not by the source.
+**Built 2026-09-26.** No migration. Reopened files (`reopened_by_appeal`, `reopened_for_representation`)
+also rejoin the pending list, or a file sent back to the committee could never be scheduled again.
+Art. 81's emergency and completion meetings are not offered (one meeting type, by the same decision).
+See AGENT_NOTES.md.
+
+---
+
 ## Suggested order
 
 **Stages 1–93 are built — Tracks A–M are complete.** For those, this block is purely the

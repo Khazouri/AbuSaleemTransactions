@@ -11,9 +11,11 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
 import api from '../lib/api'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const { t, locale } = useI18n()
+const auth = useAuthStore()
 
 const meeting = ref(null)
 const loading = ref(false)
@@ -30,8 +32,9 @@ function dateTime(value) {
     dateStyle: 'medium', timeStyle: 'short',
   }).format(new Date(value))
 }
+// pending_confirmation → meetings.statusPendingConfirmation
 function statusLabel(status) {
-  return t(`meetings.status${status.charAt(0).toUpperCase()}${status.slice(1)}`)
+  return t(`meetings.status${status.replace(/(^|_)(\w)/g, (_, __, c) => c.toUpperCase())}`)
 }
 
 async function load() {
@@ -47,17 +50,15 @@ async function load() {
   }
 }
 
-// --- Meeting fields (status) -------------------------------------------------
+// --- Meeting fields (status, date) -------------------------------------------
 
-const statusValue = ref('scheduled')
+// Stage 102 — `scheduled` is reached only by every member accepting the date,
+// so the dropdown offers just the two statuses a person sets by hand.
+const statusValue = ref('')
 const savingMeeting = ref(false)
 
-watch(meeting, (value) => {
-  if (!value) return
-  statusValue.value = value.status
-})
-
 async function saveMeetingFields() {
+  if (!statusValue.value) return
   savingMeeting.value = true
   actionError.value = ''
   try {
@@ -66,13 +67,57 @@ async function saveMeetingFields() {
     })
     meeting.value = data.data
   } catch (requestError) {
-    // Stage 34 — closing a meeting can now genuinely 422 (unresolved agenda
-    // items); without this the dropdown would keep showing the rejected
-    // "completed" selection instead of the server's actual status.
-    statusValue.value = meeting.value.status
+    // Stage 34 — closing a meeting can genuinely 422 (unresolved agenda items).
     actionError.value = requestError.response?.data?.message ?? t('common.none')
   } finally {
+    statusValue.value = ''
     savingMeeting.value = false
+  }
+}
+
+// Stage 102 — a member who cannot make the date declines; the مقرر answers by
+// proposing another, which resets every member's answer on the server.
+const newDate = ref('')
+const canProposeDate = computed(() => meeting.value
+  && !meeting.value.convened_at
+  && ['pending_confirmation', 'scheduled'].includes(meeting.value.status))
+
+watch(meeting, (value) => {
+  if (!value?.scheduled_at) return
+  const at = new Date(value.scheduled_at)
+  newDate.value = new Date(at.getTime() - at.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+})
+
+async function proposeDate() {
+  savingMeeting.value = true
+  actionError.value = ''
+  try {
+    const { data } = await api.put(`/meetings/${meeting.value.id}`, { scheduled_at: newDate.value })
+    meeting.value = data.data
+  } catch (requestError) {
+    actionError.value = requestError.response?.data?.errors?.scheduled_at?.[0]
+      ?? requestError.response?.data?.message
+      ?? t('common.none')
+  } finally {
+    savingMeeting.value = false
+  }
+}
+
+// Stage 102 — each invited member accepts or declines the date themselves.
+const myInvitation = computed(() => (meeting.value?.attendees ?? [])
+  .find((attendee) => attendee.user.id === auth.user?.id))
+const responding = ref(false)
+
+async function respond(response) {
+  responding.value = true
+  actionError.value = ''
+  try {
+    const { data } = await api.post(`/meetings/${meeting.value.id}/respond`, { response })
+    meeting.value = data.data
+  } catch (requestError) {
+    actionError.value = requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    responding.value = false
   }
 }
 
@@ -124,7 +169,8 @@ watch(agendaSearch, (value) => {
   searchTimer = setTimeout(async () => {
     agendaSearching.value = true
     try {
-      const { data } = await api.get('/requests', { params: { search: value.trim(), per_page: 5 } })
+      // Stage 102 — only the committee's pending list feeds an agenda.
+      const { data } = await api.get('/committee-candidates', { params: { search: value.trim(), per_page: 5 } })
       agendaResults.value = data.data ?? []
     } catch {
       agendaResults.value = []
@@ -176,24 +222,10 @@ async function moveAgendaItem(index, direction) {
 }
 
 // --- Attendance --------------------------------------------------------------
+// Stage 102 — the five seats are invited automatically and nobody else, so
+// there is no add/remove here; only the roll call at the sitting.
 
-const userOptions = ref([])
-const newAttendeeId = ref('')
 const attendanceError = ref('')
-
-const availableAttendeeOptions = computed(() => {
-  const existingIds = new Set((meeting.value?.attendees ?? []).map((a) => a.user.id))
-  return userOptions.value.filter((u) => !existingIds.has(u.id))
-})
-
-async function loadUserOptions() {
-  try {
-    const { data } = await api.get('/committees/user-options')
-    userOptions.value = data.data ?? []
-  } catch {
-    userOptions.value = []
-  }
-}
 
 async function markAttendance(attendee, attended) {
   attendanceError.value = ''
@@ -205,41 +237,6 @@ async function markAttendance(attendee, attended) {
   }
 }
 
-// Stage 30 — records a member's RSVP by hand (no public confirm link yet).
-async function setInvitationStatus(attendee, invitationStatus) {
-  attendanceError.value = ''
-  try {
-    const { data } = await api.patch(`/meetings/${meeting.value.id}/attendees/${attendee.id}`, {
-      invitation_status: invitationStatus,
-    })
-    attendee.invitation_status = data.data.invitation_status
-    attendee.responded_at = data.data.responded_at
-  } catch (requestError) {
-    attendanceError.value = requestError.response?.data?.message ?? t('common.none')
-  }
-}
-
-async function addAttendee() {
-  if (!newAttendeeId.value) return
-  attendanceError.value = ''
-  try {
-    await api.post(`/meetings/${meeting.value.id}/attendees`, { user_id: newAttendeeId.value })
-    newAttendeeId.value = ''
-    await load()
-  } catch (requestError) {
-    attendanceError.value = requestError.response?.data?.message ?? t('common.none')
-  }
-}
-
-async function removeAttendee(attendee) {
-  attendanceError.value = ''
-  try {
-    await api.delete(`/meetings/${meeting.value.id}/attendees/${attendee.id}`)
-    await load()
-  } catch (requestError) {
-    attendanceError.value = requestError.response?.data?.message ?? t('common.none')
-  }
-}
 
 // --- Decision templates (Stage 35) -------------------------------------------
 // Fed to AgendaItemDecisionPanel, which owns the vote/tally/record-decision
@@ -258,7 +255,7 @@ async function loadDecisionTemplates() {
 }
 
 onMounted(async () => {
-  await Promise.all([load(), loadUserOptions(), loadDecisionTemplates()])
+  await Promise.all([load(), loadDecisionTemplates()])
 })
 </script>
 
@@ -295,14 +292,30 @@ onMounted(async () => {
 
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
 
+      <!-- Stage 102 — the signed-in member's own answer to the proposed date. -->
+      <section
+        v-if="meeting.status === 'pending_confirmation' && myInvitation"
+        class="card card-flat card-pad rsvp"
+      >
+        <p>
+          {{ t('meetings.rsvp.prompt', { date: dateTime(meeting.scheduled_at) }) }}
+          <span class="pill">{{ t(`meetings.attendance.invitation.${myInvitation.invitation_status}`) }}</span>
+        </p>
+        <div class="rsvp-actions">
+          <button class="primary" type="button" :disabled="responding" @click="respond('accept')">
+            {{ t('meetings.rsvp.accept') }}
+          </button>
+          <button class="ghost danger" type="button" :disabled="responding" @click="respond('decline')">
+            {{ t('meetings.rsvp.decline') }}
+          </button>
+        </div>
+      </section>
+      <p v-else-if="meeting.status === 'pending_confirmation'" class="state">{{ t('meetings.rsvp.awaiting') }}</p>
+
       <section class="card card-flat card-pad summary">
         <div v-if="meeting.meeting_number">
           <span>{{ t('meetings.meetingNumber') }}</span>
           <strong>{{ meeting.meeting_number }}</strong>
-        </div>
-        <div>
-          <span>{{ t('meetings.meetingType') }}</span>
-          <strong>{{ t(`meetings.type${meeting.meeting_type.charAt(0).toUpperCase()}${meeting.meeting_type.slice(1)}`) }}</strong>
         </div>
         <div>
           <span>{{ t('meetings.scheduledAt') }}</span>
@@ -330,13 +343,29 @@ onMounted(async () => {
         </div>
         <div>
           <span>{{ t('meetings.status') }}</span>
-          <select v-model="statusValue" v-can="'meetings.edit'" :aria-label="t('meetings.status')" @change="saveMeetingFields">
-            <option value="scheduled">{{ t('meetings.statusScheduled') }}</option>
+          <strong>{{ statusLabel(meeting.status) }}</strong>
+          <select
+            v-model="statusValue"
+            v-can="'meetings.edit'"
+            :disabled="savingMeeting || ['completed', 'cancelled'].includes(meeting.status)"
+            :aria-label="t('meetings.changeStatus')"
+            @change="saveMeetingFields"
+          >
+            <option value="">{{ t('meetings.changeStatus') }}</option>
             <option value="completed">{{ t('meetings.statusCompleted') }}</option>
             <option value="cancelled">{{ t('meetings.statusCancelled') }}</option>
           </select>
         </div>
       </section>
+
+      <form v-if="canProposeDate" v-can="'meetings.edit'" class="card card-flat card-pad propose-date" @submit.prevent="proposeDate">
+        <label>
+          <span>{{ t('meetings.rsvp.newDate') }}</span>
+          <input v-model="newDate" type="datetime-local" required />
+        </label>
+        <button class="ghost" type="submit" :disabled="savingMeeting">{{ t('meetings.rsvp.proposeDate') }}</button>
+        <p class="hint">{{ t('meetings.rsvp.proposeHint') }}</p>
+      </form>
 
       <section v-if="meeting.description" class="card card-flat card-pad">
         <h3>{{ t('meetings.description') }}</h3>
@@ -468,34 +497,12 @@ onMounted(async () => {
                   />
                   {{ attendee.user.name }}
                 </label>
-                <select
-                  v-can="'meetings.edit'"
-                  class="invitation-status"
-                  :value="attendee.invitation_status"
-                  :aria-label="t('meetings.attendance.invitation.pending')"
-                  @change="setInvitationStatus(attendee, $event.target.value)"
-                >
-                  <option value="pending">{{ t('meetings.attendance.invitation.pending') }}</option>
-                  <option value="confirmed">{{ t('meetings.attendance.invitation.confirmed') }}</option>
-                  <option value="declined">{{ t('meetings.attendance.invitation.declined') }}</option>
-                  <option value="no_response">{{ t('meetings.attendance.invitation.no_response') }}</option>
-                </select>
+                <span class="pill invitation-status">
+                  {{ t(`meetings.attendance.invitation.${attendee.invitation_status}`) }}
+                </span>
               </div>
-              <button v-can="'meetings.edit'" class="ghost danger" type="button" @click="removeAttendee(attendee)">
-                {{ t('meetings.attendance.remove') }}
-              </button>
             </li>
           </ul>
-
-          <form v-can="'meetings.edit'" class="add-attendee" @submit.prevent="addAttendee">
-            <select v-model="newAttendeeId" :aria-label="t('meetings.attendance.chooseUser')">
-              <option value="">{{ t('meetings.attendance.chooseUser') }}</option>
-              <option v-for="user in availableAttendeeOptions" :key="user.id" :value="user.id">
-                {{ user.name }}
-              </option>
-            </select>
-            <button class="ghost" type="submit" :disabled="!newAttendeeId">{{ t('meetings.attendance.add') }}</button>
-          </form>
         </aside>
       </div>
     </template>
@@ -535,7 +542,13 @@ select { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); bor
 .attendee-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .invitation-status { padding: .2rem .4rem; font-size: var(--text-xs); }
 label.checkbox { display: flex; align-items: center; gap: .4rem; }
-.add-attendee { display: flex; gap: var(--space-2); }
+.rsvp { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.rsvp p { margin: 0; }
+.rsvp-actions { display: flex; gap: var(--space-2); }
+.propose-date { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); }
+.propose-date label { display: grid; gap: .25rem; font-size: var(--text-sm); }
+.propose-date input { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: inherit; font: inherit; }
+.propose-date .hint { flex-basis: 100%; margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 
 @media (max-width: 720px) { .columns { grid-template-columns: 1fr; } }
 </style>

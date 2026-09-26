@@ -20,12 +20,13 @@ class StoreMeetingRequest extends FormRequest
             // more: [D] Appendix 15 defines its shape and MeetingController::
             // store() mints it, the same "never client-supplied when derivable"
             // rule appellant_user_id and original_decision_id already follow.
+            // Stage 102 — meeting_type, chairman_user_id and rapporteur_user_id
+            // are no longer accepted either: every meeting is the committee's
+            // regular monthly sitting, chaired and reported by whoever holds
+            // the chair and rapporteur seats (MeetingController::store()).
             'title' => ['required', 'string', 'max:255'],
-            'meeting_type' => ['sometimes', 'required', Rule::in(['regular', 'extraordinary', 'emergency'])],
             'scheduled_at' => ['required', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
-            'chairman_user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'rapporteur_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'expected_duration_minutes' => ['nullable', 'integer', 'min:1'],
             'agenda_deadline' => ['nullable', 'date'],
             'description' => ['nullable', 'string'],
@@ -38,10 +39,7 @@ class StoreMeetingRequest extends FormRequest
             'committee_id.required' => 'يجب اختيار اللجنة.',
             'committee_id.exists' => 'اللجنة المحددة غير موجودة.',
             'title.required' => 'عنوان الاجتماع مطلوب.',
-            'meeting_type.in' => 'نوع الاجتماع غير صالح.',
             'scheduled_at.required' => 'موعد الاجتماع مطلوب.',
-            'chairman_user_id.exists' => 'رئيس الاجتماع المحدد غير موجود.',
-            'rapporteur_user_id.exists' => 'مقرر الاجتماع المحدد غير موجود.',
             'expected_duration_minutes.integer' => 'المدة المتوقعة يجب أن تكون رقماً.',
             'agenda_deadline.date' => 'الموعد النهائي لجدول الأعمال غير صالح.',
         ];

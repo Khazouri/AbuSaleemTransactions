@@ -33,6 +33,7 @@ const ICON_BY_SOURCE = {
   candidate: 'file-plus',
   legal_review: 'scale',
   minutes_signature: 'book',
+  meeting_invitation: 'calendar',
   completion: 'inbox',
 }
 

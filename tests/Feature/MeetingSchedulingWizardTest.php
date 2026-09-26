@@ -10,23 +10,29 @@ use App\Notifications\MeetingScheduledNotification;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Tests\SitsOnCommittee;
 use Tests\TestCase;
 
 /** Stage 30 — the scheduling wizard's new meeting fields, RSVP tracking, and the send-invitations action. */
 class MeetingSchedulingWizardTest extends TestCase
 {
     use RefreshDatabase;
+    use SitsOnCommittee;
 
     public function test_scheduling_a_meeting_persists_the_new_wizard_fields(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $head = $this->userWithRole('R03');
-        $rapporteur = $this->userWithRole('R04');
+        // Stage 102 — the مقرر schedules; the type, chair and rapporteur are
+        // no longer the client's to choose, so the values POSTed for them
+        // below are deliberately ones the server must ignore.
+        $rapporteur = $this->userWithRole('R02');
+        $stranger = $this->userWithRole('R04');
         $committee = Committee::create(['name_ar' => 'لجنة المشتريات']);
-        $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
+        $seats = $this->fillFiveSeats($committee, ['rapporteur' => $rapporteur]);
+        $head = $seats['chair'];
 
-        $response = $this->actingAs($head, 'sanctum')
+        $response = $this->actingAs($rapporteur, 'sanctum')
             ->postJson('/api/meetings', [
                 'committee_id' => $committee->id,
                 // Stage 70 — meeting_number is deliberately still POSTed here to
@@ -37,50 +43,63 @@ class MeetingSchedulingWizardTest extends TestCase
                 'meeting_type' => 'extraordinary',
                 'scheduled_at' => now()->addDay()->toDateTimeString(),
                 'location' => 'قاعة الاجتماعات',
-                'chairman_user_id' => $head->id,
-                'rapporteur_user_id' => $rapporteur->id,
+                'chairman_user_id' => $stranger->id,
+                'rapporteur_user_id' => $stranger->id,
                 'expected_duration_minutes' => 90,
                 'agenda_deadline' => now()->addHours(12)->toDateTimeString(),
                 'description' => 'مراجعة طلبات الترقية.',
             ])
             ->assertCreated()
             ->assertJsonPath('data.meeting_number', 'PM-MTG/'.now()->format('Y').'/01')
-            ->assertJsonPath('data.meeting_type', 'extraordinary')
+            ->assertJsonPath('data.meeting_type', 'regular')
             ->assertJsonPath('data.expected_duration_minutes', 90)
             ->assertJsonPath('data.description', 'مراجعة طلبات الترقية.')
             ->assertJsonPath('data.chairman.id', $head->id)
             ->assertJsonPath('data.rapporteur.id', $rapporteur->id);
 
-        // The committee's own auto-invited attendee starts pending, unresponded.
-        $this->assertSame('pending', $response->json('data.attendees.0.invitation_status'));
-        $this->assertNull($response->json('data.attendees.0.responded_at'));
+        // The chair's auto-invitation starts pending, unresponded.
+        $chairRow = collect($response->json('data.attendees'))->firstWhere('user.id', $head->id);
+        $this->assertSame('pending', $chairRow['invitation_status']);
+        $this->assertNull($chairRow['responded_at']);
 
         $this->assertDatabaseHas('meetings', [
             'id' => $response->json('data.id'),
             'meeting_number' => 'PM-MTG/'.now()->format('Y').'/01',
-            'meeting_type' => 'extraordinary',
+            'meeting_type' => 'regular',
             'chairman_user_id' => $head->id,
             'rapporteur_user_id' => $rapporteur->id,
         ]);
     }
 
-    public function test_meeting_type_must_be_a_known_value(): void
+    /**
+     * Stage 102 replaced "meeting_type must be a known value" (there is one
+     * type now): the committee meets once a month, and a cancelled sitting
+     * does not use up its month.
+     */
+    public function test_a_committee_meets_at_most_once_a_calendar_month(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $head = $this->userWithRole('R03');
+        $rapporteur = $this->userWithRole('R02');
         $committee = Committee::create(['name_ar' => 'لجنة المشتريات']);
-        $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
+        $this->fillFiveSeats($committee, ['rapporteur' => $rapporteur]);
+        $month = now()->addMonth()->startOfMonth();
 
-        $this->actingAs($head, 'sanctum')
-            ->postJson('/api/meetings', [
-                'committee_id' => $committee->id,
-                'title' => 'اجتماع',
-                'meeting_type' => 'not-a-real-type',
-                'scheduled_at' => now()->addDay()->toDateTimeString(),
-            ])
+        $first = $this->actingAs($rapporteur, 'sanctum')
+            ->postJson('/api/meetings', ['committee_id' => $committee->id, 'title' => 'الأول', 'scheduled_at' => $month->copy()->addDays(2)->toDateTimeString()])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson('/api/meetings', ['committee_id' => $committee->id, 'title' => 'الثاني', 'scheduled_at' => $month->copy()->addDays(20)->toDateTimeString()])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('meeting_type');
+            ->assertJsonValidationErrors('scheduled_at');
+
+        Meeting::whereKey($first)->update(['status' => 'cancelled']);
+
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson('/api/meetings', ['committee_id' => $committee->id, 'title' => 'الثاني', 'scheduled_at' => $month->copy()->addDays(20)->toDateTimeString()])
+            ->assertCreated();
     }
 
     public function test_send_invitations_notifies_current_attendees(): void
@@ -112,7 +131,12 @@ class MeetingSchedulingWizardTest extends TestCase
         Notification::assertNotSentTo($head, MeetingScheduledNotification::class);
     }
 
-    public function test_marking_invitation_status_stamps_responded_at(): void
+    /**
+     * Stage 102 — the RSVP is each member's own answer (MeetingController::
+     * respond(), covered by CommitteeSinglePathTest); the roll-call endpoint
+     * no longer lets staff record it for them.
+     */
+    public function test_staff_can_no_longer_record_a_members_rsvp(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -130,15 +154,15 @@ class MeetingSchedulingWizardTest extends TestCase
 
         $this->assertNull($attendee->responded_at);
 
-        $response = $this->actingAs($head, 'sanctum')
+        $this->actingAs($head, 'sanctum')
             ->patchJson("/api/meetings/{$meeting->id}/attendees/{$attendee->id}", ['invitation_status' => 'confirmed'])
             ->assertOk()
-            ->assertJsonPath('data.invitation_status', 'confirmed');
+            ->assertJsonPath('data.invitation_status', 'pending');
 
-        $this->assertNotNull($response->json('data.responded_at'));
         $this->assertDatabaseHas('meeting_attendees', [
             'id' => $attendee->id,
-            'invitation_status' => 'confirmed',
+            'invitation_status' => 'pending',
+            'responded_at' => null,
         ]);
     }
 

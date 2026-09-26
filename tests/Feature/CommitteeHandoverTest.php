@@ -11,228 +11,112 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
-use App\Services\Lifecycle\RequestResponsibilityService;
+use App\Services\CommitteeStatusService;
 use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Stage 96 — both hops into the committee (`observations ->
- * forward_to_committee` and `forward_to_committee -> receive_from_committee`)
- * belong to مقرر اللجنة (R02).
+ * Stage 102 — the handover into the committee is the مقرر's own approve.
  *
- * Stage 86 gave them to R09 (أمين سر اللجنة) on [F] step 7. [D]'s الملحق
- * السادس — the governing RACI matrix — has no أمين سر اللجنة column at all and
- * gives جدولة/عرض الملف على اللجنة to مقرر اللجنة as a single مسؤول, so this
- * file now pins the reversal rather than the move.
- *
- * The visibility assertions are as much the point as the role gate:
- * RequestVisibility derives its assignment clause from these very rows, so the
- * re-seed alone hands R02 the file and takes it from R09 — with no bounded
- * clause of the kind Stages 47/68/75/76/77/78/83 each had to add for a role
- * that held no row at all.
+ * Stages 86 and 96 argued over who clicks the two `forward` hops through
+ * observations and forward_to_committee (R09, then R02 again). The user's own
+ * process removes the question: the مقرر's approve at requirements_check puts
+ * the file straight on the committee's pending list, and no rule reaches or
+ * leaves stages 6–8 any more. This file pins that, and — as it did for Stages
+ * 86 and 96 — that a re-seed of an older database removes the rows it replaced.
  */
 class CommitteeHandoverTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_the_rapporteur_takes_the_studied_file_onward_and_the_secretary_cannot(): void
+    public function test_the_rapporteurs_approve_lands_the_file_on_the_pending_list_and_the_secretary_cannot(): void
     {
-        $this->assertHandoverMoved(
-            fromStage: 'observations',
-            statusCode: 'in_review',
-            toStage: 'forward_to_committee',
-        );
-    }
-
-    public function test_the_rapporteur_hands_the_file_to_the_committee_and_the_secretary_cannot(): void
-    {
-        $this->assertHandoverMoved(
-            fromStage: 'forward_to_committee',
-            statusCode: 'ready',
-            toStage: 'receive_from_committee',
-        );
-    }
-
-    private function assertHandoverMoved(
-        string $fromStage,
-        string $statusCode,
-        string $toStage,
-    ): void {
         $this->seed(DatabaseSeeder::class);
 
         $service = app(WorkflowService::class);
-        $rapporteur = $this->userWithRole('R02');
-        $secretary = $this->userWithRole('R09');
 
         try {
-            $service->transition($this->newRequest($fromStage, $statusCode), 'forward', $secretary);
-            $this->fail("R09 should no longer hold the handover out of {$fromStage}.");
+            $service->transition($this->newRequest('requirements_check', 'in_review'), 'approve', $this->userWithRole('R09'));
+            $this->fail('R09 holds no row at requirements_check.');
         } catch (WorkflowTransitionException $exception) {
-            $this->assertSame(
-                'لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.',
-                $exception->getMessage(),
-            );
+            $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
         }
 
-        $moved = $service->transition($this->newRequest($fromStage, $statusCode), 'forward', $rapporteur);
+        $moved = $service->transition($this->newRequest('requirements_check', 'in_review'), 'approve', $this->userWithRole('R02'));
 
-        $this->assertSame($toStage, $moved->currentStage->code);
-        $this->assertDatabaseHas('request_stage_logs', [
-            'request_id' => $moved->id,
+        $this->assertSame('receive_from_committee', $moved->currentStage->code);
+        $this->assertSame('registered', $moved->status->code);
+        $this->assertNotNull($moved->reference_number);
+        $this->assertTrue(app(CommitteeStatusService::class)->candidatesQuery()->whereKey($moved->id)->exists());
+    }
+
+    public function test_no_rule_reaches_or_leaves_the_three_retired_stages(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $retired = WorkflowStage::query()
+            ->whereIn('code', ['reviewer_review', 'observations', 'forward_to_committee'])
+            ->pluck('id');
+
+        $this->assertCount(3, $retired, 'the stage rows stay — historical stage logs point at them');
+        $this->assertSame(0, WorkflowTransition::query()
+            ->where(fn ($query) => $query->whereIn('from_stage_id', $retired)->orWhereIn('to_stage_id', $retired))
+            ->count());
+    }
+
+    /**
+     * A fresh database never holds the old rows, so seeding twice would prove
+     * nothing. Put back one normal and one exception row the way a
+     * pre-Stage-102 install has them — exception rows survive the generic
+     * delete at the top of WorkflowTransitionSeeder::run(), which is the whole
+     * reason the targeted cleanup exists.
+     */
+    public function test_re_seeding_a_pre_stage_102_database_removes_the_retired_rows(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $stage = fn (string $code) => WorkflowStage::where('code', $code)->value('id');
+        $r02 = Role::where('code', 'R02')->value('id');
+
+        WorkflowTransition::create([
+            'from_stage_id' => $stage('observations'),
+            'to_stage_id' => $stage('forward_to_committee'),
             'action' => 'forward',
-            'acted_by_user_id' => $rapporteur->id,
+            'required_role_id' => $r02,
+            'set_status_id' => RequestStatus::where('code', 'ready')->value('id'),
+            'is_exception' => false,
+            'requires_comment' => false,
+            'order_no' => 7,
         ]);
+        WorkflowTransition::create([
+            'from_stage_id' => $stage('forward_to_committee'),
+            'to_stage_id' => $stage('forward_to_committee'),
+            'action' => 'cancel',
+            'required_role_id' => $r02,
+            'set_status_id' => RequestStatus::where('code', 'cancelled')->value('id'),
+            'is_exception' => true,
+            'requires_comment' => true,
+            'order_no' => 99,
+        ]);
+
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertSame(0, WorkflowTransition::query()
+            ->whereIn('from_stage_id', [$stage('reviewer_review'), $stage('observations'), $stage('forward_to_committee')])
+            ->count());
     }
 
-    /**
-     * The gate and the preview must agree — WorkflowService::actorMayUse()'s
-     * own invariant. A button the endpoint would refuse is the specific bug
-     * that predicate exists to prevent.
-     */
-    public function test_the_detail_screen_offers_the_handover_to_the_rapporteur_and_hides_the_file_from_the_secretary(): void
+    private function newRequest(string $stageCode, string $statusCode): Request
     {
-        $this->seed(DatabaseSeeder::class);
-
-        $requestRecord = $this->newRequest('observations', 'in_review');
-
-        $actions = $this->actingAs($this->userWithRole('R02'), 'sanctum')
-            ->getJson("/api/requests/{$requestRecord->id}")
-            ->assertOk()
-            ->assertJsonPath('data.available_actions.0', 'forward')
-            ->json('data.available_actions');
-
-        // R02 never lost its seat at the study stage; Stage 96 hands the
-        // forward back on top of the `request_edit` it kept throughout.
-        $this->assertContains('request_edit', $actions);
-
-        // R09 holds no row at this stage any more, so the file is not merely
-        // unactionable for it — it is invisible, through the same mechanism
-        // that made it visible under Stage 86.
-        $this->actingAs($this->userWithRole('R09'), 'sanctum')
-            ->getJson("/api/requests/{$requestRecord->id}")
-            ->assertNotFound();
-    }
-
-    /**
-     * No RequestVisibility change was needed for this stage, and this is what
-     * proves it: the assignment clause reads workflow_transitions, so the
-     * re-seed alone hands R02 the file and takes it from R09.
-     */
-    public function test_visibility_follows_the_re_seeded_rows_at_the_forwarding_stage(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        $creator = $this->userWithRole('R01');
-        $requestRecord = $this->newRequest('forward_to_committee', 'ready', $creator->id);
-
-        $this->actingAs($this->userWithRole('R02'), 'sanctum')
-            ->getJson("/api/requests/{$requestRecord->id}")
-            ->assertOk();
-
-        $this->actingAs($this->userWithRole('R09'), 'sanctum')
-            ->getJson("/api/requests/{$requestRecord->id}")
-            ->assertNotFound();
-    }
-
-    /** Cancellation follows the role that moves the stage — the seeder's own stated rule. */
-    public function test_cancelling_at_the_forwarding_stage_moved_to_the_rapporteur_with_no_stale_row_left_behind(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        $service = app(WorkflowService::class);
-
-        try {
-            $service->transition(
-                $this->newRequest('forward_to_committee', 'ready'),
-                'cancel',
-                $this->userWithRole('R09'),
-                'إلغاء إداري.',
-            );
-            $this->fail('R09 should no longer hold cancel at forward_to_committee.');
-        } catch (WorkflowTransitionException $exception) {
-            $this->assertSame(
-                'لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.',
-                $exception->getMessage(),
-            );
-        }
-
-        $cancelled = $service->transition(
-            $this->newRequest('forward_to_committee', 'ready'),
-            'cancel',
-            $this->userWithRole('R02'),
-            'إلغاء بناءً على كتاب رسمي.',
-        );
-
-        $this->assertSame('cancelled', $cancelled->status->code);
-        $this->assertSame('forward_to_committee', $cancelled->currentStage->code);
-    }
-
-    /**
-     * Re-running the seeder must not leave a superseded cancel row beside its
-     * replacement: exception rows survive the delete at the top of
-     * WorkflowTransitionSeeder::run(), and seedException() keys its upsert on
-     * required_role_id, so without the explicit cleanup both would exist. That
-     * one query has now swept R05 (pre-Stage-86) and R09 (pre-Stage-96) alike.
-     */
-    public function test_re_seeding_a_pre_stage_96_database_removes_the_superseded_cancel_row(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        $stageId = WorkflowStage::where('code', 'forward_to_committee')->value('id');
-        $cancelRows = fn () => WorkflowTransition::query()
-            ->where('from_stage_id', $stageId)
-            ->where('action', 'cancel')
-            ->with('requiredRole')
-            ->get();
-
-        // A fresh database never holds the stale row, so seeding twice would
-        // prove nothing. Put the row back the way a pre-Stage-96 install
-        // actually has it, which is the only state the cleanup exists for.
-        $cancelRows()->first()->update(['required_role_id' => Role::where('code', 'R09')->value('id')]);
-
-        $this->seed(DatabaseSeeder::class);
-
-        $rows = $cancelRows();
-
-        $this->assertCount(1, $rows);
-        $this->assertSame('R02', $rows->first()->requiredRole->code);
-    }
-
-    /**
-     * Appendix 17's المسؤول الحالي is derived from these same rows (Stage 83),
-     * so it follows the re-seed with no separate change — R02 maps onto the
-     * appendix's مقرر اللجنة, a mapping ROLE_TO_PARTY already held.
-     */
-    public function test_the_current_responsible_party_names_the_rapporteur_at_both_handover_stages(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        $service = app(RequestResponsibilityService::class);
-
-        foreach (['observations' => 'in_review', 'forward_to_committee' => 'ready'] as $stageCode => $statusCode) {
-            $answer = $service->for($this->newRequest($stageCode, $statusCode));
-
-            $this->assertSame('committee_rapporteur', $answer['responsible']['code'], $stageCode);
-            $this->assertSame('مقرر اللجنة', $answer['responsible']['ar'], $stageCode);
-        }
-    }
-
-    private function newRequest(
-        string $stageCode,
-        string $statusCode,
-        ?int $createdByUserId = null,
-    ): Request {
         return Request::create([
-            'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
             'title' => 'اختبار تسليم الملف إلى اللجنة',
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
             'status_id' => RequestStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => now(),
-            'created_by_user_id' => $createdByUserId,
         ]);
     }
 

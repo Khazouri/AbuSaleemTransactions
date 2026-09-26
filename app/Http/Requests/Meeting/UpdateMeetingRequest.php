@@ -20,18 +20,17 @@ class UpdateMeetingRequest extends FormRequest
             // store() mints it, the same "never client-supplied when derivable"
             // rule appellant_user_id and original_decision_id already follow.
             'title' => ['sometimes', 'required', 'string', 'max:255'],
-            'meeting_type' => ['sometimes', 'required', Rule::in(['regular', 'extraordinary', 'emergency'])],
             'scheduled_at' => ['sometimes', 'required', 'date'],
             'location' => ['nullable', 'string', 'max:255'],
-            'chairman_user_id' => ['nullable', 'integer', 'exists:users,id'],
-            'rapporteur_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'expected_duration_minutes' => ['nullable', 'integer', 'min:1'],
             'agenda_deadline' => ['nullable', 'date'],
             'description' => ['nullable', 'string'],
             // Stage 82 — Appendix 24's documented justification for an agenda
             // that departs from Art. 83's ordering; see AgendaOrderingService.
             'agenda_order_justification' => ['nullable', 'string'],
-            'status' => ['sometimes', 'required', Rule::in(['scheduled', 'completed', 'cancelled'])],
+            // Stage 102 — `scheduled` is reached only by every invited member
+            // accepting the date (MeetingController::respond()), never set by hand.
+            'status' => ['sometimes', 'required', Rule::in(['completed', 'cancelled'])],
         ];
     }
 
@@ -39,10 +38,7 @@ class UpdateMeetingRequest extends FormRequest
     {
         return [
             'title.required' => 'عنوان الاجتماع مطلوب.',
-            'meeting_type.in' => 'نوع الاجتماع غير صالح.',
             'scheduled_at.required' => 'موعد الاجتماع مطلوب.',
-            'chairman_user_id.exists' => 'رئيس الاجتماع المحدد غير موجود.',
-            'rapporteur_user_id.exists' => 'مقرر الاجتماع المحدد غير موجود.',
             'status.in' => 'حالة الاجتماع غير صالحة.',
         ];
     }

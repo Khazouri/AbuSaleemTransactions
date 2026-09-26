@@ -91,8 +91,8 @@ watch(search, () => {
 
 // --- Actions -------------------------------------------------------------------
 
+// Stage 102 — no `nominate`: picking a request for a meeting is the nomination.
 const ACTION_ENDPOINTS = {
-  nominate: 'nominate',
   defer: 'defer',
   returnToStudy: 'return-to-study',
   requestCompletion: 'request-completion',
@@ -241,9 +241,6 @@ onMounted(async () => {
                   <RouterLink class="ghost" :to="{ name: 'request_details', params: { id: row.id } }">
                     {{ t('meetingsUnit.candidates.actions.openFile') }}
                   </RouterLink>
-                  <button v-can="'committee_candidates.add'" class="ghost" type="button" @click="openPrompt('nominate', row)">
-                    {{ t('meetingsUnit.candidates.actions.nominate') }}
-                  </button>
                   <button v-can="'committee_candidates.edit'" class="ghost" type="button" @click="openPrompt('defer', row)">
                     {{ t('meetingsUnit.candidates.actions.defer') }}
                   </button>

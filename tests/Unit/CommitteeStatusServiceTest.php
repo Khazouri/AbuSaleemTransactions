@@ -24,12 +24,13 @@ class CommitteeStatusServiceTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $actor = $this->userWithRole('R03');
-        $requestRecord = $this->committeeRequest('in_meeting');
+        // Stage 102 removed `nominate` (picking a request for a meeting is the
+        // nomination), so the walk starts from the legacy nominated status.
+        $requestRecord = $this->committeeRequest('nominated_for_committee');
         $service = app(CommitteeStatusService::class);
         $committeeStageId = $requestRecord->current_stage_id;
 
         $steps = [
-            ['nominate', 'nominated_for_committee'],
             ['place_on_agenda', 'on_agenda'],
             ['start_discussion', 'under_discussion'],
             ['send_for_recommendation_approval', 'awaiting_recommendation_approval'],
@@ -43,7 +44,7 @@ class CommitteeStatusServiceTest extends TestCase
         }
 
         $this->assertDatabaseCount('request_stage_logs', 0);
-        $this->assertCount(4, $requestRecord->statusHistory);
+        $this->assertCount(3, $requestRecord->statusHistory);
     }
 
     public function test_require_completion_needs_a_comment_and_resume_discussion_returns_to_under_discussion(): void
@@ -130,8 +131,8 @@ class CommitteeStatusServiceTest extends TestCase
         ]);
 
         try {
-            app(CommitteeStatusService::class)->move($requestRecord, 'nominate', $actor);
-            $this->fail('nominate should be rejected off the committee stage.');
+            app(CommitteeStatusService::class)->move($requestRecord, 'send_to_legal_review', $actor);
+            $this->fail('A committee move should be rejected off the committee stage.');
         } catch (CommitteeStatusTransitionException $exception) {
             $this->assertSame(
                 'لا يمكن تنفيذ إجراءات اللجنة إلا على طلب قيد الاستلام من اللجنة.',
@@ -151,7 +152,7 @@ class CommitteeStatusServiceTest extends TestCase
         $requestRecord = $this->committeeRequest('in_meeting');
 
         try {
-            app(CommitteeStatusService::class)->move($requestRecord, 'nominate', $actor);
+            app(CommitteeStatusService::class)->move($requestRecord, 'send_to_legal_review', $actor);
             $this->fail('An inactive actor must not move a committee status.');
         } catch (CommitteeStatusTransitionException $exception) {
             $this->assertSame('لا يمكن لمستخدم غير نشط تنفيذ إجراء حالة اللجنة.', $exception->getMessage());
@@ -166,7 +167,7 @@ class CommitteeStatusServiceTest extends TestCase
         $requestRecord = $this->committeeRequest('cancelled');
 
         try {
-            app(CommitteeStatusService::class)->move($requestRecord, 'nominate', $actor);
+            app(CommitteeStatusService::class)->move($requestRecord, 'send_to_legal_review', $actor);
             $this->fail('A cancelled request must not accept a committee status move.');
         } catch (CommitteeStatusTransitionException $exception) {
             $this->assertSame('لا يمكن تنفيذ إجراء على طلب ملغى أو مؤرشف.', $exception->getMessage());

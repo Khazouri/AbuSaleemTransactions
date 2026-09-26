@@ -5,6 +5,7 @@ namespace Tests;
 use App\Models\Committee;
 use App\Models\CommitteeMember;
 use App\Models\Meeting;
+use App\Models\Role;
 use App\Models\User;
 
 /**
@@ -41,6 +42,42 @@ trait SitsOnCommittee
     protected function seatOnMeeting(Meeting $meeting, User $user, array $attributes = []): CommitteeMember
     {
         return $this->seatOn($meeting->committee, $user, $attributes);
+    }
+
+    /**
+     * Stage 102 — a meeting can be scheduled only once all five Art. 10 (أ)
+     * seats are held, each by the role CommitteeMember::SEAT_ROLES names.
+     * Fills every seat not already taken, using $users[seat] when given and a
+     * fresh user holding the seat's role otherwise.
+     *
+     * @param  array<string, User>  $users
+     * @return array<string, User> seat => the user holding it
+     */
+    protected function fillFiveSeats(Committee $committee, array $users = []): array
+    {
+        $holders = [];
+        foreach (CommitteeMember::SEAT_ROLES as $seat => $roleCode) {
+            $existing = CommitteeMember::query()->where('committee_id', $committee->id)->where('seat', $seat)->first();
+            if ($existing !== null) {
+                $holders[$seat] = $existing->user;
+
+                continue;
+            }
+
+            $user = $users[$seat] ?? User::factory()->create();
+            $roleId = Role::query()->where('code', $roleCode)->value('id');
+            if (! $user->roles()->whereKey($roleId)->exists()) {
+                $user->roles()->attach($roleId);
+            }
+
+            CommitteeMember::updateOrCreate(
+                ['committee_id' => $committee->id, 'user_id' => $user->id],
+                ['seat' => $seat, 'is_head' => $seat === 'chair'],
+            );
+            $holders[$seat] = $user;
+        }
+
+        return $holders;
     }
 
     /**

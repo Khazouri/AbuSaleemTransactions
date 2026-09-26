@@ -294,7 +294,12 @@ class DocumentCompletenessTest extends TestCase
     }
 
     /** An administrative item has no file to be incomplete. */
-    public function test_an_administrative_item_is_unaffected(): void
+    /**
+     * Stage 102 — this used to prove an administrative item skipped the
+     * completeness gate. There are no such items any more: the agenda holds
+     * pending-list requests and appeals only, so the gate has no bypass.
+     */
+    public function test_there_is_no_administrative_item_to_bypass_the_gate(): void
     {
         [$head, $meeting] = $this->committeeMeeting();
 
@@ -303,7 +308,8 @@ class DocumentCompletenessTest extends TestCase
                 'item_type' => 'administrative',
                 'subject' => 'بند إداري',
             ])
-            ->assertCreated();
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('item_type');
     }
 
     /**

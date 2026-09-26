@@ -183,12 +183,14 @@ class AppealOutcomeExecutionTest extends TestCase
     {
         [, , , , , $appeal, , $verifier] = $this->decidedAppealFixture('appeal_redo');
         $originalRequest = $appeal->originalRequest;
-        $targetStage = WorkflowStage::where('code', 'reviewer_review')->firstOrFail();
+        // Stage 102 — reviewer_review is off the path; the مقرر's own check is
+        // the earliest stage a redo can name.
+        $targetStage = WorkflowStage::where('code', 'requirements_check')->firstOrFail();
 
         $this->actingAs($verifier, 'sanctum')
             ->patchJson("/api/appeals/{$appeal->id}/execute-outcome", ['redo_stage_id' => $targetStage->id])
             ->assertOk()
-            ->assertJsonPath('data.outcome_execution.redo_stage.code', 'reviewer_review');
+            ->assertJsonPath('data.outcome_execution.redo_stage.code', 'requirements_check');
 
         $originalRequest->refresh();
         $this->assertSame($targetStage->id, $originalRequest->current_stage_id);
@@ -207,14 +209,14 @@ class AppealOutcomeExecutionTest extends TestCase
 
         // Non-terminal, and available_actions now matches the target
         // stage's normal actions rather than staying empty (proving this
-        // directly via the reviewer_review-appropriate role, since R07 —
+        // directly via the requirements_check-appropriate role, since R07 —
         // used by the other outcome tests' generic non-terminal check —
         // holds no rule at this earlier stage and would otherwise 404).
         $reviewer = $this->userWithRole('R02');
         $response = $this->actingAs($reviewer, 'sanctum')
             ->getJson("/api/requests/{$originalRequest->id}")
             ->assertOk();
-        $this->assertContains('forward', $response->json('data.available_actions'));
+        $this->assertContains('return_missing_docs', $response->json('data.available_actions'));
     }
 
     /** @return array{0: User, 1: User, 2: Committee, 3: Meeting, 4: MeetingRequest, 5: Appeal, 6: User, 7: User} */

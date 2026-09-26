@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Storage;
 use Tests\PassesControlGates;
 use Tests\RecordsStructuredDecisions;
 use Tests\RunsStudySequence;
+use Tests\SitsOnCommittee;
 use Tests\TestCase;
 
 /**
@@ -39,6 +40,7 @@ class UnifiedNumberingTest extends TestCase
     use RecordsStructuredDecisions;
     use RefreshDatabase;
     use RunsStudySequence;
+    use SitsOnCommittee;
 
     /**
      * Art. 15 — intake produces a receipt and NO reference; the reference
@@ -136,8 +138,10 @@ class UnifiedNumberingTest extends TestCase
         $this->assertSame('PM-COM/'.now()->format('Y').'/0001', $first);
 
         // Back for missing documents, all the way to the front of the chain,
-        // then forward again through the same registration hop.
-        $service->transition($requestRecord, 'reject_review', $reviewer, 'ناقص');
+        // then forward again through the same registration hop. Stage 102 —
+        // the approve lands on the committee stage, so the way back starts
+        // with the committee's own return_to_study.
+        $service->transition($requestRecord, 'return_to_study', $this->userWithRole('R03'), 'ناقص');
         $service->transition($requestRecord, 'return_missing_docs', $reviewer, 'مستند مفقود');
         $requestRecord->refresh();
 
@@ -179,17 +183,19 @@ class UnifiedNumberingTest extends TestCase
     public function test_meeting_numbers_are_server_minted_and_ignore_client_input(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $head = $this->userWithRole('R03');
+        // Stage 102 — the مقرر schedules, the five seats must be filled, and
+        // the two sittings fall in different months (one a month).
+        $rapporteur = $this->userWithRole('R02');
         $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
-        $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
+        $this->fillFiveSeats($committee, ['rapporteur' => $rapporteur]);
 
         foreach ([1, 2] as $sequence) {
-            $this->actingAs($head, 'sanctum')
+            $this->actingAs($rapporteur, 'sanctum')
                 ->postJson('/api/meetings', [
                     'committee_id' => $committee->id,
                     'meeting_number' => 'رقم يكتبه المستخدم',
                     'title' => "اجتماع {$sequence}",
-                    'scheduled_at' => now()->addDays($sequence)->toDateTimeString(),
+                    'scheduled_at' => now()->startOfMonth()->addMonths($sequence)->addDays(3)->toDateTimeString(),
                 ])
                 ->assertCreated()
                 ->assertJsonPath('data.meeting_number', 'PM-MTG/'.now()->format('Y').'/'.sprintf('%02d', $sequence));

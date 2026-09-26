@@ -90,10 +90,14 @@ class NotificationDispatcher
 
         // Stage 47 — قسم المرتبات والمزايا holds no seat in workflow_transitions
         // ([D] doesn't name one; see AGENT_NOTES.md), so it can't be picked up
-        // by actorsForStage() above. `observations` is this system's "study"
-        // checkpoint (Stage 44), reached on the happy path AND via Stage 32's
-        // `return_to_study` self-loop — both should re-notify if flagged.
-        if ($toStage?->code === 'observations' && $requestRecord->has_financial_impact) {
+        // by actorsForStage() above. Stage 102 — told when the file arrives on
+        // the committee's pending list, the first stop after the study now
+        // that `observations` is off the path. Arrival, not a self-loop at the
+        // committee stage (defer etc.): a `return_to_study` sends the file
+        // back to requirements_check, so its return to the list re-notifies.
+        if ($toStage?->code === 'receive_from_committee'
+            && $fromStage?->id !== $toStage->id
+            && $requestRecord->has_financial_impact) {
             $this->send($this->salariesAndBenefitsDepartment($excluded), new FinancialImpactReviewNotification($requestRecord));
         }
     }

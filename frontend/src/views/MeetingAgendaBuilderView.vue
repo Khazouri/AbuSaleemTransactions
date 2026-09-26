@@ -1,9 +1,12 @@
 <script setup>
 // Stage 31 — the dedicated agenda-builder screen: pick a meeting, then build
-// its agenda with priorities, estimated time, and (new this stage) standalone
-// administrative/emerging items alongside request items. MeetingDetailView's
-// inline agenda list stays as the quick add/remove/reorder view for request
-// items; this screen owns the richer authoring the design doc asked for.
+// its agenda with priorities and estimated time. MeetingDetailView's inline
+// agenda list stays as the quick add/remove/reorder view; this screen owns the
+// richer authoring the design doc asked for.
+//
+// Stage 102 — requests come only from the committee's pending list
+// (`/committee-candidates`), and Stage 31's standalone administrative/emerging
+// items are gone: the agenda is pending-list requests plus appeals.
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -174,19 +177,6 @@ async function saveJustification() {
   }
 }
 
-// --- Department options (for admin items) ---------------------------------------
-
-const departmentOptions = ref([])
-
-async function loadDepartmentOptions() {
-  try {
-    const { data } = await api.get('/meetings/department-options')
-    departmentOptions.value = data.data ?? []
-  } catch {
-    departmentOptions.value = []
-  }
-}
-
 // --- Appeal options (Stage 63 — appeals ready for committee presentation) -------
 
 const appealOptions = ref([])
@@ -203,8 +193,6 @@ async function loadAppealOptions() {
 // --- Add item form ----------------------------------------------------------------
 
 const newItemType = ref('employee_request')
-const newSubject = ref('')
-const newDepartmentId = ref('')
 const newPriority = ref('')
 const newEstimatedMinutes = ref('')
 const addError = ref('')
@@ -227,30 +215,24 @@ const agendaAppealIds = computed(() => new Set(
 
 watch(requestSearch, (value) => {
   clearTimeout(searchTimer)
-  if (!value.trim()) {
-    requestResults.value = []
-    return
-  }
   searchTimer = setTimeout(async () => {
     requestSearching.value = true
     try {
-      const { data } = await api.get('/requests', { params: { search: value.trim(), per_page: 5 } })
+      const { data } = await api.get('/committee-candidates', {
+        params: { search: value.trim() || undefined, per_page: 50 },
+      })
       requestResults.value = data.data ?? []
     } catch {
       requestResults.value = []
     } finally {
       requestSearching.value = false
     }
-  }, 300)
-})
+  }, value ? 300 : 0)
+}, { immediate: true })
 
 function resetAddForm() {
-  newSubject.value = ''
-  newDepartmentId.value = ''
   newPriority.value = ''
   newEstimatedMinutes.value = ''
-  requestSearch.value = ''
-  requestResults.value = []
 }
 
 async function addRequestItem(request) {
@@ -289,29 +271,6 @@ async function addAppealItem(appeal) {
   } catch (requestError) {
     addError.value = requestError.response?.data?.message
       ?? requestError.response?.data?.errors?.appeal_id?.[0]
-      ?? t('common.none')
-  } finally {
-    adding.value = false
-  }
-}
-
-async function addAdminItem() {
-  if (!newSubject.value.trim()) return
-  addError.value = ''
-  adding.value = true
-  try {
-    await api.post(`/meetings/${meeting.value.id}/agenda`, {
-      item_type: newItemType.value,
-      subject: newSubject.value.trim(),
-      department_id: newDepartmentId.value || null,
-      priority: newPriority.value || null,
-      estimated_minutes: newEstimatedMinutes.value || null,
-    })
-    resetAddForm()
-    await loadMeeting()
-  } catch (requestError) {
-    addError.value = requestError.response?.data?.message
-      ?? requestError.response?.data?.errors?.subject?.[0]
       ?? t('common.none')
   } finally {
     adding.value = false
@@ -398,7 +357,7 @@ function onDragEnd() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadMeetings(), loadDepartmentOptions(), loadAppealOptions(), loadMeeting()])
+  await Promise.all([loadMeetings(), loadAppealOptions(), loadMeeting()])
 })
 </script>
 
@@ -445,8 +404,6 @@ onMounted(async () => {
           <span>{{ t('meetingsUnit.agenda.stats.byType') }}</span>
           <strong>
             {{ t('meetings.agenda.itemType.employee_request') }} {{ stats.by_type.employee_request }}
-            · {{ t('meetings.agenda.itemType.administrative') }} {{ stats.by_type.administrative }}
-            · {{ t('meetings.agenda.itemType.emerging') }} {{ stats.by_type.emerging }}
             · {{ t('meetings.agenda.itemType.appeal') }} {{ stats.by_type.appeal }}
           </strong>
         </div>
@@ -552,7 +509,7 @@ onMounted(async () => {
         <h3>{{ t('meetingsUnit.agenda.addItem') }}</h3>
         <div class="type-toggle">
           <button
-            v-for="type in ['employee_request', 'administrative', 'emerging', 'appeal']"
+            v-for="type in ['employee_request', 'appeal']"
             :key="type"
             type="button"
             class="ghost"
@@ -584,7 +541,7 @@ onMounted(async () => {
             {{ t('meetings.wizard.searchRequests') }}
             <input v-model="requestSearch" type="text" :placeholder="t('meetings.wizard.searchRequests')" />
           </label>
-          <ul v-if="requestSearch.trim()" class="results">
+          <ul class="results">
             <li v-if="requestSearching" class="state">{{ t('common.loading') }}</li>
             <template v-else>
               <li v-if="!requestResults.length" class="state">{{ t('meetings.wizard.noResults') }}</li>
@@ -622,26 +579,6 @@ onMounted(async () => {
               </button>
             </li>
           </ul>
-        </template>
-        <template v-else>
-          <div class="grid">
-            <label class="span-2">
-              {{ t('meetings.agenda.subject') }}
-              <input v-model="newSubject" type="text" />
-            </label>
-            <label>
-              {{ t('meetings.agenda.department') }}
-              <select v-model="newDepartmentId">
-                <option value="">{{ t('common.none') }}</option>
-                <option v-for="dept in departmentOptions" :key="dept.id" :value="dept.id">{{ name(dept) }}</option>
-              </select>
-            </label>
-          </div>
-          <div class="actions">
-            <button class="primary" type="button" :disabled="adding || !newSubject.trim()" @click="addAdminItem">
-              {{ adding ? t('common.saving') : t('meetings.agenda.add') }}
-            </button>
-          </div>
         </template>
         <p v-if="addError" class="alert">{{ addError }}</p>
       </section>

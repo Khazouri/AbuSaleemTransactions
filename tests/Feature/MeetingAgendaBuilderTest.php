@@ -28,51 +28,42 @@ class MeetingAgendaBuilderTest extends TestCase
     use RefreshDatabase;
     use RunsStudySequence;
 
-    public function test_an_administrative_item_can_be_added_without_a_request(): void
+    /**
+     * Stage 102 — the agenda is the pending list's requests plus appeals; the
+     * free-standing administrative and emerging items Stage 31 added are gone.
+     */
+    public function test_administrative_and_emerging_items_are_refused(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         [$head, , $meeting] = $this->committeeAndMeeting();
-        $departmentId = Department::where('code', 'ADM')->value('id');
 
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", [
-                'item_type' => 'administrative',
-                'subject' => 'مراجعة ميزانية القسم',
-                'department_id' => $departmentId,
-                // Stage 83 — Appendix 33: a declared عاجل names one of its five
-                // grounds and records the reason. This fixture is about
-                // administrative items, not urgency, so it simply satisfies it.
-                'priority' => 'high',
-                'priority_reason_code' => 'official_directive',
-                'priority_reason' => 'توجيه رسمي بسرعة البت في الميزانية.',
-                'estimated_minutes' => 15,
-            ])
-            ->assertCreated()
-            ->assertJsonPath('data.item_type', 'administrative')
-            ->assertJsonPath('data.subject', 'مراجعة ميزانية القسم')
-            ->assertJsonPath('data.priority', 'high')
-            ->assertJsonPath('data.estimated_minutes', 15)
-            ->assertJsonPath('data.request', null);
+        foreach (['administrative', 'emerging'] as $itemType) {
+            $this->actingAs($head, 'sanctum')
+                ->postJson("/api/meetings/{$meeting->id}/agenda", ['item_type' => $itemType, 'subject' => 'بند'])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('item_type');
+        }
 
-        $this->assertDatabaseHas('meeting_requests', [
-            'meeting_id' => $meeting->id,
-            'item_type' => 'administrative',
-            'request_id' => null,
-            'subject' => 'مراجعة ميزانية القسم',
-        ]);
+        $this->assertDatabaseCount('meeting_requests', 0);
     }
 
-    public function test_subject_is_required_for_a_non_request_item(): void
+    /** Stage 102 — a request reaches an agenda only from the committee's pending list. */
+    public function test_a_request_not_on_the_pending_list_is_refused(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         [$head, , $meeting] = $this->committeeAndMeeting();
+        $notYetApproved = $this->request('CCC', Department::where('code', 'ADM')->value('id'));
+        $notYetApproved->update([
+            'status_id' => RequestStatus::where('code', 'in_review')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'requirements_check')->value('id'),
+        ]);
 
         $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", ['item_type' => 'emerging'])
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $notYetApproved->id])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('subject');
+            ->assertJsonPath('errors.request_id.0', 'لا يُدرج في جدول الأعمال إلا طلب من قائمة الطلبات المعلقة للجنة.');
     }
 
     public function test_agenda_stats_totals_and_groups_by_effective_department(): void
@@ -93,10 +84,9 @@ class MeetingAgendaBuilderTest extends TestCase
 
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", [
-                'item_type' => 'administrative',
-                'subject' => 'بند إداري',
-                'department_id' => $admId,
-                // Stage 83 — Appendix 33; see the administrative-item test above.
+                'request_id' => $this->request('ABB', $admId)->id,
+                // Stage 83 — Appendix 33: a declared عاجل names one of its five
+                // grounds and records the reason.
                 'priority' => 'high',
                 'priority_reason_code' => 'official_directive',
                 'priority_reason' => 'توجيه رسمي بسرعة البت.',
@@ -112,8 +102,8 @@ class MeetingAgendaBuilderTest extends TestCase
         $this->assertSame(30, $response->json('data.total_estimated_minutes'));
         $this->assertSame(1, $response->json('data.by_priority.normal'));
         $this->assertSame(1, $response->json('data.by_priority.high'));
-        $this->assertSame(1, $response->json('data.by_type.employee_request'));
-        $this->assertSame(1, $response->json('data.by_type.administrative'));
+        $this->assertSame(2, $response->json('data.by_type.employee_request'));
+        $this->assertSame(0, $response->json('data.by_type.administrative'));
 
         $groups = $response->json('data.groups');
         $this->assertSame('department', $response->json('data.group_by'));
@@ -141,21 +131,15 @@ class MeetingAgendaBuilderTest extends TestCase
             'title' => 'طلب إجازة',
             'department_id' => $admId,
             'request_type_id' => RequestType::where('code', 'LEAV')->value('id'),
-            'status_id' => RequestStatus::where('code', 'new')->value('id'),
-            'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
+            'status_id' => RequestStatus::where('code', 'registered')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
         ]));
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $leaveRequest->id])
             ->assertCreated();
 
-        // ...and an admin item, which has no request and therefore no type.
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", [
-                'item_type' => 'administrative',
-                'subject' => 'بند إداري',
-            ])
-            ->assertCreated();
+        // (Stage 102 dropped the third, typeless administrative item.)
 
         $response = $this->actingAs($head, 'sanctum')
             ->getJson("/api/meetings/{$meeting->id}/agenda/stats?group_by=request_type")
@@ -163,14 +147,13 @@ class MeetingAgendaBuilderTest extends TestCase
 
         $this->assertSame('request_type', $response->json('data.group_by'));
         $groups = collect($response->json('data.groups'));
-        $this->assertCount(3, $groups);
+        $this->assertCount(2, $groups);
 
         $promotionTypeId = RequestType::where('code', 'PROM')->value('id');
         $leaveTypeId = RequestType::where('code', 'LEAV')->value('id');
 
         $this->assertCount(1, $groups->firstWhere('type.id', $promotionTypeId)['items']);
         $this->assertCount(1, $groups->firstWhere('type.id', $leaveTypeId)['items']);
-        $this->assertCount(1, $groups->firstWhere('type', null)['items']);
     }
 
     public function test_agenda_stats_rejects_an_unknown_group_by(): void
@@ -285,8 +268,9 @@ class MeetingAgendaBuilderTest extends TestCase
             'title' => "طلب {$suffix}",
             'department_id' => $departmentId,
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
-            'status_id' => RequestStatus::where('code', 'new')->value('id'),
-            'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
+            // Stage 102 — on the committee's pending list.
+            'status_id' => RequestStatus::where('code', 'registered')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
         ]));
     }

@@ -42,7 +42,7 @@ class ApprovalChainTest extends TestCase
                 'comment' => 'تمت مراجعة المستندات واعتمادها.',
             ])
             ->assertOk()
-            ->assertJsonPath('data.current_stage.code', 'reviewer_review');
+            ->assertJsonPath('data.current_stage.code', 'receive_from_committee');
 
         $this->assertDatabaseHas('approvals', [
             'request_id' => $pending->id,
@@ -78,7 +78,7 @@ class ApprovalChainTest extends TestCase
                 'comment' => 'اعتماد دون توقيع.',
             ])
             ->assertOk()
-            ->assertJsonPath('data.current_stage.code', 'reviewer_review');
+            ->assertJsonPath('data.current_stage.code', 'receive_from_committee');
 
         $this->assertDatabaseCount('approvals', 1);
     }
@@ -140,7 +140,7 @@ class ApprovalChainTest extends TestCase
                 'action' => 'approve',
             ])
             ->assertOk()
-            ->assertJsonPath('data.current_stage.code', 'reviewer_review')
+            ->assertJsonPath('data.current_stage.code', 'receive_from_committee')
             ->assertJsonPath('data.approvals.0.level', 1);
 
         $this->assertDatabaseCount('approvals', 1);

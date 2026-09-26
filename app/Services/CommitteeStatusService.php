@@ -27,17 +27,12 @@ class CommitteeStatusService
     /**
      * action => [from statuses, to status, whether a comment is required].
      *
-     * `nominate`'s origin list covers both the design doc's "ready" prose and
-     * `in_meeting`, the status the existing 6→7 `forward` rule actually sets
-     * on arrival at this stage (see WorkflowTransitionSeeder) — the two names
-     * describe the same real-world moment.
+     * Stage 102 removed `nominate`: picking a request from the pending list
+     * onto a meeting's agenda IS the nomination, so a separate status step
+     * was a second way to say the same thing. `nominated_for_committee` stays
+     * a candidate status for rows that took it before.
      */
     private const ACTIONS = [
-        'nominate' => [
-            'from' => ['ready', 'in_meeting'],
-            'to' => 'nominated_for_committee',
-            'requires_comment' => false,
-        ],
         'place_on_agenda' => [
             'from' => ['nominated_for_committee'],
             'to' => 'on_agenda',
@@ -64,7 +59,7 @@ class CommitteeStatusService
         // staff can ask for missing material before it ever reaches an
         // agenda, not only once discussion has begun.
         'require_completion' => [
-            'from' => ['ready', 'in_meeting', 'nominated_for_committee', 'under_discussion', 'awaiting_recommendation_approval'],
+            'from' => [...self::CANDIDATE_STATUSES, 'under_discussion', 'awaiting_recommendation_approval'],
             'to' => 'completion_required',
             'requires_comment' => true,
         ],
@@ -94,13 +89,13 @@ class CommitteeStatusService
         // i.e. exactly the jump ahead the rule forbids, and the loop Stage 68
         // documented was reachable only by writing status_id by hand.
         'send_to_legal_review' => [
-            'from' => ['ready', 'in_meeting', 'nominated_for_committee', 'completion_required'],
+            'from' => [...self::CANDIDATE_STATUSES, 'completion_required'],
             'to' => 'under_legal_review',
             'requires_comment' => false,
         ],
         // A permitting verdict returns the file to Art. 38's own code 08
-        // (جاهزة للعرض) — `ready` here — which is also `nominate`'s origin, so
-        // the file rejoins the candidate pool exactly where it left it.
+        // (جاهزة للعرض) — `ready` here — a candidate status, so the file
+        // rejoins the pending list.
         'pass_legal_review' => [
             'from' => ['under_legal_review'],
             'to' => 'ready',
@@ -122,11 +117,17 @@ class CommitteeStatusService
 
     /**
      * Stage 32 — the committee's "candidate pool": sitting at this stage, not
-     * yet placed on any meeting's agenda. Exactly `nominate`'s origin
-     * statuses plus the status it moves them to — the same set the
-     * candidate-requests worklist and the meetings dashboard's funnel/KPIs
-     * both read, so a request the worklist lists is always one the dashboard
-     * is already counting.
+     * yet placed on any meeting's agenda — the same set the candidate-requests
+     * worklist and the meetings dashboard's funnel/KPIs both read, so a request
+     * the worklist lists is always one the dashboard is already counting.
+     *
+     * Stage 102 — this is the committee's pending list, and the only source a
+     * meeting's agenda draws requests from (MeetingController::addAgendaItem).
+     * `registered` is what the مقرر's approve lands on; `deferred` is a file
+     * the committee deferred, which waits for the next monthly meeting; the two
+     * `reopened_*` statuses are a file sent back to the committee (an appeal
+     * redo, an approving body's substantive return, a reopen, a lifted
+     * suspension) — reopenAtStage() lands every one of them here.
      *
      * Stage 68 deliberately did NOT add `under_legal_review` here, preserving
      * that invariant: a file sitting with the legal member is on *their* queue
@@ -136,7 +137,10 @@ class CommitteeStatusService
      * its own `legal_review` bucket instead, so nothing vanishes from the
      * dashboard while the review is in progress.
      */
-    public const CANDIDATE_STATUSES = ['ready', 'in_meeting', 'nominated_for_committee'];
+    public const CANDIDATE_STATUSES = [
+        'registered', 'deferred', 'ready', 'in_meeting', 'nominated_for_committee',
+        'reopened_by_appeal', 'reopened_for_representation',
+    ];
 
     /** Stage 68 — Art. 38's code 07: with the legal member right now. */
     public const LEGAL_REVIEW_STATUS = 'under_legal_review';
@@ -214,7 +218,13 @@ class CommitteeStatusService
     {
         return Request::query()
             ->whereHas('currentStage', fn ($query) => $query->where('code', self::COMMITTEE_STAGE_CODE))
-            ->whereHas('status', fn ($query) => $query->whereIn('code', self::CANDIDATE_STATUSES));
+            ->whereHas('status', fn ($query) => $query->whereIn('code', self::CANDIDATE_STATUSES))
+            // Stage 102 — a file picked for a meeting leaves the list until
+            // that meeting decides it (a deferral returns it at once) or is
+            // cancelled.
+            ->whereDoesntHave('meetingRequests', fn ($item) => $item
+                ->whereDoesntHave('decision')
+                ->whereHas('meeting', fn ($meeting) => $meeting->whereNotIn('status', ['completed', 'cancelled'])));
     }
 
     /**

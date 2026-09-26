@@ -115,7 +115,7 @@ class RequirementsCheckJurisdictionTest extends TestCase
                 'action' => 'approve',
             ], ['Accept' => 'application/json'])
             ->assertOk()
-            ->assertJsonPath('data.current_stage.code', 'reviewer_review')
+            ->assertJsonPath('data.current_stage.code', 'receive_from_committee')
             // Art. 38's code 06, re-stamped: the file was already registered
             // and numbered when the receiving body accepted it, and passing the
             // completeness check keeps it in that band.

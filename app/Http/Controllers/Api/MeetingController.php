@@ -11,7 +11,7 @@ use App\Http\Requests\MeetingAgenda\StoreMeetingAgendaRequest;
 use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemRequest;
 use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemStateRequest;
 use App\Http\Requests\MeetingAgenda\UpdateStudySequenceRequest;
-use App\Http\Requests\MeetingAttendee\StoreMeetingAttendeeRequest;
+use App\Http\Requests\MeetingAttendee\RespondToMeetingInvitationRequest;
 use App\Http\Requests\MeetingAttendee\UpdateMeetingAttendeeRequest;
 use App\Http\Resources\MeetingAttendeeResource;
 use App\Http\Resources\MeetingRequestResource;
@@ -29,6 +29,7 @@ use App\Models\Request;
 use App\Models\RequestStageLog;
 use App\Services\AgendaOrderingService;
 use App\Services\ArtifactNumberGenerator;
+use App\Services\CommitteeStatusService;
 use App\Services\DocumentCompletenessService;
 use App\Services\Lifecycle\DocumentConflictService;
 use App\Services\Lifecycle\UrgencyRules;
@@ -38,6 +39,7 @@ use App\Services\StudySequenceRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -60,7 +62,7 @@ class MeetingController extends Controller
     public const AGENDA_NOT_ADOPTED = 'لا تبدأ مناقشة البنود قبل اعتماد جدول الأعمال (المادة 84).';
 
     /** Stage 99 — the adopted agenda is the one the committee deliberates on. */
-    public const AGENDA_ALREADY_ADOPTED = 'تم اعتماد جدول الأعمال، ولا يجوز تعديل بنوده إلا بإضافة موضوع مستجد.';
+    public const AGENDA_ALREADY_ADOPTED = 'تم اعتماد جدول الأعمال، ولا يجوز تعديل بنوده.';
 
     // Membership gate — the list half of the same rule CheckMeetingMembership
     // enforces per row, so a sitting this omits is never one whose detail
@@ -117,11 +119,31 @@ class MeetingController extends Controller
             ]);
         }
 
-        [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request, $numbers) {
-            $committee = Committee::query()->findOrFail($data['committee_id']);
+        // Stage 102 — the committee is its five Art. 10 (أ) seats, and the
+        // meeting invites exactly them: no sitting until every seat is held by
+        // an active user. The chair and rapporteur of the sitting are whoever
+        // holds those seats, never picked per meeting.
+        $committee = Committee::query()->findOrFail($data['committee_id']);
+        $seats = $committee->activeMembers()->whereNotNull('seat')->get()->keyBy('seat');
+        if ($seats->count() < count(CommitteeMember::SEATS)) {
+            throw ValidationException::withMessages([
+                'committee_id' => ['لا يمكن جدولة اجتماع قبل شغل مقاعد اللجنة الخمسة (الرئيس، العضو القانوني، مدير الموارد البشرية، مندوب الخدمة المدنية، المقرر).'],
+            ]);
+        }
+
+        $this->refuseSecondMeetingInMonth($committee->id, Carbon::parse($data['scheduled_at']));
+
+        [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request, $numbers, $seats) {
+            $rapporteurId = $seats['rapporteur']->user_id;
 
             $meeting = Meeting::create([
                 ...$data,
+                'meeting_type' => 'regular',
+                'chairman_user_id' => $seats['chair']->user_id,
+                'rapporteur_user_id' => $rapporteurId,
+                // Stage 102 — a proposed date, approved only once every
+                // invited member accepts it (respond()).
+                'status' => Meeting::STATUS_PENDING_CONFIRMATION,
                 // Stage 70 — [D] Appendix 15 numbers the meeting itself
                 // (PM-MTG/YEAR/NN), and Appendix 8 refuses to send a محضر for
                 // approval without "تطابق رقم الاجتماع". Server-minted rather
@@ -132,11 +154,13 @@ class MeetingController extends Controller
                 'created_by_user_id' => $request->user()->id,
             ]);
 
-            $memberUserIds = $committee->activeMembers()->pluck('user_id');
+            // The مقرر proposes the date, so their own answer is already yes.
+            $memberUserIds = $seats->pluck('user_id')->values();
             foreach ($memberUserIds as $userId) {
                 MeetingAttendee::create([
                     'meeting_id' => $meeting->id,
                     'user_id' => $userId,
+                    ...($userId === $rapporteurId ? ['invitation_status' => 'confirmed', 'responded_at' => now()] : []),
                 ]);
             }
 
@@ -172,9 +196,20 @@ class MeetingController extends Controller
      * itself resolves that case by auto-approving when there is nothing to
      * sign, so `generate` then `review` is still the required path.
      */
-    public function update(UpdateMeetingRequest $request, Meeting $meeting): MeetingResource|JsonResponse
+    public function update(UpdateMeetingRequest $request, Meeting $meeting, NotificationDispatcher $notifications): MeetingResource|JsonResponse
     {
         $data = $request->validated();
+
+        // Stage 102 — a new date is a new proposal: every member answers it
+        // again, and the meeting is not approved until they all accept.
+        $dateChanged = isset($data['scheduled_at'])
+            && ! Carbon::parse($data['scheduled_at'])->equalTo($meeting->scheduled_at);
+        if ($dateChanged) {
+            if ($meeting->convened_at !== null || ! in_array($meeting->status, [Meeting::STATUS_PENDING_CONFIRMATION, 'scheduled'], true)) {
+                return response()->json(['message' => 'لا يمكن تغيير موعد اجتماع انعقد أو أُغلق أو أُلغي.'], 422);
+            }
+            $this->refuseSecondMeetingInMonth($meeting->committee_id, Carbon::parse($data['scheduled_at']), $meeting->id);
+        }
 
         if (($data['status'] ?? null) === 'completed') {
             $unresolved = $meeting->agendaItems()->with('decision')->get()
@@ -194,9 +229,80 @@ class MeetingController extends Controller
             }
         }
 
-        $meeting->update($data);
+        DB::transaction(function () use ($meeting, $data, $dateChanged) {
+            $meeting->update($dateChanged ? [...$data, 'status' => Meeting::STATUS_PENDING_CONFIRMATION] : $data);
+
+            if ($dateChanged) {
+                $meeting->attendees()->update(['invitation_status' => 'pending', 'responded_at' => null]);
+                $meeting->attendees()->where('user_id', $meeting->rapporteur_user_id)
+                    ->update(['invitation_status' => 'confirmed', 'responded_at' => now()]);
+            }
+        });
+
+        if ($dateChanged) {
+            $notifications->meetingScheduled($meeting, $meeting->attendees()->pluck('user_id'), $request->user());
+        }
 
         return new MeetingResource($this->loadDetail($meeting));
+    }
+
+    /**
+     * Stage 102 — one meeting a month: a committee may not hold a second
+     * non-cancelled meeting in the same calendar month.
+     */
+    private function refuseSecondMeetingInMonth(int $committeeId, Carbon $at, ?int $ignoreMeetingId = null): void
+    {
+        $clash = Meeting::query()
+            ->where('committee_id', $committeeId)
+            ->where('status', '!=', 'cancelled')
+            ->whereBetween('scheduled_at', [$at->copy()->startOfMonth(), $at->copy()->endOfMonth()])
+            ->when($ignoreMeetingId, fn ($query, int $id) => $query->whereKeyNot($id))
+            ->exists();
+
+        if ($clash) {
+            throw ValidationException::withMessages([
+                'scheduled_at' => ['تجتمع اللجنة مرة واحدة في الشهر، ويوجد اجتماع آخر لها في الشهر نفسه.'],
+            ]);
+        }
+    }
+
+    /**
+     * Stage 102 — each invited member answers the proposed date themselves;
+     * nobody records it for them. The meeting is approved (`scheduled`) the
+     * moment the last member accepts. A decline leaves it awaiting
+     * confirmation until the مقرر proposes another date (update()).
+     */
+    public function respond(RespondToMeetingInvitationRequest $request, Meeting $meeting): MeetingResource|JsonResponse
+    {
+        $refusal = DB::transaction(function () use ($request, $meeting) {
+            $locked = Meeting::query()->lockForUpdate()->findOrFail($meeting->id);
+
+            if ($locked->status !== Meeting::STATUS_PENDING_CONFIRMATION) {
+                return 'لا يمكن الرد على الدعوة إلا والاجتماع بانتظار تأكيد موعده.';
+            }
+
+            $attendee = $locked->attendees()->where('user_id', $request->user()->id)->first();
+            if ($attendee === null) {
+                return 'لست من المدعوين إلى هذا الاجتماع.';
+            }
+
+            $attendee->update([
+                'invitation_status' => $request->validated('response') === 'accept' ? 'confirmed' : 'declined',
+                'responded_at' => now(),
+            ]);
+
+            if (! $locked->attendees()->where('invitation_status', '!=', 'confirmed')->exists()) {
+                $locked->update(['status' => 'scheduled']);
+            }
+
+            return null;
+        });
+
+        if ($refusal !== null) {
+            return response()->json(['message' => $refusal], 422);
+        }
+
+        return new MeetingResource($this->loadDetail($meeting->refresh()));
     }
 
     /**
@@ -242,11 +348,9 @@ class MeetingController extends Controller
     ];
 
     /**
-     * Stage 31 — an item is either an `employee_request` riding a request
-     * (the only kind before this stage), a standalone `administrative`/
-     * `emerging` item, or (Stage 63) an `appeal`; the FormRequest's
-     * conditional rules already picked which of request_id/appeal_id/subject
-     * is present, so this just stores whichever validated shape arrived.
+     * An item is either an `employee_request` riding a request or (Stage 63)
+     * an `appeal`. Stage 102 removed Stage 31's standalone `administrative`/
+     * `emerging` items: the agenda is the pending list's requests, plus appeals.
      *
      * The one business rule the FormRequest can't express: an appeal may
      * only be nominated once it has passed legal review (Stage 62's own
@@ -263,10 +367,20 @@ class MeetingController extends Controller
 
         $itemType = $validated['item_type'] ?? 'employee_request';
 
-        // Stage 99 — once adopted, the agenda is fixed; an `emerging` item is
-        // the one kind that by definition arises at the sitting itself.
-        if ($meeting->agenda_adopted_at !== null && $itemType !== 'emerging') {
+        // Stage 99 — once adopted, the agenda is fixed. Stage 102 removed the
+        // `emerging` exception along with the type itself.
+        if ($meeting->agenda_adopted_at !== null) {
             return response()->json(['message' => self::AGENDA_ALREADY_ADOPTED], 422);
+        }
+
+        // Stage 102 — a request reaches a meeting only from the committee's
+        // pending list (the مقرر's approve puts it there), never by picking
+        // any file the actor happens to be able to see.
+        if ($itemType === 'employee_request'
+            && ! app(CommitteeStatusService::class)->candidatesQuery()->whereKey($validated['request_id'])->exists()) {
+            throw ValidationException::withMessages([
+                'request_id' => ['لا يُدرج في جدول الأعمال إلا طلب من قائمة الطلبات المعلقة للجنة.'],
+            ]);
         }
 
         if ($itemType === 'appeal') {
@@ -479,12 +593,13 @@ class MeetingController extends Controller
 
         // "الدراسة" — [C]'s study stage has no free-standing result field to
         // read; the honest equivalent is the actual stage-log entries
-        // recorded while this request sat at the `observations` stage.
+        // recorded while this request sat at the مقرر's own checkpoint —
+        // `requirements_check` since Stage 102 took `observations` off the path.
         $study = RequestStageLog::query()
             ->where('request_id', $requestRecord->id)
             ->where(function ($query) {
-                $query->whereHas('fromStage', fn ($stage) => $stage->where('code', 'observations'))
-                    ->orWhereHas('toStage', fn ($stage) => $stage->where('code', 'observations'));
+                $query->whereHas('fromStage', fn ($stage) => $stage->whereIn('code', ['requirements_check', 'observations']))
+                    ->orWhereHas('toStage', fn ($stage) => $stage->whereIn('code', ['requirements_check', 'observations']));
             })
             ->with('actedBy:id,name')
             ->orderBy('acted_at')
@@ -870,41 +985,16 @@ class MeetingController extends Controller
         ]);
     }
 
-    /** Invites one extra attendee beyond the committee members auto-invited at creation. */
-    public function addAttendee(StoreMeetingAttendeeRequest $request, Meeting $meeting): JsonResponse
-    {
-        $attendee = $meeting->attendees()->create($request->validated());
-
-        return (new MeetingAttendeeResource($attendee->load('user:id,name')))
-            ->response()
-            ->setStatusCode(201);
-    }
-
-    public function removeAttendee(Meeting $meeting, MeetingAttendee $attendee): JsonResponse
-    {
-        abort_unless($attendee->meeting_id === $meeting->id, 404);
-
-        $attendee->delete();
-
-        return response()->json(null, 204);
-    }
-
     /**
-     * Updates attendance (`attended`) and/or an attendee's RSVP
-     * (`invitation_status`) — two independent fields on the same row, so
-     * setting the RSVP stamps `responded_at` regardless of whether
-     * `attended` was also sent.
+     * Roll call: whether an invited member attended. Stage 102 removed the
+     * RSVP from here (members answer through respond()) and removed ad-hoc
+     * attendees altogether — a meeting invites exactly the five seats.
      */
     public function markAttendance(UpdateMeetingAttendeeRequest $request, Meeting $meeting, MeetingAttendee $attendee): MeetingAttendeeResource
     {
         abort_unless($attendee->meeting_id === $meeting->id, 404);
 
-        $data = $request->validated();
-        if (array_key_exists('invitation_status', $data)) {
-            $data['responded_at'] = now();
-        }
-
-        $attendee->update($data);
+        $attendee->update($request->validated());
 
         return new MeetingAttendeeResource($attendee->load('user:id,name'));
     }

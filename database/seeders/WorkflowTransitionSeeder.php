@@ -64,35 +64,18 @@ class WorkflowTransitionSeeder extends Seeder
             // rows, which contradicted both sources; Stage 97 moved it back.
             // Appendix 63's بوابة 1 guards this same hop, i.e. it runs BEFORE
             // the قيد, where the appendix puts it.
-            ['requirements_check', 'reviewer_review', 'approve', 'R02', 'registered'],
-            ['reviewer_review', 'observations', 'forward', 'R02', 'in_review'],
-            // Stage 57 — collapses the old two-hop observations ->
-            // ministry_endorsement -> forward_to_committee into one: no
-            // standard document ([A]/[D]/[E]) puts a ministry checkpoint
-            // before the committee ever sees the request. Same status as
-            // before; the role moved later, in Stage 86 — see below.
             //
-            // Stage 96 — BOTH HOPS INTO THE COMMITTEE ARE مقرر اللجنة's (R02).
-            // Stage 86 gave them to R09 (أمين سر اللجنة) on [F] step 7, but
-            // [D] Appendix 6 — the governing RACI matrix — has no أمين سر
-            // اللجنة column at all: R09 and R10 are diagram-alignment
-            // inventions (AGENT_NOTES 2026-08-28, from a municipality
-            // infographic, not from [D]), and the appendix gives جدولة/عرض
-            // الملف على اللجنة to مقرر اللجنة as a single مسؤول. So the second
-            // hop lands on R02 rather than returning to its pre-Stage-86 R05:
-            // R05 is a tier of the approving column (Appendix 6's عميد
-            // البلدية / جهة الاعتماد), not the secretariat.
-            //
-            // Nothing else needed changing for this to take effect, and that
-            // is the check that this is a re-seed rather than a feature:
-            // neither hop is an approval level (see
-            // WorkflowService::APPROVAL_LEVELS and ApprovalController::LEVELS),
-            // both ride `request_details,view` which is seeded '*', and
-            // RequestVisibility derives its assignment clause from these very
-            // rows — so R02 regains visibility at both stages and R09 loses it
-            // automatically.
-            ['observations', 'forward_to_committee', 'forward', 'R02', 'ready'],
-            ['forward_to_committee', 'receive_from_committee', 'forward', 'R02', 'in_meeting'],
+            // Stage 102 — and it lands the file straight on the committee's
+            // pending list (`receive_from_committee` + `registered`, which
+            // CommitteeStatusService::CANDIDATE_STATUSES reads). The user's
+            // own process has the مقرر's approval put the request on that list;
+            // the three R02 `forward` hops through reviewer_review →
+            // observations → forward_to_committee were clicks by the same
+            // person with no gate of their own, so they are gone. Those three
+            // stage rows stay (historical stage logs point at them) but no
+            // rule reaches or leaves them any more — see the targeted delete
+            // below.
+            ['requirements_check', 'receive_from_committee', 'approve', 'R02', 'registered'],
             // Stage 69 — Art. 38's code 15 (بانتظار اعتماد البلدية), not the
             // old `decided` (code 12). [D] separates the two because it treats
             // الإحالة إلى السلطة المحلية as its own act; here recording the
@@ -296,8 +279,6 @@ class WorkflowTransitionSeeder extends Seeder
         // reason, while cancellation keeps the last active stage as context.
         $exceptions = [
             ['requirements_check', 'receive_from_municipality', 'return_missing_docs', 'R02', 'incomplete', 20],
-            ['reviewer_review', 'requirements_check', 'reject_review', 'R02', 'rejected', 20],
-            ['observations', 'reviewer_review', 'request_edit', 'R02', 'returned', 20],
         ];
 
         foreach ($exceptions as [$from, $to, $action, $role, $status, $order]) {
@@ -326,22 +307,22 @@ class WorkflowTransitionSeeder extends Seeder
             requiresSubmitterManager: true,
         );
 
-        // Stage 86 added this cleanup and Stage 96 keeps it, pointed at R02:
-        // a superseded cancel row at forward_to_committee has to be removed
-        // explicitly, unlike the happy-path rows these stages also changed.
-        // Exception rows are NOT cleared by the delete at the top of run(),
-        // and seedException() keys its upsert on required_role_id, so the old
-        // row would otherwise survive beside its replacement — leaving the
-        // previous owner able to cancel, and (through RequestVisibility's
-        // rule-derived assignment clause) still able to see, a stage it no
-        // longer has any part in. It has swept R05 (pre-Stage-86) and now
-        // sweeps R09 (pre-Stage-96) alike.
+        // Stage 102 — reviewer_review, observations and forward_to_committee
+        // are no longer on the path (the مقرر's approve lands straight on the
+        // pending list). Every rule out of them goes, exceptions included:
+        // exception rows are NOT cleared by the delete at the top of run(), so
+        // without this an existing database would keep their cancel /
+        // reject_review / request_edit / deadline_expired rows — and, through
+        // RequestVisibility's rule-derived assignment clause, keep granting
+        // sight of stages nobody can reach. The stage rows themselves stay:
+        // historical stage logs point at them.
         WorkflowTransition::query()
             ->whereNull('request_type_id')
-            ->where('is_exception', true)
-            ->where('from_stage_id', $stages['forward_to_committee']->id)
-            ->where('action', 'cancel')
-            ->where('required_role_id', '!=', $roles['R02']->id)
+            ->whereIn('from_stage_id', [
+                $stages['reviewer_review']->id,
+                $stages['observations']->id,
+                $stages['forward_to_committee']->id,
+            ])
             ->delete();
 
         // Cancellation is available to the role responsible for moving each
@@ -355,9 +336,6 @@ class WorkflowTransitionSeeder extends Seeder
         $cancellationRoles = [
             'receive_from_municipality' => 'R02',
             'requirements_check' => 'R02',
-            'reviewer_review' => 'R02',
-            'observations' => 'R02',
-            'forward_to_committee' => 'R02',
             'receive_from_committee' => 'R03',
             'approval_by_authority' => 'R05',
             'local_governance_ministry' => 'R06',
@@ -517,13 +495,15 @@ class WorkflowTransitionSeeder extends Seeder
         );
 
         // Stage 32 — the candidate-requests worklist's "return to study": the
-        // committee sends a request back to the observations checkpoint for
-        // more work before it can be nominated again. Unlike CommitteeStatusService's
+        // committee sends a request back for more work before it can be
+        // placed on an agenda again. Stage 102 — back to requirements_check,
+        // the مقرر's own checkpoint, since observations is off the path; the
+        // مقرر's approve there returns it to the pending list. Unlike CommitteeStatusService's
         // status-only moves, this crosses back over a stage boundary, so it
         // has to be a WorkflowService exception, not a committee sub-status.
         $this->seedException(
             $stages['receive_from_committee']->id,
-            $stages['observations']->id,
+            $stages['requirements_check']->id,
             'return_to_study',
             $roles['R03']->id,
             $statuses['returned']->id,
@@ -564,9 +544,6 @@ class WorkflowTransitionSeeder extends Seeder
             'administrative_routing',
             'receive_and_register',
             'requirements_check',
-            'reviewer_review',
-            'observations',
-            'forward_to_committee',
             'receive_from_committee',
             'approval_by_authority',
             'local_governance_ministry',

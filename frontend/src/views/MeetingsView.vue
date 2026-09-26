@@ -35,11 +35,17 @@ function dateTime(value) {
   }).format(new Date(value))
 }
 
-/** scheduled/completed/cancelled — the only three meetings.status values. */
+/** Stage 102 — pending_confirmation (awaiting every member's acceptance) joins scheduled/completed/cancelled. */
 function meetingStatusTone(status) {
   if (status === 'completed') return 'good'
   if (status === 'cancelled') return 'danger'
+  if (status === 'pending_confirmation') return 'warn'
   return 'info'
+}
+
+// pending_confirmation → meetings.statusPendingConfirmation
+function meetingStatusLabel(status) {
+  return t(`meetings.status${status.replace(/(^|_)(\w)/g, (_, __, c) => c.toUpperCase())}`)
 }
 
 // --- Committees ------------------------------------------------------------
@@ -173,39 +179,38 @@ async function removeCommittee(committee) {
 
 const expandedCommitteeId = ref(null)
 const memberUserId = ref('')
-const memberIsHead = ref(false)
 const memberSeat = ref('')
 const memberError = ref(null)
 
-// Stage 45 — [D] Art. 10's fixed 5-seat roster; a member with no seat is
-// still a plain, unstructured member (the pre-existing open R03/R04 model).
+// Stage 45 — [D] Art. 10's fixed 5-seat roster. Stage 102 — every member holds
+// one (the server binds each seat to its role and derives the head from the
+// chair seat), so there is no seatless option and no separate head checkbox.
 const SEAT_CODES = ['chair', 'legal', 'hr_director', 'ministry_delegate', 'rapporteur']
 
 function toggleMembers(committee) {
   expandedCommitteeId.value = expandedCommitteeId.value === committee.id ? null : committee.id
   memberUserId.value = ''
-  memberIsHead.value = false
   memberSeat.value = ''
   memberError.value = null
 }
 
+// A seatless row (the committee's creator is seated that way) can still be
+// given a seat, so only people who already hold one are excluded.
 function availableUsersFor(committee) {
-  const memberIds = new Set((committee.members ?? []).map((m) => m.user.id))
-  return userOptions.value.filter((u) => !memberIds.has(u.id))
+  const seatedIds = new Set((committee.members ?? []).filter((m) => m.seat).map((m) => m.user.id))
+  return userOptions.value.filter((u) => !seatedIds.has(u.id))
 }
 
 async function addMember(committee) {
-  if (!memberUserId.value) return
+  if (!memberUserId.value || !memberSeat.value) return
 
   memberError.value = null
   try {
     await api.post(`/committees/${committee.id}/members`, {
       user_id: memberUserId.value,
-      is_head: memberIsHead.value,
-      seat: memberSeat.value || null,
+      seat: memberSeat.value,
     })
     memberUserId.value = ''
-    memberIsHead.value = false
     memberSeat.value = ''
     await loadCommittees()
   } catch (e) {
@@ -505,17 +510,13 @@ onMounted(async () => {
                       {{ user.name }}
                     </option>
                   </select>
-                  <select v-model="memberSeat" :aria-label="t('committees.seats.label')">
-                    <option value="">{{ t('committees.seats.none') }}</option>
-                    <option v-for="seat in SEAT_CODES" :key="seat" :value="seat">
+                  <select v-model="memberSeat" required :aria-label="t('committees.seats.label')">
+                    <option value="">{{ t('committees.seats.choose') }}</option>
+                    <option v-for="seat in SEAT_CODES" :key="seat" :value="seat" :disabled="Boolean(committee.seats?.[seat])">
                       {{ t(`committees.seats.${seat}`) }}
                     </option>
                   </select>
-                  <label class="checkbox">
-                    <input v-model="memberIsHead" type="checkbox" />
-                    {{ t('committees.head') }}
-                  </label>
-                  <button class="ghost" type="submit" :disabled="!memberUserId">{{ t('committees.addMember') }}</button>
+                  <button class="ghost" type="submit" :disabled="!memberUserId || !memberSeat">{{ t('committees.addMember') }}</button>
                 </form>
               </td>
             </tr>
@@ -537,7 +538,6 @@ onMounted(async () => {
     <MeetingSchedulingWizard
       v-if="showMeetingForm"
       :committees="committees"
-      :user-options="userOptions"
       @scheduled="onMeetingScheduled"
       @cancel="cancelMeetingForm"
     />
@@ -553,7 +553,7 @@ onMounted(async () => {
                 {{ meeting.title }}
               </RouterLink>
               <span class="pill" :class="meetingStatusTone(meeting.status)">
-                {{ t(`meetings.status${meeting.status.charAt(0).toUpperCase()}${meeting.status.slice(1)}`) }}
+                {{ meetingStatusLabel(meeting.status) }}
               </span>
             </td>
             <td class="meta">{{ name(meeting.committee) }}</td>

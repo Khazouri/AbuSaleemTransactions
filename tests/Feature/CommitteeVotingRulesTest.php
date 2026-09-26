@@ -147,7 +147,9 @@ class CommitteeVotingRulesTest extends TestCase
     public function test_the_identity_card_round_trips_through_the_committee_api(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $head = $this->userWithRole('R03');
+        // Stage 102 — `meetings,add` (which also forms committees) is the
+        // مقرر's alone.
+        $head = $this->userWithRole('R02');
 
         // Membership gate — `meetings,add` sits on a gated screen, so forming a
         // committee needs a seat on one already. That is the real bootstrap

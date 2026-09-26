@@ -13,6 +13,29 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The live committee has only its chair seat filled — Stage 102 — opened 2026-09-26
+On the real database committee #16 holds one seated member (chair) and three seatless ones, so it
+cannot schedule a meeting until all five Art. 10 (أ) seats are assigned (each to the role
+`CommitteeMember::SEAT_ROLES` names). Data, not code. **To close:** fill the five seats on the
+Meetings screen (R02/R03), or deactivate the old committee and form a new one.
+
+### Nobody is told when a member declines a meeting date — Stage 102 — opened 2026-09-26
+A decline leaves the meeting `pending_confirmation`, and the مقرر sees it only on the meeting page
+(and the unanswered members see it in «مهامي»). There is no "date declined" or "meeting approved"
+notification. Left out as not asked for. **To close:** add a notification event fired from
+`MeetingController::respond()` to the rapporteur on a decline and to all attendees on approval.
+
+### R04's role name still reads «عضو اللجنة» — Stage 102 — opened 2026-09-26
+R04 now carries the `ministry_delegate` seat (مندوب الخدمة المدنية بوزارة الحكم المحلي), but its
+`RoleSeeder` name and the three `r04.member*` test accounts were left as they were. **To close:**
+decide whether to rename R04 or add a dedicated role; renaming touches every test that labels R04.
+
+### Votes do not check that the sitting was convened — Stage 102 — opened 2026-09-26
+Convening requires the meeting to be `scheduled` (every member accepted), but votes and decisions
+still check only the adopted agenda and the study sequence, not `convened_at`. Pre-existing; not
+widened here. **To close:** refuse votes/decisions on a meeting with no `convened_at` and update the
+fixtures (`RunsStudySequence`) that vote without convening.
+
 ### The decisions register scrolls sideways at 1024px — layout check — opened 2026-09-23
 `scripts/check-layout.mjs` fails `/decisions` (register tab) at 1024px in both locales: the table
 needs 726px (ar) / 679px (en) in a 670px card. Its 11 columns are already squeezed to ~27px each;

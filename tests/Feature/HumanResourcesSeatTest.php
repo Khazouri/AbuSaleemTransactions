@@ -131,18 +131,19 @@ class HumanResourcesSeatTest extends TestCase
             ->assertCreated();
     }
 
-    public function test_the_hr_manager_cannot_forward_or_edit_the_request_at_observations(): void
+    /** Stage 102 — the study is at requirements_check now; HR still only co-owns it. */
+    public function test_the_hr_manager_cannot_move_the_request_at_the_study_stage(): void
     {
         $hrManager = $this->userWithRole('R12');
         $creator = $this->userWithRole('R01');
         $service = app(WorkflowService::class);
 
-        foreach (['forward', 'request_edit', 'cancel'] as $action) {
-            $requestRecord = $this->requestAtStage('observations', $creator);
+        foreach (['approve', 'return_missing_docs', 'cancel'] as $action) {
+            $requestRecord = $this->requestAtStage('requirements_check', $creator);
 
             try {
-                $service->transition($requestRecord, $action, $hrManager, $action === 'forward' ? null : 'سبب.');
-                $this->fail("R12 must not be able to {$action} at observations.");
+                $service->transition($requestRecord, $action, $hrManager, $action === 'approve' ? null : 'سبب.');
+                $this->fail("R12 must not be able to {$action} at requirements_check.");
             } catch (WorkflowTransitionException $exception) {
                 $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
             }

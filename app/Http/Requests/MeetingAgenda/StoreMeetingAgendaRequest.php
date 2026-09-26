@@ -9,11 +9,10 @@ use Illuminate\Validation\Rule;
 /**
  * Adds one agenda item to the {meeting} route-bound meeting.
  *
- * `item_type` decides which of `request_id`/`appeal_id`/`subject` is
- * required: `employee_request` (the default, and the only type that existed
- * before Stage 31) rides an existing request; `appeal` (Stage 63) rides an
- * appeal; `administrative`/`emerging` are standalone items with their own
- * subject and no request/appeal at all. Whether the appeal is actually ready
+ * `item_type` decides which of `request_id`/`appeal_id` is required:
+ * `employee_request` (the default) rides a request from the committee's
+ * pending list; `appeal` (Stage 63) rides an appeal. Stage 102 removed the
+ * free-standing `administrative`/`emerging` items. Whether the appeal is actually ready
  * for committee presentation (status `legal_review`) is a business rule, not
  * a validation rule — enforced in MeetingController::addAgendaItem.
  */
@@ -30,7 +29,7 @@ class StoreMeetingAgendaRequest extends FormRequest
         $itemType = $this->input('item_type', 'employee_request');
 
         return [
-            'item_type' => ['sometimes', Rule::in(['employee_request', 'administrative', 'emerging', 'appeal'])],
+            'item_type' => ['sometimes', Rule::in(['employee_request', 'appeal'])],
             'request_id' => [
                 Rule::requiredIf($itemType === 'employee_request'),
                 'nullable', 'integer', 'exists:requests,id',
@@ -42,10 +41,6 @@ class StoreMeetingAgendaRequest extends FormRequest
                 'nullable', 'integer', 'exists:appeals,id',
                 Rule::unique('meeting_requests', 'appeal_id')
                     ->where('meeting_id', $meeting->id),
-            ],
-            'subject' => [
-                Rule::requiredIf(! in_array($itemType, ['employee_request', 'appeal'], true)),
-                'nullable', 'string', 'max:255',
             ],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
             // Stage 82 — [D] Appendix 24 defines exactly two levels
@@ -70,7 +65,6 @@ class StoreMeetingAgendaRequest extends FormRequest
             'appeal_id.required' => 'يجب اختيار تظلم.',
             'appeal_id.exists' => 'التظلم المحدد غير موجود.',
             'appeal_id.unique' => 'هذا التظلم مدرج بالفعل في جدول أعمال الاجتماع.',
-            'subject.required' => 'موضوع البند مطلوب للبنود غير المرتبطة بطلب أو تظلم.',
             'department_id.exists' => 'الإدارة المحددة غير موجودة.',
             'priority.in' => 'الأولوية غير صالحة.',
             'estimated_minutes.integer' => 'الزمن المتوقع يجب أن يكون رقماً.',

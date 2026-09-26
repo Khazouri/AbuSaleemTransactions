@@ -15,9 +15,13 @@ use Illuminate\Support\Carbon;
  * @property string $title
  * @property Carbon $scheduled_at
  * @property string|null $location
- * @property string $status scheduled|completed|cancelled
+ * @property string $status pending_confirmation|scheduled|completed|cancelled
+ *                          Stage 102 — a meeting starts `pending_confirmation` and
+ *                          becomes `scheduled` (approved) when every invited member
+ *                          accepts its date.
  * @property string|null $meeting_number
- * @property string $meeting_type regular|extraordinary|emergency
+ * @property string $meeting_type regular (Stage 102 — the monthly sitting is the only kind;
+ *                                extraordinary|emergency survive on older rows)
  * @property Carbon|null $agenda_deadline
  * @property Carbon|null $convened_at
  * @property string|null $readiness_override_reason
@@ -28,6 +32,8 @@ use Illuminate\Support\Carbon;
 class Meeting extends Model
 {
     use HasFactory;
+
+    public const STATUS_PENDING_CONFIRMATION = 'pending_confirmation';
 
     protected $fillable = [
         'committee_id',

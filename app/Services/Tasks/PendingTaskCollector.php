@@ -3,6 +3,7 @@
 namespace App\Services\Tasks;
 
 use App\Http\Controllers\Api\ApprovalController;
+use App\Models\Meeting;
 use App\Models\MeetingMinutes;
 use App\Models\MeetingMinuteSignature;
 use App\Models\Request;
@@ -66,6 +67,7 @@ class PendingTaskCollector
             $this->candidates($actor),
             $this->legalReviews($actor),
             $this->minuteSignatures($actor),
+            $this->meetingInvitations($actor),
             $this->myCompletions($actor),
         ]));
 
@@ -234,6 +236,37 @@ class PendingTaskCollector
             'due_at' => null,
             'is_overdue' => false,
             'route' => ['name' => 'meeting_minutes', 'query' => ['meeting' => $signature->minutes?->meeting_id]],
+        ]);
+    }
+
+    /**
+     * Stage 102 — a proposed meeting date this member has not answered yet.
+     * The meeting is not approved until every invited member accepts, so this
+     * is the prompt that keeps a sitting from stalling on one silent seat.
+     * Ungated by any screen permission: respond() rides `meetings,view` ('*'),
+     * and the attendee row itself is the scope.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function meetingInvitations(User $actor): ?array
+    {
+        $rows = Meeting::query()
+            ->where('status', Meeting::STATUS_PENDING_CONFIRMATION)
+            ->whereHas('attendees', fn (Builder $attendee) => $attendee
+                ->where('user_id', $actor->id)
+                ->where('invitation_status', 'pending'))
+            ->orderBy('scheduled_at')
+            ->limit(self::PER_SOURCE_LIMIT + 1)
+            ->get(['id', 'title', 'meeting_number', 'scheduled_at']);
+
+        return $this->source('meeting_invitation', $rows, fn (Meeting $meeting) => [
+            'title' => $meeting->title,
+            'reference_number' => $meeting->meeting_number,
+            'subject' => null,
+            'waiting_since' => $meeting->scheduled_at?->toIso8601String(),
+            'due_at' => $meeting->scheduled_at?->toIso8601String(),
+            'is_overdue' => false,
+            'route' => ['name' => 'meeting_details', 'params' => ['id' => $meeting->id]],
         ]);
     }
 

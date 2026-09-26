@@ -9,11 +9,29 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class CommitteeMember extends Model
 {
     /**
-     * Stage 45 — [D] Art. 10's fixed 5-seat institutional roster. Optional:
-     * a membership row with no `seat` is a plain, unstructured member (the
-     * open R03/R04 headcount most committees in this system still use).
+     * Stage 45 — [D] Art. 10's fixed 5-seat institutional roster. A row with
+     * no `seat` can still exist (CommitteeController::store() seats the
+     * committee's creator that way, for visibility), but since Stage 102 it is
+     * never invited to a meeting and so never votes.
      */
     public const SEATS = ['chair', 'legal', 'hr_director', 'ministry_delegate', 'rapporteur'];
+
+    /**
+     * Stage 102 — each seat is held by the role that carries its duties, so a
+     * seat and a role can never name two different people (Stage 99 did this
+     * for `legal` alone). رئيس اللجنة (وكيل ديوان البلدية) holds R03, whose
+     * grants are the chair's; مندوب الخدمة المدنية sits as a voting member
+     * (R04), which Art. 14 (أ) says is not a ministry approval — that stays R06.
+     * Every seat is required: a meeting is scheduled only once all five are
+     * filled (MeetingController::store), and only seated members are invited.
+     */
+    public const SEAT_ROLES = [
+        'chair' => 'R03',
+        'legal' => 'R11',
+        'hr_director' => 'R12',
+        'ministry_delegate' => 'R04',
+        'rapporteur' => 'R02',
+    ];
 
     protected $fillable = [
         'committee_id',
