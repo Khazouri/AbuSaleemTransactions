@@ -165,70 +165,109 @@ class DocumentIntegrityTest extends TestCase
     public function test_appendix_31s_nine_checks_record_with_the_two_conditional_ones_optional(): void
     {
         $this->seed(DatabaseSeeder::class);
-        [$rapporteur] = $this->committeeAndMeeting();
-        $requestRecord = $this->presentableRequest();
+        [$manager, $requestRecord] = $this->requestAwaitingManager();
         $attachment = $this->attachment($requestRecord);
+        $url = "/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity";
 
         // The seven unconditional checks may not be waived.
-        $this->actingAs($rapporteur, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity", [
-                'checks' => [...$this->soundChecks(), 'issuing_body' => 'not_applicable'],
-            ])
+        $this->actingAs($manager, 'sanctum')
+            ->patchJson($url, ['checks' => [...$this->soundChecks(), 'issuing_body' => 'not_applicable']])
             ->assertStatus(422)
             ->assertJsonValidationErrors('checks');
 
         // An unanswered check is refused too — the record is the nine, or none.
         $partial = $this->soundChecks();
         unset($partial['signature']);
-        $this->actingAs($rapporteur, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity", ['checks' => $partial])
-            ->assertStatus(422);
+        $this->actingAs($manager, 'sanctum')->patchJson($url, ['checks' => $partial])->assertStatus(422);
 
         // The appendix's own two qualifiers — الختم عند الحاجة and مطابقة
         // الصورة للأصل عند اشتراطها — may honestly be غير منطبق.
-        $this->actingAs($rapporteur, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity", [
-                'checks' => [
-                    ...$this->soundChecks(),
-                    'stamp' => 'not_applicable',
-                    'copy_matches_original' => 'not_applicable',
-                ],
-            ])
+        $this->actingAs($manager, 'sanctum')
+            ->patchJson($url, ['checks' => [
+                ...$this->soundChecks(),
+                'stamp' => 'not_applicable',
+                'copy_matches_original' => 'not_applicable',
+            ]])
             ->assertOk()
             ->assertJsonPath('data.verdict', 'sound');
     }
 
     /**
-     * A `no` records a finding and refuses nothing: the appendix's own verb is
-     * "**يجوز** تعليق", and the hold it describes is Art. 105's suspension.
+     * 2026-09-26 (user decision): the check is the direct manager's, at
+     * direct_manager_review only — not the rapporteur's, not at other stages.
      */
-    public function test_a_doubtful_document_is_recorded_and_blocks_nothing(): void
+    public function test_only_the_subjects_manager_records_validity_and_only_at_direct_manager_review(): void
     {
         $this->seed(DatabaseSeeder::class);
-        [$rapporteur, $head, $meeting] = $this->committeeAndMeeting();
-        $requestRecord = $this->presentableRequest();
+        [$manager, $requestRecord] = $this->requestAwaitingManager();
         $attachment = $this->attachment($requestRecord);
+        $url = "/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity";
 
-        $this->actingAs($rapporteur, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity", [
-                'checks' => [...$this->soundChecks(), 'no_unapproved_alteration' => 'no'],
-            ])
+        $this->actingAs($this->userWithRole('R02'), 'sanctum')
+            ->patchJson($url, ['checks' => $this->soundChecks()])
+            ->assertForbidden();
+
+        $requestRecord->update(['current_stage_id' => WorkflowStage::where('code', 'requirements_check')->value('id')]);
+        $this->actingAs($manager, 'sanctum')
+            ->patchJson($url, ['checks' => $this->soundChecks()])
+            ->assertForbidden();
+    }
+
+    public function test_r08_records_validity_only_when_the_employee_has_no_live_manager(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        [$manager, $requestRecord] = $this->requestAwaitingManager();
+        $attachment = $this->attachment($requestRecord);
+        $url = "/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity";
+        $admin = $this->userWithRole('R08');
+
+        $this->actingAs($admin, 'sanctum')->patchJson($url, ['checks' => $this->soundChecks()])->assertForbidden();
+
+        $manager->update(['is_active' => false]);
+        $this->actingAs($admin, 'sanctum')->patchJson($url, ['checks' => $this->soundChecks()])->assertOk();
+    }
+
+    /**
+     * The manager's «موافقة وإحالة» waits for every document to be checked
+     * and refuses a doubtful one — that goes back to the employee instead.
+     */
+    public function test_forward_waits_for_every_document_to_be_checked_sound(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        [$manager, $requestRecord] = $this->requestAwaitingManager();
+        $attachment = $this->attachment($requestRecord);
+        $url = "/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity";
+        $forward = fn () => $this->actingAs($manager, 'sanctum')
+            ->postJson("/api/requests/{$requestRecord->id}/transition", ['action' => 'forward']);
+
+        $detail = $this->actingAs($manager, 'sanctum')->getJson("/api/requests/{$requestRecord->id}")->assertOk();
+        $this->assertTrue($detail->json('data.control_gates.document_validity.can_record'));
+        $this->assertNotContains('forward', $detail->json('data.available_actions'));
+        $forward()->assertStatus(422)->assertJsonValidationErrors('action');
+
+        $this->actingAs($manager, 'sanctum')
+            ->patchJson($url, ['checks' => [...$this->soundChecks(), 'no_unapproved_alteration' => 'no']])
             ->assertOk()
             ->assertJsonPath('data.verdict', 'doubtful');
+        $forward()->assertStatus(422);
+        $this->assertContains(
+            'return_to_employee',
+            $this->actingAs($manager, 'sanctum')->getJson("/api/requests/{$requestRecord->id}")->json('data.available_actions'),
+        );
 
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestRecord->id])
-            ->assertCreated();
+        $this->actingAs($manager, 'sanctum')->patchJson($url, ['checks' => $this->soundChecks()])->assertOk();
+        $forward()->assertOk();
+        $this->assertSame('receive_and_register', $requestRecord->refresh()->currentStage->code);
+    }
 
-        $card = collect(
-            $this->actingAs($rapporteur, 'sanctum')
-                ->getJson("/api/requests/{$requestRecord->id}/lifecycle")
-                ->assertOk()
-                ->json('data.document_validity'),
-        )->firstWhere('attachment_id', $attachment->id);
+    public function test_a_file_with_no_attachments_forwards_without_a_check(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        [$manager, $requestRecord] = $this->requestAwaitingManager();
 
-        $this->assertSame('doubtful', $card['card']['verdict']);
-        $this->assertCount(9, $card['card']['checks']);
+        $this->actingAs($manager, 'sanctum')
+            ->postJson("/api/requests/{$requestRecord->id}/transition", ['action' => 'forward'])
+            ->assertOk();
     }
 
     public function test_a_role_without_the_grant_cannot_record_a_conflict(): void
@@ -302,6 +341,26 @@ class DocumentIntegrityTest extends TestCase
         $this->supplyRequiredDocuments($requestRecord);
 
         return $requestRecord->refresh();
+    }
+
+    /** @return array{0: User, 1: Request} a file at direct_manager_review and its employee's manager */
+    private function requestAwaitingManager(): array
+    {
+        $manager = $this->userWithRole('R02');
+        $employee = $this->userWithRole('R01');
+        $employee->update(['manager_id' => $manager->id]);
+
+        $requestRecord = Request::create([
+            'title' => 'طلب اختبار صحة المستندات',
+            'department_id' => Department::where('code', 'ADM')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'in_review')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'direct_manager_review')->value('id'),
+            'created_by_user_id' => $employee->id,
+            'submitted_at' => now(),
+        ]);
+
+        return [$manager, $requestRecord];
     }
 
     private function attachment(Request $requestRecord): Attachment

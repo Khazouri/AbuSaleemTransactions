@@ -25,6 +25,7 @@ use App\Services\Lifecycle\DuplicatePolicy;
 use App\Services\Lifecycle\SpecialCaseRules;
 use App\Services\Lifecycle\WithdrawalService;
 use App\Services\RequestVisibility;
+use App\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Validation\ValidationException;
@@ -211,14 +212,24 @@ class RequestLifecycleController extends Controller
         return response()->json(['data' => ['id' => $conflict->id]]);
     }
 
-    /** [D] Appendix 31's nine checks over one of this file's documents. */
+    /**
+     * [D] Appendix 31's nine checks over one of this file's documents —
+     * recorded by صاحب العلاقة's manager at direct_manager_review, the same
+     * people who may then `forward` it (user decision 2026-09-26).
+     */
     public function recordDocumentValidity(
         RecordDocumentValidityRequest $request,
         Request $requestRecord,
         Attachment $attachment,
         DocumentValidityRules $rules,
+        WorkflowService $workflow,
     ): JsonResponse {
         abort_unless($attachment->request_id === $requestRecord->getKey(), 404);
+        abort_unless(
+            $requestRecord->currentStage()->value('code') === DocumentValidityRules::GATED_STAGE
+                && $workflow->mayActAsSubjectsManager($requestRecord, $request->user()),
+            403,
+        );
 
         $checks = $request->validated('checks');
 

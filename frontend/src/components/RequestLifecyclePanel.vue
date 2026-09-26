@@ -17,8 +17,6 @@ import {
   MATERIAL_ERROR_KINDS,
   SPECIAL_CASES,
   SUBSTANTIVE_ERROR_KINDS,
-  VALIDITY_ANSWERS,
-  VALIDITY_CHECKS,
   WITHDRAWAL_OUTCOMES,
 } from '../lib/lifecycle'
 
@@ -43,7 +41,6 @@ const specialCase = reactive({ case_kind: SPECIAL_CASES[0].code, detail: '', hal
 const correction = reactive({ error_kind: MATERIAL_ERROR_KINDS[0], detail: '', incorrect_value: '', corrected_value: '', memo_reference: '' })
 const withdrawal = reactive({ reason: '' })
 const determination = reactive({ id: null, outcome: WITHDRAWAL_OUTCOMES[0], determination_note: '' })
-const validity = reactive({ attachmentId: null, checks: {} })
 
 const selectedCase = computed(() => SPECIAL_CASES.find((entry) => entry.code === specialCase.case_kind))
 const caseCanHalt = computed(() => HALTING_CASES.includes(specialCase.case_kind))
@@ -159,21 +156,6 @@ async function submitDetermination() {
   }
 }
 
-function startValidity(row) {
-  validity.attachmentId = row.attachment_id
-  validity.checks = Object.fromEntries(VALIDITY_CHECKS.map(({ code }) => [
-    code,
-    row.card?.checks?.find((check) => check.key === code)?.answer ?? 'yes',
-  ]))
-  openForm.value = 'validity'
-}
-
-async function submitValidity() {
-  if (await send('patch', `/attachments/${validity.attachmentId}/validity`, { checks: { ...validity.checks } })) {
-    validity.attachmentId = null
-  }
-}
-
 defineExpose({ reload: load })
 </script>
 
@@ -269,7 +251,9 @@ defineExpose({ reload: load })
         </form>
       </section>
 
-      <!-- Appendix 31 — التحقق من صحة المستندات, per document. -->
+      <!-- Appendix 31 — التحقق من صحة المستندات, per document. Read-only:
+           since 2026-09-26 the direct manager records it from the card at
+           the top of the workspace (DocumentValidityPanel). -->
       <section v-if="data.document_validity.length">
         <h3>{{ t('lifecycle.validity.title') }}</h3>
         <p class="hint">{{ t('lifecycle.validity.note') }}</p>
@@ -282,31 +266,8 @@ defineExpose({ reload: load })
               </span>
               <span v-else class="verdict unchecked">{{ t('lifecycle.validity.unchecked') }}</span>
             </p>
-            <button v-can="'meeting_outputs.edit'" class="btn btn-sm primary" type="button" @click="startValidity(row)">
-              {{ row.card ? t('lifecycle.validity.recheckAction') : t('lifecycle.validity.action') }}
-            </button>
           </li>
         </ul>
-
-        <form v-if="openForm === 'validity'" class="gate-form" @submit.prevent="submitValidity">
-          <label v-for="check in VALIDITY_CHECKS" :key="check.code">
-            <span>{{ t(`lifecycle.validity.checks.${check.code}`) }}</span>
-            <select v-model="validity.checks[check.code]">
-              <option
-                v-for="answer in VALIDITY_ANSWERS"
-                :key="answer"
-                :value="answer"
-                :disabled="answer === 'not_applicable' && !check.conditional"
-              >
-                {{ t(`lifecycle.validity.answers.${answer}`) }}
-              </option>
-            </select>
-          </label>
-          <div class="actions">
-            <button class="primary" type="submit" :disabled="saving">{{ t('lifecycle.save') }}</button>
-            <button class="ghost" type="button" @click="openForm = ''">{{ t('lifecycle.cancel') }}</button>
-          </div>
-        </form>
       </section>
 
       <!-- Appendix 60 — الحالات الخاصة والاستثنائية. -->

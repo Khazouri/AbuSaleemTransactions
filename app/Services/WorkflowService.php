@@ -647,6 +647,18 @@ class WorkflowService
             : null;
     }
 
+    /**
+     * Whoever may use a manager-gated row on this file: its live manager, or
+     * R08 when there is none. Public so a manager-owned duty outside the rule
+     * rows (Appendix 31's document validity) answers to the same people as
+     * the `forward` it gates.
+     */
+    public function mayActAsSubjectsManager(Request $requestRecord, User $actor): bool
+    {
+        return $this->actorIsSubjectsActiveManager($requestRecord, $actor)
+            || $this->adminMayUnstick($requestRecord, $actor);
+    }
+
     /** R08's fallback on a manager-gated row: only a manager-less file, never its own. */
     private function adminMayUnstick(Request $requestRecord, User $actor): bool
     {

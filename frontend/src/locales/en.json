@@ -2090,6 +2090,11 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "error": "The action could not be completed.",
+    "documentValidity": {
+      "owner": "The direct manager’s task: verify every attached document before «Approve & forward». A document in doubt goes back to the employee, not forward.",
+      "passed": "Every attached document has been verified as sound.",
+      "noDocuments": "There are no attached documents to verify."
+    },
     "intake": {
       "title": "Gate 1 — before registration",
       "question": "Are the facts and documents correct and complete?",

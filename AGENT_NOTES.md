@@ -19,6 +19,30 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 21:05 EET — Claude — Document validity is the manager's gate; both gates sit at the top (complete)
+
+Built per the plan below; no migration. `forward` at `direct_manager_review` goes through `controlGateRefusal()`, so the
+button is hidden, and the endpoint returns 422, until every attachment has a card and none is `doubtful`. A file with
+no attachments forwards freely. The validity route now rides `request_details,view` and the controller returns 403 to
+anyone except the live manager (or R08 when there is none). The Stage 83 panel's validity section is read-only.
+`PendingTaskCollector` still lists that `forward` as the manager's task, which is intended: the card it opens explains
+what to do. Verified: suite **769 / 4938** (+5 validity tests), Pint clean, build passes (`dist` reverted), parity 2059.
+Checked live (GET only) as r02.reviewer@ on files 40 and 51: `can_record` true, forward withheld.
+Not screenshotted.
+
+---
+### 2026-09-26 20:45 EET — Claude — Implementation plan: document validity becomes the manager's gate; both gates move to the top
+
+User: «التحقق من صحة المستندات» is the manager's task and «البوابة الأولى» is the مقرر's; both belong at the top of the
+request page next to «موافقة وإحالة». **Decisions put to the user and answered:** only صاحب العلاقة's live manager
+records validity, at `direct_manager_review` (R08 only when there is no live manager, via the same
+`adminMayUnstick()` rule); R02/R03 lose it. It becomes a gate: `forward` there is refused while any attachment is
+unchecked or `doubtful`. Plan: `WorkflowService::mayActAsSubjectsManager()`, `DocumentValidityRules::forwardRefusal()`
+read by `controlGateRefusal()`, the validity route leaves `meeting_outputs,edit`, `control_gates.document_validity` feeds
+a new `DocumentValidityPanel.vue` above the action panel; gate 1's panel moves above it at `requirements_check`.
+Verify: DocumentIntegrityTest updated + new cases, full PHPUnit, Pint, build (revert `dist`), parity, live check.
+
+---
 ### 2026-09-26 19:44 EET — Claude — Dashboard distribution labels show the full name
 
 User (/frontend-design): the status, stage and department bars cut names off. The label was a fixed `minmax(90px, 34%)`

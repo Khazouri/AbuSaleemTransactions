@@ -14,6 +14,7 @@ import { useRoute, useRouter } from 'vue-router'
 import ApprovalReferralPanel from '../components/ApprovalReferralPanel.vue'
 import TimelineDocuments from '../components/TimelineDocuments.vue'
 import ApprovalReturnPanel from '../components/ApprovalReturnPanel.vue'
+import DocumentValidityPanel from '../components/DocumentValidityPanel.vue'
 import IntakeGatePanel from '../components/IntakeGatePanel.vue'
 import RequestSoundnessPanel from '../components/RequestSoundnessPanel.vue'
 import RequestSuspensionPanel from '../components/RequestSuspensionPanel.vue'
@@ -165,6 +166,16 @@ const transitions = computed(() => {
 const normalActions = computed(() => transitions.value.filter((item) => !item.is_exception))
 const exceptionActions = computed(() => transitions.value.filter((item) => item.is_exception))
 const canAct = computed(() => transitions.value.length > 0)
+// The pre-action checks whose owner is looking at the file right now go at
+// the top, beside the button they gate (user request 2026-09-26): the
+// manager's document validity before «موافقة وإحالة», and المقرر's gate 1
+// before the قيد's approve. Gate 1 leaves the البوابات tab while it is here.
+const validityOnTop = computed(() => Boolean(request.value?.control_gates?.document_validity?.can_record))
+const intakeGateOnTop = computed(() => Boolean(
+  request.value?.control_gates
+  && request.value.current_stage?.code === 'requirements_check'
+  && auth.can('notes_attachments', 'edit'),
+))
 // Stage 56 — advisory only; the manager can still pick any of the 3 routes.
 const ADMINISTRATIVE_ROUTE_ACTIONS = {
   hr: 'route_to_hr',
@@ -572,6 +583,31 @@ onBeforeUnmount(clearAttachmentPreview)
         </div>
       </section>
 
+      <section v-if="validityOnTop" class="card card-flat card-pad top-gate">
+        <h3>{{ t('lifecycle.validity.title') }}</h3>
+        <p class="hint">{{ t('controlGates.documentValidity.owner') }}</p>
+        <DocumentValidityPanel
+          :request-id="request.id"
+          :rows="request.control_gates.document_validity.rows"
+          :refusal="request.control_gates.document_validity.refusal"
+          @updated="load"
+        />
+      </section>
+
+      <section v-if="intakeGateOnTop" class="card card-flat card-pad top-gate">
+        <h3>{{ t('controlGates.intake.title') }}</h3>
+        <p class="hint">{{ t('controlGates.intake.question') }}</p>
+        <IntakeGatePanel
+          :request-id="request.id"
+          :required-documents="request.control_gates.intake.required_documents"
+          :record="request.control_gates.intake.record"
+          :refusal="request.control_gates.intake.refusal"
+          :recorded-by="request.control_gates.intake.recorded_by"
+          :recorded-at="request.control_gates.intake.recorded_at"
+          @updated="onGateUpdated"
+        />
+      </section>
+
       <!-- Actions. The primary transition is the one solid button; exception
            actions stay visible below a divider, tinted so they don't compete with it. -->
       <section v-if="canAct" class="card card-flat card-pad action-panel">
@@ -896,7 +932,7 @@ onBeforeUnmount(clearAttachmentPreview)
           </div>
 
           <div
-            v-if="request.current_stage?.code === 'requirements_check' || request.control_gates.intake.record"
+            v-if="!intakeGateOnTop && (request.current_stage?.code === 'requirements_check' || request.control_gates.intake.record)"
             class="gate-block"
           >
             <h4>{{ t('controlGates.intake.title') }}</h4>
@@ -1492,6 +1528,9 @@ onBeforeUnmount(clearAttachmentPreview)
 
 /* -- Actions ----------------------------------------------------------------- */
 .action-panel { margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-brand); }
+.top-gate { margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-warning-border); }
+.top-gate h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
+.top-gate > .hint { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }
 .action-panel h3, .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
 .committee-summary { margin-bottom: 0; }
 .legal-review h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); grid-column: 1 / -1; }

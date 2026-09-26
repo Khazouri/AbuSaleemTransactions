@@ -114,7 +114,11 @@ Key architectural facts worth knowing before changing things:
   have no override at all, which stalled such files for everyone). Don't widen
   it into a general override. The five gated rows are
   `forward`/`return_to_employee`/`cancel` at `direct_manager_review` and
-  `route_to_hr` plus `cancel` at `administrative_routing`. **Approvals stay
+  `route_to_hr` plus `cancel` at `administrative_routing`. Appendix 31's
+  document validity check belongs to the same people
+  (`WorkflowService::mayActAsSubjectsManager()`) and gates that `forward`:
+  every attachment checked, none `doubtful`
+  (`DocumentValidityRules::forwardRefusal()`, user decision 2026-09-26). **Approvals stay
   role-segregated** (R02/R03/R05/R06/R07); R08 holds none of them, so an admin
   who must approve needs that role on the Users screen.
 - **RTL/i18n**: layout CSS uses logical properties (`margin-inline-start`,

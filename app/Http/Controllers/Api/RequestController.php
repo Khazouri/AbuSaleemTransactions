@@ -43,6 +43,7 @@ use App\Services\EmployeeNoticeService;
 use App\Services\EmploymentFilePreparationService;
 use App\Services\ExecutionSoundnessService;
 use App\Services\IntakeGateService;
+use App\Services\Lifecycle\DocumentValidityRules;
 use App\Services\Lifecycle\DuplicatePolicy;
 use App\Services\Lifecycle\SpecialCaseRules;
 use App\Services\NotificationDispatcher;
@@ -106,6 +107,14 @@ class RequestController extends Controller
         if ($action === EmploymentFilePreparationService::GATED_ACTION) {
             return $requestRecord->currentStage()->value('code') === EmploymentFilePreparationService::GATED_STAGE
                 ? app(EmploymentFilePreparationService::class)->refusalReason($requestRecord)
+                : null;
+        }
+
+        // Appendix 31 — the manager checks every document before forwarding
+        // (user decision 2026-09-26); see DocumentValidityRules.
+        if ($action === DocumentValidityRules::GATED_ACTION) {
+            return $requestRecord->currentStage()->value('code') === DocumentValidityRules::GATED_STAGE
+                ? app(DocumentValidityRules::class)->forwardRefusal($requestRecord)
                 : null;
         }
 
@@ -1430,7 +1439,7 @@ class RequestController extends Controller
         // Stage 78 — Appendix 63's four-gate matrix, rendered for this one
         // file. Every value here comes from the same services the endpoints
         // enforce with, so the screen and the refusal can never disagree.
-        $requestRecord->setAttribute('control_gates', $this->controlGateState($requestRecord));
+        $requestRecord->setAttribute('control_gates', $this->controlGateState($requestRecord, $workflow, $actor));
         // Stage 79 — [D] Art. 101's notices actually delivered for this file.
         // Stage 89 moved the query into EmployeeNoticeRegister so this card and
         // the employee tracking panel read one register rather than two copies
@@ -1496,8 +1505,9 @@ class RequestController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function controlGateState(Request $requestRecord): array
+    private function controlGateState(Request $requestRecord, WorkflowService $workflow, User $actor): array
     {
+        $validity = app(DocumentValidityRules::class);
         $intake = app(IntakeGateService::class);
         $soundness = app(ExecutionSoundnessService::class);
         $employmentFile = app(EmploymentFilePreparationService::class);
@@ -1517,6 +1527,19 @@ class RequestController extends Controller
                 'record' => $requestRecord->employment_file,
                 'required_documents' => $employmentFile->requiredDocuments($requestRecord),
                 'refusal' => $employmentFile->refusalReason($requestRecord),
+            ],
+            // Appendix 31 — the direct manager's per-document check, which
+            // gates `forward` at direct_manager_review.
+            'document_validity' => [
+                'rows' => $requestRecord->attachments()->with('validityCheckedBy:id,name')->get()
+                    ->map(fn ($attachment) => [
+                        'attachment_id' => $attachment->id,
+                        'original_name' => $attachment->original_name,
+                        'card' => $validity->card($attachment),
+                    ])->values()->all(),
+                'refusal' => $validity->forwardRefusal($requestRecord),
+                'can_record' => $requestRecord->currentStage()->value('code') === DocumentValidityRules::GATED_STAGE
+                    && $workflow->mayActAsSubjectsManager($requestRecord, $actor),
             ],
             // بوابة 1 — قبل القيد: هل الملف صالح للدخول إلى مسار اللجنة؟
             'intake' => [

@@ -3,28 +3,34 @@
 namespace App\Services\Lifecycle;
 
 use App\Models\Attachment;
+use App\Models\Request;
 
 /**
  * Stage 83 — [D] Appendix 31's التحقق من صحة المستندات, nine checks per
  * document.
  *
- * **Deliberately not a gate.** The appendix's own verb is permissive — "و**يجوز**
- * تعليق دراسة المعاملة عند وجود شك جدي في صحة مستند جوهري إلى حين التحقق منه
- * رسميًا" — and the hold it describes already exists: Art. 105's procedural
- * suspension (Stage 78) carries the ground `document_in_doubt` (مستند أساسي
- * محل شك) verbatim. So this records the per-document answers and points at
- * that mechanism rather than inventing a second, unreconciled hold.
+ * **A gate on the manager's `forward`, and nowhere else** (user decision
+ * 2026-09-26). The checks are الرئيس المباشر's, answered at
+ * `direct_manager_review` before the file leaves the manager: every attached document
+ * must carry a card and none may be `doubtful` — a doubtful document is sent
+ * back to the employee (`return_to_employee`), not forwarded. Stage 83 left
+ * this ungated, reading the appendix's «يجوز تعليق» as permissive; that still
+ * holds later in the file, where Art. 105's suspension is the only hold.
  *
  * **Two of the nine are conditional, and the appendix says so itself**: الختم
  * carries "عند الحاجة" and مطابقة الصورة للأصل carries "عند اشتراطها", so both
  * may honestly be answered `not_applicable`. The other seven bind — a
- * document either has an issuing body or it does not — but a `no` on any of
- * them refuses nothing; it is a recorded finding, which is what feeds Appendix
- * 30's conflict record or Art. 105's suspension.
+ * document either has an issuing body or it does not. A `no` on any of them
+ * makes the document `doubtful`, which holds the manager's `forward` above and
+ * otherwise feeds Appendix 30's conflict record or Art. 105's suspension.
  */
 class DocumentValidityRules
 {
     public const ANSWERS = ['yes', 'no', 'not_applicable'];
+
+    public const GATED_STAGE = 'direct_manager_review';
+
+    public const GATED_ACTION = 'forward';
 
     /**
      * The nine, in the appendix's own order, with the two its own qualifiers
@@ -114,5 +120,24 @@ class DocumentValidityRules
                 ->values()
                 ->all(),
         ];
+    }
+
+    /**
+     * Why the manager may not forward this file yet, or null. A file with no
+     * attachments has nothing to check.
+     */
+    public function forwardRefusal(Request $requestRecord): ?string
+    {
+        foreach ($requestRecord->attachments()->get(['id', 'original_name', 'validity_checks']) as $attachment) {
+            if ($attachment->validity_checks === null) {
+                return 'يجب التحقق من صحة جميع المستندات قبل الموافقة والإحالة: لم يُتحقق من «'.$attachment->original_name.'».';
+            }
+
+            if ($this->verdict($attachment->validity_checks) === 'doubtful') {
+                return 'لا تجوز الإحالة والمستند «'.$attachment->original_name.'» محل شك؛ أعد الطلب إلى الموظف لاستكماله.';
+            }
+        }
+
+        return null;
     }
 }
