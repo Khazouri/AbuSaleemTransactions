@@ -87,6 +87,7 @@ class RequestDetailResource extends RequestResource
             // Stage 16 — metadata lets the SPA require reasons and visually
             // distinguish exception commands from normal forward progress.
             'available_transitions' => $this->available_transitions ?? [],
+            'blocked_transitions' => $this->blocked_transitions ?? [],
             // Stage 75 — [D] Art. 37's closure record, and Appendix 47's
             // twelve-point audit answered when it was written. Both null until
             // the request is actually closed.

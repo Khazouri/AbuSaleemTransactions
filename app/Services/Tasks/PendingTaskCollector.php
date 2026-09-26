@@ -162,7 +162,7 @@ class PendingTaskCollector
             'waiting_since' => $r->submitted_at?->toIso8601String(),
             'due_at' => $r->due_date?->toIso8601String(),
             'is_overdue' => $r->overdue_at !== null,
-            'route' => ['name' => 'request_details', 'params' => ['id' => $r->id]],
+            'route' => ['name' => 'request_details', 'params' => ['id' => $r->id], 'query' => ['decide' => 1]],
         ]);
     }
 
@@ -332,7 +332,7 @@ class PendingTaskCollector
             'waiting_since' => $r->submitted_at?->toIso8601String(),
             'due_at' => $r->due_date?->toIso8601String(),
             'is_overdue' => $r->overdue_at !== null,
-            'route' => ['name' => 'request_details', 'params' => ['id' => $r->id]],
+            'route' => ['name' => 'request_details', 'params' => ['id' => $r->id], 'query' => ['decide' => 1]],
         ]);
     }
 
@@ -410,7 +410,8 @@ class PendingTaskCollector
             ->map(fn (Request $r) => [$r, $this->workflow->availableTransitions($r, $actor)->first($wanted)])
             ->filter(fn (array $pair) => $pair[1] !== null)
             ->take(self::PER_SOURCE_LIMIT + 1)
-            ->map(fn (array $pair) => $this->requestTask($pair[1]->action, $pair[0], $pair[0]->currentStage?->name_ar))
+            // Decision wizard — a transition waiting on the actor opens the wizard.
+            ->map(fn (array $pair) => $this->requestTask($pair[1]->action, $pair[0], $pair[0]->currentStage?->name_ar, ['decide' => 1]))
             ->all());
     }
 

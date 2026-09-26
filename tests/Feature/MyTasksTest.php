@@ -52,6 +52,8 @@ class MyTasksTest extends TestCase
         $this->assertSame(1, $sources['completion']['count']);
         $this->assertSame($mine->title, $sources['completion']['tasks'][0]['title']);
         $this->assertSame('request_details', $sources['completion']['tasks'][0]['route']['name']);
+        // Decision wizard — a request-page task opens the wizard over the file.
+        $this->assertSame(['decide' => 1], $sources['completion']['tasks'][0]['route']['query']);
     }
 
     /**
@@ -67,6 +69,7 @@ class MyTasksTest extends TestCase
         $tasks = collect($this->inbox($reviewer)['approval']['tasks']);
 
         $this->assertTrue($tasks->contains('title', $theirs->title));
+        $this->assertSame(['decide' => 1], $tasks->firstWhere('title', $theirs->title)['route']['query']);
         $this->assertFalse($tasks->contains('title', $own->title), 'a reviewer must not approve their own file');
     }
 
@@ -149,6 +152,7 @@ class MyTasksTest extends TestCase
         $this->assertNotNull($task);
         $this->assertSame('forward', $task['action']);
         $this->assertSame('request_details', $task['route']['name']);
+        $this->assertSame(['decide' => 1], $task['route']['query']);
         $this->assertLinksAreOpenable($manager, $sources);
 
         $this->assertArrayNotHasKey('workflow_step', $this->inbox($otherManager));

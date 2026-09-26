@@ -56,6 +56,7 @@ use App\Services\RequestTimelineCompiler;
 use App\Services\RequestVisibility;
 use App\Services\WorkflowService;
 use DomainException;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -156,6 +157,36 @@ class RequestController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Why an action the actor may otherwise take is being held back, or null.
+     * Read by transition() to refuse and by detailResource() both to hide the
+     * button and to report it as blocked, so the three cannot drift apart.
+     */
+    private function blockReason(Request $requestRecord, string $action, bool $hasOpenApprovalReturn): ?string
+    {
+        // Stage 54 — [D] Art. 45's jurisdiction test must be answered before
+        // requirements_check's classifying outcomes (approve / declare no
+        // jurisdiction / formal rejection) can be taken; return_missing_docs
+        // is exempt, since an incomplete file can't be honestly classified yet.
+        if (in_array($action, self::JURISDICTION_TEST_GATED_ACTIONS, true)
+            && $requestRecord->currentStage()->value('code') === 'requirements_check'
+            && $requestRecord->jurisdiction_test === null) {
+            return 'يجب إكمال اختبار الاختصاص (المادة 45) قبل اتخاذ هذا الإجراء.';
+        }
+
+        // Stage 77 — [D] Art. 94: a محضر the approving body sent back is not
+        // approved onward until the re-processing action has been recorded.
+        // Also enforced in ApprovalController::store(), the other way this
+        // same `approve` reaches WorkflowService.
+        if ($action === 'approve' && $hasOpenApprovalReturn) {
+            return self::APPROVAL_RETURN_BLOCK_MESSAGE;
+        }
+
+        // Stage 78 — Appendix 63's four control gates, plus Arts. 103 and 105;
+        // see controlGateRefusal() for why every site reads one predicate.
+        return self::controlGateRefusal($requestRecord, $action);
     }
 
     /**
@@ -588,35 +619,11 @@ class RequestController extends Controller
             ]);
         }
 
-        // Stage 54 — [D] Art. 45's jurisdiction test must be answered before
-        // requirements_check's classifying outcomes (approve / declare no
-        // jurisdiction / formal rejection) can be taken; return_missing_docs
-        // is exempt, since an incomplete file can't be honestly classified yet.
-        if (in_array($action, self::JURISDICTION_TEST_GATED_ACTIONS, true)
-            && $requestRecord->currentStage()->value('code') === 'requirements_check'
-            && $requestRecord->jurisdiction_test === null) {
-            throw ValidationException::withMessages([
-                'action' => ['يجب إكمال اختبار الاختصاص (المادة 45) قبل اتخاذ هذا الإجراء.'],
-            ]);
-        }
-
-        // Stage 77 — [D] Art. 94: a محضر the approving body sent back is not
-        // approved onward until the re-processing action has been recorded.
-        // Enforced here AND in ApprovalController::store(), which is the other
-        // way this same `approve` reaches WorkflowService — gating one alone
-        // leaves the other wide open, the dual-path trap Stage 54's own
-        // jurisdiction gate had to close the same way.
-        if ($action === 'approve' && $requestRecord->openApprovalReturn()->exists()) {
-            throw ValidationException::withMessages([
-                'action' => [self::APPROVAL_RETURN_BLOCK_MESSAGE],
-            ]);
-        }
-        // Stage 78 — Appendix 63's four control gates, plus Arts. 103 and 105.
-        // Repeated verbatim in ApprovalController::store() and in the preview
-        // filter below; see controlGateRefusal() for why all three read one
-        // predicate.
-        if (($gateRefusal = self::controlGateRefusal($requestRecord, $action)) !== null) {
-            throw ValidationException::withMessages(['action' => [$gateRefusal]]);
+        // Stages 54, 77, 78 — the same predicate detailResource() previews
+        // with, so a button the SPA offers and this endpoint cannot disagree.
+        $blocked = $this->blockReason($requestRecord, $action, $requestRecord->openApprovalReturn()->exists());
+        if ($blocked !== null) {
+            throw ValidationException::withMessages(['action' => [$blocked]]);
         }
 
         try {
@@ -1466,28 +1473,36 @@ class RequestController extends Controller
             'time_card',
             app(TimeCardCompiler::class)->forRequest($requestRecord)->toArray(app()->getLocale() === 'en' ? 'en' : 'ar'),
         );
-        $availableTransitions = $workflow->availableTransitions($requestRecord, $actor)
+        // An approve the actor holds no approval grant for is "not yours", not
+        // "not yet", so it is dropped before anything is reported as blocked.
+        $mine = $workflow->availableTransitions($requestRecord, $actor)
             ->filter(fn ($rule) => $rule->action !== 'approve'
                 || $this->actorCanApproveCurrentLevel($requestRecord, $actor))
-            // Stage 54 — the preview must agree with transition()'s own gate
-            // above, or the SPA could offer a button the endpoint refuses.
-            ->filter(fn ($rule) => ! in_array($rule->action, self::JURISDICTION_TEST_GATED_ACTIONS, true)
-                || $requestRecord->currentStage()->value('code') !== 'requirements_check'
-                || $requestRecord->jurisdiction_test !== null)
-            // Stage 77 — the third site that must agree with transition() and
-            // ApprovalController::store() about an open return, or the SPA
-            // would offer an approve button both of them refuse.
-            ->filter(fn ($rule) => $rule->action !== 'approve' || $openApprovalReturn === null)
-            // Stage 78 — the same three-site rule, one stage later: the SPA
-            // must not offer an approve that Appendix 63's gates refuse.
-            ->filter(fn ($rule) => self::controlGateRefusal($requestRecord, $rule->action) === null)
             ->values();
-        $requestRecord->setAttribute('available_actions', $availableTransitions->pluck('action')->all());
-        $requestRecord->setAttribute('available_transitions', $availableTransitions->map(fn ($rule) => [
+        EloquentCollection::make($mine->all())
+            ->load(['toStage:id,code,name_ar,name_en', 'setStatus:id,code,name_ar,name_en']);
+        $mine = $mine->map(fn ($rule) => [$rule, $this->blockReason($requestRecord, $rule->action, $openApprovalReturn !== null)]);
+        $shape = fn ($rule) => [
             'action' => $rule->action,
             'is_exception' => $rule->is_exception,
             'requires_comment' => $rule->requires_comment,
+        ];
+        $availableTransitions = $mine->filter(fn (array $pair) => $pair[1] === null)->pluck(0)->values();
+        $requestRecord->setAttribute('available_actions', $availableTransitions->pluck('action')->all());
+        // Decision wizard — sub-project 1. Where each action takes the file, so
+        // the wizard can say so before the click.
+        $requestRecord->setAttribute('available_transitions', $availableTransitions->map(fn ($rule) => [
+            ...$shape($rule),
+            'to_stage' => $rule->toStage?->only(['code', 'name_ar', 'name_en']),
+            'to_status' => $rule->setStatus?->only(['code', 'name_ar', 'name_en']),
         ])->values()->all());
+        // Decision wizard — sub-project 1. The actions a gate is holding back,
+        // with the refusal the endpoint would give, so the wizard can explain
+        // a missing button instead of leaving it to be guessed at.
+        $requestRecord->setAttribute('blocked_transitions', $mine
+            ->filter(fn (array $pair) => $pair[1] !== null)
+            ->map(fn (array $pair) => [...$shape($pair[0]), 'reason' => $pair[1]])
+            ->values()->all());
 
         return new RequestDetailResource($requestRecord);
     }

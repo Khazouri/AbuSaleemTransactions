@@ -13,6 +13,19 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### Decision wizard for committee duties — decision wizard sub-project 2 — opened 2026-09-26
+The user wants every task in «المهام المعلقة» decided through a wizard; sub-project 1 covered only the
+request-page actions. Still on their own screens: the member's vote and the chair's recorded decision
+(`AgendaItemDecisionPanel`), adopting the agenda, convening, minutes generation/review/signing, and the
+meeting-date response. **To close:** its own spec → plan → build, reusing `DecisionWizard.vue`'s step
+shell with a meeting/agenda-item subject instead of a request.
+
+### Decision wizard for post-decision work and records — decision wizard sub-project 3 — opened 2026-09-26
+Also still outside the wizard: Art. 103 soundness, execution, both archives, closure, approval
+returns/referrals, suspension lift, corrections/conflicts/special cases/withdrawals, appeals and the
+legal review. These live on the request page's tabs and their own screens. **To close:** its own spec
+after sub-project 2; many already answer with the detail resource, so they fit the same Checks step.
+
 ### The live committee has only its chair seat filled — Stage 102 — opened 2026-09-26
 On the real database committee #16 holds one seated member (chair) and three seatless ones, so it
 cannot schedule a meeting until all five Art. 10 (أ) seats are assigned (each to the role

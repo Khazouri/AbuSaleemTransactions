@@ -19,6 +19,34 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 22:40 EET — Claude — Decision wizard, sub-project 1 (complete)
+
+Built per the plan below; no migration. The request page's action card, its two top gate panels, the inline Art. 45
+form and both hand-rolled dialogs are gone. They are replaced by «اتخاذ القرار», which opens `DecisionWizard.vue`
+(Review → Checks → Choose → Confirm as a تأشيرة); My Tasks' request tasks carry `?decide=1` and open it directly.
+`RequestController::blockReason()` is now the one predicate behind `transition()`'s refusals, the hidden buttons and
+the new `blocked_transitions`, so the three cannot drift. **Deviations:** the Checks step keys on the action the user is offered,
+not on a grant, and lives in the wizard (no `lib/decisionSteps.js`). The comment now follows `requires_comment` (the
+page used to demand a reason on every exception). The vacuous Stage 56 "suggested route" badge was dropped. The Art. 45
+form stays read-only in the البوابات tab. Verified: suite **769 / 4951**, Pint clean, build passes (`dist` reverted),
+parity 2084, `check-layout.mjs` fails only on the pre-existing `/decisions` 1024px overflow. Headless walk-through on the real data (manager, ar/en, 1280/375, light/dark; `requirements_check` via a
+mocked GET) found no overflow or console errors. It never submitted; submission is covered by tests. **Next:**
+sub-project 2 (committee duties) and 3 (post-decision/records) — each needs its own spec.
+
+---
+### 2026-09-26 21:42 EET — Claude — Implementation plan: decision wizard, sub-project 1 (request-page decisions)
+
+User (/frontend-design + brainstorming): every user gets a multi-step wizard for deciding on a request. **Decisions
+taken with the user:** it eventually covers everything in «المهام المعلقة», split into three sub-projects: (1) this
+one, the wizard shell plus the request-page decisions; (2) committee duties; (3) post-decision work and records. The
+wizard **replaces** the action card, opens over the request page (from My Tasks via `?decide=1`), and its Review step
+shows without forcing. Plan: `DecisionWizard.vue` (Review → Checks → Choose → Confirm, where Confirm renders the
+decision as a تأشيرة slip), reusing `DocumentValidityPanel`/`IntakeGatePanel` and a `JurisdictionTestForm.vue`
+extracted from the page. `detailResource()` adds `to_stage`/`to_status` to each transition, plus `blocked_transitions`
+with one shared `blockReason()`. My Tasks' request routes carry `decide`. No migration. Verify: new payload test, full
+PHPUnit, Pint, build (revert `dist`), parity, `check-layout.mjs`, and a headless walk-through by role.
+
+---
 ### 2026-09-26 21:05 EET — Claude — Document validity is the manager's gate; both gates sit at the top (complete)
 
 Built per the plan below; no migration. `forward` at `direct_manager_review` goes through `controlGateRefusal()`, so the

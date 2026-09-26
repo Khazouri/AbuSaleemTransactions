@@ -243,6 +243,14 @@ class DocumentIntegrityTest extends TestCase
         $detail = $this->actingAs($manager, 'sanctum')->getJson("/api/requests/{$requestRecord->id}")->assertOk();
         $this->assertTrue($detail->json('data.control_gates.document_validity.can_record'));
         $this->assertNotContains('forward', $detail->json('data.available_actions'));
+        // Decision wizard — the hidden forward is reported as blocked, with the
+        // same refusal the endpoint gives, so the wizard can say why.
+        $blocked = collect($detail->json('data.blocked_transitions'))->firstWhere('action', 'forward');
+        $this->assertNotNull($blocked);
+        $this->assertSame(
+            app(DocumentValidityRules::class)->forwardRefusal($requestRecord),
+            $blocked['reason'],
+        );
         $forward()->assertStatus(422)->assertJsonValidationErrors('action');
 
         $this->actingAs($manager, 'sanctum')
@@ -256,6 +264,11 @@ class DocumentIntegrityTest extends TestCase
         );
 
         $this->actingAs($manager, 'sanctum')->patchJson($url, ['checks' => $this->soundChecks()])->assertOk();
+        $ready = $this->actingAs($manager, 'sanctum')->getJson("/api/requests/{$requestRecord->id}");
+        $this->assertNull(collect($ready->json('data.blocked_transitions'))->firstWhere('action', 'forward'));
+        $offered = collect($ready->json('data.available_transitions'))->firstWhere('action', 'forward');
+        $this->assertSame('receive_and_register', $offered['to_stage']['code']);
+        $this->assertSame('routed_to_hr', $offered['to_status']['code']);
         $forward()->assertOk();
         $this->assertSame('receive_and_register', $requestRecord->refresh()->currentStage->code);
     }

@@ -155,6 +155,13 @@ class RequirementsCheckJurisdictionTest extends TestCase
         $this->assertFalse(collect($before->json('data.available_actions'))->contains('declare_no_jurisdiction'));
         $this->assertFalse(collect($before->json('data.available_actions'))->contains('reject_formally'));
         $this->assertTrue(collect($before->json('data.available_actions'))->contains('return_missing_docs'));
+        // Decision wizard — each gated action is reported with the reason the
+        // endpoint would give, rather than vanishing.
+        $blocked = collect($before->json('data.blocked_transitions'))->keyBy('action');
+        foreach (['approve', 'declare_no_jurisdiction', 'reject_formally'] as $gated) {
+            $this->assertSame('يجب إكمال اختبار الاختصاص (المادة 45) قبل اتخاذ هذا الإجراء.', $blocked[$gated]['reason'] ?? null);
+        }
+        $this->assertFalse($blocked->has('return_missing_docs'));
 
         $this->actingAs($reviewer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/jurisdiction-test", $this->answers())
@@ -169,6 +176,7 @@ class RequirementsCheckJurisdictionTest extends TestCase
         $this->assertTrue(collect($after->json('data.available_actions'))->contains('approve'));
         $this->assertTrue(collect($after->json('data.available_actions'))->contains('declare_no_jurisdiction'));
         $this->assertTrue(collect($after->json('data.available_actions'))->contains('reject_formally'));
+        $this->assertSame([], $after->json('data.blocked_transitions'));
     }
 
     public function test_the_reviewer_approval_queue_is_also_gated(): void

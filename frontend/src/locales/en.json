@@ -766,22 +766,7 @@
     "submittedAt": "Submitted",
     "dueDate": "Due date",
     "overdue": "The SLA deadline passed on {date}. This request can be escalated to the Local Governance Ministry.",
-    "actions": "Stage actions",
-    "actionHint": "Available actions are determined by the current stage and your workflow role.",
-    "comment": "Comment (optional)",
     "processing": "Processing…",
-    "exceptionActions": "Exception actions — a reason is required before execution.",
-    "suggestedRoute": "Suggested for this request type",
-    "exceptionReasonTitle": "Reason for: {action}",
-    "exceptionReasonHint": "The reason will be preserved in the workflow timeline and cannot be blank.",
-    "reason": "Reason",
-    "reasonRequired": "Enter a reason before performing this action.",
-    "confirmException": "Confirm action",
-    "confirmApprove": {
-      "title": "Confirm approval",
-      "body": "Are you sure you want to approve this request?",
-      "confirm": "Confirm approval"
-    },
     "description": "Request description",
     "noDescription": "No description was supplied for this request.",
     "timeline": "Workflow timeline",
@@ -2091,7 +2076,6 @@
     "cancel": "Cancel",
     "error": "The action could not be completed.",
     "documentValidity": {
-      "owner": "The direct manager’s task: verify every attached document before «Approve & forward». A document in doubt goes back to the employee, not forward.",
       "passed": "Every attached document has been verified as sound.",
       "noDocuments": "There are no attached documents to verify."
     },
@@ -2570,6 +2554,59 @@
       "legal_review": "Legal review",
       "nominate": "Add to an agenda",
       "execute_outcome": "Execute the appeal outcome"
+    }
+  },
+  "decisionWizard": {
+    "title": "Make a decision",
+    "open": "Make a decision",
+    "prompt": "This file is waiting on your decision.",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Record “{action}”",
+    "steps": {
+      "review": "Review the file",
+      "checks": "Checks",
+      "choose": "Choose an action",
+      "confirm": "Confirm"
+    },
+    "review": {
+      "lede": "Read the file before you decide. You can move on at any time.",
+      "type": "Request type",
+      "recent": "Latest actions",
+      "more": "The full attachments and workflow record are in the File tab behind this window."
+    },
+    "checks": {
+      "lede": "These checks are yours to complete before some actions open up. Each one saves with its own button.",
+      "document_validity": "Document validity",
+      "employment_file": "Employment file",
+      "intake": "Gate 1: file completeness",
+      "jurisdiction_test": "Jurisdiction test (Art. 45)"
+    },
+    "choose": {
+      "lede": "Pick what to do with the file. Each option shows where the file goes next.",
+      "destination": "The file moves to “{stage}” with status “{status}”.",
+      "other": "Other outcomes",
+      "blocked": "Not available yet",
+      "toChecks": "Go to checks",
+      "none": "No action is open to you yet. Complete the checks first."
+    },
+    "slip": {
+      "kind": "Minute",
+      "reasonRequired": "Reason (required)",
+      "noteOptional": "Note (optional)"
+    },
+    "meaning": {
+      "submit": "Sends the request to the employee’s direct manager for review.",
+      "forward": "Approves the request and sends it to HR to register.",
+      "return_to_employee": "Sends the request back to its filer to complete, with your reason.",
+      "cancel": "Ends the request without a decision; only a reopening brings it back.",
+      "route_to_hr": "Sends the file to HR to register.",
+      "register": "Records receipt and passes the file to the rapporteur for the completeness check.",
+      "approve": "Approves the file at this stage and moves it on.",
+      "return_missing_docs": "Sends the file back to supply the missing documents you name in the reason.",
+      "declare_no_jurisdiction": "Closes the file as outside the committee’s jurisdiction; name the competent body in the reason.",
+      "reject_formally": "Rejects the request on formal grounds, with a reasoned decision.",
+      "deadline_expired": "Escalates the overdue file to the responsible body."
     }
   }
 }

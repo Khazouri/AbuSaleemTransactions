@@ -14,8 +14,9 @@ import { useRoute, useRouter } from 'vue-router'
 import ApprovalReferralPanel from '../components/ApprovalReferralPanel.vue'
 import TimelineDocuments from '../components/TimelineDocuments.vue'
 import ApprovalReturnPanel from '../components/ApprovalReturnPanel.vue'
-import DocumentValidityPanel from '../components/DocumentValidityPanel.vue'
+import DecisionWizard from '../components/DecisionWizard.vue'
 import IntakeGatePanel from '../components/IntakeGatePanel.vue'
+import JurisdictionTestForm from '../components/JurisdictionTestForm.vue'
 import RequestSoundnessPanel from '../components/RequestSoundnessPanel.vue'
 import RequestSuspensionPanel from '../components/RequestSuspensionPanel.vue'
 import ApprovalTrail from '../components/ApprovalTrail.vue'
@@ -43,24 +44,12 @@ const request = ref(null)
 const loading = ref(false)
 const error = ref('')
 const actionError = ref('')
-const comment = ref('')
-const acting = ref(false)
-const activeAction = ref('')
-const selectedException = ref(null)
-const exceptionReason = ref('')
-const exceptionError = ref('')
-// Signatures have been removed from the system — approving now just asks
-// for a plain confirmation before submitting.
-const pendingApprove = ref(false)
 const selectedAttachment = ref(null)
 const attachmentPreviewUrl = ref('')
 const attachmentPreviewing = ref(false)
 const attachmentPreviewError = ref('')
 const financialImpactSaving = ref(false)
 const financialImpactError = ref('')
-const jurisdictionTestSaving = ref(false)
-const jurisdictionTestError = ref('')
-const jurisdictionTestForm = ref(blankJurisdictionTest())
 
 // Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path. Mirrors
 // RequestController::REOPENABLE_STATUS_CODES exactly.
@@ -155,38 +144,20 @@ const stageTargetLabel = (st) => st.target_days_min === st.target_days_max
 const timelineMovement = (entry) => entry.from_stage
   ? `${name(entry.from_stage)} ${locale.value === 'ar' ? '←' : '→'} ${name(entry.to_stage)}`
   : name(entry.to_stage)
-const transitions = computed(() => {
-  if (request.value?.available_transitions?.length) return request.value.available_transitions
-  return (request.value?.available_actions ?? []).map((action) => ({
-    action,
-    is_exception: false,
-    requires_comment: false,
-  }))
-})
-const normalActions = computed(() => transitions.value.filter((item) => !item.is_exception))
-const exceptionActions = computed(() => transitions.value.filter((item) => item.is_exception))
-const canAct = computed(() => transitions.value.length > 0)
-// The pre-action checks whose owner is looking at the file right now go at
-// the top, beside the button they gate (user request 2026-09-26): the
-// manager's document validity before «موافقة وإحالة», and المقرر's gate 1
-// before the قيد's approve. Gate 1 leaves the البوابات tab while it is here.
-const validityOnTop = computed(() => Boolean(request.value?.control_gates?.document_validity?.can_record))
-const intakeGateOnTop = computed(() => Boolean(
-  request.value?.control_gates
-  && request.value.current_stage?.code === 'requirements_check'
-  && auth.can('notes_attachments', 'edit'),
+// Decision wizard — sub-project 1. It replaces the action card and the gate
+// panels that sat above it: one button opens the wizard, and a task from
+// «المهام المعلقة» arrives with `?decide=1` to open it straight away.
+const wizardOpen = ref(false)
+const canDecide = computed(() => Boolean(
+  request.value?.available_transitions?.length || request.value?.blocked_transitions?.length,
 ))
-// Stage 56 — advisory only; the manager can still pick any of the 3 routes.
-const ADMINISTRATIVE_ROUTE_ACTIONS = {
-  hr: 'route_to_hr',
-  diwan: 'route_to_diwan',
-  committee_secretary: 'route_to_committee_secretary',
+function closeWizard() {
+  wizardOpen.value = false
+  if (route.query.decide) {
+    const { decide, ...query } = route.query
+    router.replace({ query })
+  }
 }
-const suggestedRoutingAction = computed(() => {
-  if (request.value?.current_stage?.code !== 'administrative_routing') return null
-  const route = request.value?.request_type?.default_administrative_route
-  return route ? ADMINISTRATIVE_ROUTE_ACTIONS[route] ?? null : null
-})
 // Stage 66 — a concluded request may be re-presented for one of six
 // enumerated reasons, never a plain "I disagree with the outcome" attempt.
 const isReopenable = computed(() => REOPENABLE_STATUS_CODES.includes(request.value?.status?.code))
@@ -271,56 +242,6 @@ async function downloadAttachment(attachment) {
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
   } catch {
     actionError.value = t('attachments.downloadFailed')
-  }
-}
-
-/** Stage 54 — [D] Art. 45's 6-question jurisdiction test, kept as a draft form. */
-function blankJurisdictionTest() {
-  return {
-    has_legal_basis: '',
-    employee_covered: '',
-    within_municipal_jurisdiction: '',
-    committee_decides: '',
-    final_approval_authority: '',
-    requires_central_approval: '',
-  }
-}
-
-function syncJurisdictionTestForm() {
-  const existing = request.value?.jurisdiction_test
-  jurisdictionTestForm.value = existing
-    ? {
-        has_legal_basis: existing.has_legal_basis ? 'yes' : 'no',
-        employee_covered: existing.employee_covered ? 'yes' : 'no',
-        within_municipal_jurisdiction: existing.within_municipal_jurisdiction ? 'yes' : 'no',
-        committee_decides: existing.committee_decides ? 'yes' : 'no',
-        final_approval_authority: existing.final_approval_authority || '',
-        requires_central_approval: existing.requires_central_approval ? 'yes' : 'no',
-      }
-    : blankJurisdictionTest()
-}
-
-async function saveJurisdictionTest() {
-  if (jurisdictionTestSaving.value) return
-  jurisdictionTestSaving.value = true
-  jurisdictionTestError.value = ''
-  try {
-    const { data } = await api.patch(`/requests/${request.value.id}/jurisdiction-test`, {
-      has_legal_basis: jurisdictionTestForm.value.has_legal_basis === 'yes',
-      employee_covered: jurisdictionTestForm.value.employee_covered === 'yes',
-      within_municipal_jurisdiction: jurisdictionTestForm.value.within_municipal_jurisdiction === 'yes',
-      committee_decides: jurisdictionTestForm.value.committee_decides === 'yes',
-      final_approval_authority: jurisdictionTestForm.value.final_approval_authority.trim(),
-      requires_central_approval: jurisdictionTestForm.value.requires_central_approval === 'yes',
-    })
-    request.value = data.data
-    syncJurisdictionTestForm()
-  } catch (requestError) {
-    jurisdictionTestError.value = requestError.response?.data?.errors?.final_approval_authority?.[0]
-      ?? requestError.response?.data?.message
-      ?? t('requestDetail.jurisdictionTest.saveFailed')
-  } finally {
-    jurisdictionTestSaving.value = false
   }
 }
 
@@ -450,80 +371,12 @@ async function load() {
   try {
     const { data } = await api.get(`/requests/${route.params.id}`)
     request.value = data.data
-    syncJurisdictionTestForm()
+    if (route.query.decide && canDecide.value) wizardOpen.value = true
   } catch (requestError) {
     error.value = requestError.response?.data?.message ?? t('requestDetail.loadFailed')
   } finally {
     loading.value = false
   }
-}
-
-async function transition(action, suppliedComment = comment.value) {
-  if (acting.value) return
-
-  acting.value = true
-  activeAction.value = action
-  actionError.value = ''
-  try {
-    const payload = { action }
-    if (suppliedComment.trim()) payload.comment = suppliedComment.trim()
-    const { data } = await api.post(`/requests/${request.value.id}/transition`, payload)
-    request.value = data.data
-    comment.value = ''
-    selectedException.value = null
-    exceptionReason.value = ''
-    exceptionError.value = ''
-    pendingApprove.value = false
-    return true
-  } catch (requestError) {
-    const message = requestError.response?.data?.errors?.action?.[0]
-      ?? requestError.response?.data?.message
-      ?? t('requestDetail.actionFailed')
-    if (selectedException.value) exceptionError.value = message
-    else actionError.value = message
-    return false
-  } finally {
-    acting.value = false
-    activeAction.value = ''
-  }
-}
-
-// Signatures have been removed from the system — clicking "Approve" opens a
-// plain confirmation before the transition actually submits.
-function openApproveConfirm() {
-  pendingApprove.value = true
-}
-
-function closeApproveConfirm() {
-  if (acting.value) return
-  pendingApprove.value = false
-}
-
-async function confirmApprove() {
-  await transition('approve')
-}
-
-// Stage 16 — exception actions pause for an explicit reason before execution.
-function openException(exception) {
-  selectedException.value = exception
-  exceptionReason.value = ''
-  exceptionError.value = ''
-}
-
-function closeException() {
-  if (acting.value) return
-  selectedException.value = null
-  exceptionReason.value = ''
-  exceptionError.value = ''
-}
-
-async function submitException() {
-  exceptionError.value = ''
-  if (!exceptionReason.value.trim()) {
-    exceptionError.value = t('requestDetail.reasonRequired')
-    return
-  }
-  await transition(selectedException.value.action, exceptionReason.value)
 }
 
 watch(() => route.params.id, load)
@@ -583,148 +436,13 @@ onBeforeUnmount(clearAttachmentPreview)
         </div>
       </section>
 
-      <section v-if="validityOnTop" class="card card-flat card-pad top-gate">
-        <h3>{{ t('lifecycle.validity.title') }}</h3>
-        <p class="hint">{{ t('controlGates.documentValidity.owner') }}</p>
-        <DocumentValidityPanel
-          :request-id="request.id"
-          :rows="request.control_gates.document_validity.rows"
-          :refusal="request.control_gates.document_validity.refusal"
-          @updated="load"
-        />
+      <!-- Decision wizard — sub-project 1. -->
+      <section v-if="canDecide" class="card card-flat card-pad decide">
+        <p>{{ t('decisionWizard.prompt') }}</p>
+        <button class="primary" type="button" @click="wizardOpen = true">{{ t('decisionWizard.open') }}</button>
       </section>
-
-      <section v-if="intakeGateOnTop" class="card card-flat card-pad top-gate">
-        <h3>{{ t('controlGates.intake.title') }}</h3>
-        <p class="hint">{{ t('controlGates.intake.question') }}</p>
-        <IntakeGatePanel
-          :request-id="request.id"
-          :required-documents="request.control_gates.intake.required_documents"
-          :record="request.control_gates.intake.record"
-          :refusal="request.control_gates.intake.refusal"
-          :recorded-by="request.control_gates.intake.recorded_by"
-          :recorded-at="request.control_gates.intake.recorded_at"
-          @updated="onGateUpdated"
-        />
-      </section>
-
-      <!-- Actions. The primary transition is the one solid button; exception
-           actions stay visible below a divider, tinted so they don't compete with it. -->
-      <section v-if="canAct" class="card card-flat card-pad action-panel">
-        <h3>{{ t('requestDetail.actions') }}</h3>
-        <p>{{ t('requestDetail.actionHint') }}</p>
-        <label v-if="normalActions.length">
-          {{ t('requestDetail.comment') }}
-          <textarea v-model="comment" rows="2" maxlength="5000" :disabled="acting" />
-        </label>
-        <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
-        <div class="action-buttons">
-          <button
-            v-for="item in normalActions"
-            :key="item.action"
-            class="primary"
-            type="button"
-            :disabled="acting"
-            @click="item.action === 'approve' ? openApproveConfirm() : transition(item.action)"
-          >
-            {{ acting && activeAction === item.action ? t('requestDetail.processing') : actionLabel(item.action) }}
-          </button>
-        </div>
-        <div v-if="exceptionActions.length" class="exception-actions">
-          <p class="exception-hint">{{ t('requestDetail.exceptionActions') }}</p>
-          <div class="action-buttons">
-            <button
-              v-for="item in exceptionActions"
-              :key="item.action"
-              class="exception-button"
-              :class="{ destructive: ['reject_review', 'reject_formally', 'reject_by_committee', 'cancel'].includes(item.action) }"
-              type="button"
-              :disabled="acting"
-              @click="openException(item)"
-            >
-              {{ actionLabel(item.action) }}
-              <span v-if="item.action === suggestedRoutingAction" class="suggested-badge">
-                {{ t('requestDetail.suggestedRoute') }}
-              </span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Stage 54 — [D] Art. 45's jurisdiction test, answered once at requirements_check. -->
-      <section v-if="request.current_stage?.code === 'requirements_check'" class="card card-flat card-pad jurisdiction-test">
-        <h3>{{ t('requestDetail.jurisdictionTest.title') }}</h3>
-        <p>{{ t('requestDetail.jurisdictionTest.hint') }}</p>
-        <p v-if="request.jurisdiction_test" class="state">{{ t('requestDetail.jurisdictionTest.recorded') }}</p>
-        <p v-else class="action-error">{{ t('requestDetail.jurisdictionTest.notRecorded') }}</p>
-        <!-- Stage 84 — whose answers these are. -->
-        <p v-if="request.control_gates?.intake?.jurisdiction_test?.recorded_by">
-          {{ t('requestDetail.jurisdictionTest.recordedBy', {
-            name: request.control_gates.intake.jurisdiction_test.recorded_by.name,
-            at: dateTime(request.control_gates.intake.jurisdiction_test.recorded_at),
-          }) }}
-        </p>
-        <!-- Read-only without the save grant: since Stage 101 R12 can open a file at
-             requirements_check, and editable fields with no save button lost its input on refresh. -->
-        <fieldset :disabled="jurisdictionTestSaving || !auth.can('notes_attachments', 'edit')">
-          <div class="grid">
-            <label>
-              {{ t('requestDetail.jurisdictionTest.q1') }}
-              <select v-model="jurisdictionTestForm.has_legal_basis">
-                <option value="" disabled>{{ t('requestDetail.jurisdictionTest.choose') }}</option>
-                <option value="yes">{{ t('requestDetail.jurisdictionTest.yes') }}</option>
-                <option value="no">{{ t('requestDetail.jurisdictionTest.no') }}</option>
-              </select>
-            </label>
-            <label>
-              {{ t('requestDetail.jurisdictionTest.q2') }}
-              <select v-model="jurisdictionTestForm.employee_covered">
-                <option value="" disabled>{{ t('requestDetail.jurisdictionTest.choose') }}</option>
-                <option value="yes">{{ t('requestDetail.jurisdictionTest.yes') }}</option>
-                <option value="no">{{ t('requestDetail.jurisdictionTest.no') }}</option>
-              </select>
-            </label>
-            <label>
-              {{ t('requestDetail.jurisdictionTest.q3') }}
-              <select v-model="jurisdictionTestForm.within_municipal_jurisdiction">
-                <option value="" disabled>{{ t('requestDetail.jurisdictionTest.choose') }}</option>
-                <option value="yes">{{ t('requestDetail.jurisdictionTest.yes') }}</option>
-                <option value="no">{{ t('requestDetail.jurisdictionTest.no') }}</option>
-              </select>
-            </label>
-            <label>
-              {{ t('requestDetail.jurisdictionTest.q4') }}
-              <select v-model="jurisdictionTestForm.committee_decides">
-                <option value="" disabled>{{ t('requestDetail.jurisdictionTest.choose') }}</option>
-                <option value="yes">{{ t('requestDetail.jurisdictionTest.binding') }}</option>
-                <option value="no">{{ t('requestDetail.jurisdictionTest.advisory') }}</option>
-              </select>
-            </label>
-            <label class="wide">
-              {{ t('requestDetail.jurisdictionTest.q5') }}
-              <input v-model="jurisdictionTestForm.final_approval_authority" type="text" maxlength="255" />
-            </label>
-            <label>
-              {{ t('requestDetail.jurisdictionTest.q6') }}
-              <select v-model="jurisdictionTestForm.requires_central_approval">
-                <option value="" disabled>{{ t('requestDetail.jurisdictionTest.choose') }}</option>
-                <option value="yes">{{ t('requestDetail.jurisdictionTest.yes') }}</option>
-                <option value="no">{{ t('requestDetail.jurisdictionTest.no') }}</option>
-              </select>
-            </label>
-          </div>
-        </fieldset>
-        <p v-if="jurisdictionTestError" class="action-error" role="alert">{{ jurisdictionTestError }}</p>
-        <button
-          v-can="'notes_attachments.edit'"
-          class="ghost"
-          type="button"
-          :disabled="jurisdictionTestSaving"
-          @click="saveJurisdictionTest"
-        >
-          {{ jurisdictionTestSaving ? t('requestDetail.jurisdictionTest.saving') : t('requestDetail.jurisdictionTest.save') }}
-        </button>
-      </section>
+      <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
+      <DecisionWizard v-if="wizardOpen" :request="request" @updated="onGateUpdated" @close="closeWizard" />
 
       <!-- Tab strip. -->
       <div class="tabs" role="tablist" :aria-label="t('requestDetail.tabsLabel')" @keydown.right.prevent="stepTab(1)" @keydown.left.prevent="stepTab(-1)">
@@ -931,8 +649,15 @@ onBeforeUnmount(clearAttachmentPreview)
             />
           </div>
 
+          <!-- Stage 54 — [D] Art. 45, kept here read-only for whoever may open the
+               file; المقرر answers it inside the decision wizard. -->
+          <div v-if="request.current_stage?.code === 'requirements_check'" class="gate-block">
+            <h4>{{ t('requestDetail.jurisdictionTest.title') }}</h4>
+            <JurisdictionTestForm :request="request" @updated="onGateUpdated" />
+          </div>
+
           <div
-            v-if="!intakeGateOnTop && (request.current_stage?.code === 'requirements_check' || request.control_gates.intake.record)"
+            v-if="request.current_stage?.code === 'requirements_check' || request.control_gates.intake.record"
             class="gate-block"
           >
             <h4>{{ t('controlGates.intake.title') }}</h4>
@@ -1417,67 +1142,6 @@ onBeforeUnmount(clearAttachmentPreview)
           </section>
         </div>
 
-        <div v-if="selectedException" class="modal-backdrop" @click.self="closeException">
-          <section
-            class="modal reason-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="exception-title"
-          >
-            <h3 id="exception-title">
-              {{ t('requestDetail.exceptionReasonTitle', { action: actionLabel(selectedException.action) }) }}
-            </h3>
-            <p>{{ t('requestDetail.exceptionReasonHint') }}</p>
-            <form @submit.prevent="submitException">
-              <label>
-                {{ t('requestDetail.reason') }}
-                <textarea
-                  v-model="exceptionReason"
-                  rows="4"
-                  maxlength="5000"
-                  required
-                  autofocus
-                  :disabled="acting"
-                />
-              </label>
-              <p v-if="exceptionError" class="action-error" role="alert">{{ exceptionError }}</p>
-              <div class="modal-actions">
-                <button class="ghost" type="button" :disabled="acting" @click="closeException">
-                  {{ t('common.cancel') }}
-                </button>
-                <button
-                  class="exception-button"
-                  :class="{ destructive: ['reject_review', 'reject_formally', 'reject_by_committee', 'cancel'].includes(selectedException.action) }"
-                  type="submit"
-                  :disabled="acting || !exceptionReason.trim()"
-                >
-                  {{ acting ? t('requestDetail.processing') : t('requestDetail.confirmException') }}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-
-        <div v-if="pendingApprove" class="modal-backdrop" @click.self="closeApproveConfirm">
-          <section
-            class="modal reason-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="confirm-approve-title"
-          >
-            <h3 id="confirm-approve-title">{{ t('requestDetail.confirmApprove.title') }}</h3>
-            <p>{{ t('requestDetail.confirmApprove.body') }}</p>
-            <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
-            <div class="modal-actions">
-              <button class="ghost" type="button" :disabled="acting" @click="closeApproveConfirm">
-                {{ t('common.cancel') }}
-              </button>
-              <button class="primary" type="button" :disabled="acting" @click="confirmApprove">
-                {{ acting ? t('requestDetail.processing') : t('requestDetail.confirmApprove.confirm') }}
-              </button>
-            </div>
-          </section>
-        </div>
       </Teleport>
     </template>
   </section>
@@ -1528,9 +1192,10 @@ onBeforeUnmount(clearAttachmentPreview)
 
 /* -- Actions ----------------------------------------------------------------- */
 .action-panel { margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-brand); }
-.top-gate { margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-warning-border); }
-.top-gate h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
-.top-gate > .hint { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }
+/* Decision wizard — the one way in; the action card and top gates it replaced
+   used to sit here. */
+.decide { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-brand); }
+.decide p { margin: 0; color: var(--color-black-700); }
 .action-panel h3, .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
 .committee-summary { margin-bottom: 0; }
 .legal-review h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); grid-column: 1 / -1; }
@@ -1540,30 +1205,11 @@ onBeforeUnmount(clearAttachmentPreview)
 .legal-review strong.warn { color: var(--color-warning-fg); }
 .legal-review .ghost { margin-inline-start: 0; }
 .action-panel > p { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }
-.action-panel label, .reason-modal label { display: grid; gap: 0.3rem; max-inline-size: 40rem; font-size: var(--text-sm); }
-.action-panel textarea, .reason-modal textarea { padding: 0.5rem 0.6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }
+.action-panel label { display: grid; gap: 0.3rem; max-inline-size: 40rem; font-size: var(--text-sm); }
+.action-panel textarea { padding: 0.5rem 0.6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }
 .action-buttons, .attachment-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
-.exception-button { padding: 0.5rem 0.9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; }
-.exception-button:disabled { cursor: not-allowed; opacity: 0.6; }
-.exception-actions { padding-top: var(--space-3); margin-top: var(--space-4); border-top: 1px solid var(--color-border); }
-.exception-hint { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
-.exception-actions .action-buttons { margin-top: var(--space-3); }
-.exception-button { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }
-.exception-button.destructive { color: var(--color-danger-fg); background: var(--color-danger-bg); border-color: var(--color-danger-border); }
-.suggested-badge { display: inline-block; margin-inline-start: 0.4rem; padding: 0.1rem 0.4rem; border-radius: var(--radius-full); color: var(--color-info-fg); background: var(--color-info-bg); border: 1px solid var(--color-info-border); font-size: 0.7rem; font-weight: 600; }
 .action-error { color: var(--color-danger-fg); margin: 0.6rem 0 0; font-size: var(--text-sm); }
 .financial-impact-toggle { font-weight: normal; font-size: var(--text-xs); }
-
-/* -- Jurisdiction test ------------------------------------------------------- */
-.jurisdiction-test { margin-bottom: var(--space-4); }
-.jurisdiction-test h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
-.jurisdiction-test > p { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }
-.jurisdiction-test fieldset { padding: 0; margin: 0; border: 0; }
-.jurisdiction-test .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
-.jurisdiction-test label { display: grid; gap: 0.3rem; color: var(--color-black-700); font-size: var(--text-sm); }
-.jurisdiction-test select, .jurisdiction-test input { padding: 0.5rem 0.6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }
-.jurisdiction-test button { margin-top: var(--space-3); }
-@media (max-width: 640px) { .jurisdiction-test .grid { grid-template-columns: 1fr; } }
 
 /* -- Tab panels ---------------------------------------------------------- */
 .tabs { margin-bottom: var(--space-4); }
@@ -1589,7 +1235,6 @@ onBeforeUnmount(clearAttachmentPreview)
 .attachment-modal { inline-size: min(64rem, 100%); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); max-block-size: calc(100vh - 2rem); overflow: auto; }
 .attachment-image, .attachment-pdf { display: block; inline-size: 100%; max-block-size: 72vh; border: 0; object-fit: contain; }
 .attachment-pdf { block-size: 72vh; }
-.reason-modal label { max-inline-size: none; }
 
 .checklist h3 { margin: 0 0 0.3rem; color: var(--color-brand-text); font-size: var(--text-lg); }
 .checklist ul { display: grid; gap: 0.3rem; padding-inline-start: 1.2rem; margin: 0; color: var(--color-black-700); font-size: var(--text-sm); }
