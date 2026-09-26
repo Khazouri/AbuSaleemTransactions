@@ -43,6 +43,33 @@ a new `DocumentValidityPanel.vue` above the action panel; gate 1's panel moves a
 Verify: DocumentIntegrityTest updated + new cases, full PHPUnit, Pint, build (revert `dist`), parity, live check.
 
 ---
+### 2026-09-26 20:40 EET — Claude — «المهام المعلقة» lists every pending duty (complete)
+
+Built per the plan below. No migration, no endpoint. `PendingTaskCollector` has six new sources, and each of their tasks
+carries an `action` code that `MyTasksView` renders from `myTasks.actions.*`. `AppealsView` now seeds its filter from
+`?status=`. The approval icon was fixed: `user-check` is not an AppIcon name.
+**Deliberate limits:** `record_decision` lists tied or under-majority items (the chair must still act), and `convene`
+waits for the meeting day. `workflow_step`/`overdue` call `availableTransitions()` once per pre-filtered row (`ponytail:` note).
+Verified: 12 new tests fail on the old collector and pass on the new one. Pint is clean, the build passes (`dist`
+reverted), and parity is 2056. On the real MySQL, `r02.reviewer@` now gets its 2 files at `direct_manager_review`,
+both over HTTP and via the service.
+
+---
+### 2026-09-26 20:02 EET — Claude — Implementation plan: «المهام المعلقة» lists every pending duty
+
+User: the inbox must hold every action waiting on the user (e.g. a manager approving an employee's request, which is
+missing today). All 125 write endpoints were sorted into *pending duties* (state says someone must act next) and
+*on-demand* actions; the user chose to cover every duty group. `PendingTaskCollector` gains six sources, each task
+carrying an `action` code: `workflow_step` (non-exception rules other than approve/submit, read through
+`WorkflowService::availableTransitions` so the inbox and the buttons agree), `overdue` (R08's `deadline_expired`,
+minus the ministry self-loop), `meeting_duty` (adopt agenda, convene, record decision, generate/review minutes,
+close the sitting), `post_decision` (soundness, execute, both archives, close, approval return/referral, lift
+suspension), `open_record` (corrections — never to their recorder — conflicts, special cases, withdrawals) and
+`appeal` (each next step + nomination). Each condition is the endpoint's own refusal list as SQL, scoped by
+`RequestVisibility`/`MeetingVisibility`. No migration. Verify: MyTasksTest per source, full PHPUnit, Pint, build
+(revert `dist`), locale parity, live smoke.
+
+---
 ### 2026-09-26 19:44 EET — Claude — Dashboard distribution labels show the full name
 
 User (/frontend-design): the status, stage and department bars cut names off. The label was a fixed `minmax(90px, 34%)`

@@ -13,11 +13,13 @@
  */
 import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import api from '../lib/api'
 import AppModal from '../components/AppModal.vue'
 import FileUpload from '../components/FileUpload.vue'
 
 const { t, locale } = useI18n()
+const route = useRoute()
 
 const STATUS_CODES = [
   'submitted', 'formal_verification', 'file_assembly', 'legal_review',
@@ -32,7 +34,8 @@ const rows = ref([])
 const page = ref({ current_page: 1, last_page: 1, total: 0 })
 const loading = ref(false)
 const loadError = ref(null)
-const statusFilter = ref('')
+// «المهام المعلقة» links here with ?status= so the appeal's next step is on screen.
+const statusFilter = ref(typeof route.query.status === 'string' ? route.query.status : '')
 
 async function load(requestedPage = 1) {
   loading.value = true

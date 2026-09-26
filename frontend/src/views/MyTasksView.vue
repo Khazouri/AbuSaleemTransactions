@@ -28,13 +28,19 @@ const truncated = ref(false)
 const activeSource = ref('all')
 
 const ICON_BY_SOURCE = {
-  approval: 'user-check',
+  approval: 'check-circle',
   vote: 'check-square',
   candidate: 'file-plus',
   legal_review: 'scale',
   minutes_signature: 'book',
   meeting_invitation: 'calendar',
   completion: 'inbox',
+  workflow_step: 'git-branch',
+  overdue: 'history',
+  meeting_duty: 'users',
+  post_decision: 'layers',
+  open_record: 'file-text',
+  appeal: 'flag',
 }
 
 const visibleSources = computed(() =>
@@ -159,6 +165,8 @@ onMounted(load)
                 </span>
 
                 <span class="meta">
+                  <!-- A source holding several kinds of duty names which one this row is. -->
+                  <span v-if="task.action" class="action">{{ t(`myTasks.actions.${task.action}`) }}</span>
                   <span v-if="task.subject" class="subject">{{ task.subject }}</span>
                   <span v-if="waitingDays(task) !== null" class="waiting">
                     {{ t('myTasks.waiting', { days: waitingDays(task) }) }}
@@ -319,6 +327,11 @@ li.overdue .row {
 
 .flag {
   color: var(--color-danger-fg);
+  font-weight: 600;
+}
+
+.action {
+  color: var(--color-brand-text);
   font-weight: 600;
 }
 </style>

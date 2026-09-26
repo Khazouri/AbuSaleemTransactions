@@ -2535,7 +2535,41 @@
       "legal_review": "بانتظار المراجعة القانونية",
       "minutes_signature": "محاضر بانتظار توقيعك",
       "completion": "طلباتي المطلوب استكمالها",
-      "meeting_invitation": "مواعيد اجتماعات بانتظار ردك"
+      "meeting_invitation": "مواعيد اجتماعات بانتظار ردك",
+      "workflow_step": "طلبات بانتظار إجرائك",
+      "overdue": "طلبات متأخرة بانتظار التصعيد",
+      "meeting_duty": "مهام الاجتماعات",
+      "post_decision": "ما بعد القرار",
+      "open_record": "سجلات مفتوحة بانتظار البت",
+      "appeal": "تظلمات بانتظار إجرائك"
+    },
+    "actions": {
+      "forward": "موافقة وإحالة",
+      "register": "تجهيز الملف الوظيفي والتسجيل",
+      "deadline_expired": "تصعيد لانتهاء المهلة",
+      "adopt_agenda": "اعتماد جدول الأعمال",
+      "convene": "افتتاح الاجتماع",
+      "record_decision": "تسجيل القرار",
+      "generate_minutes": "إعداد المحضر",
+      "review_minutes": "مراجعة المحضر",
+      "close_meeting": "إنهاء الاجتماع",
+      "execution_soundness": "التحقق من سلامة التنفيذ",
+      "execute": "إثبات التنفيذ",
+      "archive_committee_file": "أرشفة ملف اللجنة",
+      "archive_service_file": "أرشفة ملف الخدمة",
+      "close": "الإقفال",
+      "resolve_approval_return": "معالجة الإعادة من جهة الاعتماد",
+      "record_referral_result": "تسجيل نتيجة الإحالة",
+      "lift_suspension": "رفع الإيقاف",
+      "approve_correction": "اعتماد التصحيح",
+      "resolve_document_conflict": "حسم تعارض المستندات",
+      "resolve_special_case": "حسم الحالة الخاصة",
+      "determine_withdrawal": "البت في طلب السحب",
+      "verify": "التحقق الشكلي",
+      "jurisdiction_test": "اختبار الاختصاص",
+      "legal_review": "المراجعة القانونية",
+      "nominate": "إدراج في جدول الأعمال",
+      "execute_outcome": "تنفيذ نتيجة التظلم"
     }
   }
 }

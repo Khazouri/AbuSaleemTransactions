@@ -2535,7 +2535,41 @@
       "legal_review": "Awaiting legal review",
       "minutes_signature": "Minutes awaiting your signature",
       "completion": "My requests needing completion",
-      "meeting_invitation": "Meeting dates awaiting your answer"
+      "meeting_invitation": "Meeting dates awaiting your answer",
+      "workflow_step": "Requests awaiting your action",
+      "overdue": "Overdue requests awaiting escalation",
+      "meeting_duty": "Meeting duties",
+      "post_decision": "After the decision",
+      "open_record": "Open records awaiting a ruling",
+      "appeal": "Appeals awaiting your action"
+    },
+    "actions": {
+      "forward": "Approve & forward",
+      "register": "Prepare employment file & register",
+      "deadline_expired": "Escalate — deadline expired",
+      "adopt_agenda": "Adopt the agenda",
+      "convene": "Convene the meeting",
+      "record_decision": "Record the decision",
+      "generate_minutes": "Prepare the minutes",
+      "review_minutes": "Review the minutes",
+      "close_meeting": "Close the meeting",
+      "execution_soundness": "Certify execution soundness",
+      "execute": "Record execution",
+      "archive_committee_file": "Archive the committee file",
+      "archive_service_file": "Archive the service file",
+      "close": "Close",
+      "resolve_approval_return": "Handle the approving body's return",
+      "record_referral_result": "Record the referral result",
+      "lift_suspension": "Lift the suspension",
+      "approve_correction": "Approve the correction",
+      "resolve_document_conflict": "Resolve the document conflict",
+      "resolve_special_case": "Resolve the special case",
+      "determine_withdrawal": "Decide the withdrawal",
+      "verify": "Formal verification",
+      "jurisdiction_test": "Jurisdiction test",
+      "legal_review": "Legal review",
+      "nominate": "Add to an agenda",
+      "execute_outcome": "Execute the appeal outcome"
     }
   }
 }
