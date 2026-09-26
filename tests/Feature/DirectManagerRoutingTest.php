@@ -71,8 +71,10 @@ class DirectManagerRoutingTest extends TestCase
         }
 
         // The assigned manager may act.
+        // One-click approval: the manager's forward lands on HR directly.
         $requestRecord = $service->transition($requestRecord->refresh(), 'forward', $manager);
-        $this->assertSame('administrative_routing', $requestRecord->currentStage->code);
+        $this->assertSame('receive_and_register', $requestRecord->currentStage->code);
+        $this->assertSame('routed_to_hr', $requestRecord->status->code);
 
         // An employee with no manager at all: R08 may unstick it, and the
         // preview offers exactly what the endpoint accepts.
@@ -82,7 +84,7 @@ class DirectManagerRoutingTest extends TestCase
         $this->assertFalse($service->availableActions($orphanRequest, $stranger)->contains('forward'));
 
         $moved = $service->transition($orphanRequest, 'forward', $admin);
-        $this->assertSame('administrative_routing', $moved->currentStage->code);
+        $this->assertSame('receive_and_register', $moved->currentStage->code);
 
         // ...but not its own file: the fallback is not a way round review.
         $orphanAdmin = $this->userWithRole('R08');

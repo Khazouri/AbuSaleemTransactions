@@ -19,6 +19,25 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 20:35 EET — Claude — The manager approves in one click (complete)
+
+Built per the plan below; no migration. The manager's `forward` at `direct_manager_review` now lands on
+`receive_and_register` + `routed_to_hr`, and the button reads «موافقة وإحالة» / «Approve & forward». Reseeded on the
+real MySQL and confirmed by query. It still holds 2 files at `administrative_routing`; they leave through the kept
+`route_to_hr` row. `RequestTimeCard` T1/T2 split at HR arrival when a file never passed routing (new test). Full suite
+**754 / 4816**, Pint clean on touched files, build passes (`dist` reverted), parity 2024.
+
+---
+### 2026-09-26 20:15 EET — Claude — Implementation plan: the manager approves in one click
+
+User: the employee's manager should approve with one button that moves the request on. Today it is two clicks —
+`forward` (to `administrative_routing`) then `route_to_hr` — and since Stage 96 the second has only one option. Plan:
+the manager-gated `forward` row lands straight on `receive_and_register` with `routed_to_hr` (the status R12's
+`register` row requires). `administrative_routing`'s rows stay, so a file already parked there can still leave
+(Stage 102 precedent). `RequestTimeCard` T1/T2 fall back to arrival at `receive_and_register`; the button label
+becomes «موافقة وإحالة». Verify: tests updated, full PHPUnit, Pint, build (revert `dist`), parity, reseed.
+
+---
 ### 2026-09-26 19:55 EET — Claude — Department hierarchy view on the Users screen (complete)
 
 Built per the plan below. One migration (`departments.manager_user_id`), applied to the real MySQL. The Users screen has

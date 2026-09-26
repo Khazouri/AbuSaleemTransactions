@@ -1869,7 +1869,7 @@
     "actions": {
       "intake": "إرسال الطلب",
       "submit": "تقديم الطلب",
-      "forward": "إحالة",
+      "forward": "موافقة وإحالة",
       "approve": "اعتماد",
       "reject": "رفض",
       "return_missing_docs": "إرجاع لنقص المستندات",

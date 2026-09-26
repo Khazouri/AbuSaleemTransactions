@@ -1869,7 +1869,7 @@
     "actions": {
       "intake": "Request intake",
       "submit": "Submit request",
-      "forward": "Forward",
+      "forward": "Approve & forward",
       "approve": "Approve",
       "reject": "Reject",
       "return_missing_docs": "Return for missing documents",

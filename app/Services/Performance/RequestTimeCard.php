@@ -86,8 +86,8 @@ class RequestTimeCard
     public function segments(): array
     {
         return [
-            't1' => $this->days($this->marks['submitted_at'] ?? null, $this->arrivedAtStage('administrative_routing')),
-            't2' => $this->days($this->arrivedAtStage('administrative_routing'), $this->arrivedAtStage('requirements_check')),
+            't1' => $this->days($this->marks['submitted_at'] ?? null, $this->managerReleasedAt()),
+            't2' => $this->days($this->managerReleasedAt(), $this->arrivedAtStage('requirements_check')),
             't3' => $this->days($this->arrivedAtStage('requirements_check'), $this->leftStage('requirements_check')),
             // Summed rather than first-only: a file returned twice was blocked
             // twice, and Art. 19's استكمال loop is explicitly repeatable.
@@ -196,6 +196,16 @@ class RequestTimeCard
         }
 
         return $total === null ? null : round($total, 1);
+    }
+
+    /**
+     * When the manager let the file go. Older files passed through
+     * administrative_routing; since the one-click approval (2026-09-26) the
+     * manager's forward lands on receive_and_register directly.
+     */
+    private function managerReleasedAt(): ?CarbonInterface
+    {
+        return $this->arrivedAtStage('administrative_routing') ?? $this->arrivedAtStage('receive_and_register');
     }
 
     private function arrivedAtStage(string $code): ?CarbonInterface

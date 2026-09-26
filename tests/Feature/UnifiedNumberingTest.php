@@ -80,9 +80,6 @@ class UnifiedNumberingTest extends TestCase
         $service->transition($requestRecord, 'forward', $manager);
         $this->assertNull($requestRecord->refresh()->reference_number);
 
-        $service->transition($requestRecord, 'route_to_hr', $manager);
-        $this->assertNull($requestRecord->refresh()->reference_number);
-
         // Stage 87 — the HR registrar is R12, not R05.
         $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
         $requestRecord->refresh();
@@ -147,7 +144,6 @@ class UnifiedNumberingTest extends TestCase
 
         $service->transition($requestRecord, 'submit', $employee);
         $service->transition($requestRecord, 'forward', $manager);
-        $service->transition($requestRecord, 'route_to_hr', $manager);
         $service->transition($requestRecord, 'register', $this->userWithRole('R12'));
         $service->transition($requestRecord, 'approve', $reviewer);
 

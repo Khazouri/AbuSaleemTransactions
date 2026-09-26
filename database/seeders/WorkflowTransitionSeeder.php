@@ -156,6 +156,13 @@ class WorkflowTransitionSeeder extends Seeder
         // request is the subject's own manager's decision. R08 gets it only
         // when no live manager exists — WorkflowService::adminMayUnstick(),
         // which covers every manager-gated row without a sibling each.
+        //
+        // One-click approval (user decision 2026-09-26): this row used to land
+        // on administrative_routing, where the same manager then had to click
+        // route_to_hr — the only route left since Stage 96. It now lands on
+        // receive_and_register with routed_to_hr, the status R12's register
+        // row requires, so approving is one action. The administrative_routing
+        // rows below stay so a file already parked there can still leave.
         WorkflowTransition::updateOrCreate(
             [
                 'request_type_id' => null,
@@ -163,11 +170,11 @@ class WorkflowTransitionSeeder extends Seeder
                 'action' => 'forward',
             ],
             [
-                'to_stage_id' => $stages['administrative_routing']->id,
+                'to_stage_id' => $stages['receive_and_register']->id,
                 'required_role_id' => null,
                 'requires_submitter_manager' => true,
                 'required_status_id' => null,
-                'set_status_id' => $statuses['in_review']->id,
+                'set_status_id' => $statuses['routed_to_hr']->id,
                 'is_exception' => false,
                 'requires_comment' => false,
                 'order_no' => 2,

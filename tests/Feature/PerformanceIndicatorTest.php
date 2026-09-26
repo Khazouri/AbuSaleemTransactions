@@ -146,6 +146,25 @@ class PerformanceIndicatorTest extends TestCase
         $this->assertSame('قياس جودة تقديم الطلبات', $response->json('data.1.purpose'));
     }
 
+    /**
+     * Since the one-click approval the manager's forward lands on HR directly,
+     * so T1/T2 must still split at that hop without administrative_routing.
+     */
+    public function test_t1_and_t2_split_at_hr_when_the_manager_skips_routing(): void
+    {
+        $requestRecord = $this->baseRequest();
+        $requestRecord->submitted_at = now()->subDays(10);
+        $requestRecord->save();
+
+        $this->stage($requestRecord, 'direct_manager_review', 'receive_and_register', now()->subDays(8));
+        $this->stage($requestRecord, 'receive_and_register', 'requirements_check', now()->subDays(5));
+
+        $segments = app(TimeCardCompiler::class)->forRequest($requestRecord)->segments();
+
+        $this->assertSame(2.0, $segments['t1']);
+        $this->assertSame(3.0, $segments['t2']);
+    }
+
     /** The five duration indicators are the mean of their own segment. */
     public function test_the_duration_indicators_average_the_matching_time_card_segment(): void
     {

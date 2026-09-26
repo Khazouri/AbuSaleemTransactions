@@ -52,8 +52,9 @@ class WorkflowServiceTest extends TestCase
 
         $steps = [
             ['receive_from_municipality', 'direct_manager_review', 'submit', 'R01', 'in_review'],
-            ['direct_manager_review', 'administrative_routing', 'forward', 'MANAGER', 'in_review'],
-            ['administrative_routing', 'receive_and_register', 'route_to_hr', 'MANAGER', 'routed_to_hr'],
+            // One-click approval (2026-09-26): the manager's forward lands on
+            // HR directly; administrative_routing is no longer on the path.
+            ['direct_manager_review', 'receive_and_register', 'forward', 'MANAGER', 'routed_to_hr'],
             // Art. 38's code 04 (in_review, تحت فحص الاكتمال): the file has
             // been delivered to be checked, not yet checked. Passing the check
             // is code 06 (registered, مستوفية ومقيدة) on the approve hop below,
@@ -92,11 +93,11 @@ class WorkflowServiceTest extends TestCase
 
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('in_execution', $requestRecord->status->code);
-        $this->assertCount(9, $requestRecord->stageLogs);
-        $this->assertCount(9, $requestRecord->statusHistory);
+        $this->assertCount(8, $requestRecord->stageLogs);
+        $this->assertCount(8, $requestRecord->statusHistory);
         $this->assertSame(
             [
-                'direct_manager_review', 'administrative_routing', 'receive_and_register',
+                'direct_manager_review', 'receive_and_register',
                 'requirements_check', 'receive_from_committee', 'approval_by_authority',
                 'local_governance_ministry', 'final_approval_archiving',
                 'final_approval_archiving',
@@ -108,7 +109,7 @@ class WorkflowServiceTest extends TestCase
                 ->pluck('toStage.code')
                 ->all(),
         );
-        // The four new front-half hops (submit/forward/route_to_hr/register)
+        // The three front-half hops (submit/forward/register)
         // are none of them action `approve`, so they write no Approval ledger
         // row. Stage 57 removed the competent_authority checkpoint, so the
         // chain is 5 approvals now, not 6 — R07 only clicks once (the final

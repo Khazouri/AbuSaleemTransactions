@@ -91,7 +91,7 @@ class RequestSubjectTest extends TestCase
         $moved = $service->transition($requestRecord->refresh(), 'forward', $subjectsManager);
 
         $this->assertSame(
-            WorkflowStage::where('code', 'administrative_routing')->value('id'),
+            WorkflowStage::where('code', 'receive_and_register')->value('id'),
             $moved->current_stage_id,
         );
     }

@@ -80,7 +80,7 @@ class NotificationTest extends TestCase
 
     /**
      * Diagram-alignment redesign (see AGENT_NOTES.md): direct_manager_review's
-     * only outbound row (`forward`, to administrative_routing) is
+     * only outbound row (`forward`, to receive_and_register) is
      * manager-gated with required_role_id null — no fixed role can be
      * resolved for it. Without the actorsForStage() fix, a request landing
      * there would notify nobody at all; the manager must hear about it the
