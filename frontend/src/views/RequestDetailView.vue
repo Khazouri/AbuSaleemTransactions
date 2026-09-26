@@ -1541,8 +1541,12 @@ onBeforeUnmount(clearAttachmentPreview)
 .description p { margin: 0; color: var(--color-black-700); line-height: var(--leading-relaxed); white-space: pre-wrap; }
 .description .reasons-heading { margin-block-start: var(--space-4); }
 .timeline ol { display: grid; gap: 0; padding: 0; margin: var(--space-3) 0 0; list-style: none; }
-.timeline li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: 0.6rem; padding-bottom: var(--space-4); }
-.timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: 0.45rem; inset-block-start: 0.85rem; inline-size: 1px; block-size: calc(100% - 0.25rem); background: var(--color-border); }
+/* `>` so an entry's nested document list doesn't inherit the rail and its connector line. */
+.timeline ol > li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: 0.6rem; padding-bottom: var(--space-4); }
+.timeline ol > li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: 0.45rem; inset-block-start: 0.85rem; inline-size: 1px; block-size: calc(100% - 0.25rem); background: var(--color-border); }
+.entry-documents { display: grid; gap: 0.2rem; padding: 0; margin: 0.3rem 0 0; list-style: none; }
+.entry-documents li { display: flex; flex-wrap: wrap; gap: 0.4rem; font-size: var(--text-xs); color: var(--color-muted); }
+.entry-documents .doc-label { color: var(--color-black-700); overflow-wrap: anywhere; }
 .dot { position: relative; z-index: 1; inline-size: 0.9rem; block-size: 0.9rem; margin-top: 0.15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }
 .timeline p { margin: 0.2rem 0; color: var(--color-black-700); font-size: var(--text-sm); }
 .timeline small, .attachments small { color: var(--color-muted); font-size: var(--text-xs); }

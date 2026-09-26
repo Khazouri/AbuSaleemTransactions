@@ -19,6 +19,11 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 18:10 EET — Claude — Timeline attachment rows no longer draw the connector line
+
+Bug fix, CSS only. In «سجل سير العمل» (RequestTrackingView and RequestDetailView) the rail rules were `.timeline li`, which also matched each entry's nested `.entry-documents li`, so every attachment row got the timeline grid, padding and vertical connector line. Both now target direct children only; the workspace also gained the `.entry-documents` styles it never had (it rendered as a bulleted list). Build passes (`dist` reverted).
+
+---
 ### 2026-09-26 17:55 EET — Claude — Forms beside tables are now modals (complete)
 
 Built per the plan below; frontend only, no PHP touched (so no PHPUnit/Pint run). New `AppModal.vue` wraps the create/edit

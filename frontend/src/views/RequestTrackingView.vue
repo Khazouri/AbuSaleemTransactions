@@ -338,8 +338,9 @@ onMounted(() => load())
 .panel { padding-top: .9rem; margin-top: .9rem; border-top: 1px solid var(--color-border); display: grid; gap: 1rem; }
 .block h4 { margin: 0 0 .35rem; color: var(--color-brand-text); font-size: .92rem; }
 .timeline { display: grid; gap: 0; padding: 0; margin: .6rem 0 0; list-style: none; }
-.timeline li { position: relative; display: grid; grid-template-columns: 1.1rem minmax(0, 1fr); gap: .6rem; padding-bottom: .9rem; }
-.timeline li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .4rem; inset-block-start: .8rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }
+/* `>` so an entry's nested document list doesn't inherit the rail and its connector line. */
+.timeline > li { position: relative; display: grid; grid-template-columns: 1.1rem minmax(0, 1fr); gap: .6rem; padding-bottom: .9rem; }
+.timeline > li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: .4rem; inset-block-start: .8rem; inline-size: 1px; block-size: calc(100% - .25rem); background: var(--color-border); }
 .dot { position: relative; z-index: 1; inline-size: .8rem; block-size: .8rem; margin-top: .2rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }
 .timeline strong { color: var(--color-black-700); font-size: .85rem; }
 .timeline p { margin: .15rem 0; color: var(--color-black-700); font-size: .82rem; }
