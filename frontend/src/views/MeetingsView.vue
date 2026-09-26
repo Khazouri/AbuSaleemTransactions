@@ -8,9 +8,10 @@
  * meetings, not a separate capability (the backend gates both the same way,
  * see routes/api.php).
  */
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
+import AppModal from '../components/AppModal.vue'
 import MeetingSchedulingWizard from '../components/MeetingSchedulingWizard.vue'
 import api from '../lib/api'
 
@@ -187,6 +188,10 @@ const memberError = ref(null)
 // chair seat), so there is no seatless option and no separate head checkbox.
 const SEAT_CODES = ['chair', 'legal', 'hr_director', 'ministry_delegate', 'rapporteur']
 
+// Looked up by id rather than held as an object, so the modal shows the
+// refreshed roster after every add/remove reload.
+const membersCommittee = computed(() => committees.value.find((c) => c.id === expandedCommitteeId.value) ?? null)
+
 function toggleMembers(committee) {
   expandedCommitteeId.value = expandedCommitteeId.value === committee.id ? null : committee.id
   memberUserId.value = ''
@@ -276,172 +281,179 @@ onMounted(async () => {
       </button>
     </div>
 
-    <p v-if="committeeFormError" class="alert">{{ committeeFormError }}</p>
+    <p v-if="committeeFormError && !showCommitteeForm" class="alert">{{ committeeFormError }}</p>
 
-    <form v-if="showCommitteeForm" class="card card-flat card-pad form" @submit.prevent="saveCommittee">
-      <h3>{{ editingCommitteeId === null ? t('committees.add') : t('committees.edit') }}</h3>
-      <div class="grid">
-        <label>
-          {{ t('committees.nameAr') }} *
-          <input v-model="committeeForm.name_ar" type="text" required />
-          <small v-if="committeeErrors.name_ar" class="field-error">{{ committeeErrors.name_ar[0] }}</small>
-        </label>
-        <label>
-          {{ t('committees.nameEn') }}
-          <input v-model="committeeForm.name_en" type="text" dir="ltr" />
-        </label>
-        <label class="span-2">
-          {{ t('committees.description') }}
-          <textarea v-model="committeeForm.description" rows="2" />
-        </label>
-      </div>
-      <label class="checkbox">
-        <input v-model="committeeForm.is_active" type="checkbox" />
-        {{ t('common.active') }}
-      </label>
-      <label class="checkbox">
-        <input v-model="committeeForm.rapporteur_votes" type="checkbox" />
-        {{ t('committees.rapporteurVotes') }}
-      </label>
-
-      <!-- Stage 73 — Appendix 65's بطاقة تعريف اللجنة. Appendix 64 forbids the
-           system supplying a quorum or a majority of its own, so these are
-           transcribed from the committee's قرار التشكيل and left blank when
-           it has not been read yet. -->
-      <fieldset class="card-fields">
-        <legend>{{ t('committees.card.title') }}</legend>
-        <p class="hint">{{ t('committees.card.hint') }}</p>
+    <AppModal
+      v-if="showCommitteeForm"
+      :title="editingCommitteeId === null ? t('committees.add') : t('committees.edit')"
+      wide
+      @close="cancelCommitteeForm"
+    >
+      <form class="form" @submit.prevent="saveCommittee">
+        <p v-if="committeeFormError" class="alert">{{ committeeFormError }}</p>
         <div class="grid">
           <label>
-            {{ t('committees.card.formationDecisionNumber') }}
-            <input v-model="committeeForm.formation_decision_number" type="text" />
+            {{ t('committees.nameAr') }} *
+            <input v-model="committeeForm.name_ar" type="text" required />
+            <small v-if="committeeErrors.name_ar" class="field-error">{{ committeeErrors.name_ar[0] }}</small>
           </label>
           <label>
-            {{ t('committees.card.formationDecisionDate') }}
-            <input v-model="committeeForm.formation_decision_date" type="date" />
-          </label>
-          <label>
-            {{ t('committees.card.termNote') }}
-            <input v-model="committeeForm.term_note" type="text" />
-          </label>
-          <label>
-            {{ t('committees.card.minutesApprovalBody') }}
-            <input v-model="committeeForm.minutes_approval_body" type="text" />
+            {{ t('committees.nameEn') }}
+            <input v-model="committeeForm.name_en" type="text" dir="ltr" />
           </label>
           <label class="span-2">
-            {{ t('committees.card.legalBasis') }}
-            <textarea v-model="committeeForm.legal_basis" rows="2" />
-          </label>
-          <label class="span-2">
-            {{ t('committees.card.votingRightsNote') }}
-            <textarea v-model="committeeForm.voting_rights_note" rows="2" />
-          </label>
-          <label class="span-2">
-            {{ t('committees.card.minutesSignatureRule') }}
-            <textarea v-model="committeeForm.minutes_signature_rule" rows="2" />
-          </label>
-          <label class="span-2">
-            {{ t('committees.card.recusalRules') }}
-            <textarea v-model="committeeForm.recusal_rules" rows="2" />
-          </label>
-
-          <label>
-            {{ t('committees.card.quorumType') }}
-            <select v-model="committeeForm.quorum_type">
-              <option value="">{{ t('committees.card.notRecorded') }}</option>
-              <option value="count">{{ t('committees.card.types.count') }}</option>
-              <option value="fraction">{{ t('committees.card.types.fraction') }}</option>
-            </select>
-          </label>
-          <label v-if="committeeForm.quorum_type === 'count'">
-            {{ t('committees.card.quorumCount') }}
-            <input v-model="committeeForm.quorum_count" type="number" min="1" />
-          </label>
-          <template v-if="committeeForm.quorum_type === 'fraction'">
-            <label>
-              {{ t('committees.card.numerator') }}
-              <input v-model="committeeForm.quorum_numerator" type="number" min="1" />
-            </label>
-            <label>
-              {{ t('committees.card.denominator') }}
-              <input v-model="committeeForm.quorum_denominator" type="number" min="1" />
-            </label>
-            <label>
-              {{ t('committees.card.comparator') }}
-              <select v-model="committeeForm.quorum_comparator">
-                <option value="">{{ t('committees.card.notRecorded') }}</option>
-                <option value="at_least">{{ t('committees.card.comparators.at_least') }}</option>
-                <option value="more_than">{{ t('committees.card.comparators.more_than') }}</option>
-              </select>
-            </label>
-          </template>
-          <label class="span-2">
-            {{ t('committees.card.quorumText') }}
-            <input v-model="committeeForm.quorum_text" type="text" />
-          </label>
-
-          <label>
-            {{ t('committees.card.majorityType') }}
-            <select v-model="committeeForm.majority_type">
-              <option value="">{{ t('committees.card.notRecorded') }}</option>
-              <option value="plurality">{{ t('committees.card.majorityTypes.plurality') }}</option>
-              <option value="fraction">{{ t('committees.card.majorityTypes.fraction') }}</option>
-            </select>
-          </label>
-          <template v-if="committeeForm.majority_type === 'fraction'">
-            <label>
-              {{ t('committees.card.majorityBasis') }}
-              <select v-model="committeeForm.majority_basis">
-                <option value="">{{ t('committees.card.notRecorded') }}</option>
-                <option value="votes_cast">{{ t('committees.card.bases.votes_cast') }}</option>
-                <option value="present">{{ t('committees.card.bases.present') }}</option>
-                <option value="members">{{ t('committees.card.bases.members') }}</option>
-              </select>
-            </label>
-            <label>
-              {{ t('committees.card.numerator') }}
-              <input v-model="committeeForm.majority_numerator" type="number" min="1" />
-            </label>
-            <label>
-              {{ t('committees.card.denominator') }}
-              <input v-model="committeeForm.majority_denominator" type="number" min="1" />
-            </label>
-            <label>
-              {{ t('committees.card.comparator') }}
-              <select v-model="committeeForm.majority_comparator">
-                <option value="">{{ t('committees.card.notRecorded') }}</option>
-                <option value="at_least">{{ t('committees.card.comparators.at_least') }}</option>
-                <option value="more_than">{{ t('committees.card.comparators.more_than') }}</option>
-              </select>
-            </label>
-          </template>
-          <label class="span-2">
-            {{ t('committees.card.majorityText') }}
-            <input v-model="committeeForm.majority_text" type="text" />
-          </label>
-
-          <label>
-            {{ t('committees.card.tieBreak') }}
-            <select v-model="committeeForm.tie_break">
-              <option value="">{{ t('committees.card.notRecorded') }}</option>
-              <option value="chair_casting_vote">{{ t('committees.card.tieBreaks.chair_casting_vote') }}</option>
-              <option value="no_decision">{{ t('committees.card.tieBreaks.no_decision') }}</option>
-            </select>
-          </label>
-          <label class="span-2">
-            {{ t('committees.card.tieBreakText') }}
-            <input v-model="committeeForm.tie_break_text" type="text" />
+            {{ t('committees.description') }}
+            <textarea v-model="committeeForm.description" rows="2" />
           </label>
         </div>
-      </fieldset>
+        <label class="checkbox">
+          <input v-model="committeeForm.is_active" type="checkbox" />
+          {{ t('common.active') }}
+        </label>
+        <label class="checkbox">
+          <input v-model="committeeForm.rapporteur_votes" type="checkbox" />
+          {{ t('committees.rapporteurVotes') }}
+        </label>
 
-      <div class="actions">
-        <button class="primary" type="submit" :disabled="savingCommittee">
-          {{ savingCommittee ? t('common.saving') : t('common.save') }}
-        </button>
-        <button class="ghost" type="button" @click="cancelCommitteeForm">{{ t('common.cancel') }}</button>
-      </div>
-    </form>
+        <!-- Stage 73 — Appendix 65's بطاقة تعريف اللجنة. Appendix 64 forbids the
+             system supplying a quorum or a majority of its own, so these are
+             transcribed from the committee's قرار التشكيل and left blank when
+             it has not been read yet. -->
+        <fieldset class="card-fields">
+          <legend>{{ t('committees.card.title') }}</legend>
+          <p class="hint">{{ t('committees.card.hint') }}</p>
+          <div class="grid">
+            <label>
+              {{ t('committees.card.formationDecisionNumber') }}
+              <input v-model="committeeForm.formation_decision_number" type="text" />
+            </label>
+            <label>
+              {{ t('committees.card.formationDecisionDate') }}
+              <input v-model="committeeForm.formation_decision_date" type="date" />
+            </label>
+            <label>
+              {{ t('committees.card.termNote') }}
+              <input v-model="committeeForm.term_note" type="text" />
+            </label>
+            <label>
+              {{ t('committees.card.minutesApprovalBody') }}
+              <input v-model="committeeForm.minutes_approval_body" type="text" />
+            </label>
+            <label class="span-2">
+              {{ t('committees.card.legalBasis') }}
+              <textarea v-model="committeeForm.legal_basis" rows="2" />
+            </label>
+            <label class="span-2">
+              {{ t('committees.card.votingRightsNote') }}
+              <textarea v-model="committeeForm.voting_rights_note" rows="2" />
+            </label>
+            <label class="span-2">
+              {{ t('committees.card.minutesSignatureRule') }}
+              <textarea v-model="committeeForm.minutes_signature_rule" rows="2" />
+            </label>
+            <label class="span-2">
+              {{ t('committees.card.recusalRules') }}
+              <textarea v-model="committeeForm.recusal_rules" rows="2" />
+            </label>
+
+            <label>
+              {{ t('committees.card.quorumType') }}
+              <select v-model="committeeForm.quorum_type">
+                <option value="">{{ t('committees.card.notRecorded') }}</option>
+                <option value="count">{{ t('committees.card.types.count') }}</option>
+                <option value="fraction">{{ t('committees.card.types.fraction') }}</option>
+              </select>
+            </label>
+            <label v-if="committeeForm.quorum_type === 'count'">
+              {{ t('committees.card.quorumCount') }}
+              <input v-model="committeeForm.quorum_count" type="number" min="1" />
+            </label>
+            <template v-if="committeeForm.quorum_type === 'fraction'">
+              <label>
+                {{ t('committees.card.numerator') }}
+                <input v-model="committeeForm.quorum_numerator" type="number" min="1" />
+              </label>
+              <label>
+                {{ t('committees.card.denominator') }}
+                <input v-model="committeeForm.quorum_denominator" type="number" min="1" />
+              </label>
+              <label>
+                {{ t('committees.card.comparator') }}
+                <select v-model="committeeForm.quorum_comparator">
+                  <option value="">{{ t('committees.card.notRecorded') }}</option>
+                  <option value="at_least">{{ t('committees.card.comparators.at_least') }}</option>
+                  <option value="more_than">{{ t('committees.card.comparators.more_than') }}</option>
+                </select>
+              </label>
+            </template>
+            <label class="span-2">
+              {{ t('committees.card.quorumText') }}
+              <input v-model="committeeForm.quorum_text" type="text" />
+            </label>
+
+            <label>
+              {{ t('committees.card.majorityType') }}
+              <select v-model="committeeForm.majority_type">
+                <option value="">{{ t('committees.card.notRecorded') }}</option>
+                <option value="plurality">{{ t('committees.card.majorityTypes.plurality') }}</option>
+                <option value="fraction">{{ t('committees.card.majorityTypes.fraction') }}</option>
+              </select>
+            </label>
+            <template v-if="committeeForm.majority_type === 'fraction'">
+              <label>
+                {{ t('committees.card.majorityBasis') }}
+                <select v-model="committeeForm.majority_basis">
+                  <option value="">{{ t('committees.card.notRecorded') }}</option>
+                  <option value="votes_cast">{{ t('committees.card.bases.votes_cast') }}</option>
+                  <option value="present">{{ t('committees.card.bases.present') }}</option>
+                  <option value="members">{{ t('committees.card.bases.members') }}</option>
+                </select>
+              </label>
+              <label>
+                {{ t('committees.card.numerator') }}
+                <input v-model="committeeForm.majority_numerator" type="number" min="1" />
+              </label>
+              <label>
+                {{ t('committees.card.denominator') }}
+                <input v-model="committeeForm.majority_denominator" type="number" min="1" />
+              </label>
+              <label>
+                {{ t('committees.card.comparator') }}
+                <select v-model="committeeForm.majority_comparator">
+                  <option value="">{{ t('committees.card.notRecorded') }}</option>
+                  <option value="at_least">{{ t('committees.card.comparators.at_least') }}</option>
+                  <option value="more_than">{{ t('committees.card.comparators.more_than') }}</option>
+                </select>
+              </label>
+            </template>
+            <label class="span-2">
+              {{ t('committees.card.majorityText') }}
+              <input v-model="committeeForm.majority_text" type="text" />
+            </label>
+
+            <label>
+              {{ t('committees.card.tieBreak') }}
+              <select v-model="committeeForm.tie_break">
+                <option value="">{{ t('committees.card.notRecorded') }}</option>
+                <option value="chair_casting_vote">{{ t('committees.card.tieBreaks.chair_casting_vote') }}</option>
+                <option value="no_decision">{{ t('committees.card.tieBreaks.no_decision') }}</option>
+              </select>
+            </label>
+            <label class="span-2">
+              {{ t('committees.card.tieBreakText') }}
+              <input v-model="committeeForm.tie_break_text" type="text" />
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="modal-actions">
+          <button class="ghost" type="button" @click="cancelCommitteeForm">{{ t('common.cancel') }}</button>
+          <button class="primary" type="submit" :disabled="savingCommittee">
+            {{ savingCommittee ? t('common.saving') : t('common.save') }}
+          </button>
+        </div>
+      </form>
+    </AppModal>
 
     <div class="card card-flat card-pad list">
       <p v-if="loadingCommittees" class="state">{{ t('common.loading') }}</p>
@@ -464,7 +476,7 @@ onMounted(async () => {
               <td>
                 <div class="row-actions">
                   <button class="ghost" type="button" @click="toggleMembers(committee)">
-                    {{ expandedCommitteeId === committee.id ? t('committees.hideMembers') : t('committees.manageMembers') }}
+                    {{ t('committees.manageMembers') }}
                   </button>
                   <button v-can="'meetings.edit'" class="ghost" type="button" @click="startEditCommittee(committee)">
                     {{ t('common.edit') }}
@@ -478,52 +490,58 @@ onMounted(async () => {
                 </div>
               </td>
             </tr>
-            <tr v-if="expandedCommitteeId === committee.id" class="members-row">
-              <td colspan="3">
-                <!-- Stage 45 — Art. 10's 5 named seats, each individually
-                     identifiable regardless of how many other unseated
-                     members this committee also carries. -->
-                <ul class="seat-summary">
-                  <li v-for="seat in SEAT_CODES" :key="seat" :class="{ filled: committee.seats?.[seat] }">
-                    <span class="seat-label">{{ t(`committees.seats.${seat}`) }}</span>
-                    <span class="seat-occupant">
-                      {{ committee.seats?.[seat] ? committee.seats[seat].user.name : t('committees.seats.empty') }}
-                    </span>
-                  </li>
-                </ul>
-                <p v-if="memberError" class="alert">{{ memberError }}</p>
-                <p v-if="!committee.members?.length" class="state">{{ t('committees.noMembers') }}</p>
-                <ul v-else class="members">
-                  <li v-for="member in committee.members" :key="member.id">
-                    <span>{{ member.user.name }}</span>
-                    <span v-if="member.seat" class="pill">{{ t(`committees.seats.${member.seat}`) }}</span>
-                    <span v-else-if="member.is_head" class="pill">{{ t('committees.head') }}</span>
-                    <button v-can="'meetings.edit'" class="ghost danger" type="button" @click="removeMember(committee, member)">
-                      {{ t('committees.removeMember') }}
-                    </button>
-                  </li>
-                </ul>
-                <form v-can="'meetings.edit'" class="add-member" @submit.prevent="addMember(committee)">
-                  <select v-model="memberUserId" :aria-label="t('committees.chooseUser')">
-                    <option value="">{{ t('committees.chooseUser') }}</option>
-                    <option v-for="user in availableUsersFor(committee)" :key="user.id" :value="user.id">
-                      {{ user.name }}
-                    </option>
-                  </select>
-                  <select v-model="memberSeat" required :aria-label="t('committees.seats.label')">
-                    <option value="">{{ t('committees.seats.choose') }}</option>
-                    <option v-for="seat in SEAT_CODES" :key="seat" :value="seat" :disabled="Boolean(committee.seats?.[seat])">
-                      {{ t(`committees.seats.${seat}`) }}
-                    </option>
-                  </select>
-                  <button class="ghost" type="submit" :disabled="!memberUserId || !memberSeat">{{ t('committees.addMember') }}</button>
-                </form>
-              </td>
-            </tr>
           </template>
         </tbody>
       </table>
     </div>
+
+    <AppModal
+      v-if="membersCommittee"
+      :title="`${t('committees.manageMembers')} — ${name(membersCommittee)}`"
+      @close="expandedCommitteeId = null"
+    >
+      <!-- Stage 45 — Art. 10's 5 named seats, each individually
+           identifiable regardless of how many other unseated
+           members this committee also carries. -->
+      <ul class="seat-summary">
+        <li v-for="seat in SEAT_CODES" :key="seat" :class="{ filled: membersCommittee.seats?.[seat] }">
+          <span class="seat-label">{{ t(`committees.seats.${seat}`) }}</span>
+          <span class="seat-occupant">
+            {{ membersCommittee.seats?.[seat] ? membersCommittee.seats[seat].user.name : t('committees.seats.empty') }}
+          </span>
+        </li>
+      </ul>
+      <p v-if="memberError" class="alert">{{ memberError }}</p>
+      <p v-if="!membersCommittee.members?.length" class="state">{{ t('committees.noMembers') }}</p>
+      <ul v-else class="members">
+        <li v-for="member in membersCommittee.members" :key="member.id">
+          <span>{{ member.user.name }}</span>
+          <span v-if="member.seat" class="pill">{{ t(`committees.seats.${member.seat}`) }}</span>
+          <span v-else-if="member.is_head" class="pill">{{ t('committees.head') }}</span>
+          <button v-can="'meetings.edit'" class="ghost danger" type="button" @click="removeMember(membersCommittee, member)">
+            {{ t('committees.removeMember') }}
+          </button>
+        </li>
+      </ul>
+      <form v-can="'meetings.edit'" class="add-member" @submit.prevent="addMember(membersCommittee)">
+        <select v-model="memberUserId" :aria-label="t('committees.chooseUser')">
+          <option value="">{{ t('committees.chooseUser') }}</option>
+          <option v-for="user in availableUsersFor(membersCommittee)" :key="user.id" :value="user.id">
+            {{ user.name }}
+          </option>
+        </select>
+        <select v-model="memberSeat" required :aria-label="t('committees.seats.label')">
+          <option value="">{{ t('committees.seats.choose') }}</option>
+          <option v-for="seat in SEAT_CODES" :key="seat" :value="seat" :disabled="Boolean(membersCommittee.seats?.[seat])">
+            {{ t(`committees.seats.${seat}`) }}
+          </option>
+        </select>
+        <button class="ghost" type="submit" :disabled="!memberUserId || !memberSeat">{{ t('committees.addMember') }}</button>
+      </form>
+      <div class="modal-actions">
+        <button class="ghost" type="button" @click="expandedCommitteeId = null">{{ t('common.close') }}</button>
+      </div>
+    </AppModal>
 
     <!-- Meetings ----------------------------------------------------------- -->
     <div class="heading">
@@ -535,12 +553,13 @@ onMounted(async () => {
       </button>
     </div>
 
-    <MeetingSchedulingWizard
-      v-if="showMeetingForm"
-      :committees="committees"
-      @scheduled="onMeetingScheduled"
-      @cancel="cancelMeetingForm"
-    />
+    <AppModal v-if="showMeetingForm" :title="t('meetings.schedule')" wide @close="cancelMeetingForm">
+      <MeetingSchedulingWizard
+        :committees="committees"
+        @scheduled="onMeetingScheduled"
+        @cancel="cancelMeetingForm"
+      />
+    </AppModal>
 
     <div class="card card-flat card-pad list">
       <p v-if="loadingMeetings" class="state">{{ t('common.loading') }}</p>
@@ -572,8 +591,6 @@ onMounted(async () => {
 <style scoped>
 .heading:not(:first-child) { margin-top: var(--space-6); }
 .list { margin-bottom: var(--space-4); overflow-x: auto; }
-.form { margin-bottom: var(--space-4); }
-.form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-4); }
 .span-2 { grid-column: 1 / -1; }
 .card-fields { margin: var(--space-5) 0 0; padding: var(--space-4); border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); }
@@ -598,7 +615,6 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--color-brand
 .row-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
 .pill { margin-inline-start: var(--space-2); }
 
-.members-row td { background: var(--color-surface-hover); }
 .seat-summary { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: 0 0 var(--space-3); list-style: none; }
 .seat-summary li { display: flex; flex-direction: column; gap: .15rem; padding: .35rem .6rem; border: 1px dashed var(--color-border-hover); border-radius: var(--radius-lg); font-size: var(--text-xs); min-inline-size: 7rem; }
 .seat-summary li.filled { border-style: solid; border-color: var(--color-success-border); background: var(--color-success-bg); }

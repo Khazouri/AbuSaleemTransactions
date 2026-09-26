@@ -167,7 +167,7 @@ function goBack() {
 </script>
 
 <template>
-  <div class="wizard card">
+  <div class="wizard">
     <div class="steps">
       <span
         v-for="n in TOTAL_STEPS"
@@ -342,13 +342,6 @@ function goBack() {
 /* The step strip and step-scoped form layout are this wizard's own; the
    buttons/alert/state/pill/summary primitives all come from the global
    sheet. */
-.wizard {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: var(--space-5);
-  margin-bottom: var(--space-4);
-}
 .steps {
   display: flex;
   flex-wrap: wrap;

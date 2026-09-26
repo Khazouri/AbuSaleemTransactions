@@ -3,6 +3,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import AppModal from '../components/AppModal.vue'
 
 const { t, locale } = useI18n()
 const templates = ref([])
@@ -53,41 +54,44 @@ onMounted(load)
       </div>
       <button v-can="'templates.add'" class="primary" type="button" @click="startCreate">{{ t('templates.add') }}</button>
     </div>
-    <p v-if="formError" class="alert">{{ formError }}</p>
-    <form v-if="showForm" class="card card-flat card-pad form" @submit.prevent="save">
-      <h3>{{ editingId === null ? t('templates.add') : t('templates.edit') }}</h3>
-      <div class="grid">
-        <label>{{ t('templates.code') }} *<input v-model="form.code" class="ltr" required /><small class="hint">{{ t('templates.codeHint') }}</small><small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small></label>
-        <label>{{ t('templates.category') }}
-          <select v-model="form.category">
-            <option value="">{{ t('templates.categoryGeneral') }}</option>
-            <option value="decision">{{ t('templates.categoryDecision') }}</option>
-          </select>
-          <small v-if="errors.category" class="field-error">{{ errors.category[0] }}</small>
-        </label>
-        <label>{{ t('templates.nameAr') }} *<input v-model="form.name_ar" required /><small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small></label>
-        <label>{{ t('templates.nameEn') }}<input v-model="form.name_en" class="ltr" /><small v-if="errors.name_en" class="field-error">{{ errors.name_en[0] }}</small></label>
-        <label>{{ t('templates.subjectAr') }}<input v-model="form.subject_ar" /><small v-if="errors.subject_ar" class="field-error">{{ errors.subject_ar[0] }}</small></label>
-        <label>{{ t('templates.subjectEn') }}<input v-model="form.subject_en" class="ltr" /><small v-if="errors.subject_en" class="field-error">{{ errors.subject_en[0] }}</small></label>
-      </div>
-      <div class="grid bodies">
-        <label>{{ t('templates.bodyAr') }} *<textarea v-model="form.body_ar" rows="7" required /><small v-if="errors.body_ar" class="field-error">{{ errors.body_ar[0] }}</small></label>
-        <label>{{ t('templates.bodyEn') }}<textarea v-model="form.body_en" class="ltr" rows="7" /><small v-if="errors.body_en" class="field-error">{{ errors.body_en[0] }}</small></label>
-      </div>
-      <p v-if="form.category === 'decision'" class="hint placeholders-hint">
-        {{ t('templates.placeholdersHint') }}
-        <code v-for="token in decisionPlaceholders" :key="token" class="ltr">{{ braced(token) }}</code>
-      </p>
-      <label class="checkbox"><input v-model="form.is_active" type="checkbox" />{{ t('common.active') }}</label>
-      <div class="actions"><button class="primary" type="submit" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button><button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button></div>
-    </form>
+    <p v-if="formError && !showForm" class="alert">{{ formError }}</p>
+    <AppModal v-if="showForm" :title="editingId === null ? t('templates.add') : t('templates.edit')" wide @close="cancelForm">
+      <form class="form" @submit.prevent="save">
+        <p v-if="formError" class="alert">{{ formError }}</p>
+        <div class="grid">
+          <label>{{ t('templates.code') }} *<input v-model="form.code" class="ltr" required /><small class="hint">{{ t('templates.codeHint') }}</small><small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small></label>
+          <label>{{ t('templates.category') }}
+            <select v-model="form.category">
+              <option value="">{{ t('templates.categoryGeneral') }}</option>
+              <option value="decision">{{ t('templates.categoryDecision') }}</option>
+            </select>
+            <small v-if="errors.category" class="field-error">{{ errors.category[0] }}</small>
+          </label>
+          <label>{{ t('templates.nameAr') }} *<input v-model="form.name_ar" required /><small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small></label>
+          <label>{{ t('templates.nameEn') }}<input v-model="form.name_en" class="ltr" /><small v-if="errors.name_en" class="field-error">{{ errors.name_en[0] }}</small></label>
+          <label>{{ t('templates.subjectAr') }}<input v-model="form.subject_ar" /><small v-if="errors.subject_ar" class="field-error">{{ errors.subject_ar[0] }}</small></label>
+          <label>{{ t('templates.subjectEn') }}<input v-model="form.subject_en" class="ltr" /><small v-if="errors.subject_en" class="field-error">{{ errors.subject_en[0] }}</small></label>
+        </div>
+        <div class="grid bodies">
+          <label>{{ t('templates.bodyAr') }} *<textarea v-model="form.body_ar" rows="7" required /><small v-if="errors.body_ar" class="field-error">{{ errors.body_ar[0] }}</small></label>
+          <label>{{ t('templates.bodyEn') }}<textarea v-model="form.body_en" class="ltr" rows="7" /><small v-if="errors.body_en" class="field-error">{{ errors.body_en[0] }}</small></label>
+        </div>
+        <p v-if="form.category === 'decision'" class="hint placeholders-hint">
+          {{ t('templates.placeholdersHint') }}
+          <code v-for="token in decisionPlaceholders" :key="token" class="ltr">{{ braced(token) }}</code>
+        </p>
+        <label class="checkbox"><input v-model="form.is_active" type="checkbox" />{{ t('common.active') }}</label>
+        <div class="modal-actions">
+          <button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button>
+          <button class="primary" type="submit" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+        </div>
+      </form>
+    </AppModal>
     <div class="card card-flat card-pad list"><p v-if="loading" class="state">{{ t('common.loading') }}</p><p v-else-if="loadError" class="alert">{{ t('nav.error') }} <button class="ghost" @click="load">{{ t('common.retry') }}</button></p><p v-else-if="templates.length === 0" class="state">{{ t('templates.empty') }}</p><table v-else class="data-table"><thead><tr><th>{{ t('templates.code') }}</th><th>{{ t('templates.nameAr') }}</th><th></th></tr></thead><tbody><tr v-for="template in templates" :key="template.id" :class="{ dimmed: !template.is_active }"><td><code class="ltr">{{ template.code }}</code></td><td>{{ label(template) }} <span v-if="template.category === 'decision'" class="pill">{{ t('templates.categoryDecision') }}</span> <span v-if="!template.is_active" class="pill">{{ t('common.inactive') }}</span></td><td class="row-actions"><button v-can="'templates.edit'" class="ghost" @click="startEdit(template)">{{ t('common.edit') }}</button><button v-can="'templates.delete'" class="ghost danger" @click="remove(template)">{{ t('common.delete') }}</button></td></tr></tbody></table></div>
   </section>
 </template>
 
 <style scoped>
-.form { margin-bottom: var(--space-4); }
-.form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-4); }
 .bodies { margin-top: var(--space-4); }
 label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
@@ -97,7 +101,6 @@ textarea { resize: vertical; }
 .placeholders-hint { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .35rem; }
 .placeholders-hint code { padding: .1rem .4rem; background: var(--color-surface-hover); border-radius: var(--radius-full); font-size: var(--text-xs); }
 .field-error { color: var(--color-danger-fg); }
-.actions { margin-top: var(--space-5); }
 .list { overflow-x: auto; }
 tr.dimmed { opacity: .55; }
 .row-actions { display: flex; justify-content: flex-end; gap: var(--space-2); white-space: nowrap; }

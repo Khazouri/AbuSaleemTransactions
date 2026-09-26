@@ -10,6 +10,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
+import AppModal from '../components/AppModal.vue'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 
@@ -78,6 +79,7 @@ async function saveMeetingFields() {
 // Stage 102 — a member who cannot make the date declines; the مقرر answers by
 // proposing another, which resets every member's answer on the server.
 const newDate = ref('')
+const showProposeDate = ref(false)
 const canProposeDate = computed(() => meeting.value
   && !meeting.value.convened_at
   && ['pending_confirmation', 'scheduled'].includes(meeting.value.status))
@@ -94,6 +96,7 @@ async function proposeDate() {
   try {
     const { data } = await api.put(`/meetings/${meeting.value.id}`, { scheduled_at: newDate.value })
     meeting.value = data.data
+    showProposeDate.value = false
   } catch (requestError) {
     actionError.value = requestError.response?.data?.errors?.scheduled_at?.[0]
       ?? requestError.response?.data?.message
@@ -154,6 +157,13 @@ const agendaSearch = ref('')
 const agendaResults = ref([])
 const agendaSearching = ref(false)
 const agendaError = ref('')
+// Stays open after each add, so several requests can be put on in one go.
+const showAgendaSearch = ref(false)
+
+function closeAgendaSearch() {
+  showAgendaSearch.value = false
+  agendaSearch.value = ''
+}
 let searchTimer = null
 
 const agendaRequestIds = computed(() => new Set(
@@ -358,14 +368,24 @@ onMounted(async () => {
         </div>
       </section>
 
-      <form v-if="canProposeDate" v-can="'meetings.edit'" class="card card-flat card-pad propose-date" @submit.prevent="proposeDate">
-        <label>
-          <span>{{ t('meetings.rsvp.newDate') }}</span>
-          <input v-model="newDate" type="datetime-local" required />
-        </label>
-        <button class="ghost" type="submit" :disabled="savingMeeting">{{ t('meetings.rsvp.proposeDate') }}</button>
-        <p class="hint">{{ t('meetings.rsvp.proposeHint') }}</p>
-      </form>
+      <div v-if="canProposeDate" v-can="'meetings.edit'" class="propose-date-open">
+        <button class="ghost" type="button" @click="showProposeDate = true">{{ t('meetings.rsvp.proposeDate') }}</button>
+      </div>
+
+      <AppModal v-if="showProposeDate" :title="t('meetings.rsvp.proposeDate')" @close="showProposeDate = false">
+        <form class="propose-date" @submit.prevent="proposeDate">
+          <p class="hint">{{ t('meetings.rsvp.proposeHint') }}</p>
+          <label>
+            <span>{{ t('meetings.rsvp.newDate') }}</span>
+            <input v-model="newDate" type="datetime-local" required />
+          </label>
+          <p v-if="actionError" class="alert">{{ actionError }}</p>
+          <div class="modal-actions">
+            <button class="ghost" type="button" @click="showProposeDate = false">{{ t('common.cancel') }}</button>
+            <button class="primary" type="submit" :disabled="savingMeeting">{{ t('meetings.rsvp.proposeDate') }}</button>
+          </div>
+        </form>
+      </AppModal>
 
       <section v-if="meeting.description" class="card card-flat card-pad">
         <h3>{{ t('meetings.description') }}</h3>
@@ -396,6 +416,9 @@ onMounted(async () => {
           <div class="agenda-heading">
             <h3>{{ t('meetings.agenda.title') }}</h3>
             <div class="agenda-heading-links">
+              <button v-can="'meeting_agenda.edit'" class="ghost" type="button" @click="showAgendaSearch = true">
+                {{ t('meetingsUnit.agenda.addItem') }}
+              </button>
               <RouterLink
                 v-can="'meeting_agenda.edit'"
                 class="ghost"
@@ -454,32 +477,38 @@ onMounted(async () => {
             </li>
           </ol>
 
-          <div v-can="'meeting_agenda.edit'" class="agenda-search">
-            <input
-              v-model="agendaSearch"
-              type="text"
-              :placeholder="t('meetings.agenda.searchPlaceholder')"
-              :aria-label="t('meetings.agenda.searchPlaceholder')"
-            />
-            <ul v-if="agendaSearch.trim()" class="results">
-              <li v-if="agendaSearching" class="state">{{ t('common.loading') }}</li>
-              <template v-else>
-                <li v-if="!agendaResults.length" class="state">{{ t('meetings.agenda.noResults') }}</li>
-                <li v-for="result in agendaResults" :key="result.id" class="result">
-                  <span class="ref ltr">{{ result.reference_number || `#${result.id}` }}</span>
-                  <span>{{ result.title }}</span>
-                  <button
-                    class="ghost"
-                    type="button"
-                    :disabled="agendaRequestIds.has(result.id)"
-                    @click="addToAgenda(result)"
-                  >
-                    {{ t('meetings.agenda.add') }}
-                  </button>
-                </li>
-              </template>
-            </ul>
-          </div>
+          <AppModal v-if="showAgendaSearch" :title="t('meetingsUnit.agenda.addItem')" wide @close="closeAgendaSearch">
+            <div class="agenda-search">
+              <input
+                v-model="agendaSearch"
+                type="text"
+                :placeholder="t('meetings.agenda.searchPlaceholder')"
+                :aria-label="t('meetings.agenda.searchPlaceholder')"
+              />
+              <ul v-if="agendaSearch.trim()" class="results">
+                <li v-if="agendaSearching" class="state">{{ t('common.loading') }}</li>
+                <template v-else>
+                  <li v-if="!agendaResults.length" class="state">{{ t('meetings.agenda.noResults') }}</li>
+                  <li v-for="result in agendaResults" :key="result.id" class="result">
+                    <span class="ref ltr">{{ result.reference_number || `#${result.id}` }}</span>
+                    <span>{{ result.title }}</span>
+                    <button
+                      class="ghost"
+                      type="button"
+                      :disabled="agendaRequestIds.has(result.id)"
+                      @click="addToAgenda(result)"
+                    >
+                      {{ t('meetings.agenda.add') }}
+                    </button>
+                  </li>
+                </template>
+              </ul>
+              <p v-if="agendaError" class="alert">{{ agendaError }}</p>
+              <div class="modal-actions">
+                <button class="ghost" type="button" @click="closeAgendaSearch">{{ t('common.close') }}</button>
+              </div>
+            </div>
+          </AppModal>
         </section>
 
         <aside class="card card-flat card-pad attendance">
@@ -545,10 +574,10 @@ label.checkbox { display: flex; align-items: center; gap: .4rem; }
 .rsvp { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .rsvp p { margin: 0; }
 .rsvp-actions { display: flex; gap: var(--space-2); }
-.propose-date { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); }
+.propose-date-open { margin-block-end: var(--space-4); }
 .propose-date label { display: grid; gap: .25rem; font-size: var(--text-sm); }
 .propose-date input { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: inherit; font: inherit; }
-.propose-date .hint { flex-basis: 100%; margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
+.propose-date .hint { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }
 
 @media (max-width: 720px) { .columns { grid-template-columns: 1fr; } }
 </style>

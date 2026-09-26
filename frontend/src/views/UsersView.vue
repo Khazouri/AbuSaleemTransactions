@@ -10,6 +10,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import AppModal from '../components/AppModal.vue'
 import { useAuthStore } from '../stores/auth'
 
 const { t, locale } = useI18n()
@@ -202,82 +203,84 @@ onMounted(() => {
       <button v-can="'users.add'" class="primary" type="button" @click="startCreate">{{ t('users.add') }}</button>
     </div>
 
-    <p v-if="formError" class="alert">{{ formError }}</p>
+    <p v-if="formError && !showForm" class="alert">{{ formError }}</p>
 
     <!-- Create / edit form -->
-    <form v-if="showForm" class="card card-flat card-pad form" @submit.prevent="save">
-      <h3>{{ editingId === null ? t('users.add') : t('users.edit') }}</h3>
+    <AppModal v-if="showForm" :title="editingId === null ? t('users.add') : t('users.edit')" wide @close="cancelForm">
+      <form class="form" @submit.prevent="save">
+        <p v-if="formError" class="alert">{{ formError }}</p>
 
-      <div class="grid">
-        <label>
-          {{ t('users.name') }} *
-          <input v-model="form.name" type="text" required />
-          <small v-if="errors.name" class="field-error">{{ errors.name[0] }}</small>
+        <div class="grid">
+          <label>
+            {{ t('users.name') }} *
+            <input v-model="form.name" type="text" required />
+            <small v-if="errors.name" class="field-error">{{ errors.name[0] }}</small>
+          </label>
+
+          <label>
+            {{ t('users.email') }} *
+            <input v-model="form.email" type="email" dir="ltr" required />
+            <small v-if="errors.email" class="field-error">{{ errors.email[0] }}</small>
+          </label>
+
+          <label>
+            {{ t('users.password') }}{{ editingId === null ? ' *' : '' }}
+            <input
+              v-model="form.password"
+              type="password"
+              dir="ltr"
+              autocomplete="new-password"
+              :required="editingId === null"
+            />
+            <small v-if="editingId !== null" class="hint">{{ t('users.passwordHint') }}</small>
+            <small v-if="errors.password" class="field-error">{{ errors.password[0] }}</small>
+          </label>
+
+          <label>
+            {{ t('users.department') }}
+            <select v-model="form.department_id">
+              <option :value="null">{{ t('users.noDepartment') }}</option>
+              <option v-for="dept in departmentOptions" :key="dept.id" :value="dept.id">
+                {{ deptLabel(dept) }}
+              </option>
+            </select>
+            <small v-if="errors.department_id" class="field-error">{{ errors.department_id[0] }}</small>
+          </label>
+
+          <label>
+            {{ t('users.manager') }}
+            <select v-model="form.manager_id">
+              <option :value="null">{{ t('users.noManager') }}</option>
+              <option v-for="manager in managerOptions" :key="manager.id" :value="manager.id">
+                {{ manager.name }}
+              </option>
+            </select>
+            <small v-if="errors.manager_id" class="field-error">{{ errors.manager_id[0] }}</small>
+            <small v-else class="hint">{{ t('users.managerHint') }}</small>
+          </label>
+        </div>
+
+        <fieldset class="roles-field">
+          <legend>{{ t('users.roles') }}</legend>
+          <label v-for="role in roles" :key="role.id" class="checkbox role-option">
+            <input v-model="form.role_ids" type="checkbox" :value="role.id" />
+            {{ role.code }} — {{ roleLabel(role) }}
+          </label>
+        </fieldset>
+
+        <label class="checkbox">
+          <input v-model="form.is_active" type="checkbox" />
+          {{ t('common.active') }}
         </label>
 
-        <label>
-          {{ t('users.email') }} *
-          <input v-model="form.email" type="email" dir="ltr" required />
-          <small v-if="errors.email" class="field-error">{{ errors.email[0] }}</small>
-        </label>
-
-        <label>
-          {{ t('users.password') }}{{ editingId === null ? ' *' : '' }}
-          <input
-            v-model="form.password"
-            type="password"
-            dir="ltr"
-            autocomplete="new-password"
-            :required="editingId === null"
-          />
-          <small v-if="editingId !== null" class="hint">{{ t('users.passwordHint') }}</small>
-          <small v-if="errors.password" class="field-error">{{ errors.password[0] }}</small>
-        </label>
-
-        <label>
-          {{ t('users.department') }}
-          <select v-model="form.department_id">
-            <option :value="null">{{ t('users.noDepartment') }}</option>
-            <option v-for="dept in departmentOptions" :key="dept.id" :value="dept.id">
-              {{ deptLabel(dept) }}
-            </option>
-          </select>
-          <small v-if="errors.department_id" class="field-error">{{ errors.department_id[0] }}</small>
-        </label>
-
-        <label>
-          {{ t('users.manager') }}
-          <select v-model="form.manager_id">
-            <option :value="null">{{ t('users.noManager') }}</option>
-            <option v-for="manager in managerOptions" :key="manager.id" :value="manager.id">
-              {{ manager.name }}
-            </option>
-          </select>
-          <small v-if="errors.manager_id" class="field-error">{{ errors.manager_id[0] }}</small>
-          <small v-else class="hint">{{ t('users.managerHint') }}</small>
-        </label>
-      </div>
-
-      <fieldset class="roles-field">
-        <legend>{{ t('users.roles') }}</legend>
-        <label v-for="role in roles" :key="role.id" class="checkbox role-option">
-          <input v-model="form.role_ids" type="checkbox" :value="role.id" />
-          {{ role.code }} — {{ roleLabel(role) }}
-        </label>
-      </fieldset>
-
-      <label class="checkbox">
-        <input v-model="form.is_active" type="checkbox" />
-        {{ t('common.active') }}
-      </label>
-
-      <div class="actions">
-        <button class="primary" type="submit" :disabled="saving">
-          {{ saving ? t('common.saving') : t('common.save') }}
-        </button>
-        <button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button>
-      </div>
-    </form>
+        <div class="modal-actions">
+          <button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button>
+          <button class="primary" type="submit" :disabled="saving">
+            {{ saving ? t('common.saving') : t('common.save') }}
+          </button>
+        </div>
+      </form>
+    </AppModal>
 
     <!-- List -->
     <div class="card card-flat card-pad">
@@ -346,8 +349,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.form { margin-bottom: var(--space-4); }
-.form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
@@ -390,7 +391,6 @@ input:focus, select:focus { outline: 2px solid var(--color-brand-text); outline-
   font-size: var(--text-base);
 }
 
-.actions { margin-top: var(--space-5); }
 
 tr.dimmed { opacity: .55; }
 .name { font-size: var(--text-lg); font-weight: 500; }

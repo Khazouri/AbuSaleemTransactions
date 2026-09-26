@@ -49,7 +49,8 @@
     "inactive": "Inactive",
     "activate": "Activate",
     "deactivate": "Deactivate",
-    "confirmDelete": "Are you sure you want to delete this?"
+    "confirmDelete": "Are you sure you want to delete this?",
+    "close": "Close"
   },
   "departments": {
     "title": "Departments",
@@ -880,7 +881,6 @@
     "members": "members",
     "meetingsHeld": "meetings",
     "manageMembers": "Manage members",
-    "hideMembers": "Hide members",
     "addMember": "Add",
     "chooseUser": "— Choose a user —",
     "head": "Head",

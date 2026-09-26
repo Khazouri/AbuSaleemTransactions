@@ -17,6 +17,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import AppModal from '../components/AppModal.vue'
 import { DOCUMENT_GROUPS } from '../lib/requiredDocuments'
 
 const { t, locale } = useI18n()
@@ -246,132 +247,134 @@ onMounted(load)
       </button>
     </div>
 
-    <p v-if="formError" class="alert">{{ formError }}</p>
+    <p v-if="formError && !showForm" class="alert">{{ formError }}</p>
 
-    <form v-if="showForm" class="card card-flat card-pad form" @submit.prevent="save">
-      <h3>{{ editingId === null ? t('requestTypes.add') : t('requestTypes.edit') }}</h3>
+    <AppModal v-if="showForm" :title="editingId === null ? t('requestTypes.add') : t('requestTypes.edit')" wide @close="cancelForm">
+      <form class="form" @submit.prevent="save">
+        <p v-if="formError" class="alert">{{ formError }}</p>
 
-      <div class="grid">
-        <label>
-          {{ t('requestTypes.code') }}
-          <input v-model="form.code" class="ltr" />
-          <small class="hint">{{ t('requestTypes.codeHint') }}</small>
-          <small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small>
-        </label>
-        <label>
-          {{ t('requestTypes.nameAr') }} *
-          <input v-model="form.name_ar" required />
-          <small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small>
-        </label>
-        <label>
-          {{ t('requestTypes.nameEn') }}
-          <input v-model="form.name_en" class="ltr" />
-          <small v-if="errors.name_en" class="field-error">{{ errors.name_en[0] }}</small>
-        </label>
-        <label>
-          {{ t('requestTypes.slaDays') }}
-          <input v-model="form.default_sla_days" type="number" min="1" max="365" class="ltr" />
-          <small class="hint">{{ t('requestTypes.slaHint') }}</small>
-          <small v-if="errors.default_sla_days" class="field-error">
-            {{ errors.default_sla_days[0] }}
-          </small>
-        </label>
-        <label>
-          {{ t('requestTypes.gradeThreshold') }}
-          <input v-model="form.decision_grade_threshold" type="number" min="1" max="100" class="ltr" />
-          <small class="hint">{{ t('requestTypes.gradeHint') }}</small>
-          <small v-if="errors.decision_grade_threshold" class="field-error">
-            {{ errors.decision_grade_threshold[0] }}
-          </small>
-        </label>
-        <label>
-          {{ t('requestTypes.route') }}
-          <select v-model="form.default_administrative_route">
-            <option value="">{{ t('requestTypes.noRoute') }}</option>
-            <option v-for="route in ROUTES" :key="route" :value="route">
-              {{ t('requestTypes.routes.' + route) }}
-            </option>
-          </select>
-          <small class="hint">{{ t('requestTypes.routeHint') }}</small>
-        </label>
-      </div>
-
-      <div class="grid">
-        <label>
-          {{ t('requestTypes.legalBasis') }}
-          <input v-model="form.legal_basis_ar" />
-          <small class="hint">{{ t('requestTypes.legalBasisHint') }}</small>
-        </label>
-        <label>
-          {{ t('requestTypes.legalBasisNote') }}
-          <input v-model="form.legal_basis_note_ar" />
-        </label>
-      </div>
-
-      <div class="checks">
-        <label class="checkbox">
-          <input v-model="form.is_active" type="checkbox" />{{ t('common.active') }}
-        </label>
-        <label class="checkbox">
-          <input v-model="form.default_has_financial_impact" type="checkbox" />
-          {{ t('requestTypes.financialImpact') }}
-        </label>
-      </div>
-
-      <fieldset class="documents">
-        <legend>{{ t('requestTypes.documents.title') }}</legend>
-        <p class="hint">{{ t('requestTypes.documents.sourceNote') }}</p>
-
-        <p v-if="form.required_documents.length === 0" class="hint">
-          {{ t('requestTypes.documents.empty') }}
-        </p>
-
-        <div v-for="(doc, index) in form.required_documents" :key="index" class="document-row">
+        <div class="grid">
           <label>
-            {{ t('requestTypes.documents.nameAr') }} *
-            <input v-model="doc.ar" required />
-            <small v-if="documentError(index, 'ar')" class="field-error">
-              {{ documentError(index, 'ar') }}
+            {{ t('requestTypes.code') }}
+            <input v-model="form.code" class="ltr" />
+            <small class="hint">{{ t('requestTypes.codeHint') }}</small>
+            <small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small>
+          </label>
+          <label>
+            {{ t('requestTypes.nameAr') }} *
+            <input v-model="form.name_ar" required />
+            <small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small>
+          </label>
+          <label>
+            {{ t('requestTypes.nameEn') }}
+            <input v-model="form.name_en" class="ltr" />
+            <small v-if="errors.name_en" class="field-error">{{ errors.name_en[0] }}</small>
+          </label>
+          <label>
+            {{ t('requestTypes.slaDays') }}
+            <input v-model="form.default_sla_days" type="number" min="1" max="365" class="ltr" />
+            <small class="hint">{{ t('requestTypes.slaHint') }}</small>
+            <small v-if="errors.default_sla_days" class="field-error">
+              {{ errors.default_sla_days[0] }}
             </small>
           </label>
           <label>
-            {{ t('requestTypes.documents.nameEn') }}
-            <input v-model="doc.en" class="ltr" />
+            {{ t('requestTypes.gradeThreshold') }}
+            <input v-model="form.decision_grade_threshold" type="number" min="1" max="100" class="ltr" />
+            <small class="hint">{{ t('requestTypes.gradeHint') }}</small>
+            <small v-if="errors.decision_grade_threshold" class="field-error">
+              {{ errors.decision_grade_threshold[0] }}
+            </small>
           </label>
           <label>
-            {{ t('requestTypes.documents.group') }}
-            <select v-model="doc.group">
-              <option v-for="group in DOCUMENT_GROUPS" :key="group" :value="group">
-                {{ t('requestTypes.documents.groups.' + group) }}
+            {{ t('requestTypes.route') }}
+            <select v-model="form.default_administrative_route">
+              <option value="">{{ t('requestTypes.noRoute') }}</option>
+              <option v-for="route in ROUTES" :key="route" :value="route">
+                {{ t('requestTypes.routes.' + route) }}
               </option>
             </select>
+            <small class="hint">{{ t('requestTypes.routeHint') }}</small>
           </label>
-          <label>
-            {{ t('requestTypes.documents.conditionAr') }}
-            <input v-model="doc.condition_ar" />
-            <small class="hint">{{ t('requestTypes.documents.conditionHint') }}</small>
-          </label>
-          <label>
-            {{ t('requestTypes.documents.conditionEn') }}
-            <input v-model="doc.condition_en" class="ltr" />
-          </label>
-          <button class="ghost danger remove" type="button" @click="removeDocument(index)">
-            {{ t('common.delete') }}
-          </button>
         </div>
 
-        <button class="ghost" type="button" @click="addDocument">
-          + {{ t('requestTypes.documents.add') }}
-        </button>
-      </fieldset>
+        <div class="grid">
+          <label>
+            {{ t('requestTypes.legalBasis') }}
+            <input v-model="form.legal_basis_ar" />
+            <small class="hint">{{ t('requestTypes.legalBasisHint') }}</small>
+          </label>
+          <label>
+            {{ t('requestTypes.legalBasisNote') }}
+            <input v-model="form.legal_basis_note_ar" />
+          </label>
+        </div>
 
-      <div class="actions">
-        <button class="primary" type="submit" :disabled="saving">
-          {{ saving ? t('common.saving') : t('common.save') }}
-        </button>
-        <button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button>
-      </div>
-    </form>
+        <div class="checks">
+          <label class="checkbox">
+            <input v-model="form.is_active" type="checkbox" />{{ t('common.active') }}
+          </label>
+          <label class="checkbox">
+            <input v-model="form.default_has_financial_impact" type="checkbox" />
+            {{ t('requestTypes.financialImpact') }}
+          </label>
+        </div>
+
+        <fieldset class="documents">
+          <legend>{{ t('requestTypes.documents.title') }}</legend>
+          <p class="hint">{{ t('requestTypes.documents.sourceNote') }}</p>
+
+          <p v-if="form.required_documents.length === 0" class="hint">
+            {{ t('requestTypes.documents.empty') }}
+          </p>
+
+          <div v-for="(doc, index) in form.required_documents" :key="index" class="document-row">
+            <label>
+              {{ t('requestTypes.documents.nameAr') }} *
+              <input v-model="doc.ar" required />
+              <small v-if="documentError(index, 'ar')" class="field-error">
+                {{ documentError(index, 'ar') }}
+              </small>
+            </label>
+            <label>
+              {{ t('requestTypes.documents.nameEn') }}
+              <input v-model="doc.en" class="ltr" />
+            </label>
+            <label>
+              {{ t('requestTypes.documents.group') }}
+              <select v-model="doc.group">
+                <option v-for="group in DOCUMENT_GROUPS" :key="group" :value="group">
+                  {{ t('requestTypes.documents.groups.' + group) }}
+                </option>
+              </select>
+            </label>
+            <label>
+              {{ t('requestTypes.documents.conditionAr') }}
+              <input v-model="doc.condition_ar" />
+              <small class="hint">{{ t('requestTypes.documents.conditionHint') }}</small>
+            </label>
+            <label>
+              {{ t('requestTypes.documents.conditionEn') }}
+              <input v-model="doc.condition_en" class="ltr" />
+            </label>
+            <button class="ghost danger remove" type="button" @click="removeDocument(index)">
+              {{ t('common.delete') }}
+            </button>
+          </div>
+
+          <button class="ghost" type="button" @click="addDocument">
+            + {{ t('requestTypes.documents.add') }}
+          </button>
+        </fieldset>
+
+        <div class="modal-actions">
+          <button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button>
+          <button class="primary" type="submit" :disabled="saving">
+            {{ saving ? t('common.saving') : t('common.save') }}
+          </button>
+        </div>
+      </form>
+    </AppModal>
 
     <div class="card card-flat card-pad list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
@@ -464,8 +467,6 @@ onMounted(load)
 </template>
 
 <style scoped>
-.form { margin-bottom: var(--space-4); }
-.form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
 label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
 label.checkbox { flex-direction: row; align-items: center; gap: var(--space-2); }
@@ -492,7 +493,6 @@ input, select {
 .document-section ul { margin: 0 0 .5rem; padding-inline-start: 1.1rem; font-size: var(--text-base); }
 .documents-row td { background: var(--color-surface-hover); }
 .field-error { color: var(--color-danger-fg); }
-.actions { margin-top: var(--space-4); }
 .list { overflow-x: auto; }
 tr.dimmed { opacity: .55; }
 .usage { font-size: var(--text-sm); color: var(--color-muted); display: flex; flex-direction: column; gap: .15rem; }

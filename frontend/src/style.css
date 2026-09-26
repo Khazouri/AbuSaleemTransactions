@@ -817,10 +817,19 @@ textarea {
   border-radius: var(--radius-xl);
   background: var(--color-surface);
   box-shadow: var(--shadow-2xl);
+  /* The create/edit forms (AppModal) can be taller than a laptop screen. */
+  max-block-size: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+.modal-wide {
+  inline-size: min(56rem, 100%);
 }
 .modal h3 {
   margin: 0;
   color: var(--color-brand-text);
+}
+.modal-body {
+  margin-block-start: var(--space-4);
 }
 .modal > p {
   margin: 0.35rem 0 var(--space-4);

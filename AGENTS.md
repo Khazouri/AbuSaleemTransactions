@@ -204,6 +204,11 @@ Key architectural facts worth knowing before changing things:
 - **Pinia stores use setup-style** (not options-style) — refs for state,
   computed for getters, plain functions returned as actions.
 - **Vue components**: `<script setup>` SFCs.
+- **A create/edit form on a screen that also lists records goes in a modal**
+  (user decision 2026-09-26): wrap it in `components/AppModal.vue`
+  (`v-if` on the view's own open flag, `:title`, `wide` for big forms,
+  `@close` → the view's cancel function) and open it from a button. Never
+  render such a form inline above the table. Filter bars stay inline.
 - **No Tailwind in `frontend/`** — style with the CSS custom properties
   defined in `frontend/src/style.css`. The root-level `tailwind.config.js` only
   applies to the unused Laravel Blade scaffold.

@@ -12,6 +12,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import api from '../lib/api'
 import AppIcon from '../components/AppIcon.vue'
+import AppModal from '../components/AppModal.vue'
 import { useAuthStore } from '../stores/auth'
 // Stage 82 — [D] Art. 83's ranks and Appendix 24's priority grounds, mirrored
 // once so this screen and the live runner name them identically.
@@ -196,6 +197,8 @@ const newItemType = ref('employee_request')
 const newPriority = ref('')
 const newEstimatedMinutes = ref('')
 const addError = ref('')
+// Stays open after each add, so several items can be put on in one go.
+const showAddItem = ref(false)
 const adding = ref(false)
 
 const requestSearch = ref('')
@@ -505,86 +508,95 @@ onMounted(async () => {
         </div>
       </section>
 
-      <section v-can="'meeting_agenda.edit'" class="card card-flat card-pad add-form">
-        <h3>{{ t('meetingsUnit.agenda.addItem') }}</h3>
-        <div class="type-toggle">
-          <button
-            v-for="type in ['employee_request', 'appeal']"
-            :key="type"
-            type="button"
-            class="ghost"
-            :class="{ active: newItemType === type }"
-            @click="newItemType = type; resetAddForm()"
-          >
-            {{ t(`meetings.agenda.itemType.${type}`) }}
-          </button>
-        </div>
+      <AppModal v-if="showAddItem" :title="t('meetingsUnit.agenda.addItem')" wide @close="showAddItem = false">
+        <div class="add-form">
+          <div class="type-toggle">
+            <button
+              v-for="type in ['employee_request', 'appeal']"
+              :key="type"
+              type="button"
+              class="ghost"
+              :class="{ active: newItemType === type }"
+              @click="newItemType = type; resetAddForm()"
+            >
+              {{ t(`meetings.agenda.itemType.${type}`) }}
+            </button>
+          </div>
 
-        <div class="grid">
-          <label>
-            {{ t('meetings.agenda.priority.label') }}
-            <select v-model="newPriority">
-              <option value="">{{ t('common.none') }}</option>
-              <option v-for="level in PRIORITY_LEVELS" :key="level" :value="level">
-                {{ t(`meetings.agenda.priority.${level}`) }}
-              </option>
-            </select>
-          </label>
-          <label>
-            {{ t('meetings.agenda.estimatedMinutes') }}
-            <input v-model="newEstimatedMinutes" type="number" min="1" />
-          </label>
-        </div>
+          <div class="grid">
+            <label>
+              {{ t('meetings.agenda.priority.label') }}
+              <select v-model="newPriority">
+                <option value="">{{ t('common.none') }}</option>
+                <option v-for="level in PRIORITY_LEVELS" :key="level" :value="level">
+                  {{ t(`meetings.agenda.priority.${level}`) }}
+                </option>
+              </select>
+            </label>
+            <label>
+              {{ t('meetings.agenda.estimatedMinutes') }}
+              <input v-model="newEstimatedMinutes" type="number" min="1" />
+            </label>
+          </div>
 
-        <template v-if="newItemType === 'employee_request'">
-          <label>
-            {{ t('meetings.wizard.searchRequests') }}
-            <input v-model="requestSearch" type="text" :placeholder="t('meetings.wizard.searchRequests')" />
-          </label>
-          <ul class="results">
-            <li v-if="requestSearching" class="state">{{ t('common.loading') }}</li>
-            <template v-else>
-              <li v-if="!requestResults.length" class="state">{{ t('meetings.wizard.noResults') }}</li>
-              <li v-for="result in requestResults" :key="result.id" class="result">
-                <span class="ref ltr">{{ result.reference_number || `#${result.id}` }}</span>
-                <span>{{ result.title }}</span>
+          <template v-if="newItemType === 'employee_request'">
+            <label>
+              {{ t('meetings.wizard.searchRequests') }}
+              <input v-model="requestSearch" type="text" :placeholder="t('meetings.wizard.searchRequests')" />
+            </label>
+            <ul class="results">
+              <li v-if="requestSearching" class="state">{{ t('common.loading') }}</li>
+              <template v-else>
+                <li v-if="!requestResults.length" class="state">{{ t('meetings.wizard.noResults') }}</li>
+                <li v-for="result in requestResults" :key="result.id" class="result">
+                  <span class="ref ltr">{{ result.reference_number || `#${result.id}` }}</span>
+                  <span>{{ result.title }}</span>
+                  <button
+                    class="ghost"
+                    type="button"
+                    :disabled="adding || agendaRequestIds.has(result.id)"
+                    @click="addRequestItem(result)"
+                  >
+                    {{ t('meetings.agenda.add') }}
+                  </button>
+                </li>
+              </template>
+            </ul>
+          </template>
+          <template v-else-if="newItemType === 'appeal'">
+            <ul class="results">
+              <li v-if="!appealOptions.length" class="state">{{ t('meetingsUnit.agenda.noAppeals') }}</li>
+              <li v-for="appeal in appealOptions" :key="appeal.id" class="result">
+                <span class="ref ltr">#{{ appeal.id }}</span>
+                <span>
+                  {{ appeal.appellant?.name ?? t('common.none') }}
+                  — {{ appeal.original_request?.reference_number ?? t('common.none') }}
+                </span>
                 <button
                   class="ghost"
                   type="button"
-                  :disabled="adding || agendaRequestIds.has(result.id)"
-                  @click="addRequestItem(result)"
+                  :disabled="adding || agendaAppealIds.has(appeal.id)"
+                  @click="addAppealItem(appeal)"
                 >
                   {{ t('meetings.agenda.add') }}
                 </button>
               </li>
-            </template>
-          </ul>
-        </template>
-        <template v-else-if="newItemType === 'appeal'">
-          <ul class="results">
-            <li v-if="!appealOptions.length" class="state">{{ t('meetingsUnit.agenda.noAppeals') }}</li>
-            <li v-for="appeal in appealOptions" :key="appeal.id" class="result">
-              <span class="ref ltr">#{{ appeal.id }}</span>
-              <span>
-                {{ appeal.appellant?.name ?? t('common.none') }}
-                — {{ appeal.original_request?.reference_number ?? t('common.none') }}
-              </span>
-              <button
-                class="ghost"
-                type="button"
-                :disabled="adding || agendaAppealIds.has(appeal.id)"
-                @click="addAppealItem(appeal)"
-              >
-                {{ t('meetings.agenda.add') }}
-              </button>
-            </li>
-          </ul>
-        </template>
-        <p v-if="addError" class="alert">{{ addError }}</p>
-      </section>
+            </ul>
+          </template>
+          <p v-if="addError" class="alert">{{ addError }}</p>
+          <div class="modal-actions">
+            <button class="ghost" type="button" @click="showAddItem = false">{{ t('common.close') }}</button>
+          </div>
+        </div>
+      </AppModal>
 
       <section class="card card-flat card-pad items">
-        <h3>{{ t('meetings.agenda.title') }}</h3>
+        <div class="items-header">
+          <h3>{{ t('meetings.agenda.title') }}</h3>
+          <button v-can="'meeting_agenda.edit'" class="primary" type="button" @click="showAddItem = true">
+            {{ t('meetingsUnit.agenda.addItem') }}
+          </button>
+        </div>
         <p v-if="!meeting.agenda_items?.length" class="state">{{ t('meetings.agenda.empty') }}</p>
         <ol v-else>
           <li
@@ -743,7 +755,7 @@ onMounted(async () => {
 .page.agenda-builder { max-inline-size: 68rem; }
 .card h3 { margin: 0 0 var(--space-3); color: var(--color-brand-text); font-size: var(--text-lg); }
 .card h4 { margin: .5rem 0 .3rem; color: var(--color-black-700); font-size: var(--text-base); }
-.picker, .stats, .ordering, .groups, .add-form, .items { margin-bottom: var(--space-4); }
+.picker, .stats, .ordering, .groups, .items { margin-bottom: var(--space-4); }
 
 .picker label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
 select, input[type='text'], input[type='number'] {
@@ -760,8 +772,9 @@ select, input[type='text'], input[type='number'] {
 .stat span { color: var(--color-muted); font-size: var(--text-xs); }
 .stat strong { color: var(--color-black-700); font-size: var(--text-lg); }
 
-.groups-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.groups-header h3 { margin: 0; }
+.groups-header, .items-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.groups-header h3, .items-header h3 { margin: 0; }
+.items-header { margin-bottom: var(--space-3); }
 .group-by-toggle { display: flex; gap: .4rem; }
 .groups .group { padding: var(--space-2) 0; border-bottom: 1px solid var(--color-border); }
 .groups .group:last-child { border-bottom: 0; }

@@ -49,7 +49,8 @@
     "inactive": "معطّلة",
     "activate": "تفعيل",
     "deactivate": "تعطيل",
-    "confirmDelete": "هل أنت متأكد من الحذف؟"
+    "confirmDelete": "هل أنت متأكد من الحذف؟",
+    "close": "إغلاق"
   },
   "departments": {
     "title": "الإدارات والأقسام",
@@ -880,7 +881,6 @@
     "members": "عضو",
     "meetingsHeld": "اجتماع",
     "manageMembers": "إدارة الأعضاء",
-    "hideMembers": "إخفاء الأعضاء",
     "addMember": "إضافة",
     "chooseUser": "— اختر مستخدماً —",
     "head": "الرئيس",

@@ -19,6 +19,30 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-26 17:55 EET — Claude — Forms beside tables are now modals (complete)
+
+Built per the plan below; frontend only, no PHP touched (so no PHPUnit/Pint run). New `AppModal.vue` wraps the create/edit
+forms of Departments, Users, Request Types, Settings, Templates, Meetings (committee form, scheduling wizard, and the
+whole «manage members» panel, which was an expanded table row), Appeals (create + upload step, and six action
+panels), Agenda Builder's add-item box and Meeting Detail's propose-date and add-to-agenda boxes. Form logic is
+unchanged: each view's own open flag drives the modal, and 422s now render inside it. Escape closes and a backdrop
+click deliberately does not. New `common.close`; `committees.hideMembers` removed (parity 2007). The convention is in AGENTS.md.
+Verified: build passes (`dist` reverted); a headless click-through of all 12 triggers × {en, ar} × {1280, 375} found
+every dialog opening, focused and fitting, closing on Escape and returning focus, with no console errors.
+`check-layout.mjs` fails only on the pre-existing `/decisions` 1024px overflow. Not exercised: propose-date, because
+no seeded meeting is in a proposable state.
+
+---
+### 2026-09-26 17:19 EET — Claude — Implementation plan: forms beside tables become modals
+
+User: "all the pages that have a form and something else (table), the form should be a modal". Scope, confirmed with
+the user: Departments, Users, Request Types, Settings, Templates, Meetings (committee form, scheduling wizard,
+add-member), Appeals (create + six action panels), and the add boxes in Agenda Builder and Meeting Detail. Plan: one
+new `components/AppModal.vue` (Teleport, Escape closes, backdrop click does not, focus in/restore) and a
+`.modal-wide` plus desktop scrolling in `style.css`; each form is wrapped in it with its state logic unchanged.
+Frontend only. Verify: build (revert `dist`), locale parity, `check-layout.mjs`.
+
+---
 ### 2026-09-26 17:10 EET — Claude — Deliberation requires a convened meeting too (complete)
 
 Built per the plan below; this closes the "Not gated" point in the 16:55 entry. Item state and study-sequence

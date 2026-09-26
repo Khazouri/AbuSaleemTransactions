@@ -12,6 +12,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import AppModal from '../components/AppModal.vue'
 
 const { t, locale } = useI18n()
 
@@ -222,56 +223,62 @@ onMounted(load)
       <button v-can="'departments.add'" class="primary" type="button" @click="startCreate">{{ t('departments.add') }}</button>
     </div>
 
-    <p v-if="formError" class="alert">{{ formError }}</p>
+    <p v-if="formError && !showForm" class="alert">{{ formError }}</p>
 
     <!-- Create / edit form -->
-    <form v-if="showForm" class="card card-flat card-pad form" @submit.prevent="save">
-      <h3>{{ editingId === null ? t('departments.add') : t('departments.edit') }}</h3>
+    <AppModal
+      v-if="showForm"
+      :title="editingId === null ? t('departments.add') : t('departments.edit')"
+      @close="cancelForm"
+    >
+      <form class="form" @submit.prevent="save">
+        <p v-if="formError" class="alert">{{ formError }}</p>
 
-      <div class="grid">
-        <label>
-          {{ t('departments.nameAr') }} *
-          <input v-model="form.name_ar" type="text" required />
-          <small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small>
+        <div class="grid">
+          <label>
+            {{ t('departments.nameAr') }} *
+            <input v-model="form.name_ar" type="text" required />
+            <small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small>
+          </label>
+
+          <label>
+            {{ t('departments.nameEn') }}
+            <input v-model="form.name_en" type="text" dir="ltr" />
+            <small v-if="errors.name_en" class="field-error">{{ errors.name_en[0] }}</small>
+          </label>
+
+          <label>
+            {{ t('departments.code') }}
+            <input v-model="form.code" type="text" dir="ltr" />
+            <small class="hint">{{ t('departments.codeHint') }}</small>
+            <small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small>
+          </label>
+
+          <label>
+            {{ t('departments.parent') }}
+            <select v-model="form.parent_id">
+              <option :value="null">{{ t('departments.root') }}</option>
+              <option v-for="opt in parentOptions" :key="opt.id" :value="opt.id">
+                {{ '— '.repeat(opt.depth) }}{{ label(opt) }}
+              </option>
+            </select>
+            <small v-if="errors.parent_id" class="field-error">{{ errors.parent_id[0] }}</small>
+          </label>
+        </div>
+
+        <label class="checkbox">
+          <input v-model="form.is_active" type="checkbox" />
+          {{ t('common.active') }}
         </label>
 
-        <label>
-          {{ t('departments.nameEn') }}
-          <input v-model="form.name_en" type="text" dir="ltr" />
-          <small v-if="errors.name_en" class="field-error">{{ errors.name_en[0] }}</small>
-        </label>
-
-        <label>
-          {{ t('departments.code') }}
-          <input v-model="form.code" type="text" dir="ltr" />
-          <small class="hint">{{ t('departments.codeHint') }}</small>
-          <small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small>
-        </label>
-
-        <label>
-          {{ t('departments.parent') }}
-          <select v-model="form.parent_id">
-            <option :value="null">{{ t('departments.root') }}</option>
-            <option v-for="opt in parentOptions" :key="opt.id" :value="opt.id">
-              {{ '— '.repeat(opt.depth) }}{{ label(opt) }}
-            </option>
-          </select>
-          <small v-if="errors.parent_id" class="field-error">{{ errors.parent_id[0] }}</small>
-        </label>
-      </div>
-
-      <label class="checkbox">
-        <input v-model="form.is_active" type="checkbox" />
-        {{ t('common.active') }}
-      </label>
-
-      <div class="actions">
-        <button class="primary" type="submit" :disabled="saving">
-          {{ saving ? t('common.saving') : t('common.save') }}
-        </button>
-        <button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button>
-      </div>
-    </form>
+        <div class="modal-actions">
+          <button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button>
+          <button class="primary" type="submit" :disabled="saving">
+            {{ saving ? t('common.saving') : t('common.save') }}
+          </button>
+        </div>
+      </form>
+    </AppModal>
 
     <!-- Tree -->
     <div class="card card-flat card-pad">
@@ -321,8 +328,6 @@ onMounted(load)
 </template>
 
 <style scoped>
-.form { margin-bottom: var(--space-4); }
-.form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
@@ -338,7 +343,6 @@ input[type='text'], select {
 }
 input:focus, select:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 .field-error { color: var(--color-danger-fg); font-size: var(--text-sm); }
-.actions { margin-top: var(--space-5); }
 
 td { padding: .55rem .5rem; }
 tr.dimmed { opacity: .55; }

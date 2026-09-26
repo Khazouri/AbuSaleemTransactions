@@ -8,6 +8,7 @@
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import AppModal from '../components/AppModal.vue'
 
 const { t } = useI18n()
 const settings = ref([])
@@ -104,28 +105,30 @@ onMounted(load)
       <button v-can="'settings.add'" class="primary" type="button" @click="startCreate">{{ t('settings.add') }}</button>
     </div>
 
-    <p v-if="formError" class="alert">{{ formError }}</p>
+    <p v-if="formError && !showForm" class="alert">{{ formError }}</p>
 
-    <form v-if="showForm" class="card card-flat card-pad form" @submit.prevent="save">
-      <h3>{{ editingId === null ? t('settings.add') : t('settings.edit') }}</h3>
-      <div class="grid">
-        <label>
-          {{ t('settings.key') }} *
-          <input v-model="form.key" class="ltr" type="text" required />
-          <small class="hint">{{ t('settings.keyHint') }}</small>
-          <small v-if="errors.key" class="field-error">{{ errors.key[0] }}</small>
-        </label>
-        <label>
-          {{ t('settings.value') }}
-          <textarea v-model="form.value" rows="3" />
-          <small v-if="errors.value" class="field-error">{{ errors.value[0] }}</small>
-        </label>
-      </div>
-      <div class="actions">
-        <button class="primary" type="submit" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
-        <button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button>
-      </div>
-    </form>
+    <AppModal v-if="showForm" :title="editingId === null ? t('settings.add') : t('settings.edit')" @close="cancelForm">
+      <form class="form" @submit.prevent="save">
+        <p v-if="formError" class="alert">{{ formError }}</p>
+        <div class="grid">
+          <label>
+            {{ t('settings.key') }} *
+            <input v-model="form.key" class="ltr" type="text" required />
+            <small class="hint">{{ t('settings.keyHint') }}</small>
+            <small v-if="errors.key" class="field-error">{{ errors.key[0] }}</small>
+          </label>
+          <label>
+            {{ t('settings.value') }}
+            <textarea v-model="form.value" rows="3" />
+            <small v-if="errors.value" class="field-error">{{ errors.value[0] }}</small>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="ghost" type="button" @click="cancelForm">{{ t('common.cancel') }}</button>
+          <button class="primary" type="submit" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
+        </div>
+      </form>
+    </AppModal>
 
     <div class="card card-flat card-pad list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
@@ -149,14 +152,11 @@ onMounted(load)
 </template>
 
 <style scoped>
-.form { margin-bottom: var(--space-4); }
-.form h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-brand-text); }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-4); }
 label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
 input, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); }
 textarea { resize: vertical; }
 .field-error { color: var(--color-danger-fg); }
-.actions { margin-top: var(--space-5); }
 .list { overflow-x: auto; }
 .value { white-space: pre-wrap; }
 .row-actions { display: flex; justify-content: flex-end; gap: var(--space-2); white-space: nowrap; }
