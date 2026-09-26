@@ -628,7 +628,9 @@ onBeforeUnmount(clearAttachmentPreview)
             at: dateTime(request.control_gates.intake.jurisdiction_test.recorded_at),
           }) }}
         </p>
-        <fieldset :disabled="jurisdictionTestSaving">
+        <!-- Read-only without the save grant: since Stage 101 R12 can open a file at
+             requirements_check, and editable fields with no save button lost its input on refresh. -->
+        <fieldset :disabled="jurisdictionTestSaving || !auth.can('notes_attachments', 'edit')">
           <div class="grid">
             <label>
               {{ t('requestDetail.jurisdictionTest.q1') }}
