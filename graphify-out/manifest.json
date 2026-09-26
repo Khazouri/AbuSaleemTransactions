@@ -240,9 +240,9 @@
     "semantic_hash": "0bfd58d02b2a71ebf5beea37db927779"
   },
   "app/Http/Controllers/Api/RequestController.php": {
-    "mtime": 1790007197.3154316,
-    "seen": 1790008629.0235908,
-    "ast_hash": "dcfe0d8cb9ea4d20c60ad9a974117829",
+    "mtime": 1790452476.9167676,
+    "seen": 1790452554.6293077,
+    "ast_hash": "c1173075789081fa1692c2af30f66476",
     "semantic_hash": ""
   },
   "app/Http/Controllers/Api/RequestDraftController.php": {
@@ -258,9 +258,9 @@
     "semantic_hash": "53b128b3ca45fd7e2a050d846c86ed2b"
   },
   "app/Http/Controllers/Api/RequestLifecycleController.php": {
-    "mtime": 1789936995.566007,
-    "seen": 1789939319.2497058,
-    "ast_hash": "f9d9c43f93a4be5a79d5809ea4fe3391",
+    "mtime": 1790448027.5739086,
+    "seen": 1790448500.501251,
+    "ast_hash": "753c4a4de7b6d48e897de1260671627e",
     "semantic_hash": ""
   },
   "app/Http/Controllers/Api/RequestTrackingController.php": {
@@ -1020,9 +1020,9 @@
     "semantic_hash": "2ee83252667ca4e9977b6aae8ecdce5e"
   },
   "app/Http/Resources/RequestDetailResource.php": {
-    "mtime": 1790007198.3861542,
-    "seen": 1790008629.0238154,
-    "ast_hash": "5ddb65db77bde8d696c58ef88e8ef47b",
+    "mtime": 1790451907.5456712,
+    "seen": 1790452554.6295085,
+    "ast_hash": "df31e96fad9cdf43ecaa83d1fe7fb240",
     "semantic_hash": ""
   },
   "app/Http/Resources/RequestDraftAttachmentResource.php": {
@@ -1644,10 +1644,10 @@
     "semantic_hash": "c9600318c6ec9eeace9c0b5c126a8027"
   },
   "app/Services/Lifecycle/DocumentValidityRules.php": {
-    "mtime": 1788891052.3696215,
-    "seen": 1789906551.3735547,
-    "ast_hash": "4f7e37a5fd69cca925631956fbc30192",
-    "semantic_hash": "4f7e37a5fd69cca925631956fbc30192"
+    "mtime": 1790447950.776404,
+    "seen": 1790448500.5015533,
+    "ast_hash": "b4b30a4d032c40281e25894b12f3a6ef",
+    "semantic_hash": ""
   },
   "app/Services/Lifecycle/DuplicatePolicy.php": {
     "mtime": 1789936899.0633907,
@@ -1956,15 +1956,15 @@
     "semantic_hash": "eabb4502c4ade1145e84bbf1c0db6ccc"
   },
   "app/Services/Tasks/PendingTaskCollector.php": {
-    "mtime": 1790446152.5850677,
-    "seen": 1790446312.0249476,
-    "ast_hash": "a16c21d5b3223bd99c9e0ae8023a0282",
+    "mtime": 1790451907.5476265,
+    "seen": 1790452554.6297252,
+    "ast_hash": "c2ad777ce969035df5425adeb4423226",
     "semantic_hash": ""
   },
   "app/Services/WorkflowService.php": {
-    "mtime": 1790429994.3650546,
-    "seen": 1790443429.7951713,
-    "ast_hash": "a0af99eebfd77680d20783104aaf5b85",
+    "mtime": 1790447928.7334445,
+    "seen": 1790448500.5016272,
+    "ast_hash": "bacca10fb27d2fedb67602da67470bf3",
     "semantic_hash": ""
   },
   "app/Services/WorkflowStageCount.php": {
@@ -2856,9 +2856,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/RequestLifecyclePanel.vue": {
-    "mtime": 1789915533.245288,
-    "seen": 1789922867.1800594,
-    "ast_hash": "eec02ec9872d420d8fb3ef1004ce1b2e",
+    "mtime": 1790448074.2924776,
+    "seen": 1790448500.5018406,
+    "ast_hash": "5d2b4c8fc6b6cdc88e5c558fd1f4603f",
     "semantic_hash": ""
   },
   "frontend/src/components/RequestNotes.vue": {
@@ -3000,15 +3000,15 @@
     "semantic_hash": "0ac3f7f4ef5399e84b835e349a8dd52f"
   },
   "frontend/src/locales/ar.json": {
-    "mtime": 1790446196.1985044,
-    "seen": 1790446312.025442,
-    "ast_hash": "8d6ca9c104da33f35549f7339929ce2d",
+    "mtime": 1790452268.9488356,
+    "seen": 1790452554.6299782,
+    "ast_hash": "5a4c6b941bff1a9ad43086055ffca871",
     "semantic_hash": ""
   },
   "frontend/src/locales/en.json": {
-    "mtime": 1790446201.5173235,
-    "seen": 1790446312.0254447,
-    "ast_hash": "f1b78aa42174cfabe42429f7ee18f43e",
+    "mtime": 1790452268.9508162,
+    "seen": 1790452554.6299796,
+    "ast_hash": "84ef50a36f3cd22fd9b8d09a54fb1c58",
     "semantic_hash": ""
   },
   "frontend/src/main.js": {
@@ -3180,9 +3180,9 @@
     "semantic_hash": ""
   },
   "frontend/src/views/RequestDetailView.vue": {
-    "mtime": 1790447237.410018,
-    "seen": 1790447273.7139328,
-    "ast_hash": "e5bea3bea69bc3c46d0f03eae793f922",
+    "mtime": 1790452205.7494822,
+    "seen": 1790452554.6300187,
+    "ast_hash": "ed3cd3057707119d7d61534c730de1a8",
     "semantic_hash": ""
   },
   "frontend/src/views/RequestIntakeView.vue": {
@@ -3276,9 +3276,9 @@
     "semantic_hash": "c3cc46536fea38a344791488e7106cf3"
   },
   "routes/api.php": {
-    "mtime": 1790430033.0338962,
-    "seen": 1790443429.795456,
-    "ast_hash": "39d18699b4dab866232ea698955a7c79",
+    "mtime": 1790447984.042147,
+    "seen": 1790448500.5019329,
+    "ast_hash": "6fd2abb796b76864472254ae6661df43",
     "semantic_hash": ""
   },
   "routes/console.php": {
@@ -3504,10 +3504,10 @@
     "semantic_hash": ""
   },
   "tests/Feature/DocumentIntegrityTest.php": {
-    "mtime": 1789754285.9672558,
-    "seen": 1789906551.3738294,
-    "ast_hash": "820d8b77024f0bb8788b1e82e7d565b5",
-    "semantic_hash": "820d8b77024f0bb8788b1e82e7d565b5"
+    "mtime": 1790451806.9649827,
+    "seen": 1790452554.6301174,
+    "ast_hash": "195a80db6255eed27a5a380d69d8393d",
+    "semantic_hash": ""
   },
   "tests/Feature/DuplicateRequestTest.php": {
     "mtime": 1789754158.704314,
@@ -3630,9 +3630,9 @@
     "semantic_hash": "005eac47c1a4f9fcf1803c748c92bc57"
   },
   "tests/Feature/MyTasksTest.php": {
-    "mtime": 1790446276.5628068,
-    "seen": 1790446312.0257466,
-    "ast_hash": "f7418766223e79e5544b7d32a4235ea6",
+    "mtime": 1790452477.3140645,
+    "seen": 1790452554.6301494,
+    "ast_hash": "c058c1cc1ddd85a5595df4d25d0aeaf1",
     "semantic_hash": ""
   },
   "tests/Feature/NotificationTest.php": {
@@ -3774,9 +3774,9 @@
     "semantic_hash": "b6ea26be9b2fc6f602ba3ff5babf1a60"
   },
   "tests/Feature/RequirementsCheckJurisdictionTest.php": {
-    "mtime": 1790431272.0386112,
-    "seen": 1790443429.7955744,
-    "ast_hash": "96d4518d73852ecc67e95fda2fdb7d67",
+    "mtime": 1790451811.7352545,
+    "seen": 1790452554.6301844,
+    "ast_hash": "5c17471ecc7be99bb3c81c08c0cc4e56",
     "semantic_hash": ""
   },
   "tests/Feature/ScreenTest.php": {
@@ -3882,15 +3882,15 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1790442124.2216496,
-    "seen": 1790443429.7955997,
-    "ast_hash": "ab02c1673d2dbdd45d03d49d745c1cb1",
+    "mtime": 1790448133.5703464,
+    "seen": 1790448500.502128,
+    "ast_hash": "93dc070238efe0c71f97817f2e2f979e",
     "semantic_hash": ""
   },
   "AGENT_NOTES.md": {
-    "mtime": 1790446281.0356178,
-    "seen": 1790446312.0258734,
-    "ast_hash": "ed39b150330f49b1f02772582ca50463",
+    "mtime": 1790453275.8327706,
+    "seen": 1790453292.7353969,
+    "ast_hash": "631c840d6316fcf556a92a9facb56cb5",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -4068,9 +4068,9 @@
     "semantic_hash": ""
   },
   "OPEN_ITEMS.md": {
-    "mtime": 1790432529.0306551,
-    "seen": 1790443429.7956033,
-    "ast_hash": "2b3b65e9b8caccc4356c23dbd89f76ea",
+    "mtime": 1790452517.9418068,
+    "seen": 1790452554.630219,
+    "ast_hash": "f70b3a624f76abd1e1d0b40c25a9b8b5",
     "semantic_hash": ""
   },
   "app/Notifications/RequestNoticeCopyNotification.php": {
@@ -4233,6 +4233,24 @@
     "mtime": 1790433173.0364401,
     "seen": 1790443429.7956173,
     "ast_hash": "c4a87ddd8ca7e4a1c7ad9b7c88a05b4e",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/DocumentValidityPanel.vue": {
+    "mtime": 1790448063.0589955,
+    "seen": 1790448500.5018315,
+    "ast_hash": "a793c8fb5e86dc6d69d9798f53763f9b",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/DecisionWizard.vue": {
+    "mtime": 1790452378.1365416,
+    "seen": 1790452554.6299276,
+    "ast_hash": "c0641df1895c479cbd6b0f6c2913218e",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/JurisdictionTestForm.vue": {
+    "mtime": 1790452047.9388897,
+    "seen": 1790452554.629935,
+    "ast_hash": "93b3ae303ace031e39861144a8d89016",
     "semantic_hash": ""
   }
 }
