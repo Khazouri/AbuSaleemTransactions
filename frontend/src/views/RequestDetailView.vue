@@ -573,7 +573,7 @@ onBeforeUnmount(clearAttachmentPreview)
       </section>
 
       <!-- Actions. The primary transition is the one solid button; exception
-           actions sit behind a disclosure so they stop competing with it. -->
+           actions stay visible below a divider, tinted so they don't compete with it. -->
       <section v-if="canAct" class="card card-flat card-pad action-panel">
         <h3>{{ t('requestDetail.actions') }}</h3>
         <p>{{ t('requestDetail.actionHint') }}</p>
@@ -594,8 +594,8 @@ onBeforeUnmount(clearAttachmentPreview)
             {{ acting && activeAction === item.action ? t('requestDetail.processing') : actionLabel(item.action) }}
           </button>
         </div>
-        <details v-if="exceptionActions.length" class="exception-actions">
-          <summary>{{ t('requestDetail.exceptionActions') }}</summary>
+        <div v-if="exceptionActions.length" class="exception-actions">
+          <p class="exception-hint">{{ t('requestDetail.exceptionActions') }}</p>
           <div class="action-buttons">
             <button
               v-for="item in exceptionActions"
@@ -612,7 +612,7 @@ onBeforeUnmount(clearAttachmentPreview)
               </span>
             </button>
           </div>
-        </details>
+        </div>
       </section>
 
       <!-- Stage 54 — [D] Art. 45's jurisdiction test, answered once at requirements_check. -->
@@ -1507,8 +1507,7 @@ onBeforeUnmount(clearAttachmentPreview)
 .exception-button { padding: 0.5rem 0.9rem; border: 0; border-radius: var(--radius-lg); color: var(--color-on-brand); background: var(--color-brand); cursor: pointer; }
 .exception-button:disabled { cursor: not-allowed; opacity: 0.6; }
 .exception-actions { padding-top: var(--space-3); margin-top: var(--space-4); border-top: 1px solid var(--color-border); }
-.exception-actions summary { cursor: pointer; color: var(--color-muted); font-size: var(--text-sm); }
-.exception-actions summary:hover { color: var(--color-black-700); }
+.exception-hint { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 .exception-actions .action-buttons { margin-top: var(--space-3); }
 .exception-button { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }
 .exception-button.destructive { color: var(--color-danger-fg); background: var(--color-danger-bg); border-color: var(--color-danger-border); }
