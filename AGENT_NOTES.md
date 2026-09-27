@@ -19,6 +19,34 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-27 EET — Claude — Decision wizard, sub-project 2, slice 2 (agenda item) complete
+
+`AgendaItemWizard` takes the vote (ballot slip) and the recorded result (draft-decision slip). `DecisionTally` now owns
+the pre-input record checks, the tally and `resolveOutcome()`/`chairVote()`, read by `record()`/`recordAppealDecision()`
+and by `MeetingDuties::forItem()`; `GET meetings/{m}/agenda/{item}/duties` also carries the five seats.
+`AgendaItemDecisionPanel` is read-only with one «اتخاذ الإجراء» button (live runner and meeting detail); the study
+sequence is `StudySequencePanel`, shared by the runner and the wizard; the decisions register's «بانتظار تصويتي» tab
+links to the wizard. Inbox vote/record tasks carry `decide=1`. Verified: suite **779/4998**, Pint clean on the task's
+files, build passes, parity **2100**, check-layout (only the pre-existing `/decisions` 1024px overflow). Headless
+walk-through on a tinker-built fixture (a fresh committee with all five seats filled by seeded accounts, a scheduled +
+agenda-adopted + convened meeting, one `employee_request` item): as the legal seat, the wizard opened at
+`meeting_live?meeting=&item=&decide=1` across ar/en × 1280/375 × light/dark — Review showed the seat strip, Checks
+offered the conflict declaration, Choose listed the vote options, Confirm drew the ballot mark; one real vote was cast
+from the browser. As the chair, Choose showed «تسجيل النتيجة» blocked with the tally's own "no votes yet" reason before
+the vote, then available with the predicted outcome after it, and Checks showed the study-sequence panel. With the
+chair's wizard still open on Confirm, a direct API call (same account, a second session) recorded the decision; the
+open wizard's own submit then showed the exact 422 — «تم تسجيل قرار هذا البند بالفعل.» — inline, with the wizard still
+open (no crash). The one non-DOM signal Chrome logs for any failed XHR (`Failed to load resource: 422`) fired as
+expected; no JS console.error or pageerror occurred. The locale/theme/width matrix was not repeated for the stale-write
+check itself, since recording is one-shot per item. Every fixture row (committee, 5 seats, meeting, 5 attendees, agenda
+item, the one vote, the one decision, the approval/status-history/stage-log rows the transition wrote, 22 audit rows,
+15 queued notification jobs) and the two sanctum tokens this session minted were deleted afterward; every DB count
+(requests, committees, meetings, meeting_requests, committee_members, decisions, votes, tokens, jobs, audit_logs,
+status_history, stage_logs, approvals, meeting_attendees, notifications) matched its pre-walk-through value exactly. A
+small separate commit removed one empty `decisions.confirmApprove` locale stub a prior key-cleanup pass had left behind
+in both `ar.json`/`en.json`.
+
+---
 ### 2026-09-27 EET — Claude — Decision wizard, sub-project 2, slice 1 (request side) complete
 
 `committee_actions` on the request payload (`CommitteeStatusService::refusal()` is the one check `move()` and the
