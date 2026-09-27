@@ -89,61 +89,6 @@ watch(search, () => {
   searchTimer = setTimeout(load, 300)
 })
 
-// --- Actions -------------------------------------------------------------------
-
-// Stage 102 — no `nominate`: picking a request for a meeting is the nomination.
-const ACTION_ENDPOINTS = {
-  defer: 'defer',
-  returnToStudy: 'return-to-study',
-  requestCompletion: 'request-completion',
-}
-
-const REQUIRES_COMMENT = new Set(['defer', 'returnToStudy', 'requestCompletion'])
-
-const promptAction = ref(null)
-const promptRow = ref(null)
-const promptComment = ref('')
-const promptError = ref('')
-const acting = ref(false)
-
-function openPrompt(action, row) {
-  promptAction.value = action
-  promptRow.value = row
-  promptComment.value = ''
-  promptError.value = ''
-}
-
-function closePrompt() {
-  promptAction.value = null
-  promptRow.value = null
-}
-
-async function submitAction() {
-  if (!promptAction.value || !promptRow.value) return
-  const requiresComment = REQUIRES_COMMENT.has(promptAction.value)
-  if (requiresComment && !promptComment.value.trim()) {
-    promptError.value = t('meetingsUnit.candidates.commentRequiredHint')
-    return
-  }
-
-  acting.value = true
-  promptError.value = ''
-  try {
-    await api.post(
-      `/committee-candidates/${promptRow.value.id}/${ACTION_ENDPOINTS[promptAction.value]}`,
-      { comment: promptComment.value.trim() || undefined },
-    )
-    closePrompt()
-    await load()
-  } catch (error) {
-    promptError.value = error.response?.data?.errors?.action?.[0]
-      ?? error.response?.data?.message
-      ?? t('common.none')
-  } finally {
-    acting.value = false
-  }
-}
-
 onMounted(async () => {
   await Promise.all([loadFilters(), load()])
 })
@@ -241,44 +186,19 @@ onMounted(async () => {
                   <RouterLink class="ghost" :to="{ name: 'request_details', params: { id: row.id } }">
                     {{ t('meetingsUnit.candidates.actions.openFile') }}
                   </RouterLink>
-                  <button v-can="'committee_candidates.edit'" class="ghost" type="button" @click="openPrompt('defer', row)">
-                    {{ t('meetingsUnit.candidates.actions.defer') }}
-                  </button>
-                  <button v-can="'committee_candidates.edit'" class="ghost" type="button" @click="openPrompt('returnToStudy', row)">
-                    {{ t('meetingsUnit.candidates.actions.returnToStudy') }}
-                  </button>
-                  <button v-can="'committee_candidates.edit'" class="ghost" type="button" @click="openPrompt('requestCompletion', row)">
-                    {{ t('meetingsUnit.candidates.actions.requestCompletion') }}
-                  </button>
+                  <!-- Decision wizard — sub-project 2: a candidate's moves are taken on the file. -->
+                  <RouterLink
+                    v-can="'committee_candidates.edit'"
+                    class="primary"
+                    :to="{ name: 'request_details', params: { id: row.id }, query: { decide: 1 } }"
+                  >
+                    {{ t('decisionWizard.act') }}
+                  </RouterLink>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
-      </div>
-    </div>
-
-    <div v-if="promptAction" class="modal-backdrop" @click.self="closePrompt">
-      <div class="modal candidates-modal">
-        <h3>{{ t(`meetingsUnit.candidates.actions.${promptAction}`) }}</h3>
-        <label>
-          {{ t('meetingsUnit.candidates.commentLabel') }}
-          <span class="hint">
-            {{ REQUIRES_COMMENT.has(promptAction)
-              ? t('meetingsUnit.candidates.commentRequiredHint')
-              : t('meetingsUnit.candidates.commentOptionalHint') }}
-          </span>
-          <textarea v-model="promptComment" rows="3"></textarea>
-        </label>
-        <p v-if="promptError" class="alert">{{ promptError }}</p>
-        <div class="modal-actions">
-          <button class="ghost" type="button" :disabled="acting" @click="closePrompt">
-            {{ t('meetingsUnit.candidates.cancelPrompt') }}
-          </button>
-          <button class="primary" type="button" :disabled="acting" @click="submitAction">
-            {{ acting ? t('meetingsUnit.candidates.processing') : t('meetingsUnit.candidates.confirm') }}
-          </button>
-        </div>
       </div>
     </div>
   </section>
@@ -288,7 +208,7 @@ onMounted(async () => {
 .filters { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: end; margin-bottom: var(--space-4); }
 .filters label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
 .filters .grow { flex: 1; min-inline-size: min(220px, 100%); }
-select, input[type='text'], textarea {
+select, input[type='text'] {
   padding: .5rem .6rem;
   border: 1px solid var(--color-border-hover);
   border-radius: var(--radius-lg);
@@ -303,8 +223,4 @@ select, input[type='text'], textarea {
 
 .pill.danger { margin-inline-start: .35rem; }
 .row-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
-
-.candidates-modal { inline-size: min(28rem, 100%); }
-.modal label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
-.modal textarea { resize: vertical; }
 </style>

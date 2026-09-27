@@ -149,7 +149,8 @@ const timelineMovement = (entry) => entry.from_stage
 // «المهام المعلقة» arrives with `?decide=1` to open it straight away.
 const wizardOpen = ref(false)
 const canDecide = computed(() => Boolean(
-  request.value?.available_transitions?.length || request.value?.blocked_transitions?.length,
+  request.value?.available_transitions?.length || request.value?.blocked_transitions?.length
+  || request.value?.committee_actions?.length,
 ))
 function closeWizard() {
   wizardOpen.value = false
@@ -176,7 +177,7 @@ const hasApprovalsTabContent = computed(() => Boolean(
   || isReopenable.value,
 ))
 const hasLegalTabContent = computed(() => Boolean(
-  request.value?.legal_review || canDispatchLegalReview.value || request.value?.committee_summary,
+  request.value?.legal_review || request.value?.committee_summary,
 ))
 
 function docLabel(doc) {
@@ -245,30 +246,7 @@ async function downloadAttachment(attachment) {
   }
 }
 
-// Stage 68 — [D] Art. 21. Dispatching a file to the legal member is the
-// rapporteur's coordinating act (Appendix 6's RACI), gated by
-// `legal_review.edit`; recording the verdict itself belongs to the legal
-// member's own screen, so nothing here writes a review.
 const auth = useAuthStore()
-const canDispatchLegalReview = computed(() => auth.can('legal_review', 'edit'))
-const dispatchingLegalReview = ref(false)
-const legalReviewError = ref('')
-
-async function sendToLegalReview() {
-  if (dispatchingLegalReview.value) return
-  dispatchingLegalReview.value = true
-  legalReviewError.value = ''
-  try {
-    await api.post(`/requests/${request.value.id}/legal-reviews/request`)
-    await load()
-  } catch (requestError) {
-    legalReviewError.value = requestError.response?.data?.errors?.action?.[0]
-      ?? requestError.response?.data?.message
-      ?? t('requestDetail.legalReview.sendFailed')
-  } finally {
-    dispatchingLegalReview.value = false
-  }
-}
 
 // Stage 100 — Appendix 6 row 15: the archive is recordable only while the file
 // stands on one of Art. 37's final paths and is not yet closed.
@@ -875,50 +853,33 @@ onBeforeUnmount(clearAttachmentPreview)
         <p v-if="!hasLegalTabContent" class="state">{{ t('requestDetail.tabs.empty') }}</p>
 
         <!-- Stage 68 — [D] Art. 21's pre-meeting legal review. -->
-        <section v-if="request.legal_review || canDispatchLegalReview" class="card card-flat card-pad summary legal-review">
+        <section v-if="request.legal_review" class="card card-flat card-pad summary legal-review">
           <h3>{{ t('requestDetail.legalReview.title') }}</h3>
-          <template v-if="request.legal_review">
-            <div>
-              <span>{{ t('requestDetail.legalReview.verdict') }}</span>
-              <strong :class="request.legal_review.permits_agenda ? 'ok' : 'warn'">
-                {{ t(`meetingsUnit.legalReview.verdicts.${request.legal_review.verdict}`) }}
-              </strong>
-            </div>
-            <div>
-              <span>{{ t('requestDetail.legalReview.reviewedBy') }}</span>
-              <strong>{{ request.legal_review.reviewed_by?.name ?? t('common.none') }}</strong>
-            </div>
-            <div>
-              <span>{{ t('requestDetail.legalReview.reviewedAt') }}</span>
-              <strong>{{ date(request.legal_review.reviewed_at) }}</strong>
-            </div>
-            <div v-if="request.legal_review.primary_legislation">
-              <span>{{ t('meetingsUnit.legalReview.fields.primaryLegislation') }}</span>
-              <strong>{{ request.legal_review.primary_legislation }}</strong>
-            </div>
-            <div v-if="request.legal_review.legal_note" class="full">
-              <span>{{ t('meetingsUnit.legalReview.fields.legalNote') }}</span>
-              <strong>{{ request.legal_review.legal_note }}</strong>
-            </div>
-            <div v-if="request.legal_reviews_count > 1">
-              <span>{{ t('requestDetail.legalReview.rounds') }}</span>
-              <strong>{{ request.legal_reviews_count }}</strong>
-            </div>
-          </template>
-          <p v-else class="muted">{{ t('requestDetail.legalReview.none') }}</p>
-
-          <div v-can="'legal_review.edit'" class="full">
-            <button
-              class="ghost"
-              type="button"
-              :disabled="dispatchingLegalReview"
-              @click="sendToLegalReview"
-            >
-              {{ dispatchingLegalReview
-                ? t('requestDetail.legalReview.sending')
-                : t('requestDetail.legalReview.send') }}
-            </button>
-            <p v-if="legalReviewError" class="alert">{{ legalReviewError }}</p>
+          <div>
+            <span>{{ t('requestDetail.legalReview.verdict') }}</span>
+            <strong :class="request.legal_review.permits_agenda ? 'ok' : 'warn'">
+              {{ t(`meetingsUnit.legalReview.verdicts.${request.legal_review.verdict}`) }}
+            </strong>
+          </div>
+          <div>
+            <span>{{ t('requestDetail.legalReview.reviewedBy') }}</span>
+            <strong>{{ request.legal_review.reviewed_by?.name ?? t('common.none') }}</strong>
+          </div>
+          <div>
+            <span>{{ t('requestDetail.legalReview.reviewedAt') }}</span>
+            <strong>{{ date(request.legal_review.reviewed_at) }}</strong>
+          </div>
+          <div v-if="request.legal_review.primary_legislation">
+            <span>{{ t('meetingsUnit.legalReview.fields.primaryLegislation') }}</span>
+            <strong>{{ request.legal_review.primary_legislation }}</strong>
+          </div>
+          <div v-if="request.legal_review.legal_note" class="full">
+            <span>{{ t('meetingsUnit.legalReview.fields.legalNote') }}</span>
+            <strong>{{ request.legal_review.legal_note }}</strong>
+          </div>
+          <div v-if="request.legal_reviews_count > 1">
+            <span>{{ t('requestDetail.legalReview.rounds') }}</span>
+            <strong>{{ request.legal_reviews_count }}</strong>
           </div>
         </section>
 

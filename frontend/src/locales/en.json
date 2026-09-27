@@ -853,11 +853,7 @@
       "verdict": "Outcome",
       "reviewedBy": "Legal officer",
       "reviewedAt": "Reviewed on",
-      "rounds": "Review rounds",
-      "none": "No legal review has been recorded for this file yet.",
-      "send": "Send to legal review",
-      "sending": "Sending…",
-      "sendFailed": "Could not send the file to legal review."
+      "rounds": "Review rounds"
     },
     "linkedDocuments": {
       "kinds": {
@@ -1328,17 +1324,8 @@
       },
       "empty": "No candidate requests right now.",
       "actions": {
-        "openFile": "Open file",
-        "defer": "Defer",
-        "returnToStudy": "Return to study",
-        "requestCompletion": "Request completion"
-      },
-      "commentLabel": "Reason",
-      "commentRequiredHint": "required for this action",
-      "commentOptionalHint": "optional",
-      "confirm": "Confirm",
-      "cancelPrompt": "Cancel",
-      "processing": "Processing…"
+        "openFile": "Open file"
+      }
     },
     "agenda": {
       "title": "Meeting Agenda",
@@ -1611,7 +1598,6 @@
       "subtitle": "Files handed to the legal officer to check the legal basis, jurisdiction and document validity before the committee sees them.",
       "empty": "No files are with the legal officer right now.",
       "loadError": "Could not load the legal-review queue.",
-      "submitError": "Could not save the legal review.",
       "table": {
         "reference": "Reference",
         "title": "Subject",
@@ -1623,22 +1609,13 @@
         "actions": "Actions"
       },
       "actions": {
-        "openFile": "Open file",
-        "review": "Record review"
+        "openFile": "Open file"
       },
       "form": {
-        "title": "Legal review card",
         "appendix21": "Procedural note:",
         "history": "Earlier reviews",
-        "card": "Legal basis card",
-        "verdict": "Review outcome",
-        "chooseVerdict": "Choose an outcome…",
         "permitsAgenda": "This outcome allows the file onto a meeting agenda.",
-        "blocksAgenda": "This outcome holds the file back for completion or correction, then re-review.",
-        "noteRequired": "Required for this outcome.",
-        "noteOptional": "Optional for this outcome.",
-        "save": "Save review",
-        "saving": "Saving…"
+        "blocksAgenda": "This outcome holds the file back for completion or correction, then re-review."
       },
       "fields": {
         "primaryLegislation": "Primary legislation",
@@ -1649,7 +1626,6 @@
         "requiresCentralApproval": "Central approval required?",
         "legalDeadline": "Statutory deadline?",
         "prohibitingConditions": "Prohibiting conditions?",
-        "verdict": "Outcome",
         "legalNote": "Legal officer's note"
       },
       "verdicts": {
@@ -2580,7 +2556,8 @@
       "document_validity": "Document validity",
       "employment_file": "Employment file",
       "intake": "Gate 1: file completeness",
-      "jurisdiction_test": "Jurisdiction test (Art. 45)"
+      "jurisdiction_test": "Jurisdiction test (Art. 45)",
+      "legal_card": "Legal basis card"
     },
     "choose": {
       "lede": "Pick what to do with the file. Each option shows where the file goes next.",
@@ -2588,7 +2565,8 @@
       "other": "Other outcomes",
       "blocked": "Not available yet",
       "toChecks": "Go to checks",
-      "none": "No action is open to you yet. Complete the checks first."
+      "none": "No action is open to you yet. Complete the checks first.",
+      "verdicts": "Your legal opinion"
     },
     "slip": {
       "reasonRequired": "Reason (required)",
@@ -2611,7 +2589,16 @@
       "return_missing_docs": "Sends the file back to supply the missing documents you name in the reason.",
       "declare_no_jurisdiction": "Closes the file as outside the committee’s jurisdiction; name the competent body in the reason.",
       "reject_formally": "Rejects the request on formal grounds, with a reasoned decision.",
-      "deadline_expired": "Escalates the overdue file to the responsible body."
+      "deadline_expired": "Escalates the overdue file to the responsible body.",
+      "defer": "Puts off deciding the file until a later meeting, with your reason.",
+      "return_to_study": "Sends the file back to the rapporteur to finish studying it, with your reason.",
+      "require_completion": "Asks for what the file is missing before it is presented; name what is needed.",
+      "send_to_legal_review": "Hands the file to the legal member for an opinion before it goes on an agenda."
+    },
+    "act": "Take action",
+    "actions": {
+      "require_completion": "Request completion",
+      "send_to_legal_review": "Send for legal review"
     }
   }
 }
