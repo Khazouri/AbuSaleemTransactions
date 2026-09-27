@@ -1211,12 +1211,7 @@
     "referralAuthorityLabel": "Referred to",
     "referralAuthorityPlaceholder": "Authority the matter was referred to (optional)",
     "record": "Record decision",
-    "recording": "Recording decision…",
-    "confirmApprove": {
-      "title": "Confirm recording approval",
-      "body": "Are you sure you want to record this decision as approved?",
-      "confirm": "Confirm approval"
-    },
+    "confirmApprove": {},
     "decidedBy": "Decided by",
     "decisionNumber": "Decision no.",
     "title": "Decisions & Recommendations",
@@ -1239,7 +1234,6 @@
     "empty": "No decisions match these filters.",
     "noPending": "Nothing is waiting on your vote.",
     "yourVote": "Your vote is recorded — choose again to change it.",
-    "voteFailed": "The vote could not be recorded.",
     "print": "Print",
     "exportExcel": "Export Excel",
     "exportPdf": "Export PDF",
@@ -2549,7 +2543,13 @@
       "lede": "Read the file before you decide. You can move on at any time.",
       "type": "Request type",
       "recent": "Latest actions",
-      "more": "The full attachments and workflow record are in the File tab behind this window."
+      "more": "The full attachments and workflow record are in the File tab behind this window.",
+      "itemLede": "Read the item and see who has voted before you act.",
+      "item": "Item",
+      "reference": "Reference",
+      "meeting": "Meeting",
+      "votes": "Votes",
+      "noVotes": "No votes yet"
     },
     "checks": {
       "lede": "These checks are yours to complete before some actions open up. Each one saves with its own button.",
@@ -2557,7 +2557,10 @@
       "employment_file": "Employment file",
       "intake": "Gate 1: file completeness",
       "jurisdiction_test": "Jurisdiction test (Art. 45)",
-      "legal_card": "Legal basis card"
+      "legal_card": "Legal basis card",
+      "conflict": "Conflict of interest",
+      "conflictLede": "If you have a stake in this item, declare it before voting; once declared, you cannot vote on it.",
+      "study_sequence": "Item study sequence (Art. 85)"
     },
     "choose": {
       "lede": "Pick what to do with the file. Each option shows where the file goes next.",
@@ -2566,7 +2569,9 @@
       "blocked": "Not available yet",
       "toChecks": "Go to checks",
       "none": "No action is open to you yet. Complete the checks first.",
-      "verdicts": "Your legal opinion"
+      "verdicts": "Your legal opinion",
+      "itemLede": "Cast your vote, or record the result if you chair the sitting.",
+      "nothing": "There is nothing for you to do on this item."
     },
     "slip": {
       "reasonRequired": "Reason (required)",
@@ -2593,12 +2598,42 @@
       "defer": "Puts off deciding the file until a later meeting, with your reason.",
       "return_to_study": "Sends the file back to the rapporteur to finish studying it, with your reason.",
       "require_completion": "Asks for what the file is missing before it is presented; name what is needed.",
-      "send_to_legal_review": "Hands the file to the legal member for an opinion before it goes on an agenda."
+      "send_to_legal_review": "Hands the file to the legal member for an opinion before it goes on an agenda.",
+      "record_decision": "Records the committee’s decision from the vote and moves the file accordingly."
     },
     "act": "Take action",
     "actions": {
       "require_completion": "Request completion",
-      "send_to_legal_review": "Send for legal review"
+      "send_to_legal_review": "Send for legal review",
+      "vote": "Vote",
+      "record_decision": "Record the result"
+    },
+    "itemTitle": "Vote and decision",
+    "seats": {
+      "title": "Committee seats",
+      "states": {
+        "vacant": "Vacant",
+        "pending": "No answer yet",
+        "accepted": "Accepted the date",
+        "declined": "Declined the date",
+        "present": "Present",
+        "absent": "Absent",
+        "voted": "Voted",
+        "not_voted": "Not voted yet",
+        "recused": "Declared a conflict",
+        "signed": "Signed",
+        "unsigned": "Not signed yet"
+      }
+    },
+    "ballot": {
+      "cast": "Cast vote",
+      "current": "Your current vote",
+      "yourChoice": "your choice"
+    },
+    "decision": {
+      "form": "Drafting the decision",
+      "predicted": "Result by the votes: {outcome}",
+      "tally": "Votes: {summary}"
     }
   }
 }

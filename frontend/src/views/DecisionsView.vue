@@ -35,9 +35,6 @@ const exportError = ref(null)
 const pending = ref([])
 const pendingLoading = ref(false)
 const pendingError = ref(null)
-/** Keyed by agenda-item id so one busy row never disables the others. */
-const votingBusy = ref({})
-const votingError = ref({})
 
 function blankFilters() {
   return { outcome: '', committee_id: '', date_from: '', date_to: '', search: '' }
@@ -154,19 +151,6 @@ function tally(item) {
 
 function myVote(item) {
   return (item.votes ?? []).find((vote) => vote.user.id === auth.user?.id)?.vote ?? null
-}
-
-async function castVote(item, voteValue) {
-  votingError.value[item.id] = ''
-  votingBusy.value[item.id] = true
-  try {
-    await api.post(`/meetings/${item.meeting.id}/agenda/${item.id}/votes`, { vote: voteValue })
-    await loadPending()
-  } catch (error) {
-    votingError.value[item.id] = error.response?.data?.message ?? t('decisions.voteFailed')
-  } finally {
-    votingBusy.value[item.id] = false
-  }
 }
 
 function applyFilters() { load(1) }
@@ -417,20 +401,12 @@ onMounted(async () => {
           </div>
 
           <div v-can="'decisions.add'" class="vote-actions no-print">
-            <button
-              v-for="option in voteOptions(item)"
-              :key="option"
-              class="ghost"
-              :class="{ active: myVote(item) === option }"
-              type="button"
-              :disabled="votingBusy[item.id]"
-              @click="castVote(item, option)"
-            >
-              {{ t(`decisions.vote.${option}`) }}
-            </button>
+            <!-- Decision wizard — sub-project 2: the vote is cast in the item's wizard. -->
+            <RouterLink class="primary" :to="{ name: 'meeting_live', query: { meeting: item.meeting.id, item: item.id, decide: 1 } }">
+              {{ t('decisionWizard.act') }}
+            </RouterLink>
             <span v-if="myVote(item)" class="muted">{{ t('decisions.yourVote') }}</span>
           </div>
-          <p v-if="votingError[item.id]" class="alert">{{ votingError[item.id] }}</p>
         </li>
       </ul>
     </template>

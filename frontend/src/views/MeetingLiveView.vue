@@ -8,12 +8,15 @@
 // — timer, votes, notes, item state — in sync without a socket.
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
+import AgendaItemWizard from '../components/AgendaItemWizard.vue'
+import StudySequencePanel from '../components/StudySequencePanel.vue'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
+const router = useRouter()
 const { t, locale } = useI18n()
 const auth = useAuthStore()
 
@@ -53,6 +56,18 @@ const loading = ref(false)
 const error = ref('')
 const selectedItemId = ref(null)
 
+// Decision wizard — sub-project 2. Pinned to an item id rather than
+// currentItem, which moves on to the next unresolved item as the poll lands.
+const wizardItemId = ref(null)
+const wizardItem = computed(() => (meeting.value?.agenda_items ?? []).find((item) => item.id === wizardItemId.value) ?? null)
+function closeItemWizard() {
+  wizardItemId.value = null
+  if (route.query.decide) {
+    const { decide, ...query } = route.query
+    router.replace({ query })
+  }
+}
+
 async function load() {
   if (!meetingId.value) {
     meeting.value = null
@@ -63,6 +78,10 @@ async function load() {
   try {
     const { data } = await api.get(`/meetings/${meetingId.value}`)
     meeting.value = data.data
+    // «المهام المعلقة» arrives with ?meeting=&item=&decide=1.
+    if (route.query.decide && route.query.item && wizardItemId.value === null) {
+      wizardItemId.value = Number(route.query.item)
+    }
   } catch (requestError) {
     error.value = requestError.response?.data?.message ?? t('meetingsUnit.live.error')
     meeting.value = null
@@ -199,53 +218,11 @@ watch(() => currentItem.value?.id, (id) => {
   if (id) {
     loadContext(currentItem.value)
     loadMemo(currentItem.value)
-    loadStudySequence(currentItem.value)
   } else {
     context.value = null
     memo.value = null
-    studySequence.value = null
   }
 })
-
-// --- Stage 82: [D] Art. 85's per-item sequence (النموذج 11's card) -------------
-//
-// Its own fetch rather than a field on the agenda payload: two of the nine
-// steps are derived from the item's votes and decision, and a resource has no
-// business querying for those.
-
-const studySequence = ref(null)
-const stepBusy = ref('')
-const stepError = ref('')
-
-async function loadStudySequence(item) {
-  studySequence.value = null
-  if (!item) return
-  try {
-    const { data } = await api.get(`/meetings/${meeting.value.id}/agenda/${item.id}/study-sequence`)
-    studySequence.value = data.data
-  } catch {
-    studySequence.value = null
-  }
-}
-
-async function toggleStep(step) {
-  if (step.mode === 'derived' || !step.applicable) return
-  stepError.value = ''
-  stepBusy.value = step.code
-  try {
-    const { data } = await api.patch(
-      `/meetings/${meeting.value.id}/agenda/${currentItem.value.id}/study-sequence`,
-      { step: step.code, done: !step.done },
-    )
-    studySequence.value = data.data
-    // The completion flag opens voting, so the agenda payload has to catch up.
-    await load()
-  } catch (requestError) {
-    stepError.value = requestError.response?.data?.message ?? t('common.none')
-  } finally {
-    stepBusy.value = ''
-  }
-}
 
 function fullDate(value) {
   if (!value) return t('common.none')
@@ -529,49 +506,19 @@ onMounted(async () => {
           </div>
           <p v-if="stateError" class="alert">{{ stateError }}</p>
 
-          <!-- Stage 82 — النموذج 11's card: [D] Art. 85's nine-step sequence,
-               grouped by Appendix 25's five إلزامية stages. The last two steps
-               are read from the item's own votes and decision, so they render
-               read-only rather than as ticks. -->
-          <section v-if="studySequence" class="study-sequence">
-            <h3>{{ t('meetingsUnit.live.studySequence.title') }}</h3>
-            <p v-if="studySequence.material_frozen" class="alert">
-              {{ t('meetingsUnit.live.studySequence.frozen') }}
-            </p>
-            <p v-else-if="!studySequence.is_complete" class="state">
-              {{ t('meetingsUnit.live.studySequence.incomplete') }}
-            </p>
-            <ol class="steps">
-              <li
-                v-for="step in studySequence.steps"
-                :key="step.code"
-                :class="{ done: step.done, na: !step.applicable, derived: step.mode === 'derived' }"
-              >
-                <label>
-                  <input
-                    type="checkbox"
-                    :checked="step.done"
-                    :disabled="step.mode === 'derived' || !step.applicable || stepBusy === step.code || !canRunItems"
-                    @change="toggleStep(step)"
-                  />
-                  <span class="step-name">{{ locale === 'ar' ? step.name_ar : step.name_en }}</span>
-                  <span class="pill small">{{ locale === 'ar' ? step.stage_name_ar : step.stage_name_en }}</span>
-                  <span v-if="step.mode === 'derived'" class="pill small">{{ t('meetingsUnit.live.studySequence.derived') }}</span>
-                  <span v-else-if="step.mode === 'optional'" class="pill small">{{ t('meetingsUnit.live.studySequence.optional') }}</span>
-                  <span v-else-if="!step.applicable" class="pill small">{{ t('meetingsUnit.live.studySequence.notApplicable') }}</span>
-                </label>
-              </li>
-            </ol>
-            <p v-if="stepError" class="alert" role="alert">{{ stepError }}</p>
-          </section>
+          <StudySequencePanel
+            v-if="['employee_request', 'appeal'].includes(currentItem.item_type)"
+            :meeting-id="meeting.id"
+            :item-id="currentItem.id"
+            :can-edit="canRunItems"
+            @changed="load"
+          />
 
           <AgendaItemDecisionPanel
             v-if="['employee_request', 'appeal'].includes(currentItem.item_type)"
-            :meeting-id="meeting.id"
             :item="currentItem"
-            :templates="decisionTemplates"
             :meeting="meeting"
-            @refresh="load"
+            @decide="wizardItemId = currentItem.id"
           />
 
           <div v-if="currentItem.item_type === 'employee_request'" class="info-tabs">
@@ -799,6 +746,15 @@ onMounted(async () => {
           <p class="state">{{ t('meetingsUnit.live.noItems') }}</p>
         </section>
       </div>
+
+      <AgendaItemWizard
+        v-if="wizardItem"
+        :meeting="meeting"
+        :item="wizardItem"
+        :templates="decisionTemplates"
+        @updated="load"
+        @close="closeItemWizard"
+      />
     </template>
   </section>
 </template>
@@ -854,15 +810,6 @@ select, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-ho
 .attachment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
 .attachment-list li { display: flex; align-items: center; gap: var(--space-2); padding: .5rem .6rem; background: var(--color-surface-hover); border-radius: var(--radius-lg); flex-wrap: wrap; }
 .attachment-list .muted { color: var(--color-muted); font-size: var(--text-sm); }
-
-/* Stage 82 — النموذج 11's card on the current item. */
-.study-sequence { padding-top: var(--space-2); margin-bottom: var(--space-3); border-top: 1px dashed var(--color-border-hover); }
-.study-sequence h3 { margin: 0 0 .4rem; font-size: var(--text-lg); color: var(--color-brand-text); }
-.study-sequence .steps { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .3rem; }
-.study-sequence .steps li label { display: flex; align-items: center; gap: .45rem; font-size: var(--text-base); }
-.study-sequence .steps li.done .step-name { font-weight: 600; }
-.study-sequence .steps li.na .step-name,
-.study-sequence .steps li.derived .step-name { color: var(--color-black-600); }
 
 .discussion { padding-top: var(--space-2); border-top: 1px dashed var(--color-border-hover); }
 .discussion h4 { margin: 0 0 var(--space-2); font-size: var(--text-lg); color: var(--color-black-800); }

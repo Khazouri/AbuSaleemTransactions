@@ -10,6 +10,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
+import AgendaItemWizard from '../components/AgendaItemWizard.vue'
 import AppModal from '../components/AppModal.vue'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
@@ -22,6 +23,10 @@ const meeting = ref(null)
 const loading = ref(false)
 const error = ref('')
 const actionError = ref('')
+
+// Decision wizard — sub-project 2.
+const wizardItemId = ref(null)
+const wizardItem = computed(() => (meeting.value?.agenda_items ?? []).find((item) => item.id === wizardItemId.value) ?? null)
 
 const name = (item) => {
   if (!item) return t('common.none')
@@ -468,14 +473,21 @@ onMounted(async () => {
 
               <AgendaItemDecisionPanel
                 v-if="['employee_request', 'appeal'].includes(item.item_type)"
-                :meeting-id="meeting.id"
                 :item="item"
-                :templates="decisionTemplates"
                 :meeting="meeting"
-                @refresh="load"
+                @decide="wizardItemId = item.id"
               />
             </li>
           </ol>
+
+          <AgendaItemWizard
+            v-if="wizardItem"
+            :meeting="meeting"
+            :item="wizardItem"
+            :templates="decisionTemplates"
+            @updated="load"
+            @close="wizardItemId = null"
+          />
 
           <AppModal v-if="showAgendaSearch" :title="t('meetingsUnit.agenda.addItem')" wide @close="closeAgendaSearch">
             <div class="agenda-search">
