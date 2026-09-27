@@ -19,6 +19,46 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-27 EET — Claude — Decision wizard, sub-project 2 complete (slice 3: the meeting)
+
+`MeetingWizard` (opened from `MeetingDutiesCard`, which every meeting screen renders) takes the date answer, agenda
+adoption, convening, the minutes' prepare/approve/return/sign and closing; Confirm is a session-register line.
+`MeetingDuties` owns `adoptRefusal`/`conveneRefusal`/`approveMinutesRefusal`/`closeRefusal`, which the endpoints now
+call, and `GET meetings/{m}/duties` reports them with the seats. The RSVP card, the adopt/convene/close buttons, the
+convene modal, the minutes' generate/review/sign controls and the dropdown's «مكتمل» are gone. All inbox meeting tasks
+open `meeting_details?decide=1`. A small separate commit dropped two locale keys (`meetings.agenda.adoption.adopt`,
+`meetingsUnit.minutes.signatures.sign`) left dead by that removal.
+
+Verified: full suite **786 / 5036**, Pint clean on the task's files, build passes, locale parity **2121**,
+`check-layout.mjs` (only the pre-existing `/decisions` 1024px overflow — see below). Headless walk-through on a
+tinker-built fixture (fresh committee, five seats filled by seeded accounts, a fresh meeting starting
+`pending_confirmation`; the fixture also needed the committee's own quorum rule transcribed — `quorum_type=count`,
+`quorum_count=3` — since an untranscribed committee left `convening_validity_recorded` false and blocked
+`approve_minutes` until that was fixed, a finding worth knowing for the next fixture): as the legal seat, the wizard
+opened at `meetings/{id}?decide=1` with the seat strip and both respond options across ar/en × 1280/375 × light/dark
+(8 combos, real accept submitted on the last — the last member, so the meeting flipped to `scheduled`); as the chair,
+`adopt_agenda` was blocked with the endpoint's own "لا يمكن اعتماد جدول أعمال فارغ." before an agenda item existed
+and available once one did (submitted for real, then the item was removed via tinker so 0 items stayed vacuously
+"every item resolved" for minutes later); `convene` was walked across the same 8-combo matrix — Checks showed the
+not-ready verdict and the submit button stayed disabled until a reason was typed, submitted for real on the last
+combo; `generate_minutes`, `approve_minutes` (Checks' reviewer checkbox gated submit, confirmed disabled→enabled) and
+`sign_minutes` were each submitted for real as the chair; a fresh never-decided item was added via tinker and `close`
+came back blocked with the exact unresolved-items message, regardless of the minutes' own signature count (only the
+chair had signed). The status `<select>` was confirmed to offer only "" and "cancelled" — no «مكتمل» anywhere. Zero
+app console errors were recorded for the phases whose run completed to its own summary (the approve/sign/close/
+status-dropdown phases); the first run (respond/adopt/convene/generate) crashed on a scripting bug *after* those
+steps had already logged success, before printing its own summary, so their console-error tally was not captured —
+noted honestly rather than claimed. Every fixture row (committee, 5 members, meeting, 5 attendees, 1 agenda item, 1
+`MeetingMinutes`, 5 signatures) and the 20 audit-log rows, 2 queued notification jobs and 4 sanctum tokens this
+session created were deleted afterward; all 17 tracked DB counts matched their pre-walk-through baseline exactly.
+
+Two open items in OPEN_ITEMS.md, both found while building the fixture rather than guessed: `generate_minutes` has
+no gate of its own on `convened_at`/resolved items (only `MeetingDuties` withholds the *offer*), and
+`meeting_minutes,add` lets any of the five sitting roles generate the minutes where [D] Art. 15 names المقرر
+specifically. **Next:** sub-project 3 (post-decision work and records) — its OPEN_ITEMS entry now notes the legal
+review already moved into `DecisionWizard.vue` in sub-project 2, so that one item is already done.
+
+---
 ### 2026-09-27 EET — Claude — Decision wizard, sub-project 2, slice 2 (agenda item) complete
 
 `AgendaItemWizard` takes the vote (ballot slip) and the recorded result (draft-decision slip). `DecisionTally` now owns

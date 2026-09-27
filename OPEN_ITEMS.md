@@ -13,18 +13,43 @@ What is open, why it was left, and what would close it.
 
 ---
 
-### Decision wizard for committee duties — decision wizard sub-project 2 — opened 2026-09-26
+### `generate_minutes` does not itself require a convened meeting or resolved items — decision wizard sub-project 2 — opened 2026-09-27
+`MeetingMinutesController::generate()` has no gate of its own on `convened_at` or on every agenda item
+being resolved — only `MeetingDuties::forMeeting()`'s offer condition (read by the inbox and
+`MeetingWizard`) withholds the action until both hold. A caller that skips the wizard (a direct API call,
+or a future screen) can still generate a محضر for a sitting that never opened. Tightening the endpoint
+touches roughly ten test files that call `generate()` on an unconvened fixture. **To close:** add the same
+two checks to `generate()` and convene those fixtures first.
+
+### `meeting_minutes,add` lets every signing member generate the minutes, not only المقرر — decision wizard sub-project 2 — opened 2026-09-27
+`MeetingWizard`'s `generate_minutes` action follows `meeting_minutes,add` (R02/R03/R04/R11/R12 —
+Stage 99's whole sitting), so any of the five may (re)compile the draft. [D] Art. 15 gives إعداد المحضر
+to المقرر (R02) specifically. **To close:** either split generation onto its own action tier seeded
+`['R02']`, or record a decision that any signing member may prepare the draft (Art. 15 read loosely, since
+the head still reviews it before it leaves `draft`).
+
+### Decision wizard for committee duties — decision wizard sub-project 2 — opened 2026-09-26 — Resolved (2026-09-27, decision wizard sub-project 2 slices 1–3)
 The user wants every task in «المهام المعلقة» decided through a wizard; sub-project 1 covered only the
 request-page actions. Still on their own screens: the member's vote and the chair's recorded decision
 (`AgendaItemDecisionPanel`), adopting the agenda, convening, minutes generation/review/signing, and the
 meeting-date response. **To close:** its own spec → plan → build, reusing `DecisionWizard.vue`'s step
 shell with a meeting/agenda-item subject instead of a request.
 
+Built across three slices: `AgendaItemWizard` (vote/record a decision), then `MeetingWizard` +
+`MeetingDutiesCard` (respond to the date, adopt, convene, minutes prepare/approve/return/sign, close),
+both sharing `WizardShell`/`WizardSlip` with sub-project 1's request wizard. `MeetingDuties::forItem()`/
+`forMeeting()` own every refusal the endpoints now call, so the wizard and the endpoint cannot disagree.
+The two remaining gaps (minutes generation's own convened/resolved gate, and who may generate) are their
+own entries above rather than closing this one incompletely.
+
 ### Decision wizard for post-decision work and records — decision wizard sub-project 3 — opened 2026-09-26
 Also still outside the wizard: Art. 103 soundness, execution, both archives, closure, approval
 returns/referrals, suspension lift, corrections/conflicts/special cases/withdrawals, appeals and the
 legal review. These live on the request page's tabs and their own screens. **To close:** its own spec
 after sub-project 2; many already answer with the detail resource, so they fit the same Checks step.
+Sub-project 2 already folded the legal review's request-side reading into `DecisionWizard.vue` (the
+request wizard's Review/Checks steps), so this one covers everything else in the list above it, minus
+that item.
 
 ### The live committee has only its chair seat filled — Stage 102 — opened 2026-09-26
 On the real database committee #16 holds one seated member (chair) and three seatless ones, so it
