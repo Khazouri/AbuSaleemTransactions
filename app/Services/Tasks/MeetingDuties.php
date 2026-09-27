@@ -4,10 +4,13 @@ namespace App\Services\Tasks;
 
 use App\Models\CommitteeMember;
 use App\Models\Meeting;
+use App\Models\MeetingMinutes;
 use App\Models\MeetingRequest;
 use App\Models\User;
 use App\Services\DecisionEligibility;
 use App\Services\DecisionTally;
+use App\Services\MeetingReadinessService;
+use App\Services\MinutesQualityRules;
 
 /**
  * Decision wizard — sub-project 2. What one member may do on a meeting, or on
@@ -26,7 +29,73 @@ class MeetingDuties
     public function __construct(
         private readonly DecisionEligibility $eligibility,
         private readonly DecisionTally $tally,
+        private readonly MinutesQualityRules $quality,
+        private readonly MeetingReadinessService $readiness,
     ) {}
+
+    // --- Refusals the endpoints call ------------------------------------------
+
+    /** MeetingController::adoptAgenda(). */
+    public function adoptRefusal(Meeting $meeting): ?string
+    {
+        if ($meeting->agenda_adopted_at !== null) {
+            return 'تم اعتماد جدول الأعمال بالفعل.';
+        }
+
+        if (! $meeting->agendaItems()->exists()) {
+            return 'لا يمكن اعتماد جدول أعمال فارغ.';
+        }
+
+        return null;
+    }
+
+    /**
+     * MeetingReadinessController::convene(). Its other refusal — a missing
+     * reason for overriding readiness — depends on what is typed, so it stays
+     * in the endpoint.
+     */
+    public function conveneRefusal(Meeting $meeting): ?string
+    {
+        return $meeting->status === 'scheduled' ? null : 'لا يمكن مباشرة اجتماع ليس في حالة \"مجدول\".';
+    }
+
+    /**
+     * MeetingMinutesController::review()'s approve path. The reviewer's own
+     * answer is input, so the wizard asks with it assumed true and what is
+     * left is what the meeting's own data fails.
+     *
+     * @param  array<string, bool>  $reviewerAnswers
+     */
+    public function approveMinutesRefusal(Meeting $meeting, MeetingMinutes $minutes, array $reviewerAnswers): ?string
+    {
+        if ($refusal = $this->quality->refusalReason($meeting, $minutes, $reviewerAnswers)) {
+            return $refusal;
+        }
+
+        if (! $meeting->attendees()->where('attended', true)->exists()) {
+            return 'لا يعتمد المحضر دون حضور مسجل من أعضاء اللجنة يوقعون عليه.';
+        }
+
+        return null;
+    }
+
+    /** MeetingController::update()'s close branch. */
+    public function closeRefusal(Meeting $meeting): ?string
+    {
+        $unresolved = $meeting->agendaItems()->with('decision')->get()
+            ->reject(fn (MeetingRequest $item) => $item->isResolved());
+
+        if ($unresolved->isNotEmpty()) {
+            return 'لا يمكن إغلاق الاجتماع قبل استكمال جميع بنود جدول الأعمال (تصويت وقرار، أو إنهاء يدوي للبنود الإدارية).';
+        }
+
+        $minutes = $meeting->meetingMinutes()->first();
+        if ($minutes === null || $minutes->status !== MeetingMinutes::STATUS_APPROVED) {
+            return 'لا يمكن إغلاق الاجتماع قبل اعتماد محضر الاجتماع (إنشاء، مراجعة، وتوقيع الحضور).';
+        }
+
+        return null;
+    }
 
     /**
      * @return array{available: list<array<string, mixed>>, blocked: list<array{action: string, reason: string}>, seats: list<array<string, mixed>>}

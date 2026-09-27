@@ -23,7 +23,6 @@ use App\Models\CommitteeMember;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\MeetingAttendee;
-use App\Models\MeetingMinutes;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStageLog;
@@ -36,6 +35,7 @@ use App\Services\Lifecycle\UrgencyRules;
 use App\Services\MeetingVisibility;
 use App\Services\NotificationDispatcher;
 use App\Services\StudySequenceRules;
+use App\Services\Tasks\MeetingDuties;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -203,7 +203,7 @@ class MeetingController extends Controller
      * itself resolves that case by auto-approving when there is nothing to
      * sign, so `generate` then `review` is still the required path.
      */
-    public function update(UpdateMeetingRequest $request, Meeting $meeting, NotificationDispatcher $notifications): MeetingResource|JsonResponse
+    public function update(UpdateMeetingRequest $request, Meeting $meeting, NotificationDispatcher $notifications, MeetingDuties $duties): MeetingResource|JsonResponse
     {
         $data = $request->validated();
 
@@ -219,20 +219,8 @@ class MeetingController extends Controller
         }
 
         if (($data['status'] ?? null) === 'completed') {
-            $unresolved = $meeting->agendaItems()->with('decision')->get()
-                ->reject(fn (MeetingRequest $item) => $item->isResolved());
-
-            if ($unresolved->isNotEmpty()) {
-                return response()->json([
-                    'message' => 'لا يمكن إغلاق الاجتماع قبل استكمال جميع بنود جدول الأعمال (تصويت وقرار، أو إنهاء يدوي للبنود الإدارية).',
-                ], 422);
-            }
-
-            $minutes = $meeting->meetingMinutes()->first();
-            if ($minutes === null || $minutes->status !== MeetingMinutes::STATUS_APPROVED) {
-                return response()->json([
-                    'message' => 'لا يمكن إغلاق الاجتماع قبل اعتماد محضر الاجتماع (إنشاء، مراجعة، وتوقيع الحضور).',
-                ], 422);
+            if ($refusal = $duties->closeRefusal($meeting)) {
+                return response()->json(['message' => $refusal], 422);
             }
         }
 
@@ -771,14 +759,11 @@ class MeetingController extends Controller
      * الأعمال قبل الاجتماع»). One-shot: after it the agenda is fixed and
      * deliberation may begin — see AGENDA_NOT_ADOPTED / AGENDA_ALREADY_ADOPTED.
      */
-    public function adoptAgenda(HttpRequest $request, Meeting $meeting): MeetingResource|JsonResponse
+    public function adoptAgenda(HttpRequest $request, Meeting $meeting, MeetingDuties $duties): MeetingResource|JsonResponse
     {
-        if ($meeting->agenda_adopted_at !== null) {
-            return response()->json(['message' => 'تم اعتماد جدول الأعمال بالفعل.'], 422);
-        }
-
-        if (! $meeting->agendaItems()->exists()) {
-            return response()->json(['message' => 'لا يمكن اعتماد جدول أعمال فارغ.'], 422);
+        // Decision wizard — sub-project 2: the same refusal the wizard shows.
+        if ($refusal = $duties->adoptRefusal($meeting)) {
+            return response()->json(['message' => $refusal], 422);
         }
 
         $meeting->update([

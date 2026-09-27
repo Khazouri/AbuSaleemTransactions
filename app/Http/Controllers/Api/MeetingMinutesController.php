@@ -12,6 +12,7 @@ use App\Services\ArtifactNumberGenerator;
 use App\Services\MeetingMinutesCompiler;
 use App\Services\MinutesQualityRules;
 use App\Services\NotificationDispatcher;
+use App\Services\Tasks\MeetingDuties;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -111,6 +112,7 @@ class MeetingMinutesController extends Controller
         ReviewMeetingMinutesRequest $request,
         Meeting $meeting,
         MinutesQualityRules $quality,
+        MeetingDuties $duties,
     ): MeetingMinutesResource|JsonResponse {
         $minutes = $meeting->meetingMinutes()->first();
         if ($minutes === null) {
@@ -133,19 +135,12 @@ class MeetingMinutesController extends Controller
         // `content` freezes at generate() time, so generate → change the
         // agenda → approve was, until this gate, a clean path to an approved
         // document describing a sitting that did not happen.
-        $refusal = $quality->refusalReason($meeting, $minutes, $request->validated('quality_checks') ?? []);
-
+        $refusal = $duties->approveMinutesRefusal($meeting, $minutes, $request->validated('quality_checks') ?? []);
         if ($refusal !== null) {
             return response()->json(['message' => $refusal], 422);
         }
 
         $signerUserIds = $meeting->attendees()->where('attended', true)->pluck('user_id');
-
-        if ($signerUserIds->isEmpty()) {
-            return response()->json([
-                'message' => 'لا يعتمد المحضر دون حضور مسجل من أعضاء اللجنة يوقعون عليه.',
-            ], 422);
-        }
 
         $qualityRecord = $quality->record($meeting, $minutes, $request->validated('quality_checks') ?? []);
 

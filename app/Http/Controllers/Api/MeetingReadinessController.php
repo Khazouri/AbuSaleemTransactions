@@ -7,6 +7,7 @@ use App\Http\Requests\Meeting\ConveneMeetingRequest;
 use App\Http\Resources\MeetingResource;
 use App\Models\Meeting;
 use App\Services\MeetingReadinessService;
+use App\Services\Tasks\MeetingDuties;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -25,12 +26,10 @@ class MeetingReadinessController extends Controller
         return response()->json(['data' => $readiness->compute($meeting)]);
     }
 
-    public function convene(ConveneMeetingRequest $request, Meeting $meeting, MeetingReadinessService $readiness): MeetingResource
+    public function convene(ConveneMeetingRequest $request, Meeting $meeting, MeetingReadinessService $readiness, MeetingDuties $duties): MeetingResource
     {
-        if ($meeting->status !== 'scheduled') {
-            throw ValidationException::withMessages([
-                'status' => ['لا يمكن مباشرة اجتماع ليس في حالة \"مجدول\".'],
-            ]);
+        if ($refusal = $duties->conveneRefusal($meeting)) {
+            throw ValidationException::withMessages(['status' => [$refusal]]);
         }
 
         $verdict = $readiness->compute($meeting);
