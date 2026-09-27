@@ -19,6 +19,18 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-27 EET — Claude — Implementation plan: decision wizard, sub-project 2 (committee duties)
+
+User (brainstorming + /frontend-design): every committee duty in «المهام المعلقة» moves into a wizard and the old
+controls are **replaced**. Three wizards by object: the request wizard gains the committee's moves (`require_completion`,
+`send_to_legal_review`, the legal opinion); a new `AgendaItemWizard` takes the vote and the recorded result; a new
+`MeetingWizard` takes the date answer, agenda adoption, convening, the minutes' generate/approve/return/sign and closing.
+Server: `committee_actions` on the request payload, `GET meetings/{m}/duties` and `GET meetings/{m}/agenda/{item}/duties`,
+each "blocked" reason being the endpoint's own refusal (`DecisionTally`, `MeetingDuties`). Confirm is a paper slip
+(تأشيرة / ورقة تصويت / مسودة القرار / قيد في سجل الجلسة). No migration. Three slices, each verified and committed.
+Spec and plan are local under `docs/superpowers/` (git-ignored).
+
+---
 ### 2026-09-26 22:40 EET — Claude — Decision wizard, sub-project 1 (complete)
 
 Built per the plan below; no migration. The request page's action card, its two top gate panels, the inline Art. 45
