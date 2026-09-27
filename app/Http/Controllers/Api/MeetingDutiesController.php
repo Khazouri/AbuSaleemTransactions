@@ -22,4 +22,9 @@ class MeetingDutiesController extends Controller
 
         return response()->json(['data' => $duties->forItem($agendaItem, $request->user())]);
     }
+
+    public function meeting(Request $request, Meeting $meeting, MeetingDuties $duties): JsonResponse
+    {
+        return response()->json(['data' => $duties->forMeeting($meeting, $request->user())]);
+    }
 }

@@ -156,6 +156,100 @@ class MeetingDuties
     }
 
     /**
+     * @return array{available: list<array<string, mixed>>, blocked: list<array{action: string, reason: string}>, seats: list<array<string, mixed>>}
+     */
+    public function forMeeting(Meeting $meeting, User $actor): array
+    {
+        $meeting->loadMissing(['attendees', 'agendaItems.decision', 'meetingMinutes.signatures', 'committee.members.user']);
+        $minutes = $meeting->meetingMinutes;
+        $open = in_array($meeting->status, [Meeting::STATUS_PENDING_CONFIRMATION, 'scheduled'], true);
+        $duties = ['available' => [], 'blocked' => []];
+
+        // Stage 102 — each invited member answers the proposed date themselves.
+        if ($meeting->status === Meeting::STATUS_PENDING_CONFIRMATION
+            && $meeting->attendees->contains('user_id', $actor->id)) {
+            $this->offer($duties, 'respond_accept', null);
+            $this->offer($duties, 'respond_decline', null);
+        }
+
+        if ($open && $meeting->agenda_adopted_at === null
+            && $actor->hasScreenPermission('meeting_agenda', 'can_approve')) {
+            $this->offer($duties, 'adopt_agenda', $this->adoptRefusal($meeting));
+        }
+
+        if ($open && $meeting->convened_at === null
+            && $actor->hasScreenPermission('meeting_readiness', 'can_edit')) {
+            $refusal = $this->conveneRefusal($meeting);
+            // A reason is owed only for overriding readiness.
+            $this->offer($duties, 'convene', $refusal, $refusal === null && ! $this->readiness->compute($meeting)['ready']);
+        }
+
+        // The minutes' moment, as the inbox reads it: the sitting was opened and
+        // every item is settled. Narrower than the endpoint (open item in OPEN_ITEMS.md).
+        if ($meeting->status === 'scheduled' && $meeting->convened_at !== null
+            && $meeting->agendaItems->every(fn (MeetingRequest $item) => $item->isResolved())
+            && ($minutes === null || $minutes->status === MeetingMinutes::STATUS_DRAFT)
+            && $actor->hasScreenPermission('meeting_minutes', 'can_add')) {
+            $this->offer($duties, 'generate_minutes', null);
+        }
+
+        if ($minutes?->status === MeetingMinutes::STATUS_DRAFT
+            && $actor->hasScreenPermission('meeting_minutes', 'can_approve')) {
+            $this->offer($duties, 'approve_minutes', $this->approveMinutesRefusal(
+                $meeting, $minutes, array_fill_keys(MinutesQualityRules::REVIEWER_CHECKS, true),
+            ));
+            // Sending back checks no quality control, so it is never held back.
+            $this->offer($duties, 'return_minutes', null, true);
+        }
+
+        if ($minutes?->status === MeetingMinutes::STATUS_PENDING_SIGNATURES
+            && $minutes->signatures->contains(fn ($signature) => $signature->user_id === $actor->id && $signature->signed_at === null)
+            && $actor->hasScreenPermission('meeting_minutes', 'can_add')) {
+            $this->offer($duties, 'sign_minutes', null);
+        }
+
+        if ($meeting->status === 'scheduled' && $meeting->convened_at !== null
+            && $actor->hasScreenPermission('meetings', 'can_edit')) {
+            $this->offer($duties, 'close', $this->closeRefusal($meeting));
+        }
+
+        return [...$duties, 'seats' => $this->seats($meeting, $this->meetingSeatState($meeting))];
+    }
+
+    /**
+     * The latest thing the sitting asks of each seat: the signature once the
+     * محضر is out for it, attendance once convened, otherwise the date.
+     *
+     * @return callable(int): string
+     */
+    private function meetingSeatState(Meeting $meeting): callable
+    {
+        $attendees = $meeting->attendees->keyBy('user_id');
+        $minutes = $meeting->meetingMinutes;
+        $signatures = $minutes?->signatures->keyBy('user_id') ?? collect();
+
+        return function (int $userId) use ($meeting, $attendees, $minutes, $signatures): string {
+            if ($minutes !== null && $minutes->status !== MeetingMinutes::STATUS_DRAFT) {
+                return match (true) {
+                    ! $signatures->has($userId) => 'absent',
+                    $signatures->get($userId)->signed_at !== null => 'signed',
+                    default => 'unsigned',
+                };
+            }
+
+            if ($meeting->convened_at !== null) {
+                return $attendees->get($userId)?->attended ? 'present' : 'absent';
+            }
+
+            return match ($attendees->get($userId)?->invitation_status) {
+                'confirmed' => 'accepted',
+                'declined' => 'declined',
+                default => 'pending',
+            };
+        };
+    }
+
+    /**
      * The five Art. 10 (أ) seats in their fixed order, each with its holder
      * and that holder's state for the act at hand.
      *

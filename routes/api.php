@@ -629,6 +629,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // not on the meeting's own attendee list.
     Route::middleware(['screen.permission:meetings,view', 'meeting.member'])
         ->post('meetings/{meeting}/respond', [MeetingController::class, 'respond']);
+    // Decision wizard — sub-project 2. What the member may do on this meeting.
+    Route::middleware(['screen.permission:meetings,view', 'meeting.member'])
+        ->get('meetings/{meeting}/duties', [MeetingDutiesController::class, 'meeting']);
     Route::middleware(['screen.permission:meetings,delete', 'meeting.member'])
         ->delete('meetings/{meeting}', [MeetingController::class, 'destroy']);
 
