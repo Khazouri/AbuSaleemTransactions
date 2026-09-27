@@ -88,6 +88,8 @@ class RequestDetailResource extends RequestResource
             // distinguish exception commands from normal forward progress.
             'available_transitions' => $this->available_transitions ?? [],
             'blocked_transitions' => $this->blocked_transitions ?? [],
+            // Decision wizard — sub-project 2.
+            'committee_actions' => $this->committee_actions ?? [],
             // Stage 75 — [D] Art. 37's closure record, and Appendix 47's
             // twelve-point audit answered when it was written. Both null until
             // the request is actually closed.

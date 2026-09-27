@@ -38,6 +38,7 @@ use App\Models\WorkflowStage;
 use App\Services\ApprovalReferralService;
 use App\Services\ApprovalReturnService;
 use App\Services\ArtifactNumberGenerator;
+use App\Services\CommitteeStatusService;
 use App\Services\EmployeeNoticeRegister;
 use App\Services\EmployeeNoticeService;
 use App\Services\EmploymentFilePreparationService;
@@ -1503,6 +1504,28 @@ class RequestController extends Controller
             ->filter(fn (array $pair) => $pair[1] !== null)
             ->map(fn (array $pair) => [...$shape($pair[0]), 'reason' => $pair[1]])
             ->values()->all());
+
+        // Decision wizard — sub-project 2. The committee's own moves on this
+        // file, offered only when their endpoint would take them. A status
+        // move whose origin does not match is "not now", not a gate holding
+        // it back, so it is left out rather than reported blocked.
+        $committeeStatus = app(CommitteeStatusService::class);
+        $committeeActions = [];
+        foreach ([
+            'require_completion' => ['committee_candidates', true],
+            'send_to_legal_review' => ['legal_review', false],
+        ] as $action => [$screen, $requiresComment]) {
+            if ($actor->hasScreenPermission($screen, 'can_edit') && $committeeStatus->refusal($requestRecord, $action) === null) {
+                $committeeActions[] = ['action' => $action, 'requires_comment' => $requiresComment];
+            }
+        }
+        // The legal member's opinion — Art. 21's pre-meeting review or Art.
+        // 105's suspension review, i.e. exactly their own queue.
+        if ($actor->hasScreenPermission('legal_review', 'can_add')
+            && $committeeStatus->legalReviewQueueQuery()->whereKey($requestRecord->id)->exists()) {
+            $committeeActions[] = ['action' => 'record_legal_review', 'requires_comment' => false];
+        }
+        $requestRecord->setAttribute('committee_actions', $committeeActions);
 
         return new RequestDetailResource($requestRecord);
     }

@@ -146,6 +146,34 @@ class CommitteeStatusService
     public const LEGAL_REVIEW_STATUS = 'under_legal_review';
 
     /**
+     * Decision wizard, sub-project 2 — why this move cannot be made on the
+     * file as it stands, or null. move() throws what this returns (re-read
+     * under its row lock); RequestController::detailResource() offers a move
+     * only when this is null, so the offer and the endpoint agree.
+     */
+    public function refusal(Request $requestRecord, string $action): ?CommitteeStatusTransitionException
+    {
+        $rule = self::ACTIONS[$action] ?? null;
+        if ($rule === null) {
+            return CommitteeStatusTransitionException::actionNotConfigured();
+        }
+
+        if ($this->hasTerminalStatus($requestRecord)) {
+            return CommitteeStatusTransitionException::requestClosed();
+        }
+
+        if ($requestRecord->currentStage?->code !== self::COMMITTEE_STAGE_CODE) {
+            return CommitteeStatusTransitionException::wrongStage();
+        }
+
+        if (! in_array($requestRecord->status?->code, $rule['from'], strict: true)) {
+            return CommitteeStatusTransitionException::transitionNotAllowedFromCurrentStatus();
+        }
+
+        return null;
+    }
+
+    /**
      * @throws CommitteeStatusTransitionException
      */
     public function move(
@@ -174,22 +202,13 @@ class CommitteeStatusService
             throw CommitteeStatusTransitionException::commentRequired();
         }
 
-        return DB::transaction(function () use ($requestRecord, $rule, $actor, $comment) {
+        return DB::transaction(function () use ($requestRecord, $rule, $action, $actor, $comment) {
             $locked = Request::query()
                 ->lockForUpdate()
                 ->findOrFail($requestRecord->getKey());
 
-            if ($this->hasTerminalStatus($locked)) {
-                throw CommitteeStatusTransitionException::requestClosed();
-            }
-
-            if ($locked->currentStage?->code !== self::COMMITTEE_STAGE_CODE) {
-                throw CommitteeStatusTransitionException::wrongStage();
-            }
-
-            $currentStatusCode = $locked->status?->code;
-            if (! in_array($currentStatusCode, $rule['from'], strict: true)) {
-                throw CommitteeStatusTransitionException::transitionNotAllowedFromCurrentStatus();
+            if ($refusal = $this->refusal($locked, $action)) {
+                throw $refusal;
             }
 
             $toStatus = RequestStatus::where('code', $rule['to'])->firstOrFail();
