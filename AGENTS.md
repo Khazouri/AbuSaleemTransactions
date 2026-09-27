@@ -245,10 +245,13 @@ Key architectural facts worth knowing before changing things:
 - **Commit finished work**: when a task is complete and verified, commit
   it rather than leaving it in the working tree for the user to deal with.
   "Verified" means the full PHPUnit suite green, Pint clean on every touched
-  PHP file, `npm run build` passing (then reverting the tracked
-  `frontend/dist` unless the build output is the deliverable), locale
-  key-parity checked, and any new migration/seeder applied to the real
-  database. Put the AGENT_NOTES.md entry in the same commit as the work it
+  PHP file, `npm run build` passing, locale key-parity checked, and any new
+  migration/seeder applied to the real database. **A task that changed
+  anything under `frontend/` ends with `npm run build` and the rebuilt
+  `frontend/dist` committed with the work** — `dist/` is what gets uploaded
+  to the host, so a stale one ships the old UI. A task with no frontend
+  change leaves `dist/` alone (revert it if a build touched it). Put the
+  AGENT_NOTES.md entry in the same commit as the work it
   describes, so the record and the change cannot drift apart. Branch first if
   the current branch is `main`. Pushing and opening a PR stay on explicit
   request — this covers committing only.
