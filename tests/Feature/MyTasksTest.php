@@ -89,7 +89,11 @@ class MyTasksTest extends TestCase
     {
         $this->requestAt('receive_from_committee', 'under_legal_review', $this->userWithRole('R01'));
 
-        $this->assertArrayHasKey('legal_review', $this->inbox($this->userWithRole('R11')));
+        $inbox = $this->inbox($this->userWithRole('R11'));
+        $this->assertArrayHasKey('legal_review', $inbox);
+        // Decision wizard, sub-project 2 — the opinion is given from the file's wizard.
+        $this->assertSame('request_details', $inbox['legal_review']['tasks'][0]['route']['name']);
+        $this->assertSame(['decide' => 1], $inbox['legal_review']['tasks'][0]['route']['query']);
         $this->assertArrayNotHasKey('legal_review', $this->inbox($this->userWithRole('R01')));
     }
 

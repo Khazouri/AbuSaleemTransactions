@@ -211,7 +211,8 @@ class PendingTaskCollector
             'waiting_since' => $r->submitted_at?->toIso8601String(),
             'due_at' => $r->due_date?->toIso8601String(),
             'is_overdue' => $r->overdue_at !== null,
-            'route' => ['name' => 'committee_candidates'],
+            // Decision wizard — sub-project 2: a candidate's moves are taken on the file.
+            'route' => ['name' => 'request_details', 'params' => ['id' => $r->id], 'query' => ['decide' => 1]],
         ]);
     }
 
@@ -235,7 +236,7 @@ class PendingTaskCollector
             'waiting_since' => $r->submitted_at?->toIso8601String(),
             'due_at' => $r->due_date?->toIso8601String(),
             'is_overdue' => $r->overdue_at !== null,
-            'route' => ['name' => 'legal_review'],
+            'route' => ['name' => 'request_details', 'params' => ['id' => $r->id], 'query' => ['decide' => 1]],
         ]);
     }
 
