@@ -205,6 +205,12 @@ class MyTasksTest extends TestCase
         $this->assertContains('convene', $actions);
         $this->assertLinksAreOpenable($seats['chair'], $sources);
 
+        // Decision wizard, sub-project 2 — a meeting's duties are taken on its detail page.
+        $task = collect($sources['meeting_duty']['tasks'])->firstWhere('action', 'convene');
+        $this->assertSame('meeting_details', $task['route']['name']);
+        $this->assertSame(['id' => $meeting->id], $task['route']['params']);
+        $this->assertSame(['decide' => 1], $task['route']['query']);
+
         $this->assertArrayNotHasKey('meeting_duty', $this->inbox($this->userWithRole('R03')));
 
         // A sitting weeks away is not today's work.

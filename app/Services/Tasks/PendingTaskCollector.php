@@ -267,7 +267,8 @@ class PendingTaskCollector
             'waiting_since' => $signature->minutes?->meeting?->scheduled_at?->toIso8601String(),
             'due_at' => null,
             'is_overdue' => false,
-            'route' => ['name' => 'meeting_minutes', 'query' => ['meeting' => $signature->minutes?->meeting_id]],
+            // Decision wizard — sub-project 2: every meeting duty is taken in MeetingWizard.
+            'route' => ['name' => 'meeting_details', 'params' => ['id' => $signature->minutes?->meeting_id], 'query' => ['decide' => 1]],
         ]);
     }
 
@@ -298,7 +299,8 @@ class PendingTaskCollector
             'waiting_since' => $meeting->scheduled_at?->toIso8601String(),
             'due_at' => $meeting->scheduled_at?->toIso8601String(),
             'is_overdue' => false,
-            'route' => ['name' => 'meeting_details', 'params' => ['id' => $meeting->id]],
+            // Decision wizard — sub-project 2: every meeting duty is taken in MeetingWizard.
+            'route' => ['name' => 'meeting_details', 'params' => ['id' => $meeting->id], 'query' => ['decide' => 1]],
         ]);
     }
 
@@ -442,7 +444,7 @@ class PendingTaskCollector
                 ->whereNull('agenda_adopted_at')
                 ->whereHas('agendaItems')
                 ->get()
-                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('adopt_agenda', $m, 'meeting_agenda')));
+                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('adopt_agenda', $m)));
         }
 
         if ($actor->hasScreenPermission('meeting_readiness', 'can_edit')) {
@@ -453,7 +455,7 @@ class PendingTaskCollector
                 ->whereNull('convened_at')
                 ->where('scheduled_at', '<=', now()->endOfDay())
                 ->get()
-                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('convene', $m, 'meeting_readiness')));
+                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('convene', $m)));
         }
 
         if ($actor->hasScreenPermission('decisions', 'can_approve')) {
@@ -502,7 +504,7 @@ class PendingTaskCollector
                         ->where('status', MeetingMinutes::STATUS_DRAFT)
                         ->whereNotNull('review_comment')))
                 ->get()
-                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('generate_minutes', $m, 'meeting_minutes')));
+                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('generate_minutes', $m)));
         }
 
         if ($actor->hasScreenPermission('meeting_minutes', 'can_approve')) {
@@ -512,7 +514,7 @@ class PendingTaskCollector
                     ->where('status', MeetingMinutes::STATUS_DRAFT)
                     ->whereNull('review_comment'))
                 ->get()
-                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('review_minutes', $m, 'meeting_minutes')));
+                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('review_minutes', $m)));
         }
 
         if ($actor->hasScreenPermission('meetings', 'can_edit')) {
@@ -521,7 +523,7 @@ class PendingTaskCollector
                 ->whereNotNull('convened_at')
                 ->whereHas('meetingMinutes', fn (Builder $minutes) => $minutes->where('status', MeetingMinutes::STATUS_APPROVED)))
                 ->get()
-                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('close_meeting', $m, 'meeting_live')));
+                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('close_meeting', $m)));
         }
 
         return $this->tasks('meeting_duty', $tasks);
@@ -745,7 +747,7 @@ class PendingTaskCollector
     }
 
     /** @return array<string, mixed> */
-    private function meetingTask(string $action, Meeting $meeting, string $routeName): array
+    private function meetingTask(string $action, Meeting $meeting): array
     {
         return $this->task($action, $meeting->id, [
             'title' => $meeting->title,
@@ -754,7 +756,8 @@ class PendingTaskCollector
             'waiting_since' => $meeting->scheduled_at?->toIso8601String(),
             'due_at' => $meeting->scheduled_at?->toIso8601String(),
             'is_overdue' => false,
-            'route' => ['name' => $routeName, 'query' => ['meeting' => $meeting->id]],
+            // Decision wizard — sub-project 2: every meeting duty is taken in MeetingWizard.
+            'route' => ['name' => 'meeting_details', 'params' => ['id' => $meeting->id], 'query' => ['decide' => 1]],
         ]);
     }
 
