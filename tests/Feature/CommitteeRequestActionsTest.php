@@ -57,7 +57,12 @@ class CommitteeRequestActionsTest extends TestCase
         $legal = $this->userWithRole('R11');
         $file = $this->fileAt('registered');
 
-        $this->assertArrayNotHasKey('record_legal_review', $this->committeeActions($legal, $file));
+        // Stage 68 bounds the legal member's reach to files actually handed to
+        // them (under_legal_review/execution_suspended or an existing review
+        // record); before hand-over the file is still the rapporteur's alone.
+        $this->actingAs($legal, 'sanctum')
+            ->getJson("/api/requests/{$file->id}")
+            ->assertNotFound();
 
         $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/requests/{$file->id}/legal-reviews/request")
