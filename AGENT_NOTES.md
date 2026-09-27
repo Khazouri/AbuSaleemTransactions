@@ -19,6 +19,46 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-27 21:15 EET — Claude — Decision wizard, sub-project 2 — final-review fixes
+
+Fixed every item (F1–F10, F13) a senior whole-branch review found, per the controller's rulings. **F1
+CRITICAL**: `MeetingDutiesCard` gained `autoOpen`/`refreshKey` props — on `meeting_live` with an `item` in
+the URL, `decide=1` belongs to `AgendaItemWizard` alone, so the card no longer auto-opens `MeetingWizard`
+on top of it, and never strips `decide` from the query unless it actually consumed it. **F2**:
+`AgendaItemWizard` now watches a vote-set signature to reload duties, and re-checks the predicted outcome
+right before posting a decision — a stale outcome refuses with a new `decisionWizard.decision.outcomeChanged`
+message instead of silently recording it (proven live: raced two votes against an open Confirm slip mid-poll,
+got the message, zero decisions recorded, then the slip refreshed to the true outcome). **F3**: the card and
+both wizards now refresh on a `refreshKey` (real work each host computes from what it already reloads) and
+after any 422, so an act taken elsewhere — e.g. recording the meeting's last decision — unblocks
+`generate_minutes` without a page reload (proven live). **F4**: `generate_minutes` is withheld once a fresh
+draft exists, offered again only after the chair sends it back with a comment (new
+`MeetingDutiesTest` case, RED before the fix). **F5**: `WizardShell` lands on a still-present step if the
+current one drops out of `steps`. **F6**: `DecisionWizard` hides and never sends the note for
+`send_to_legal_review` (the endpoint always ignored it). **F7**: fixed the convene refusal string's literal
+`\"` bytes (single-quoted PHP needs no escaping there). **F8**: `MeetingWizard`'s Confirm step now explains
+why Submit is disabled when `approve_minutes` needs the reviewer's checkbox. **F9**: the four wizard-family
+components now use `requestDetail.actionFailed`/`loadFailed` instead of the generic `common.none` for error
+fallbacks (`common.loadFailed` does not exist). **F10**: rewrote three stale docblocks
+(`MeetingController::update()`, `MeetingMinutesView.vue`, `decisionOutcomes.js`'s header). **F13**: new
+membership-gate (404 for an outsider, and for an item belonging to another meeting) and duties-shape tests
+in `MeetingDutiesTest`/`AgendaItemDutiesTest`; the shared `meeting()` fixture helper now transcribes a قرار
+التشكيل so an approval-path test can actually reach `assertOk()` (same fixture gap `task-16-report.md`
+already documented, not an app bug).
+
+Verified: full suite **792/5060** green (was 786/5036 — the 6 new F4/F13 tests), Pint clean, build passes
+(`dist` rebuilt and committed with this entry), locale parity **2123 keys each side** (+2:
+`checks.reviewerRequired`, `decision.outcomeChanged`), `check-layout.mjs` fails only on the pre-existing
+`/decisions` 1024px overflow. Live headless walk-through (ar+en/1280, a fresh committee/meeting/item fixture
+with one pre-cast vote) confirmed F1 (exactly one wizard opens), F2 (the raced outcomeChanged message, then
+the refreshed slip) and F3 (the card offering `generate_minutes` in place, no reload) with zero console
+errors either locale; every fixture row this session created (11 rebuilds while debugging the walk-through
+script itself, ids recorded in `.superpowers/sdd/2026-09-27-decision-wizard-committee-duties/final-fix-report.md`)
+was deleted, along with the minted Sanctum tokens, the queued notification jobs and the matching audit_log
+rows — every live-state count matches `task-16-report.md`'s own baseline exactly. Full report:
+`.superpowers/sdd/2026-09-27-decision-wizard-committee-duties/final-fix-report.md`.
+
+---
 ### 2026-09-27 EET — Claude — Decision wizard, sub-project 2 complete (slice 3: the meeting)
 
 `MeetingWizard` (opened from `MeetingDutiesCard`, which every meeting screen renders) takes the date answer, agenda
