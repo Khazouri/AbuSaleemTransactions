@@ -13,6 +13,7 @@ import { useRoute } from 'vue-router'
 import api from '../lib/api'
 import AppIcon from '../components/AppIcon.vue'
 import AppModal from '../components/AppModal.vue'
+import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import { useAuthStore } from '../stores/auth'
 // Stage 82 — [D] Art. 83's ranks and Appendix 24's priority grounds, mirrored
 // once so this screen and the live runner name them identically.
@@ -77,24 +78,6 @@ async function loadStats() {
     stats.value = data.data
   } catch {
     stats.value = null
-  }
-}
-
-// Stage 99 — [D] Art. 84's «اعتماد جدول الأعمال» (Appendix 6 row 8). After it
-// the agenda is fixed and deliberation may begin; the server enforces both.
-const adopting = ref(false)
-const adoptError = ref('')
-
-async function adoptAgenda() {
-  adoptError.value = ''
-  adopting.value = true
-  try {
-    const { data } = await api.post(`/meetings/${meetingId.value}/agenda/adopt`)
-    meeting.value = data.data
-  } catch (requestError) {
-    adoptError.value = requestError.response?.data?.message ?? t('common.none')
-  } finally {
-    adopting.value = false
   }
 }
 
@@ -415,6 +398,9 @@ onMounted(async () => {
         </button>
       </section>
 
+      <!-- Decision wizard — sub-project 2: adopting the agenda and every other meeting act. -->
+      <MeetingDutiesCard :meeting-id="meetingId" @updated="loadMeeting" />
+
       <!-- Stage 99 — the committee's adoption of its own agenda. -->
       <section class="card card-flat card-pad adoption">
         <h3>{{ t('meetings.agenda.adoption.title') }}</h3>
@@ -424,19 +410,7 @@ onMounted(async () => {
             date: new Date(meeting.agenda_adopted_at).toLocaleString(),
           }) }}
         </p>
-        <template v-else>
-          <p class="alert">{{ t('meetings.agenda.adoption.pending') }}</p>
-          <button
-            v-can="'meeting_agenda.approve'"
-            class="primary"
-            type="button"
-            :disabled="adopting || !meeting.agenda_items?.length"
-            @click="adoptAgenda"
-          >
-            {{ adopting ? t('common.saving') : t('meetings.agenda.adoption.adopt') }}
-          </button>
-        </template>
-        <p v-if="adoptError" class="alert" role="alert">{{ adoptError }}</p>
+        <p v-else class="alert">{{ t('meetings.agenda.adoption.pending') }}</p>
       </section>
 
       <!-- Stage 82 — [D] Art. 83's ordering. Offered, not imposed: the

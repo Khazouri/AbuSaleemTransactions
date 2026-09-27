@@ -11,6 +11,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
 import AgendaItemWizard from '../components/AgendaItemWizard.vue'
+import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import StudySequencePanel from '../components/StudySequencePanel.vue'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
@@ -353,24 +354,6 @@ async function loadDecisionTemplates() {
   }
 }
 
-// --- Close meeting ---------------------------------------------------------------
-
-const closing = ref(false)
-const closeError = ref('')
-
-async function closeMeeting() {
-  closeError.value = ''
-  closing.value = true
-  try {
-    const { data } = await api.put(`/meetings/${meeting.value.id}`, { status: 'completed' })
-    meeting.value = data.data
-  } catch (requestError) {
-    closeError.value = requestError.response?.data?.message ?? t('common.none')
-  } finally {
-    closing.value = false
-  }
-}
-
 onMounted(async () => {
   await Promise.all([loadMeetings(), loadDecisionTemplates()])
 })
@@ -429,18 +412,11 @@ onMounted(async () => {
           <RouterLink v-can="'meeting_minutes.view'" class="ghost" :to="{ name: 'meeting_minutes', query: { meeting: meeting.id } }">
             {{ t('meetings.openMinutes') }}
           </RouterLink>
-          <button
-            v-can="'meetings.edit'"
-            class="primary"
-            type="button"
-            :disabled="closing || !allResolved || !meeting.convened_at || meeting.status !== 'scheduled'"
-            @click="closeMeeting"
-          >
-            {{ closing ? t('common.saving') : t('meetingsUnit.live.closeMeeting') }}
-          </button>
         </div>
       </header>
-      <p v-if="closeError" class="alert" role="alert">{{ closeError }}</p>
+
+      <!-- Decision wizard — sub-project 2: closing and every other meeting act. -->
+      <MeetingDutiesCard :meeting-id="meeting.id" @updated="load" />
 
       <div class="columns">
         <aside class="card card-flat card-pad side">

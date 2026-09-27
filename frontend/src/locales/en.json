@@ -1096,9 +1096,6 @@
     "statusPendingConfirmation": "Awaiting date confirmation",
     "changeStatus": "Change status…",
     "rsvp": {
-      "prompt": "You are invited to this meeting on {date}. Does the date suit you?",
-      "accept": "Accept date",
-      "decline": "Decline date",
       "awaiting": "The meeting is awaiting every member's acceptance of its date.",
       "newDate": "New proposed date",
       "proposeDate": "Propose date",
@@ -1385,15 +1382,8 @@
         "incomplete_required_documents": "Required documents are incomplete on {count} request item(s)."
       },
       "convene": {
-        "title": "Convene meeting",
-        "button": "Convene",
         "alreadyConvened": "Convened at {date}",
-        "reasonLabel": "Override reason",
-        "reasonRequiredHint": "Required — the meeting is not fully ready",
-        "reasonOptionalHint": "Not required — the meeting is fully ready",
-        "confirm": "Convene",
-        "cancel": "Cancel",
-        "processing": "Convening…"
+        "reasonRequiredHint": "Required — the meeting is not fully ready"
       }
     },
     "live": {
@@ -1405,7 +1395,6 @@
       "error": "Could not load the meeting.",
       "notConvened": "This meeting has not been convened yet. Convene it from the readiness screen before running it.",
       "goToReadiness": "Go to readiness",
-      "closeMeeting": "Close meeting",
       "presentAttendees": "Present attendees",
       "noAttendees": "No attendees marked present yet.",
       "noItems": "The agenda has no items.",
@@ -1501,8 +1490,6 @@
       "noMeetingSelected": "Choose a meeting to view its minutes.",
       "error": "Failed to load the meeting's minutes.",
       "notGenerated": "Minutes have not been generated for this meeting yet.",
-      "generate": "Generate minutes",
-      "regenerate": "Regenerate minutes",
       "changesRequestedNote": "Changes were requested on this draft",
       "status": {
         "draft": "Draft",
@@ -1525,23 +1512,14 @@
         "referralAuthority": "Referred to"
       },
       "review": {
-        "title": "Review minutes",
-        "approve": "Approve minutes",
-        "requestChanges": "Request changes",
-        "reasonPlaceholder": "Reason for the requested changes…",
-        "submit": "Submit"
+        "title": "Review minutes"
       },
       "signatures": {
         "title": "Signatures",
         "none": "No signatures required.",
         "signed": "Signed",
         "pending": "Pending",
-        "sign": "Sign",
-        "confirmSign": {
-          "title": "Confirm your signature",
-          "body": "Are you sure you have reviewed the minutes and want to sign?",
-          "confirm": "Confirm signature"
-        }
+        "sign": "Sign"
       },
       "legalReview": {
         "title": "Legal member note",
@@ -2548,7 +2526,16 @@
       "reference": "Reference",
       "meeting": "Meeting",
       "votes": "Votes",
-      "noVotes": "No votes yet"
+      "noVotes": "No votes yet",
+      "meetingLede": "Look at where the meeting and its seats stand before you act.",
+      "date": "Date",
+      "status": "Meeting status",
+      "agenda": "Agenda",
+      "items": "{count} item(s)",
+      "agendaAdopted": "adopted",
+      "agendaNotAdopted": "not adopted",
+      "minutes": "Minutes",
+      "noMinutes": "Not prepared yet"
     },
     "checks": {
       "lede": "These checks are yours to complete before some actions open up. Each one saves with its own button.",
@@ -2559,7 +2546,10 @@
       "legal_card": "Legal basis card",
       "conflict": "Conflict of interest",
       "conflictLede": "If you have a stake in this item, declare it before voting; once declared, you cannot vote on it.",
-      "study_sequence": "Item study sequence (Art. 85)"
+      "study_sequence": "Item study sequence (Art. 85)",
+      "meetingLede": "What the act rests on, before you take it.",
+      "readiness": "Meeting readiness",
+      "minutes_quality": "Minutes quality controls"
     },
     "choose": {
       "lede": "Pick what to do with the file. Each option shows where the file goes next.",
@@ -2570,7 +2560,8 @@
       "none": "No action is open to you yet. Complete the checks first.",
       "verdicts": "Your legal opinion",
       "itemLede": "Cast your vote, or record the result if you chair the sitting.",
-      "nothing": "There is nothing for you to do on this item."
+      "nothing": "There is nothing for you to do on this item.",
+      "meetingLede": "Choose the act to take on this meeting."
     },
     "slip": {
       "reasonRequired": "Reason (required)",
@@ -2598,14 +2589,33 @@
       "return_to_study": "Sends the file back to the rapporteur to finish studying it, with your reason.",
       "require_completion": "Asks for what the file is missing before it is presented; name what is needed.",
       "send_to_legal_review": "Hands the file to the legal member for an opinion before it goes on an agenda.",
-      "record_decision": "Records the committee’s decision from the vote and moves the file accordingly."
+      "record_decision": "Records the committee’s decision from the vote and moves the file accordingly.",
+      "respond_accept": "Confirms you can attend on the proposed date; the meeting is confirmed once every member accepts.",
+      "respond_decline": "You can’t make the date; the meeting waits for the rapporteur to propose another.",
+      "adopt_agenda": "Adopts the agenda: it is fixed against additions, removals and reordering, and deliberation can begin.",
+      "convene": "Opens the sitting and freezes the voting rules as they stand now.",
+      "generate_minutes": "Compiles the draft minutes from the sitting as it stands now.",
+      "approve_minutes": "Approves the minutes and sends them to the attendees to sign.",
+      "return_minutes": "Sends the minutes back to the rapporteur to amend, with your reason.",
+      "sign_minutes": "Confirms the minutes with your signature; the last signature makes them final.",
+      "close": "Closes the meeting; it cannot be changed afterwards."
     },
     "act": "Take action",
     "actions": {
       "require_completion": "Request completion",
       "send_to_legal_review": "Send for legal review",
       "vote": "Vote",
-      "record_decision": "Record the result"
+      "record_decision": "Record the result",
+      "respond_accept": "Accept the date",
+      "respond_decline": "Decline the date",
+      "adopt_agenda": "Adopt the agenda",
+      "convene": "Convene the meeting",
+      "generate_minutes": "Prepare the minutes",
+      "regenerate_minutes": "Prepare the minutes again",
+      "approve_minutes": "Approve the minutes",
+      "return_minutes": "Send the minutes back",
+      "sign_minutes": "Sign the minutes",
+      "close": "Close the meeting"
     },
     "itemTitle": "Vote and decision",
     "seats": {
@@ -2633,6 +2643,19 @@
       "form": "Drafting the decision",
       "predicted": "Result by the votes: {outcome}",
       "tally": "Votes: {summary}"
+    },
+    "meetingTitle": "Meeting actions",
+    "meetingPrompt": "This meeting is waiting on an action from you.",
+    "ledger": {
+      "respond_accept": "The member accepted the meeting date.",
+      "respond_decline": "The member declined the meeting date.",
+      "adopt_agenda": "The agenda was adopted.",
+      "convene": "The meeting was convened.",
+      "generate_minutes": "The draft minutes were prepared.",
+      "approve_minutes": "The minutes were approved for signature.",
+      "return_minutes": "The minutes were sent back for changes.",
+      "sign_minutes": "The minutes were signed.",
+      "close": "The meeting was closed."
     }
   }
 }

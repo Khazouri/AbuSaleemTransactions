@@ -6,7 +6,9 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
+import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import api from '../lib/api'
+import { readinessExceptionMessage } from '../lib/readiness'
 
 const route = useRoute()
 const { t, locale } = useI18n()
@@ -91,57 +93,7 @@ const donutStyle = computed(() => {
   }
 })
 
-function exceptionMessage(exception) {
-  if (exception.code === 'quorum_not_met') {
-    return t(`meetingsUnit.readiness.exceptions.${exception.code}`, {
-      confirmed: exception.confirmed,
-      required: exception.required,
-    })
-  }
-  // Stage 85 — both of these count agenda items, and they mean different
-  // things: `missing_files` is "this file has no documents at all",
-  // `incomplete_required_documents` is "it has documents but not the ones its
-  // own [D] Appendix 57 matrix states unconditionally".
-  if (exception.code === 'missing_files' || exception.code === 'incomplete_required_documents') {
-    return t(`meetingsUnit.readiness.exceptions.${exception.code}`, { count: exception.item_ids?.length ?? 0 })
-  }
-  if (exception.code === 'unconfirmed_members') {
-    return t(`meetingsUnit.readiness.exceptions.${exception.code}`, { count: exception.user_ids?.length ?? 0 })
-  }
-  return t(`meetingsUnit.readiness.exceptions.${exception.code}`)
-}
-
-// --- Convene ---------------------------------------------------------------------
-
-const showConvenePrompt = ref(false)
-const conveneReason = ref('')
-const conveneError = ref('')
-const convening = ref(false)
-
-function openConvenePrompt() {
-  conveneReason.value = ''
-  conveneError.value = ''
-  showConvenePrompt.value = true
-}
-
-async function submitConvene() {
-  convening.value = true
-  conveneError.value = ''
-  try {
-    const { data } = await api.post(`/meetings/${meetingId.value}/convene`, {
-      reason: conveneReason.value.trim() || undefined,
-    })
-    meeting.value = data.data
-    showConvenePrompt.value = false
-  } catch (requestError) {
-    conveneError.value = requestError.response?.data?.errors?.reason?.[0]
-      ?? requestError.response?.data?.errors?.status?.[0]
-      ?? requestError.response?.data?.message
-      ?? t('common.none')
-  } finally {
-    convening.value = false
-  }
-}
+const exceptionMessage = (exception) => readinessExceptionMessage(t, exception)
 
 onMounted(loadMeetings)
 </script>
@@ -165,6 +117,9 @@ onMounted(loadMeetings)
       </label>
     </div>
 
+    <!-- Decision wizard — sub-project 2: convening and every other meeting act. -->
+    <MeetingDutiesCard :meeting-id="meetingId" @updated="load" />
+
     <p v-if="!meetingId" class="state">{{ t('meetingsUnit.readiness.noMeetingSelected') }}</p>
     <p v-else-if="loading" class="state">{{ t('common.loading') }}</p>
     <div v-else-if="error" class="alert" role="alert">
@@ -187,15 +142,6 @@ onMounted(loadMeetings)
           <span class="pill" :class="readiness.ready ? 'good' : 'bad'">
             {{ readiness.ready ? t('meetingsUnit.readiness.verdict.ready') : t('meetingsUnit.readiness.verdict.notReady') }}
           </span>
-          <button
-            v-can="'meeting_readiness.edit'"
-            class="primary"
-            type="button"
-            :disabled="!!meeting.convened_at"
-            @click="openConvenePrompt"
-          >
-            {{ t('meetingsUnit.readiness.convene.button') }}
-          </button>
         </section>
 
         <section class="card card-flat card-pad panel">
@@ -239,30 +185,6 @@ onMounted(loadMeetings)
         </section>
       </div>
     </template>
-
-    <div v-if="showConvenePrompt" class="modal-backdrop" @click.self="showConvenePrompt = false">
-      <div class="modal">
-        <h3>{{ t('meetingsUnit.readiness.convene.title') }}</h3>
-        <label>
-          {{ t('meetingsUnit.readiness.convene.reasonLabel') }}
-          <span class="hint">
-            {{ readiness.ready
-              ? t('meetingsUnit.readiness.convene.reasonOptionalHint')
-              : t('meetingsUnit.readiness.convene.reasonRequiredHint') }}
-          </span>
-          <textarea v-model="conveneReason" rows="3"></textarea>
-        </label>
-        <p v-if="conveneError" class="alert">{{ conveneError }}</p>
-        <div class="modal-actions">
-          <button class="ghost" type="button" :disabled="convening" @click="showConvenePrompt = false">
-            {{ t('meetingsUnit.readiness.convene.cancel') }}
-          </button>
-          <button class="primary" type="button" :disabled="convening" @click="submitConvene">
-            {{ convening ? t('meetingsUnit.readiness.convene.processing') : t('meetingsUnit.readiness.convene.confirm') }}
-          </button>
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
@@ -270,7 +192,7 @@ onMounted(loadMeetings)
 .page.readiness { max-inline-size: 78rem; }
 .picker { margin-bottom: var(--space-4); }
 .picker label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); max-inline-size: 24rem; }
-select, textarea {
+select {
   padding: .5rem .6rem;
   border: 1px solid var(--color-border-hover);
   border-radius: var(--radius-lg);
@@ -302,8 +224,4 @@ select, textarea {
 .bar-value { font-size: var(--text-sm); color: var(--color-muted); font-variant-numeric: tabular-nums; }
 
 .exceptions { margin: 0; padding-inline-start: 1.2rem; display: grid; gap: .4rem; font-size: var(--text-base); color: var(--color-black-700); }
-
-.modal label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); }
-.modal .hint { font-size: var(--text-xs); color: var(--color-muted); }
-.modal textarea { resize: vertical; }
 </style>

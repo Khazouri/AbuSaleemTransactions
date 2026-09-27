@@ -12,12 +12,11 @@ import { useRoute } from 'vue-router'
 import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
 import AgendaItemWizard from '../components/AgendaItemWizard.vue'
 import AppModal from '../components/AppModal.vue'
+import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import api from '../lib/api'
-import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const { t, locale } = useI18n()
-const auth = useAuthStore()
 
 const meeting = ref(null)
 const loading = ref(false)
@@ -108,24 +107,6 @@ async function proposeDate() {
       ?? t('common.none')
   } finally {
     savingMeeting.value = false
-  }
-}
-
-// Stage 102 — each invited member accepts or declines the date themselves.
-const myInvitation = computed(() => (meeting.value?.attendees ?? [])
-  .find((attendee) => attendee.user.id === auth.user?.id))
-const responding = ref(false)
-
-async function respond(response) {
-  responding.value = true
-  actionError.value = ''
-  try {
-    const { data } = await api.post(`/meetings/${meeting.value.id}/respond`, { response })
-    meeting.value = data.data
-  } catch (requestError) {
-    actionError.value = requestError.response?.data?.message ?? t('common.none')
-  } finally {
-    responding.value = false
   }
 }
 
@@ -307,25 +288,9 @@ onMounted(async () => {
 
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
 
-      <!-- Stage 102 — the signed-in member's own answer to the proposed date. -->
-      <section
-        v-if="meeting.status === 'pending_confirmation' && myInvitation"
-        class="card card-flat card-pad rsvp"
-      >
-        <p>
-          {{ t('meetings.rsvp.prompt', { date: dateTime(meeting.scheduled_at) }) }}
-          <span class="pill">{{ t(`meetings.attendance.invitation.${myInvitation.invitation_status}`) }}</span>
-        </p>
-        <div class="rsvp-actions">
-          <button class="primary" type="button" :disabled="responding" @click="respond('accept')">
-            {{ t('meetings.rsvp.accept') }}
-          </button>
-          <button class="ghost danger" type="button" :disabled="responding" @click="respond('decline')">
-            {{ t('meetings.rsvp.decline') }}
-          </button>
-        </div>
-      </section>
-      <p v-else-if="meeting.status === 'pending_confirmation'" class="state">{{ t('meetings.rsvp.awaiting') }}</p>
+      <!-- Decision wizard — sub-project 2: the date answer and every other meeting act. -->
+      <MeetingDutiesCard :meeting-id="meeting.id" @updated="load" />
+      <p v-if="meeting.status === 'pending_confirmation'" class="state">{{ t('meetings.rsvp.awaiting') }}</p>
 
       <section class="card card-flat card-pad summary">
         <div v-if="meeting.meeting_number">
@@ -367,7 +332,6 @@ onMounted(async () => {
             @change="saveMeetingFields"
           >
             <option value="">{{ t('meetings.changeStatus') }}</option>
-            <option value="completed">{{ t('meetings.statusCompleted') }}</option>
             <option value="cancelled">{{ t('meetings.statusCancelled') }}</option>
           </select>
         </div>
@@ -583,9 +547,6 @@ select { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); bor
 .attendee-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .invitation-status { padding: .2rem .4rem; font-size: var(--text-xs); }
 label.checkbox { display: flex; align-items: center; gap: .4rem; }
-.rsvp { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.rsvp p { margin: 0; }
-.rsvp-actions { display: flex; gap: var(--space-2); }
 .propose-date-open { margin-block-end: var(--space-4); }
 .propose-date label { display: grid; gap: .25rem; font-size: var(--text-sm); }
 .propose-date input { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: inherit; font: inherit; }

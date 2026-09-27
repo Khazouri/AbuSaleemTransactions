@@ -1,26 +1,26 @@
 <script setup>
 /**
- * Stage 36 — the minutes lifecycle: generate a compiled draft, the head's
- * review (approve / send back with a reason), then each present attendee's
- * own confirmation. The last confirmation (or review itself, if nobody
- * attended) auto-approves — see MeetingMinutesController's docblock. Approved
- * minutes are what MeetingController::update()'s close gate now requires.
+ * Stage 36 — the minutes lifecycle: a compiled draft, the head's review
+ * (approve / send back with a reason), then each present attendee's own
+ * confirmation. The last confirmation (or review itself, if nobody attended)
+ * auto-approves — see MeetingMinutesController's docblock. Approved minutes
+ * are what MeetingController::update()'s close gate now requires.
  *
- * Signatures have been removed from the system — an attendee's sign-off is
- * now a plain confirmation click, not a drawn/uploaded image.
+ * Decision wizard — sub-project 2: generating, reviewing and signing are now
+ * MeetingWizard's acts (via MeetingDutiesCard); this screen stays the
+ * read-only record of the compiled محضر and its quality-check answers.
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
+import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import { VOTE_OPTIONS } from '../lib/decisionOutcomes'
 import { DEFERRAL_FIELDS } from '../lib/decisionStructure'
 import api from '../lib/api'
-import { MINUTES_QUALITY_CHECKS, MINUTES_REVIEWER_CHECK } from '../lib/controlGates'
-import { useAuthStore } from '../stores/auth'
+import { MINUTES_QUALITY_CHECKS } from '../lib/controlGates'
 
 const route = useRoute()
 const { t, locale } = useI18n()
-const auth = useAuthStore()
 
 function dateTime(value) {
   if (!value) return t('common.none')
@@ -68,35 +68,6 @@ async function load() {
 
 watch(meetingId, load)
 
-// --- Generate / regenerate -----------------------------------------------------
-
-const generating = ref(false)
-const generateError = ref('')
-
-async function generate() {
-  generateError.value = ''
-  generating.value = true
-  try {
-    const { data } = await api.post(`/meetings/${meetingId.value}/minutes/generate`)
-    minutes.value = data.data
-  } catch (requestError) {
-    generateError.value = requestError.response?.data?.message ?? t('common.none')
-  } finally {
-    generating.value = false
-  }
-}
-
-// --- Review (head) ---------------------------------------------------------------
-
-// Stage 78 — approving is also [D] Appendix 63's بوابة 3. Fourteen of
-// Appendix 8's sixteen controls are derived server-side and the sixteenth is
-// enforced by the signature lifecycle, so only this one is asked here.
-const noInternalContradictions = ref(false)
-const reviewBusy = ref(false)
-const reviewError = ref('')
-const changesComment = ref('')
-const showChangesForm = ref(false)
-
 // Stage 99 — [D] Appendix 6 row 11, العضو القانوني «مراجعة عند الحاجة».
 // Optional: it never gates the chair's review.
 const legalNote = ref('')
@@ -114,60 +85,6 @@ async function saveLegalNote() {
     legalError.value = requestError.response?.data?.message ?? t('common.none')
   } finally {
     legalBusy.value = false
-  }
-}
-
-async function review(decision) {
-  reviewError.value = ''
-  reviewBusy.value = true
-  try {
-    const payload = { decision }
-    if (decision === 'changes_requested') payload.comment = changesComment.value.trim()
-    if (decision === 'approve') {
-      payload.quality_checks = { [MINUTES_REVIEWER_CHECK]: noInternalContradictions.value }
-    }
-    const { data } = await api.post(`/meetings/${meetingId.value}/minutes/review`, payload)
-    minutes.value = data.data
-    changesComment.value = ''
-    showChangesForm.value = false
-  } catch (requestError) {
-    reviewError.value = requestError.response?.data?.message ?? t('common.none')
-  } finally {
-    reviewBusy.value = false
-  }
-}
-
-// --- Sign (each present attendee) -----------------------------------------------
-
-const signing = ref(false)
-const signError = ref('')
-// Signatures have been removed from the system — signing is a plain
-// confirmation click, so the button just pauses to ask "are you sure?".
-const pendingSign = ref(false)
-
-const mySignature = computed(() => (minutes.value?.signatures ?? [])
-  .find((signature) => signature.user.id === auth.user?.id))
-
-function openSignConfirm() {
-  pendingSign.value = true
-}
-
-function closeSignConfirm() {
-  if (signing.value) return
-  pendingSign.value = false
-}
-
-async function sign() {
-  signError.value = ''
-  signing.value = true
-  try {
-    const { data } = await api.post(`/meetings/${meetingId.value}/minutes/sign`)
-    minutes.value = data.data
-    pendingSign.value = false
-  } catch (requestError) {
-    signError.value = requestError.response?.data?.message ?? t('common.none')
-  } finally {
-    signing.value = false
   }
 }
 
@@ -205,6 +122,9 @@ onMounted(loadMeetings)
       </label>
     </div>
 
+    <!-- Decision wizard — sub-project 2: generating, reviewing and signing the minutes. -->
+    <MeetingDutiesCard :meeting-id="meetingId" @updated="load" />
+
     <p v-if="!meetingId" class="state">{{ t('meetingsUnit.minutes.noMeetingSelected') }}</p>
     <p v-else-if="loading" class="state">{{ t('common.loading') }}</p>
     <div v-else-if="error" class="alert" role="alert">
@@ -214,27 +134,12 @@ onMounted(loadMeetings)
     <template v-else-if="meetingId">
       <div v-if="!minutes" class="card card-flat card-pad">
         <p class="state">{{ t('meetingsUnit.minutes.notGenerated') }}</p>
-        <button v-can="'meeting_minutes.add'" class="primary" type="button" :disabled="generating" @click="generate">
-          {{ generating ? t('common.saving') : t('meetingsUnit.minutes.generate') }}
-        </button>
-        <p v-if="generateError" class="alert">{{ generateError }}</p>
       </div>
 
       <template v-else>
         <div class="card card-flat card-pad status-card">
           <span class="pill" :class="minutes.status">{{ t(`meetingsUnit.minutes.status.${minutes.status}`) }}</span>
-          <button
-            v-if="minutes.status === 'draft'"
-            v-can="'meeting_minutes.add'"
-            class="ghost"
-            type="button"
-            :disabled="generating"
-            @click="generate"
-          >
-            {{ generating ? t('common.saving') : t('meetingsUnit.minutes.regenerate') }}
-          </button>
         </div>
-        <p v-if="generateError" class="alert">{{ generateError }}</p>
         <p v-if="minutes.status === 'draft' && minutes.review_comment" class="alert warning">
           {{ t('meetingsUnit.minutes.changesRequestedNote') }}: {{ minutes.review_comment }}
         </p>
@@ -400,39 +305,6 @@ onMounted(loadMeetings)
           </ol>
         </section>
 
-        <section v-if="minutes.status === 'draft'" v-can="'meeting_minutes.approve'" class="card card-flat card-pad review">
-          <h3>{{ t('meetingsUnit.minutes.review.title') }}</h3>
-          <!-- Stage 78 — [D] Appendix 8: the محضر is not referred for اعتماد
-               until sixteen controls are verified. Only this one is a human
-               judgement; the rest are checked server-side against the
-               meeting's own data, and the refusal names whichever fails. -->
-          <p class="quality-note">{{ t('controlGates.minutesQuality.note') }}</p>
-          <label class="quality-check">
-            <input v-model="noInternalContradictions" type="checkbox">
-            <span>{{ t('controlGates.minutesQuality.reviewerCheck') }}</span>
-          </label>
-          <div class="actions">
-            <button class="primary" type="button" :disabled="reviewBusy || !noInternalContradictions" @click="review('approve')">
-              {{ t('meetingsUnit.minutes.review.approve') }}
-            </button>
-            <button class="ghost" type="button" :disabled="reviewBusy" @click="showChangesForm = !showChangesForm">
-              {{ t('meetingsUnit.minutes.review.requestChanges') }}
-            </button>
-          </div>
-          <div v-if="showChangesForm" class="changes-form">
-            <textarea
-              v-model="changesComment"
-              rows="2"
-              :placeholder="t('meetingsUnit.minutes.review.reasonPlaceholder')"
-              :aria-label="t('meetingsUnit.minutes.review.reasonPlaceholder')"
-            />
-            <button class="ghost" type="button" :disabled="reviewBusy || !changesComment.trim()" @click="review('changes_requested')">
-              {{ reviewBusy ? t('common.saving') : t('meetingsUnit.minutes.review.submit') }}
-            </button>
-          </div>
-          <p v-if="reviewError" class="alert">{{ reviewError }}</p>
-        </section>
-
         <!-- Stage 78 — the sixteen as answered at review time, so a later
              reader sees Appendix 8's own list rather than only that it passed. -->
         <section v-if="minutes.quality_checks" class="card card-flat card-pad review">
@@ -459,34 +331,9 @@ onMounted(loadMeetings)
               <span v-else class="pill small">{{ t('meetingsUnit.minutes.signatures.pending') }}</span>
             </li>
           </ul>
-
-          <div v-if="minutes.status === 'pending_signatures' && mySignature && !mySignature.signed_at" v-can="'meeting_minutes.add'" class="sign-panel">
-            <button class="primary" type="button" :disabled="signing" @click="openSignConfirm">
-              {{ signing ? t('common.saving') : t('meetingsUnit.minutes.signatures.sign') }}
-            </button>
-            <p v-if="signError" class="alert">{{ signError }}</p>
-          </div>
         </section>
       </template>
     </template>
-
-    <Teleport to="body">
-      <div v-if="pendingSign" class="modal-backdrop" @click.self="closeSignConfirm">
-        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-sign-title">
-          <h3 id="confirm-sign-title">{{ t('meetingsUnit.minutes.signatures.confirmSign.title') }}</h3>
-          <p>{{ t('meetingsUnit.minutes.signatures.confirmSign.body') }}</p>
-          <p v-if="signError" class="alert">{{ signError }}</p>
-          <div class="modal-actions">
-            <button class="ghost" type="button" :disabled="signing" @click="closeSignConfirm">
-              {{ t('common.cancel') }}
-            </button>
-            <button class="primary" type="button" :disabled="signing" @click="sign">
-              {{ signing ? t('common.saving') : t('meetingsUnit.minutes.signatures.confirmSign.confirm') }}
-            </button>
-          </div>
-        </section>
-      </div>
-    </Teleport>
   </section>
 </template>
 
@@ -530,15 +377,9 @@ textarea { inline-size: 100%; resize: vertical; }
 .item-field li { margin-inline-start: 1.1rem; list-style: disc; }
 .notes { list-style: none; margin: .3rem 0 0; padding: 0; display: grid; gap: .2rem; font-size: var(--text-sm); color: var(--color-black-700); }
 
-.review .actions { margin-bottom: var(--space-2); }
-.changes-form { display: grid; gap: .4rem; }
-
 .signature-list { list-style: none; margin: 0 0 var(--space-3); padding: 0; display: grid; gap: var(--space-2); }
 .signature-list li { display: flex; align-items: center; gap: .6rem; font-size: var(--text-base); }
-.sign-panel { display: grid; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px dashed var(--color-border-hover); }
 
-.quality-note { margin: 0 0 var(--space-2); color: var(--color-muted); font-size: var(--text-sm); }
-.quality-check { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); font-size: var(--text-base); }
 .quality-record { display: grid; gap: .3rem; padding: 0; margin: var(--space-2) 0 0; list-style: none; font-size: var(--text-sm); }
 .quality-record li { display: flex; justify-content: space-between; gap: var(--space-3); }
 .quality-record .answer { font-weight: 600; }
