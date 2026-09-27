@@ -19,6 +19,21 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-27 EET — Claude — Decision wizard, sub-project 2, slice 1 (request side) complete
+
+`committee_actions` on the request payload (`CommitteeStatusService::refusal()` is the one check `move()` and the
+payload share); the request wizard now offers «طلب استكمال», «الإحالة للمراجعة القانونية» and the legal member's
+opinion (card in Checks, five verdicts in Choose). `WizardShell`/`WizardSlip` extracted from `DecisionWizard`. The
+candidates list and the legal-review queue now link to the file's wizard; their prompt/modal and the request page's
+send-to-legal button are gone. Inbox `candidate`/`legal_review` tasks open `request_details?decide=1`. Verified: suite
+**773 / 4967**, Pint clean, build passes (`dist` reverted then rebuilt for this commit), parity **2072**, check-layout
+(pre-existing `/decisions` 1024px overflow only). Headless walk-through (Puppeteer, both accounts, ar/en × 1280/375 ×
+light/dark, `committee_actions` injected onto a real request payload since no seeded file sits at
+`receive_from_committee`/`registered`): as r02.reviewer@ the wizard's Choose step lists both committee moves; as
+r11.legal@ Checks shows the legal basis card and Choose lists all five verdicts; zero console errors, no overflow at
+any combination. Never submitted.
+
+---
 ### 2026-09-27 EET — Claude — Implementation plan: decision wizard, sub-project 2 (committee duties)
 
 User (brainstorming + /frontend-design): every committee duty in «المهام المعلقة» moves into a wizard and the old
