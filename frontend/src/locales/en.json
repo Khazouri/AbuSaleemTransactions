@@ -1047,8 +1047,7 @@
       "adoption": {
         "title": "Agenda adoption",
         "pending": "The agenda has not been adopted. No item may be discussed before it is (Art. 84).",
-        "adopted": "Adopted by {name} on {date}. After adoption only an emerging item may be added.",
-        "adopt": "Adopt agenda"
+        "adopted": "Adopted by {name} on {date}. After adoption only an emerging item may be added."
       }
     },
     "attendance": {
@@ -1518,8 +1517,7 @@
         "title": "Signatures",
         "none": "No signatures required.",
         "signed": "Signed",
-        "pending": "Pending",
-        "sign": "Sign"
+        "pending": "Pending"
       },
       "legalReview": {
         "title": "Legal member note",
