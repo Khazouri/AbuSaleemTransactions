@@ -2591,9 +2591,14 @@
       "none": "No action is open to you yet. Complete the checks first."
     },
     "slip": {
-      "kind": "Minute",
       "reasonRequired": "Reason (required)",
-      "noteOptional": "Note (optional)"
+      "noteOptional": "Note (optional)",
+      "kinds": {
+        "tashira": "Minute",
+        "ballot": "Ballot",
+        "decision": "Draft decision",
+        "ledger": "Session register entry"
+      }
     },
     "meaning": {
       "submit": "Sends the request to the employee’s direct manager for review.",

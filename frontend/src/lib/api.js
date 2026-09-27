@@ -74,4 +74,14 @@ api.interceptors.response.use(
   },
 )
 
+/**
+ * The message a failed call should show: the first validation error, else the
+ * server's own message, else the caller's fallback. The wizards post to many
+ * endpoints whose 422s put the refusal under different fields.
+ */
+export function firstError(error, fallback) {
+  const errors = error?.response?.data?.errors ?? {}
+  return Object.values(errors)[0]?.[0] ?? error?.response?.data?.message ?? fallback
+}
+
 export default api
