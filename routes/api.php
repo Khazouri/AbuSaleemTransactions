@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MaintenanceController;
 use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\MeetingDiscussionNoteController;
+use App\Http\Controllers\Api\MeetingDutiesController;
 use App\Http\Controllers\Api\MeetingMinutesController;
 use App\Http\Controllers\Api\MeetingOutputsController;
 use App\Http\Controllers\Api\MeetingReadinessController;
@@ -714,6 +715,10 @@ Route::middleware('auth:sanctum')->group(function () {
      */
     Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/{agendaItem}/context', [MeetingController::class, 'agendaItemContext']);
+
+    // Decision wizard — sub-project 2. What the member may do on this item.
+    Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
+        ->get('meetings/{meeting}/agenda/{agendaItem}/duties', [MeetingDutiesController::class, 'item']);
     Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
         ->get(
             'meetings/{meeting}/agenda/{agendaItem}/attachments/{attachment}',
