@@ -185,7 +185,8 @@ class PendingTaskCollector
             'waiting_since' => $item->meeting?->scheduled_at?->toIso8601String(),
             'due_at' => $item->meeting?->scheduled_at?->toIso8601String(),
             'is_overdue' => false,
-            'route' => ['name' => 'meeting_live', 'query' => ['meeting' => $item->meeting_id, 'item' => $item->id]],
+            // Decision wizard — sub-project 2: the item's wizard opens straight away.
+            'route' => ['name' => 'meeting_live', 'query' => ['meeting' => $item->meeting_id, 'item' => $item->id, 'decide' => 1]],
         ]);
     }
 
@@ -483,7 +484,8 @@ class PendingTaskCollector
                     'waiting_since' => $item->meeting?->scheduled_at?->toIso8601String(),
                     'due_at' => null,
                     'is_overdue' => false,
-                    'route' => ['name' => 'meeting_live', 'query' => ['meeting' => $item->meeting_id, 'item' => $item->id]],
+                    // Decision wizard — sub-project 2: the item's wizard opens straight away.
+                    'route' => ['name' => 'meeting_live', 'query' => ['meeting' => $item->meeting_id, 'item' => $item->id, 'decide' => 1]],
                 ])));
         }
 

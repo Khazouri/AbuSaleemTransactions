@@ -228,7 +228,7 @@ class MyTasksTest extends TestCase
 
         $task = collect($this->inbox($seats['chair'])['meeting_duty']['tasks'])->firstWhere('action', 'record_decision');
         $this->assertNotNull($task);
-        $this->assertSame(['meeting' => $meeting->id, 'item' => $item->id], $task['route']['query']);
+        $this->assertSame(['meeting' => $meeting->id, 'item' => $item->id, 'decide' => 1], $task['route']['query']);
 
         $rapporteurActions = collect($this->inbox($seats['rapporteur'])['meeting_duty']['tasks'] ?? [])->pluck('action');
         $this->assertNotContains('record_decision', $rapporteurActions);
