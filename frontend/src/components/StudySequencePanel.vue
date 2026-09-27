@@ -48,7 +48,7 @@ async function toggle(step) {
     // The completion flag opens voting, so the host's agenda payload has to catch up.
     emit('changed')
   } catch (requestError) {
-    error.value = firstError(requestError, t('common.none'))
+    error.value = firstError(requestError, t('requestDetail.actionFailed'))
   } finally {
     busy.value = ''
   }

@@ -39,6 +39,9 @@ const meeting = ref(null)
 const readiness = ref(null)
 const loading = ref(false)
 const error = ref('')
+// F3 — enough of what this screen already reloads to notice an act taken
+// elsewhere (e.g. the agenda being adopted from the agenda builder's card).
+const dutiesRefreshKey = computed(() => `${meeting.value?.status ?? ''}:${meeting.value?.convened_at ?? ''}`)
 
 async function load() {
   if (!meetingId.value) {
@@ -118,7 +121,7 @@ onMounted(loadMeetings)
     </div>
 
     <!-- Decision wizard — sub-project 2: convening and every other meeting act. -->
-    <MeetingDutiesCard :meeting-id="meetingId" @updated="load" />
+    <MeetingDutiesCard :meeting-id="meetingId" :refresh-key="dutiesRefreshKey" @updated="load" />
 
     <p v-if="!meetingId" class="state">{{ t('meetingsUnit.readiness.noMeetingSelected') }}</p>
     <p v-else-if="loading" class="state">{{ t('common.loading') }}</p>

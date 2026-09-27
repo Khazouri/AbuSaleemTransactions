@@ -2,15 +2,16 @@
 /**
  * Stage 36 — the minutes lifecycle: a compiled draft, the head's review
  * (approve / send back with a reason), then each present attendee's own
- * confirmation. The last confirmation (or review itself, if nobody attended)
- * auto-approves — see MeetingMinutesController's docblock. Approved minutes
- * are what MeetingController::update()'s close gate now requires.
+ * confirmation. The last confirmation moves it to approved; Stage 99 turned
+ * the "nobody attended" case from an auto-approve into a refusal instead —
+ * see MeetingMinutesController::review()'s docblock. Approved minutes are
+ * what MeetingController::update()'s close gate requires.
  *
  * Decision wizard — sub-project 2: generating, reviewing and signing are now
  * MeetingWizard's acts (via MeetingDutiesCard); this screen stays the
  * read-only record of the compiled محضر and its quality-check answers.
  */
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
@@ -47,6 +48,9 @@ async function loadMeetings() {
 const minutes = ref(null)
 const loading = ref(false)
 const error = ref('')
+// F3 — enough of what this screen already reloads to notice an act taken
+// elsewhere (e.g. the minutes being generated from the live runner's card).
+const dutiesRefreshKey = computed(() => minutes.value?.status ?? '')
 
 async function load() {
   if (!meetingId.value) {
@@ -123,7 +127,7 @@ onMounted(loadMeetings)
     </div>
 
     <!-- Decision wizard — sub-project 2: generating, reviewing and signing the minutes. -->
-    <MeetingDutiesCard :meeting-id="meetingId" @updated="load" />
+    <MeetingDutiesCard :meeting-id="meetingId" :refresh-key="dutiesRefreshKey" @updated="load" />
 
     <p v-if="!meetingId" class="state">{{ t('meetingsUnit.minutes.noMeetingSelected') }}</p>
     <p v-else-if="loading" class="state">{{ t('common.loading') }}</p>

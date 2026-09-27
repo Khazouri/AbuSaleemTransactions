@@ -189,19 +189,21 @@ class MeetingController extends Controller
     }
 
     /**
-     * Stage 34 — closing a meeting rides this same generic status update
-     * (the pre-existing `MeetingDetailView` status dropdown already PUTs
-     * here), so the gate protects that dropdown and the live runner from one
-     * code path rather than adding a second "close" action either could
-     * still bypass. Blocked (422) while any agenda item is unresolved —
-     * see MeetingRequest::isResolved().
+     * Stage 34 — closing a meeting rides this same generic status update, so
+     * the gate protects every path to it from one place. Decision wizard
+     * sub-project 2's `MeetingWizard` `close` act is what PUTs
+     * status=completed here now; `MeetingDetailView`'s own status dropdown
+     * lost `completed` once Stage 102 narrowed the statuses a person may set
+     * by hand — it offers only `cancelled`. Blocked (422) while any agenda
+     * item is unresolved — see MeetingRequest::isResolved().
      *
      * Stage 36 adds a second, independent gate right after: closing also
      * requires the meeting's minutes to have completed their own
-     * generate → review → sign lifecycle. No exemption for an
-     * empty/attendee-less meeting — MeetingMinutesController::review()
-     * itself resolves that case by auto-approving when there is nothing to
-     * sign, so `generate` then `review` is still the required path.
+     * generate → review → sign lifecycle. Stage 99 closed the one exemption
+     * this used to have — an empty/attendee-less meeting no longer
+     * auto-approves at review(); it is refused instead
+     * (MeetingDuties::approveMinutesRefusal()), so `generate` then `review`
+     * stays the required path for every meeting, none excepted.
      */
     public function update(UpdateMeetingRequest $request, Meeting $meeting, NotificationDispatcher $notifications, MeetingDuties $duties): MeetingResource|JsonResponse
     {

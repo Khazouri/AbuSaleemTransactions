@@ -39,10 +39,20 @@ async function loadDuties() {
     const { data } = await api.get(`/meetings/${props.meeting.id}/agenda/${props.item.id}/duties`)
     duties.value = data.data
   } catch (requestError) {
-    loadError.value = firstError(requestError, t('common.none'))
+    loadError.value = firstError(requestError, t('requestDetail.loadFailed'))
   }
 }
 onMounted(loadDuties)
+
+// F2 — the live runner polls, so the tally can move under the chair while
+// they review this window; a vote-set signature (not the poll tick) is what
+// should refetch duties, so the predicted outcome and DecisionRecordForm's
+// conditional fields never go stale behind what is actually recorded.
+const voteSignature = computed(() => (props.item.votes ?? [])
+  .map((vote) => `${vote.user_id}:${vote.vote}`)
+  .sort()
+  .join(','))
+watch(voteSignature, loadDuties)
 
 const available = computed(() => duties.value?.available ?? [])
 const blocked = computed(() => duties.value?.blocked ?? [])
@@ -129,7 +139,7 @@ async function declareConflict() {
     conflictReason.value = ''
     await afterCheck()
   } catch (requestError) {
-    conflictError.value = firstError(requestError, t('common.none'))
+    conflictError.value = firstError(requestError, t('requestDetail.actionFailed'))
   } finally {
     conflictBusy.value = false
   }
@@ -159,6 +169,15 @@ async function submit() {
       const note = voteNote.value.trim()
       await api.post(`${base}/votes`, { vote: choice.value.value, ...(note ? { comment: note } : {}) })
     } else {
+      // F2 — the tally can move while the chair sits on this slip; refuse to
+      // post a decision keyed to an outcome that is no longer the live one
+      // rather than let a stale predicted outcome record the wrong result.
+      const expectedOutcome = recordDuty.value?.outcome
+      await loadDuties()
+      if (recordDuty.value?.outcome !== expectedOutcome) {
+        error.value = t('decisionWizard.decision.outcomeChanged')
+        return
+      }
       // Blanks are omitted; the server says in Arabic which part this outcome still needs.
       const payload = Object.fromEntries(Object.entries(draft.value)
         .map(([field, value]) => [field, String(value ?? '').trim()])
@@ -168,7 +187,10 @@ async function submit() {
     emit('updated')
     emit('close')
   } catch (requestError) {
-    error.value = firstError(requestError, t('common.none'))
+    error.value = firstError(requestError, t('requestDetail.actionFailed'))
+    // F3(c) — a 422 can mean the meeting/item changed elsewhere; let the
+    // host (and MeetingDutiesCard) refresh so a newly-open act shows up.
+    if (requestError.response?.status === 422) emit('updated')
   } finally {
     submitting.value = false
   }

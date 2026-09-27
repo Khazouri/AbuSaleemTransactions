@@ -56,7 +56,7 @@ class MeetingDuties
      */
     public function conveneRefusal(Meeting $meeting): ?string
     {
-        return $meeting->status === 'scheduled' ? null : 'لا يمكن مباشرة اجتماع ليس في حالة \"مجدول\".';
+        return $meeting->status === 'scheduled' ? null : 'لا يمكن مباشرة اجتماع ليس في حالة "مجدول".';
     }
 
     /**
@@ -186,9 +186,12 @@ class MeetingDuties
 
         // The minutes' moment, as the inbox reads it: the sitting was opened and
         // every item is settled. Narrower than the endpoint (open item in OPEN_ITEMS.md).
+        // F4 (final-review) — offered only with no minutes yet, or a draft the
+        // chair sent back (review_comment set): a fresh, unreviewed draft is
+        // not yet the rapporteur's to regenerate, only the chair's to review.
         if ($meeting->status === 'scheduled' && $meeting->convened_at !== null
             && $meeting->agendaItems->every(fn (MeetingRequest $item) => $item->isResolved())
-            && ($minutes === null || $minutes->status === MeetingMinutes::STATUS_DRAFT)
+            && ($minutes === null || ($minutes->status === MeetingMinutes::STATUS_DRAFT && $minutes->review_comment !== null))
             && $actor->hasScreenPermission('meeting_minutes', 'can_add')) {
             $this->offer($duties, 'generate_minutes', null);
         }

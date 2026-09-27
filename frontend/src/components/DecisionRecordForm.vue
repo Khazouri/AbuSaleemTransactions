@@ -59,7 +59,7 @@ async function useTemplate() {
     })
     draft.value.decision_operative = data.data.body
   } catch (requestError) {
-    templateError.value = firstError(requestError, t('common.none'))
+    templateError.value = firstError(requestError, t('requestDetail.loadFailed'))
   } finally {
     templateBusy.value = false
   }

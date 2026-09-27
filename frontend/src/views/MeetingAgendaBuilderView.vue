@@ -56,6 +56,9 @@ async function loadMeetings() {
 // --- Selected meeting + agenda --------------------------------------------------
 
 const meeting = ref(null)
+// F3 — enough of what this screen already reloads to notice an act taken
+// elsewhere (e.g. the agenda being adopted from the live runner's own card).
+const dutiesRefreshKey = computed(() => `${meeting.value?.status ?? ''}:${meeting.value?.agenda_adopted_at ?? ''}:${meeting.value?.minutes_status ?? ''}`)
 const stats = ref(null)
 const loading = ref(false)
 const error = ref('')
@@ -399,7 +402,7 @@ onMounted(async () => {
       </section>
 
       <!-- Decision wizard — sub-project 2: adopting the agenda and every other meeting act. -->
-      <MeetingDutiesCard :meeting-id="meetingId" @updated="loadMeeting" />
+      <MeetingDutiesCard :meeting-id="meetingId" :refresh-key="dutiesRefreshKey" @updated="loadMeeting" />
 
       <!-- Stage 99 — the committee's adoption of its own agenda. -->
       <section class="card card-flat card-pad adoption">

@@ -132,6 +132,17 @@ const totalCount = computed(() => meeting.value?.agenda_items?.length ?? 0)
 const resolvedCount = computed(() => (meeting.value?.agenda_items ?? []).filter((i) => i.is_resolved).length)
 const allResolved = computed(() => totalCount.value === 0 || resolvedCount.value === totalCount.value)
 
+// F3 — MeetingDutiesCard's own duties only reload on its own acts; an act
+// taken elsewhere (the item wizard recording the meeting's last decision)
+// must still be able to unblock e.g. generate_minutes without a page reload.
+const dutiesRefreshKey = computed(() => {
+  if (!meeting.value) return ''
+  const items = (meeting.value.agenda_items ?? [])
+    .map((item) => `${item.id}:${item.is_resolved ? 1 : 0}:${item.decision ? 1 : 0}`)
+    .join(',')
+  return [items, meeting.value.status, meeting.value.convened_at, meeting.value.agenda_adopted_at, meeting.value.minutes_status].join('|')
+})
+
 const currentItem = computed(() => {
   const items = meeting.value?.agenda_items ?? []
   if (!items.length) return null
@@ -415,8 +426,15 @@ onMounted(async () => {
         </div>
       </header>
 
-      <!-- Decision wizard — sub-project 2: closing and every other meeting act. -->
-      <MeetingDutiesCard :meeting-id="meeting.id" @updated="load" />
+      <!-- Decision wizard — sub-project 2: closing and every other meeting
+           act. `auto-open` is false whenever the URL also names an item —
+           there `decide=1` is AgendaItemWizard's, not this card's (F1). -->
+      <MeetingDutiesCard
+        :meeting-id="meeting.id"
+        :auto-open="!route.query.item"
+        :refresh-key="dutiesRefreshKey"
+        @updated="load"
+      />
 
       <div class="columns">
         <aside class="card card-flat card-pad side">

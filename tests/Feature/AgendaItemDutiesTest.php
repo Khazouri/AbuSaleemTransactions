@@ -118,6 +118,30 @@ class AgendaItemDutiesTest extends TestCase
         $this->assertTrue($this->availableDuty($seats['chair'], $item, 'record_decision')['requires_comment']);
     }
 
+    /** F13 (final-review) — the membership gate, not just the screen grant. */
+    public function test_a_member_of_a_different_committee_is_refused_the_item_duties(): void
+    {
+        [$meeting, , $item] = $this->sitting();
+        $otherCommittee = Committee::create(['name_ar' => 'لجنة أخرى']);
+        $outsider = $this->userWithRole('R04');
+        $this->seatOn($otherCommittee, $outsider);
+
+        $this->actingAs($outsider, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/duties")
+            ->assertStatus(404);
+    }
+
+    /** F13 (final-review) — MeetingDutiesController::item()'s own guard. */
+    public function test_an_agenda_item_of_another_meeting_gives_404_on_the_item_route(): void
+    {
+        [$meetingA, $seatsA] = $this->sitting();
+        [, , $itemB] = $this->sitting();
+
+        $this->actingAs($seatsA['chair'], 'sanctum')
+            ->getJson("/api/meetings/{$meetingA->id}/agenda/{$itemB->id}/duties")
+            ->assertStatus(404);
+    }
+
     public function test_a_decided_item_offers_nothing(): void
     {
         [, $seats, $item] = $this->sitting();

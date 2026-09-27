@@ -27,6 +27,16 @@ const actionError = ref('')
 const wizardItemId = ref(null)
 const wizardItem = computed(() => (meeting.value?.agenda_items ?? []).find((item) => item.id === wizardItemId.value) ?? null)
 
+// F3 — an act taken elsewhere (e.g. the item wizard recording the meeting's
+// last decision) must still be able to unblock a card act without a reload.
+const dutiesRefreshKey = computed(() => {
+  if (!meeting.value) return ''
+  const items = (meeting.value.agenda_items ?? [])
+    .map((item) => `${item.id}:${item.is_resolved ? 1 : 0}:${item.decision ? 1 : 0}`)
+    .join(',')
+  return [items, meeting.value.status, meeting.value.convened_at, meeting.value.agenda_adopted_at, meeting.value.minutes_status].join('|')
+})
+
 const name = (item) => {
   if (!item) return t('common.none')
   return locale.value === 'ar' ? item.name_ar || item.name_en : item.name_en || item.name_ar
@@ -289,7 +299,7 @@ onMounted(async () => {
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
 
       <!-- Decision wizard — sub-project 2: the date answer and every other meeting act. -->
-      <MeetingDutiesCard :meeting-id="meeting.id" @updated="load" />
+      <MeetingDutiesCard :meeting-id="meeting.id" :refresh-key="dutiesRefreshKey" @updated="load" />
       <p v-if="meeting.status === 'pending_confirmation'" class="state">{{ t('meetings.rsvp.awaiting') }}</p>
 
       <section class="card card-flat card-pad summary">

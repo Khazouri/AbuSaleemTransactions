@@ -5,7 +5,7 @@
  * Each wizard owns its panes (one named slot per step code) and what
  * submitting means; the shell only moves between them.
  */
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppModal from './AppModal.vue'
 
@@ -27,6 +27,16 @@ const go = (offset) => { step.value = props.steps[index.value + offset] }
 function close() {
   if (!props.submitting) emit('close')
 }
+
+// F5 — a check answered elsewhere can drop the current step out of `steps`
+// (e.g. the last blocking check clears and `checks` disappears); land
+// somewhere still in the strip rather than stranding the wizard on a pane
+// that no longer renders.
+watch(() => props.steps, (steps) => {
+  if (!steps.includes(step.value)) {
+    step.value = steps.includes('choose') ? 'choose' : steps[0]
+  }
+})
 </script>
 
 <template>

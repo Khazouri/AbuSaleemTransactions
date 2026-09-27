@@ -2547,7 +2547,8 @@
       "study_sequence": "Item study sequence (Art. 85)",
       "meetingLede": "What the act rests on, before you take it.",
       "readiness": "Meeting readiness",
-      "minutes_quality": "Minutes quality controls"
+      "minutes_quality": "Minutes quality controls",
+      "reviewerRequired": "Tick the reviewer's statement on the Checks step before approving the minutes."
     },
     "choose": {
       "lede": "Pick what to do with the file. Each option shows where the file goes next.",
@@ -2640,7 +2641,8 @@
     "decision": {
       "form": "Drafting the decision",
       "predicted": "Result by the votes: {outcome}",
-      "tally": "Votes: {summary}"
+      "tally": "Votes: {summary}",
+      "outcomeChanged": "The vote result changed since you opened this window; check the new result, then record it."
     },
     "meetingTitle": "Meeting actions",
     "meetingPrompt": "This meeting is waiting on an action from you.",

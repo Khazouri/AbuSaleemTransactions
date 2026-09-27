@@ -147,6 +147,9 @@ const error = ref('')
 const choice = computed(() => choices.value.find((item) => item.key === selected.value) ?? null)
 const isDestructive = (item) => item?.kind === 'transition' && DESTRUCTIVE.includes(item.action)
 const commentMissing = computed(() => Boolean(choice.value?.requiresComment) && !comment.value.trim())
+// F6 — requestReview() (send_to_legal_review) never reads a body; showing a
+// note field that is silently dropped would mislead the actor.
+const showsNote = computed(() => !(choice.value?.kind === 'committee' && choice.value?.action === 'send_to_legal_review'))
 
 // A check can clear a gate and turn a blocked action into an available one; a
 // selection the refreshed payload no longer offers is dropped, not kept stale.
@@ -177,7 +180,11 @@ async function post(item, note) {
     return data.data
   }
   if (item.kind === 'committee') {
-    await api.post(COMMITTEE_ENDPOINTS[item.action](id), note ? { comment: note } : {})
+    // F6 — requestReview() (send_to_legal_review) ignores any body it is
+    // sent; never send one, matching the hidden note field on Confirm below.
+    let body = {}
+    if (item.action !== 'send_to_legal_review' && note) body = { comment: note }
+    await api.post(COMMITTEE_ENDPOINTS[item.action](id), body)
   } else {
     const card = Object.fromEntries(Object.entries(legalCard.value).filter(([, value]) => value !== ''))
     await api.post(`/requests/${id}/legal-reviews`, { ...card, verdict: item.action, ...(note ? { legal_note: note } : {}) })
@@ -335,7 +342,7 @@ async function submit() {
       <WizardSlip kind="tashira" :reference="reference" :destructive="isDestructive(choice)">
         <p class="slip-action">{{ choice?.label }}</p>
         <p v-if="choice?.destination" class="slip-destination">{{ choice.destination }}</p>
-        <label class="slip-note">
+        <label v-if="showsNote" class="slip-note">
           {{ choice?.requiresComment ? t('decisionWizard.slip.reasonRequired') : t('decisionWizard.slip.noteOptional') }}
           <textarea v-model="comment" rows="3" maxlength="5000" :required="choice?.requiresComment" :disabled="submitting" />
         </label>

@@ -60,7 +60,7 @@ onMounted(async () => {
     meeting.value = meetingData.data
     readiness.value = readinessResponse?.data?.data ?? null
   } catch (requestError) {
-    loadError.value = firstError(requestError, t('common.none'))
+    loadError.value = firstError(requestError, t('requestDetail.loadFailed'))
   }
 })
 
@@ -109,7 +109,10 @@ async function submit() {
     emit('updated')
     emit('close')
   } catch (requestError) {
-    error.value = firstError(requestError, t('common.none'))
+    error.value = firstError(requestError, t('requestDetail.actionFailed'))
+    // F3(c) — a 422 can mean the meeting changed elsewhere; let the card
+    // refresh so a newly-open or newly-blocked act shows up without a reload.
+    if (requestError.response?.status === 422) emit('updated')
   } finally {
     submitting.value = false
   }
@@ -210,6 +213,13 @@ async function submit() {
           <textarea v-model="note" rows="3" maxlength="5000" :required="choice.requiresComment" :disabled="submitting" />
         </label>
       </WizardSlip>
+      <!-- F8 — otherwise Submit is silently disabled with no explanation. -->
+      <p v-if="choice?.action === 'approve_minutes' && !reviewerChecked" class="hint">
+        {{ t('decisionWizard.checks.reviewerRequired') }}
+        <button v-if="steps.includes('checks')" class="link" type="button" @click="step = 'checks'">
+          {{ t('decisionWizard.choose.toChecks') }}
+        </button>
+      </p>
       <p v-if="error" class="alert" role="alert">{{ error }}</p>
     </template>
   </WizardShell>

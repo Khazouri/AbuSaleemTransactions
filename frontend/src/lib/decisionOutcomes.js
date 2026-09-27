@@ -2,9 +2,12 @@
  * Stage 35 — the outcomes a committee vote/decision can carry (Stage 49 adds
  * a seventh, `no_jurisdiction`).
  *
- * Shared by DecisionsView.vue (register filters, pending-tab vote buttons)
- * and AgendaItemDecisionPanel.vue (the vote/tally/record-decision block) so
- * neither list can drift from DecisionController::ACTIONS on the backend.
+ * Shared by DecisionsView.vue (register filters), AgendaItemDecisionPanel.vue
+ * (the read-only tally shown once a decision exists) and AgendaItemWizard.vue
+ * (the vote/choose step and the record-decision slip — decision wizard,
+ * sub-project 2, which moved voting and recording out of
+ * AgendaItemDecisionPanel), so none of them can drift from
+ * DecisionController::ACTIONS on the backend.
  */
 export const DECISION_OUTCOMES = [
   'approve',

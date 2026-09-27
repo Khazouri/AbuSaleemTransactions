@@ -6,6 +6,7 @@ use App\Models\Committee;
 use App\Models\CommitteeMember;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\MeetingReadinessService;
 use Database\Seeders\DatabaseSeeder;
@@ -97,6 +98,71 @@ class MeetingDutiesTest extends TestCase
         $this->assertContains('return_minutes', $this->availableActions($seats['chair'], $meeting));
     }
 
+    /** F4 (final-review) — generate_minutes is the rapporteur's until a draft
+     *  exists, then the chair's to review; it returns only once the chair
+     *  sends the draft back with a comment. */
+    public function test_generate_minutes_is_withheld_once_a_fresh_draft_exists_and_offered_again_after_a_return(): void
+    {
+        [$meeting, $seats] = $this->meeting(['status' => 'scheduled', 'convened_at' => now()]);
+
+        $this->assertContains('generate_minutes', $this->availableActions($seats['chair'], $meeting));
+
+        $this->actingAs($seats['chair'], 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
+            ->assertOk();
+        $this->assertNotContains('generate_minutes', $this->availableActions($seats['chair'], $meeting));
+
+        $this->actingAs($seats['chair'], 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/minutes/review", [
+                'decision' => 'changes_requested',
+                'comment' => 'أضف بيانات الحضور.',
+            ])
+            ->assertOk();
+        $this->assertContains('generate_minutes', $this->availableActions($seats['chair'], $meeting));
+    }
+
+    /** F13 (final-review) — the membership gate, not just the screen grant. */
+    public function test_a_member_of_a_different_committee_is_refused_the_meetings_duties(): void
+    {
+        [$meeting] = $this->meeting(['status' => 'scheduled']);
+        $otherCommittee = Committee::create(['name_ar' => 'لجنة أخرى']);
+        $outsider = User::factory()->create(['is_active' => true]);
+        $outsider->roles()->attach(Role::where('code', 'R04')->value('id'));
+        $this->seatOn($otherCommittee, $outsider);
+
+        $this->actingAs($outsider, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/duties")
+            ->assertStatus(404);
+    }
+
+    /** F13 (final-review) — only an attendee with a still-unsigned row. */
+    public function test_signing_minutes_is_offered_only_to_an_attendee_with_an_unsigned_row(): void
+    {
+        [$meeting, $seats] = $this->meeting(['status' => 'scheduled', 'convened_at' => now()]);
+        $this->actingAs($seats['chair'], 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
+        $this->actingAs($seats['chair'], 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
+            ->assertOk();
+
+        $this->assertContains('sign_minutes', $this->availableActions($seats['chair'], $meeting));
+
+        $this->actingAs($seats['chair'], 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/sign")->assertOk();
+
+        $this->assertNotContains('sign_minutes', $this->availableActions($seats['chair'], $meeting));
+        $this->assertContains('sign_minutes', $this->availableActions($seats['legal'], $meeting));
+    }
+
+    /** F13 (final-review) — sending the minutes back always owes a reason. */
+    public function test_returning_minutes_requires_a_comment(): void
+    {
+        [$meeting, $seats] = $this->meeting(['status' => 'scheduled', 'convened_at' => now()]);
+        $this->actingAs($seats['chair'], 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
+
+        $duty = collect($this->duties($seats['chair'], $meeting)['available'])->firstWhere('action', 'return_minutes');
+        $this->assertNotNull($duty);
+        $this->assertTrue($duty['requires_comment']);
+    }
+
     public function test_an_invited_member_answers_the_date_and_their_seat_says_so(): void
     {
         [$meeting, $seats] = $this->meeting(['status' => Meeting::STATUS_PENDING_CONFIRMATION]);
@@ -127,7 +193,17 @@ class MeetingDutiesTest extends TestCase
     /** @return array{0: Meeting, 1: array<string, User>} */
     private function meeting(array $attributes, bool $attended = true): array
     {
-        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
+        // Stage 78/73 — a fixture that reaches minutes approval needs its
+        // قرار التشكيل transcribed, or Appendix 8's "إثبات صحة الانعقاد"
+        // refuses it; same fixture Stage 73 added to MeetingReadinessTest.
+        $committee = Committee::create([
+            'name_ar' => 'لجنة شؤون الموظفين',
+            'quorum_type' => 'fraction',
+            'quorum_numerator' => 1,
+            'quorum_denominator' => 2,
+            'quorum_comparator' => 'more_than',
+            'quorum_text' => 'أكثر من نصف الأعضاء',
+        ]);
         $seats = $this->fillFiveSeats($committee);
         $meeting = new Meeting(['committee_id' => $committee->id, 'title' => 'اجتماع اللجنة', 'scheduled_at' => now()]);
         $meeting->forceFill($attributes)->save();
