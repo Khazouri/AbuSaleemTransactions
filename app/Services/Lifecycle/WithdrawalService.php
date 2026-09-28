@@ -58,6 +58,15 @@ class WithdrawalService
         return $requestRecord->withdrawals()->whereNull('determined_at')->latest('id')->first();
     }
 
+    /**
+     * Decision wizard — sub-project 3. Why the filer may not file another
+     * withdrawal now — one wish is determined before the next is filed.
+     */
+    public function filingRefusal(Request $requestRecord): ?string
+    {
+        return $this->openWithdrawal($requestRecord) !== null ? 'يوجد طلب سحب لم يبت فيه بعد.' : null;
+    }
+
     /** Whether the committee has recorded a decision on any of this file's agenda appearances. */
     public function hasDecision(Request $requestRecord): bool
     {

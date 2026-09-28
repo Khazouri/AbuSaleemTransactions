@@ -327,14 +327,13 @@ class RequestLifecycleController extends Controller
         HttpRequest $request,
         Request $requestRecord,
         RequestCorrection $correction,
+        CorrectionRules $rules,
     ): JsonResponse {
         abort_unless($correction->request_id === $requestRecord->getKey(), 404);
         abort_if($correction->approved_at !== null, 422, 'سبق اعتماد مذكرة التصحيح.');
 
-        if ($correction->recorded_by_user_id === $request->user()->id) {
-            throw ValidationException::withMessages([
-                'correction' => ['لا يعتمد مذكرة التصحيح من حررها؛ يلزم اعتمادها من مسؤول آخر.'],
-            ]);
+        if (($reason = $rules->approvalRefusal($correction, $request->user())) !== null) {
+            throw ValidationException::withMessages(['correction' => [$reason]]);
         }
 
         $correction->update([
@@ -360,10 +359,8 @@ class RequestLifecycleController extends Controller
             ]);
         }
 
-        if ($withdrawals->openWithdrawal($requestRecord) !== null) {
-            throw ValidationException::withMessages([
-                'reason' => ['يوجد طلب سحب لم يبت فيه بعد.'],
-            ]);
+        if (($reason = $withdrawals->filingRefusal($requestRecord)) !== null) {
+            throw ValidationException::withMessages(['reason' => [$reason]]);
         }
 
         $withdrawal = $withdrawals->file($requestRecord, $request->validated('reason'), $request->user());

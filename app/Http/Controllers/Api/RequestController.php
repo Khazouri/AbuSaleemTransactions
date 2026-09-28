@@ -198,7 +198,7 @@ class RequestController extends Controller
      * being executed hasn't concluded yet (Stage 37's own tracker owns its
      * eventual close), so re-presenting it mid-execution doesn't make sense.
      */
-    private const REOPENABLE_STATUS_CODES = ['cancelled', 'archived', 'not_approved', 'completed_closed', 'decision_withdrawn', 'decision_amended'];
+    public const REOPENABLE_STATUS_CODES = ['cancelled', 'archived', 'not_approved', 'completed_closed', 'decision_withdrawn', 'decision_amended'];
 
     /**
      * Stage 95 — is the actor the filer or صاحب العلاقة?
@@ -210,10 +210,27 @@ class RequestController extends Controller
      * approve chain — that one has to, since the transition endpoint and the
      * approval queue both reach it.
      */
-    private function actorIsAnInterestedParty(Request $requestRecord, User $actor): bool
+    private static function actorIsAnInterestedParty(Request $requestRecord, User $actor): bool
     {
         return $requestRecord->created_by_user_id === $actor->id
             || $requestRecord->subject_user_id === $actor->id;
+    }
+
+    /**
+     * Decision wizard — sub-project 3. Why the actor may not reopen this file,
+     * or null — reopen()'s two refusals, in its order, for RequestActs too.
+     */
+    public static function reopenRefusal(Request $requestRecord, User $actor): ?string
+    {
+        if (self::actorIsAnInterestedParty($requestRecord, $actor)) {
+            return 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إعادة فتح الطلب بنفسه.';
+        }
+
+        if (! in_array($requestRecord->status?->code, self::REOPENABLE_STATUS_CODES, true)) {
+            return 'لا يمكن إعادة عرض طلب لم تُختتم إجراءاته بعد.';
+        }
+
+        return null;
     }
 
     public function index(IndexRequest $request, RequestVisibility $visibility): AnonymousResourceCollection
@@ -727,16 +744,8 @@ class RequestController extends Controller
     {
         $actor = $request->user();
 
-        if ($this->actorIsAnInterestedParty($requestRecord, $actor)) {
-            return response()->json([
-                'message' => 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إعادة فتح الطلب بنفسه.',
-            ], 422);
-        }
-
-        if (! in_array($requestRecord->status?->code, self::REOPENABLE_STATUS_CODES, true)) {
-            return response()->json([
-                'message' => 'لا يمكن إعادة عرض طلب لم تُختتم إجراءاته بعد.',
-            ], 422);
+        if (($reason = self::reopenRefusal($requestRecord, $actor)) !== null) {
+            return response()->json(['message' => $reason], 422);
         }
 
         $validated = $request->validated();
@@ -954,15 +963,12 @@ class RequestController extends Controller
         WorkflowService $workflow,
     ): RequestDetailResource|JsonResponse {
         $actor = $request->user();
+
+        if (($reason = $notices->issueRefusal($requestRecord)) !== null) {
+            return response()->json(['message' => $reason], 422);
+        }
+
         $current = $notices->currentMoment($requestRecord);
-
-        if ($current === null) {
-            return response()->json(['message' => 'لا تستوجب حالة المعاملة الحالية إشعارًا وفق المادة 101.'], 422);
-        }
-
-        if (! $requestRecord->subject?->is_active) {
-            return response()->json(['message' => 'لا يمكن إشعار صاحب العلاقة: لا يوجد له حساب مفعّل.'], 422);
-        }
 
         $dispatcher->requestNotice(
             $requestRecord,

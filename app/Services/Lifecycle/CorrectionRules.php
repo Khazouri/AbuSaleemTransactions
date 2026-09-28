@@ -2,6 +2,9 @@
 
 namespace App\Services\Lifecycle;
 
+use App\Models\RequestCorrection;
+use App\Models\User;
+
 /**
  * Stage 83 — [D] Appendix 53's قواعد تصحيح الخطأ المادي.
  *
@@ -65,5 +68,17 @@ class CorrectionRules
         return self::MATERIAL_KINDS[$kind]['ar']
             ?? self::SUBSTANTIVE_KINDS[$kind]['ar']
             ?? $kind;
+    }
+
+    /**
+     * Decision wizard — sub-project 3. Appendix 19's rule for approving a
+     * memo, read by approveCorrection() and by RequestActs: the approver is
+     * never the recorder.
+     */
+    public function approvalRefusal(RequestCorrection $correction, User $actor): ?string
+    {
+        return $correction->recorded_by_user_id === $actor->id
+            ? 'لا يعتمد مذكرة التصحيح من حررها؛ يلزم اعتمادها من مسؤول آخر.'
+            : null;
     }
 }

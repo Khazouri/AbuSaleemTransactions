@@ -472,6 +472,18 @@ class Request extends Model
         return null;
     }
 
+    /**
+     * Decision wizard — sub-project 3. [D] Appendix 25's freeze while a vote
+     * on this file is open, read by AttachmentController::store() and by the
+     * wizard's attach act.
+     */
+    public function attachmentRefusal(): ?string
+    {
+        return MeetingRequest::openVoteExistsFor($this->id)
+            ? 'بدأ التصويت على هذا الموضوع في اللجنة، ولا يجوز إضافة مستندات قبل إثبات النتيجة.'
+            : null;
+    }
+
     /** A breach becomes official only when the scheduled sweep records it. */
     public function isOverdue(): bool
     {

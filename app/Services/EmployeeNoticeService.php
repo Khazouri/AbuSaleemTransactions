@@ -208,6 +208,25 @@ class EmployeeNoticeService
     }
 
     /**
+     * Decision wizard — sub-project 3. Why المقرر may not issue the file's
+     * notice now, or null — RequestController::issueNotice()'s two refusals.
+     */
+    public function issueRefusal(Request $requestRecord): ?string
+    {
+        if ($this->currentMoment($requestRecord) === null) {
+            return 'لا تستوجب حالة المعاملة الحالية إشعارًا وفق المادة 101.';
+        }
+
+        // Queried, not read off the relation: the detail payload eager-loads
+        // `subject:id,name`, so a loaded subject carries no is_active at all.
+        if (! $requestRecord->subject()->where('is_active', true)->exists()) {
+            return 'لا يمكن إشعار صاحب العلاقة: لا يوجد له حساب مفعّل.';
+        }
+
+        return null;
+    }
+
+    /**
      * The facts a notice may quote, gathered once so the notification class
      * stays a pure renderer of scalars (SystemNotification's own rule).
      *

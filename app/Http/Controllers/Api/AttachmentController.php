@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Attachment\StoreAttachmentRequest;
 use App\Http\Resources\AttachmentResource;
 use App\Models\Attachment;
-use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestType;
 use App\Services\DocumentCompletenessService;
@@ -29,10 +28,8 @@ class AttachmentController extends Controller
         // الوقائع أو المستندات بعد بدء التصويت". Only while a vote on this
         // request is actually open — see MeetingRequest::openVoteExistsFor(),
         // which is deliberately not a permanent freeze.
-        if (MeetingRequest::openVoteExistsFor($requestRecord->id)) {
-            return response()->json([
-                'message' => 'بدأ التصويت على هذا الموضوع في اللجنة، ولا يجوز إضافة مستندات قبل إثبات النتيجة.',
-            ], 422);
+        if (($reason = $requestRecord->attachmentRefusal()) !== null) {
+            return response()->json(['message' => $reason], 422);
         }
 
         $documentKey = $request->validated('required_document_key');
