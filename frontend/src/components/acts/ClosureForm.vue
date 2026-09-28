@@ -1,8 +1,8 @@
 <script setup>
 /**
  * Decision wizard — sub-project 3. Art. 37's closure card and Appendix 47's
- * audit, moved out of RequestClosurePanel. Tri-state answers, because several
- * questions are genuinely inapplicable on some final paths.
+ * audit, moved out of the former RequestClosurePanel. Tri-state answers,
+ * because several questions are genuinely inapplicable on some final paths.
  */
 import { useI18n } from 'vue-i18n'
 import { CLOSER_CHECKS } from '../../lib/requestClosure'

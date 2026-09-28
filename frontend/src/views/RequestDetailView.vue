@@ -11,9 +11,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import ApprovalReferralPanel from '../components/ApprovalReferralPanel.vue'
 import TimelineDocuments from '../components/TimelineDocuments.vue'
-import ApprovalReturnPanel from '../components/ApprovalReturnPanel.vue'
 import DecisionWizard from '../components/DecisionWizard.vue'
 import IntakeGatePanel from '../components/IntakeGatePanel.vue'
 import JurisdictionTestForm from '../components/JurisdictionTestForm.vue'
@@ -22,7 +20,6 @@ import RequestSuspensionPanel from '../components/RequestSuspensionPanel.vue'
 import ApprovalTrail from '../components/ApprovalTrail.vue'
 import FileUpload from '../components/FileUpload.vue'
 import RequestArchivePanel from '../components/RequestArchivePanel.vue'
-import RequestClosurePanel from '../components/RequestClosurePanel.vue'
 import RequestLifecyclePanel from '../components/RequestLifecyclePanel.vue'
 import RequestNotes from '../components/RequestNotes.vue'
 import RequestStageRail from '../components/RequestStageRail.vue'
@@ -114,29 +111,13 @@ const date = (value) => value
   ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
   : t('common.none')
 const actionLabel = (action) => t(`workflow.actions.${action}`)
-// Stage 75 — the close endpoint answers with the full detail resource, so the
-// screen swaps in the closed request rather than refetching it.
-const onClosed = (updated) => { request.value = updated }
-// Stage 77 — the two approval-return endpoints answer with the same full detail
-// resource, so the card swaps in the updated request rather than refetching.
-const onApprovalReturnUpdated = (updated) => { request.value = updated }
-// Stage 80 — the referral still awaiting Art. 30's تاريخ ورود النتيجة,
-// resolved against the id the server computed rather than re-deriving
-// "unanswered" here, so the panel and the endpoint agree on which one it is.
-const openApprovalReferral = computed(() => {
-  const openId = request.value?.approval_referral_eligibility?.open_referral_id
-  return openId ? request.value.approval_referrals?.find((entry) => entry.id === openId) ?? null : null
-})
+// The round still awaiting an answer, read off the register itself now that
+// the eligibility fields are gone (decision wizard sub-project 3).
+const openApprovalReferral = computed(() => request.value?.approval_referrals?.find((entry) => !entry.result_outcome) ?? null)
+const openApprovalReturn = computed(() => request.value?.approval_returns?.find((entry) => !entry.resolved_at) ?? null)
 // Stage 78 — every control-gate endpoint answers with the same full detail
 // resource, so each card swaps in the updated request rather than refetching.
 const onGateUpdated = (updated) => { request.value = updated }
-// The round still waiting on Art. 94's "الإجراء الذي اتخذ بشأنها". Resolved
-// against the id the server computed rather than re-deriving "unresolved" here,
-// so the panel and the endpoint agree on which round is open.
-const openApprovalReturn = computed(() => {
-  const openId = request.value?.approval_return_eligibility?.open_return_id
-  return openId ? request.value.approval_returns?.find((entry) => entry.id === openId) ?? null : null
-})
 // Stage 52 — "3" for a single-day target, "5–10" for a range.
 const stageTargetLabel = (st) => st.target_days_min === st.target_days_max
   ? String(st.target_days_max)
@@ -150,12 +131,17 @@ const timelineMovement = (entry) => entry.from_stage
 const wizardOpen = ref(false)
 const canDecide = computed(() => Boolean(
   request.value?.available_transitions?.length || request.value?.blocked_transitions?.length
-  || request.value?.committee_actions?.length,
+  || request.value?.committee_actions?.length
+  || request.value?.acts?.available?.length || request.value?.acts?.blocked?.length,
 ))
+// Decision wizard — sub-project 3. `?decide=<act>&target=<row>` opens on that act.
+const wizardInitial = computed(() => (route.query.decide && route.query.decide !== '1'
+  ? { action: route.query.decide, target: route.query.target ?? null }
+  : null))
 function closeWizard() {
   wizardOpen.value = false
   if (route.query.decide) {
-    const { decide, ...query } = route.query
+    const { decide, target, ...query } = route.query
     router.replace({ query })
   }
 }
@@ -171,10 +157,8 @@ const currentStageName = computed(() => request.value?.current_stage ? name(requ
 // v-if conditions its own panels already carried.
 const hasGatesTabContent = computed(() => request.value?.current_stage?.code === 'requirements_check' || !!request.value?.control_gates)
 const hasApprovalsTabContent = computed(() => Boolean(
-  request.value?.approval_referrals?.length || request.value?.approval_referral_eligibility?.can_record
-  || request.value?.approval_returns?.length || request.value?.approval_return_eligibility?.can_record
-  || request.value?.approvals?.length
-  || isReopenable.value,
+  request.value?.approval_referrals?.length || request.value?.approval_returns?.length
+  || request.value?.approvals?.length || isReopenable.value,
 ))
 const hasLegalTabContent = computed(() => Boolean(
   request.value?.legal_review || request.value?.committee_summary,
@@ -247,13 +231,6 @@ async function downloadAttachment(attachment) {
 }
 
 const auth = useAuthStore()
-
-// Stage 100 — Appendix 6 row 15: the archive is recordable only while the file
-// stands on one of Art. 37's final paths and is not yet closed.
-const ARCHIVABLE_STATUSES = ['executed', 'not_approved', 'outside_jurisdiction']
-const archiveEditable = computed(() =>
-  !request.value?.closure && ARCHIVABLE_STATUSES.includes(request.value?.status?.code),
-)
 
 // Stage 100 — Appendix 6 row 14: المقرر issues the file's current notice.
 const noticeIssuing = ref(false)
@@ -420,7 +397,7 @@ onBeforeUnmount(clearAttachmentPreview)
         <button class="primary" type="button" @click="wizardOpen = true">{{ t('decisionWizard.open') }}</button>
       </section>
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
-      <DecisionWizard v-if="wizardOpen" :request="request" @updated="onGateUpdated" @close="closeWizard" />
+      <DecisionWizard v-if="wizardOpen" :request="request" :initial="wizardInitial" @updated="onGateUpdated" @close="closeWizard" />
 
       <!-- Tab strip. -->
       <div class="tabs" role="tablist" :aria-label="t('requestDetail.tabsLabel')" @keydown.right.prevent="stepTab(1)" @keydown.left.prevent="stepTab(-1)">
@@ -623,7 +600,7 @@ onBeforeUnmount(clearAttachmentPreview)
               attestation-field="assembled"
               grant="notes_attachments.add"
               copy="employmentFile"
-              @updated="onGateUpdated"
+              readonly
             />
           </div>
 
@@ -631,7 +608,7 @@ onBeforeUnmount(clearAttachmentPreview)
                file; المقرر answers it inside the decision wizard. -->
           <div v-if="request.current_stage?.code === 'requirements_check'" class="gate-block">
             <h4>{{ t('requestDetail.jurisdictionTest.title') }}</h4>
-            <JurisdictionTestForm :request="request" @updated="onGateUpdated" />
+            <JurisdictionTestForm :request="request" readonly />
           </div>
 
           <div
@@ -647,7 +624,7 @@ onBeforeUnmount(clearAttachmentPreview)
               :refusal="request.control_gates.intake.refusal"
               :recorded-by="request.control_gates.intake.recorded_by"
               :recorded-at="request.control_gates.intake.recorded_at"
-              @updated="onGateUpdated"
+              readonly
             />
           </div>
 
@@ -658,27 +635,16 @@ onBeforeUnmount(clearAttachmentPreview)
             <h4>{{ t('controlGates.soundness.title') }}</h4>
             <p class="hint">{{ t('controlGates.soundness.question') }}</p>
             <RequestSoundnessPanel
-              :request-id="request.id"
               :record="request.control_gates.execution_soundness.record"
               :derived="request.control_gates.execution_soundness.derived"
               :refusal="request.control_gates.execution_soundness.refusal"
-              @updated="onGateUpdated"
             />
           </div>
 
-          <div
-            v-if="request.suspensions?.length || !request.control_gates.suspension.refusal"
-            class="gate-block"
-          >
+          <div v-if="request.suspensions?.length" class="gate-block">
             <h4>{{ t('controlGates.suspension.title') }}</h4>
             <p class="hint">{{ t('controlGates.suspension.question') }}</p>
-            <RequestSuspensionPanel
-              :request-id="request.id"
-              :suspensions="request.suspensions ?? []"
-              :refusal="request.control_gates.suspension.refusal"
-              :open-id="request.control_gates.suspension.open_id"
-              @updated="onGateUpdated"
-            />
+            <RequestSuspensionPanel :suspensions="request.suspensions" />
           </div>
         </section>
       </div>
@@ -688,10 +654,7 @@ onBeforeUnmount(clearAttachmentPreview)
         <p v-if="!hasApprovalsTabContent" class="state">{{ t('requestDetail.tabs.empty') }}</p>
 
         <!-- Stage 80 — [D] Art. 30's سجل الإحالات للاعتماد. -->
-        <section
-          v-if="request.approval_referrals?.length || request.approval_referral_eligibility?.can_record"
-          class="card card-flat card-pad summary closure"
-        >
+        <section v-if="request.approval_referrals?.length" class="card card-flat card-pad summary closure">
           <h3>{{ t('approvalReferral.title') }}</h3>
           <ol v-if="request.approval_referrals?.length" class="return-list">
             <li v-for="entry in request.approval_referrals" :key="entry.id">
@@ -732,19 +695,13 @@ onBeforeUnmount(clearAttachmentPreview)
               </dl>
             </li>
           </ol>
-          <ApprovalReferralPanel
-            :request-id="request.id"
-            :refusal="request.approval_referral_eligibility?.reason"
-            :open-referral="openApprovalReferral"
-            @updated="onApprovalReturnUpdated"
-          />
+          <p v-if="openApprovalReferral" class="alert info">
+            {{ t('approvalReferral.pendingResult', { letter: openApprovalReferral.letter_number, body: openApprovalReferral.referred_to_body }) }}
+          </p>
         </section>
 
         <!-- Stage 77 — [D] Art. 94's إعادة المحضر من جهة الاعتماد. -->
-        <section
-          v-if="request.approval_returns?.length || request.approval_return_eligibility?.can_record"
-          class="card card-flat card-pad summary closure"
-        >
+        <section v-if="request.approval_returns?.length" class="card card-flat card-pad summary closure">
           <h3>{{ t('approvalReturn.title') }}</h3>
           <ol v-if="request.approval_returns?.length" class="return-list">
             <li v-for="entry in request.approval_returns" :key="entry.id">
@@ -785,12 +742,7 @@ onBeforeUnmount(clearAttachmentPreview)
               </dl>
             </li>
           </ol>
-          <ApprovalReturnPanel
-            :request-id="request.id"
-            :refusal="request.approval_return_eligibility?.reason"
-            :open-return="openApprovalReturn"
-            @updated="onApprovalReturnUpdated"
-          />
+          <p v-if="openApprovalReturn" class="alert warning">{{ t('approvalReturn.pendingResolution') }}</p>
         </section>
 
         <ApprovalTrail :approvals="request.approvals ?? []" />
@@ -1023,21 +975,16 @@ onBeforeUnmount(clearAttachmentPreview)
         <!-- Stage 75 — [D] Art. 37's الإقفال. -->
         <!-- Stage 100 — [D] Appendix 6 row 15's two archive records. -->
         <section
-          v-if="request.archive && (archiveEditable || request.archive.committee_file || request.archive.service_file)"
+          v-if="request.archive && (request.archive.committee_file || request.archive.service_file)"
           class="card card-flat card-pad summary closure"
         >
           <h3>{{ t('requestArchive.title') }}</h3>
-          <RequestArchivePanel
-            :request-id="request.id"
-            :archive="request.archive"
-            :editable="archiveEditable"
-            @updated="request = $event"
-          />
+          <RequestArchivePanel :archive="request.archive" />
         </section>
 
-        <section v-if="request.closure || request.closure_eligibility?.can_close" class="card card-flat card-pad summary closure">
+        <section v-if="request.closure" class="card card-flat card-pad summary closure">
           <h3>{{ t('requestClosure.title') }}</h3>
-          <template v-if="request.closure">
+          <template>
             <dl>
               <div>
                 <span>{{ t('requestClosure.fields.final_result_code') }}</span>
@@ -1080,12 +1027,6 @@ onBeforeUnmount(clearAttachmentPreview)
               </li>
             </ul>
           </template>
-          <RequestClosurePanel
-            v-else
-            :request-id="request.id"
-            :refusal="request.closure_eligibility?.reason"
-            @closed="onClosed"
-          />
         </section>
       </div>
 

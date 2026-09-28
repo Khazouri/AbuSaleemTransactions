@@ -1,8 +1,8 @@
 <script setup>
 /**
  * Decision wizard — sub-project 3. النموذج 17 and Appendix 70's دليل التنفيذ,
- * moved out of RequestExecutionPanel. Evidence is chosen from the file's own
- * documents, never uploaded blind; uploading proof is its own act.
+ * moved out of the former RequestExecutionPanel. Evidence is chosen from the
+ * file's own documents, never uploaded blind; uploading proof is its own act.
  */
 import { useI18n } from 'vue-i18n'
 import { EVIDENCE_TYPES, EXECUTOR_CHECKS, SERVICE_FILE_ITEMS } from '../../lib/requestExecution'

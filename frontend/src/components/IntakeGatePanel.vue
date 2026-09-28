@@ -41,6 +41,9 @@ const props = defineProps({
   attestationField: { type: String, default: 'facts_verified' },
   grant: { type: String, default: 'notes_attachments.edit' },
   copy: { type: String, default: 'intake' },
+  // Decision wizard — sub-project 3. The gates tab shows the card only; its
+  // form lives in the wizard's Checks step.
+  readonly: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['updated'])
@@ -143,7 +146,7 @@ async function submit() {
     </ul>
 
     <button
-      v-if="!open"
+      v-if="!open && !readonly"
       v-can="grant"
       class="btn btn-sm primary"
       type="button"
@@ -152,7 +155,7 @@ async function submit() {
       {{ record ? c('reviseAction') : c('action') }}
     </button>
 
-    <form v-else class="gate-form" @submit.prevent="submit">
+    <form v-else-if="open" class="gate-form" @submit.prevent="submit">
       <p class="hint">{{ c('formNote') }}</p>
 
       <p v-if="!documents.length" class="hint">{{ c('noDocuments') }}</p>

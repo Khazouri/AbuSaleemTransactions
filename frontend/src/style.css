@@ -906,11 +906,11 @@ textarea {
 
 /* -- Control-gate panels ---------------------------------------------------
    The request workspace's gate/closure/execution/suspension panels
-   (IntakeGatePanel, RequestSoundnessPanel, RequestSuspensionPanel,
-   RequestClosurePanel, RequestExecutionPanel) all share one shape: a small
-   trigger button that expands into a bordered form holding a question/answer
-   checklist. Five near-identical ~150-line copies of this collapse into one
-   definition here. */
+   (IntakeGatePanel, RequestSoundnessPanel, RequestSuspensionPanel, and the
+   former RequestClosurePanel/RequestExecutionPanel) all share one shape: a
+   small trigger button that expands into a bordered form holding a
+   question/answer checklist. Five near-identical ~150-line copies of this
+   collapse into one definition here. */
 .gate-panel {
   display: flex;
   flex-direction: column;

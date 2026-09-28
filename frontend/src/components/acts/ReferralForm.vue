@@ -1,5 +1,5 @@
 <script setup>
-/** Decision wizard — sub-project 3. Art. 30's outward three, moved out of ApprovalReferralPanel. */
+/** Decision wizard — sub-project 3. Art. 30's outward three, moved out of the former ApprovalReferralPanel. */
 import { useI18n } from 'vue-i18n'
 
 defineProps({ request: { type: Object, required: true }, act: { type: Object, required: true } })

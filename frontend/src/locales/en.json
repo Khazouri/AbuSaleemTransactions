@@ -1631,10 +1631,6 @@
     "formNote": "A request is not closed until its closure card (Form 18) is complete.",
     "auditTitle": "Final pre-closure audit",
     "auditNote": "The rapporteur closes nothing until every applicable check is answered yes.",
-    "confirm": "Record the closure",
-    "cancel": "Cancel",
-    "saving": "Saving…",
-    "error": "The request could not be closed.",
     "closedAt": "Closure date",
     "closedBy": "Closed by",
     "fields": {
@@ -1685,8 +1681,7 @@
     "pending": "Not archived yet",
     "notOwed": "Not required — no decision touched the service file",
     "locationPlaceholder": "File storage location",
-    "record": "Record archiving",
-    "error": "Could not record the archiving."
+    "record": "Record archiving"
   },
   "approvalReturn": {
     "title": "Return from the Approving Body",
@@ -1694,11 +1689,6 @@
     "formNote": "An approved record is never informally amended; a formal re-processing action records the reason for the return and the action taken (Art. 94).",
     "pendingResolution": "The approving body returned this request and the action taken has not been recorded yet.",
     "resolveAction": "Record the re-processing action",
-    "confirm": "Record the return",
-    "confirmResolution": "Record the action",
-    "cancel": "Cancel",
-    "saving": "Saving…",
-    "error": "The operation could not be completed.",
     "notResolved": "Not yet recorded",
     "returnedFrom": "Returned from stage",
     "recordedBy": "Recorded by",
@@ -1745,10 +1735,6 @@
     "checklistTitle": "Execution follow-up",
     "checklistNote": "Every item must be answered; the execution-document check is derived from the evidence selected above.",
     "financialBinds": "This request carries a financial effect, so execution cannot be proven before it is referred.",
-    "confirm": "Record execution",
-    "cancel": "Cancel",
-    "saving": "Saving…",
-    "error": "Execution could not be recorded.",
     "executedAt": "Execution recorded at",
     "executedBy": "Executing officer",
     "fields": {
@@ -2069,7 +2055,6 @@
       "title": "Decision soundness checklist (Art. 103)",
       "question": "Has the decision’s soundness been verified before referring it to execution?",
       "action": "Record the soundness check",
-      "reviseAction": "Revise the soundness check",
       "formNote": "Eight of the twelve points are read from the request’s own data and are not asked; answer the remaining four.",
       "passed": "The file has cleared the soundness checklist.",
       "checks": {
@@ -2166,16 +2151,11 @@
     "title": "Referrals for Approval Register",
     "action": "Record a referral for approval",
     "formNote": "Art. 30 records the referral date, its letter number and the body it went to.",
-    "confirm": "Record referral",
     "resultAction": "Record the result",
-    "confirmResult": "Record result",
     "pendingResult": "Referral {letter} to {body} is still awaiting a result.",
     "awaitingResult": "Awaiting result",
     "referredFrom": "Referred from",
     "recordedBy": "Recorded by",
-    "saving": "Saving…",
-    "cancel": "Cancel",
-    "error": "The referral could not be saved. Try again.",
     "fields": {
       "referred_at": "Referral date",
       "letter_number": "Referral letter no.",

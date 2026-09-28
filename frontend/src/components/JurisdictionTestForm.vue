@@ -11,6 +11,9 @@ import { useAuthStore } from '../stores/auth'
 
 const props = defineProps({
   request: { type: Object, required: true },
+  // Decision wizard — sub-project 3. The gates tab shows the card only; its
+  // form lives in the wizard's Checks step.
+  readonly: { type: Boolean, default: false },
 })
 const emit = defineEmits(['updated'])
 
@@ -85,7 +88,7 @@ async function save() {
     </p>
     <!-- Read-only without the save grant: since Stage 101 R12 can open a file at
          requirements_check, and editable fields with no save button lost its input on refresh. -->
-    <fieldset :disabled="saving || !auth.can('notes_attachments', 'edit')">
+    <fieldset :disabled="readonly || saving || !auth.can('notes_attachments', 'edit')">
       <div class="grid">
         <label v-for="(key, index) in ['has_legal_basis', 'employee_covered', 'within_municipal_jurisdiction']" :key="key">
           {{ t(`requestDetail.jurisdictionTest.q${index + 1}`) }}
@@ -118,7 +121,7 @@ async function save() {
       </div>
     </fieldset>
     <p v-if="error" class="field-error" role="alert">{{ error }}</p>
-    <button v-can="'notes_attachments.edit'" class="ghost" type="button" :disabled="saving" @click="save">
+    <button v-if="!readonly" v-can="'notes_attachments.edit'" class="ghost" type="button" :disabled="saving" @click="save">
       {{ saving ? t('requestDetail.jurisdictionTest.saving') : t('requestDetail.jurisdictionTest.save') }}
     </button>
   </div>

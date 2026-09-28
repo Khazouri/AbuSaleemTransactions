@@ -6,8 +6,6 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import RequestClosurePanel from '../components/RequestClosurePanel.vue'
-import RequestExecutionPanel from '../components/RequestExecutionPanel.vue'
 import api from '../lib/api'
 
 const route = useRoute()
@@ -68,11 +66,10 @@ async function load({ quiet = false } = {}) {
 // Stage 75 — only the first is a meeting-output action. Closure carries Art.
 // 37's card and Appendix 47's audit, and is a request-level act (two of that
 // article's four final paths close requests that never reached an agenda), so
-// it runs through the shared RequestClosurePanel against the request itself.
+// it runs through the former RequestClosurePanel's act against the request itself.
 //
-// Stage 76 — recording the effect stopped being a one-click confirm. Appendix
-// 70 requires دليل التنفيذ, so both actions are now panels that own their own
-// posting and hand the refreshed tracker back.
+// Decision wizard — sub-project 3: both acts are taken in the request's own
+// wizard, so a row links there with the act already chosen.
 watch(meetingId, load)
 
 const summaryCards = computed(() => {
@@ -204,19 +201,20 @@ onUnmounted(() => window.clearInterval(refreshTimer))
                   <span v-else>{{ t('common.none') }}</span>
                 </td>
                 <td>
-                  <RequestExecutionPanel
+                  <RouterLink
                     v-if="output.can_mark_executed && output.request"
-                    :meeting-id="tracker.meeting.id"
-                    :agenda-item-id="output.agenda_item_id"
-                    :attachments="output.request.attachments"
-                    :has-financial-impact="output.has_financial_impact"
-                    @executed="(data) => (tracker = data)"
-                  />
-                  <RequestClosurePanel
+                    class="btn btn-sm primary"
+                    :to="{ name: 'request_details', params: { id: output.request.id }, query: { decide: 'execute' } }"
+                  >
+                    {{ t('requestExecution.action') }}
+                  </RouterLink>
+                  <RouterLink
                     v-else-if="output.can_close && output.request"
-                    :request-id="output.request.id"
-                    @closed="() => load({ quiet: true })"
-                  />
+                    class="btn btn-sm primary"
+                    :to="{ name: 'request_details', params: { id: output.request.id }, query: { decide: 'close' } }"
+                  >
+                    {{ t('requestClosure.action') }}
+                  </RouterLink>
                   <span v-else class="muted">{{ t('common.none') }}</span>
                 </td>
               </tr>

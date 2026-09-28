@@ -1,8 +1,8 @@
 <script setup>
 /**
  * Decision wizard — sub-project 3. Art. 94's سبب الإعادة with Appendix 34's
- * classification, moved out of ApprovalReturnPanel. Where the file goes next
- * is not a field: the server derives it from the kind.
+ * classification, moved out of the former ApprovalReturnPanel. Where the
+ * file goes next is not a field: the server derives it from the kind.
  */
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
