@@ -13,6 +13,20 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### A maintenance test's `set_time_limit` can kill the rest of the PHPUnit run — found in sub-project 3 final-review fixes — opened 2026-09-28
+`MaintenanceRunner` calls `set_time_limit(timeout + 30)` (330 s), and when `MaintenanceConsoleTest` drives it
+that limit applies to the whole PHPUnit process: every test after it must finish within 330 s, or the run
+dies with «Maximum execution time of 330 seconds exceeded» and no summary. On this machine (~2.7 s/test)
+the ~256 tests that sort after it do not. Workaround used: run `--exclude-filter
+'Maintenance(Bootstrap|Console)Test'` and those two files separately. **To close:** have the
+runner skip `set_time_limit` under `app()->runningUnitTests()`, or reset it in those tests' `tearDown()`.
+
+### `GET meetings/appeal-options` has no SPA caller — decision wizard sub-project 3 final-review fixes — opened 2026-09-28
+Nomination moved from the agenda builder into the appeal wizard, which reads `GET appeals/{a}/acts`, so
+nothing in `frontend/` calls `meetings/appeal-options` any more; it was kept by controller ruling and is
+still covered by `AppealCommitteePresentationTest`. **To close:** delete the route, the controller method
+and its test, or give it a caller.
+
 ### `record_document_conflict` / `record_special_case` are offered only on an unclosed file, but their endpoints have no such check — decision wizard sub-project 3, slice 2 — opened 2026-09-28
 `RequestActs::records()` only offers these two acts while `$r->closed_at === null`, but
 `RequestLifecycleController::storeDocumentConflict()`/`storeSpecialCase()` carry no matching check — the
@@ -108,9 +122,10 @@ one-shot step, so this is a UX nicety rather than a correctness gap.
 and who gave them) for any appeal at `legal_review`, where `GET meetings/appeal-options` previously
 showed only id, appellant and the request's reference number. This was kept deliberately: nomination
 moved out of the agenda builder into the appeal wizard in this slice, and a nominator who can no longer
-see the file elsewhere would be nominating blind. **To close:** the user decides — keep the widened
-read, narrow `mayNominate()` to `appeals,edit` holders only (which would exclude a chair with no direct
-appeals grant), or give a nominator a minimal-fields payload instead of the full resource.
+see the file elsewhere would be nominating blind. **Resolved (2026-09-28, sub-project 3 final-review fixes)** — narrowed:
+`Appeal::isVisibleTo()` and `AppealController::index()` reverted to their pre-sub-project-3 rule, and
+`GET appeals/{a}/acts` admits a nominator (legal_review, not yet on an agenda) with appeal-options'
+fields only — id, status, appellant, original request's reference — plus the one `nominate` act.
 
 ### The live committee has only its chair seat filled — Stage 102 — opened 2026-09-26
 On the real database committee #16 holds one seated member (chair) and three seatless ones, so it

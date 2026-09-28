@@ -19,6 +19,38 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-28 EET — Claude — Decision wizard, sub-project 3 — final-review fixes
+
+Fixed every item the whole-branch review of a757051..6479327 found, per the controller's rulings. **C1/C2
+CRITICAL**: a bare `<template>` (no directive) wrapped the agenda builder's request search and the request
+page's closure card; Vue 3 renders that as a native, hidden `<template>`, so nobody could add a request to an
+agenda and no closed file showed its Art. 37 fields or Appendix 47 audit. Both wrappers removed (a sweep of
+`frontend/src` found no third). **I3**: nominator visibility narrowed — `Appeal::isVisibleTo()` and
+`AppealController::index()` are back to owner/R08/`appeals,edit`; `GET appeals/{a}/acts` now answers a seated
+nominator on a `legal_review` appeal not yet on an agenda with appeal-options' fields only (id, status,
+appellant, original request's reference) plus `nominate`, else 404. `AppealWizard`'s Review hides the rows that
+payload lacks. **I4**: `ApprovalReturnService::resolveRefusal()` refuses with Art. 105's `BLOCK_MESSAGE` while a
+suspension is open, and `resolve()`'s formal branch re-checks under its lock — a formal resolve used to
+overwrite `execution_suspended` with `awaiting_*`. Minors: `DecisionWizard`'s upload refresh no longer throws
+unhandled (M5); an act whose follow-up reload fails hands back `null` and the page reloads itself, instead of an
+«action failed» that invites a duplicate (M6); three dead appeal locale keys dropped and
+`decisionWizard.appeal.more` names the column as labelled (M9); `AppealNominateForm` shows a load error rather
+than "no open meeting" (M11); a closure test renamed to what it checks (M12); three new
+`RequestRecordActsTest` cases pin the open-vote attach refusal, the inactive-subject notice refusal and the
+closed-file conflict/special-case omission (M13); a stale comment and a dead selector gone (T9).
+
+Verified: full suite **823 tests / 5238 assertions** (was 819 — +1 I4, +3 M13; run as 801 + the two maintenance files, since a maintenance test's `set_time_limit(330)` kills a single-process run on this machine — new OPEN_ITEMS entry), Pint clean on the touched PHP, build passes
+(`dist` rebuilt and committed with this entry), locale parity **2078 keys each side** (−3). TDD: I3 and I4 RED
+then GREEN; M13 pins existing behaviour, so each was proven by mutating its guard (all three failed). Headless
+Chrome against Homestead, on a fixture committee (#37, r02+r03 seated), meeting #37 and a `legal_review` appeal
+#23 against closed request #41: as r02 the add-item modal now shows the search input and results (hidden
+before, same script on the pre-fix views), and #41's closure card shows all eight fields and twelve audit
+rows (hidden before); as r03, `/appeals?appeal=23&decide=nominate` opened the wizard on the nominate slip with
+the fixture meeting offered, the appeal absent from the list, and Review showing only request/appellant/status
+— zero console errors either account. Every fixture row was deleted and all tracked counts (requests, appeals,
+committees, members, meetings, audit_logs, jobs, tokens, notifications, status history) match the baseline.
+
+---
 ### 2026-09-28 EET — Claude — Decision wizard, sub-project 3 complete (slice 3: appeals)
 
 Built per the plan below; no migration. Every appeal act (verify, jurisdiction test, legal review,
