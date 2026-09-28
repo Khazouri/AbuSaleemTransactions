@@ -17,6 +17,7 @@ const props = defineProps({
   submitDisabled: { type: Boolean, default: false },
   submitting: { type: Boolean, default: false },
   destructive: { type: Boolean, default: false },
+  hideSubmit: { type: Boolean, default: false },
 })
 const step = defineModel('step', { type: String, required: true })
 const emit = defineEmits(['submit', 'close'])
@@ -68,7 +69,7 @@ watch(() => props.steps, (steps) => {
           {{ t('decisionWizard.next') }}
         </button>
         <button
-          v-else
+          v-else-if="!hideSubmit"
           :class="destructive ? 'btn danger' : 'primary'"
           type="button"
           :disabled="submitting || submitDisabled"

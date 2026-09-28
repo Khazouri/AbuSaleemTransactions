@@ -5,17 +5,28 @@
  * that payload is complete enough to submit. The wizard knows nothing act by
  * act beyond this table; the server decides which acts are offered.
  */
+import FileUpload from '../components/FileUpload.vue'
 import ArchiveForm from '../components/acts/ArchiveForm.vue'
+import ConflictForm from '../components/acts/ConflictForm.vue'
+import ConflictResolveForm from '../components/acts/ConflictResolveForm.vue'
 import ClosureForm from '../components/acts/ClosureForm.vue'
+import CorrectionForm from '../components/acts/CorrectionForm.vue'
+import DeterminationForm from '../components/acts/DeterminationForm.vue'
 import ExecutionForm from '../components/acts/ExecutionForm.vue'
 import LiftForm from '../components/acts/LiftForm.vue'
+import NoteForm from '../components/acts/NoteForm.vue'
 import ReferralForm from '../components/acts/ReferralForm.vue'
 import ReferralResultForm from '../components/acts/ReferralResultForm.vue'
+import ReopenForm from '../components/acts/ReopenForm.vue'
+import ResolveNoteForm from '../components/acts/ResolveNoteForm.vue'
 import ReturnForm from '../components/acts/ReturnForm.vue'
 import ReturnResolveForm from '../components/acts/ReturnResolveForm.vue'
 import SoundnessForm from '../components/acts/SoundnessForm.vue'
+import SpecialCaseForm from '../components/acts/SpecialCaseForm.vue'
 import SuspendForm from '../components/acts/SuspendForm.vue'
+import WithdrawalForm from '../components/acts/WithdrawalForm.vue'
 import { SOUNDNESS_CERTIFIER_CHECKS, SUSPENSION_GROUNDS, SUSPENSION_RESOLUTIONS } from './controlGates'
+import { CONFLICT_KINDS, MATERIAL_ERROR_KINDS, SPECIAL_CASES } from './lifecycle'
 import { CLOSER_CHECKS } from './requestClosure'
 import { EXECUTOR_CHECKS } from './requestExecution'
 
@@ -144,6 +155,123 @@ export const REQUEST_ACTS = {
     method: 'patch',
     url: (request) => `${base(request)}/suspend/lift`,
     blank: () => ({ resolution_action: SUSPENSION_RESOLUTIONS[0], resolution_note: '' }),
+    ready: () => true,
+  },
+  record_document_conflict: {
+    labelKey: 'lifecycle.conflicts.action',
+    form: ConflictForm,
+    method: 'post',
+    url: (request) => `${base(request)}/document-conflicts`,
+    blank: () => ({ conflict_kind: CONFLICT_KINDS[0], detail: '' }),
+    ready: (form) => filled(form.detail),
+  },
+  resolve_document_conflict: {
+    labelKey: 'lifecycle.conflicts.resolveAction',
+    kindLabel: (t, kind) => (kind ? t(`lifecycle.conflicts.kinds.${kind}`) : ''),
+    form: ConflictResolveForm,
+    method: 'patch',
+    url: (request, act) => `${base(request)}/document-conflicts/${act.target.id}/resolve`,
+    blank: () => ({ authority_consulted: '', authoritative_document: '', correction_note: '' }),
+    ready: (form) => filled(form.authority_consulted) && filled(form.authoritative_document) && filled(form.correction_note),
+  },
+  record_special_case: {
+    labelKey: 'lifecycle.specialCases.action',
+    form: SpecialCaseForm,
+    method: 'post',
+    url: (request) => `${base(request)}/special-cases`,
+    blank: () => ({ case_kind: SPECIAL_CASES[0].code, detail: '', halt_progress: false, determinations: {} }),
+    ready: (form) => SPECIAL_CASES.find((entry) => entry.code === form.case_kind).fields
+      .every((field) => filled(form.determinations[field.code])),
+  },
+  resolve_special_case: {
+    labelKey: 'lifecycle.specialCases.resolveAction',
+    kindLabel: (t, kind) => (kind ? t(`lifecycle.specialCases.kinds.${kind}`) : ''),
+    form: ResolveNoteForm,
+    method: 'patch',
+    url: (request, act) => `${base(request)}/special-cases/${act.target.id}/resolve`,
+    blank: () => ({ resolution_note: '' }),
+    ready: (form) => filled(form.resolution_note),
+  },
+  record_correction: {
+    labelKey: 'lifecycle.corrections.action',
+    form: CorrectionForm,
+    method: 'post',
+    url: (request) => `${base(request)}/corrections`,
+    blank: () => ({ error_kind: MATERIAL_ERROR_KINDS[0], detail: '', incorrect_value: '', corrected_value: '', memo_reference: '' }),
+    ready: (form) => filled(form.detail) && filled(form.incorrect_value) && filled(form.corrected_value),
+  },
+  approve_correction: {
+    labelKey: 'lifecycle.corrections.approveAction',
+    kindLabel: (t, kind) => (kind ? t(`lifecycle.corrections.kinds.${kind}`) : ''),
+    form: null,
+    method: 'patch',
+    url: (request, act) => `${base(request)}/corrections/${act.target.id}/approve`,
+    blank: () => ({}),
+    ready: () => true,
+  },
+  file_withdrawal: {
+    labelKey: 'lifecycle.withdrawals.action',
+    form: WithdrawalForm,
+    method: 'post',
+    destructive: true,
+    url: (request) => `${base(request)}/withdrawals`,
+    blank: () => ({ reason: '' }),
+    ready: (form) => filled(form.reason),
+  },
+  determine_withdrawal: {
+    labelKey: 'lifecycle.withdrawals.determineAction',
+    form: DeterminationForm,
+    method: 'patch',
+    url: (request, act) => `${base(request)}/withdrawals/${act.target.id}/determine`,
+    blank: (request, act) => ({ outcome: act.outcomes?.[0] ?? '', determination_note: '' }),
+    ready: (form) => filled(form.outcome) && filled(form.determination_note),
+  },
+  issue_notice: {
+    labelKey: 'employeeNotices.issue',
+    form: null,
+    method: 'post',
+    url: (request) => `${base(request)}/notices/issue`,
+    blank: () => ({}),
+    ready: () => true,
+  },
+  set_financial_impact: {
+    labelKey: 'decisionWizard.acts.set_financial_impact',
+    form: null,
+    method: 'patch',
+    url: (request) => `${base(request)}/financial-impact`,
+    blank: () => ({}),
+    ready: () => true,
+    // The act flips the flag, so the slip states what it becomes.
+    body: (form, request) => ({ has_financial_impact: !request.has_financial_impact }),
+    summary: (t, request) => t('decisionWizard.financialImpactTo', {
+      value: request.has_financial_impact ? t('requestDetail.financialImpact.no') : t('requestDetail.financialImpact.yes'),
+    }),
+  },
+  reopen: {
+    labelKey: 'requestDetail.reopen.action',
+    form: ReopenForm,
+    method: 'patch',
+    url: (request) => `${base(request)}/reopen`,
+    blank: () => ({ reason_code: '', target_stage_id: '', note: '' }),
+    ready: (form) => filled(form.reason_code) && filled(form.target_stage_id),
+    body: (form) => ({ ...form, note: form.note || null }),
+  },
+  add_note: {
+    labelKey: 'decisionWizard.acts.add_note',
+    form: NoteForm,
+    method: 'post',
+    url: (request) => `${base(request)}/notes`,
+    blank: () => ({ body: '' }),
+    ready: (form) => filled(form.body),
+    body: (form) => ({ body: form.body.trim(), is_internal: true }),
+  },
+  // Posts through its own component (a file, a folder, a document row), so
+  // the wizard shows it on Confirm and hides its own Submit.
+  attach_document: {
+    labelKey: 'decisionWizard.acts.attach_document',
+    form: FileUpload,
+    embedded: true,
+    blank: () => ({}),
     ready: () => true,
   },
 }

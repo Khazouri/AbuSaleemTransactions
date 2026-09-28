@@ -18,7 +18,6 @@ import JurisdictionTestForm from '../components/JurisdictionTestForm.vue'
 import RequestSoundnessPanel from '../components/RequestSoundnessPanel.vue'
 import RequestSuspensionPanel from '../components/RequestSuspensionPanel.vue'
 import ApprovalTrail from '../components/ApprovalTrail.vue'
-import FileUpload from '../components/FileUpload.vue'
 import RequestArchivePanel from '../components/RequestArchivePanel.vue'
 import RequestLifecyclePanel from '../components/RequestLifecyclePanel.vue'
 import RequestNotes from '../components/RequestNotes.vue'
@@ -32,7 +31,6 @@ import { stageProgressLabel } from '../lib/stageProgress'
 // Stage 75 — [D] Appendix 47's twelve checks, mirrored once for every screen.
 import { AUDIT_CHECKS } from '../lib/requestClosure'
 import { TRACKING_CHECKS } from '../lib/requestExecution'
-import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -45,25 +43,6 @@ const selectedAttachment = ref(null)
 const attachmentPreviewUrl = ref('')
 const attachmentPreviewing = ref(false)
 const attachmentPreviewError = ref('')
-const financialImpactSaving = ref(false)
-const financialImpactError = ref('')
-
-// Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path. Mirrors
-// RequestController::REOPENABLE_STATUS_CODES exactly.
-const REOPENABLE_STATUS_CODES = ['cancelled', 'archived', 'not_approved', 'completed_closed', 'decision_withdrawn', 'decision_amended']
-const REOPEN_REASON_CODES = [
-  'new_document', 'external_reply_received', 'material_error_correction',
-  'legal_status_change', 'returned_by_approving_body', 'competent_authority_restudy',
-]
-const reopenPanelOpen = ref(false)
-const reopenReasonCode = ref('')
-const reopenTargetStageId = ref('')
-const reopenNote = ref('')
-const reopenSubmitting = ref(false)
-const reopenError = ref('')
-const redoStageOptions = ref([])
-const redoStagesLoading = ref(false)
-const redoStagesError = ref('')
 
 // Restyled pass — the tab strip. `?tab=` keeps a link openable to a specific
 // section; `v-show` (not v-if) keeps every panel's own components mounted
@@ -115,9 +94,6 @@ const actionLabel = (action) => t(`workflow.actions.${action}`)
 // the eligibility fields are gone (decision wizard sub-project 3).
 const openApprovalReferral = computed(() => request.value?.approval_referrals?.find((entry) => !entry.result_outcome) ?? null)
 const openApprovalReturn = computed(() => request.value?.approval_returns?.find((entry) => !entry.resolved_at) ?? null)
-// Stage 78 — every control-gate endpoint answers with the same full detail
-// resource, so each card swaps in the updated request rather than refetching.
-const onGateUpdated = (updated) => { request.value = updated }
 // Stage 52 — "3" for a single-day target, "5–10" for a range.
 const stageTargetLabel = (st) => st.target_days_min === st.target_days_max
   ? String(st.target_days_max)
@@ -145,9 +121,6 @@ function closeWizard() {
     router.replace({ query })
   }
 }
-// Stage 66 — a concluded request may be re-presented for one of six
-// enumerated reasons, never a plain "I disagree with the outcome" attempt.
-const isReopenable = computed(() => REOPENABLE_STATUS_CODES.includes(request.value?.status?.code))
 // Stage 72 — Appendix 57's groups for this request's own type.
 const documentSections = computed(() => groupDocuments(request.value?.required_documents))
 const currentStageName = computed(() => request.value?.current_stage ? name(request.value.current_stage) : '')
@@ -158,7 +131,7 @@ const currentStageName = computed(() => request.value?.current_stage ? name(requ
 const hasGatesTabContent = computed(() => request.value?.current_stage?.code === 'requirements_check' || !!request.value?.control_gates)
 const hasApprovalsTabContent = computed(() => Boolean(
   request.value?.approval_referrals?.length || request.value?.approval_returns?.length
-  || request.value?.approvals?.length || isReopenable.value,
+  || request.value?.approvals?.length,
 ))
 const hasLegalTabContent = computed(() => Boolean(
   request.value?.legal_review || request.value?.committee_summary,
@@ -230,95 +203,6 @@ async function downloadAttachment(attachment) {
   }
 }
 
-const auth = useAuthStore()
-
-// Stage 100 — Appendix 6 row 14: المقرر issues the file's current notice.
-const noticeIssuing = ref(false)
-const noticeError = ref('')
-
-async function issueNotice() {
-  noticeIssuing.value = true
-  noticeError.value = ''
-  try {
-    const { data } = await api.post(`/requests/${request.value.id}/notices/issue`)
-    request.value = data.data
-  } catch (requestError) {
-    noticeError.value = requestError.response?.data?.message ?? t('employeeNotices.issueFailed')
-  } finally {
-    noticeIssuing.value = false
-  }
-}
-
-/** Stage 47 — flips the auto-derived flag; the PATCH returns the full detail resource. */
-async function toggleFinancialImpact() {
-  if (financialImpactSaving.value) return
-  financialImpactSaving.value = true
-  financialImpactError.value = ''
-  try {
-    const { data } = await api.patch(`/requests/${request.value.id}/financial-impact`, {
-      has_financial_impact: !request.value.has_financial_impact,
-    })
-    request.value = data.data
-  } catch (requestError) {
-    financialImpactError.value = requestError.response?.data?.message ?? t('requestDetail.financialImpact.updateFailed')
-  } finally {
-    financialImpactSaving.value = false
-  }
-}
-
-// Stage 66 — the target-stage picker is the same lookup Stage 64's appeal
-// outcome execution already uses (excludes the 4 pre-committee stages).
-async function loadRedoStageOptions() {
-  if (redoStageOptions.value.length) return
-  redoStagesLoading.value = true
-  redoStagesError.value = ''
-  try {
-    const { data } = await api.get('/appeals/redo-stage-options')
-    redoStageOptions.value = data.data ?? []
-  } catch {
-    redoStagesError.value = t('requestDetail.reopen.loadStagesFailed')
-  } finally {
-    redoStagesLoading.value = false
-  }
-}
-
-function openReopenPanel() {
-  reopenPanelOpen.value = true
-  reopenReasonCode.value = ''
-  reopenTargetStageId.value = ''
-  reopenNote.value = ''
-  reopenError.value = ''
-  loadRedoStageOptions()
-}
-
-function closeReopenPanel() {
-  if (reopenSubmitting.value) return
-  reopenPanelOpen.value = false
-  reopenError.value = ''
-}
-
-async function submitReopen() {
-  if (reopenSubmitting.value) return
-  reopenSubmitting.value = true
-  reopenError.value = ''
-  try {
-    const { data } = await api.patch(`/requests/${request.value.id}/reopen`, {
-      reason_code: reopenReasonCode.value,
-      target_stage_id: reopenTargetStageId.value,
-      note: reopenNote.value || null,
-    })
-    request.value = data.data
-    reopenPanelOpen.value = false
-  } catch (requestError) {
-    reopenError.value = requestError.response?.data?.errors?.reason_code?.[0]
-      ?? requestError.response?.data?.errors?.target_stage_id?.[0]
-      ?? requestError.response?.data?.message
-      ?? t('requestDetail.reopen.failed')
-  } finally {
-    reopenSubmitting.value = false
-  }
-}
-
 async function load() {
   loading.value = true
   error.value = ''
@@ -337,6 +221,15 @@ async function load() {
 watch(() => route.params.id, load)
 onMounted(load)
 onBeforeUnmount(clearAttachmentPreview)
+
+// Decision wizard — sub-project 3. After any act the wizard hands back the
+// fresh file; the lifecycle card and notes fetch their own data, so a new
+// key remounts them.
+const refreshKey = ref(0)
+function onWizardUpdated(updated) {
+  request.value = updated
+  refreshKey.value += 1
+}
 </script>
 
 <template>
@@ -397,7 +290,7 @@ onBeforeUnmount(clearAttachmentPreview)
         <button class="primary" type="button" @click="wizardOpen = true">{{ t('decisionWizard.open') }}</button>
       </section>
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
-      <DecisionWizard v-if="wizardOpen" :request="request" :initial="wizardInitial" @updated="onGateUpdated" @close="closeWizard" />
+      <DecisionWizard v-if="wizardOpen" :request="request" :initial="wizardInitial" @updated="onWizardUpdated" @close="closeWizard" />
 
       <!-- Tab strip. -->
       <div class="tabs" role="tablist" :aria-label="t('requestDetail.tabsLabel')" @keydown.right.prevent="stepTab(1)" @keydown.left.prevent="stepTab(-1)">
@@ -480,19 +373,9 @@ onBeforeUnmount(clearAttachmentPreview)
                 <span>{{ t('requestDetail.financialImpact.label') }}</span>
                 <strong>
                   {{ request.has_financial_impact ? t('requestDetail.financialImpact.yes') : t('requestDetail.financialImpact.no') }}
-                  <button
-                    v-can="'notes_attachments.edit'"
-                    class="ghost financial-impact-toggle"
-                    type="button"
-                    :disabled="financialImpactSaving"
-                    @click="toggleFinancialImpact"
-                  >
-                    {{ t('requestDetail.financialImpact.toggle') }}
-                  </button>
                 </strong>
               </div>
             </section>
-            <p v-if="financialImpactError" class="action-error" role="alert">{{ financialImpactError }}</p>
 
             <section class="card card-flat card-pad description">
               <h3>{{ t('requestDetail.description') }}</h3>
@@ -546,9 +429,6 @@ onBeforeUnmount(clearAttachmentPreview)
                   </div>
                 </li>
               </ul>
-              <!-- Only the filer attaches (Request::attachmentRight()); can_attach is
-                   that same server-side rule, so the form never offers a refused upload. -->
-              <FileUpload v-if="request.can_attach" v-can="'notes_attachments.add'" :request-id="request.id" @uploaded="load" />
             </section>
 
             <section v-if="documentSections.length" class="card card-flat card-pad checklist">
@@ -565,7 +445,7 @@ onBeforeUnmount(clearAttachmentPreview)
               </div>
             </section>
 
-            <section class="card card-flat card-pad"><RequestNotes :request-id="request.id" /></section>
+            <section class="card card-flat card-pad"><RequestNotes :key="refreshKey" :request-id="request.id" /></section>
           </aside>
         </div>
       </div>
@@ -746,58 +626,6 @@ onBeforeUnmount(clearAttachmentPreview)
         </section>
 
         <ApprovalTrail :approvals="request.approvals ?? []" />
-
-        <!-- Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path;
-             only shown once the request has genuinely concluded. -->
-        <section v-if="isReopenable" v-can="'appeals.edit'" class="card card-flat card-pad action-panel reopen-panel">
-          <h3>{{ t('requestDetail.reopen.title') }}</h3>
-          <p>{{ t('requestDetail.reopen.hint') }}</p>
-          <button v-if="!reopenPanelOpen" class="ghost" type="button" @click="openReopenPanel">
-            {{ t('requestDetail.reopen.action') }}
-          </button>
-          <template v-else>
-            <fieldset :disabled="reopenSubmitting">
-              <label>
-                {{ t('requestDetail.reopen.reasonLabel') }}
-                <select v-model="reopenReasonCode">
-                  <option value="" disabled>{{ t('requestDetail.reopen.chooseReason') }}</option>
-                  <option v-for="code in REOPEN_REASON_CODES" :key="code" :value="code">
-                    {{ t(`reopenReasons.${code}`) }}
-                  </option>
-                </select>
-              </label>
-              <label>
-                {{ t('requestDetail.reopen.targetStageLabel') }}
-                <select v-model="reopenTargetStageId">
-                  <option value="" disabled>{{ t('requestDetail.reopen.chooseStage') }}</option>
-                  <option v-for="stage in redoStageOptions" :key="stage.id" :value="stage.id">
-                    {{ name(stage) }}
-                  </option>
-                </select>
-              </label>
-              <p v-if="redoStagesLoading" class="state">{{ t('common.loading') }}</p>
-              <p v-if="redoStagesError" class="action-error" role="alert">{{ redoStagesError }}</p>
-              <label>
-                {{ t('requestDetail.reopen.noteLabel') }}
-                <textarea v-model="reopenNote" rows="2" maxlength="5000" />
-              </label>
-            </fieldset>
-            <p v-if="reopenError" class="action-error" role="alert">{{ reopenError }}</p>
-            <div class="action-buttons">
-              <button
-                class="primary"
-                type="button"
-                :disabled="reopenSubmitting || !reopenReasonCode || !reopenTargetStageId"
-                @click="submitReopen"
-              >
-                {{ reopenSubmitting ? t('requestDetail.reopen.submitting') : t('requestDetail.reopen.submit') }}
-              </button>
-              <button class="ghost" type="button" :disabled="reopenSubmitting" @click="closeReopenPanel">
-                {{ t('requestDetail.reopen.cancel') }}
-              </button>
-            </div>
-          </template>
-        </section>
       </div>
 
       <!-- اللجنة والقانون -->
@@ -888,26 +716,13 @@ onBeforeUnmount(clearAttachmentPreview)
         <section class="card card-flat card-pad summary closure">
           <h3>{{ t('lifecycle.title') }}</h3>
           <p class="hint">{{ t('lifecycle.intro') }}</p>
-          <RequestLifecyclePanel
-            :request-id="request.id"
-            :is-requester="request.created_by?.id === auth.user?.id"
-          />
+          <RequestLifecyclePanel :key="refreshKey" :request-id="request.id" />
         </section>
 
         <!-- Stage 79 — [D] Art. 101's register for this file. -->
-        <section v-if="request.employee_notices?.length || auth.can('meeting_outputs', 'edit')" class="card card-flat card-pad summary closure">
+        <section v-if="request.employee_notices?.length" class="card card-flat card-pad summary closure">
           <h3>{{ t('employeeNotices.title') }}</h3>
           <p class="hint">{{ t('employeeNotices.intro') }}</p>
-          <button
-            v-can="'meeting_outputs.edit'"
-            class="btn btn-sm"
-            type="button"
-            :disabled="noticeIssuing"
-            @click="issueNotice"
-          >
-            {{ t('employeeNotices.issue') }}
-          </button>
-          <p v-if="noticeError" class="alert warning" role="alert">{{ noticeError }}</p>
           <ul class="notice-list">
             <li v-for="notice in request.employee_notices" :key="notice.id">
               <div class="notice-head">
@@ -1093,12 +908,11 @@ onBeforeUnmount(clearAttachmentPreview)
 .routing-slip strong { color: var(--color-black-700); font-size: var(--text-lg); }
 
 /* -- Actions ----------------------------------------------------------------- */
-.action-panel { margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-brand); }
 /* Decision wizard — the one way in; the action card and top gates it replaced
    used to sit here. */
 .decide { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-brand); }
 .decide p { margin: 0; color: var(--color-black-700); }
-.action-panel h3, .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
+.description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
 .committee-summary { margin-bottom: 0; }
 .legal-review h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); grid-column: 1 / -1; }
 .legal-review .full { grid-column: 1 / -1; }
@@ -1106,12 +920,8 @@ onBeforeUnmount(clearAttachmentPreview)
 .legal-review strong.ok { color: var(--color-success-fg); }
 .legal-review strong.warn { color: var(--color-warning-fg); }
 .legal-review .ghost { margin-inline-start: 0; }
-.action-panel > p { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }
-.action-panel label { display: grid; gap: 0.3rem; max-inline-size: 40rem; font-size: var(--text-sm); }
-.action-panel textarea { padding: 0.5rem 0.6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); resize: vertical; font: inherit; }
 .action-buttons, .attachment-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
 .action-error { color: var(--color-danger-fg); margin: 0.6rem 0 0; font-size: var(--text-sm); }
-.financial-impact-toggle { font-weight: normal; font-size: var(--text-xs); }
 
 /* -- Tab panels ---------------------------------------------------------- */
 .tabs { margin-bottom: var(--space-4); }
@@ -1143,8 +953,6 @@ onBeforeUnmount(clearAttachmentPreview)
 .doc-group { margin-block-start: 0.7rem; }
 .doc-group h4 { margin: 0 0 0.3rem; color: var(--color-black-700); font-size: var(--text-xs); font-weight: 600; }
 .doc-condition { color: var(--color-black-500); font-size: var(--text-xs); }
-.reopen-panel select { padding: 0.5rem 0.6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font: inherit; }
-.reopen-panel fieldset { display: grid; gap: var(--space-3); padding: 0; margin: var(--space-3) 0; border: 0; max-inline-size: 24rem; }
 .audit-record { display: grid; gap: 0.3rem; padding: 0; margin: var(--space-2) 0 0; list-style: none; font-size: var(--text-sm); }
 .audit-record li { display: flex; justify-content: space-between; gap: var(--space-3); }
 .evidence-tag { color: var(--color-success-fg); font-weight: 600; }

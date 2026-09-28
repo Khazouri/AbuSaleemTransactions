@@ -1,5 +1,9 @@
 <script setup>
-/** Stage 13 notes panel; Stage 15 mounts it in the request detail screen. */
+/**
+ * Stage 13 notes panel; Stage 15 mounts it in the request detail screen.
+ * Read-only since decision wizard sub-project 3 — a note is the wizard's
+ * `add_note` act; the host remounts this list after it.
+ */
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
@@ -7,9 +11,7 @@ import api from '../lib/api'
 const props = defineProps({ requestId: { type: [Number, String], required: true } })
 const { t, locale } = useI18n()
 const notes = ref([])
-const body = ref('')
 const loading = ref(false)
-const posting = ref(false)
 const error = ref('')
 
 function formatDate(value) {
@@ -29,21 +31,6 @@ async function load() {
   }
 }
 
-async function add() {
-  if (!body.value.trim()) return
-  posting.value = true
-  error.value = ''
-  try {
-    const { data } = await api.post(`/requests/${props.requestId}/notes`, { body: body.value.trim(), is_internal: true })
-    notes.value.push(data.data)
-    body.value = ''
-  } catch (requestError) {
-    error.value = requestError.response?.data?.errors?.body?.[0] ?? requestError.response?.data?.message ?? t('notes.submitFailed')
-  } finally {
-    posting.value = false
-  }
-}
-
 onMounted(load)
 </script>
 
@@ -59,13 +46,6 @@ onMounted(load)
         <small>{{ note.created_by?.name || t('common.none') }} · {{ formatDate(note.created_at) }}</small>
       </li>
     </ol>
-    <form v-can="'notes_attachments.add'" class="composer" @submit.prevent="add">
-      <label>
-        {{ t('notes.add') }}
-        <textarea v-model="body" rows="3" maxlength="5000" :disabled="posting" />
-      </label>
-      <button class="primary" type="submit" :disabled="posting || !body.trim()">{{ posting ? t('notes.posting') : t('notes.post') }}</button>
-    </form>
   </section>
 </template>
 
@@ -76,8 +56,4 @@ onMounted(load)
 .note-list p { margin: 0 0 .35rem; white-space: pre-wrap; }
 .note-list small, .state { color: var(--color-muted); font-size: var(--text-sm); }
 .error { color: var(--color-danger-fg); }
-.composer { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
-.composer label { display: grid; gap: .3rem; font-size: var(--text-base); }
-.composer textarea { resize: vertical; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); font: inherit; }
-.primary { justify-self: start; }
 </style>

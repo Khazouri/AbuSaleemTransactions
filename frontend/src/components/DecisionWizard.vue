@@ -17,6 +17,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DocumentValidityPanel from './DocumentValidityPanel.vue'
+import FileUpload from './FileUpload.vue'
 import IntakeGatePanel from './IntakeGatePanel.vue'
 import JurisdictionTestForm from './JurisdictionTestForm.vue'
 import LegalReviewCard from './LegalReviewCard.vue'
@@ -257,6 +258,14 @@ async function post(item, note) {
   return data.data
 }
 
+// attach_document posts through FileUpload itself; once it has, the wizard
+// only has to refresh the file and close, as after any other act.
+async function onUploaded() {
+  const { data } = await api.get(`/requests/${props.request.id}`)
+  emit('updated', data.data)
+  emit('close')
+}
+
 async function submit() {
   if (submitting.value || !choice.value || commentMissing.value || actNotReady.value) return
   submitting.value = true
@@ -293,6 +302,7 @@ if (props.initial?.action) {
     :submit-disabled="!choice || commentMissing || actNotReady"
     :submitting="submitting"
     :destructive="isDestructive(choice)"
+    :hide-submit="Boolean(actSpec?.embedded)"
     @submit="submit"
     @close="emit('close')"
   >
@@ -413,16 +423,18 @@ if (props.initial?.action) {
     </template>
 
     <template #confirm>
+      <FileUpload v-if="actSpec?.embedded" :request-id="request.id" @uploaded="onUploaded" />
       <component
         :is="actSpec.form"
-        v-if="actSpec?.form"
+        v-else-if="actSpec?.form"
         v-model="actForm"
         :request="request"
         :act="choice.act"
       />
-      <WizardSlip kind="tashira" :reference="reference" :destructive="isDestructive(choice)">
+      <WizardSlip v-if="!actSpec?.embedded" kind="tashira" :reference="reference" :destructive="isDestructive(choice)">
         <p class="slip-action">{{ choice?.label }}</p>
         <p v-if="choice?.destination" class="slip-destination">{{ choice.destination }}</p>
+        <p v-if="actSpec?.summary" class="slip-destination">{{ actSpec.summary(t, request) }}</p>
         <label v-if="showsNote" class="slip-note">
           {{ choice?.requiresComment ? t('decisionWizard.slip.reasonRequired') : t('decisionWizard.slip.noteOptional') }}
           <textarea v-model="comment" rows="3" maxlength="5000" :required="choice?.requiresComment" :disabled="submitting" />

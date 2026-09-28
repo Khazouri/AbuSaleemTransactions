@@ -741,11 +741,8 @@
   "notes": {
     "title": "Notes",
     "add": "Add an internal note",
-    "post": "Post note",
-    "posting": "Posting…",
     "empty": "No notes yet.",
-    "loadFailed": "The notes could not be loaded.",
-    "submitFailed": "The note could not be posted. Please try again."
+    "loadFailed": "The notes could not be loaded."
   },
   "requestDetail": {
     "back": "Back to request list",
@@ -777,9 +774,7 @@
     "financialImpact": {
       "label": "Financial impact",
       "yes": "Has a financial impact",
-      "no": "No financial impact",
-      "toggle": "Correct",
-      "updateFailed": "The financial-impact flag could not be updated."
+      "no": "No financial impact"
     },
     "documentsComplete": {
       "label": "File completeness",
@@ -834,7 +829,6 @@
       "saveFailed": "The jurisdiction test could not be saved."
     },
     "reopen": {
-      "title": "Re-present this request",
       "hint": "A concluded request may only be re-presented for one of the reasons listed below, naming the stage it re-enters processing at.",
       "action": "Reopen",
       "reasonLabel": "Reason for re-presentation",
@@ -842,11 +836,7 @@
       "targetStageLabel": "Stage to re-present at",
       "chooseStage": "— Choose a stage —",
       "loadStagesFailed": "The stage list could not be loaded.",
-      "noteLabel": "Additional note (optional)",
-      "submit": "Confirm re-presentation",
-      "submitting": "Saving…",
-      "failed": "The request could not be reopened.",
-      "cancel": "Cancel"
+      "noteLabel": "Additional note (optional)"
     },
     "legalReview": {
       "title": "Legal review",
@@ -1931,8 +1921,7 @@
     "intro": "Notices sent to the employee about this request under Art. 101, limited in content by Art. 102. Only in-app delivery is recorded here; this system keeps no email or SMS delivery log.",
     "moment": "Moment {number}",
     "issue": "Issue a notice for the current state",
-    "issuedBy": "Issued by the rapporteur: {name}",
-    "issueFailed": "Could not issue the notice."
+    "issuedBy": "Issued by the rapporteur: {name}"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -2645,7 +2634,11 @@
     },
     "acts": {
       "archive_committee_file": "Archive the committee file",
-      "archive_service_file": "Archive the service file"
-    }
+      "archive_service_file": "Archive the service file",
+      "set_financial_impact": "Correct the financial impact",
+      "add_note": "Add a note",
+      "attach_document": "Attach a document"
+    },
+    "financialImpactTo": "Financial impact becomes: {value}"
   }
 }
