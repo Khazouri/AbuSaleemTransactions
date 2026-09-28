@@ -201,13 +201,6 @@ class Appeal extends Model
             return true;
         }
 
-        // Decision wizard — sub-project 3. Nomination moved into the appeal
-        // wizard, so a nominator opens an appeal waiting for the committee —
-        // the same rows GET meetings/appeal-options already listed to them.
-        if ($this->status?->code === 'legal_review' && self::mayNominate($actor)) {
-            return true;
-        }
-
         return $actor->roles()->where('code', 'R08')->exists()
             || $actor->hasScreenPermission('appeals', 'can_edit');
     }
@@ -215,8 +208,8 @@ class Appeal extends Model
     /**
      * Decision wizard — sub-project 3. Whoever may put an appeal on an agenda:
      * the builder's grant, plus its view, which the membership gate gives only
-     * to a seated member. Read by AppealActs, isVisibleTo(), the appeals list
-     * and the inbox, so all four agree on who nominates.
+     * to a seated member. Read by AppealActs, AppealController::acts() and
+     * the inbox, so all three agree on who nominates.
      */
     public static function mayNominate(User $actor): bool
     {

@@ -394,7 +394,7 @@ class RequestClosureTest extends TestCase
      * they are meant to close, which RequestVisibility's terminal-status rule
      * would otherwise refuse them.
      */
-    public function test_the_detail_screen_reports_the_same_refusal_the_endpoint_would_raise(): void
+    public function test_close_is_not_offered_to_the_creator_of_a_deferred_file_and_is_offered_to_the_closer_of_an_archived_executed_file(): void
     {
         $employee = $this->userWithRole('R01');
         $deferred = $this->requestAt('receive_from_committee', 'deferred', creator: $employee);

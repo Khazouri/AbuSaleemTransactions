@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\Api\RequestController;
+use App\Models\Attachment;
 use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
@@ -11,6 +12,7 @@ use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestCorrection;
 use App\Models\RequestStatus;
+use App\Models\RequestStatusHistory;
 use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
@@ -20,6 +22,7 @@ use App\Services\Lifecycle\CorrectionRules;
 use App\Services\Lifecycle\WithdrawalService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -194,6 +197,67 @@ class RequestRecordActsTest extends TestCase
         $impact = collect($this->acts($rapporteur, $atCommittee)['available'])->firstWhere('action', 'set_financial_impact');
         $this->assertSame((bool) $atCommittee->has_financial_impact, $impact['has_financial_impact']);
         $this->assertNotContains('set_financial_impact', $this->available($filer, $atCommittee));
+    }
+
+    public function test_an_open_vote_blocks_attaching_as_the_upload_endpoint_refuses_it(): void
+    {
+        $filer = $this->userWithRole('R01');
+        $file = $this->fileAt('receive_from_municipality', 'returned', creator: $filer);
+        $meeting = Meeting::create([
+            'committee_id' => Committee::create(['name_ar' => 'لجنة'])->id,
+            'title' => 'اجتماع', 'scheduled_at' => now(),
+        ]);
+        $item = MeetingRequest::create(['meeting_id' => $meeting->id, 'request_id' => $file->id, 'agenda_order' => 1]);
+        DB::table('votes')->insert([
+            'meeting_request_id' => $item->id, 'user_id' => $this->userWithRole('R04')->id,
+            'vote' => 'approve', 'voted_at' => now(),
+        ]);
+        $reason = 'بدأ التصويت على هذا الموضوع في اللجنة، ولا يجوز إضافة مستندات قبل إثبات النتيجة.';
+
+        $this->assertSame($reason, $this->blockedReason($filer, $file, 'attach_document'));
+        $this->actingAs($filer->fresh(), 'sanctum')
+            ->post("/api/requests/{$file->id}/attachments", [
+                'file' => UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf'),
+                'required_document_key' => RequestType::OTHER_DOCUMENT,
+                'file_section' => Attachment::DEFAULT_SUBMITTER_SECTION,
+            ], ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', $reason);
+    }
+
+    public function test_a_notice_is_blocked_when_the_subject_has_no_active_account(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+        $file = $this->fileAt('receive_from_committee', 'on_agenda');
+        // on_agenda is Art. 101's placed_on_agenda moment.
+        RequestStatusHistory::create([
+            'request_id' => $file->id,
+            'from_status_id' => RequestStatus::where('code', 'ready')->value('id'),
+            'to_status_id' => RequestStatus::where('code', 'on_agenda')->value('id'),
+            'changed_at' => now(),
+        ]);
+        $file->subject->update(['is_active' => false]);
+        $reason = 'لا يمكن إشعار صاحب العلاقة: لا يوجد له حساب مفعّل.';
+
+        $this->assertSame($reason, $this->blockedReason($rapporteur, $file, 'issue_notice'));
+        $this->actingAs($rapporteur->fresh(), 'sanctum')
+            ->postJson("/api/requests/{$file->id}/notices/issue")
+            ->assertStatus(422)
+            ->assertJsonPath('message', $reason);
+    }
+
+    public function test_a_closed_file_takes_no_new_conflict_or_special_case(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+        $file = $this->fileAt('final_approval_archiving', 'completed_closed', decided: true);
+
+        $this->assertContains('record_document_conflict', $this->available($rapporteur, $file));
+
+        $file->update(['closed_at' => now()]);
+        $acts = $this->acts($rapporteur, $file);
+        $offered = array_column([...$acts['available'], ...$acts['blocked']], 'action');
+        $this->assertNotContains('record_document_conflict', $offered);
+        $this->assertNotContains('record_special_case', $offered);
     }
 
     // --- helpers ------------------------------------------------------------

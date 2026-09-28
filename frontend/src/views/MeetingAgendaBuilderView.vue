@@ -464,30 +464,28 @@ onMounted(async () => {
             </label>
           </div>
 
-          <template>
-            <label>
-              {{ t('meetings.wizard.searchRequests') }}
-              <input v-model="requestSearch" type="text" :placeholder="t('meetings.wizard.searchRequests')" />
-            </label>
-            <ul class="results">
-              <li v-if="requestSearching" class="state">{{ t('common.loading') }}</li>
-              <template v-else>
-                <li v-if="!requestResults.length" class="state">{{ t('meetings.wizard.noResults') }}</li>
-                <li v-for="result in requestResults" :key="result.id" class="result">
-                  <span class="ref ltr">{{ result.reference_number || `#${result.id}` }}</span>
-                  <span>{{ result.title }}</span>
-                  <button
-                    class="ghost"
-                    type="button"
-                    :disabled="adding || agendaRequestIds.has(result.id)"
-                    @click="addRequestItem(result)"
-                  >
-                    {{ t('meetings.agenda.add') }}
-                  </button>
-                </li>
-              </template>
-            </ul>
-          </template>
+          <label>
+            {{ t('meetings.wizard.searchRequests') }}
+            <input v-model="requestSearch" type="text" :placeholder="t('meetings.wizard.searchRequests')" />
+          </label>
+          <ul class="results">
+            <li v-if="requestSearching" class="state">{{ t('common.loading') }}</li>
+            <template v-else>
+              <li v-if="!requestResults.length" class="state">{{ t('meetings.wizard.noResults') }}</li>
+              <li v-for="result in requestResults" :key="result.id" class="result">
+                <span class="ref ltr">{{ result.reference_number || `#${result.id}` }}</span>
+                <span>{{ result.title }}</span>
+                <button
+                  class="ghost"
+                  type="button"
+                  :disabled="adding || agendaRequestIds.has(result.id)"
+                  @click="addRequestItem(result)"
+                >
+                  {{ t('meetings.agenda.add') }}
+                </button>
+              </li>
+            </template>
+          </ul>
           <p v-if="addError" class="alert">{{ addError }}</p>
           <div class="modal-actions">
             <button class="ghost" type="button" @click="showAddItem = false">{{ t('common.close') }}</button>

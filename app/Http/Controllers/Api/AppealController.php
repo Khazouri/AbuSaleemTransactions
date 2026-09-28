@@ -89,11 +89,7 @@ class AppealController extends Controller
             ->withCount('attachments')
             ->when(
                 ! $actor->roles()->where('code', 'R08')->exists() && ! $actor->hasScreenPermission('appeals', 'can_edit'),
-                fn ($query) => $query->where(fn ($visible) => $visible
-                    ->where('appellant_user_id', $actor->id)
-                    // Decision wizard — sub-project 3: Appeal::isVisibleTo()'s nominator branch.
-                    ->when(Appeal::mayNominate($actor), fn ($nominator) => $nominator
-                        ->orWhereHas('status', fn ($status) => $status->where('code', 'legal_review')))),
+                fn ($query) => $query->where('appellant_user_id', $actor->id),
             )
             ->when(
                 $request->query('status'),
@@ -292,11 +288,36 @@ class AppealController extends Controller
      */
     public function acts(Request $request, Appeal $appeal, AppealActs $acts): JsonResponse
     {
-        abort_unless($appeal->isVisibleTo($request->user()), 404);
+        $actor = $request->user();
+
+        if ($appeal->isVisibleTo($actor)) {
+            return response()->json(['data' => [
+                'appeal' => (new AppealResource($appeal->loadCount('attachments')->load(self::WITH)))->resolve($request),
+                ...$acts->forAppeal($appeal, $actor),
+            ]]);
+        }
+
+        // A seated nominator may put a legal_review appeal on an agenda but may
+        // not read the appeal itself (isVisibleTo). They get only what GET
+        // meetings/appeal-options already lists to them — appellant and the
+        // original request's reference — plus the status, and the one act.
+        $appeal->load(['status:id,code,name_ar,name_en', 'appellant:id,name', 'originalRequest:id,reference_number,title']);
+        abort_unless(
+            $appeal->status?->code === 'legal_review'
+                && ! $appeal->committeeAgendaItem()->exists()
+                && Appeal::mayNominate($actor),
+            404,
+        );
 
         return response()->json(['data' => [
-            'appeal' => (new AppealResource($appeal->loadCount('attachments')->load(self::WITH)))->resolve($request),
-            ...$acts->forAppeal($appeal, $request->user()),
+            'appeal' => [
+                'id' => $appeal->id,
+                'status' => $appeal->status->only(['code', 'name_ar', 'name_en']),
+                'appellant' => $appeal->appellant?->only(['id', 'name']),
+                'original_request' => $appeal->originalRequest?->only(['id', 'reference_number', 'title']),
+            ],
+            'available' => [['action' => 'nominate']],
+            'blocked' => [],
         ]]);
     }
 

@@ -227,7 +227,9 @@ onBeforeUnmount(clearAttachmentPreview)
 // key remounts them.
 const refreshKey = ref(0)
 function onWizardUpdated(updated) {
-  request.value = updated
+  // null: the act landed but the wizard's reload failed — retry it here.
+  if (updated === null) load()
+  else request.value = updated
   refreshKey.value += 1
 }
 </script>
@@ -367,8 +369,8 @@ function onWizardUpdated(updated) {
                   </template>
                 </strong>
               </div>
-              <!-- Stage 47 — derived from request type at intake, correctable by
-                   whoever studies the file (rides notes_attachments,edit). -->
+              <!-- Stage 47 — derived from request type at intake; read-only here,
+                   corrected through the wizard's set_financial_impact act. -->
               <div>
                 <span>{{ t('requestDetail.financialImpact.label') }}</span>
                 <strong>
@@ -799,49 +801,47 @@ function onWizardUpdated(updated) {
 
         <section v-if="request.closure" class="card card-flat card-pad summary closure">
           <h3>{{ t('requestClosure.title') }}</h3>
-          <template>
-            <dl>
-              <div>
-                <span>{{ t('requestClosure.fields.final_result_code') }}</span>
-                <strong>{{ t(`requestClosure.results.${request.closure.final_result_code}`) }}</strong>
-              </div>
-              <div>
-                <span>{{ t('requestClosure.closedAt') }}</span>
-                <strong>{{ dateTime(request.closure.closed_at) }}</strong>
-              </div>
-              <div>
-                <span>{{ t('requestClosure.closedBy') }}</span>
-                <strong>{{ request.closure.closed_by?.name ?? '—' }}</strong>
-              </div>
-              <div>
-                <span>{{ t('requestClosure.fields.approving_body') }}</span>
-                <strong>{{ request.closure.approving_body ?? '—' }}</strong>
-              </div>
-              <div>
-                <span>{{ t('requestClosure.fields.final_decision_number') }}</span>
-                <strong>{{ request.closure.final_decision_number ?? '—' }}</strong>
-              </div>
-              <div>
-                <span>{{ t('requestClosure.fields.execution_date') }}</span>
-                <strong>{{ request.closure.execution_date ? date(request.closure.execution_date) : '—' }}</strong>
-              </div>
-              <div>
-                <span>{{ t('requestClosure.fields.executing_body') }}</span>
-                <strong>{{ request.closure.executing_body ?? '—' }}</strong>
-              </div>
-              <div>
-                <span>{{ t('requestClosure.fields.notice_status') }}</span>
-                <strong>{{ t(`requestClosure.notice.${request.closure.notice_status}`) }}</strong>
-              </div>
-            </dl>
-            <h4>{{ t('requestClosure.auditTitle') }}</h4>
-            <ul class="audit-record">
-              <li v-for="check in AUDIT_CHECKS" :key="check">
-                <span>{{ t(`requestClosure.checks.${check}`) }}</span>
-                <strong>{{ t(`requestClosure.answers.${request.closure_audit?.[check] ?? 'no'}`) }}</strong>
-              </li>
-            </ul>
-          </template>
+          <dl>
+            <div>
+              <span>{{ t('requestClosure.fields.final_result_code') }}</span>
+              <strong>{{ t(`requestClosure.results.${request.closure.final_result_code}`) }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.closedAt') }}</span>
+              <strong>{{ dateTime(request.closure.closed_at) }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.closedBy') }}</span>
+              <strong>{{ request.closure.closed_by?.name ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.approving_body') }}</span>
+              <strong>{{ request.closure.approving_body ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.final_decision_number') }}</span>
+              <strong>{{ request.closure.final_decision_number ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.execution_date') }}</span>
+              <strong>{{ request.closure.execution_date ? date(request.closure.execution_date) : '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.executing_body') }}</span>
+              <strong>{{ request.closure.executing_body ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.notice_status') }}</span>
+              <strong>{{ t(`requestClosure.notice.${request.closure.notice_status}`) }}</strong>
+            </div>
+          </dl>
+          <h4>{{ t('requestClosure.auditTitle') }}</h4>
+          <ul class="audit-record">
+            <li v-for="check in AUDIT_CHECKS" :key="check">
+              <span>{{ t(`requestClosure.checks.${check}`) }}</span>
+              <strong>{{ t(`requestClosure.answers.${request.closure_audit?.[check] ?? 'no'}`) }}</strong>
+            </li>
+          </ul>
         </section>
       </div>
 
@@ -920,7 +920,7 @@ function onWizardUpdated(updated) {
 .legal-review strong.ok { color: var(--color-success-fg); }
 .legal-review strong.warn { color: var(--color-warning-fg); }
 .legal-review .ghost { margin-inline-start: 0; }
-.action-buttons, .attachment-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.attachment-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
 .action-error { color: var(--color-danger-fg); margin: 0.6rem 0 0; font-size: var(--text-sm); }
 
 /* -- Tab panels ---------------------------------------------------------- */

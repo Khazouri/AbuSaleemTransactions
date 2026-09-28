@@ -50,6 +50,9 @@ const notReady = computed(() => Boolean(spec.value) && !spec.value.ready(form.va
 
 const submitting = ref(false)
 const error = ref('')
+// A nominator who may not read the appeal gets only appeal-options' fields
+// from /acts (AppealController::acts), so the reading rows stay hidden.
+const full = computed(() => Boolean(appeal.value && 'appeal_reasons' in appeal.value))
 const reference = computed(() => appeal.value?.original_request?.reference_number || `#${props.appealId}`)
 const date = (value) => (value ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value)) : '—')
 const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en : item?.name_en || item?.name_ar) ?? '—'
@@ -116,14 +119,16 @@ load().then(() => {
           <div><dt>{{ t('appeals.columns.request') }}</dt><dd><span class="ltr">{{ appeal.original_request?.reference_number }}</span> {{ appeal.original_request?.title }}</dd></div>
           <div><dt>{{ t('decisionWizard.appeal.appellant') }}</dt><dd>{{ appeal.appellant?.name || '—' }}</dd></div>
           <div><dt>{{ t('appeals.columns.status') }}</dt><dd>{{ name(appeal.status) }}</dd></div>
-          <div><dt>{{ t('appeals.create.knownAt') }}</dt><dd>{{ date(appeal.known_at) }}</dd></div>
+          <div v-if="full"><dt>{{ t('appeals.create.knownAt') }}</dt><dd>{{ date(appeal.known_at) }}</dd></div>
           <div v-if="appeal.committee_decision"><dt>{{ t('appeals.execution.decidedOutcome') }}</dt><dd>{{ t(`decisions.outcome.${appeal.committee_decision.outcome}`) }}</dd></div>
         </dl>
-        <h4>{{ t('appeals.create.appealReasons') }}</h4>
-        <p class="description">{{ appeal.appeal_reasons }}</p>
-        <h4>{{ t('appeals.create.finalRequest') }}</h4>
-        <p class="description">{{ appeal.final_request }}</p>
-        <p class="hint">{{ t('decisionWizard.appeal.more') }}</p>
+        <template v-if="full">
+          <h4>{{ t('appeals.create.appealReasons') }}</h4>
+          <p class="description">{{ appeal.appeal_reasons }}</p>
+          <h4>{{ t('appeals.create.finalRequest') }}</h4>
+          <p class="description">{{ appeal.final_request }}</p>
+          <p class="hint">{{ t('decisionWizard.appeal.more') }}</p>
+        </template>
       </template>
     </template>
 

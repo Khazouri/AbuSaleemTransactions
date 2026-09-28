@@ -100,16 +100,24 @@ class AppealActsTest extends TestCase
         $meeting = Meeting::create(['committee_id' => $committee->id, 'title' => 'اجتماع', 'scheduled_at' => now()->addWeek()]);
         $appeal = $this->appealIn('legal_review', $this->userWithRole('R01'));
 
-        $this->assertSame([['action' => 'nominate']], $this->acts($chair, $appeal)['available']);
-        $this->assertContains(
+        // The nominator is disclosed only what GET meetings/appeal-options
+        // already lists (plus the status) — never the appeal itself.
+        $acts = $this->acts($chair, $appeal);
+        $this->assertSame([['action' => 'nominate']], $acts['available']);
+        $this->assertSame('legal_review', $acts['appeal']['status']['code']);
+        $this->assertSame($appeal->original_request_id, $acts['appeal']['original_request']['id']);
+        $this->assertArrayNotHasKey('appeal_reasons', $acts['appeal']);
+        $this->assertNotContains(
             $appeal->id,
             array_column($this->actingAs($chair->fresh(), 'sanctum')->getJson('/api/appeals')->assertOk()->json('data'), 'id'),
         );
+        $this->actingAs($chair->fresh(), 'sanctum')->getJson("/api/appeals/{$appeal->id}/file")->assertNotFound();
 
         $this->actingAs($chair->fresh(), 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['item_type' => 'appeal', 'appeal_id' => $appeal->id])
             ->assertCreated();
-        $this->assertSame([], $this->acts($chair, $appeal)['available']);
+        // Once nominated there is nothing left for the nominator to do on it.
+        $this->actingAs($chair->fresh(), 'sanctum')->getJson("/api/appeals/{$appeal->id}/acts")->assertNotFound();
 
         // An unseated chair holds no agenda view (the membership gate), so
         // cannot nominate — nor open an appeal that is not theirs.

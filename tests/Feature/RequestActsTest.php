@@ -16,6 +16,7 @@ use App\Models\WorkflowStage;
 use App\Services\ApprovalReferralService;
 use App\Services\ApprovalReturnService;
 use App\Services\RequestClosureService;
+use App\Services\RequestSuspensionService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -160,6 +161,29 @@ class RequestActsTest extends TestCase
 
         $resolve = collect($this->acts($rapporteur, $file)['available'])->firstWhere('action', 'resolve_approval_return');
         $this->assertSame('formal', $resolve['return_kind']);
+    }
+
+    public function test_an_open_suspension_blocks_resolving_a_return_as_the_endpoint_refuses_it(): void
+    {
+        // A formal resolve would overwrite execution_suspended with awaiting_*
+        // while Art. 105's suspension stays open.
+        $rapporteur = $this->userWithRole('R02');
+        $file = $this->fileAt('approval_by_authority', 'execution_suspended');
+        $this->openReturn($file, 'formal');
+        DB::table('request_suspensions')->insert([
+            'request_id' => $file->id,
+            'suspended_from_status_id' => RequestStatus::where('code', 'awaiting_municipal_approval')->value('id'),
+            'ground' => 'document_in_doubt', 'detail' => 'شك', 'suspended_at' => now(),
+        ]);
+
+        $this->assertSame(
+            RequestSuspensionService::BLOCK_MESSAGE,
+            $this->blockedReason($rapporteur, $file, 'resolve_approval_return'),
+        );
+        $this->actingAs($rapporteur->fresh(), 'sanctum')
+            ->patchJson("/api/requests/{$file->id}/approval-return/resolve", ['resolution_action' => 'استكمل التوقيع'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', RequestSuspensionService::BLOCK_MESSAGE);
     }
 
     public function test_a_formal_return_off_an_approval_stage_reports_the_endpoints_reason(): void

@@ -131,6 +131,12 @@ class ApprovalReturnService
             return 'لا توجد إعادة من جهة الاعتماد بانتظار إثبات الإجراء المتخذ بشأنها.';
         }
 
+        // Art. 105 freezes the file: a formal resolve would overwrite
+        // execution_suspended with awaiting_* while the suspension stays open.
+        if ($requestRecord->openSuspension()->exists()) {
+            return RequestSuspensionService::BLOCK_MESSAGE;
+        }
+
         if ($open->return_kind !== ApprovalReturn::KIND_SUBSTANTIVE
             && ! array_key_exists((string) $requestRecord->currentStage?->code, self::AWAITING_STATUS_BY_STAGE)) {
             return 'لا يمكن إعادة الإحالة إلى جهة الاعتماد من هذه المرحلة.';
@@ -262,6 +268,11 @@ class ApprovalReturnService
                 ->with('currentStage:id,code')
                 ->lockForUpdate()
                 ->findOrFail($requestRecord->id);
+
+            // resolveRefusal()'s suspension check, again under the lock.
+            if ($locked->openSuspension()->exists()) {
+                throw new \DomainException(RequestSuspensionService::BLOCK_MESSAGE);
+            }
 
             $awaitingCode = self::AWAITING_STATUS_BY_STAGE[(string) $locked->currentStage?->code] ?? null;
 

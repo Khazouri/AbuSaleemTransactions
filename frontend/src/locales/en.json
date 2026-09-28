@@ -354,10 +354,8 @@
       "newFactsDeclaration": "New facts declaration (only when refiling)",
       "newFactsDeclarationHint": "Only needed if you already filed an appeal against this same request.",
       "submit": "Submit appeal",
-      "submitting": "Submitting…",
       "success": "Appeal submitted.",
       "failed": "The appeal could not be submitted.",
-      "attachmentsHeading": "Attach supporting documents",
       "finish": "Done — back to appeals list"
     },
     "columns": {
@@ -409,7 +407,6 @@
     },
     "jurisdiction": {
       "action": "Jurisdiction test",
-      "hint": "Determine whether the committee is the competent body for this appeal, or whether it belongs elsewhere.",
       "options": {
         "committee": "The committee (competent)",
         "mayor": "Mayor of the municipality",
@@ -2456,7 +2453,7 @@
       "title": "Act on the appeal",
       "lede": "Read the appeal before you act.",
       "appellant": "Appellant",
-      "more": "The full appeal file is in the «File» column behind this window.",
+      "more": "The full appeal file is in the «Action / Original file» column behind this window.",
       "chooseLede": "Choose what to do on this appeal.",
       "nothing": "Nothing on this appeal is yours to do right now.",
       "nominate": "Present to the committee",

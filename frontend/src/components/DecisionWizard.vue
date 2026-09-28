@@ -236,8 +236,14 @@ async function post(item, note) {
       data: spec.body ? spec.body(actForm.value, props.request, item.act) : actForm.value,
     })
     // Several act endpoints answer with a list resource or nothing at all.
-    const { data } = await api.get(`/requests/${id}`)
-    return data.data
+    // The act is done by now: a failed reload must not read as a failed act
+    // (that invites a duplicate retry), so hand back null and let the host reload.
+    try {
+      const { data } = await api.get(`/requests/${id}`)
+      return data.data
+    } catch {
+      return null
+    }
   }
   if (item.kind === 'transition') {
     const { data } = await api.post(`/requests/${id}/transition`, { action: item.action, ...(note ? { comment: note } : {}) })
@@ -261,9 +267,13 @@ async function post(item, note) {
 // attach_document posts through FileUpload itself; once it has, the wizard
 // only has to refresh the file and close, as after any other act.
 async function onUploaded() {
-  const { data } = await api.get(`/requests/${props.request.id}`)
-  emit('updated', data.data)
-  emit('close')
+  try {
+    const { data } = await api.get(`/requests/${props.request.id}`)
+    emit('updated', data.data)
+    emit('close')
+  } catch (requestError) {
+    error.value = firstError(requestError, t('requestDetail.actionFailed'))
+  }
 }
 
 async function submit() {

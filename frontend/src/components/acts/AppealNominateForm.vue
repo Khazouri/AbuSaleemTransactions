@@ -6,7 +6,7 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import api from '../../lib/api'
+import api, { firstError } from '../../lib/api'
 
 defineProps({ appeal: { type: Object, required: true } })
 const form = defineModel({ type: Object, required: true })
@@ -14,6 +14,7 @@ const { t, locale } = useI18n()
 
 const meetings = ref([])
 const loading = ref(true)
+const loadError = ref('')
 const open = computed(() => meetings.value.filter((meeting) => ['pending_confirmation', 'scheduled'].includes(meeting.status)
   && !meeting.agenda_adopted_at))
 const when = (value) => new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
@@ -22,6 +23,9 @@ onMounted(async () => {
   try {
     const { data } = await api.get('/meetings')
     meetings.value = data.data ?? []
+  } catch (requestError) {
+    // Not "no open meeting": a failed load says nothing about the sittings.
+    loadError.value = firstError(requestError, t('requestDetail.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -31,6 +35,7 @@ onMounted(async () => {
 <template>
   <div class="gate-form">
     <p v-if="loading" class="hint">{{ t('common.loading') }}</p>
+    <p v-else-if="loadError" class="alert" role="alert">{{ loadError }}</p>
     <p v-else-if="!open.length" class="alert warning">{{ t('decisionWizard.appeal.noOpenMeeting') }}</p>
     <label v-else>
       <span>{{ t('decisionWizard.appeal.meeting') }} *</span>
