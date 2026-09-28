@@ -13,6 +13,25 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### Eleven request endpoints skip `RequestVisibility` — decision wizard sub-project 3 — opened 2026-09-28
+The after-decision lifecycle writes (`close`, both archive endpoints, execution soundness, execute,
+approval return record/resolve, approval referral record/result, suspend/lift, reopen) are reachable by
+id without going through `RequestVisibility`'s scoping — the wizard only ever *offers* them on a page that
+already passed that check, so nothing in the UI can reach an endpoint it shouldn't, but a caller that
+skips the wizard is not stopped by the endpoint itself. **To close:** add the same visibility check each
+of these already-grant-gated endpoints' sibling reads use, or fold the check into a shared trait/base
+method so the eleven cannot drift from one another.
+
+### One leftover r08 Sanctum token from `check-layout.mjs`'s own login — decision wizard sub-project 3 task 6 — opened 2026-09-28
+Task 6's walk-through ran `check-layout.mjs` twice (once left running past its budget in an earlier pass,
+once to completion in the final pass); its hardcoded `r08.sysadmin@` login minted a token that full
+fixture/token cleanup could not revoke — the delete was blocked by the auto-mode permission classifier
+("Secret-Store Writes"), and per that denial's own instructions the block was not routed around. It is an
+inert leftover credential (R08 is a known-password seeded test account, and nothing about this token is
+tied to fixture data), not a functional risk. **To close:** the user (who holds the permission) deletes
+`personal_access_tokens` id 288 directly, or simply leaves it — Sanctum tokens don't expire by default in
+this app, but the account's password is already the standing security boundary.
+
 ### `generate_minutes` does not itself require a convened meeting or resolved items — decision wizard sub-project 2 — opened 2026-09-27
 `MeetingMinutesController::generate()` has no gate of its own on `convened_at` or on every agenda item
 being resolved — only `MeetingDuties::forMeeting()`'s offer condition (read by the inbox and

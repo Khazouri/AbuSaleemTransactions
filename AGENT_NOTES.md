@@ -19,6 +19,48 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-28 EET — Claude — Decision wizard, sub-project 3, slice 1 (after the decision) complete
+
+Built per the plan below; no migration. Execution soundness, execution, both archive files, closure,
+approval return/referral and suspension move into the request wizard from a new `acts` payload
+(`RequestActs`), grouped under «ما بعد القرار»; each blocked reason is the endpoint's own refusal
+(`RequestClosureService`, `ApprovalReturnService`, `ApprovalReferralService`, `RequestSuspensionService`,
+`RequestExecutionService`, `ExecutionSoundnessService`). The four panels that only held a form
+(`ApprovalReturnPanel`, `ApprovalReferralPanel`, `RequestClosurePanel`, `RequestExecutionPanel`) are
+deleted; the rest go read-only. `MeetingOutputsView`'s execute/close cells now link to the request's own
+wizard. **The walk-through caught a real deep-link crash**, fixed and reviewed in a separate commit
+(1ba994d) before this slice closed: `?decide=<act>` selects the act during `setup()`, before the
+component's first render, but the `actForm` watcher's default `pre` flush queued its run for *after* that
+render — so the Confirm pane painted with `actForm` still `{}` and any form indexing a nested field
+(`ClosureForm`'s `form.audit[check]`, `SoundnessForm`'s `form.checks[key]`, `ExecutionForm`'s
+`form.checklist`/`form.evidence`) threw. `flush: 'sync'` on that one watcher closes it.
+
+Verified (post-fix): full suite **805 / 5124** green, Pint clean on the slice's nine touched files, build
+passes (`dist` rebuilt and committed with this entry), locale parity **2109 keys each side**,
+`check-layout.mjs` (440 views) fails only on the pre-existing `/decisions` and `/reports` 1024px
+`table-wrap` overflow — neither route was touched by this slice. Headless walk-through on a tinker-built
+fixture (four requests: one decided at `final_approval_archiving`/`executed`, one at
+`approval_by_authority`/`awaiting_municipal_approval`, one at `final_approval_archiving`/`final_approved`,
+one decided at `final_approval_archiving`/`in_execution`) covered ar/en × 1280/375 with zero console
+errors throughout: R02 archived the committee file, R12 archived the service file then closed — the exact
+`?decide=close` deep link that crashed before now renders cleanly on first paint across all four combos,
+submitted for real. Re-opening `?decide=close` on the now-closed file shows no crash and no dead-end UI:
+`RequestActs`' `close` relevance is deliberately gated on `$open` (closed_at === null, matching
+`RequestClosureService`'s own docblock), so a fully-closed file with nothing else pending offers no acts
+at all and the wizard simply doesn't open — narrower than the brief's literal "must land on Choose", but
+verified safe (zero errors) and consistent with the documented design. `execution_soundness` and `execute`
+deep links — the other two forms with the same nested-field shape — were also opened live across all four
+combos with zero crashes; `execution_soundness` was submitted for real. Review Focus 1 (a stale second
+referral) reproduced live: a Confirm-step submission raced against a referral recorded via a separate API
+call, and the wizard showed the exact «توجد إحالة للاعتماد لم تثبت نتيجتها بعد.» inline and stayed open.
+Every fixture row (4 requests, 2 committees, 2 meetings, 2 agenda items, 2 decisions, 1 committee-member
+seat, 1 referral) and the session's queued jobs/audit-log rows were deleted afterward; all tracked
+row counts matched their baseline exactly. One token (r08.sysadmin@, minted by `check-layout.mjs`'s own
+login during an earlier pass of this same walk-through) could not be revoked — the delete was blocked by
+the auto-mode permission classifier ("Secret-Store Writes") — and is noted in OPEN_ITEMS.md for the user's
+own optional cleanup; it is an inert leftover credential, not tied to any fixture data.
+
+---
 ### 2026-09-28 EET — Claude — Implementation plan: decision wizard, sub-project 3 (post-decision work, records, appeals)
 
 User (brainstorming): **every write on the request page and on the appeals screen** goes through a wizard — the
