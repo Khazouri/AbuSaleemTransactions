@@ -10,23 +10,25 @@
  * The list is scoped server-side to the caller's own appeals unless they're
  * R08 or hold `appeals.edit` (see AppealController::index) — the second
  * bypass is what lets an R02 verifier see appeals filed by other people.
+ *
+ * Decision wizard — sub-project 3: every act and the filing itself are
+ * wizards (AppealWizard, AppealFilingWizard); this view is the list.
  */
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '../lib/api'
-import AppModal from '../components/AppModal.vue'
-import FileUpload from '../components/FileUpload.vue'
+import AppealFilingWizard from '../components/AppealFilingWizard.vue'
+import AppealWizard from '../components/AppealWizard.vue'
 
 const { t, locale } = useI18n()
 const route = useRoute()
+const router = useRouter()
 
 const STATUS_CODES = [
   'submitted', 'formal_verification', 'file_assembly', 'legal_review',
   'committee_presentation', 'notified_closed', 'rejected', 'outside_jurisdiction',
 ]
-
-const COMPETENT_BODY_OPTIONS = ['committee', 'mayor', 'ministry', 'other_body', 'disciplinary_or_court']
 
 // --- List -------------------------------------------------------------------
 
@@ -67,58 +69,6 @@ function statusLabel(status) {
   return locale.value === 'ar' ? status.name_ar || status.name_en : status.name_en || status.name_ar
 }
 
-// --- Create form --------------------------------------------------------------
-
-const requestSearch = ref('')
-const requestResults = ref([])
-const requestSearching = ref(false)
-const selectedRequest = ref(null)
-let searchTimer = null
-
-watch(requestSearch, (value) => {
-  clearTimeout(searchTimer)
-  if (!value.trim()) {
-    requestResults.value = []
-    return
-  }
-  searchTimer = setTimeout(async () => {
-    requestSearching.value = true
-    try {
-      const { data } = await api.get('/requests', { params: { search: value.trim(), per_page: 5 } })
-      requestResults.value = data.data ?? []
-    } catch {
-      requestResults.value = []
-    } finally {
-      requestSearching.value = false
-    }
-  }, 300)
-})
-
-function pickRequest(request) {
-  selectedRequest.value = request
-  requestSearch.value = ''
-  requestResults.value = []
-}
-
-function clearSelection() {
-  selectedRequest.value = null
-}
-
-const decisionReference = ref('')
-const decisionDate = ref('')
-const knownAt = ref('')
-const appealReasons = ref('')
-const finalRequestText = ref('')
-const newFactsDeclaration = ref('')
-const creating = ref(false)
-const createError = ref(null)
-const createMessage = ref(null)
-
-// Stage 59 — once created, offer the supporting-documents step for this
-// specific appeal before returning to the plain create form.
-const newAppealId = ref(null)
-const showCreate = ref(false)
-
 function extractErrorMessage(error, fallback) {
   const errors = error?.response?.data?.errors
   if (errors) {
@@ -128,197 +78,17 @@ function extractErrorMessage(error, fallback) {
   return error?.response?.data?.message ?? fallback
 }
 
-function resetCreateForm() {
-  selectedRequest.value = null
-  decisionReference.value = ''
-  decisionDate.value = ''
-  knownAt.value = ''
-  appealReasons.value = ''
-  finalRequestText.value = ''
-  newFactsDeclaration.value = ''
-}
-
-async function createAppeal() {
-  if (!selectedRequest.value) {
-    createError.value = t('appeals.create.selectRequestFirst')
-    return
-  }
-  creating.value = true
-  createError.value = null
-  createMessage.value = null
-  try {
-    const { data } = await api.post('/appeals', {
-      original_request_id: selectedRequest.value.id,
-      original_decision_reference: decisionReference.value || null,
-      original_decision_date: decisionDate.value || null,
-      known_at: knownAt.value,
-      appeal_reasons: appealReasons.value,
-      final_request: finalRequestText.value,
-      new_facts_declaration: newFactsDeclaration.value || null,
-    })
-    createMessage.value = t('appeals.create.success')
-    newAppealId.value = data.data.id
-    resetCreateForm()
-    await load(1)
-  } catch (error) {
-    createError.value = extractErrorMessage(error, t('appeals.create.failed'))
-  } finally {
-    creating.value = false
-  }
-}
-
-// Closing keeps whatever was typed into the create form, so reopening it
-// picks up where the user left off; only the one-off messages are cleared.
-function finishAttachments() {
-  showCreate.value = false
-  newAppealId.value = null
-  createMessage.value = null
-  createError.value = null
-}
-
-// --- Stage 60 — formal verification ------------------------------------------
-
-const verifyTarget = ref(null)
-const verifyForm = ref(blankVerifyForm())
-const verifying = ref(false)
-const verifyError = ref(null)
-
-function blankVerifyForm() {
-  return { appellant_standing: '', valid_target_decision: '', non_duplication: '', reason: '' }
-}
-
-function startVerify(row) {
-  verifyTarget.value = row
-  verifyForm.value = blankVerifyForm()
-  verifyError.value = null
-}
-
-function cancelVerify() {
-  verifyTarget.value = null
-  verifyError.value = null
-}
-
-async function submitVerify() {
-  if (!verifyTarget.value || verifying.value) return
-  verifying.value = true
-  verifyError.value = null
-  try {
-    await api.post(`/appeals/${verifyTarget.value.id}/verify`, {
-      appellant_standing: verifyForm.value.appellant_standing === 'yes',
-      valid_target_decision: verifyForm.value.valid_target_decision === 'yes',
-      non_duplication: verifyForm.value.non_duplication === 'yes',
-      reason: verifyForm.value.reason || null,
-    })
-    verifyTarget.value = null
-    await load(page.value.current_page)
-  } catch (error) {
-    verifyError.value = extractErrorMessage(error, t('appeals.verify.failed'))
-  } finally {
-    verifying.value = false
-  }
-}
+// --- Stage 60 — formal verification: label only, the act itself is in AppealWizard ---
 
 function deadlineLabel(deadlineMet) {
   if (deadlineMet === null) return t('appeals.verify.deadlineNotConfigured')
   return deadlineMet ? t('appeals.verify.deadlineMet') : t('appeals.verify.deadlineMissed')
 }
 
-// --- Stage 62 — jurisdiction test (Art. 77) -----------------------------------
-
-const jurisdictionTarget = ref(null)
-const jurisdictionCompetentBody = ref('')
-const jurisdictionSubmitting = ref(false)
-const jurisdictionError = ref(null)
-
-function startJurisdictionTest(row) {
-  jurisdictionTarget.value = row
-  jurisdictionCompetentBody.value = ''
-  jurisdictionError.value = null
-}
-
-function cancelJurisdictionTest() {
-  jurisdictionTarget.value = null
-  jurisdictionError.value = null
-}
-
-async function submitJurisdictionTest() {
-  if (!jurisdictionTarget.value || jurisdictionSubmitting.value) return
-  if (!jurisdictionCompetentBody.value) {
-    jurisdictionError.value = t('appeals.jurisdiction.selectFirst')
-    return
-  }
-  jurisdictionSubmitting.value = true
-  jurisdictionError.value = null
-  try {
-    await api.patch(`/appeals/${jurisdictionTarget.value.id}/jurisdiction-test`, {
-      competent_body: jurisdictionCompetentBody.value,
-    })
-    jurisdictionTarget.value = null
-    await load(page.value.current_page)
-  } catch (error) {
-    jurisdictionError.value = extractErrorMessage(error, t('appeals.jurisdiction.failed'))
-  } finally {
-    jurisdictionSubmitting.value = false
-  }
-}
+// --- Stage 62 — jurisdiction test (Art. 77): label only -----------------------------
 
 function competentBodyLabel(code) {
   return code ? t('appeals.jurisdiction.options.' + code) : t('common.none')
-}
-
-// --- Stage 62 — legal review (Art. 75 point 4) --------------------------------
-
-const legalReviewTarget = ref(null)
-const legalReviewForm = ref(blankLegalReviewForm())
-const legalReviewSubmitting = ref(false)
-const legalReviewError = ref(null)
-
-function blankLegalReviewForm() {
-  return {
-    factual_error: '',
-    legal_text_violation: '',
-    new_documents: '',
-    formation_or_reasoning_defect: '',
-    issued_by_competent_body: '',
-  }
-}
-
-function startLegalReview(row) {
-  legalReviewTarget.value = row
-  legalReviewForm.value = blankLegalReviewForm()
-  legalReviewError.value = null
-}
-
-function cancelLegalReview() {
-  legalReviewTarget.value = null
-  legalReviewError.value = null
-}
-
-async function submitLegalReview() {
-  if (!legalReviewTarget.value || legalReviewSubmitting.value) return
-  const form = legalReviewForm.value
-  const values = Object.values(form)
-  if (values.some((value) => value === '')) {
-    legalReviewError.value = t('appeals.legalReview.answerAll')
-    return
-  }
-  legalReviewSubmitting.value = true
-  legalReviewError.value = null
-  try {
-    await api.patch(`/appeals/${legalReviewTarget.value.id}/legal-review`, {
-      factual_error: form.factual_error === 'yes',
-      legal_text_violation: form.legal_text_violation === 'yes',
-      new_documents: form.new_documents === 'yes',
-      formation_or_reasoning_defect: form.formation_or_reasoning_defect === 'yes',
-      issued_by_competent_body: form.issued_by_competent_body === 'yes',
-    })
-    legalReviewTarget.value = null
-    await load(page.value.current_page)
-  } catch (error) {
-    legalReviewError.value = extractErrorMessage(error, t('appeals.legalReview.failed'))
-  } finally {
-    legalReviewSubmitting.value = false
-  }
 }
 
 // --- Stage 61 — original file dossier ----------------------------------------
@@ -389,87 +159,8 @@ async function openAppealDocument(doc) {
   }
 }
 
-// --- Stage 64 — outcome execution ---------------------------------------------
-// A separate, deliberate step from Stage 63's own vote/decision recording —
-// see AppealOutcomeExecutor / AppealController::executeOutcome. The redo
-// stage picker is only fetched once, lazily, the first time it's needed.
-
-const executionTarget = ref(null)
-const executionRedoStage = ref('')
-const executionSubmitting = ref(false)
-const executionError = ref(null)
-const redoStageOptions = ref([])
-const redoStagesLoading = ref(false)
-const redoStagesError = ref(null)
-
-function startExecution(row) {
-  executionTarget.value = row
-  executionRedoStage.value = ''
-  executionError.value = null
-  if (row.committee_decision?.outcome === 'appeal_redo' && redoStageOptions.value.length === 0) {
-    loadRedoStageOptions()
-  }
-}
-
-function cancelExecution() {
-  executionTarget.value = null
-  executionError.value = null
-}
-
-async function loadRedoStageOptions() {
-  redoStagesLoading.value = true
-  redoStagesError.value = null
-  try {
-    const { data } = await api.get('/appeals/redo-stage-options')
-    redoStageOptions.value = data.data ?? []
-  } catch {
-    redoStagesError.value = t('appeals.execution.loadStagesFailed')
-  } finally {
-    redoStagesLoading.value = false
-  }
-}
-
-async function submitExecution() {
-  if (!executionTarget.value || executionSubmitting.value) return
-  const isRedo = executionTarget.value.committee_decision?.outcome === 'appeal_redo'
-  if (isRedo && !executionRedoStage.value) {
-    executionError.value = t('appeals.execution.selectStageFirst')
-    return
-  }
-  executionSubmitting.value = true
-  executionError.value = null
-  try {
-    await api.patch(`/appeals/${executionTarget.value.id}/execute-outcome`, {
-      redo_stage_id: isRedo ? executionRedoStage.value : undefined,
-    })
-    executionTarget.value = null
-    await load(page.value.current_page)
-  } catch (error) {
-    executionError.value = extractErrorMessage(error, t('appeals.execution.failed'))
-  } finally {
-    executionSubmitting.value = false
-  }
-}
-
-// --- Stage 65 — notification & closure ----------------------------------------
-// Closable once the appeal has genuinely concluded: either terminal branch
-// (rejected at Stage 60, outside_jurisdiction at Stage 62) or a committee
-// decision whose outcome has already been executed (Stage 64). The final
-// result itself is derived server-side, never entered here — this form only
-// collects the manual closure-record fields [D] Arts. 34–37 ask for.
+// --- Stage 65 — notification & closure: label only -----------------------------------
 const APPEAL_DECISION_OUTCOME_CODES = ['appeal_accept', 'appeal_partial_accept', 'appeal_reject', 'appeal_refer', 'appeal_redo']
-
-function isClosable(row) {
-  const code = row.status?.code
-  if (code === 'rejected' || code === 'outside_jurisdiction') return true
-  return code === 'committee_presentation' && !!row.outcome_execution
-}
-
-function pendingFinalResultCode(row) {
-  const code = row.status?.code
-  if (code === 'rejected' || code === 'outside_jurisdiction') return code
-  return row.committee_decision?.outcome ?? null
-}
 
 function finalResultLabel(code) {
   if (!code) return t('common.none')
@@ -477,95 +168,18 @@ function finalResultLabel(code) {
   return t('appeals.filters.statuses.' + code)
 }
 
-const closureTarget = ref(null)
-const closureForm = ref(blankClosureForm())
-const closureSubmitting = ref(false)
-const closureError = ref(null)
-
-function blankClosureForm() {
-  return { final_decision_number: '', approving_body: '', execution_date: '', executing_body: '', file_storage_location: '' }
+// Decision wizard — sub-project 3. Every act on an appeal is taken in its
+// wizard; ?appeal=<id>&decide=<act|1> opens it, which is also how the inbox
+// links here.
+const wizardAppealId = computed(() => route.query.appeal ?? null)
+function openWizard(row) {
+  router.replace({ query: { ...route.query, appeal: row.id, decide: 1 } })
 }
-
-function startClosure(row) {
-  closureTarget.value = row
-  closureForm.value = blankClosureForm()
-  closureError.value = null
+function closeWizard() {
+  const { appeal, decide, ...query } = route.query
+  router.replace({ query })
 }
-
-function cancelClosure() {
-  closureTarget.value = null
-  closureError.value = null
-}
-
-async function submitClosure() {
-  if (!closureTarget.value || closureSubmitting.value) return
-  closureSubmitting.value = true
-  closureError.value = null
-  try {
-    await api.patch(`/appeals/${closureTarget.value.id}/close`, {
-      final_decision_number: closureForm.value.final_decision_number || null,
-      approving_body: closureForm.value.approving_body,
-      execution_date: closureForm.value.execution_date || null,
-      executing_body: closureForm.value.executing_body || null,
-      file_storage_location: closureForm.value.file_storage_location,
-    })
-    closureTarget.value = null
-    await load(page.value.current_page)
-  } catch (error) {
-    closureError.value = extractErrorMessage(error, t('appeals.closure.failed'))
-  } finally {
-    closureSubmitting.value = false
-  }
-}
-
-// --- Stage 66 — enumerated-reason-only reopen -----------------------------
-// A closed appeal (notified_closed) only. The reason list is the same
-// six ReopenReasonCatalog codes the request-side reopen action uses —
-// see requestDetail.reopen in RequestDetailView.vue.
-const REOPEN_REASON_CODES = [
-  'new_document', 'external_reply_received', 'material_error_correction',
-  'legal_status_change', 'returned_by_approving_body', 'competent_authority_restudy',
-]
-
-const reopenTarget = ref(null)
-const reopenReasonCode = ref('')
-const reopenNote = ref('')
-const reopenSubmitting = ref(false)
-const reopenError = ref(null)
-
-function startReopen(row) {
-  reopenTarget.value = row
-  reopenReasonCode.value = ''
-  reopenNote.value = ''
-  reopenError.value = null
-}
-
-function cancelReopen() {
-  reopenTarget.value = null
-  reopenError.value = null
-}
-
-async function submitReopen() {
-  if (!reopenTarget.value || reopenSubmitting.value) return
-  if (!reopenReasonCode.value) {
-    reopenError.value = t('appeals.reopen.reasonLabel')
-    return
-  }
-  reopenSubmitting.value = true
-  reopenError.value = null
-  try {
-    await api.patch(`/appeals/${reopenTarget.value.id}/reopen`, {
-      reason_code: reopenReasonCode.value,
-      note: reopenNote.value || null,
-    })
-    reopenTarget.value = null
-    await load(page.value.current_page)
-  } catch (error) {
-    reopenError.value = extractErrorMessage(error, t('appeals.reopen.failed'))
-  } finally {
-    reopenSubmitting.value = false
-  }
-}
+const showFiling = ref(false)
 
 onMounted(() => load())
 </script>
@@ -577,404 +191,20 @@ onMounted(() => load())
         <h2>{{ t('appeals.title') }}</h2>
         <p class="subtitle">{{ t('appeals.subtitle') }}</p>
       </div>
-      <button v-can="'appeals.add'" class="primary" type="button" @click="showCreate = true">
+      <button v-can="'appeals.add'" class="primary" type="button" @click="showFiling = true">
         {{ t('appeals.create.heading') }}
       </button>
     </div>
 
-    <AppModal
-      v-if="showCreate"
-      :title="newAppealId ? t('appeals.create.attachmentsHeading') : t('appeals.create.heading')"
-      wide
-      @close="finishAttachments"
-    >
-      <div v-if="newAppealId" class="create">
-        <p v-if="createMessage" class="alert success">{{ createMessage }}</p>
-        <FileUpload :upload-url="`/appeals/${newAppealId}/attachments`" :require-section="false" />
-        <div class="modal-actions">
-          <button class="primary" type="button" @click="finishAttachments">
-            {{ t('appeals.create.finish') }}
-          </button>
-        </div>
-      </div>
-
-      <div v-else class="create">
-
-        <div v-if="!selectedRequest" class="search-block">
-          <label>
-            {{ t('appeals.create.searchLabel') }}
-            <input
-              v-model="requestSearch"
-              type="text"
-              :placeholder="t('appeals.create.searchPlaceholder')"
-            />
-          </label>
-          <p v-if="requestSearching" class="state">{{ t('common.loading') }}</p>
-          <ul v-else-if="requestSearch.trim() && requestResults.length === 0" class="state">
-            <li>{{ t('appeals.create.noResults') }}</li>
-          </ul>
-          <ul v-else-if="requestResults.length" class="results">
-            <li v-for="result in requestResults" :key="result.id">
-              <button type="button" class="ghost" @click="pickRequest(result)">
-                <span class="ref ltr">{{ result.reference_number }}</span>
-                <span>{{ result.title }}</span>
-              </button>
-            </li>
-          </ul>
-        </div>
-
-        <div v-else class="selected">
-          <div>
-            <span class="ref ltr">{{ selectedRequest.reference_number }}</span>
-            <span>{{ selectedRequest.title }}</span>
-          </div>
-          <button type="button" class="ghost" @click="clearSelection">{{ t('appeals.create.change') }}</button>
-        </div>
-
-        <div class="fields">
-          <label>
-            {{ t('appeals.create.knownAt') }}
-            <input v-model="knownAt" type="date" />
-          </label>
-          <label>
-            {{ t('appeals.create.decisionReference') }}
-            <input
-              v-model="decisionReference"
-              type="text"
-              :placeholder="t('appeals.create.decisionReferencePlaceholder')"
-            />
-          </label>
-          <label>
-            {{ t('appeals.create.decisionDate') }}
-            <input v-model="decisionDate" type="date" />
-          </label>
-        </div>
-
-        <label class="full">
-          {{ t('appeals.create.appealReasons') }}
-          <textarea v-model="appealReasons" rows="3"></textarea>
-        </label>
-        <label class="full">
-          {{ t('appeals.create.finalRequest') }}
-          <textarea v-model="finalRequestText" rows="2"></textarea>
-        </label>
-        <label class="full">
-          {{ t('appeals.create.newFactsDeclaration') }}
-          <textarea v-model="newFactsDeclaration" rows="2" :placeholder="t('appeals.create.newFactsDeclarationHint')"></textarea>
-        </label>
-
-        <p v-if="createMessage" class="alert success">{{ createMessage }}</p>
-        <p v-if="createError" class="alert">{{ createError }}</p>
-
-        <div class="modal-actions">
-          <button class="ghost" type="button" :disabled="creating" @click="finishAttachments">
-            {{ t('common.cancel') }}
-          </button>
-          <button class="primary" type="button" :disabled="creating" @click="createAppeal">
-            {{ creating ? t('appeals.create.submitting') : t('appeals.create.submit') }}
-          </button>
-        </div>
-      </div>
-    </AppModal>
-
-    <AppModal v-if="verifyTarget" :title="t('appeals.verify.heading')" wide @close="cancelVerify">
-      <div class="create">
-        <p class="subtitle">{{ t('appeals.verify.hint') }}</p>
-        <div class="selected">
-          <div>
-            <span class="ref ltr">{{ verifyTarget.original_request?.reference_number }}</span>
-            <span>{{ verifyTarget.original_request?.title }}</span>
-          </div>
-        </div>
-
-        <fieldset :disabled="verifying">
-          <div class="fields">
-            <label>
-              {{ t('appeals.verify.appellantStanding') }}
-              <select v-model="verifyForm.appellant_standing">
-                <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
-                <option value="yes">{{ t('appeals.verify.yes') }}</option>
-                <option value="no">{{ t('appeals.verify.no') }}</option>
-              </select>
-            </label>
-            <label>
-              {{ t('appeals.verify.validTargetDecision') }}
-              <select v-model="verifyForm.valid_target_decision">
-                <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
-                <option value="yes">{{ t('appeals.verify.yes') }}</option>
-                <option value="no">{{ t('appeals.verify.no') }}</option>
-              </select>
-            </label>
-            <label>
-              {{ t('appeals.verify.nonDuplication') }}
-              <select v-model="verifyForm.non_duplication">
-                <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
-                <option value="yes">{{ t('appeals.verify.yes') }}</option>
-                <option value="no">{{ t('appeals.verify.no') }}</option>
-              </select>
-            </label>
-          </div>
-          <label class="full">
-            {{ t('appeals.verify.reason') }}
-            <textarea v-model="verifyForm.reason" rows="2"></textarea>
-          </label>
-        </fieldset>
-
-        <p v-if="verifyError" class="alert">{{ verifyError }}</p>
-
-        <div class="modal-actions">
-          <button class="ghost" type="button" :disabled="verifying" @click="cancelVerify">
-            {{ t('appeals.verify.cancel') }}
-          </button>
-          <button class="primary" type="button" :disabled="verifying" @click="submitVerify">
-            {{ verifying ? t('appeals.verify.submitting') : t('appeals.verify.submit') }}
-          </button>
-        </div>
-      </div>
-    </AppModal>
-
-    <AppModal v-if="jurisdictionTarget" :title="t('appeals.jurisdiction.heading')" wide @close="cancelJurisdictionTest">
-      <div class="create">
-        <p class="subtitle">{{ t('appeals.jurisdiction.hint') }}</p>
-        <div class="selected">
-          <div>
-            <span class="ref ltr">{{ jurisdictionTarget.original_request?.reference_number }}</span>
-            <span>{{ jurisdictionTarget.original_request?.title }}</span>
-          </div>
-        </div>
-
-        <fieldset :disabled="jurisdictionSubmitting">
-          <label class="full">
-            {{ t('appeals.jurisdiction.question') }}
-            <select v-model="jurisdictionCompetentBody">
-              <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
-              <option v-for="code in COMPETENT_BODY_OPTIONS" :key="code" :value="code">
-                {{ t('appeals.jurisdiction.options.' + code) }}
-              </option>
-            </select>
-          </label>
-        </fieldset>
-
-        <p v-if="jurisdictionCompetentBody && jurisdictionCompetentBody !== 'committee'" class="alert info">
-          {{ t('appeals.jurisdiction.terminationWarning') }}
-        </p>
-        <p v-if="jurisdictionError" class="alert">{{ jurisdictionError }}</p>
-
-        <div class="modal-actions">
-          <button class="ghost" type="button" :disabled="jurisdictionSubmitting" @click="cancelJurisdictionTest">
-            {{ t('appeals.verify.cancel') }}
-          </button>
-          <button class="primary" type="button" :disabled="jurisdictionSubmitting" @click="submitJurisdictionTest">
-            {{ jurisdictionSubmitting ? t('appeals.jurisdiction.submitting') : t('appeals.jurisdiction.submit') }}
-          </button>
-        </div>
-      </div>
-    </AppModal>
-
-    <AppModal v-if="legalReviewTarget" :title="t('appeals.legalReview.heading')" wide @close="cancelLegalReview">
-      <div class="create">
-        <p class="subtitle">{{ t('appeals.legalReview.hint') }}</p>
-        <div class="selected">
-          <div>
-            <span class="ref ltr">{{ legalReviewTarget.original_request?.reference_number }}</span>
-            <span>{{ legalReviewTarget.original_request?.title }}</span>
-          </div>
-        </div>
-
-        <fieldset :disabled="legalReviewSubmitting">
-          <div class="fields">
-            <label>
-              {{ t('appeals.legalReview.factualError') }}
-              <select v-model="legalReviewForm.factual_error">
-                <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
-                <option value="yes">{{ t('appeals.verify.yes') }}</option>
-                <option value="no">{{ t('appeals.verify.no') }}</option>
-              </select>
-            </label>
-            <label>
-              {{ t('appeals.legalReview.legalTextViolation') }}
-              <select v-model="legalReviewForm.legal_text_violation">
-                <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
-                <option value="yes">{{ t('appeals.verify.yes') }}</option>
-                <option value="no">{{ t('appeals.verify.no') }}</option>
-              </select>
-            </label>
-            <label>
-              {{ t('appeals.legalReview.newDocuments') }}
-              <select v-model="legalReviewForm.new_documents">
-                <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
-                <option value="yes">{{ t('appeals.verify.yes') }}</option>
-                <option value="no">{{ t('appeals.verify.no') }}</option>
-              </select>
-            </label>
-            <label>
-              {{ t('appeals.legalReview.formationOrReasoningDefect') }}
-              <select v-model="legalReviewForm.formation_or_reasoning_defect">
-                <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
-                <option value="yes">{{ t('appeals.verify.yes') }}</option>
-                <option value="no">{{ t('appeals.verify.no') }}</option>
-              </select>
-            </label>
-            <label>
-              {{ t('appeals.legalReview.issuedByCompetentBody') }}
-              <select v-model="legalReviewForm.issued_by_competent_body">
-                <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
-                <option value="yes">{{ t('appeals.verify.yes') }}</option>
-                <option value="no">{{ t('appeals.verify.no') }}</option>
-              </select>
-            </label>
-          </div>
-        </fieldset>
-
-        <p v-if="legalReviewError" class="alert">{{ legalReviewError }}</p>
-
-        <div class="modal-actions">
-          <button class="ghost" type="button" :disabled="legalReviewSubmitting" @click="cancelLegalReview">
-            {{ t('appeals.verify.cancel') }}
-          </button>
-          <button class="primary" type="button" :disabled="legalReviewSubmitting" @click="submitLegalReview">
-            {{ legalReviewSubmitting ? t('appeals.legalReview.submitting') : t('appeals.legalReview.submit') }}
-          </button>
-        </div>
-      </div>
-    </AppModal>
-
-    <AppModal v-if="executionTarget" :title="t('appeals.execution.heading')" wide @close="cancelExecution">
-      <div class="create">
-        <p class="subtitle">{{ t('appeals.execution.hint') }}</p>
-        <div class="selected">
-          <div>
-            <span class="ref ltr">{{ executionTarget.original_request?.reference_number }}</span>
-            <span>{{ executionTarget.original_request?.title }}</span>
-          </div>
-        </div>
-
-        <p class="text-block">
-          <strong>{{ t('appeals.execution.decidedOutcome') }}:</strong>
-          {{ t('decisions.outcome.' + executionTarget.committee_decision?.outcome) }}
-        </p>
-
-        <fieldset v-if="executionTarget.committee_decision?.outcome === 'appeal_redo'" :disabled="executionSubmitting">
-          <label class="full">
-            {{ t('appeals.execution.redoStage') }}
-            <select v-model="executionRedoStage">
-              <option value="" disabled>{{ t('appeals.execution.chooseStage') }}</option>
-              <option v-for="stage in redoStageOptions" :key="stage.id" :value="stage.id">
-                {{ locale === 'ar' ? stage.name_ar : stage.name_en }}
-              </option>
-            </select>
-          </label>
-          <p class="alert info">{{ t('appeals.execution.redoHint') }}</p>
-          <p v-if="redoStagesLoading" class="state">{{ t('common.loading') }}</p>
-          <p v-if="redoStagesError" class="alert">{{ redoStagesError }}</p>
-        </fieldset>
-
-        <p v-if="executionError" class="alert">{{ executionError }}</p>
-
-        <div class="modal-actions">
-          <button class="ghost" type="button" :disabled="executionSubmitting" @click="cancelExecution">
-            {{ t('appeals.execution.cancel') }}
-          </button>
-          <button class="primary" type="button" :disabled="executionSubmitting" @click="submitExecution">
-            {{ executionSubmitting ? t('appeals.execution.submitting') : t('appeals.execution.submit') }}
-          </button>
-        </div>
-      </div>
-    </AppModal>
-
-    <AppModal v-if="closureTarget" :title="t('appeals.closure.heading')" wide @close="cancelClosure">
-      <div class="create">
-        <p class="subtitle">{{ t('appeals.closure.hint') }}</p>
-        <div class="selected">
-          <div>
-            <span class="ref ltr">{{ closureTarget.original_request?.reference_number }}</span>
-            <span>{{ closureTarget.original_request?.title }}</span>
-          </div>
-        </div>
-
-        <p class="text-block">
-          <strong>{{ t('appeals.closure.finalResult') }}:</strong>
-          {{ finalResultLabel(pendingFinalResultCode(closureTarget)) }}
-        </p>
-
-        <fieldset :disabled="closureSubmitting">
-          <div class="fields">
-            <label>
-              {{ t('appeals.closure.finalDecisionNumber') }}
-              <input v-model="closureForm.final_decision_number" type="text" />
-            </label>
-            <label>
-              {{ t('appeals.closure.approvingBody') }}
-              <input v-model="closureForm.approving_body" type="text" />
-            </label>
-            <label>
-              {{ t('appeals.closure.executionDate') }}
-              <input v-model="closureForm.execution_date" type="date" />
-            </label>
-            <label>
-              {{ t('appeals.closure.executingBody') }}
-              <input v-model="closureForm.executing_body" type="text" />
-            </label>
-            <label>
-              {{ t('appeals.closure.fileStorageLocation') }}
-              <input v-model="closureForm.file_storage_location" type="text" />
-            </label>
-          </div>
-        </fieldset>
-
-        <p v-if="closureError" class="alert">{{ closureError }}</p>
-
-        <div class="modal-actions">
-          <button class="ghost" type="button" :disabled="closureSubmitting" @click="cancelClosure">
-            {{ t('appeals.closure.cancel') }}
-          </button>
-          <button class="primary" type="button" :disabled="closureSubmitting" @click="submitClosure">
-            {{ closureSubmitting ? t('appeals.closure.submitting') : t('appeals.closure.submit') }}
-          </button>
-        </div>
-      </div>
-    </AppModal>
-
-    <AppModal v-if="reopenTarget" :title="t('appeals.reopen.heading')" wide @close="cancelReopen">
-      <div class="create">
-        <p class="subtitle">{{ t('appeals.reopen.hint') }}</p>
-        <div class="selected">
-          <div>
-            <span class="ref ltr">{{ reopenTarget.original_request?.reference_number }}</span>
-            <span>{{ reopenTarget.original_request?.title }}</span>
-          </div>
-        </div>
-
-        <fieldset :disabled="reopenSubmitting">
-          <div class="fields">
-            <label class="full">
-              {{ t('appeals.reopen.reasonLabel') }}
-              <select v-model="reopenReasonCode">
-                <option value="" disabled>{{ t('appeals.reopen.chooseReason') }}</option>
-                <option v-for="code in REOPEN_REASON_CODES" :key="code" :value="code">
-                  {{ t(`reopenReasons.${code}`) }}
-                </option>
-              </select>
-            </label>
-            <label class="full">
-              {{ t('appeals.reopen.noteLabel') }}
-              <textarea v-model="reopenNote" rows="2" maxlength="5000" />
-            </label>
-          </div>
-        </fieldset>
-
-        <p v-if="reopenError" class="alert">{{ reopenError }}</p>
-
-        <div class="modal-actions">
-          <button class="ghost" type="button" :disabled="reopenSubmitting" @click="cancelReopen">
-            {{ t('appeals.reopen.cancel') }}
-          </button>
-          <button class="primary" type="button" :disabled="reopenSubmitting" @click="submitReopen">
-            {{ reopenSubmitting ? t('appeals.reopen.submitting') : t('appeals.reopen.submit') }}
-          </button>
-        </div>
-      </div>
-    </AppModal>
+    <AppealWizard
+      v-if="wizardAppealId"
+      :key="wizardAppealId"
+      :appeal-id="wizardAppealId"
+      :initial="route.query.decide ? String(route.query.decide) : null"
+      @done="load(page.current_page)"
+      @close="closeWizard"
+    />
+    <AppealFilingWizard v-if="showFiling" @filed="load(1)" @close="showFiling = false" />
 
     <p v-if="loadError" class="alert">
       {{ t('nav.error') }}
@@ -1010,6 +240,7 @@ onMounted(() => load())
               <th>{{ t('appeals.columns.execution') }}</th>
               <th>{{ t('appeals.columns.closure') }}</th>
               <th>{{ t('appeals.columns.reopen') }}</th>
+              <th>{{ t('decisionWizard.appeal.column') }}</th>
               <th>{{ t('appeals.columns.file') }}</th>
             </tr>
           </thead>
@@ -1029,16 +260,7 @@ onMounted(() => load())
               </td>
               <td class="nowrap">{{ dateTime(row.created_at) }}</td>
               <td>
-                <button
-                  v-if="row.status?.code === 'submitted'"
-                  v-can="'appeals.edit'"
-                  class="ghost"
-                  type="button"
-                  @click="startVerify(row)"
-                >
-                  {{ t('appeals.verify.action') }}
-                </button>
-                <div v-else-if="row.formal_verification" class="verification-summary">
+                <div v-if="row.formal_verification" class="verification-summary">
                   <span class="pill" :class="row.status?.code === 'rejected' ? 'bad' : 'good'">
                     {{ row.status?.code === 'rejected' ? t('appeals.verify.resultRejected') : t('appeals.verify.resultPassed') }}
                   </span>
@@ -1051,16 +273,7 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.verify.notYet') }}</span>
               </td>
               <td>
-                <button
-                  v-if="row.status?.code === 'formal_verification'"
-                  v-can="'appeals.edit'"
-                  class="ghost"
-                  type="button"
-                  @click="startJurisdictionTest(row)"
-                >
-                  {{ t('appeals.jurisdiction.action') }}
-                </button>
-                <div v-else-if="row.jurisdiction_test" class="verification-summary">
+                <div v-if="row.jurisdiction_test" class="verification-summary">
                   <span class="pill" :class="row.jurisdiction_test.competent_body === 'committee' ? 'good' : 'bad'">
                     {{ competentBodyLabel(row.jurisdiction_test.competent_body) }}
                   </span>
@@ -1071,16 +284,7 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.jurisdiction.notYet') }}</span>
               </td>
               <td>
-                <button
-                  v-if="row.status?.code === 'file_assembly'"
-                  v-can="'appeals.edit'"
-                  class="ghost"
-                  type="button"
-                  @click="startLegalReview(row)"
-                >
-                  {{ t('appeals.legalReview.action') }}
-                </button>
-                <div v-else-if="row.legal_review" class="verification-summary">
+                <div v-if="row.legal_review" class="verification-summary">
                   <span class="pill good">{{ t('appeals.legalReview.recorded') }}</span>
                   <small v-if="row.legal_review.reviewed_by" class="muted">
                     {{ row.legal_review.reviewed_by.name }}
@@ -1089,16 +293,7 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.legalReview.notYet') }}</span>
               </td>
               <td>
-                <button
-                  v-if="row.status?.code === 'committee_presentation' && row.committee_decision && !row.outcome_execution"
-                  v-can="'appeals.edit'"
-                  class="ghost"
-                  type="button"
-                  @click="startExecution(row)"
-                >
-                  {{ t('appeals.execution.action') }}
-                </button>
-                <div v-else-if="row.outcome_execution" class="verification-summary">
+                <div v-if="row.outcome_execution" class="verification-summary">
                   <span class="pill good">{{ t('decisions.outcome.' + row.committee_decision?.outcome) }}</span>
                   <small v-if="row.outcome_execution.redo_stage" class="muted">
                     {{ t('appeals.execution.redoStageLabel') }}: {{ locale === 'ar' ? row.outcome_execution.redo_stage.name_ar : row.outcome_execution.redo_stage.name_en }}
@@ -1111,16 +306,7 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.execution.notYet') }}</span>
               </td>
               <td>
-                <button
-                  v-if="isClosable(row) && !row.closure"
-                  v-can="'appeals.edit'"
-                  class="ghost"
-                  type="button"
-                  @click="startClosure(row)"
-                >
-                  {{ t('appeals.closure.action') }}
-                </button>
-                <div v-else-if="row.closure" class="verification-summary">
+                <div v-if="row.closure" class="verification-summary">
                   <span class="pill good">{{ finalResultLabel(row.closure.final_result_code) }}</span>
                   <small class="muted">{{ t('appeals.closure.noticeStatus.' + row.closure.notice_status) }}</small>
                   <small v-if="row.closure.closed_by" class="muted">
@@ -1130,16 +316,7 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.closure.notConcludedYet') }}</span>
               </td>
               <td>
-                <button
-                  v-if="row.status?.code === 'notified_closed'"
-                  v-can="'appeals.edit'"
-                  class="ghost"
-                  type="button"
-                  @click="startReopen(row)"
-                >
-                  {{ t('appeals.reopen.action') }}
-                </button>
-                <div v-else-if="row.reopen" class="verification-summary">
+                <div v-if="row.reopen" class="verification-summary">
                   <span class="pill good">{{ t(`reopenReasons.${row.reopen.reason_code}`) }}</span>
                   <small v-if="row.reopen.reopened_by" class="muted">
                     {{ t('appeals.reopen.reopenedBy') }}: {{ row.reopen.reopened_by.name }}
@@ -1148,13 +325,19 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.reopen.notClosedYet') }}</span>
               </td>
               <td>
+                <button v-if="row.has_acts" class="ghost" type="button" @click="openWizard(row)">
+                  {{ t('decisionWizard.open') }}
+                </button>
+                <span v-else class="muted">{{ t('common.none') }}</span>
+              </td>
+              <td>
                 <button class="ghost" type="button" @click="toggleFile(row)">
                   {{ fileTargetId === row.id ? t('appeals.file.hide') : t('appeals.file.view') }}
                 </button>
               </td>
             </tr>
             <tr v-if="fileTargetId === row.id">
-              <td colspan="11" class="file-panel">
+              <td colspan="12" class="file-panel">
                 <p v-if="fileLoading" class="state">{{ t('common.loading') }}</p>
                 <p v-else-if="fileError" class="alert">{{ fileError }}</p>
                 <div v-else-if="fileData" class="dossier">
@@ -1326,13 +509,6 @@ onMounted(() => load())
 </template>
 
 <style scoped>
-h3 { margin: 0 0 var(--space-3); color: var(--color-black-700); font-size: var(--text-lg); }
-
-.create label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-sm); color: var(--color-black-700); margin-bottom: var(--space-3); }
-.create label.full { margin-bottom: var(--space-3); }
-.create input, .create select, .create textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font-size: var(--text-base); font-family: inherit; resize: vertical; }
-.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
-
 .list { margin-bottom: var(--space-4); }
 .filters { display: flex; align-items: end; gap: var(--space-3); margin-bottom: var(--space-4); }
 .filters label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-sm); color: var(--color-black-700); }
@@ -1353,12 +529,6 @@ h3 { margin: 0 0 var(--space-3); color: var(--color-black-700); font-size: var(-
 .doc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-sm); }
 .doc-list li { display: flex; align-items: center; gap: .4rem; }
 .link { padding: 0; border: 0; background: none; color: var(--color-brand-text); text-decoration: underline; font-size: inherit; cursor: pointer; }
-
-.results, .search-block ul.state { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; max-block-size: 12rem; overflow-y: auto; }
-.results button { inline-size: 100%; display: flex; gap: var(--space-2); align-items: center; text-align: start; }
-.selected { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: .6rem .75rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); margin-bottom: var(--space-3); }
-.selected > div { display: flex; gap: .6rem; align-items: baseline; }
-
 
 /* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
 @media (max-width: 1023px) { .data-table { min-width: 900px; } }

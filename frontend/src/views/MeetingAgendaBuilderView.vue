@@ -7,6 +7,7 @@
 // Stage 102 — requests come only from the committee's pending list
 // (`/committee-candidates`), and Stage 31's standalone administrative/emerging
 // items are gone: the agenda is pending-list requests plus appeals.
+// Appeals are added from the appeal wizard (decision wizard sub-project 3).
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
@@ -164,22 +165,8 @@ async function saveJustification() {
   }
 }
 
-// --- Appeal options (Stage 63 — appeals ready for committee presentation) -------
-
-const appealOptions = ref([])
-
-async function loadAppealOptions() {
-  try {
-    const { data } = await api.get('/meetings/appeal-options')
-    appealOptions.value = data.data ?? []
-  } catch {
-    appealOptions.value = []
-  }
-}
-
 // --- Add item form ----------------------------------------------------------------
 
-const newItemType = ref('employee_request')
 const newPriority = ref('')
 const newEstimatedMinutes = ref('')
 const addError = ref('')
@@ -194,12 +181,6 @@ let searchTimer = null
 
 const agendaRequestIds = computed(() => new Set(
   (meeting.value?.agenda_items ?? []).filter((i) => i.request).map((i) => i.request.id),
-))
-
-// Stage 63 — already-nominated appeals, so the picker below doesn't offer an
-// appeal a second time before the next appeal-options refetch catches up.
-const agendaAppealIds = computed(() => new Set(
-  (meeting.value?.agenda_items ?? []).filter((i) => i.appeal).map((i) => i.appeal.id),
 ))
 
 watch(requestSearch, (value) => {
@@ -239,27 +220,6 @@ async function addRequestItem(request) {
   } catch (requestError) {
     addError.value = requestError.response?.data?.message
       ?? requestError.response?.data?.errors?.request_id?.[0]
-      ?? t('common.none')
-  } finally {
-    adding.value = false
-  }
-}
-
-async function addAppealItem(appeal) {
-  addError.value = ''
-  adding.value = true
-  try {
-    await api.post(`/meetings/${meeting.value.id}/agenda`, {
-      item_type: 'appeal',
-      appeal_id: appeal.id,
-      priority: newPriority.value || null,
-      estimated_minutes: newEstimatedMinutes.value || null,
-    })
-    resetAddForm()
-    await Promise.all([loadMeeting(), loadAppealOptions()])
-  } catch (requestError) {
-    addError.value = requestError.response?.data?.message
-      ?? requestError.response?.data?.errors?.appeal_id?.[0]
       ?? t('common.none')
   } finally {
     adding.value = false
@@ -346,7 +306,7 @@ function onDragEnd() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadMeetings(), loadAppealOptions(), loadMeeting()])
+  await Promise.all([loadMeetings(), loadMeeting()])
 })
 </script>
 
@@ -485,21 +445,9 @@ onMounted(async () => {
         </div>
       </section>
 
+      <!-- Decision wizard — sub-project 3: an appeal is nominated from its own wizard on the appeals screen. -->
       <AppModal v-if="showAddItem" :title="t('meetingsUnit.agenda.addItem')" wide @close="showAddItem = false">
         <div class="add-form">
-          <div class="type-toggle">
-            <button
-              v-for="type in ['employee_request', 'appeal']"
-              :key="type"
-              type="button"
-              class="ghost"
-              :class="{ active: newItemType === type }"
-              @click="newItemType = type; resetAddForm()"
-            >
-              {{ t(`meetings.agenda.itemType.${type}`) }}
-            </button>
-          </div>
-
           <div class="grid">
             <label>
               {{ t('meetings.agenda.priority.label') }}
@@ -516,7 +464,7 @@ onMounted(async () => {
             </label>
           </div>
 
-          <template v-if="newItemType === 'employee_request'">
+          <template>
             <label>
               {{ t('meetings.wizard.searchRequests') }}
               <input v-model="requestSearch" type="text" :placeholder="t('meetings.wizard.searchRequests')" />
@@ -538,26 +486,6 @@ onMounted(async () => {
                   </button>
                 </li>
               </template>
-            </ul>
-          </template>
-          <template v-else-if="newItemType === 'appeal'">
-            <ul class="results">
-              <li v-if="!appealOptions.length" class="state">{{ t('meetingsUnit.agenda.noAppeals') }}</li>
-              <li v-for="appeal in appealOptions" :key="appeal.id" class="result">
-                <span class="ref ltr">#{{ appeal.id }}</span>
-                <span>
-                  {{ appeal.appellant?.name ?? t('common.none') }}
-                  — {{ appeal.original_request?.reference_number ?? t('common.none') }}
-                </span>
-                <button
-                  class="ghost"
-                  type="button"
-                  :disabled="adding || agendaAppealIds.has(appeal.id)"
-                  @click="addAppealItem(appeal)"
-                >
-                  {{ t('meetings.agenda.add') }}
-                </button>
-              </li>
             </ul>
           </template>
           <p v-if="addError" class="alert">{{ addError }}</p>
@@ -761,7 +689,6 @@ select, input[type='text'], input[type='number'] {
    the option is selected, shared by the group-by and item-type controls. */
 .ghost.active { background: var(--color-brand); color: var(--color-on-brand); border-color: var(--color-brand); }
 
-.type-toggle { display: flex; gap: .4rem; margin-bottom: var(--space-3); }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-3); }
 .span-2 { grid-column: 1 / -1; }
 label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); margin-bottom: var(--space-2); }

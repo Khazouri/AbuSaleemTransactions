@@ -357,7 +357,6 @@
       "submitting": "Submitting…",
       "success": "Appeal submitted.",
       "failed": "The appeal could not be submitted.",
-      "selectRequestFirst": "Pick the target request first.",
       "attachmentsHeading": "Attach supporting documents",
       "finish": "Done — back to appeals list"
     },
@@ -390,7 +389,6 @@
     },
     "verify": {
       "action": "Formal verification",
-      "heading": "Formal verification of the appeal",
       "hint": "Check appellant standing, the validity of the target decision, and non-duplication. The statutory deadline is computed automatically.",
       "choose": "— Choose —",
       "yes": "Yes",
@@ -399,11 +397,7 @@
       "validTargetDecision": "Validity of the target decision",
       "nonDuplication": "Non-duplication",
       "reason": "Rejection reason (required if any check fails)",
-      "submit": "Record verification result",
-      "submitting": "Saving…",
       "success": "Formal verification result recorded.",
-      "failed": "The verification result could not be recorded.",
-      "cancel": "Cancel",
       "resultPassed": "Passed formal verification",
       "resultRejected": "Failed formal verification",
       "deadlineMet": "Statutory deadline: met",
@@ -415,9 +409,7 @@
     },
     "jurisdiction": {
       "action": "Jurisdiction test",
-      "heading": "Test the committee's jurisdiction over this appeal",
       "hint": "Determine whether the committee is the competent body for this appeal, or whether it belongs elsewhere.",
-      "question": "Competent body for this appeal",
       "options": {
         "committee": "The committee (competent)",
         "mayor": "Mayor of the municipality",
@@ -426,25 +418,16 @@
         "disciplinary_or_court": "A disciplinary board or court"
       },
       "terminationWarning": "Choosing a body other than the committee will terminate this appeal immediately and refer it, per Art. 77, without presenting it to the committee.",
-      "submit": "Record jurisdiction test result",
-      "submitting": "Saving…",
-      "selectFirst": "Please select the competent body first.",
-      "failed": "The jurisdiction test result could not be recorded.",
       "notYet": "Jurisdiction not tested yet"
     },
     "legalReview": {
       "action": "Legal review",
-      "heading": "Legal review of the appeal",
       "hint": "Record the legal review of the original decision against the checklist.",
       "factualError": "Is there a factual error?",
       "legalTextViolation": "Is there a violation of a legal text?",
       "newDocuments": "Are there new documents?",
       "formationOrReasoningDefect": "Is there a formation, quorum, or reasoning defect in the original decision?",
       "issuedByCompetentBody": "Was the original decision issued by a competent body?",
-      "submit": "Record legal review",
-      "submitting": "Saving…",
-      "failed": "The legal review could not be recorded.",
-      "answerAll": "All legal-review questions must be answered.",
       "recorded": "Legal review recorded",
       "notYet": "Legal review not recorded yet"
     },
@@ -514,18 +497,12 @@
     },
     "execution": {
       "action": "Execute outcome",
-      "heading": "Execute the committee's decision",
       "hint": "Gives the committee's decision its real effect on the original request.",
       "decidedOutcome": "Decided outcome",
       "redoStage": "Stage where the defect occurred",
       "chooseStage": "— Choose a stage —",
       "redoHint": "Pick the stage the legal review found the defect at, to reopen the original request there.",
       "loadStagesFailed": "The stage list could not be loaded.",
-      "selectStageFirst": "A stage must be selected before executing a redo.",
-      "submit": "Execute",
-      "submitting": "Executing…",
-      "failed": "The appeal outcome could not be executed.",
-      "cancel": "Cancel",
       "notYet": "Awaiting the committee's decision",
       "noDecisionYet": "No committee decision yet",
       "executedBy": "Executed by",
@@ -534,7 +511,6 @@
     },
     "closure": {
       "action": "Close appeal",
-      "heading": "Close the appeal and notify the appellant",
       "hint": "Record the appeal's closure details; the appellant will be notified automatically of the final result through their enabled channels.",
       "finalResult": "Final result",
       "finalDecisionNumber": "Final decision number (if any)",
@@ -542,10 +518,6 @@
       "executionDate": "Execution date (optional)",
       "executingBody": "Executing body (optional)",
       "fileStorageLocation": "File storage location",
-      "submit": "Record closure & send notice",
-      "submitting": "Saving…",
-      "failed": "The appeal could not be closed.",
-      "cancel": "Cancel",
       "notConcludedYet": "Awaiting the appeal's own procedures to conclude",
       "closedBy": "Closed by",
       "closedAt": "Closed at",
@@ -556,15 +528,10 @@
     },
     "reopen": {
       "action": "Reopen",
-      "heading": "Reopen the appeal",
       "hint": "A closed appeal may only be reopened for one of the reasons listed below — mere dissatisfaction with the result is not enough.",
       "reasonLabel": "Reason for reopening",
       "chooseReason": "— Choose a reason —",
       "noteLabel": "Additional note (optional)",
-      "submit": "Confirm reopening",
-      "submitting": "Saving…",
-      "failed": "The appeal could not be reopened.",
-      "cancel": "Cancel",
       "notClosedYet": "Can only be reopened once closed",
       "reopenedBy": "Reopened by",
       "reopenedAt": "Reopened at"
@@ -1326,8 +1293,7 @@
         "noRequestType": "No request type"
       },
       "dragToReorder": "Drag to reorder",
-      "openMemo": "Open presentation memo",
-      "noAppeals": "No appeals ready for committee presentation."
+      "openMemo": "Open presentation memo"
     },
     "readiness": {
       "title": "Meeting Readiness",
@@ -2481,7 +2447,23 @@
       "review": "Review the file",
       "checks": "Checks",
       "choose": "Choose an action",
-      "confirm": "Confirm"
+      "confirm": "Confirm",
+      "request": "Request",
+      "grounds": "Grounds",
+      "documents": "Documents"
+    },
+    "appeal": {
+      "title": "Act on the appeal",
+      "lede": "Read the appeal before you act.",
+      "appellant": "Appellant",
+      "more": "The full appeal file is in the «File» column behind this window.",
+      "chooseLede": "Choose what to do on this appeal.",
+      "nothing": "Nothing on this appeal is yours to do right now.",
+      "nominate": "Present to the committee",
+      "meeting": "Meeting",
+      "chooseMeeting": "Choose a meeting",
+      "noOpenMeeting": "No meeting you can add to has an open agenda.",
+      "column": "Action"
     },
     "review": {
       "lede": "Read the file before you decide. You can move on at any time.",
