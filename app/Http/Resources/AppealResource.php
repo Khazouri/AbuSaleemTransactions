@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\Tasks\AppealActs;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -36,6 +37,16 @@ class AppealResource extends JsonResource
                 'name_en' => $this->status->name_en,
                 'color' => $this->status->color,
             ] : null),
+            // Decision wizard — sub-project 3. Whether the row offers «اتخاذ
+            // الإجراء» — the wizard's own list, so the button and it agree.
+            'has_acts' => $this->when(
+                $request->user() !== null && $this->relationLoaded('status'),
+                function () use ($request) {
+                    $acts = app(AppealActs::class)->forAppeal($this->resource, $request->user());
+
+                    return $acts['available'] !== [] || $acts['blocked'] !== [];
+                },
+            ),
             // Stage 60 — the formal-verification record, present once
             // AppealController::verify() has acted on this appeal.
             'formal_verification' => $this->formal_verification_checks === null ? null : [

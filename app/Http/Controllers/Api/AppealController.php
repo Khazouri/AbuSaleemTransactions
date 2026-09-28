@@ -22,6 +22,7 @@ use App\Services\AppealFileCompiler;
 use App\Services\AppealOutcomeExecutor;
 use App\Services\AppealVerificationService;
 use App\Services\NotificationDispatcher;
+use App\Services\Tasks\AppealActs;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -88,7 +89,11 @@ class AppealController extends Controller
             ->withCount('attachments')
             ->when(
                 ! $actor->roles()->where('code', 'R08')->exists() && ! $actor->hasScreenPermission('appeals', 'can_edit'),
-                fn ($query) => $query->where('appellant_user_id', $actor->id),
+                fn ($query) => $query->where(fn ($visible) => $visible
+                    ->where('appellant_user_id', $actor->id)
+                    // Decision wizard — sub-project 3: Appeal::isVisibleTo()'s nominator branch.
+                    ->when(Appeal::mayNominate($actor), fn ($nominator) => $nominator
+                        ->orWhereHas('status', fn ($status) => $status->where('code', 'legal_review')))),
             )
             ->when(
                 $request->query('status'),
@@ -150,20 +155,13 @@ class AppealController extends Controller
      * statutory deadline) is computed, never client-supplied — see
      * AppealVerificationService.
      */
-    public function verify(VerifyAppealRequest $request, Appeal $appeal, AppealVerificationService $verification): AppealResource|JsonResponse
+    public function verify(VerifyAppealRequest $request, Appeal $appeal, AppealVerificationService $verification, AppealActs $acts): AppealResource|JsonResponse
     {
         $actor = $request->user();
 
-        if ($appeal->appellant_user_id === $actor->id) {
-            return response()->json([
-                'message' => 'لا يجوز للمتظلم التحقق من تظلمه بنفسه.',
-            ], 422);
-        }
-
-        if ($appeal->status?->code !== 'submitted') {
-            return response()->json([
-                'message' => 'لا يمكن إجراء التحقق الشكلي إلا لتظلم في حالة تقديم التظلم.',
-            ], 422);
+        // Decision wizard — sub-project 3: the refusals AppealActs also reports.
+        if (($reason = $acts->refusal($appeal, 'verify', $actor)) !== null) {
+            return response()->json(['message' => $reason], 422);
         }
 
         $validated = $request->validated();
@@ -215,19 +213,13 @@ class AppealController extends Controller
     public function recordJurisdictionTest(
         RecordAppealJurisdictionTestRequest $request,
         Appeal $appeal,
+        AppealActs $acts,
     ): AppealResource|JsonResponse {
         $actor = $request->user();
 
-        if ($appeal->appellant_user_id === $actor->id) {
-            return response()->json([
-                'message' => 'لا يجوز للمتظلم إجراء اختبار الاختصاص على تظلمه بنفسه.',
-            ], 422);
-        }
-
-        if ($appeal->status?->code !== 'formal_verification') {
-            return response()->json([
-                'message' => 'لا يمكن إجراء اختبار الاختصاص إلا لتظلم اجتاز التحقق الشكلي.',
-            ], 422);
+        // Decision wizard — sub-project 3: the refusals AppealActs also reports.
+        if (($reason = $acts->refusal($appeal, 'jurisdiction_test', $actor)) !== null) {
+            return response()->json(['message' => $reason], 422);
         }
 
         $competentBody = $request->validated('competent_body');
@@ -258,19 +250,13 @@ class AppealController extends Controller
     public function recordLegalReview(
         RecordAppealLegalReviewRequest $request,
         Appeal $appeal,
+        AppealActs $acts,
     ): AppealResource|JsonResponse {
         $actor = $request->user();
 
-        if ($appeal->appellant_user_id === $actor->id) {
-            return response()->json([
-                'message' => 'لا يجوز للمتظلم إجراء المراجعة القانونية على تظلمه بنفسه.',
-            ], 422);
-        }
-
-        if ($appeal->status?->code !== 'file_assembly') {
-            return response()->json([
-                'message' => 'لا يمكن إجراء المراجعة القانونية إلا بعد اجتياز اختبار الاختصاص.',
-            ], 422);
+        // Decision wizard — sub-project 3: the refusals AppealActs also reports.
+        if (($reason = $acts->refusal($appeal, 'legal_review', $actor)) !== null) {
+            return response()->json(['message' => $reason], 422);
         }
 
         $appeal->update([
@@ -298,6 +284,20 @@ class AppealController extends Controller
         abort_unless($appeal->isVisibleTo($request->user()), 404);
 
         return response()->json(['data' => $compiler->compile($appeal)]);
+    }
+
+    /**
+     * Decision wizard — sub-project 3. What the signed-in user may do on this
+     * appeal now, with the appeal itself so the wizard needs one call.
+     */
+    public function acts(Request $request, Appeal $appeal, AppealActs $acts): JsonResponse
+    {
+        abort_unless($appeal->isVisibleTo($request->user()), 404);
+
+        return response()->json(['data' => [
+            'appeal' => (new AppealResource($appeal->loadCount('attachments')->load(self::WITH)))->resolve($request),
+            ...$acts->forAppeal($appeal, $request->user()),
+        ]]);
     }
 
     /**
@@ -330,34 +330,16 @@ class AppealController extends Controller
         ExecuteAppealOutcomeRequest $request,
         Appeal $appeal,
         AppealOutcomeExecutor $executor,
+        AppealActs $acts,
     ): AppealResource|JsonResponse {
         $actor = $request->user();
 
-        if ($appeal->appellant_user_id === $actor->id) {
-            return response()->json([
-                'message' => 'لا يجوز للمتظلم تنفيذ نتيجة تظلمه بنفسه.',
-            ], 422);
-        }
-
-        if ($appeal->status?->code !== 'committee_presentation') {
-            return response()->json([
-                'message' => 'لا يمكن تنفيذ نتيجة التظلم إلا بعد صدور قرار اللجنة بشأنه.',
-            ], 422);
-        }
-
-        if ($appeal->outcome_executed_at !== null) {
-            return response()->json([
-                'message' => 'تم تنفيذ نتيجة هذا التظلم بالفعل.',
-            ], 422);
+        // Decision wizard — sub-project 3: the refusals AppealActs also reports.
+        if (($reason = $acts->refusal($appeal, 'execute_outcome', $actor)) !== null) {
+            return response()->json(['message' => $reason], 422);
         }
 
         $decision = $appeal->committeeAgendaItem?->decision;
-
-        if ($decision === null) {
-            return response()->json([
-                'message' => 'لا يوجد قرار مسجل لهذا التظلم بعد.',
-            ], 422);
-        }
 
         $redoStage = null;
 
@@ -419,24 +401,17 @@ class AppealController extends Controller
         CloseAppealRequest $request,
         Appeal $appeal,
         NotificationDispatcher $notifications,
+        AppealActs $acts,
     ): AppealResource|JsonResponse {
         $actor = $request->user();
 
-        if ($appeal->appellant_user_id === $actor->id) {
-            return response()->json([
-                'message' => 'لا يجوز للمتظلم إغلاق تظلمه بنفسه.',
-            ], 422);
+        // Decision wizard — sub-project 3: the refusals AppealActs also reports.
+        if (($reason = $acts->refusal($appeal, 'close', $actor)) !== null) {
+            return response()->json(['message' => $reason], 422);
         }
 
         $statusCode = $appeal->status?->code;
         $terminalBranch = in_array($statusCode, ['rejected', 'outside_jurisdiction'], true);
-        $decidedAndExecuted = $statusCode === 'committee_presentation' && $appeal->outcome_executed_at !== null;
-
-        if (! $terminalBranch && ! $decidedAndExecuted) {
-            return response()->json([
-                'message' => 'لا يمكن إغلاق التظلم إلا بعد انتهاء إجراءاته: رفض شكلي، أو عدم اختصاص، أو تنفيذ قرار اللجنة، ولم يُغلق بعد.',
-            ], 422);
-        }
 
         $finalResultCode = $terminalBranch ? $statusCode : $appeal->committeeAgendaItem?->decision?->outcome;
 
@@ -483,20 +458,13 @@ class AppealController extends Controller
      * one-shot gates don't stay stuck refusing a fresh pass through
      * committee_presentation.
      */
-    public function reopen(ReopenAppealRequest $request, Appeal $appeal): AppealResource|JsonResponse
+    public function reopen(ReopenAppealRequest $request, Appeal $appeal, AppealActs $acts): AppealResource|JsonResponse
     {
         $actor = $request->user();
 
-        if ($appeal->appellant_user_id === $actor->id) {
-            return response()->json([
-                'message' => 'لا يجوز للمتظلم إعادة فتح تظلمه بنفسه.',
-            ], 422);
-        }
-
-        if ($appeal->status?->code !== 'notified_closed') {
-            return response()->json([
-                'message' => 'لا يمكن إعادة فتح تظلم لم يُغلق بعد.',
-            ], 422);
+        // Decision wizard — sub-project 3: the refusals AppealActs also reports.
+        if (($reason = $acts->refusal($appeal, 'reopen', $actor)) !== null) {
+            return response()->json(['message' => $reason], 422);
         }
 
         $validated = $request->validated();

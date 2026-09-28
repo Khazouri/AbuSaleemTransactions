@@ -1037,6 +1037,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:appeals,view')
         ->get('appeals/{appeal}/file', [AppealController::class, 'file']);
 
+    // Decision wizard — sub-project 3 — the appeal wizard's act list.
+    Route::middleware('screen.permission:appeals,view')
+        ->get('appeals/{appeal}/acts', [AppealController::class, 'acts']);
+
     // Stage 64 — executes Stage 63's already-recorded committee outcome
     // against the original Request.
     Route::middleware('screen.permission:appeals,edit')

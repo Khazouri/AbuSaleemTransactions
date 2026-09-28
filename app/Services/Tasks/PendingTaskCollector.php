@@ -682,8 +682,7 @@ class PendingTaskCollector
     private function appeals(User $actor): ?array
     {
         $mayEdit = $actor->hasScreenPermission('appeals', 'can_edit');
-        $mayNominate = $actor->hasScreenPermission('meeting_agenda', 'can_edit')
-            && $actor->hasScreenPermission('meeting_agenda', 'can_view');
+        $mayNominate = Appeal::mayNominate($actor);
 
         if (! $mayEdit && ! $mayNominate) {
             return null;
