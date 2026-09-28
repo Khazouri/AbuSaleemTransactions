@@ -75,6 +75,153 @@ class RequestActsTest extends TestCase
         $this->assertSame('توجد إحالة للاعتماد لم تثبت نتيجتها بعد.', $referrals->refusalReason($file->fresh()));
     }
 
+    public function test_the_soundness_certification_is_the_rapporteurs_and_not_hrs(): void
+    {
+        $file = $this->fileAt('final_approval_archiving', 'final_approved', decided: true);
+
+        $this->assertContains('execution_soundness', $this->available($this->userWithRole('R02'), $file));
+        $this->assertNotContains('execution_soundness', $this->available($this->userWithRole('R12'), $file));
+    }
+
+    public function test_execute_is_offered_only_in_execution_and_names_the_decided_item(): void
+    {
+        $hr = $this->userWithRole('R12');
+        $file = $this->fileAt('final_approval_archiving', 'final_approved', decided: true);
+
+        $this->assertNotContains('execute', $this->available($hr, $file));
+
+        $file->update(['status_id' => RequestStatus::where('code', 'in_execution')->value('id')]);
+        $act = collect($this->acts($hr, $file)['available'])->firstWhere('action', 'execute');
+        $item = $file->meetingRequests()->first();
+
+        $this->assertSame(['id' => $item->id, 'meeting_id' => $item->meeting_id, 'label' => null], $act['target']);
+        $this->assertSame('after_decision', $act['family']);
+    }
+
+    public function test_each_file_is_archived_by_its_owner(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+        $hr = $this->userWithRole('R12');
+        $decided = $this->fileAt('final_approval_archiving', 'executed', decided: true);
+        $undecided = $this->fileAt('requirements_check', 'outside_jurisdiction');
+
+        $this->assertContains('archive_committee_file', $this->available($rapporteur, $decided));
+        $this->assertNotContains('archive_service_file', $this->available($rapporteur, $decided));
+        $this->assertContains('archive_service_file', $this->available($hr, $decided));
+        // Only a recorded decision makes the service file owed.
+        $this->assertNotContains('archive_service_file', $this->available($hr, $undecided));
+    }
+
+    public function test_close_is_blocked_with_the_closure_refusal_until_both_files_are_archived(): void
+    {
+        $hr = $this->userWithRole('R12');
+        $file = $this->fileAt('final_approval_archiving', 'executed', decided: true);
+        $reason = 'لا تغلق المعاملة قبل أرشفة ملف اللجنة من قبل المقرر.';
+
+        $this->assertSame($reason, $this->blockedReason($hr, $file, 'close'));
+        $this->actingAs($hr, 'sanctum')
+            ->patchJson("/api/requests/{$file->id}/close", $this->closurePayload())
+            ->assertStatus(422)
+            ->assertJsonPath('message', $reason);
+
+        $this->archiveFiles($file);
+        $this->assertContains('close', $this->available($hr, $file));
+    }
+
+    public function test_a_file_in_execution_shows_why_it_cannot_close(): void
+    {
+        $file = $this->fileAt('final_approval_archiving', 'in_execution', decided: true);
+
+        $this->assertSame(
+            'لا يجوز إقفال معاملة تحت التنفيذ؛ يثبت تنفيذ الأثر أولاً.',
+            $this->blockedReason($this->userWithRole('R02'), $file, 'close'),
+        );
+    }
+
+    public function test_a_return_is_recorded_then_resolved_and_each_refusal_matches_its_endpoint(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+        $file = $this->fileAt('approval_by_authority', 'awaiting_municipal_approval');
+
+        $this->assertContains('record_approval_return', $this->available($rapporteur, $file));
+        $this->assertNotContains('resolve_approval_return', $this->available($rapporteur, $file));
+
+        $this->openReturn($file, 'formal');
+        $reason = 'توجد إعادة من جهة الاعتماد لم يثبت بعد الإجراء المتخذ بشأنها.';
+
+        $this->assertSame($reason, $this->blockedReason($rapporteur, $file, 'record_approval_return'));
+        $this->actingAs($rapporteur, 'sanctum')
+            ->patchJson("/api/requests/{$file->id}/approval-return", [
+                'return_kind' => 'formal', 'return_reason_code' => 'missing_signature',
+                'return_note' => 'نقص', 'received_at' => now()->toDateString(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', $reason);
+
+        $resolve = collect($this->acts($rapporteur, $file)['available'])->firstWhere('action', 'resolve_approval_return');
+        $this->assertSame('formal', $resolve['return_kind']);
+    }
+
+    public function test_a_formal_return_off_an_approval_stage_reports_the_endpoints_reason(): void
+    {
+        $file = $this->fileAt('final_approval_archiving', 'final_approved');
+        $this->openReturn($file, 'formal');
+
+        $this->assertSame(
+            'لا يمكن إعادة الإحالة إلى جهة الاعتماد من هذه المرحلة.',
+            $this->blockedReason($this->userWithRole('R02'), $file, 'resolve_approval_return'),
+        );
+    }
+
+    public function test_an_open_referral_blocks_a_second_and_offers_its_own_result(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+        $file = $this->fileAt('approval_by_authority', 'awaiting_municipal_approval');
+        $referralId = $this->openReferral($file);
+        $reason = 'توجد إحالة للاعتماد لم تثبت نتيجتها بعد.';
+
+        $this->assertSame($reason, $this->blockedReason($rapporteur, $file, 'record_approval_referral'));
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson("/api/requests/{$file->id}/approval-referrals", [
+                'referred_at' => now()->toDateString(), 'letter_number' => 'ك/2', 'referred_to_body' => 'الوزارة',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', $reason);
+
+        $result = collect($this->acts($rapporteur, $file)['available'])->firstWhere('action', 'record_referral_result');
+        $this->assertSame($referralId, $result['target']['id']);
+        $this->assertSame('ك/1 — عميد البلدية', $result['target']['label']);
+    }
+
+    public function test_the_lift_waits_for_a_legal_review_with_the_endpoints_reason(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+        $file = $this->fileAt('final_approval_archiving', 'in_execution', decided: true);
+
+        $this->assertContains('suspend', $this->available($rapporteur, $file));
+
+        $this->actingAs($rapporteur, 'sanctum')
+            ->patchJson("/api/requests/{$file->id}/suspend", ['ground' => 'document_in_doubt', 'detail' => 'شك'])
+            ->assertOk();
+        $reason = 'لا يرفع الإيقاف قبل إثبات مراجعة قانونية بعد تاريخ الإيقاف.';
+
+        $this->assertNotContains('suspend', $this->available($rapporteur, $file));
+        $this->assertSame($reason, $this->blockedReason($rapporteur, $file, 'lift_suspension'));
+        $this->actingAs($rapporteur, 'sanctum')
+            ->patchJson("/api/requests/{$file->id}/suspend/lift", ['resolution_action' => 'fact_confirmed'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', $reason);
+    }
+
+    public function test_the_filer_is_offered_nothing_after_the_decision(): void
+    {
+        $filer = $this->userWithRole('R01');
+        $file = $this->fileAt('final_approval_archiving', 'executed', decided: true, creator: $filer);
+
+        $acts = $this->acts($filer, $file);
+        $this->assertSame([], collect([...$acts['available'], ...$acts['blocked']])->where('family', 'after_decision')->all());
+    }
+
     // --- helpers ------------------------------------------------------------
 
     /** @return array{available: list<array<string, mixed>>, blocked: list<array<string, mixed>>} */

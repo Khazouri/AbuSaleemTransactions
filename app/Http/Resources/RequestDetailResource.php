@@ -90,6 +90,8 @@ class RequestDetailResource extends RequestResource
             'blocked_transitions' => $this->blocked_transitions ?? [],
             // Decision wizard — sub-project 2.
             'committee_actions' => $this->committee_actions ?? [],
+            // Decision wizard — sub-project 3.
+            'acts' => $this->acts ?? ['available' => [], 'blocked' => []],
             // Stage 75 — [D] Art. 37's closure record, and Appendix 47's
             // twelve-point audit answered when it was written. Both null until
             // the request is actually closed.
@@ -118,14 +120,6 @@ class RequestDetailResource extends RequestResource
                 ),
                 'service_file_required' => app(RequestClosureService::class)->requiresServiceFileArchive($this->resource),
             ],
-            // Appendix 48's refusal, computed once here so the screen's "why
-            // this cannot be closed" and the endpoint's own 422 are the same
-            // sentence. Deliberately on the detail resource only — list
-            // payloads stay unchanged, per Stage 72's precedent.
-            'closure_eligibility' => [
-                'can_close' => $this->closure_refusal === null,
-                'reason' => $this->closure_refusal,
-            ],
             // Stage 76 — النموذج 17's execution card and its seven متابعة
             // التنفيذ answers, read-only here. Recording execution stays on the
             // outputs screen, which is agenda-item-scoped: unlike closure, code
@@ -145,24 +139,10 @@ class RequestDetailResource extends RequestResource
             // register of returns, and a formal return corrected and re-referred
             // can legitimately be followed by another one.
             'approval_returns' => ApprovalReturnResource::collection($this->whenLoaded('approvalReturns')),
-            // Appendix 34's refusal plus the open round's id, computed by the
-            // same service the two endpoints enforce with, so the screen's "why
-            // not" and their 422 are the same sentence. Detail resource only —
-            // list payloads stay unchanged, per Stage 72's precedent.
-            'approval_return_eligibility' => [
-                'can_record' => $this->approval_return_refusal === null,
-                'reason' => $this->approval_return_refusal,
-                'open_return_id' => $this->open_approval_return_id,
-            ],
             // Stage 80 — [D] Art. 30's سجل الإحالات للاعتماد (Art. 98's
             // register 7), oldest first. Detail resource only — list payloads
             // stay unchanged, per Stage 72's precedent.
             'approval_referrals' => ApprovalReferralResource::collection($this->whenLoaded('approvalReferrals')),
-            'approval_referral_eligibility' => [
-                'can_record' => $this->approval_referral_refusal === null,
-                'reason' => $this->approval_referral_refusal,
-                'open_referral_id' => $this->open_approval_referral_id,
-            ],
             // Stage 78 — [D] Appendix 63's four-gate matrix for this file, plus
             // Art. 105's hold. Every refusal here comes from the same service
             // the matching endpoint enforces with, so a gate the screen shows

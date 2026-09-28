@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\ClosesRequests;
 use Tests\TestCase;
 
@@ -48,7 +49,7 @@ class ApprovalReturnTest extends TestCase
         ] as [$stage, $status]) {
             $requestRecord = $this->requestAt($stage, $status);
 
-            $this->actingAs($recorder, 'sanctum')
+            $response = $this->actingAs($recorder, 'sanctum')
                 ->patchJson("/api/requests/{$requestRecord->id}/approval-return", $this->returnPayload())
                 ->assertOk()
                 ->assertJsonPath('data.status.code', 'returned_by_approving_body')
@@ -57,8 +58,8 @@ class ApprovalReturnTest extends TestCase
                 ->assertJsonPath('data.approval_returns.0.return_reason_code', 'missing_signature')
                 ->assertJsonPath('data.approval_returns.0.returned_from_stage.code', $stage)
                 ->assertJsonPath('data.approval_returns.0.recorded_by.id', $recorder->id)
-                ->assertJsonPath('data.approval_returns.0.resolution_action', null)
-                ->assertJsonPath('data.approval_return_eligibility.can_record', false);
+                ->assertJsonPath('data.approval_returns.0.resolution_action', null);
+            $this->assertNotContains('record_approval_return', $this->offered($response));
 
             $fresh = $requestRecord->fresh();
             $this->assertSame($stage, $fresh->currentStage->code);
@@ -165,7 +166,7 @@ class ApprovalReturnTest extends TestCase
             ]))
             ->assertOk();
 
-        $this->actingAs($recorder, 'sanctum')
+        $response = $this->actingAs($recorder, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/approval-return/resolve", [
                 'resolution_action' => 'صحح الرقم في المحضر وأعيدت الإحالة إلى الوزارة.',
             ])
@@ -174,9 +175,9 @@ class ApprovalReturnTest extends TestCase
             ->assertJsonPath('data.current_stage.code', 'local_governance_ministry')
             ->assertJsonPath('data.approval_returns.0.resolution_action', 'صحح الرقم في المحضر وأعيدت الإحالة إلى الوزارة.')
             ->assertJsonPath('data.approval_returns.0.resolved_by.id', $recorder->id)
-            ->assertJsonPath('data.approval_returns.0.resolution_target_stage.code', 'local_governance_ministry')
-            // The round is answered, so a fresh one may be recorded.
-            ->assertJsonPath('data.approval_return_eligibility.can_record', true);
+            ->assertJsonPath('data.approval_returns.0.resolution_target_stage.code', 'local_governance_ministry');
+        // The round is answered, so a fresh one may be recorded.
+        $this->assertContains('record_approval_return', $this->offered($response));
 
         $this->assertDatabaseMissing('request_stage_logs', ['request_id' => $requestRecord->id]);
     }
@@ -273,13 +274,13 @@ class ApprovalReturnTest extends TestCase
         $recorder = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('approval_by_authority', 'awaiting_municipal_approval');
 
-        $this->actingAs($recorder, 'sanctum')
+        $response = $this->actingAs($recorder, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/approval-return", $this->returnPayload())
-            ->assertOk()
-            ->assertJsonPath(
-                'data.closure_eligibility.reason',
-                'لا يجوز إقفال معاملة أعيدت من جهة الاعتماد.',
-            );
+            ->assertOk();
+        $this->assertSame(
+            'لا يجوز إقفال معاملة أعيدت من جهة الاعتماد.',
+            collect($response->json('data.acts.blocked'))->firstWhere('action', 'close')['reason'],
+        );
 
         $this->archiveFiles($requestRecord);
 
@@ -327,10 +328,10 @@ class ApprovalReturnTest extends TestCase
 
         $this->assertNotSame($recorder->id, $requestRecord->created_by_user_id);
 
-        $this->actingAs($recorder, 'sanctum')
+        $response = $this->actingAs($recorder, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")
-            ->assertOk()
-            ->assertJsonPath('data.approval_return_eligibility.can_record', true);
+            ->assertOk();
+        $this->assertContains('record_approval_return', $this->offered($response));
     }
 
     /** Both actions ride `meeting_outputs,edit` — R02/R03 only. */
@@ -417,6 +418,12 @@ class ApprovalReturnTest extends TestCase
         }
 
         return $requestRecord->fresh();
+    }
+
+    /** @return list<string> Decision wizard — sub-project 3: what the payload offers. */
+    private function offered(TestResponse $response): array
+    {
+        return array_column($response->json('data.acts.available'), 'action');
     }
 
     private function userWithRole(string $roleCode): User

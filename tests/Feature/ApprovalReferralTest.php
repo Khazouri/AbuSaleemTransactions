@@ -40,7 +40,7 @@ class ApprovalReferralTest extends TestCase
         $recorder = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('approval_by_authority', 'awaiting_municipal_approval');
 
-        $this->actingAs($recorder, 'sanctum')
+        $response = $this->actingAs($recorder, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/approval-referrals", [
                 'referred_at' => '2026-09-01',
                 'letter_number' => 'ص/2026/118',
@@ -54,9 +54,12 @@ class ApprovalReferralTest extends TestCase
             ->assertJsonPath('data.approval_referrals.0.recorded_by.id', $recorder->id)
             // Art. 30's inward three are unknown at this moment, and say so.
             ->assertJsonPath('data.approval_referrals.0.result_outcome', null)
-            ->assertJsonPath('data.approval_referrals.0.approval_decision_number', null)
-            // A second referral cannot be opened while this one is unanswered.
-            ->assertJsonPath('data.approval_referral_eligibility.can_record', false);
+            ->assertJsonPath('data.approval_referrals.0.approval_decision_number', null);
+        // A second referral cannot be opened while this one is unanswered.
+        $this->assertSame(
+            'توجد إحالة للاعتماد لم تثبت نتيجتها بعد.',
+            collect($response->json('data.acts.blocked'))->firstWhere('action', 'record_approval_referral')['reason'],
+        );
 
         $fresh = $requestRecord->fresh();
         $this->assertSame('approval_by_authority', $fresh->currentStage->code);

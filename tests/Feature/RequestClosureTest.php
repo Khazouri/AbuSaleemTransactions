@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\ClosesRequests;
 use Tests\TestCase;
 
@@ -46,7 +47,7 @@ class RequestClosureTest extends TestCase
 
         $this->archiveFiles($requestRecord);
 
-        $this->actingAs($closer, 'sanctum')
+        $response = $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
             ->assertOk()
             ->assertJsonPath('data.status.code', 'completed_closed')
@@ -57,12 +58,13 @@ class RequestClosureTest extends TestCase
             ->assertJsonPath('data.closure.executing_body', 'إدارة الموارد البشرية')
             ->assertJsonPath('data.closure.final_decision_number', 'PM-DEC/2026/001')
             ->assertJsonPath('data.closure.closed_by.id', $closer->id)
-            ->assertJsonPath('data.closure_eligibility.can_close', false)
             // All twelve of Appendix 47's checks are stored, including the two
             // the server answers itself.
             ->assertJsonPath('data.closure_audit.appeal_path_concluded', 'yes')
             ->assertJsonPath('data.closure_audit.archive_location_set', 'yes')
             ->assertJsonPath('data.closure_audit.service_file_updated', 'yes');
+        // A closed file is not closable again.
+        $this->assertNotContains('close', $this->listedActs($response));
 
         $closed = $requestRecord->fresh();
         $this->assertNotNull($closed->closed_at);
@@ -398,23 +400,30 @@ class RequestClosureTest extends TestCase
         $deferred = $this->requestAt('receive_from_committee', 'deferred', creator: $employee);
 
         // Fetched as the creator: a مؤجلة request is not closable, so the
-        // Stage 75 visibility clause deliberately does not reach it.
-        $this->actingAs($employee, 'sanctum')
+        // Stage 75 visibility clause deliberately does not reach it. The
+        // creator holds no `meeting_outputs,approve`, so `close` is not
+        // theirs at all — the endpoint's own refusal for a deferred file is
+        // already pinned in test_appendix_48_refuses_each_pending_state_by_name.
+        $response = $this->actingAs($employee, 'sanctum')
             ->getJson("/api/requests/{$deferred->id}")
             ->assertOk()
-            ->assertJsonPath('data.closure_eligibility.can_close', false)
-            ->assertJsonPath('data.closure_eligibility.reason', 'لا يجوز إقفال معاملة مؤجلة.')
             ->assertJsonPath('data.closure', null);
+        $this->assertNotContains('close', $this->listedActs($response));
 
         $closer = $this->userWithRole('R02');
         $executed = $this->requestAt('final_approval_archiving', 'executed', withDecision: true);
         $this->archiveFiles($executed);
 
-        $this->actingAs($closer, 'sanctum')
+        $response = $this->actingAs($closer, 'sanctum')
             ->getJson("/api/requests/{$executed->id}")
-            ->assertOk()
-            ->assertJsonPath('data.closure_eligibility.can_close', true)
-            ->assertJsonPath('data.closure_eligibility.reason', null);
+            ->assertOk();
+        $this->assertContains('close', array_column($response->json('data.acts.available'), 'action'));
+    }
+
+    /** @return list<string> Decision wizard — sub-project 3: every act the payload lists, open or blocked. */
+    private function listedActs(TestResponse $response): array
+    {
+        return array_column([...$response->json('data.acts.available'), ...$response->json('data.acts.blocked')], 'action');
     }
 
     private function requestAt(

@@ -55,6 +55,7 @@ use App\Services\RequestDeadlineService;
 use App\Services\RequestSuspensionService;
 use App\Services\RequestTimelineCompiler;
 use App\Services\RequestVisibility;
+use App\Services\Tasks\RequestActs;
 use App\Services\WorkflowService;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -1417,34 +1418,8 @@ class RequestController extends Controller
             'executionSoundnessCheckedBy:id,name',
         ]);
         $requestRecord->loadCount('legalReviews');
-        // Stage 75 — Appendix 48's refusal, computed by the same service the
-        // close endpoint enforces with, so the screen can never offer a button
-        // that endpoint would refuse.
-        $requestRecord->setAttribute(
-            'closure_refusal',
-            app(RequestClosureService::class)->refusalReason($requestRecord),
-        );
-        // Stage 77 — Appendix 34's own refusal, from the same service the two
-        // return endpoints enforce with.
-        $approvalReturns = app(ApprovalReturnService::class);
-        $requestRecord->setAttribute(
-            'approval_return_refusal',
-            $approvalReturns->refusalReason($requestRecord),
-        );
-        $openApprovalReturn = $approvalReturns->openReturn($requestRecord);
-        $requestRecord->setAttribute('open_approval_return_id', $openApprovalReturn?->id);
-        // Stage 80 — Art. 30's own refusal and the referral still awaiting
-        // an answer, from the same service the two referral endpoints
-        // enforce with.
-        $approvalReferrals = app(ApprovalReferralService::class);
-        $requestRecord->setAttribute(
-            'approval_referral_refusal',
-            $approvalReferrals->refusalReason($requestRecord),
-        );
-        $requestRecord->setAttribute(
-            'open_approval_referral_id',
-            $approvalReferrals->openReferral($requestRecord)?->id,
-        );
+        // Stage 77 — an open return still holds `approve` back (blockReason()).
+        $openApprovalReturn = app(ApprovalReturnService::class)->openReturn($requestRecord);
         // Stage 78 — Appendix 63's four-gate matrix, rendered for this one
         // file. Every value here comes from the same services the endpoints
         // enforce with, so the screen and the refusal can never disagree.
@@ -1527,6 +1502,10 @@ class RequestController extends Controller
             $committeeActions[] = ['action' => 'record_legal_review', 'requires_comment' => false];
         }
         $requestRecord->setAttribute('committee_actions', $committeeActions);
+
+        // Decision wizard — sub-project 3. Every other act on this file, from
+        // the refusals the endpoints themselves call.
+        $requestRecord->setAttribute('acts', app(RequestActs::class)->forRequest($requestRecord, $actor));
 
         return new RequestDetailResource($requestRecord);
     }
@@ -1622,15 +1601,7 @@ class RequestController extends Controller
                 'refusal' => $soundness->refusalReason($requestRecord),
             ],
             // بوابة 4 — قبل الإقفال, already Stage 75's in full.
-            'closure' => [
-                'closed_at' => $requestRecord->closed_at?->toIso8601String(),
-                'refusal' => $requestRecord->getAttribute('closure_refusal'),
-            ],
-            // Art. 105's hold, which sits across all of them.
-            'suspension' => [
-                'refusal' => app(RequestSuspensionService::class)->refusalReason($requestRecord),
-                'open_id' => $requestRecord->suspensions->firstWhere('resolved_at', null)?->id,
-            ],
+            'closure' => ['closed_at' => $requestRecord->closed_at?->toIso8601String()],
         ];
     }
 
