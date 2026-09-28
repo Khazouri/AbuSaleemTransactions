@@ -373,8 +373,10 @@ class MyTasksTest extends TestCase
         $sources = $this->inbox($verifier);
         $tasks = collect($sources['appeal']['tasks']);
         $this->assertSame(['close', 'jurisdiction_test', 'legal_review', 'verify'], $tasks->pluck('action')->sort()->values()->all());
-        $this->assertSame(['status' => 'submitted'], $tasks->firstWhere('action', 'verify')['route']['query']);
-        $this->assertSame($submitted->originalRequest->title, $tasks->firstWhere('action', 'verify')['title']);
+        $verify = $tasks->firstWhere('action', 'verify');
+        $this->assertSame('appeals', $verify['route']['name']);
+        $this->assertSame(['appeal' => $submitted->id, 'decide' => 'verify'], $verify['route']['query']);
+        $this->assertSame($submitted->originalRequest->title, $verify['title']);
         $this->assertLinksAreOpenable($verifier, $sources);
 
         $this->assertArrayNotHasKey('appeal', $this->inbox($appellant));
@@ -391,7 +393,8 @@ class MyTasksTest extends TestCase
         $sources = $this->inbox($rapporteur);
         $task = $sources['appeal']['tasks'][0];
         $this->assertSame('nominate', $task['action']);
-        $this->assertSame('meeting_agenda', $task['route']['name']);
+        $this->assertSame('appeals', $task['route']['name']);
+        $this->assertSame('nominate', $task['route']['query']['decide']);
         $this->assertLinksAreOpenable($rapporteur, $sources);
     }
 

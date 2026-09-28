@@ -674,8 +674,7 @@ class PendingTaskCollector
     /**
      * My-tasks completeness (2026-09-26) — each appeal's next step. Every
      * `appeals,edit` endpoint refuses the appellant, so their own appeal is
-     * never offered. Nomination rides the agenda builder instead, so it needs
-     * a seat to be openable.
+     * never offered. Every step, nomination included, opens the appeal's wizard.
      *
      * @return array<string, mixed>|null
      */
@@ -724,9 +723,8 @@ class PendingTaskCollector
                     'waiting_since' => $appeal->created_at?->toIso8601String(),
                     'due_at' => null,
                     'is_overdue' => false,
-                    'route' => $action === 'nominate'
-                        ? ['name' => 'meeting_agenda']
-                        : ['name' => 'appeals', 'query' => ['status' => $code]],
+                    // Decision wizard — sub-project 3: the appeal's own wizard, on its act.
+                    'route' => ['name' => 'appeals', 'query' => ['appeal' => $appeal->id, 'decide' => $action]],
                 ]);
             })
             ->filter()
