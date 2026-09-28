@@ -58,6 +58,13 @@ class ApprovalReferralService
             return 'لا تثبت الإحالة للاعتماد إلا لمعاملة داخل دورة الاعتماد.';
         }
 
+        // Moved here from record() so the wizard's blocked line and the
+        // endpoint agree (Decision wizard — sub-project 3); it used to report
+        // "recordable" while record() refused.
+        if ($this->openReferral($requestRecord) !== null) {
+            return 'توجد إحالة للاعتماد لم تثبت نتيجتها بعد.';
+        }
+
         return null;
     }
 
@@ -92,10 +99,6 @@ class ApprovalReferralService
             // controller's own check ran before it and the file may have moved.
             if (($reason = $this->refusalReason($locked)) !== null) {
                 throw new DomainException($reason);
-            }
-
-            if ($this->openReferral($locked) !== null) {
-                throw new DomainException('توجد إحالة للاعتماد لم تثبت نتيجتها بعد.');
             }
 
             return ApprovalReferral::create([

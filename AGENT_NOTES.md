@@ -19,6 +19,18 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-28 EET — Claude — Implementation plan: decision wizard, sub-project 3 (post-decision work, records, appeals)
+
+User (brainstorming): **every write on the request page and on the appeals screen** goes through a wizard — the
+inbox's post-decision, open-record and appeal duties, their on-demand recording twins, and the page's own writes
+(notice, financial impact, reopen, notes, upload, filing an appeal). The request wizard gains grouped acts (ما بعد
+القرار / سجلات الملف / محتوى الملف) from a new `acts` payload (`RequestActs`); appeals get `AppealWizard` (list-hosted,
+`GET appeals/{id}/acts`, `AppealActs`) and `AppealFilingWizard`; nominate leaves the agenda builder. Every blocked
+reason is a refusal method the endpoint itself calls (archive, return resolve, referral, correction approval,
+withdrawal filing, notice, reopen, attachment, each appeal act). Panels become read-only; four are deleted. No
+migration. Three slices. Spec and plan are local under `docs/superpowers/` (git-ignored).
+
+---
 ### 2026-09-27 21:15 EET — Claude — Decision wizard, sub-project 2 — final-review fixes
 
 Fixed every item (F1–F10, F13) a senior whole-branch review found, per the controller's rulings. **F1

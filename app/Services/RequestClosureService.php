@@ -118,7 +118,9 @@ class RequestClosureService
     public const ANSWERS = ['yes', 'no', 'not_applicable'];
 
     /**
-     * Appendix 48's حالات لا يجوز فيها إغلاق المعاملة, by status code.
+     * Appendix 48's حالات لا يجوز فيها إغلاق المعاملة, by status code. Public
+     * so RequestActs can offer closure (blocked, with this reason) on exactly
+     * these files.
      *
      * Mechanically redundant against CLOSABLE_STATUSES — a whitelist of three
      * already excludes every one of these — but checked first and by name so a
@@ -134,7 +136,7 @@ class RequestClosureService
      *
      * @var array<string, string>
      */
-    private const BLOCKING_STATUSES = [
+    public const BLOCKING_STATUSES = [
         // 1 — بانتظار اعتماد
         'awaiting_municipal_approval' => 'لا يجوز إقفال معاملة بانتظار الاعتماد.',
         'approved' => 'لا يجوز إقفال معاملة بانتظار الاعتماد.',
@@ -240,6 +242,24 @@ class RequestClosureService
     }
 
     /**
+     * Decision wizard — sub-project 3. Why an archive record may not be
+     * written now, or null. archive() throws exactly this, so the wizard's
+     * blocked line and the endpoint's 422 are one sentence.
+     */
+    public function archiveRefusal(Request $requestRecord): ?string
+    {
+        if ($requestRecord->closed_at !== null) {
+            return 'المعاملة مقفلة بالفعل.';
+        }
+
+        if (! in_array($requestRecord->status?->code, self::CLOSABLE_STATUSES, true)) {
+            return 'لا يؤرشف الملف قبل بلوغ المعاملة أحد مساراتها النهائية.';
+        }
+
+        return null;
+    }
+
+    /**
      * Stage 100 — record where one of Appendix 6 row 15's two files went.
      *
      * Only while the file stands on one of Art. 37's final paths and is not
@@ -251,12 +271,8 @@ class RequestClosureService
      */
     public function archive(Request $requestRecord, User $actor, string $file, string $location): Request
     {
-        if ($requestRecord->closed_at !== null) {
-            throw new \DomainException('المعاملة مقفلة بالفعل.');
-        }
-
-        if (! in_array($requestRecord->status?->code, self::CLOSABLE_STATUSES, true)) {
-            throw new \DomainException('لا يؤرشف الملف قبل بلوغ المعاملة أحد مساراتها النهائية.');
+        if (($reason = $this->archiveRefusal($requestRecord)) !== null) {
+            throw new \DomainException($reason);
         }
 
         $requestRecord->update([

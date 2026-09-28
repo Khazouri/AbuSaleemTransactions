@@ -1033,13 +1033,14 @@ class RequestController extends Controller
         WorkflowService $workflow,
     ): RequestDetailResource|JsonResponse {
         $actor = $request->user();
-        $open = $returns->openReturn($requestRecord);
+        $requestRecord->loadMissing('currentStage:id,code');
 
-        if ($open === null) {
-            return response()->json([
-                'message' => 'لا توجد إعادة من جهة الاعتماد بانتظار إثبات الإجراء المتخذ بشأنها.',
-            ], 422);
+        // Decision wizard — sub-project 3: the refusal RequestActs reports.
+        if (($reason = $returns->resolveRefusal($requestRecord)) !== null) {
+            return response()->json(['message' => $reason], 422);
         }
+
+        $open = $returns->openReturn($requestRecord);
 
         try {
             $requestRecord = $returns->resolve(

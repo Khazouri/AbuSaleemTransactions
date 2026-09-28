@@ -118,6 +118,28 @@ class ApprovalReturnService
     }
 
     /**
+     * Decision wizard — sub-project 3. Why the open return may not be resolved
+     * now, or null: the controller's old inline "nothing open" 422, and the
+     * formal branch's stage check that resolve() otherwise raises inside its
+     * transaction. resolve() keeps its own check under the lock.
+     */
+    public function resolveRefusal(Request $requestRecord): ?string
+    {
+        $open = $this->openReturn($requestRecord);
+
+        if ($open === null) {
+            return 'لا توجد إعادة من جهة الاعتماد بانتظار إثبات الإجراء المتخذ بشأنها.';
+        }
+
+        if ($open->return_kind !== ApprovalReturn::KIND_SUBSTANTIVE
+            && ! array_key_exists((string) $requestRecord->currentStage?->code, self::AWAITING_STATUS_BY_STAGE)) {
+            return 'لا يمكن إعادة الإحالة إلى جهة الاعتماد من هذه المرحلة.';
+        }
+
+        return null;
+    }
+
+    /**
      * Appendix 34 classifies the return; where a reason carries a kind in the
      * source, the two must agree. `other` is free either way, since both of the
      * appendix's lists are examples ("مثل").

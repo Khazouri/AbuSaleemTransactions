@@ -56,7 +56,7 @@ class ApprovalReferralTest extends TestCase
             ->assertJsonPath('data.approval_referrals.0.result_outcome', null)
             ->assertJsonPath('data.approval_referrals.0.approval_decision_number', null)
             // A second referral cannot be opened while this one is unanswered.
-            ->assertJsonPath('data.approval_referral_eligibility.can_record', true);
+            ->assertJsonPath('data.approval_referral_eligibility.can_record', false);
 
         $fresh = $requestRecord->fresh();
         $this->assertSame('approval_by_authority', $fresh->currentStage->code);
