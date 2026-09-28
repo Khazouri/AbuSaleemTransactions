@@ -19,6 +19,61 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-28 EET — Claude — Decision wizard, sub-project 3 complete (slice 3: appeals)
+
+Built per the plan below; no migration. Every appeal act (verify, jurisdiction test, legal review,
+execute outcome, close, reopen, nominate) moves into `AppealWizard` from a new `AppealActs` service and
+`GET appeals/{appeal}/acts`, whose refusals `AppealController`'s six act methods now call — the same
+no-drift shape `RequestActs` already established. Filing is `AppealFilingWizard` (request → grounds →
+confirm → documents, upload last since it needs the appeal's own id); nomination moved out of the agenda
+builder into the wizard, gated on `Appeal::mayNominate()` (a seated holder of `meeting_agenda` edit+view).
+`AppealsView` is the list, one «اتخاذ القرار» per row driven by `has_acts`. **This closes sub-project 3's
+own OPEN_ITEMS entry** (marked Resolved, slices 1–3).
+
+Verified: full suite **819 / 5218** green, Pint clean on the eight touched files, build passes, locale
+parity **2081 keys each side**, `check-layout.mjs` (440 views; fails only on the pre-existing
+`/decisions` and `/reports` 1024px overflow — see below). **`check-layout.mjs`'s full sweep caught a real
+regression along the way, now fixed.** `/appeals` overflowed sideways at 1024px (`div.table-wrap`
+797>670 en). A first attempt (`fc436a6`, merging the new take-action column back into the file column,
+12→11 columns) did not actually close it — re-measured against a populated row (walked through `verify` →
+`jurisdiction-test` → `legal-review`, ordinary progression) at 865>670 en / 830>670 ar, essentially
+unchanged. The real cause (`a6657ba`): `style.css`'s `.pill { white-space: nowrap }` is unconditional, so
+the status/verification/jurisdiction/legal-review pills refused to shrink at 1024px no matter how tight
+the plain-text columns around them were squeezed — a scoped `@media (min-width: 1024px) { .data-table
+.pill { white-space: normal } }` in `AppealsView.vue` (the same fix `DecisionsView`'s vote tally already
+used, AGENT_NOTES 2026-09-22) lets those cells wrap like every other cell. Confirmed here independently,
+twice: a populated appeal (verify/jurisdiction/legal-review, one with long Arabic `appeal_reasons`) now
+measures `scrollWidth 670 = clientWidth 670` at 1024px in both locales. Headless walk-through on a
+five-appeal, one-committee tinker fixture (a
+`submitted`, a `file_assembly`, two `legal_review` appeals, plus a fifth filed live) covered ar/en ×
+1280/375 with zero console errors: as R02, verified the submitted appeal, recorded the legal review on
+the `file_assembly` one, then nominated a `legal_review` appeal onto a `pending_confirmation` meeting —
+the item showed up on the (now read-only) agenda builder. **Review Focus 5**: R03, seated on the same
+five-seat committee, opened and nominated a second `legal_review` appeal through the identical path — the
+membership gate that already covers `/meetings` and `POST /meetings/{id}/agenda` is what makes this work
+for any seated chair, not only R02. As R01, filed a brand-new appeal through the full wizard (request
+search → grounds → confirm → documents step); **the upload itself was not browser-exercised** — the
+headless proxy's `postData()`-based relay cannot carry a real multipart file body, the same limit Task 11
+found for `attach_document` — the documents step was confirmed to render with Submit/slip correctly
+hidden, and the upload endpoint was proven directly with a multipart POST as the appellant (201,
+attachment created, then deleted). **Review Focus 4**: the appellant's own appeal list showed no
+«اتخاذ القرار» anywhere, confirmed both in the DOM and server-side (`GET appeals/{id}/acts` returns empty
+`available`/`blocked` for the appellant). Two fixture mistakes surfaced and were corrected mid-walk,
+neither an app bug: filing a second appeal against a request that already had one correctly hit "an
+appeal already exists" (Appendix-scope eligibility, endpoint-only — now an open item); a request with no
+recorded committee decision correctly required a manually-typed decision reference on Confirm. Every
+fixture row (5 requests, 5 appeals, 1 appeal attachment + its stored file, 1 committee, 5 seats, 1
+meeting, 2 agenda items) and the session's tokens/jobs/audit rows were deleted afterward; all tracked row
+counts matched their baseline.
+
+**Open, not queued for a next slice** — OPEN_ITEMS.md carries the residue: appeal `reopen` leaves the old
+agenda item attached; the redo-stage picker offers stages the endpoint would refuse; appeal filing
+eligibility is endpoint-only; and one live decision the controller made rather than deferred —
+nominator visibility now exposes the full appeal (not just id/appellant/reference) to any seated
+`meeting_agenda` holder at `legal_review`, wider than the original plan, kept so a nominator isn't
+nominating blind. AGENTS.md gained one durable bullet (every request-page/appeals write is a wizard act).
+
+---
 ### 2026-09-28 EET — Claude — Decision wizard, sub-project 3, slice 2 (records and file content) complete
 
 Built per the plan below; no migration. Document conflicts, special cases, correction memos, withdrawals,

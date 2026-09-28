@@ -70,14 +70,47 @@ both sharing `WizardShell`/`WizardSlip` with sub-project 1's request wizard. `Me
 The two remaining gaps (minutes generation's own convened/resolved gate, and who may generate) are their
 own entries above rather than closing this one incompletely.
 
-### Decision wizard for post-decision work and records — decision wizard sub-project 3 — opened 2026-09-26
-Also still outside the wizard: Art. 103 soundness, execution, both archives, closure, approval
-returns/referrals, suspension lift, corrections/conflicts/special cases/withdrawals, appeals and the
-legal review. These live on the request page's tabs and their own screens. **To close:** its own spec
-after sub-project 2; many already answer with the detail resource, so they fit the same Checks step.
-Sub-project 2 already folded the legal review's request-side reading into `DecisionWizard.vue` (the
-request wizard's Review/Checks steps), so this one covers everything else in the list above it, minus
-that item.
+### Decision wizard for post-decision work and records — decision wizard sub-project 3 — opened 2026-09-26 — Resolved (2026-09-28, slices 1–3)
+Built across three slices: after-decision acts (soundness, execution, archives, closure, returns/
+referrals, suspension), records and file content (conflicts, special cases, corrections, withdrawals,
+the notice, the financial flag, reopen, notes, attachments), and appeals (verify, jurisdiction test,
+legal review, execution, closure, reopen, nomination). Every act now reads its refusal from the
+endpoint it posts to; nothing is left on a page-level panel or a page's own inline form.
+
+### Appeal `reopen` leaves the old agenda item — decision wizard sub-project 3, slice 3 — opened 2026-09-28
+Reopening a closed appeal does not clear its `committee_agenda_item_id`, so a reopened appeal can never
+be nominated again (`AppealActs::forAppeal()`'s nominate condition requires `committeeAgendaItem ===
+null`) and `execute_outcome` would still read the pre-reopen decision if the appeal reached execution
+again. **To close:** `AppealController::reopen()` clears the link (and, if a decision was recorded
+against that agenda item, decides whether the decision itself should also be detached or left as
+history).
+
+### The redo-stage picker offers stages the endpoint refuses — decision wizard sub-project 3, slice 3 — opened 2026-09-28
+`GET appeals/redo-stage-options` (used by `AppealExecuteForm`'s stage picker) does not filter out stages
+`reopenAtStage()` itself would refuse with "the target stage must precede the appeal's own stage" — the
+picker and the endpoint can disagree, the same "wizard narrower/wider than the endpoint" shape the
+`generate_minutes` and `record_document_conflict` items already found elsewhere. **To close:** filter
+the options query the same way `reopenAtStage()` validates, or have the picker call the refusal method
+directly per candidate stage.
+
+### Appeal filing eligibility is endpoint-only — decision wizard sub-project 3, slice 3 — opened 2026-09-28
+`AppealFilingWizard`'s request step lets the filer pick any of their own requests; whether that specific
+request is actually appealable (a final result exists, no appeal is already open on it unless new facts
+are declared) is answered only by `POST /appeals`'s own 422 on Confirm, with no up-front check. Verified
+live in this task's walk-through: picking a request that already had an open appeal produced exactly
+this 422 at Confirm, not at the picker. **To close:** either surface the eligibility in the request
+search results (grey out/annotate ineligible ones) or leave it — the 422 is legible and Confirm is a
+one-shot step, so this is a UX nicety rather than a correctness gap.
+
+### Nominator visibility widened beyond what the plan claimed — decision wizard sub-project 3, slice 3 — opened 2026-09-28
+`Appeal::mayNominate()` — a seated holder of `meeting_agenda` edit+view, e.g. R03 — now sees the **full**
+`AppealResource` (grounds, final request, new facts, the verification/jurisdiction/legal-review answers
+and who gave them) for any appeal at `legal_review`, where `GET meetings/appeal-options` previously
+showed only id, appellant and the request's reference number. This was kept deliberately: nomination
+moved out of the agenda builder into the appeal wizard in this slice, and a nominator who can no longer
+see the file elsewhere would be nominating blind. **To close:** the user decides — keep the widened
+read, narrow `mayNominate()` to `appeals,edit` holders only (which would exclude a chair with no direct
+appeals grant), or give a nominator a minimal-fields payload instead of the full resource.
 
 ### The live committee has only its chair seat filled — Stage 102 — opened 2026-09-26
 On the real database committee #16 holds one seated member (chair) and three seatless ones, so it

@@ -104,6 +104,14 @@ Key architectural facts worth knowing before changing things:
   `POST meetings/{m}/respond`; a date change resets every answer. Convening
   already requires `scheduled`, so that is the whole gate. Don't reintroduce
   ad-hoc attendees, free-text agenda items, or staff-recorded RSVPs.
+- **Every write on the request page and the appeals screen is a wizard act
+  (decision wizard sub-projects 1–3).** The request's workflow transitions,
+  committee moves and `acts` (`App\Services\Tasks\RequestActs`), and an
+  appeal's `GET appeals/{appeal}/acts` (`AppealActs`), each report "blocked"
+  with the refusal method the endpoint itself calls. A new act = a refusal
+  method the endpoint calls + an entry in `RequestActs`/`AppealActs` + an entry
+  in `frontend/src/lib/requestActs.js`/`appealActs.js`. Don't add a button or
+  form for it on a panel.
 - **Manager-gated transitions: R08 only unsticks.** A `workflow_transitions`
   row with `requires_submitter_manager` belongs to صاحب العلاقة's own active,
   non-deleted manager (`users.manager_id`) — while that manager is live,
