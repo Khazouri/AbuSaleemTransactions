@@ -343,7 +343,8 @@ class MyTasksTest extends TestCase
             'request_id' => $file->id, 'error_kind' => 'clerical', 'detail' => 'خطأ', 'incorrect_value' => 'أ',
             'corrected_value' => 'ب', 'recorded_by_user_id' => $recorder->id,
         ]);
-        DB::table('request_document_conflicts')->insert(['request_id' => $file->id, 'conflict_kind' => 'other', 'detail' => 'تعارض']);
+        $conflictId = DB::table('request_document_conflicts')->insertGetId(['request_id' => $file->id, 'conflict_kind' => 'other', 'detail' => 'تعارض']);
+        DB::table('request_document_conflicts')->insert(['request_id' => $file->id, 'conflict_kind' => 'other', 'detail' => 'تعارض آخر']);
         DB::table('request_special_cases')->insert(['request_id' => $file->id, 'case_kind' => 'document_lost', 'determinations' => '{}']);
         DB::table('request_withdrawals')->insert(['request_id' => $file->id, 'reason' => 'رغبة', 'requested_at' => now()]);
 
@@ -352,6 +353,11 @@ class MyTasksTest extends TestCase
             $this->assertContains($action, $colleagueActions);
         }
         $this->assertNotContains('approve_correction', collect($this->inbox($recorder)['open_record']['tasks'])->pluck('action'));
+
+        $conflicts = collect($this->inbox($colleague)['open_record']['tasks'])->where('action', 'resolve_document_conflict')->values();
+        $this->assertCount(2, $conflicts);
+        $this->assertSame(['decide' => 'resolve_document_conflict', 'target' => $conflictId], $conflicts[0]['route']['query']);
+        $this->assertNotSame($conflicts[0]['id'], $conflicts[1]['id']);
     }
 
     public function test_each_appeal_step_awaits_the_verifier_but_never_the_appellant(): void

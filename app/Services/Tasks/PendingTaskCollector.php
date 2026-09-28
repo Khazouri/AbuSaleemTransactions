@@ -641,25 +641,31 @@ class PendingTaskCollector
             return null;
         }
 
+        // Decision wizard — sub-project 3: $unsettled is also applied inside
+        // with() below, against a relation rather than a query Builder.
         $open = [
-            'approve_correction' => ['corrections', fn (Builder $c) => $c
+            'approve_correction' => ['corrections', fn ($c) => $c
                 ->whereNull('approved_at')
                 ->where(fn (Builder $by) => $by
                     ->whereNull('recorded_by_user_id')
                     ->orWhere('recorded_by_user_id', '!=', $actor->id))],
-            'resolve_document_conflict' => ['documentConflicts', fn (Builder $c) => $c->whereNull('resolved_at')],
-            'resolve_special_case' => ['specialCases', fn (Builder $c) => $c->whereNull('resolved_at')],
-            'determine_withdrawal' => ['withdrawals', fn (Builder $w) => $w->whereNull('determined_at')],
+            'resolve_document_conflict' => ['documentConflicts', fn ($c) => $c->whereNull('resolved_at')],
+            'resolve_special_case' => ['specialCases', fn ($c) => $c->whereNull('resolved_at')],
+            'determine_withdrawal' => ['withdrawals', fn ($w) => $w->whereNull('determined_at')],
         ];
         $tasks = collect();
 
+        // Decision wizard — sub-project 3: one task per unsettled row, opening
+        // that row's act in the request wizard.
         foreach ($open as $action => [$relation, $unsettled]) {
             $this->visibleRequests($actor)
                 ->whereHas($relation, $unsettled)
+                ->with([$relation => fn ($rows) => $unsettled($rows)->select('id', 'request_id')->orderBy('id')])
                 ->get()
-                ->each(fn (Request $r) => $tasks->push($this->requestTask(
-                    $action, $r, $r->status?->name_ar, ['tab' => 'outputs'],
-                )));
+                ->each(fn (Request $r) => $r->{$relation}->each(fn ($row) => $tasks->push([
+                    ...$this->requestTask($action, $r, $r->status?->name_ar, ['decide' => $action, 'target' => $row->id]),
+                    'id' => $action.':'.$r->id.':'.$row->id,
+                ])));
         }
 
         return $this->tasks('open_record', $tasks);
