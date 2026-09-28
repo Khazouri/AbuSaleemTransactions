@@ -536,6 +536,8 @@ class PendingTaskCollector
      * endpoint's refusals (RequestClosureService::refusalReason() for closure,
      * minus the closer's own checklist answers, which are input).
      *
+     * Each task opens its act in the request wizard (decision wizard sub-project 3).
+     *
      * @return array<string, mixed>|null
      */
     private function postDecision(User $actor): ?array
@@ -550,9 +552,11 @@ class PendingTaskCollector
             ->whereNull('closed_at');
         $tasks = collect();
 
-        $push = function (string $action, Builder $query, string $tab) use ($tasks) {
+        // Decision wizard — sub-project 3: every one of these is a wizard act
+        // on the request, so the task opens that act's slip directly.
+        $push = function (string $action, Builder $query) use ($tasks) {
             $query->get()->each(fn (Request $r) => $tasks->push($this->requestTask(
-                $action, $r, $r->status?->name_ar, ['tab' => $tab],
+                $action, $r, $r->status?->name_ar, ['decide' => $action],
             )));
         };
 
@@ -560,14 +564,25 @@ class PendingTaskCollector
             $push('execution_soundness', $this->visibleRequests($actor)
                 ->whereHas('currentStage', fn (Builder $s) => $s->where('code', 'final_approval_archiving'))
                 ->whereHas('status', $atStatus(['final_approved']))
-                ->whereNull('execution_soundness'), 'gates');
-            $push('archive_committee_file', $closable()->whereNull('committee_file_archived_at'), 'outputs');
+                ->whereNull('execution_soundness'));
+            $push('archive_committee_file', $closable()->whereNull('committee_file_archived_at'));
             $push('resolve_approval_return', $this->visibleRequests($actor)
                 ->whereHas('approvalReturns', fn (Builder $r) => $r->whereNull('resolved_at'))
                 // A formal resolve would overwrite a suspension's status.
-                ->whereDoesntHave('suspensions', fn (Builder $s) => $s->whereNull('resolved_at')), 'approvals');
-            $push('record_referral_result', $this->visibleRequests($actor)
-                ->whereHas('approvalReferrals', fn (Builder $r) => $r->whereNull('result_outcome')), 'approvals');
+                ->whereDoesntHave('suspensions', fn (Builder $s) => $s->whereNull('resolved_at')));
+            // One task per open referral, so the id names the row too.
+            $this->visibleRequests($actor)
+                ->with(['approvalReferrals' => fn ($referral) => $referral->whereNull('result_outcome')->select('id', 'request_id')])
+                ->whereHas('approvalReferrals', fn (Builder $r) => $r->whereNull('result_outcome'))
+                ->get()
+                ->each(fn (Request $r) => $r->approvalReferrals->each(fn ($referral) => $tasks->push([
+                    ...$this->requestTask('record_referral_result', $r, $r->status?->name_ar, route: [
+                        'name' => 'request_details',
+                        'params' => ['id' => $r->id],
+                        'query' => ['decide' => 'record_referral_result', 'target' => $referral->id],
+                    ]),
+                    'id' => 'record_referral_result:'.$r->id.':'.$referral->id,
+                ])));
             // Lifting needs the legal opinion given since the suspension;
             // until then the file sits in R11's legal_review source instead.
             $push('lift_suspension', $this->visibleRequests($actor)
@@ -576,13 +591,13 @@ class PendingTaskCollector
                     ->whereExists(fn ($review) => $review->selectRaw('1')
                         ->from('request_legal_reviews')
                         ->whereColumn('request_legal_reviews.request_id', 'request_suspensions.request_id')
-                        ->whereColumn('request_legal_reviews.created_at', '>=', 'request_suspensions.suspended_at'))), 'gates');
+                        ->whereColumn('request_legal_reviews.created_at', '>=', 'request_suspensions.suspended_at'))));
         }
 
         if ($add) {
             $push('archive_service_file', $closable()
                 ->whereNull('service_file_archived_at')
-                ->whereHas('meetingRequests', $decided), 'outputs');
+                ->whereHas('meetingRequests', $decided));
         }
 
         if ($approve) {
@@ -591,12 +606,8 @@ class PendingTaskCollector
                 ->whereHas('status', $atStatus(['in_execution']))
                 ->whereNull('executed_at')
                 ->whereHas('meetingRequests', $decided)
-                ->with(['meetingRequests' => fn ($item) => $decided($item)->select('id', 'request_id', 'meeting_id')])
                 ->get()
-                ->each(fn (Request $r) => $tasks->push($this->requestTask('execute', $r, $r->status?->name_ar, route: [
-                    'name' => 'meeting_outputs',
-                    'query' => ['meeting' => $r->meetingRequests->sortByDesc('id')->first()?->meeting_id],
-                ])));
+                ->each(fn (Request $r) => $tasks->push($this->requestTask('execute', $r, $r->status?->name_ar, ['decide' => 'execute'])));
 
             $push('close', $closable()
                 ->whereNotNull('committee_file_archived_at')
@@ -611,7 +622,7 @@ class PendingTaskCollector
                         ->orWhereNotIn('appeals.appeal_status_id', AppealStatus::query()->where('code', 'notified_closed')->select('id'))))
                 ->whereDoesntHave('specialCases', fn (Builder $case) => $case
                     ->whereNull('resolved_at')
-                    ->whereIn('case_kind', array_keys(SpecialCaseRules::CLOSURE_BLOCKING))), 'outputs');
+                    ->whereIn('case_kind', array_keys(SpecialCaseRules::CLOSURE_BLOCKING))));
         }
 
         return $this->tasks('post_decision', $tasks);

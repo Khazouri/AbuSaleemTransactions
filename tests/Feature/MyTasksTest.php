@@ -278,8 +278,9 @@ class MyTasksTest extends TestCase
 
         $sources = $this->inbox($hr);
         $task = collect($sources['post_decision']['tasks'])->firstWhere('action', 'execute');
-        $this->assertSame('meeting_outputs', $task['route']['name']);
-        $this->assertSame(['meeting' => $executing->meetingRequests()->value('meeting_id')], $task['route']['query']);
+        $this->assertSame('request_details', $task['route']['name']);
+        $this->assertSame(['id' => $executing->id], $task['route']['params']);
+        $this->assertSame(['decide' => 'execute'], $task['route']['query']);
         $this->assertLinksAreOpenable($hr, $sources);
     }
 
@@ -311,7 +312,7 @@ class MyTasksTest extends TestCase
             'request_id' => $returned->id, 'return_kind' => 'formal', 'return_reason_code' => 'other',
             'return_note' => 'نقص', 'received_at' => now(),
         ]);
-        DB::table('approval_referrals')->insert([
+        $referralId = DB::table('approval_referrals')->insertGetId([
             'request_id' => $returned->id, 'letter_number' => 'L-1', 'referred_to_body' => 'الوزارة', 'referred_at' => now(),
         ]);
         $suspended = $this->requestAt('final_approval_archiving', 'execution_suspended', $this->userWithRole('R01'));
@@ -323,6 +324,9 @@ class MyTasksTest extends TestCase
         $this->assertContains('resolve_approval_return', $actions);
         $this->assertContains('record_referral_result', $actions);
         $this->assertNotContains('lift_suspension', $actions, 'the legal opinion comes first');
+
+        $result = collect($this->inbox($rapporteur)['post_decision']['tasks'])->firstWhere('action', 'record_referral_result');
+        $this->assertSame(['decide' => 'record_referral_result', 'target' => $referralId], $result['route']['query']);
 
         DB::table('request_legal_reviews')->insert([
             'request_id' => $suspended->id, 'verdict' => 'sound', 'created_at' => now(), 'updated_at' => now(),
