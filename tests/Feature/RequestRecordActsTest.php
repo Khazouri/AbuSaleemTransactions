@@ -74,6 +74,128 @@ class RequestRecordActsTest extends TestCase
         $this->assertNull($file->attachmentRefusal());
     }
 
+    public function test_each_open_record_is_its_own_act_with_its_own_target(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+        $file = $this->fileAt('receive_from_committee', 'ready');
+        $first = DB::table('request_document_conflicts')->insertGetId(['request_id' => $file->id, 'conflict_kind' => 'grade', 'detail' => 'الدرجة']);
+        $second = DB::table('request_document_conflicts')->insertGetId(['request_id' => $file->id, 'conflict_kind' => 'name', 'detail' => 'الاسم']);
+
+        $resolve = collect($this->acts($rapporteur, $file)['available'])->where('action', 'resolve_document_conflict')->values();
+        $this->assertSame([$first, $second], $resolve->pluck('target.id')->all());
+        $this->assertSame(['grade', 'name'], $resolve->pluck('target.kind')->all());
+
+        $this->actingAs($rapporteur, 'sanctum')
+            ->patchJson("/api/requests/{$file->id}/document-conflicts/{$first}/resolve", [
+                'authority_consulted' => 'الموارد البشرية', 'authoritative_document' => 'القرار', 'correction_note' => 'صحح',
+            ])
+            ->assertOk();
+
+        $remaining = collect($this->acts($rapporteur, $file)['available'])->where('action', 'resolve_document_conflict');
+        $this->assertSame([$second], $remaining->pluck('target.id')->values()->all());
+    }
+
+    public function test_the_recorder_sees_their_own_correction_blocked_with_the_endpoints_reason(): void
+    {
+        $recorder = $this->userWithRole('R02');
+        $file = $this->fileAt('receive_from_committee', 'ready');
+        $id = DB::table('request_corrections')->insertGetId([
+            'request_id' => $file->id, 'error_kind' => 'name', 'detail' => 'خطأ', 'incorrect_value' => 'أ',
+            'corrected_value' => 'ب', 'recorded_by_user_id' => $recorder->id,
+        ]);
+        $reason = 'لا يعتمد مذكرة التصحيح من حررها؛ يلزم اعتمادها من مسؤول آخر.';
+
+        $this->assertSame($reason, $this->blockedReason($recorder, $file, 'approve_correction'));
+        $this->actingAs($recorder, 'sanctum')
+            ->patchJson("/api/requests/{$file->id}/corrections/{$id}/approve")
+            ->assertStatus(422)
+            ->assertJsonPath('errors.correction.0', $reason);
+
+        $this->assertContains('approve_correction', $this->available($this->userWithRole('R02'), $file));
+    }
+
+    public function test_a_withdrawal_is_the_filers_act_and_a_second_waits_for_the_first(): void
+    {
+        $filer = $this->userWithRole('R01');
+        $file = $this->fileAt('receive_from_committee', 'ready', creator: $filer);
+
+        $this->assertContains('file_withdrawal', $this->available($filer, $file));
+        $this->assertNotContains('file_withdrawal', $this->available($this->userWithRole('R02'), $file));
+
+        $this->actingAs($filer, 'sanctum')->postJson("/api/requests/{$file->id}/withdrawals", ['reason' => 'رغبة'])->assertCreated();
+        $reason = 'يوجد طلب سحب لم يبت فيه بعد.';
+
+        $this->assertSame($reason, $this->blockedReason($filer, $file, 'file_withdrawal'));
+        $this->actingAs($filer, 'sanctum')
+            ->postJson("/api/requests/{$file->id}/withdrawals", ['reason' => 'مرة أخرى'])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.reason.0', $reason);
+    }
+
+    public function test_a_determination_offers_only_the_outcomes_the_endpoint_accepts(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+        $undecided = $this->fileAt('receive_from_committee', 'ready');
+        $decided = $this->fileAt('final_approval_archiving', 'final_approved', decided: true);
+
+        foreach ([$undecided, $decided] as $file) {
+            DB::table('request_withdrawals')->insert(['request_id' => $file->id, 'reason' => 'رغبة', 'requested_at' => now()]);
+        }
+        $outcomes = fn (Request $file) => collect($this->acts($rapporteur, $file)['available'])->firstWhere('action', 'determine_withdrawal')['outcomes'];
+
+        $this->assertSame(['granted', 'refused_administrative_continuation'], $outcomes($undecided));
+        $this->assertSame(['refused_administrative_continuation', 'recorded_only'], $outcomes($decided));
+    }
+
+    public function test_a_notice_is_blocked_when_the_state_warrants_none(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+        $file = $this->fileAt('receive_from_committee', 'ready');
+        $reason = 'لا تستوجب حالة المعاملة الحالية إشعارًا وفق المادة 101.';
+
+        $this->assertSame($reason, $this->blockedReason($rapporteur, $file, 'issue_notice'));
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson("/api/requests/{$file->id}/notices/issue")
+            ->assertStatus(422)
+            ->assertJsonPath('message', $reason);
+    }
+
+    public function test_reopen_is_offered_on_a_concluded_file_and_refused_to_its_filer(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+        $theirs = $this->fileAt('requirements_check', 'not_approved');
+        $own = $this->fileAt('requirements_check', 'not_approved', creator: $rapporteur);
+        $reason = 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إعادة فتح الطلب بنفسه.';
+
+        $this->assertContains('reopen', $this->available($rapporteur, $theirs));
+        $this->assertSame($reason, $this->blockedReason($rapporteur, $own, 'reopen'));
+        $this->actingAs($rapporteur, 'sanctum')
+            ->patchJson("/api/requests/{$own->id}/reopen", [
+                'reason_code' => 'new_document',
+                'target_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', $reason);
+    }
+
+    public function test_content_acts_follow_their_grants(): void
+    {
+        $filer = $this->userWithRole('R01');
+        // A returned file sits at intake — the one stage the filer attaches at
+        // (FilerAttachmentsAndReturnTest builds the same state).
+        $atIntake = $this->fileAt('receive_from_municipality', 'returned', creator: $filer);
+        $atCommittee = $this->fileAt('receive_from_committee', 'ready', creator: $filer);
+        $rapporteur = $this->userWithRole('R02');
+
+        $this->assertContains('attach_document', $this->available($filer, $atIntake));
+        $this->assertNotContains('attach_document', $this->available($filer, $atCommittee));
+        $this->assertContains('add_note', $this->available($filer, $atCommittee));
+
+        $impact = collect($this->acts($rapporteur, $atCommittee)['available'])->firstWhere('action', 'set_financial_impact');
+        $this->assertSame((bool) $atCommittee->has_financial_impact, $impact['has_financial_impact']);
+        $this->assertNotContains('set_financial_impact', $this->available($filer, $atCommittee));
+    }
+
     // --- helpers ------------------------------------------------------------
 
     /** @return array{available: list<array<string, mixed>>, blocked: list<array<string, mixed>>} */
