@@ -240,8 +240,7 @@ onMounted(() => load())
               <th>{{ t('appeals.columns.execution') }}</th>
               <th>{{ t('appeals.columns.closure') }}</th>
               <th>{{ t('appeals.columns.reopen') }}</th>
-              <th>{{ t('decisionWizard.appeal.column') }}</th>
-              <th>{{ t('appeals.columns.file') }}</th>
+              <th>{{ t('appeals.columns.actionFile') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -325,19 +324,22 @@ onMounted(() => load())
                 <span v-else class="muted">{{ t('appeals.reopen.notClosedYet') }}</span>
               </td>
               <td>
-                <button v-if="row.has_acts" class="ghost" type="button" @click="openWizard(row)">
-                  {{ t('decisionWizard.open') }}
-                </button>
-                <span v-else class="muted">{{ t('common.none') }}</span>
-              </td>
-              <td>
-                <button class="ghost" type="button" @click="toggleFile(row)">
-                  {{ fileTargetId === row.id ? t('appeals.file.hide') : t('appeals.file.view') }}
-                </button>
+                <!-- Layout fix round 1: sharing this cell with the file
+                     toggle (instead of a twelfth column) keeps the table
+                     within the desktop no-sideways-scroll rule. -->
+                <div class="verification-summary">
+                  <button v-if="row.has_acts" class="ghost" type="button" @click="openWizard(row)">
+                    {{ t('decisionWizard.open') }}
+                  </button>
+                  <span v-else class="muted">{{ t('common.none') }}</span>
+                  <button class="ghost" type="button" @click="toggleFile(row)">
+                    {{ fileTargetId === row.id ? t('appeals.file.hide') : t('appeals.file.view') }}
+                  </button>
+                </div>
               </td>
             </tr>
             <tr v-if="fileTargetId === row.id">
-              <td colspan="12" class="file-panel">
+              <td colspan="11" class="file-panel">
                 <p v-if="fileLoading" class="state">{{ t('common.loading') }}</p>
                 <p v-else-if="fileError" class="alert">{{ fileError }}</p>
                 <div v-else-if="fileData" class="dossier">

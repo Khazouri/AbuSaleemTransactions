@@ -368,10 +368,10 @@
       "verification": "Formal verification",
       "jurisdiction": "Jurisdiction test",
       "legalReview": "Legal review",
-      "file": "Original file",
       "execution": "Outcome execution",
       "closure": "Closure & notice",
-      "reopen": "Reopen"
+      "reopen": "Reopen",
+      "actionFile": "Action / Original file"
     },
     "filters": {
       "status": "Status",
@@ -2462,8 +2462,7 @@
       "nominate": "Present to the committee",
       "meeting": "Meeting",
       "chooseMeeting": "Choose a meeting",
-      "noOpenMeeting": "No meeting you can add to has an open agenda.",
-      "column": "Action"
+      "noOpenMeeting": "No meeting you can add to has an open agenda."
     },
     "review": {
       "lede": "Read the file before you decide. You can move on at any time.",
