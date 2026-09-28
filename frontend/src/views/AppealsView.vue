@@ -534,6 +534,17 @@ onMounted(() => load())
 
 /* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
 @media (max-width: 1023px) { .data-table { min-width: 900px; } }
+/* Layout fix round 2 — a populated row (result pill + "by <name>" lines in
+   the verification/jurisdiction/legal-review/status cells) still pushed this
+   table past its card at ≥1024px: style.css's ".pill { white-space: nowrap }"
+   is unconditional, so those cells refused to shrink no matter how tightly
+   style.css's own `overflow-wrap: anywhere` squeezed the plain-text columns
+   (request, decision reference, execution, closure, reopen) around them.
+   Scoped to this table rather than editing .pill globally — the DecisionsView
+   vote tally (AGENT_NOTES 2026-09-22) is the same fix, applied locally. */
+@media (min-width: 1024px) {
+  .data-table .pill { white-space: normal; }
+}
 .nowrap { white-space: nowrap; }
 .ref { font-family: var(--font-mono); font-size: var(--text-sm); }
 .muted { display: block; color: var(--color-muted); font-size: var(--text-xs); }
