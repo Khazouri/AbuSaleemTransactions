@@ -13,6 +13,15 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### `record_document_conflict` / `record_special_case` are offered only on an unclosed file, but their endpoints have no such check — decision wizard sub-project 3, slice 2 — opened 2026-09-28
+`RequestActs::records()` only offers these two acts while `$r->closed_at === null`, but
+`RequestLifecycleController::storeDocumentConflict()`/`storeSpecialCase()` carry no matching check — the
+same `generate_minutes` pattern sub-project 2 already found: the wizard is narrower than the endpoint, so
+a caller that skips it can still record a conflict or special case on a closed file. **To close:** add a
+`closed_at === null` guard to both endpoints (or a shared refusal method `RequestActs` can call instead of
+restating the condition inline, matching how every other act's blocked reason is sourced from its own
+endpoint).
+
 ### Eleven request endpoints skip `RequestVisibility` — decision wizard sub-project 3 — opened 2026-09-28
 The after-decision lifecycle writes (`close`, both archive endpoints, execution soundness, execute,
 approval return record/resolve, approval referral record/result, suspend/lift, reopen) are reachable by

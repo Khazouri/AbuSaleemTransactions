@@ -19,6 +19,38 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-28 EET — Claude — Decision wizard, sub-project 3, slice 2 (records and file content) complete
+
+Built per the plan below; no migration. Document conflicts, special cases, correction memos, withdrawals,
+the Art. 101 notice, the financial-impact flag, reopening, notes and attachments move into the request
+wizard from `RequestActs`' new `records` and `file` families; each open row (a conflict, a special case, a
+correction, a withdrawal) is its own act carrying `target {id, kind, label}`, so the wizard and the inbox
+can name it. `RequestLifecyclePanel` and `RequestNotes` go read-only and remount (`:key="refreshKey"`)
+after any act; `attach_document` is embedded (`FileUpload` inside Confirm, Submit/slip hidden). Inbox
+`open_record` tasks route to `request_details?decide=<act>&target=<row id>`, one per open row.
+
+Verified: full suite **813 / 5181** green, Pint clean on the eleven touched files, build passes (`dist`
+rebuilt and committed with this entry), locale parity **2102 keys each side**, `check-layout.mjs`
+(440 views; fails only on the same pre-existing `/decisions` and `/reports` 1024px `table-wrap` overflow
+slice 1 already found — nothing new). Headless walk-through on a five-request tinker fixture covered ar/en ×
+1280/375 with zero console errors throughout (one caveat below): as R02 on a `receive_from_committee`
+file, recorded two document conflicts, then `?decide=resolve_document_conflict&target=<second>` landed on
+**that row's own form** and resolved only it — confirmed server-side (first stayed unresolved, second got
+`resolved_at`) — this is Review Focus 3. Recorded a correction, then re-opened the wizard as the *same*
+R02 and saw `approve_correction` blocked with the exact recorder-reason («لا يعتمد مذكرة التصحيح من
+حررها…»). Added a note and flipped the financial-impact flag, the slip printing what it becomes. As the
+R01 filer: attached a document at intake (verified end-to-end via a direct API call, since the headless
+proxy technique's string-based `postData()` relay cannot carry a real multipart file body — a walk-through
+tooling limit, not an app defect, confirmed by curl'ing the same endpoint directly and getting 201), filed
+a withdrawal on a committee-stage file, and a second attempt was blocked with the exact duplicate-request
+message. As R02, reopened a `not_approved` file through the wizard. **Also resolved slice 1's Review Focus
+2 note**: a fifth fixture file was closed directly (`closed_at` set) and `?decide=close` on it now opens
+the wizard and falls back to Choose with `record_correction`/`add_note`/`set_financial_impact`/`reopen`
+still listed, in both locales — `records`/`file` acts are deliberately not gated on `$open`, unlike
+`after_decision`'s. Every fixture row and the session's tokens/jobs/audit rows were deleted afterward; all
+tracked row counts matched their baseline.
+
+---
 ### 2026-09-28 EET — Claude — Decision wizard, sub-project 3, slice 1 (after the decision) complete
 
 Built per the plan below; no migration. Execution soundness, execution, both archive files, closure,
