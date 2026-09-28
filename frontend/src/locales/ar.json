@@ -2656,6 +2656,16 @@
       "return_minutes": "أُعيد المحضر للتعديل.",
       "sign_minutes": "وُقِّع المحضر.",
       "close": "أُغلق الاجتماع."
+    },
+    "families": {
+      "stage": "قرار هذه المرحلة",
+      "after_decision": "ما بعد القرار",
+      "records": "سجلات الملف",
+      "file": "محتوى الملف"
+    },
+    "acts": {
+      "archive_committee_file": "أرشفة ملف اللجنة",
+      "archive_service_file": "أرشفة ملف الخدمة"
     }
   }
 }

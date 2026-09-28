@@ -2656,6 +2656,16 @@
       "return_minutes": "The minutes were sent back for changes.",
       "sign_minutes": "The minutes were signed.",
       "close": "The meeting was closed."
+    },
+    "families": {
+      "stage": "This stage's decision",
+      "after_decision": "After the decision",
+      "records": "The file's records",
+      "file": "The file's content"
+    },
+    "acts": {
+      "archive_committee_file": "Archive the committee file",
+      "archive_service_file": "Archive the service file"
     }
   }
 }

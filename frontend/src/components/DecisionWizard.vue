@@ -9,6 +9,10 @@
  * asking for completion, handing it to the legal member, and the legal
  * member's opinion, whose card fills the Checks step and whose five verdicts
  * join the choices. The server decides what is offered; the wizard lays it out.
+ *
+ * Sub-project 3 adds everything else done on a file (`acts`): the work after
+ * the decision, the file's records, and its content. Grouped under headings,
+ * each act's form (from lib/requestActs.js) sits on Confirm above the slip.
  */
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -20,9 +24,11 @@ import RequestStageRail from './RequestStageRail.vue'
 import WizardShell from './WizardShell.vue'
 import WizardSlip from './WizardSlip.vue'
 import api, { firstError } from '../lib/api'
+import { ACT_FAMILIES, REQUEST_ACTS, actLabel } from '../lib/requestActs'
 
 const props = defineProps({
   request: { type: Object, required: true },
+  initial: { type: Object, default: null },
 })
 const emit = defineEmits(['updated', 'close'])
 
@@ -55,6 +61,9 @@ const meaning = (action) => (te(`decisionWizard.meaning.${action}`) ? t(`decisio
 const available = computed(() => props.request.available_transitions ?? [])
 const blocked = computed(() => props.request.blocked_transitions ?? [])
 const committeeActions = computed(() => props.request.committee_actions ?? [])
+// Decision wizard — sub-project 3.
+const acts = computed(() => props.request.acts ?? { available: [], blocked: [] })
+const actKey = (item) => `act:${item.action}:${item.target?.id ?? ''}`
 const offersLegalOpinion = computed(() => committeeActions.value.some((item) => item.action === 'record_legal_review'))
 const offered = computed(() => new Set([...available.value, ...blocked.value].map((item) => item.action)))
 const stage = computed(() => props.request.current_stage?.code)
@@ -117,17 +126,43 @@ const choices = computed(() => [
       isException: false,
     }))
     : []),
+  ...acts.value.available.map((item) => ({
+    key: actKey(item),
+    kind: 'act',
+    action: item.action,
+    act: item,
+    family: item.family,
+    label: actLabel(t, item),
+    meaning: '',
+    destination: '',
+    requiresComment: false,
+    isException: false,
+  })),
 ])
 const groups = computed(() => {
-  const ordinary = choices.value.filter((item) => !item.isException && item.kind !== 'verdict')
+  const stage = choices.value.filter((item) => (item.kind === 'transition' || item.kind === 'committee') && !item.isException)
   const verdicts = choices.value.filter((item) => item.kind === 'verdict')
   const exceptional = choices.value.filter((item) => item.isException)
+  const families = ACT_FAMILIES.map((family) => ({
+    key: family,
+    label: t(`decisionWizard.families.${family}`),
+    items: choices.value.filter((item) => item.kind === 'act' && item.family === family),
+  }))
+  // A heading only when there is something to tell it apart from.
+  const headed = families.some((family) => family.items.length)
   return [
-    { key: 'ordinary', label: '', items: ordinary },
-    { key: 'verdicts', label: ordinary.length ? t('decisionWizard.choose.verdicts') : '', items: verdicts },
-    { key: 'other', label: ordinary.length || verdicts.length ? t('decisionWizard.choose.other') : '', items: exceptional },
+    { key: 'ordinary', label: headed ? t('decisionWizard.families.stage') : '', items: stage },
+    { key: 'verdicts', label: stage.length ? t('decisionWizard.choose.verdicts') : '', items: verdicts },
+    { key: 'other', label: stage.length || verdicts.length ? t('decisionWizard.choose.other') : '', items: exceptional },
+    ...families,
   ].filter((group) => group.items.length)
 })
+
+// Held-back transitions (sub-project 1) and held-back acts, one list.
+const blockedItems = computed(() => [
+  ...blocked.value.map((item) => ({ key: `transition:${item.action}`, label: actionLabel(item.action), reason: item.reason, toChecks: true })),
+  ...acts.value.blocked.map((item) => ({ key: actKey(item), label: actLabel(t, item), reason: item.reason, toChecks: false })),
+])
 
 const selected = ref('')
 const comment = ref('')
@@ -145,11 +180,23 @@ const submitting = ref(false)
 const error = ref('')
 
 const choice = computed(() => choices.value.find((item) => item.key === selected.value) ?? null)
-const isDestructive = (item) => item?.kind === 'transition' && DESTRUCTIVE.includes(item.action)
+const isDestructive = (item) => (item?.kind === 'transition' && DESTRUCTIVE.includes(item.action))
+  || (item?.kind === 'act' && Boolean(REQUEST_ACTS[item.action]?.destructive))
 const commentMissing = computed(() => Boolean(choice.value?.requiresComment) && !comment.value.trim())
-// F6 — requestReview() (send_to_legal_review) never reads a body; showing a
-// note field that is silently dropped would mislead the actor.
-const showsNote = computed(() => !(choice.value?.kind === 'committee' && choice.value?.action === 'send_to_legal_review'))
+
+const actSpec = computed(() => (choice.value?.kind === 'act' ? REQUEST_ACTS[choice.value.action] : null))
+// The act's own payload; rebuilt only when a different act is chosen, so a
+// check saved mid-way (which refreshes `request`) keeps what was typed.
+const actForm = ref({})
+watch(() => choice.value?.key, () => {
+  actForm.value = actSpec.value ? actSpec.value.blank(props.request, choice.value.act) : {}
+}, { immediate: true })
+const actNotReady = computed(() => Boolean(actSpec.value) && !actSpec.value.ready(actForm.value, choice.value.act))
+
+// F6 — requestReview() (send_to_legal_review) never reads a body, and an
+// act's own form carries its fields; a note field there would be dropped.
+const showsNote = computed(() => choice.value?.kind !== 'act'
+  && !(choice.value?.kind === 'committee' && choice.value?.action === 'send_to_legal_review'))
 
 // A check can clear a gate and turn a blocked action into an available one; a
 // selection the refreshed payload no longer offers is dropped, not kept stale.
@@ -175,6 +222,17 @@ async function onCheckSaved(resource) {
 
 async function post(item, note) {
   const id = props.request.id
+  if (item.kind === 'act') {
+    const spec = REQUEST_ACTS[item.action]
+    await api.request({
+      method: spec.method,
+      url: spec.url(props.request, item.act),
+      data: spec.body ? spec.body(actForm.value, props.request, item.act) : actForm.value,
+    })
+    // Several act endpoints answer with a list resource or nothing at all.
+    const { data } = await api.get(`/requests/${id}`)
+    return data.data
+  }
   if (item.kind === 'transition') {
     const { data } = await api.post(`/requests/${id}/transition`, { action: item.action, ...(note ? { comment: note } : {}) })
     return data.data
@@ -195,7 +253,7 @@ async function post(item, note) {
 }
 
 async function submit() {
-  if (submitting.value || !choice.value || commentMissing.value) return
+  if (submitting.value || !choice.value || commentMissing.value || actNotReady.value) return
   submitting.value = true
   error.value = ''
   try {
@@ -207,6 +265,17 @@ async function submit() {
     submitting.value = false
   }
 }
+
+// Decision wizard — sub-project 3. An inbox task names its act (and row);
+// open straight on its slip. One no longer offered falls back to Choose,
+// where a blocked act still says why.
+if (props.initial?.action) {
+  const wanted = props.initial
+  const match = choices.value.find((item) => item.action === wanted.action
+    && (wanted.target == null || String(item.act?.target?.id) === String(wanted.target)))
+  selected.value = match?.key ?? ''
+  step.value = match ? 'confirm' : 'choose'
+}
 </script>
 
 <template>
@@ -216,7 +285,7 @@ async function submit() {
     :steps="steps"
     :can-advance="step !== 'choose' || Boolean(choice)"
     :submit-label="t('decisionWizard.submit', { action: choice?.label ?? '' })"
-    :submit-disabled="!choice || commentMissing"
+    :submit-disabled="!choice || commentMissing || actNotReady"
     :submitting="submitting"
     :destructive="isDestructive(choice)"
     @submit="submit"
@@ -321,14 +390,14 @@ async function submit() {
             </span>
           </label>
         </template>
-        <template v-if="blocked.length">
+        <template v-if="blockedItems.length">
           <p class="group-label">{{ t('decisionWizard.choose.blocked') }}</p>
-          <div v-for="item in blocked" :key="item.action" class="option blocked">
-            <input type="radio" name="decision" disabled :aria-label="actionLabel(item.action)" />
+          <div v-for="item in blockedItems" :key="item.key" class="option blocked">
+            <input type="radio" name="decision" disabled :aria-label="item.label" />
             <span class="option-text">
-              <strong>{{ actionLabel(item.action) }}</strong>
+              <strong>{{ item.label }}</strong>
               <span>{{ item.reason }}</span>
-              <button v-if="steps.includes('checks')" class="link" type="button" @click="step = 'checks'">
+              <button v-if="item.toChecks && steps.includes('checks')" class="link" type="button" @click="step = 'checks'">
                 {{ t('decisionWizard.choose.toChecks') }}
               </button>
             </span>
@@ -339,6 +408,13 @@ async function submit() {
     </template>
 
     <template #confirm>
+      <component
+        :is="actSpec.form"
+        v-if="actSpec?.form"
+        v-model="actForm"
+        :request="request"
+        :act="choice.act"
+      />
       <WizardSlip kind="tashira" :reference="reference" :destructive="isDestructive(choice)">
         <p class="slip-action">{{ choice?.label }}</p>
         <p v-if="choice?.destination" class="slip-destination">{{ choice.destination }}</p>
