@@ -188,9 +188,14 @@ const actSpec = computed(() => (choice.value?.kind === 'act' ? REQUEST_ACTS[choi
 // The act's own payload; rebuilt only when a different act is chosen, so a
 // check saved mid-way (which refreshes `request`) keeps what was typed.
 const actForm = ref({})
+// `flush: 'sync'` — a deep link (`props.initial`) selects the act during
+// `setup()`, before the component's first render; a default `pre`-flush
+// watcher would queue its run for after that render and paint the Confirm
+// pane with `actForm` still `{}`, crashing any form that indexes into a
+// nested field of it (`form.audit[…]`, `form.checks[…]`).
 watch(() => choice.value?.key, () => {
   actForm.value = actSpec.value ? actSpec.value.blank(props.request, choice.value.act) : {}
-}, { immediate: true })
+}, { immediate: true, flush: 'sync' })
 const actNotReady = computed(() => Boolean(actSpec.value) && !actSpec.value.ready(actForm.value, choice.value.act))
 
 // F6 — requestReview() (send_to_legal_review) never reads a body, and an
