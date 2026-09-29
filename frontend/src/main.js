@@ -12,6 +12,8 @@ import './style.css'
 // Imported for its side effect: resolves the saved light/dark preference and
 // stamps <html data-theme> before anything renders.
 import './lib/theme'
+// Imported for its side effect: labels table cells for the phone card layout.
+import './lib/cardTables'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'

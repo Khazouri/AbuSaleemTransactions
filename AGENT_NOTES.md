@@ -19,6 +19,30 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-09-29 EET — Claude — Table rows become cards on phones (complete)
+
+Built per the plan below; frontend only, no locale change. Below 640px every `.data-table` row is a card and
+each cell shows its column name above its value (`lib/cardTables.js` labels them; `td:empty` cells, e.g. a
+v-if'd button, are hidden). MeetingOutputsView's unconditional `min-inline-size: 75rem` also got scoped to
+≥641px. **Gotcha:** a `.ltr` cell (reference, IP) keeps `text-align: left`, and Chrome computes
+`text-align: match-parent` as plain `start`, so the card uses a `td:dir(rtl|ltr)` pair (it follows `<html dir>`)
+to put label and value on the page's start edge. Verified: build passes (`dist` committed), headless
+screenshots at 375px ar/en of requests, users, departments, audit log, registers and decisions (labels
+correct and follow the locale, no page overflow, no console errors); `check-layout.mjs` fails only on the
+pre-existing `/decisions` 1024px overflow.
+
+---
+### 2026-09-29 EET — Claude — Implementation plan: table rows become cards on phones
+
+User: on small screens the table rows should appear as cards. Plan: one `@media (max-width: 640px)` block in
+`style.css` turns every `.data-table` row into a card (thead visually hidden, not removed; each cell stacks its
+column name above its value via `td::before { content: attr(data-label) }`), and a new `lib/cardTables.js`
+(imported once in `main.js`) copies each header's text onto its column's cells through a MutationObserver — so
+none of the 19 table templates changes and a future table is labelled for free. A `colspan` cell (an expanded
+detail row) gets no label and fills the card. The eight views whose scoped `min-width` applies at ≤1023px get
+it narrowed to 641–1023px, since a forced width would defeat the cards. Verify: build, `check-layout.mjs`.
+
+---
 ### 2026-09-28 EET — Claude — Decision wizard, sub-project 3 — final-review fixes
 
 Fixed every item the whole-branch review of a757051..6479327 found, per the controller's rulings. **C1/C2

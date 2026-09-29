@@ -216,7 +216,7 @@ onMounted(() => load())
 .notice { padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-4); border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); color: var(--color-black-700); background: var(--color-surface); font-size: var(--text-base); }
 
 /* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
-@media (max-width: 1023px) { .data-table { min-width: 800px; } }
+@media (min-width: 641px) and (max-width: 1023px) { .data-table { min-width: 800px; } }
 tr.failed td { background: var(--color-danger-bg); }
 .nowrap { white-space: nowrap; }
 .filename { font-family: var(--font-mono); font-size: var(--text-sm); }

@@ -517,7 +517,7 @@ h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(
 
 .history-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-2); }
 /* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
-@media (max-width: 1023px) { .data-table { min-width: 720px; } }
+@media (min-width: 641px) and (max-width: 1023px) { .data-table { min-width: 720px; } }
 .data-table th, .data-table td { vertical-align: top; }
 .nowrap { white-space: nowrap; }
 .output-row td { background: var(--color-surface-hover); }

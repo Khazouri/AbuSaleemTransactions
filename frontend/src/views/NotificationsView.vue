@@ -258,7 +258,7 @@ h3 { margin: 0 0 .25rem; }
 /* -- Preferences ---------------------------------------------------------- */
 .table-wrap { overflow-x: auto; margin-top: var(--space-4); }
 /* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
-@media (max-width: 1023px) { .data-table { min-width: 380px; } }
+@media (min-width: 641px) and (max-width: 1023px) { .data-table { min-width: 380px; } }
 .event-name { font-size: var(--text-sm); }
 .check { text-align: center; }
 .check input { width: 1rem; height: 1rem; cursor: pointer; }

@@ -243,7 +243,7 @@ select { padding: .5rem .6rem; border: 1px solid var(--color-border-hover); bord
 .summary-card strong { color: var(--color-brand-text); font-size: 1.45rem; font-variant-numeric: tabular-nums; }
 .table-heading h3 { margin: 0; color: var(--color-black-800); font-size: var(--text-lg); }
 .table-heading p { margin: .25rem 0 var(--space-4); color: var(--color-muted); font-size: var(--text-sm); }
-.data-table { min-inline-size: 75rem; }
+@media (min-width: 641px) { .data-table { min-inline-size: 75rem; } }
 .data-table th, .data-table td { vertical-align: top; font-size: var(--text-sm); }
 .data-table th { color: var(--color-black-700); background: var(--color-surface-hover); }
 .data-table td { color: var(--color-black-700); }

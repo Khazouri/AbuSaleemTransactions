@@ -533,7 +533,7 @@ onMounted(() => load())
 .link { padding: 0; border: 0; background: none; color: var(--color-brand-text); text-decoration: underline; font-size: inherit; cursor: pointer; }
 
 /* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
-@media (max-width: 1023px) { .data-table { min-width: 900px; } }
+@media (min-width: 641px) and (max-width: 1023px) { .data-table { min-width: 900px; } }
 /* Layout fix round 2 — a populated row (result pill + "by <name>" lines in
    the verification/jurisdiction/legal-review/status cells) still pushed this
    table past its card at ≥1024px: style.css's ".pill { white-space: nowrap }"

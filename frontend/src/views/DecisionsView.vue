@@ -427,7 +427,7 @@ select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-
 .ghost.active { border-color: var(--color-brand-text); color: var(--color-brand-text); font-weight: 600; }
 
 /* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
-@media (max-width: 1023px) { .data-table { min-width: 1150px; } }
+@media (min-width: 641px) and (max-width: 1023px) { .data-table { min-width: 1150px; } }
 .nowrap { white-space: nowrap; }
 .subject { max-inline-size: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reference { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--color-brand-text); }

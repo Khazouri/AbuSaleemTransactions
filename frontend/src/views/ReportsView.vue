@@ -489,7 +489,7 @@ select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-
 .tile-value { display: block; margin-top: .2rem; color: var(--color-brand-text); font-size: 1.3rem; font-variant-numeric: tabular-nums; }
 
 /* Below desktop a wide register scrolls in its own card; at desktop width it must fit. */
-@media (max-width: 1023px) { .data-table { min-width: 900px; } }
+@media (min-width: 641px) and (max-width: 1023px) { .data-table { min-width: 900px; } }
 td small { display: block; margin-top: .1rem; color: var(--color-muted); }
 tr.overdue td { background: var(--color-warning-bg); }
 .nowrap { white-space: nowrap; }
