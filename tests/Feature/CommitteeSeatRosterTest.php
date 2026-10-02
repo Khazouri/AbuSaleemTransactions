@@ -126,11 +126,11 @@ class CommitteeSeatRosterTest extends TestCase
     }
 
     /**
-     * Stage 102 replaced "multiple unseated members": each seat is held by the
-     * role that carries its duties (CommitteeMember::SEAT_ROLES), so a seat
-     * and a role can never name two different people.
+     * Stage 102 bound every seat to its role (CommitteeMember::SEAT_ROLES);
+     * 2026-10-02 narrowed that to the rapporteur seat, and a stand-in in any
+     * other seat carries its role's meeting duties while invited.
      */
-    public function test_each_seat_is_bound_to_its_role(): void
+    public function test_only_the_rapporteur_seat_is_bound_to_its_role(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -141,17 +141,19 @@ class CommitteeSeatRosterTest extends TestCase
         $member = $this->userWithRole('R04');
         $hr = $this->userWithRole('R12');
 
+        // Since 2026-10-02 only the rapporteur seat (المقرر, the inviter) stays
+        // bound; any other seat may go to a stand-in (SeatDutyGrant).
         $this->actingAs($chair, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'hr_director'])
+            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'rapporteur'])
             ->assertStatus(422)
-            ->assertJsonPath('errors.user_id.0', 'هذا المقعد مقصور على من يحمل دور «مدير إدارة الموارد البشرية».');
+            ->assertJsonPath('errors.user_id.0', 'هذا المقعد مقصور على من يحمل دور «المقرر».');
 
         $this->actingAs($chair, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $hr->id, 'seat' => 'hr_director'])
+            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'hr_director'])
             ->assertCreated();
 
         $this->actingAs($chair, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'ministry_delegate'])
+            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $hr->id, 'seat' => 'ministry_delegate'])
             ->assertCreated();
     }
 

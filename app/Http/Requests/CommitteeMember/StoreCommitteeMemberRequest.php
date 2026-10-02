@@ -37,9 +37,12 @@ class StoreCommitteeMemberRequest extends FormRequest
             ],
         ];
 
-        // Stage 99 bound the `legal` seat to R11; Stage 102 binds every seat to
-        // the role that carries its duties (CommitteeMember::SEAT_ROLES).
-        $roleCode = CommitteeMember::SEAT_ROLES[$this->input('seat')] ?? null;
+        // Stage 102 bound every seat to its role; since 2026-10-02 only the
+        // rapporteur seat still is — it is المقرر, the one who schedules and
+        // invites (`meetings,add`, R02 alone). Any other seat may go to a
+        // stand-in, who carries that seat role's meeting duties while invited
+        // (SeatDutyGrant).
+        $roleCode = $this->input('seat') === 'rapporteur' ? CommitteeMember::SEAT_ROLES['rapporteur'] : null;
         if ($roleCode !== null) {
             $rules['user_id'][] = Rule::exists('role_user', 'user_id')
                 ->where('role_id', Role::query()->where('code', $roleCode)->value('id'));
@@ -52,8 +55,8 @@ class StoreCommitteeMemberRequest extends FormRequest
     {
         return [
             'user_id.required' => 'يجب اختيار مستخدم.',
-            'user_id.exists' => isset(CommitteeMember::SEAT_ROLES[$this->input('seat')])
-                ? 'هذا المقعد مقصور على من يحمل دور «'.Role::query()->where('code', CommitteeMember::SEAT_ROLES[$this->input('seat')])->value('name_ar').'».'
+            'user_id.exists' => $this->input('seat') === 'rapporteur'
+                ? 'هذا المقعد مقصور على من يحمل دور «'.Role::query()->where('code', CommitteeMember::SEAT_ROLES['rapporteur'])->value('name_ar').'».'
                 : 'المستخدم المحدد غير موجود.',
             'user_id.unique' => 'هذا المستخدم عضو بالفعل في اللجنة.',
             'seat.required' => 'يجب تحديد مقعد العضو في اللجنة.',

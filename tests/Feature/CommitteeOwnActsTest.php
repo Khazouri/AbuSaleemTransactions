@@ -190,19 +190,17 @@ class CommitteeOwnActsTest extends TestCase
             ->assertStatus(422);
     }
 
-    public function test_the_legal_seat_is_bound_to_the_legal_member_role(): void
+    /**
+     * Stage 99 bound the legal seat to R11. Since 2026-10-02 a stand-in may
+     * hold it and carries R11's meeting duties while invited (SeatDutyGrantTest).
+     */
+    public function test_the_legal_seat_may_go_to_a_stand_in(): void
     {
         $this->seed(DatabaseSeeder::class);
         [$head, $member, $meeting] = $this->sitting();
-        $legal = $this->userWithRole('R11');
 
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/committees/{$meeting->committee_id}/members", ['user_id' => $member->id, 'seat' => 'legal'])
-            ->assertStatus(422)
-            ->assertJsonPath('errors.user_id.0', 'هذا المقعد مقصور على من يحمل دور «العضو القانوني».');
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/committees/{$meeting->committee_id}/members", ['user_id' => $legal->id, 'seat' => 'legal'])
             ->assertCreated();
     }
 

@@ -13,6 +13,16 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### A stand-in seat holder's temporary grant is invisible and includes the chair's roster edit — stand-in seats — opened 2026-10-02
+`SeatDutyGrant` lends a non-role seat holder its role's grants on the seven meeting-duty screens. Three
+consequences were left as they are. (1) The Users and Roles screens show only held roles, so an admin
+cannot see who is acting on a lent grant or until when. (2) A stand-in chair receives R03's `meetings,edit`,
+which also gates `committees/{c}/members`, so while invited they can change the committee's roster the
+way a real chair can. (3) The SPA picks up a new or expired grant only when `/auth/me` reloads, which
+happens on page load. **To close:** show "acting as <role> until …" on the Users screen if (1) matters,
+and decide whether a stand-in chair may edit the roster. If not, split the roster routes onto their own
+grant.
+
 ### A formally rejected request has no way out — found while rewriting the user guide — opened 2026-10-02
 `reject_formally` at `requirements_check` leaves the file at that stage with status `rejected`. That status is
 in none of `RequestClosureService::CLOSABLE_STATUSES`, `AppealEligibility::QUALIFYING_STATUS_CODES` or

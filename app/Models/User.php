@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Services\MeetingVisibility;
+use App\Services\SeatDutyGrant;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -203,7 +204,14 @@ class User extends Authenticatable
         $rows = ScreenRolePermission::query()
             ->with('screen:id,code')
             ->whereIn('role_id', $roleIds)
-            ->get();
+            ->get()
+            // A stand-in seat holder carries the seat role's meeting duties
+            // while invited — those screens only, never the rest of the role.
+            ->concat(ScreenRolePermission::query()
+                ->with('screen:id,code')
+                ->whereIn('role_id', app(SeatDutyGrant::class)->roleIdsFor($this))
+                ->whereHas('screen', fn ($q) => $q->whereIn('code', SeatDutyGrant::SCREENS))
+                ->get());
 
         $map = [];
         foreach ($rows as $row) {

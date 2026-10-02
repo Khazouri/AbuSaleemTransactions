@@ -98,9 +98,15 @@ Key architectural facts worth knowing before changing things:
   (`MeetingController::addAgendaItem` refuses anything else); a request picked
   for a meeting leaves it until decided or the meeting is cancelled, and a
   deferral puts it back. Agenda items are `employee_request` or `appeal` only.
-  A committee is its five Art. 10 (أ) seats, each bound to a role
+  A committee is its five Art. 10 (أ) seats, each tied to a role
   (`CommitteeMember::SEAT_ROLES`: chair R03, legal R11, hr_director R12,
-  ministry_delegate R04, rapporteur R02); only R02 schedules
+  ministry_delegate R04, rapporteur R02). Only the rapporteur seat requires
+  holding its role (user decision 2026-10-02): a stand-in in any other seat
+  carries that role's grants on the seven meeting-duty screens, plus its
+  workflow rows on its own meeting's requests, from the invitation until every
+  meeting it was invited to is concluded and none of the files it decided is
+  still before an approving body (`SeatDutyGrant`, computed live — no table,
+  no expiry job). Don't widen the lent screens to the whole role. Only R02 schedules
   (`meetings,add`), a meeting needs all five seats filled, invites exactly
   them, is `regular`, and a committee holds one non-cancelled meeting per
   calendar month. A new meeting is `pending_confirmation` and becomes
@@ -257,7 +263,8 @@ Key architectural facts worth knowing before changing things:
 - **Commit finished work**: when a task is complete and verified, commit
   it rather than leaving it in the working tree for the user to deal with.
   "Verified" means the full PHPUnit suite green, Pint clean on every touched
-  PHP file, `npm run build` passing, locale key-parity checked, and any new
+  PHP file, `npm run build` passing, locale key-parity checked,
+  `npx --yes aislop@0.16.1 ci` passing, and any new
   migration/seeder applied to the real database. **A task that changed
   anything under `frontend/` ends with `npm run build` and the rebuilt
   `frontend/dist` committed with the work** — `dist/` is what gets uploaded
@@ -298,6 +305,18 @@ don't assume `npm test` or `npm run lint` exist. The one automated frontend
 check is `node scripts/check-layout.mjs` (headless Chrome, no sideways
 scrolling on any route × 5 widths × both locales; needs Homestead and
 `npm run dev` up) — run it after any layout/CSS change.
+
+**Code-quality scan**: [aislop](https://github.com/scanaislop/aislop), configured
+in `.aislop/config.yml`. `npx --yes aislop@0.16.1 scan` shows findings, and `… ci` is
+the gate (exit 1 below `ci.failBelow`). Claude Code also runs it after every
+Edit/Write through a project hook (`.claude/settings.json`, about 20 s each). Three
+rules are off **because they contradict this file**, not to raise the score:
+`ai-slop/meta-comment` flags the Stage markers, `ai-slop/narrative-comment` flags
+the why-comments, and `react-hooks/rules-of-hooks` misreads Pinia's
+`useXStore()`. Where aislop's own instructions (`.claude/AISLOP.md`) disagree
+with this file, this file wins. Silence a single false positive with
+`// aislop-ignore-next-line <rule> -- <reason>`, never by turning a rule off.
+Telemetry is off in the config. Keep it off.
 
 **Deploying the SPA**: see [frontend/DEPLOYMENT.md](frontend/DEPLOYMENT.md).
 Only `frontend/dist/` is deployable — uploading the source tree serves an

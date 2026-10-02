@@ -19,6 +19,41 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-02 16:45 EET — Claude — Implementation plan: adopt the aislop scanner
+
+User: «implement https://github.com/scanaislop/aislop». An untuned `npx aislop scan` gives 67/100, mostly from false
+positives against this repo's own rules: 657 `ai-slop/meta-comment` hits are largely the mandated `// Stage N —`
+markers, `react-hooks/rules-of-hooks` reads Pinia's `useXStore()` as a React hook, and `security/eval` reads
+Puppeteer's `$$eval`. Put to the user and answered: the markers stay, so that rule goes off, and the scope is config +
+agent hook. Plan: `.aislop/config.yml` (the false positives off; vendor, dist, graphify-out and storage excluded), the
+project-scope Claude hook (`aislop hook install --claude --project`), and `aislop ci` added to AGENTS.md's Verified
+checklist. No app code changes. Verify: the scan runs clean of those rules, and the hook fires on an edit.
+
+---
+### 2026-10-02 16:55 EET — Claude — A stand-in seat holder gets the seat's meeting duties while invited (complete)
+
+Built per the plan below, with no migration, frontend or locale change. `SeatDutyGrant` lends the seat's role on the
+seven meeting-duty screens through `User::screenPermissions()`. `WorkflowService::actorRoleIds()` adds it only for
+requests on that live meeting, and both `availableTransitions()` and `transition()` read it. The grant starts with the
+attendee row and ends once the meeting is cancelled, or completed with none of its files still in the approval cycle.
+Two tests that pinned the old binding were updated in place (`CommitteeSeatRosterTest`, `CommitteeOwnActsTest`).
+Verified: new `SeatDutyGrantTest` (6 tests, RED then GREEN); full suite 816 + 9 + 13 green; Pint clean on the touched
+files. Residue is in OPEN_ITEMS.md: the grant is not shown anywhere, and a stand-in chair can edit the committee roster.
+
+---
+### 2026-10-02 16:33 EET — Claude — Implementation plan: a stand-in seat holder gets the seat's meeting duties while invited
+
+User: «when المقرر invites someone to the meeting, that someone gets required role/permissions until all his meetings
+have concluded and the meeting results are sent for approval and approved». Put to the user and answered: the invitee is
+a **seat holder who lacks the seat's role** (no ad-hoc invitees — Stage 102 stands), and the grant is **the seat role's
+meeting duties only**, not the whole role. Plan: `StoreCommitteeMemberRequest` keeps the role rule for `rapporteur`
+(R02, the inviter) alone. A new `SeatDutyGrant` computes the grant live, with no table and no expiry job. A meeting
+holds it while the user is its attendee in a non-rapporteur seat and the meeting is `pending_confirmation`/`scheduled`,
+or `completed` with a request still in the approval cycle. `User::screenPermissions()` ORs in that role's rows on the
+seven meeting-duty screens. `WorkflowService` adds the role only for requests on that live meeting, so a stand-in chair
+records their own items' decisions and nothing else. Verify: new `SeatDutyGrantTest`, full PHPUnit, Pint.
+
+---
 ### 2026-10-02 16:25 EET — Claude — Create/edit roles and per-screen switches on Roles & Permissions (complete)
 
 Built per the plan below; no migration. `RoleController::store()/update()` sit behind `roles_permissions,add|edit`,

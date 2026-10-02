@@ -104,7 +104,7 @@ class WorkflowService
             return collect();
         }
 
-        $roleIds = $actor->roles()->pluck('roles.id');
+        $roleIds = $this->actorRoleIds($requestRecord, $actor);
 
         return WorkflowTransition::query()
             ->where('from_stage_id', $requestRecord->current_stage_id)
@@ -207,7 +207,7 @@ class WorkflowService
                 throw WorkflowTransitionException::transitionNotConfigured();
             }
 
-            $roleIds = $actor->roles()->pluck('roles.id');
+            $roleIds = $this->actorRoleIds($lockedRequest, $actor);
             $allowed = $candidates
                 ->filter(fn (WorkflowTransition $rule) => $this->actorMayUse($rule, $lockedRequest, $actor, $roleIds))
                 ->values();
@@ -546,6 +546,18 @@ class WorkflowService
             WorkflowStage::find($fromStageId),
             WorkflowStage::find($toStageId),
         ];
+    }
+
+    /**
+     * The actor's roles, plus any a live meeting with this request on its
+     * agenda lends their seat (SeatDutyGrant) — so a stand-in chair records the
+     * decision on their own meeting's items and on nothing else. One method for
+     * both readers, so the button preview and the endpoint cannot disagree.
+     */
+    private function actorRoleIds(Request $requestRecord, User $actor): Collection
+    {
+        return $actor->roles()->pluck('roles.id')
+            ->merge(app(SeatDutyGrant::class)->roleIdsForRequest($actor, $requestRecord));
     }
 
     /**
