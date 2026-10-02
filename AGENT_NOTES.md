@@ -19,6 +19,46 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-02 12:45 EET — Claude — The four test plans brought up to date with the new screens (complete)
+
+Built per the plan below; documentation only. `TEST_PLAN.md`/`.ar.md` are rewritten in place (203 → **281**
+checkboxes each): a new §4 for «المهام المعلقة», «متابعة طلباتي» and the wizard, a seat-gate subsection, the
+one-click manager step, HR's employment file, the single committee path, the two-part archive, 14 notification
+events, modals, the Users department view and phones; later sections renumbered (§17 is now Regression).
+`TEST_PLAN.roles.md`/`.ar.md` are edited section by section (362 → **411** each): a new §0.6, a 24-step relay
+with an R08 setup step, every role's A/B/C, four new cross-role sections (14.9–14.12), and Appendix A and the
+count table re-derived whole. **Appendix A had drifted in eight cells and lacked `my_tasks`**; the sidebar
+counts were all wrong (R08 is 36 screens / 29 entries, an unseated R01 14 / 12).
+
+Verified by script, not by eye: Appendix A matches `ScreenRolePermissionSeeder::DEFAULTS` cell for cell in both
+role plans (36 × 12), the seated/unseated counts equal what the seeders plus `MeetingVisibility::GATED_SCREENS`
+compute, every literal `/api/…` path named resolves in `route:list` (one pre-existing wrong path fixed:
+`/api/roles-permissions` → `/api/screen-role-permissions`), every `§` reference in the feature plans resolves,
+and each EN/AR pair matches section by section. Locale parity 2078, no pending migration. **Not run:** PHPUnit,
+Pint and the frontend build — no PHP, Vue or locale file changed. **Not done: none of the new checks was walked
+in a browser**; they are derived from the seeders, routes, locale labels and the refreshed guide. One finding
+is in OPEN_ITEMS.md: a committee's creator stays a seatless member and is counted in the quorum. The
+`TEST_PLAN` open item is marked resolved.
+
+---
+### 2026-10-02 12:10 EET — Claude — Implementation plan: the four test plans brought up to date with the new screens
+
+User: «update the TEST_PLAN*.md with the new screens». This is the OPEN_ITEMS entry of the same morning
+(`TEST_PLAN*.md` still describe the pre-wizard UI). Documentation only — no app code, migration or locale change.
+Scope, all four files (`TEST_PLAN.md`/`.ar.md`, `TEST_PLAN.roles.md`/`.roles.ar.md`): add checks for the screens
+and surfaces the plans never covered — «المهام المعلقة» (`my_tasks`), «متابعة طلباتي», the request / agenda-item /
+meeting / appeal wizards, the Users screen's department view, forms-in-modals, card tables on phones — and
+correct what those screens made false: the five approval queues are grant rows with no page, approvals and
+minute signatures are confirmations, the manager approves in one click after the document-validity gate, HR
+prepares the employment file, the committee path is the single Stage 102 one, archive is two records.
+Per-role sidebar counts are re-derived from `ScreenSeeder` + `ScreenRolePermissionSeeder` + the seat gate
+(`MeetingVisibility::GATED_SCREENS`), seated and unseated; Appendix A re-derived whole. The feature plan is
+rewritten in place (a new §4 for the two personal screens and the wizard, later sections renumbered); the role
+plan is edited section by section. Source of truth: the seeders, `routes/api.php`, `en.json`/`ar.json` labels and
+this morning's verified `USER_GUIDE.ar.md` — not older notes. Verify: checkbox parity inside each EN/AR pair,
+in-file `§` references resolve, every screen code and route named exists in the seeder/route table.
+
+---
 ### 2026-10-02 10:10 EET — Claude — Workflow documents and user guide brought up to date (complete)
 
 Built per the plan below; documentation only. `USER_GUIDE.ar.md` (1458 → 1903 lines) now describes the system
@@ -1741,45 +1781,6 @@ unnumbered now mints on approve, which is the intended path. No backfill. The re
 it; Stage 98's HR step is the natural place to make the pre-قيد hand-offs legible. (2) The
 `register` action's label is once again «تسجيل الاستلام», and R12/R10/R09 all still perform it —
 collapsing three routes to one is Stage 96, untouched here.
-
----
-
-### 2026-09-20 21:00 EET — Claude — Implementation plan: Stage 97 (القيد back to مقرر اللجنة)
-
-Reverses the 2026-09-18 19:40 move, per Track N decision 2 (already taken; not re-litigated here).
-**Scope: seeded data + copy + tests, no service logic.** `WorkflowService::applyRule()` keys the
-mint off the destination status, so the whole behavioural change is two seeder fields.
-
-1. **Seeder** — the three `register` rows in `WorkflowTransitionSeeder` set `in_review` (Art. 38
-   code 04) instead of `registered`; `requirements_check → approve` keeps `registered` (code 06) and
-   is again the hop that mints. Rewrite the two comments that claim the opposite.
-2. **Copy** — restore Appendix 63 بوابة 1 «قبل القيد»: the three `IntakeGateService` refusal strings
-   (and its docblock NOTE), `controlGates.intake.title`, `requestDetail.awaitingRegistration`,
-   `intake.receiptNotice`, `workflow.actions.register` in both locales; Art. 101 moment 3's
-   `documents_completed` body back to «باكتمال» (that moment fires on the completeness hop again, so
-   the claim is true again). Stale comments in `WorkflowService`, `RequestStatusSeeder`,
-   `ArtifactNumberGenerator`, `EmployeeNoticeService`, `RequestDetailView.vue`.
-3. **Kept on purpose:** the `reference_assigned` notice (added by that same commit, keyed off the
-   allocation not a stage, so it now simply fires on the approve hop) and its tests' logic — only
-   the hop the tests walk changes.
-4. **Smallest item** — `decisions,approve` loses R02 → `['R03']`. Gates one route; no test exercises
-   R02 on decisions, so add one that pins the 403.
-5. **Tests** — flip the assertions commit 8d4c01a flipped (ControlGateTest ×4 strings,
-   DirectManagerRoutingTest, UnifiedNumberingTest ×3, WorkflowServiceTest walk,
-   ReferenceAssignedNotificationTest, HumanResourcesSeatTest / any test asserting a number after
-   `register`). Discover the rest by running the full suite, not by guessing.
-6. **Docs** — `compliance-matrix.md` Appendix 45 ✅ → ⚠ and Appendix 6 row 5 / Art. 20 rows;
-   `source-detailed-flow-verbatim.md` stage 07 → compliant (same commit, per the Stage 94 note);
-   USER_GUIDE.ar.md §1.3/§4.4/§4.5/glossary and both TEST_PLAN.roles files (relay step 4↔5);
-   STAGE_PLAN Stage 97 marked built.
-7. **In-flight data:** a file numbered at `register` under the old rule keeps its number (mint is
-   null-only, Art. 99); it just re-stamps `registered` on approve. No backfill; a file sitting at
-   `requirements_check` unnumbered would now mint on approve — the intended path.
-
-**Verify:** full PHPUnit (baseline 684 tests / 4520 assertions), Pint on touched PHP, `npm run build`
-(then revert `frontend/dist`), locale key parity, reseed `WorkflowTransitionSeeder` +
-`ScreenRolePermissionSeeder` against the real DB and confirm rows by query; `php artisan migrate` —
-expected nothing to migrate.
 
 ---
 

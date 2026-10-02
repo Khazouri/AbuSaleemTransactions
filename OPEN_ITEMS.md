@@ -22,7 +22,23 @@ were closable and appealable; the new one says only what the code does. Not chec
 stage-5 actions are still offered on a `rejected` file. **To close:** a process decision on whether [D]
 treats الرفض الشكلي as closable/appealable, then add the status to the lists that should hold it.
 
+### A committee's creator stays a seatless member and is counted in the quorum — found while updating the test plans — opened 2026-10-02
+`CommitteeController::store()` adds whoever creates a committee as a member with no seat, and
+`CommitteeVotingRules`, `MeetingReadinessService` and `DecisionTally` all count `Committee::activeMembers()`
+— every member, seated or not. On a fresh install the first committee is created by R08 (an unseated R02
+cannot reach the Meetings screen), no seat is bound to R08, and so that row is never promoted to a seat: the
+committee has six members, «أكثر من نصف» needs 4 where the five-seat roster would need 3, and the sixth is
+never invited to a meeting. The test plans now tell the tester to remove the row and measure both figures.
+Not checked: what `DecisionTally` does with the extra member under each majority rule. **To close:** decide
+whether the quorum base is the five seats (`whereNotNull('seat')`, as `MeetingController::store()` already
+reads them) or the whole roster, and either count seats only or drop the creator's row once five seats are
+filled.
+
 ### `TEST_PLAN*.md` still describe the pre-wizard UI — docs refresh — opened 2026-10-02
+**Resolved (2026-10-02, test-plan refresh).** All four plans re-derived from the seeders, `routes/api.php`,
+the locale labels and the refreshed guide; see AGENT_NOTES 2026-10-02 «The four test plans brought up to
+date». What that pass did not do is in its note: none of the new checks was walked in a browser.
+
 The four test plans were last touched at Stages 96–101 and were out of scope for the guide refresh. They
 still walk action-card buttons, the five approval-queue screens, drawn signatures and the two-click manager
 step, and their per-role screen counts predate `my_tasks` and the committee-seat gate. **To close:** re-derive
