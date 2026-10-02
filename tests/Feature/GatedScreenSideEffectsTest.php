@@ -66,9 +66,11 @@ class GatedScreenSideEffectsTest extends TestCase
         }
 
         // ...and it really did hide them, so the loop above is not vacuous.
+        // `meetings` stays open to R02 by design: holding `meetings,add`, it is
+        // the screen that forms the committee which seats them.
         foreach (MeetingVisibility::GATED_SCREENS as $code) {
             $this->assertTrue($before[$code]['can_view'], "seated lost {$code}");
-            $this->assertFalse($after[$code]['can_view'], "unseated kept {$code}");
+            $this->assertSame($code === 'meetings', $after[$code]['can_view'], "unseated {$code}");
         }
     }
 

@@ -242,6 +242,13 @@ class User extends Authenticatable
         }
 
         foreach (MeetingVisibility::GATED_SCREENS as $code) {
+            // المقرر (`meetings,add`, R02 alone since Stage 102) forms the
+            // committee that seats them, so the screen that does it cannot
+            // wait for the seat. CommitteeController::store() seats the creator,
+            // which then opens the rest of the section.
+            if ($code === 'meetings' && ($map[$code]['can_add'] ?? false)) {
+                continue;
+            }
             if (isset($map[$code])) {
                 $map[$code]['can_view'] = false;
             }

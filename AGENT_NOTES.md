@@ -19,6 +19,26 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-02 13:45 EET — Claude — المقرر reaches the meetings screen before holding a seat (complete)
+
+Built per the plan below. `User::hideMeetingsSectionIfUnseated()` now leaves `meetings,view` to a holder of
+`meetings,add` (R02); the other six gated screens still wait for a seat, which forming a committee gives.
+`GatedScreenSideEffectsTest`'s invariant was updated in place to expect exactly that one exception; a new
+`MeetingVisibilityTest` case walks an unseated R02 from the committee list to a created committee to the opened section.
+Verified: full suite 805 + 22 maintenance green, Pint clean on touched files. No frontend, seeder or locale change.
+
+---
+### 2026-10-02 13:30 EET — Claude — Implementation plan: المقرر reaches the meetings screen before holding a seat
+
+User: «المقرر is the one able to create the meetings and invite its members and assign the meeting time; he should have
+access to the meeting create/members screen». Cause: the seat gate (`User::hideMeetingsSectionIfUnseated()`) hides every
+`meetings_management` screen from anyone with no committee seat, so an R02 not yet seated cannot reach `/meetings` to
+form the first committee — only R08 could. Plan: a holder of `meetings,add` (R02 alone, Stage 102) keeps `meetings,view`
+while unseated; nothing else in the section opens. `CommitteeController::store()` already seats the creator, which then
+opens the rest. Existing committees R02 does not sit on stay hidden. Verify: MeetingVisibility/GatedScreenSideEffects
+tests, full PHPUnit, Pint. No frontend change.
+
+---
 ### 2026-10-02 13:30 EET — Claude — A committee-decided file is no longer an "open" duplicate (complete)
 
 Built per the plan below; no migration. `DuplicatePolicy::priorRequests()` loads `committee_settled` (a decision with

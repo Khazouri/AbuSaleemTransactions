@@ -72,6 +72,29 @@ class MeetingVisibilityTest extends TestCase
         $this->assertNull($this->visibility->visibleCommitteeIds($admin));
     }
 
+    /**
+     * المقرر forms committees and schedules their meetings, so the one screen
+     * that does it must be reachable before any seat exists — the seat comes
+     * from forming the committee. Only that screen opens; the rest of the
+     * section still waits for the seat.
+     */
+    public function test_the_rapporteur_reaches_the_meetings_screen_without_a_seat(): void
+    {
+        $rapporteur = $this->userWithRole('R02');
+
+        $this->assertTrue($rapporteur->hasScreenPermission('meetings', 'can_view'));
+        $this->assertFalse($rapporteur->hasScreenPermission('meeting_agenda', 'can_view'));
+
+        $this->actingAs($rapporteur)->getJson('/api/committees')->assertOk();
+        $this->actingAs($rapporteur)->getJson('/api/committees/user-options')->assertOk();
+        $this->actingAs($rapporteur)
+            ->postJson('/api/committees', ['name_ar' => 'لجنة شؤون الموظفين'])
+            ->assertCreated();
+
+        $rapporteur->forgetScreenPermissions();
+        $this->assertTrue($rapporteur->hasScreenPermission('meeting_agenda', 'can_view'));
+    }
+
     public function test_a_deactivated_committee_stops_granting_reach(): void
     {
         $committee = $this->committee();
