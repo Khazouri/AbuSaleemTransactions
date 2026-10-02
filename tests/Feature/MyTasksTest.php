@@ -417,6 +417,36 @@ class MyTasksTest extends TestCase
     }
 
     /** @return array<string, array<string, mixed>> keyed by source code */
+    /**
+     * A new manager inherits the employee's open files the moment the Users
+     * screen saves the change: every manager check reads users.manager_id
+     * live, so nothing is copied onto the request and nothing needs moving.
+     * This pins that, end to end, so a future "snapshot the manager on the
+     * request" change cannot silently strand files with the old manager.
+     */
+    public function test_a_new_manager_inherits_the_employees_open_files(): void
+    {
+        $oldManager = $this->userWithRole('R01');
+        $newManager = $this->userWithRole('R01');
+        $employee = $this->userWithRole('R01');
+        $employee->forceFill(['manager_id' => $oldManager->id])->save();
+        $file = $this->requestAt('direct_manager_review', 'in_review', $employee);
+
+        $this->actingAs($this->userWithRole('R08'), 'sanctum')
+            ->putJson("/api/users/{$employee->id}", ['manager_id' => $newManager->id])
+            ->assertOk();
+
+        $this->assertArrayNotHasKey('workflow_step', $this->inbox($oldManager));
+        $this->actingAs($oldManager->fresh(), 'sanctum')->getJson("/api/requests/{$file->id}")->assertNotFound();
+
+        $task = collect($this->inbox($newManager)['workflow_step']['tasks'])->firstWhere('title', $file->title);
+        $this->assertSame('forward', $task['action']);
+        $this->actingAs($newManager->fresh(), 'sanctum')
+            ->postJson("/api/requests/{$file->id}/transition", ['action' => 'forward'])
+            ->assertOk();
+        $this->assertSame('receive_and_register', $file->fresh()->currentStage->code);
+    }
+
     private function inbox(User $actor): array
     {
         // fresh(): screenPermissions() is memoized per instance, and several

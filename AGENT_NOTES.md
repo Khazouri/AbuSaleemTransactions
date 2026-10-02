@@ -98,6 +98,16 @@ PDF, redraw the flow docs and re-render their SVGs. No app code, migration or lo
 `TEST_PLAN*.md`. Verify: PDF builds, guide anchors resolve, Pint on the one touched PHP file.
 
 ---
+### 2026-10-02 EET — Claude — A new manager inherits the employee's open files (verified, test only)
+
+User: when an employee gets a new manager, their requests should move to that manager. **This already happens and
+needed no code:** the manager gate (`WorkflowService::subjectsLiveManagerId()`), `RequestVisibility`, the inbox and
+`NotificationDispatcher` all read صاحب العلاقة's `users.manager_id` live, and nothing is copied onto the request.
+New `MyTasksTest::test_a_new_manager_inherits_the_employees_open_files` pins it end to end over HTTP (R08 changes
+the manager via `PUT users/{id}`; the old manager loses the inbox task and gets a 404; the new one gets the task
+and forwards). Not built: a notification to the new manager (they find the file in «المهام المعلقة»).
+
+---
 ### 2026-09-29 EET — Claude — Table rows become cards on phones (complete)
 
 Built per the plan below; frontend only, no locale change. Below 640px every `.data-table` row is a card and
