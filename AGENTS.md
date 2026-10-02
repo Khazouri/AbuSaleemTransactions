@@ -84,6 +84,10 @@ Key architectural facts worth knowing before changing things:
   `screen.permission:<screen_code>,<action>` rather than a bare
   `apiResource()`, and new action buttons should carry
   `v-can="'<screen_code>.<action>'"` (`frontend/src/directives/can.js`).
+  Roles are created and renamed on that same screen (`POST|PUT /roles`). A
+  created role gets a server-assigned `C01`, `C02`… code, never `R13`, so
+  `RoleSeeder`'s upsert by code can't overwrite it. Codes are immutable, and
+  a custom role holds no workflow row, so it grants screen access only.
 - **The committee path is single and fixed (Stage 102, user decision
   2026-09-26 — «this path is the only path»).** R02's `approve` at
   `requirements_check` (the قيد) lands straight on `receive_from_committee` +

@@ -192,6 +192,12 @@ Route::middleware('auth:sanctum')->group(function () {
      */
     Route::get('/roles', [RoleController::class, 'index']);
 
+    // Role management — create and rename roles from Roles & Permissions (user request 2026-10-02).
+    Route::middleware('screen.permission:roles_permissions,add')
+        ->post('/roles', [RoleController::class, 'store']);
+    Route::middleware('screen.permission:roles_permissions,edit')
+        ->put('/roles/{role}', [RoleController::class, 'update']);
+
     /*
      * Roles & permissions matrix (Stage 8) — screens x roles x the seven
      * can_* actions. index() returns screens, roles and the matrix together;

@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * came from the Role Matrix sheet; R09/R10 (diagram alignment), R11 (Stage
  * 68's العضو القانوني) and R12 (Stage 87's مدير إدارة الموارد البشرية) were
  * appended later, so read RoleSeeder for the roster rather than assuming the
- * range ends at R08.
+ * range ends at R08. Roles created on the Roles & Permissions screen get
+ * server-assigned `C01`, `C02`… codes (RoleController::store()); they hold
+ * no workflow transition, so they grant screen access and nothing else.
  *
  * Roles are the hinge of the whole authorisation design: permissions attach to
  * roles (never to users), workflow transitions require a role, and the

@@ -19,6 +19,30 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-02 16:25 EET — Claude — Create/edit roles and per-screen switches on Roles & Permissions (complete)
+
+Built per the plan below; no migration. `RoleController::store()/update()` sit behind `roles_permissions,add|edit`,
+and only R08 holds those today. The client can't send a code: the server assigns `C01`, `C02`…, and an update changes
+names and description only. In the view, the modal patches `roles` in place instead of calling `load()`, so unsaved
+ticks on other tabs survive. The «مفعّل» switch clears all seven actions when off and sets view only when on.
+Verified: new `RoleManagementTest` (5 tests, RED then GREEN), full suite 810 + 9 + 13 green, Pint clean on touched
+files, build passes (`dist` committed), parity 2086. **Not checked in a browser**, and `check-layout.mjs` was not run.
+Reseeding `ScreenRolePermissionSeeder` resets custom roles' grants along with everything else; that hazard predates this change.
+
+---
+### 2026-10-02 16:05 EET — Claude — Implementation plan: create/edit roles and per-screen switches on Roles & Permissions
+
+User: «system profiles screen with the ability to create/edit each profile and enable/disable each profile feature»;
+put to the user and answered: profile = role, feature = screen (an on/off switch per screen, the 7 action checkboxes
+kept), and the existing `/roles` screen is extended rather than a new one added. Plan: `POST /roles`
+(`roles_permissions,add`) and `PUT /roles/{role}` (`roles_permissions,edit`) with `Role\Store|UpdateRoleRequest`
+(name_ar, name_en, description; Arabic messages). The server assigns custom codes `C01`, `C02`…, never taken from the
+client — a `C` prefix so a future built-in R13 in `RoleSeeder`'s upsert cannot overwrite one. Codes are immutable and
+there is no delete. In `RolesPermissionsView`, an `AppModal` form for new/edit role, and an «مفعّل» column per screen
+(off clears all 7 actions, on sets view). No migration or seeder change. Verify: new `RoleManagementTest`, full
+PHPUnit, Pint, build (`dist` committed), parity.
+
+---
 ### 2026-10-02 13:45 EET — Claude — المقرر reaches the meetings screen before holding a seat (complete)
 
 Built per the plan below. `User::hideMeetingsSectionIfUnseated()` now leaves `meetings,view` to a holder of

@@ -167,7 +167,15 @@
     "can_export": "Export",
     "selectAllInColumn": "Select all",
     "unsavedChanges": "You have unsaved changes.",
-    "saveSuccess": "Permissions saved successfully."
+    "saveSuccess": "Permissions saved successfully.",
+    "newRole": "New role",
+    "editRole": "Edit role",
+    "nameAr": "Arabic name",
+    "nameEn": "English name",
+    "description": "Description",
+    "enabled": "Enabled",
+    "customRoleHint": "A new role grants screen access only; workflow steps stay with the built-in roles.",
+    "roleSaveFailed": "The role could not be saved. Please try again."
   },
   "settings": {
     "title": "General Settings",
