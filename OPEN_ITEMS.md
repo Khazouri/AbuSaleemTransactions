@@ -13,6 +13,27 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### A formally rejected request has no way out — found while rewriting the user guide — opened 2026-10-02
+`reject_formally` at `requirements_check` leaves the file at that stage with status `rejected`. That status is
+in none of `RequestClosureService::CLOSABLE_STATUSES`, `AppealEligibility::QUALIFYING_STATUS_CODES` or
+`RequestController::REOPENABLE_STATUS_CODES`, so the file can be neither closed, appealed nor reopened —
+unlike its sibling `declare_no_jurisdiction`, which can be closed and appealed. The old guide claimed both
+were closable and appealable; the new one says only what the code does. Not checked: whether R02's other
+stage-5 actions are still offered on a `rejected` file. **To close:** a process decision on whether [D]
+treats الرفض الشكلي as closable/appealable, then add the status to the lists that should hold it.
+
+### `TEST_PLAN*.md` still describe the pre-wizard UI — docs refresh — opened 2026-10-02
+The four test plans were last touched at Stages 96–101 and were out of scope for the guide refresh. They
+still walk action-card buttons, the five approval-queue screens, drawn signatures and the two-click manager
+step, and their per-role screen counts predate `my_tasks` and the committee-seat gate. **To close:** re-derive
+them from the seeders and wizard act tables the way `USER_GUIDE.ar.md` was (see AGENT_NOTES 2026-10-02).
+
+### Request Types still offers a routing suggestion that does nothing — docs refresh — opened 2026-10-02
+`requestTypes.routeHint` reads «تبقى المسارات الثلاثة متاحة للاختيار» and the form offers hr / diwan /
+committee_secretary, but one route has existed since Stage 96 and `administrative_routing` is off the path
+since 2026-09-26, so the field is inert (Stage 96 left it on purpose). The guide now says so. **To close:**
+drop the field and `RequestType::ADMINISTRATIVE_ROUTES`, or reword the hint.
+
 ### A maintenance test's `set_time_limit` can kill the rest of the PHPUnit run — found in sub-project 3 final-review fixes — opened 2026-09-28
 `MaintenanceRunner` calls `set_time_limit(timeout + 30)` (330 s), and when `MaintenanceConsoleTest` drives it
 that limit applies to the whole PHPUnit process: every test after it must finish within 330 s, or the run

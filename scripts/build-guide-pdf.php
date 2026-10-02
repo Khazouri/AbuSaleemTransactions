@@ -42,10 +42,8 @@ $markdown = file_get_contents($source);
    mPDF has no colour-emoji coverage, so an emoji left in place renders as a
    tofu box. Every one used in the guide is either decorative beside text that
    already says the same thing (the delay colours, the yes/no ticks) or a
-   classifier this script reads before removing it (the callout markers). The
-   one that carries meaning on its own — the signature mark beside an approval
-   — becomes words instead. */
-$markdown = str_replace([' 🖊️', ' 🖊'], ' (بتوقيع)', $markdown);
+   classifier this script reads before removing it (the callout markers), so
+   step 7 strips them once those markers have been read. */
 
 /* ── 2. Front matter belongs on the cover, not in the body ─────────────── */
 $bodyStart = strpos($markdown, '## 1. ');
@@ -56,8 +54,8 @@ $environment = new Environment([
     'html_input' => 'allow',
     'allow_unsafe_links' => false,
 ]);
-$environment->addExtension(new CommonMarkCoreExtension());
-$environment->addExtension(new GithubFlavoredMarkdownExtension());
+$environment->addExtension(new CommonMarkCoreExtension);
+$environment->addExtension(new GithubFlavoredMarkdownExtension);
 $html = (string) (new MarkdownConverter($environment))->convert($body);
 
 /* ── 4. The twelve-stage map ────────────────────────────────────────────
@@ -306,7 +304,7 @@ $css = <<<'CSS'
 </style>
 CSS;
 
-$today = 'سبتمبر 2026';
+$today = 'أكتوبر 2026';
 
 $cover = <<<HTML
 {$css}
@@ -323,8 +321,8 @@ $cover = <<<HTML
         <tr>
             <td><b>13</b>فصلاً</td>
             <td><b>12</b>مرحلة</td>
-            <td><b>11</b>دوراً</td>
-            <td><b>33</b>شاشة</td>
+            <td><b>12</b>دوراً</td>
+            <td><b>36</b>شاشة</td>
             <td><b>4</b>بوابات رقابية</td>
         </tr>
     </table>
