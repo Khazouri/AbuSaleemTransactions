@@ -110,8 +110,9 @@ Key architectural facts worth knowing before changing things:
   workflow rows on its own meeting's requests, from the invitation until every
   meeting it was invited to is concluded and none of the files it decided is
   still before an approving body (`SeatDutyGrant`, computed live — no table,
-  no expiry job). Don't widen the lent screens to the whole role. Only R02 schedules
-  (`meetings,add`), a meeting needs all five seats filled, invites exactly
+  no expiry job). Don't widen the lent screens to the whole role. Only the مقرر sets
+  a meeting's date — scheduling it or proposing a new one; R08 and the chair
+  are refused (`MeetingController::refuseUnlessRapporteur()`), a meeting needs all five seats filled, invites exactly
   them, is `regular`, and a committee holds one non-cancelled meeting per
   calendar month. A new meeting is `pending_confirmation` and becomes
   `scheduled` only when every attendee accepts through their own

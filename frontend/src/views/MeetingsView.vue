@@ -14,8 +14,11 @@ import { RouterLink } from 'vue-router'
 import AppModal from '../components/AppModal.vue'
 import MeetingSchedulingWizard from '../components/MeetingSchedulingWizard.vue'
 import api from '../lib/api'
+import { useAuthStore } from '../stores/auth'
 
 const { t, locale } = useI18n()
+// Only the system's one مقرر (the R02 holder) sets a meeting's date.
+const auth = useAuthStore()
 
 const committees = ref([])
 const userOptions = ref([])
@@ -550,7 +553,7 @@ onMounted(async () => {
       <div>
         <h2>{{ t('meetings.title') }}</h2>
       </div>
-      <button v-can="'meetings.add'" class="primary" type="button" @click="startScheduleMeeting">
+      <button v-if="auth.hasRole('R02')" class="primary" type="button" @click="startScheduleMeeting">
         {{ t('meetings.schedule') }}
       </button>
     </div>

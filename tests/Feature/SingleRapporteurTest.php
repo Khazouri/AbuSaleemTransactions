@@ -123,6 +123,30 @@ class SingleRapporteurTest extends TestCase
         ])->assertStatus(422)->assertJsonValidationErrors('committee_id');
     }
 
+    public function test_only_the_rapporteur_sets_the_date(): void
+    {
+        $rapporteur = $this->userWith('R02');
+        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
+        $seats = $this->fillFiveSeats($committee, ['rapporteur' => $rapporteur]);
+        $schedule = ['committee_id' => $committee->id, 'title' => 'الاجتماع الشهري', 'scheduled_at' => now()->addWeek()->toDateTimeString()];
+
+        $this->actingAs($this->admin, 'sanctum')->postJson('/api/meetings', $schedule)
+            ->assertStatus(422)->assertJsonValidationErrors('scheduled_at');
+
+        $meetingId = $this->actingAs($rapporteur, 'sanctum')->postJson('/api/meetings', $schedule)
+            ->assertCreated()->json('data.id');
+
+        $newDate = ['scheduled_at' => now()->addWeek()->addDay()->toDateTimeString()];
+        foreach ([$seats['chair'], $this->admin] as $other) {
+            $this->actingAs($other, 'sanctum')->putJson("/api/meetings/{$meetingId}", $newDate)
+                ->assertStatus(422)->assertJsonValidationErrors('scheduled_at');
+        }
+
+        // The chair keeps the rest of the meeting's edits.
+        $this->actingAs($seats['chair'], 'sanctum')->putJson("/api/meetings/{$meetingId}", ['title' => 'اجتماع أكتوبر'])->assertOk();
+        $this->actingAs($rapporteur, 'sanctum')->putJson("/api/meetings/{$meetingId}", $newDate)->assertOk();
+    }
+
     public function test_the_rapporteur_seat_cannot_be_filled_by_hand(): void
     {
         $rapporteur = $this->userWith('R02');

@@ -14,9 +14,11 @@ import AgendaItemWizard from '../components/AgendaItemWizard.vue'
 import AppModal from '../components/AppModal.vue'
 import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import api from '../lib/api'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const { t, locale } = useI18n()
+const auth = useAuthStore()
 
 const meeting = ref(null)
 const loading = ref(false)
@@ -94,7 +96,9 @@ async function saveMeetingFields() {
 // proposing another, which resets every member's answer on the server.
 const newDate = ref('')
 const showProposeDate = ref(false)
+// Only the system's one مقرر (the R02 holder) sets a meeting's date.
 const canProposeDate = computed(() => meeting.value
+  && auth.hasRole('R02')
   && !meeting.value.convened_at
   && ['pending_confirmation', 'scheduled'].includes(meeting.value.status))
 
@@ -347,7 +351,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <div v-if="canProposeDate" v-can="'meetings.edit'" class="propose-date-open">
+      <div v-if="canProposeDate" class="propose-date-open">
         <button class="ghost" type="button" @click="showProposeDate = true">{{ t('meetings.rsvp.proposeDate') }}</button>
       </div>
 

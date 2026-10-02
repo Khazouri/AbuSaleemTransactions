@@ -82,6 +82,8 @@ class CommitteeMeetingTest extends TestCase
      * and Appendix 45 gives إنشاء الاجتماع to its مقرر; neither is a
      * capability over committees the actor has nothing to do with, and the
      * `meetings,add` screen permission alone cannot express "which one".
+     * Since 2026-10-02 only the committee's مقرر sets the date at all, so the
+     * stranger is refused on the date and R08 lost its administrative fallback.
      */
     public function test_scheduling_is_refused_for_a_committee_the_actor_does_not_sit_on(): void
     {
@@ -103,23 +105,17 @@ class CommitteeMeetingTest extends TestCase
         $this->actingAs($stranger, 'sanctum')
             ->postJson('/api/meetings', $payload)
             ->assertStatus(422)
-            ->assertJsonValidationErrors('committee_id');
+            ->assertJsonValidationErrors('scheduled_at');
+
+        $this->actingAs($this->userWithRole('R08'), 'sanctum')
+            ->postJson('/api/meetings', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('scheduled_at');
 
         $this->assertDatabaseCount('meetings', 0);
 
-        // The seated مقرر may, and so may R08 — the same administrative
-        // fallback WorkflowService applies to manager-gated transitions (a
-        // month later: Stage 102 allows one meeting a month).
         $this->actingAs($seatedRapporteur, 'sanctum')
             ->postJson('/api/meetings', $payload)
-            ->assertCreated();
-
-        $this->actingAs($this->userWithRole('R08'), 'sanctum')
-            ->postJson('/api/meetings', [
-                ...$payload,
-                'title' => 'اجتماع بصلاحية إدارية',
-                'scheduled_at' => now()->addMonths(2)->toDateTimeString(),
-            ])
             ->assertCreated();
     }
 

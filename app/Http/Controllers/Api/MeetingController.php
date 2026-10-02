@@ -26,6 +26,7 @@ use App\Models\MeetingAttendee;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStageLog;
+use App\Models\User;
 use App\Services\AgendaOrderingService;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\CommitteeStatusService;
@@ -98,13 +99,11 @@ class MeetingController extends Controller
      * committee membership can change later and the meeting's attendee list
      * for a given sitting must stay fixed to who was actually invited to it.
      *
-     * Stage 84 — and only for a committee the actor actually sits on. [D]
-     * Art. 12 (أ) 1 gives الدعوة إلى اجتماعات اللجنة to that committee's own
-     * chair, and Appendix 45 gives إنشاء الاجتماع to its مقرر; neither is a
-     * capability over committees the actor has nothing to do with, and the
-     * `meetings,add` screen permission alone cannot express "which one". R08
-     * is exempt — the same administrative fallback WorkflowService::
-     * actorMayUse() already applies to manager-gated transitions.
+     * Only the committee's مقرر may schedule (user decision 2026-10-02):
+     * Appendix 45 gives إنشاء الاجتماع to the مقرر, and the date is theirs to
+     * propose. That replaces Stage 84's "a committee you sit on, or R08"
+     * check — the مقرر is seated on every committee — and R08 no longer
+     * schedules at all.
      */
     public function store(
         StoreMeetingRequest $request,
@@ -118,23 +117,13 @@ class MeetingController extends Controller
         // well as at the committee's creation: a committee formed before the
         // rule, or before the role changed hands, still invites today's مقرر.
         $committee = Committee::query()->findOrFail($data['committee_id']);
-        if ($committee->seatRapporteur() === null) {
+        $rapporteur = $committee->seatRapporteur();
+        if ($rapporteur === null) {
             throw ValidationException::withMessages([
                 'committee_id' => ['لا يمكن جدولة اجتماع قبل تعيين مقرر نشط في النظام.'],
             ]);
         }
-
-        $isSystemAdmin = $actor->roles()->where('code', 'R08')->exists();
-        $isCommitteeMember = CommitteeMember::query()
-            ->where('committee_id', $data['committee_id'])
-            ->where('user_id', $actor->id)
-            ->exists();
-
-        if (! $isSystemAdmin && ! $isCommitteeMember) {
-            throw ValidationException::withMessages([
-                'committee_id' => ['لا يجوز جدولة اجتماع للجنة لست عضوًا فيها.'],
-            ]);
-        }
+        $this->refuseUnlessRapporteur($rapporteur, $actor);
 
         // Stage 102 — the committee is its five Art. 10 (أ) seats, and the
         // meeting invites exactly them: no sitting until every seat is held by
@@ -226,6 +215,7 @@ class MeetingController extends Controller
             if ($meeting->convened_at !== null || ! in_array($meeting->status, [Meeting::STATUS_PENDING_CONFIRMATION, 'scheduled'], true)) {
                 return response()->json(['message' => 'لا يمكن تغيير موعد اجتماع انعقد أو أُغلق أو أُلغي.'], 422);
             }
+            $this->refuseUnlessRapporteur($meeting->committee->seatRapporteur(), $request->user());
             $this->refuseSecondMeetingInMonth($meeting->committee_id, Carbon::parse($data['scheduled_at']), $meeting->id);
         }
 
@@ -250,6 +240,19 @@ class MeetingController extends Controller
         }
 
         return new MeetingResource($this->loadDetail($meeting));
+    }
+
+    /**
+     * Only the system's مقرر sets a meeting's date, first or proposed again
+     * (user decision 2026-10-02); the chair keeps the rest of `meetings,edit`.
+     */
+    private function refuseUnlessRapporteur(?User $rapporteur, User $actor): void
+    {
+        if ($rapporteur?->id !== $actor->id) {
+            throw ValidationException::withMessages([
+                'scheduled_at' => ['تحديد موعد الاجتماع من صلاحية المقرر وحده.'],
+            ]);
+        }
     }
 
     /**

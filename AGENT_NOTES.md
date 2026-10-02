@@ -19,6 +19,26 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-02 18:15 EET — Claude — Only the مقرر sets a meeting's date (complete)
+
+Built per the plan below; no migration. `MeetingController::refuseUnlessRapporteur()` (422 on `scheduled_at`) compares
+the actor with the committee's seated مقرر, in `store()` and in `update()`'s date-change branch. In `store()` it replaces
+Stage 84's "seated, or R08" check, which became redundant once the مقرر is seated on every committee. R08 no longer
+schedules, and the chair keeps the rest of `meetings,edit`. SPA: the schedule and propose-date buttons check
+`auth.hasRole('R02')`. `CommitteeMeetingTest`'s R08 fallback assertion was inverted in place. Verified: the new
+`SingleRapporteurTest` case went RED then GREEN, full suite 823 + 9 + 13 green, Pint clean, build passes (`dist`
+committed), parity 2086, `aislop ci` exit 0. Not checked in a browser.
+
+---
+### 2026-10-02 18:00 EET — Claude — Implementation plan: only the مقرر sets a meeting's date
+
+User: «مقرر is the only one who can set the date». Today R08 can schedule (it holds `meetings,add` and is exempt from
+the membership check), and R02, R03 and R08 can all move the date through `PUT meetings/{m}` (`meetings,edit`). Plan:
+one private check in `MeetingController`, used by `store()` and the date-change branch of `update()`: 422 unless the
+actor is `User::activeRapporteur()`. The chair keeps the rest of `meetings,edit`. SPA: the schedule and propose-date
+buttons show only to the R02 holder. Verify: new tests in `SingleRapporteurTest`, full PHPUnit, Pint, build, aislop ci.
+
+---
 ### 2026-10-02 17:45 EET — Claude — One مقرر in the system, auto-seated on every committee (complete)
 
 Built per the plan below; no migration. `User::activeRapporteur()` is the one active R02 holder; `UserController`
