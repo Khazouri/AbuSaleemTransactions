@@ -4,6 +4,7 @@ namespace App\Services\Lifecycle;
 
 use App\Models\Request;
 use App\Models\User;
+use App\Services\CommitteeStatusService;
 use Illuminate\Support\Collection;
 
 /**
@@ -51,6 +52,13 @@ class DuplicatePolicy
         'decision_withdrawn', 'decision_amended',
     ];
 
+    /**
+     * Decision outcomes that leave the subject undecided: a deferral puts the
+     * file back on the pending list and a legal opinion sends it away to come
+     * back. Every other outcome means the committee heard and settled it.
+     */
+    private const UNSETTLING_OUTCOMES = ['defer', 'legal_opinion'];
+
     /** The appendix's own four, in its order. */
     public const RELATIONS = [
         'appeal' => ['ar' => 'تظلم من نتيجة سابقة', 'en' => 'Appeal against a previous result'],
@@ -83,6 +91,9 @@ class DuplicatePolicy
             ->where('subject_user_id', $subject->getKey())
             ->where('request_type_id', $requestTypeId)
             ->with(['status:id,code,name_ar,name_en', 'currentStage:id,code,name_ar,name_en'])
+            ->withExists(['meetingRequests as committee_settled' => fn ($items) => $items
+                ->whereHas('decision', fn ($decision) => $decision->whereNotIn('outcome', self::UNSETTLING_OUTCOMES)),
+            ])
             ->orderByDesc('id')
             ->get();
     }
@@ -94,9 +105,28 @@ class DuplicatePolicy
             ->first(fn (Request $prior) => ! $this->isConcluded($prior));
     }
 
+    /**
+     * Concluded by status, or (user decision 2026-10-02) settled by the
+     * committee: once a meeting approved, rejected or otherwise decided the
+     * file, its subject has been heard even while execution or approval is
+     * still running, so a new request on it is a fresh matter rather than a
+     * duplicate. A file back before the committee (deferred, reopened, or
+     * with the legal member) is open again whatever was decided before.
+     *
+     * `committee_settled` is loaded by priorRequests(), the only source of
+     * the files this is asked about.
+     */
     public function isConcluded(Request $requestRecord): bool
     {
-        return in_array($requestRecord->status?->code, self::CONCLUDED_STATUSES, true);
+        $status = $requestRecord->status?->code;
+
+        if (in_array($status, self::CONCLUDED_STATUSES, true)) {
+            return true;
+        }
+
+        $beforeCommittee = [...CommitteeStatusService::CANDIDATE_STATUSES, CommitteeStatusService::LEGAL_REVIEW_STATUS];
+
+        return (bool) $requestRecord->committee_settled && ! in_array($status, $beforeCommittee, true);
     }
 
     /**
@@ -132,7 +162,7 @@ class DuplicatePolicy
         $relation = $data['prior_relation'] ?? null;
 
         if ($relation === null) {
-            return 'سبق قيد معاملة لنفس الموضوع وأقفلت؛ يجب تحديد صفة الطلب الجديد قبل قيده.';
+            return 'سبق قيد معاملة لنفس الموضوع وانتهى النظر فيها؛ يجب تحديد صفة الطلب الجديد قبل قيده.';
         }
 
         return self::REDIRECTED_RELATIONS[$relation] ?? null;

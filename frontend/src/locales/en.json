@@ -2186,7 +2186,7 @@
     },
     "duplicate": {
       "openPrior": "An open file already exists on the same subject ({title}); no new request is created — attach the documents to it instead.",
-      "classify": "An earlier request on the same subject has closed — classify the new one",
+      "classify": "An earlier request on the same subject was concluded — classify the new one",
       "choose": "Choose a classification",
       "redirectedNote": "An appeal and a re-presentation are not filed as new requests; each has its own route.",
       "relations": {

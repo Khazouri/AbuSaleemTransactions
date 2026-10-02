@@ -19,6 +19,28 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-02 13:30 EET — Claude — A committee-decided file is no longer an "open" duplicate (complete)
+
+Built per the plan below; no migration. `DuplicatePolicy::priorRequests()` loads `committee_settled` (a decision with
+an outcome other than `defer`/`legal_opinion`), and `isConcluded()` treats such a file as concluded unless its status
+puts it back before the committee. The submit refusal and the `duplicate-check` endpoint both read it, so they still
+agree. A new request on that subject then gets Appendix 16's classification question instead of the open-file refusal.
+Verified: two new `DuplicateRequestTest` cases (decided → classify; deferred or reopened → still refused; the first was
+RED before the fix), full suite **826 / 5262**, Pint clean, build passes (`dist` committed), parity 2078.
+
+---
+### 2026-10-02 13:10 EET — Claude — Implementation plan: a committee-decided file is no longer an "open" duplicate
+
+User: «the request is not a duplicate if the first request has been discussed in a meeting and approved/declined/finished».
+Today `DuplicatePolicy::isConcluded()` reads status only, so a file the committee approved or rejected but that is still in
+execution/approval (not yet closed) counts as open and refuses a new request on the same subject. Plan: `isConcluded()`
+also answers true when the file carries a decision whose outcome is final (anything but `defer`/`legal_opinion`) and it is
+not back before the committee (`CommitteeStatusService::CANDIDATE_STATUSES` + `under_legal_review`, which covers a reopen
+or a deferral). Both readers (submit refusal and `duplicate-check`) go through it. Appendix 16's classification question
+still applies to such a prior; its wording drops «وأقفلت» for «انتهى النظر فيها». Verify: new DuplicateRequestTest cases,
+full PHPUnit, Pint, build (ar.json label), parity.
+
+---
 ### 2026-10-02 12:45 EET — Claude — The four test plans brought up to date with the new screens (complete)
 
 Built per the plan below; documentation only. `TEST_PLAN.md`/`.ar.md` are rewritten in place (203 → **281**

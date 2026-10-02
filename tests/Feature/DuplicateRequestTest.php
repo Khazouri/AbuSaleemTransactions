@@ -2,7 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Committee;
+use App\Models\Decision;
 use App\Models\Department;
+use App\Models\Meeting;
+use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
@@ -132,6 +136,46 @@ class DuplicateRequestTest extends TestCase
         $this->assertEqualsCanonicalizing(['appeal', 're_presentation'], $redirected->all());
     }
 
+    /**
+     * A file the committee has already decided is not an open file, even while
+     * its execution or approval is still running: the subject was heard, so a
+     * new request on it is a fresh matter and Appendix 16's classification
+     * applies instead of the open-file refusal.
+     */
+    public function test_a_file_the_committee_decided_is_not_an_open_duplicate(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $employee = $this->employee();
+
+        foreach (['approve', 'reject'] as $outcome) {
+            Request::query()->delete();
+            $prior = $this->decidePriorRequest($employee, $outcome, 'in_execution');
+
+            $this->submit($employee)
+                ->assertStatus(422)
+                ->assertJsonMissing(['يوجد ملف مفتوح لنفس الموضوع ('.$prior->trackingNumber().
+                    ')؛ لا تنشأ معاملة جديدة، بل تلحق المستندات بالمعاملة القائمة.']);
+
+            $this->submit($employee, 'PROM', ['prior_relation' => 'new_incident'])->assertCreated();
+        }
+    }
+
+    /** A deferral, or a decided file back before the committee, is still open. */
+    public function test_a_deferred_or_reopened_file_still_refuses_a_second_request(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $employee = $this->employee();
+
+        foreach ([['defer', 'deferred'], ['approve', 'reopened_by_appeal']] as [$outcome, $status]) {
+            Request::query()->delete();
+            $this->decidePriorRequest($employee, $outcome, $status);
+
+            $this->submit($employee, 'PROM', ['prior_relation' => 'new_incident'])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('request_type_id');
+        }
+    }
+
     // --- fixtures ----------------------------------------------------------
 
     private function employee(): User
@@ -166,5 +210,32 @@ class DuplicateRequestTest extends TestCase
         Request::where('created_by_user_id', $employee->id)->update([
             'status_id' => RequestStatus::where('code', 'completed_closed')->value('id'),
         ]);
+    }
+
+    /** A prior file on the same subject carrying a committee decision. */
+    private function decidePriorRequest(User $employee, string $outcome, string $statusCode): Request
+    {
+        $this->submit($employee)->assertCreated();
+        $prior = Request::where('created_by_user_id', $employee->id)->latest('id')->firstOrFail();
+        $prior->update(['status_id' => RequestStatus::where('code', $statusCode)->value('id')]);
+
+        $meeting = Meeting::create([
+            'committee_id' => Committee::create(['name_ar' => 'لجنة'])->id,
+            'title' => 'اجتماع',
+            'scheduled_at' => now()->subWeek(),
+            'created_by_user_id' => $employee->id,
+        ]);
+        Decision::create([
+            'meeting_request_id' => MeetingRequest::create([
+                'meeting_id' => $meeting->id,
+                'request_id' => $prior->id,
+                'agenda_order' => 1,
+            ])->id,
+            'outcome' => $outcome,
+            'decided_by_user_id' => $employee->id,
+            'decided_at' => now()->subWeek(),
+        ]);
+
+        return $prior;
     }
 }
