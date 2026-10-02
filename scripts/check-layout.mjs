@@ -125,6 +125,7 @@ async function main() {
                         failures.push(`${where}: landed on ${landed}, not checked`);
                         continue;
                     }
+                    // aislop-ignore-next-line security/eval -- Puppeteer's $$eval queries the DOM, it is not eval()
                     const tabs = await page.$$eval('[role="tab"]', (t) => t.length);
                     for (let i = 0; i < Math.max(tabs, 1); i++) {
                         // A fixed pause, not waitForNetworkIdle: against the Vite dev server that never

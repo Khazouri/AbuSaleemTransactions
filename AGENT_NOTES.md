@@ -19,6 +19,17 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-02 17:00 EET — Claude — aislop scanner adopted (complete)
+
+Built per the plan below. `.aislop/config.yml` (pinned 0.16.1, `failBelow: 85`, telemetry off) raises the score from
+67 to **97 Healthy**, and `aislop ci` exits 0. What is left: 30 complexity warnings and two `hidden-fallback` warnings
+on `firstError()` (intended). **`narrative-comment` is off too:** it flags the why-comments and was the only fixable
+rule, which the hook calls "MUST fix". The Claude hook runs `npx --yes aislop@0.16.1` (no global binary is installed)
+and takes about 20 s per edit. `async` would drop its output, and the Stop gate needs the per-edit hook to record which
+files were touched. Codex gets the AGENTS.md section, not aislop's own rewrite of that file. Verified: the hook fired
+live on an edit in this session. No PHP or frontend code changed, so PHPUnit, Pint and the build were not run.
+
+---
 ### 2026-10-02 16:45 EET — Claude — Implementation plan: adopt the aislop scanner
 
 User: «implement https://github.com/scanaislop/aislop». An untuned `npx aislop scan` gives 67/100, mostly from false

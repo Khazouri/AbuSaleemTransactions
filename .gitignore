@@ -24,3 +24,7 @@ yarn-error.log
 /graphify-out/cache
 /graphify-out/cost.json
 /graphify-out/20*/
+
+# aislop runtime state (hook session, baseline, lock); only the config is shared.
+/.aislop/*
+!/.aislop/config.yml
