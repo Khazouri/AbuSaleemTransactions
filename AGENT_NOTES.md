@@ -19,6 +19,32 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-02 19:20 EET — Claude — The committee is a group the مقرر picks, not a department (complete)
+
+Built per the plan below; no migration. `DepartmentSeeder` no longer seeds CMT and soft-deletes an existing row after
+moving its users to ABS. The seven test accounts now sit in ABS/ENG/FIN/ADM. On the real MySQL, CMT (#6) is
+trashed, it had 0 requests, and its 7 users moved. `refuseSecondMeetingInMonth()` is gone, and
+`MeetingSchedulingWizardTest`'s cap test was inverted in place. `PendingTaskCollector::meetingsDue()` gives the active
+R02 holder a `meeting_due` task per active committee with no live meeting dated this month. `CommitteeController`
+store/addMember/removeMember now 422 unless the actor is `User::activeRapporteur()`. `store()` also stopped adding a
+separate creator row: the creator is the مقرر, already seated. That closes most of the seatless-creator open item.
+Three fixtures that seated as the chair now act as the مقرر. Verified: new `CommitteeIsAGroupTest` (RED then GREEN),
+full suite 826 + 9 + 13 green, Pint clean, build passes (`dist` committed), parity 2087, `aislop ci` exit 0, guide PDF rebuilt. Not
+checked in a browser.
+
+---
+### 2026-10-02 18:40 EET — Claude — Implementation plan: the committee is a group the مقرر picks, not a department
+
+User: «لجنة شؤون الموظفين is not a department, it's a group that occasionally meets, picked by المقرر every month at
+least once». Put to the user and answered: remove the CMT department, allow more than one meeting a month and remind the
+مقرر of a committee with none this month, and only the مقرر picks members. Plan: `DepartmentSeeder` drops CMT and
+soft-deletes an existing row (its users moved to ABS first); `TestUserSeeder` moves the seven CMT accounts to real
+units. `MeetingController::refuseSecondMeetingInMonth()` is deleted. A new `meeting_due` inbox source goes to the active
+R02 holder. `CommitteeController` store/addMember/removeMember refuse anyone but the مقرر (422), and the SPA buttons follow.
+No migration. Verify: new `CommitteeIsAGroupTest`, full PHPUnit, Pint, build (`dist` committed), parity, aislop ci,
+reseed the two seeders on the real DB.
+
+---
 ### 2026-10-02 18:15 EET — Claude — Only the مقرر sets a meeting's date (complete)
 
 Built per the plan below; no migration. `MeetingController::refuseUnlessRapporteur()` (422 on `scheduled_at`) compares

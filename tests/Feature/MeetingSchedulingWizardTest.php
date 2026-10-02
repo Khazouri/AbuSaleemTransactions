@@ -73,10 +73,11 @@ class MeetingSchedulingWizardTest extends TestCase
 
     /**
      * Stage 102 replaced "meeting_type must be a known value" (there is one
-     * type now): the committee meets once a month, and a cancelled sitting
-     * does not use up its month.
+     * type now). It used to cap the committee at one meeting a month; the
+     * user's rule is «at least once a month» (2026-10-02), so a second
+     * sitting in the same month is now accepted, cancelled or not.
      */
-    public function test_a_committee_meets_at_most_once_a_calendar_month(): void
+    public function test_a_committee_may_meet_more_than_once_a_calendar_month(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -85,17 +86,9 @@ class MeetingSchedulingWizardTest extends TestCase
         $this->fillFiveSeats($committee, ['rapporteur' => $rapporteur]);
         $month = now()->addMonth()->startOfMonth();
 
-        $first = $this->actingAs($rapporteur, 'sanctum')
-            ->postJson('/api/meetings', ['committee_id' => $committee->id, 'title' => 'الأول', 'scheduled_at' => $month->copy()->addDays(2)->toDateTimeString()])
-            ->assertCreated()
-            ->json('data.id');
-
         $this->actingAs($rapporteur, 'sanctum')
-            ->postJson('/api/meetings', ['committee_id' => $committee->id, 'title' => 'الثاني', 'scheduled_at' => $month->copy()->addDays(20)->toDateTimeString()])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('scheduled_at');
-
-        Meeting::whereKey($first)->update(['status' => 'cancelled']);
+            ->postJson('/api/meetings', ['committee_id' => $committee->id, 'title' => 'الأول', 'scheduled_at' => $month->copy()->addDays(2)->toDateTimeString()])
+            ->assertCreated();
 
         $this->actingAs($rapporteur, 'sanctum')
             ->postJson('/api/meetings', ['committee_id' => $committee->id, 'title' => 'الثاني', 'scheduled_at' => $month->copy()->addDays(20)->toDateTimeString()])

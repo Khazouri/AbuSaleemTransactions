@@ -113,8 +113,13 @@ Key architectural facts worth knowing before changing things:
   no expiry job). Don't widen the lent screens to the whole role. Only the مقرر sets
   a meeting's date — scheduling it or proposing a new one; R08 and the chair
   are refused (`MeetingController::refuseUnlessRapporteur()`), a meeting needs all five seats filled, invites exactly
-  them, is `regular`, and a committee holds one non-cancelled meeting per
-  calendar month. A new meeting is `pending_confirmation` and becomes
+  them, and is `regular`. The committee is **a group the مقرر picks, not a
+  department** (user decision 2026-10-02): there is no committee row in
+  `departments`, and its members belong to their own units. Only the active
+  R02 holder forms a committee or adds or removes a seat holder
+  (`CommitteeController::refuseUnlessRapporteur()`). It meets **at least** once
+  a month, with no cap, and a committee with no live meeting dated this month
+  is a `meeting_due` task in the مقرر's «المهام المعلقة». A new meeting is `pending_confirmation` and becomes
   `scheduled` only when every attendee accepts through their own
   `POST meetings/{m}/respond`; a date change resets every answer. Convening
   already requires `scheduled`, so that is the whole gate. Don't reintroduce

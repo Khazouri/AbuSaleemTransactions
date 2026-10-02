@@ -34,6 +34,7 @@ const ICON_BY_SOURCE = {
   legal_review: 'scale',
   minutes_signature: 'book',
   meeting_invitation: 'calendar',
+  meeting_due: 'calendar',
   completion: 'inbox',
   workflow_step: 'git-branch',
   overdue: 'history',

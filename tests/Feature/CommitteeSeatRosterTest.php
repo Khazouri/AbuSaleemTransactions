@@ -40,14 +40,13 @@ class CommitteeSeatRosterTest extends TestCase
         $legal = $this->userWithRole('R11');
         $unseated = $this->userWithRole('R04');
 
-        // Membership gate — editing a committee's roster needs a seat on it.
-        // Built directly here because Committee::create() above bypasses
-        // CommitteeController::store(), which is what seats a creator in
-        // production. The chair's first call below then PROMOTES this row to
-        // the chair seat rather than adding a second one for the same person.
-        CommitteeMember::create(['committee_id' => $committee->id, 'user_id' => $chair->id]);
+        // Only the مقرر picks seats (2026-10-02), so they make the calls the
+        // chair used to; seatRapporteur() gives them the seat that lets them
+        // reach the committee, as CommitteeController::store() does.
+        $this->userWithRole('R02');
+        $rapporteur = $committee->seatRapporteur();
 
-        $this->actingAs($chair, 'sanctum')
+        $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", [
                 'user_id' => $chair->id,
                 'seat' => 'chair',
@@ -56,7 +55,7 @@ class CommitteeSeatRosterTest extends TestCase
             ->assertJsonPath('data.seat', 'chair')
             ->assertJsonPath('data.is_head', true);
 
-        $this->actingAs($chair, 'sanctum')
+        $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", [
                 'user_id' => $legal->id,
                 'seat' => 'legal',
@@ -66,7 +65,7 @@ class CommitteeSeatRosterTest extends TestCase
         // Stage 102 — there is no plain seatless membership any more: the
         // committee is its five seats, and a member without one is never
         // invited to a meeting.
-        $this->actingAs($chair, 'sanctum')
+        $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $unseated->id])
             ->assertStatus(422)
             ->assertJsonValidationErrors('seat');
@@ -78,8 +77,8 @@ class CommitteeSeatRosterTest extends TestCase
         $this->assertSame($legal->id, $row['seats']['legal']['user']['id']);
         $this->assertNull($row['seats']['hr_director']);
         $this->assertNull($row['seats']['ministry_delegate']);
-        $this->assertNull($row['seats']['rapporteur']);
-        $this->assertCount(2, $row['members']);
+        $this->assertSame($rapporteur->id, $row['seats']['rapporteur']['user']['id']);
+        $this->assertCount(3, $row['members']);
     }
 
     public function test_a_seat_can_only_be_held_by_one_member_at_a_time(): void
@@ -142,19 +141,22 @@ class CommitteeSeatRosterTest extends TestCase
 
         $member = $this->userWithRole('R04');
         $hr = $this->userWithRole('R12');
+        // The chair made these calls before only the مقرر picked seats (2026-10-02).
+        $this->userWithRole('R02');
+        $rapporteur = $committee->seatRapporteur();
 
         // The rapporteur seat is the system's مقرر's alone; any other seat may
         // go to a stand-in (SeatDutyGrant).
-        $this->actingAs($chair, 'sanctum')
+        $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'rapporteur'])
             ->assertStatus(422)
             ->assertJsonPath('errors.seat.0', 'مقعد المقرر يشغله مقرر النظام تلقائيًا.');
 
-        $this->actingAs($chair, 'sanctum')
+        $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'hr_director'])
             ->assertCreated();
 
-        $this->actingAs($chair, 'sanctum')
+        $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $hr->id, 'seat' => 'ministry_delegate'])
             ->assertCreated();
     }

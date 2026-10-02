@@ -5,6 +5,7 @@ namespace App\Services\Tasks;
 use App\Http\Controllers\Api\ApprovalController;
 use App\Models\Appeal;
 use App\Models\AppealStatus;
+use App\Models\Committee;
 use App\Models\Meeting;
 use App\Models\MeetingMinutes;
 use App\Models\MeetingMinuteSignature;
@@ -92,6 +93,7 @@ class PendingTaskCollector
             $this->legalReviews($actor),
             $this->minuteSignatures($actor),
             $this->meetingInvitations($actor),
+            $this->meetingsDue($actor),
             $this->myCompletions($actor),
             $this->workflowSteps($actor),
             $this->overdue($actor),
@@ -301,6 +303,41 @@ class PendingTaskCollector
             'is_overdue' => false,
             // Decision wizard — sub-project 2: every meeting duty is taken in MeetingWizard.
             'route' => ['name' => 'meeting_details', 'params' => ['id' => $meeting->id], 'query' => ['decide' => 1]],
+        ]);
+    }
+
+    /**
+     * The committee meets at least once a month, convened by the مقرر (user
+     * decision 2026-10-02): an active committee with no live meeting dated this
+     * calendar month is the مقرر's to schedule. Only the one active R02 holder
+     * gets it, since MeetingController::store() refuses everyone else.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function meetingsDue(User $actor): ?array
+    {
+        if (User::activeRapporteur()?->id !== $actor->id) {
+            return null;
+        }
+
+        $month = [now()->startOfMonth(), now()->endOfMonth()];
+        $rows = Committee::query()
+            ->where('is_active', true)
+            ->whereDoesntHave('meetings', fn (Builder $meeting) => $meeting
+                ->where('status', '!=', 'cancelled')
+                ->whereBetween('scheduled_at', $month))
+            ->orderBy('name_ar')
+            ->limit(self::PER_SOURCE_LIMIT + 1)
+            ->get(['id', 'name_ar']);
+
+        return $this->source('meeting_due', $rows, fn (Committee $committee) => [
+            'title' => $committee->name_ar,
+            'reference_number' => null,
+            'subject' => null,
+            'waiting_since' => $month[0]->toIso8601String(),
+            'due_at' => $month[1]->toIso8601String(),
+            'is_overdue' => false,
+            'route' => ['name' => 'meetings'],
         ]);
     }
 

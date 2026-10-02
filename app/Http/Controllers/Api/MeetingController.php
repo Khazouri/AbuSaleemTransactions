@@ -136,8 +136,6 @@ class MeetingController extends Controller
             ]);
         }
 
-        $this->refuseSecondMeetingInMonth($committee->id, Carbon::parse($data['scheduled_at']));
-
         [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request, $numbers, $seats) {
             $rapporteurId = $seats['rapporteur']->user_id;
 
@@ -216,7 +214,6 @@ class MeetingController extends Controller
                 return response()->json(['message' => 'لا يمكن تغيير موعد اجتماع انعقد أو أُغلق أو أُلغي.'], 422);
             }
             $this->refuseUnlessRapporteur($meeting->committee->seatRapporteur(), $request->user());
-            $this->refuseSecondMeetingInMonth($meeting->committee_id, Carbon::parse($data['scheduled_at']), $meeting->id);
         }
 
         if (($data['status'] ?? null) === 'completed') {
@@ -251,26 +248,6 @@ class MeetingController extends Controller
         if ($rapporteur?->id !== $actor->id) {
             throw ValidationException::withMessages([
                 'scheduled_at' => ['تحديد موعد الاجتماع من صلاحية المقرر وحده.'],
-            ]);
-        }
-    }
-
-    /**
-     * Stage 102 — one meeting a month: a committee may not hold a second
-     * non-cancelled meeting in the same calendar month.
-     */
-    private function refuseSecondMeetingInMonth(int $committeeId, Carbon $at, ?int $ignoreMeetingId = null): void
-    {
-        $clash = Meeting::query()
-            ->where('committee_id', $committeeId)
-            ->where('status', '!=', 'cancelled')
-            ->whereBetween('scheduled_at', [$at->copy()->startOfMonth(), $at->copy()->endOfMonth()])
-            ->when($ignoreMeetingId, fn ($query, int $id) => $query->whereKeyNot($id))
-            ->exists();
-
-        if ($clash) {
-            throw ValidationException::withMessages([
-                'scheduled_at' => ['تجتمع اللجنة مرة واحدة في الشهر، ويوجد اجتماع آخر لها في الشهر نفسه.'],
             ]);
         }
     }

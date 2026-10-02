@@ -53,23 +53,18 @@ class CommitteeController extends Controller
      * Membership gate — forming a committee seats you on it.
      *
      * Without this the creator immediately loses sight of what they just made:
-     * index() now lists only committees you sit on, and MeetingController
-     * ::store() has refused to schedule for a committee you do not sit on
-     * since Stage 84 — so an unseated creator could produce a committee they
-     * could neither find nor convene. Seated as a plain member, not as head:
-     * `meetings,add` is held by R02 (المقرر) as well as R03, and making the
-     * rapporteur the chair would be a governance claim this action has no
-     * business making. addMember() still assigns the chair seat explicitly.
-     *
-     * The system's مقرر is seated in the rapporteur seat first (user decision
-     * 2026-10-02), so when they are the creator that is their one row.
+     * index() lists only committees you sit on. Only the system's مقرر forms a
+     * committee (user decision 2026-10-02), and seatRapporteur() puts them in
+     * the rapporteur seat, so that one row is the creator's seat too.
+     * addMember() assigns the chair seat explicitly.
      */
     public function store(StoreCommitteeRequest $request): JsonResponse
     {
+        $this->refuseUnlessRapporteur($request->user());
+
         $committee = DB::transaction(function () use ($request) {
             $committee = Committee::create($request->validated());
             $committee->seatRapporteur();
-            $committee->members()->firstOrCreate(['user_id' => $request->user()->id]);
 
             return $committee;
         });
@@ -135,6 +130,7 @@ class CommitteeController extends Controller
     public function addMember(StoreCommitteeMemberRequest $request, Committee $committee): JsonResponse
     {
         $this->authorizeCommittee($request->user(), $committee);
+        $this->refuseUnlessRapporteur($request->user());
 
         $data = $request->validated();
 
@@ -162,6 +158,7 @@ class CommitteeController extends Controller
     public function removeMember(HttpRequest $request, Committee $committee, CommitteeMember $member): JsonResponse
     {
         $this->authorizeCommittee($request->user(), $committee);
+        $this->refuseUnlessRapporteur($request->user());
 
         abort_unless($member->committee_id === $committee->id, 404);
 
@@ -189,6 +186,16 @@ class CommitteeController extends Controller
     private function authorizeCommittee(User $actor, Committee $committee): void
     {
         abort_unless($this->visibility->canViewCommittee($actor, $committee), 404);
+    }
+
+    /**
+     * The committee is a group the مقرر picks, not a standing body (user
+     * decision 2026-10-02): forming one and choosing who sits on it are theirs
+     * alone. The chair keeps `meetings,edit` for renaming and retiring it.
+     */
+    private function refuseUnlessRapporteur(User $actor): void
+    {
+        abort_unless(User::activeRapporteur()?->id === $actor->id, 422, 'اختيار أعضاء اللجنة من صلاحية المقرر وحده.');
     }
 
     public function userOptions(): JsonResponse

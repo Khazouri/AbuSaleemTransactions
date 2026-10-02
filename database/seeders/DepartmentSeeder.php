@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Department;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 /**
@@ -13,13 +14,16 @@ use Illuminate\Database\Seeder;
  *     ├─ إدارة الهندسة والمشاريع (ENG)
  *     ├─ إدارة الشؤون المالية (FIN)
  *     ├─ مكتب المقرر (REP)
- *     ├─ لجنة شؤون الموظفين (CMT)
  *     ├─ قسم المرتبات والمزايا (SAL)
  *     └─ إدارة الموارد البشرية (HR)
  *
  * These are a usable starting point, not a fixed structure — departments are
  * fully editable from the UI in Stage 6. The codes matter because they appear
  * in request reference numbers (YYYY-DEPT-000123).
+ *
+ * لجنة شؤون الموظفين is deliberately absent: it is a group the مقرر picks and
+ * convenes, whose members belong to their own units, so its membership lives
+ * in committee seats rather than users.department_id (user decision 2026-10-02).
  */
 class DepartmentSeeder extends Seeder
 {
@@ -36,7 +40,6 @@ class DepartmentSeeder extends Seeder
             ['code' => 'ENG', 'name_ar' => 'إدارة الهندسة والمشاريع', 'name_en' => 'Engineering & Projects'],
             ['code' => 'FIN', 'name_ar' => 'إدارة الشؤون المالية', 'name_en' => 'Financial Affairs'],
             ['code' => 'REP', 'name_ar' => 'مكتب المقرر', 'name_en' => 'Reviewer Office'],
-            ['code' => 'CMT', 'name_ar' => 'لجنة شؤون الموظفين', 'name_en' => 'Staff Affairs Committee'],
             // Stage 47 — a distinct admin unit from FIN (الشؤون المالية):
             // [A] §1's org chart lists المرتبات والمزايا as its own sibling
             // unit alongside شؤون الموظفين, not a subset of financial affairs.
@@ -54,6 +57,15 @@ class DepartmentSeeder extends Seeder
                 // Merge the parent link into each child's attributes.
                 $child + ['parent_id' => $root->id],
             );
+        }
+
+        // An older install still holds the committee as a department. Its users
+        // go to the root first so nobody is left in a retired unit; the row is
+        // soft-deleted, so a request that names it still resolves.
+        $committee = Department::query()->where('code', 'CMT')->first();
+        if ($committee !== null) {
+            User::query()->where('department_id', $committee->id)->update(['department_id' => $root->id]);
+            $committee->delete();
         }
     }
 }

@@ -78,11 +78,13 @@ class SingleRapporteurTest extends TestCase
         $this->assertFalse($former->fresh()->is_active);
     }
 
-    public function test_a_new_committee_seats_the_rapporteur_even_when_the_admin_creates_it(): void
+    // The admin used to form the committee here; only the مقرر may now
+    // (2026-10-02, CommitteeIsAGroupTest), so the seat is checked on theirs.
+    public function test_a_new_committee_seats_the_rapporteur(): void
     {
         $rapporteur = $this->userWith('R02');
 
-        $committeeId = $this->actingAs($this->admin, 'sanctum')
+        $committeeId = $this->actingAs($rapporteur, 'sanctum')
             ->postJson('/api/committees', ['name_ar' => 'لجنة شؤون الموظفين'])
             ->assertCreated()->json('data.id');
 

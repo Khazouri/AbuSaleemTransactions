@@ -281,7 +281,9 @@ onMounted(async () => {
       <div>
         <h2>{{ t('committees.title') }}</h2>
       </div>
-      <button v-can="'meetings.add'" class="primary" type="button" @click="startCreateCommittee">
+      <!-- Only the مقرر forms a committee and picks its seats (2026-10-02);
+           the server refuses everyone else, so the controls follow it. -->
+      <button v-if="auth.hasRole('R02')" class="primary" type="button" @click="startCreateCommittee">
         {{ t('committees.add') }}
       </button>
     </div>
@@ -523,12 +525,12 @@ onMounted(async () => {
           <span>{{ member.user.name }}</span>
           <span v-if="member.seat" class="pill">{{ t(`committees.seats.${member.seat}`) }}</span>
           <span v-else-if="member.is_head" class="pill">{{ t('committees.head') }}</span>
-          <button v-can="'meetings.edit'" class="ghost danger" type="button" @click="removeMember(membersCommittee, member)">
+          <button v-if="auth.hasRole('R02')" class="ghost danger" type="button" @click="removeMember(membersCommittee, member)">
             {{ t('committees.removeMember') }}
           </button>
         </li>
       </ul>
-      <form v-can="'meetings.edit'" class="add-member" @submit.prevent="addMember(membersCommittee)">
+      <form v-if="auth.hasRole('R02')" class="add-member" @submit.prevent="addMember(membersCommittee)">
         <select v-model="memberUserId" :aria-label="t('committees.chooseUser')">
           <option value="">{{ t('committees.chooseUser') }}</option>
           <option v-for="user in availableUsersFor(membersCommittee)" :key="user.id" :value="user.id">

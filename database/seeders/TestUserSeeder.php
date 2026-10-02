@@ -85,23 +85,25 @@ class TestUserSeeder extends Seeder
     public const TEST_USERS = [
         ['r01.employee@abusaleem.test',   'موظف تجريبي',             'Employee',                     ['R01'],        'ENG', '+218910000001', true],
         ['r02.reviewer@abusaleem.test',   'مقرر تجريبي',             'Reviewer',                     ['R02'],        'REP', '+218910000002', true],
-        ['r03.head@abusaleem.test',       'رئيس اللجنة التجريبي',    'Committee head',               ['R03'],        'CMT', '+218910000003', true],
-        ['r04.member1@abusaleem.test',    'عضو اللجنة الأول',        'Committee member 1',           ['R04'],        'CMT', '+218910000004', true],
-        ['r04.member2@abusaleem.test',    'عضو اللجنة الثاني',       'Committee member 2',           ['R04'],        'CMT', '+218910000005', true],
-        ['r04.member3@abusaleem.test',    'عضو اللجنة الثالث',       'Committee member 3',           ['R04'],        'CMT', '+218910000006', true],
+        // The committee is a group, not a department (2026-10-02): its members
+        // sit in their own units; the chair is وكيل ديوان البلدية (Art. 10).
+        ['r03.head@abusaleem.test',      'رئيس اللجنة التجريبي',    'Committee head',               ['R03'],        'ABS', '+218910000003', true],
+        ['r04.member1@abusaleem.test',    'عضو اللجنة الأول',        'Committee member 1',           ['R04'],        'ENG', '+218910000004', true],
+        ['r04.member2@abusaleem.test',    'عضو اللجنة الثاني',       'Committee member 2',           ['R04'],        'FIN', '+218910000005', true],
+        ['r04.member3@abusaleem.test',    'عضو اللجنة الثالث',       'Committee member 3',           ['R04'],        'ADM', '+218910000006', true],
         ['r05.manager@abusaleem.test',    'مدير الشؤون الإدارية',    'Admin affairs manager',        ['R05'],        'ADM', '+218910000007', true],
         ['r06.ministry@abusaleem.test',   'مندوب وزارة الحكم المحلي', 'Ministry delegate',            ['R06'],        'ABS', '+218910000008', true],
         ['r07.director@abusaleem.test',   'المدير العام التجريبي',   'Director general',             ['R07'],        'ABS', '+218910000009', true],
         ['r08.sysadmin@abusaleem.test',   'مدير نظام تجريبي',        'System admin',                 ['R08'],        'ADM', '+218910000010', true],
-        ['multi.role@abusaleem.test',     'رئيس وعضو لجنة',          'Head + member (union check)',  ['R03', 'R04'], 'CMT', '+218910000011', true],
+        ['multi.role@abusaleem.test',     'رئيس وعضو لجنة',          'Head + member (union check)',  ['R03', 'R04'], 'ABS', '+218910000011', true],
         ['inactive.user@abusaleem.test',  'مستخدم موقوف',            'Suspended user',               ['R01'],        'FIN', '+218910000012', false],
         // Diagram-alignment redesign — the two new receiving roles at
         // receive_and_register (R05/HR already existed as r05.manager@).
-        ['r09.secretary@abusaleem.test',  'أمين سر اللجنة التجريبي', 'Committee secretary',          ['R09'],        'CMT', '+218910000013', true],
+        ['r09.secretary@abusaleem.test',  'أمين سر اللجنة التجريبي', 'Committee secretary',          ['R09'],        'ABS', '+218910000013', true],
         ['r10.diwan@abusaleem.test',      'وكيل الديوان التجريبي',   'Diwan deputy',                 ['R10'],        'ABS', '+218910000014', true],
         // Stage 68 — [D] Art. 21's العضو القانوني, the one role the
         // pre-meeting legal review can be recorded by.
-        ['r11.legal@abusaleem.test',      'العضو القانوني التجريبي',  'Legal officer',                ['R11'],        'CMT', '+218910000015', true],
+        ['r11.legal@abusaleem.test',      'العضو القانوني التجريبي',  'Legal officer',                ['R11'],        'ADM', '+218910000015', true],
         // Stage 87 — the distinct HR role [F] names twice: the route_to_hr
         // registration destination (replacing r05.manager@ there) and a
         // bounded, non-controlling co-owner of the study at `observations`.

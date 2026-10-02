@@ -102,19 +102,19 @@ notification-preferences screen).
 |---|---|---|---|---|
 | 1 | `r01.employee@abusaleem.test` | R01 | ENG | Submits. Manager is #2. |
 | 2 | `r02.reviewer@abusaleem.test` | R02 | REP | المقرر — the قيد, scheduling, the agenda, minutes, archive, closure. Also #1's direct manager. |
-| 3 | `r03.head@abusaleem.test` | R03 | CMT | Committee chair — adopts the agenda, convenes, records the decision, approves minutes. |
-| 4 | `r04.member1@abusaleem.test` | R04 | CMT | Votes — holds the civil-service delegate seat in §9. |
-| 5 | `r04.member2@abusaleem.test` | R04 | CMT | Holds no seat — proves the seat gate (§2.2). |
-| 6 | `r04.member3@abusaleem.test` | R04 | CMT | Holds no seat. |
+| 3 | `r03.head@abusaleem.test` | R03 | ABS | Committee chair — adopts the agenda, convenes, records the decision, approves minutes. |
+| 4 | `r04.member1@abusaleem.test` | R04 | ENG | Votes — holds the civil-service delegate seat in §9. |
+| 5 | `r04.member2@abusaleem.test` | R04 | FIN | Holds no seat — proves the seat gate (§2.2). |
+| 6 | `r04.member3@abusaleem.test` | R04 | ADM | Holds no seat. |
 | 7 | `r05.manager@abusaleem.test` | R05 | ADM | Approval level 3; may file on another employee's behalf. |
 | 8 | `r06.ministry@abusaleem.test` | R06 | ABS | Ministry — approval level 4, exports. |
 | 9 | `r07.director@abusaleem.test` | R07 | ABS | Final approval — level 5. |
 | 10 | `r08.sysadmin@abusaleem.test` | R08 | ADM | Admin. Second admin, so you can suspend one safely. |
-| 11 | `multi.role@abusaleem.test` | R03+R04 | CMT | Proves `screenPermissions()` **unions** across roles. |
+| 11 | `multi.role@abusaleem.test` | R03+R04 | ABS | Proves `screenPermissions()` **unions** across roles. |
 | 12 | `inactive.user@abusaleem.test` | R01 | FIN | `is_active = false` — must be refused at login *and* as an actor. |
-| 13 | `r09.secretary@abusaleem.test` | R09 | CMT | A retained login with no duty (Stage 96). |
+| 13 | `r09.secretary@abusaleem.test` | R09 | ABS | A retained login with no duty (Stage 96). |
 | 14 | `r10.diwan@abusaleem.test` | R10 | ABS | A retained login with no duty (Stage 96). |
-| 15 | `r11.legal@abusaleem.test` | R11 | CMT | العضو القانوني — the only role that records a legal review; a voting seat. |
+| 15 | `r11.legal@abusaleem.test` | R11 | ADM | العضو القانوني — the only role that records a legal review; a voting seat. |
 | 16 | `r12.hr@abusaleem.test` | R12 | HR | HR — prepares the employment file and registers at stage 4; a voting seat; records execution. |
 
 - [ ] All sixteen appear in the Users screen as R08, and #12 shows as inactive.
@@ -188,7 +188,8 @@ and R02; no other role can hold one.
 - [ ] After §9.1 seats them, the five seated accounts gain the other seven screens — and each
       sees only the meetings of the committee they sit on.
 - [ ] `r04.member2@` (R04, no seat) still has no group: the gate reads the seat, not the role.
-- [ ] R08 sees the group with no seat of its own — it is the role that builds the roster.
+- [ ] R08 sees the group with no seat of its own (the seat gate exempts it), but forming a committee
+      and picking its seats are the مقرر's alone (2026-10-02).
 
 ### 2.3 Guard and API agree
 
@@ -454,7 +455,7 @@ come before the first of them and block the same way. All are recorded in the wi
 ## 9. Committee and meetings
 
 The path is single and fixed (Stage 102): R02's `approve` at stage 5 puts a file on the
-committee's pending list; R02 schedules one meeting a month from that list; the five seats
+committee's pending list; R02 schedules at least one meeting a month from that list; the five seats
 accept the date; the sitting deliberates and votes. Three wizards carry every write — the
 request wizard (completion, legal review, defer, return to study), the **meeting wizard**
 («اتخاذ الإجراء» on the meeting-actions card every meeting screen shows) and the **item
@@ -462,18 +463,18 @@ wizard** (the vote and the recorded result).
 
 ### 9.1 Committees
 
-- [ ] As R08, open Meetings and create a committee — the form opens **in a modal** — then fill
-      its five seats, each with the holder of its bound role: chair R03 · legal R11 ·
-      hr_director R12 · ministry_delegate R04 (#4) · rapporteur R02. A seat cannot be filled
-      twice.
+- [ ] As R02, open Meetings and create a committee — the form opens **in a modal**. R02 is seated
+      in the rapporteur seat at once. Fill the other four seats, each with the holder of its bound
+      role: chair R03 · legal R11 · hr_director R12 · ministry_delegate R04 (#4). A seat cannot be
+      filled twice.
+- [ ] As R08 or R03, creating a committee, adding a seat holder or removing one is refused
+      («اختيار أعضاء اللجنة من صلاحية المقرر وحده.»); the buttons are not shown to them. The
+      committee is a group, not a department: no «لجنة شؤون الموظفين» row on the Departments screen.
 - [ ] Seating a user who does not hold the seat's role is refused (try #4 in the legal seat).
 - [ ] A committee with no recorded quorum rule shows **غير مثبت**, not a number. The system
       refuses to invent one (Appendix 64 forbids it).
-- [ ] The quorum counts **every active member on the roster — the creator's seatless row
-      included**. With R08's own row still there (six members), "أكثر من نصف الأعضاء" requires
-      **4** and "لا يقل عن نصف" requires **3**: the comparator is what distinguishes them, which
-      proves the invented `ceil(n/2)` is gone rather than relabelled. Remove R08's row before
-      going on — five members, quorum 3.
+- [ ] The quorum counts **every active member on the roster**. The creator holds the rapporteur
+      seat, so there is no seatless row: five members, and "أكثر من نصف الأعضاء" requires **3**.
 - [ ] A committee with an empty seat cannot schedule a meeting — refused, naming the reason.
 - [ ] Deleting a committee that has meetings is refused.
 
@@ -526,8 +527,10 @@ wizard** (the vote and the recorded result).
       the five seats are invited automatically and nobody else can be added.
 - [ ] The new meeting is `pending_confirmation`, and the chosen requests have left the pending
       list.
-- [ ] A second meeting for the same committee in the same calendar month is refused (a
-      cancelled one does not count).
+- [ ] A second meeting for the same committee in the same calendar month is **accepted** — the
+      committee meets at least once a month, with no cap.
+- [ ] A committee with no live meeting dated this month appears in R02's «المهام المعلقة» under
+      «لجان لم يُحدَّد لها اجتماع هذا الشهر», and leaves it once one is scheduled.
 - [ ] As R02, schedule for a committee you **do not sit on**: refused with
       "لا يجوز جدولة اجتماع للجنة لست عضوًا فيها." As R03 or R04, scheduling is **403** —
       `meetings,add` is R02's alone.

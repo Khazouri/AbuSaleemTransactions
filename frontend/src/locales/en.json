@@ -2405,6 +2405,7 @@
       "minutes_signature": "Minutes awaiting your signature",
       "completion": "My requests needing completion",
       "meeting_invitation": "Meeting dates awaiting your answer",
+      "meeting_due": "Committees with no meeting this month",
       "workflow_step": "Requests awaiting your action",
       "overdue": "Overdue requests awaiting escalation",
       "meeting_duty": "Meeting duties",

@@ -22,6 +22,9 @@ way a real chair can. (3) The SPA picks up a new or expired grant only when `/au
 happens on page load. **To close:** show "acting as <role> until …" on the Users screen if (1) matters,
 and decide whether a stand-in chair may edit the roster. If not, split the roster routes onto their own
 grant.
+**(2) resolved (2026-10-02, the committee is a group the مقرر picks).** Adding or removing a seat holder
+now refuses everyone but the مقرر (`CommitteeController::refuseUnlessRapporteur()`), so a stand-in chair
+can no longer change the roster. Points (1) and (3) stand.
 
 ### A formally rejected request has no way out — found while rewriting the user guide — opened 2026-10-02
 `reject_formally` at `requirements_check` leaves the file at that stage with status `rejected`. That status is
@@ -46,6 +49,10 @@ filled.
 **Narrowed (2026-10-02, one مقرر in the system).** A committee now seats the system's مقرر in the rapporteur
 seat at creation, so when the مقرر creates it (the usual case) there is no seatless row. A creator who is
 not the مقرر (R08) still gets one, so the quorum question above stands for that case.
+**Resolved for new committees (2026-10-02, the committee is a group the مقرر picks).** Only the مقرر may
+create a committee now, and `store()` no longer adds a separate creator row, so a new committee has no
+seatless member. Rows already on an existing database (committee #16 holds three) remain until the مقرر
+removes them; the "seats or whole roster" quorum question applies only to those legacy rows.
 
 ### `TEST_PLAN*.md` still describe the pre-wizard UI — docs refresh — opened 2026-10-02
 **Resolved (2026-10-02, test-plan refresh).** All four plans re-derived from the seeders, `routes/api.php`,

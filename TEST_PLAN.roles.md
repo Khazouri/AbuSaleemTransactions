@@ -75,19 +75,19 @@ list — served by `GET /api/dev/test-users`, which 404s in every other environm
 |---|---|---|---|---|
 | 1 | `r01.employee@abusaleem.test` | R01 Employee | ENG | Files requests and appeals. **Moves no request** — R01 owns exactly one transition (`submit`), and the system fires it for them |
 | 2 | `r02.reviewer@abusaleem.test` | R02 Reviewer (المقرر) | REP | Stage 5 (the قيد), the rapporteur seat, scheduling and the agenda, the post-decision records; also **r01's assigned manager** (see the note below) |
-| 3 | `r03.head@abusaleem.test` | R03 Committee Head | CMT | Stage 9 decisions, minutes approval, convening |
-| 4 | `r04.member1@abusaleem.test` | R04 Committee Member | CMT | Voter |
-| 5 | `r04.member2@abusaleem.test` | R04 Committee Member | CMT | Voter |
-| 6 | `r04.member3@abusaleem.test` | R04 Committee Member | CMT | Voter — **the third seat is what makes a 2-1 plurality reachable**; a tie is refused outright |
+| 3 | `r03.head@abusaleem.test` | R03 Committee Head | ABS | Stage 9 decisions, minutes approval, convening |
+| 4 | `r04.member1@abusaleem.test` | R04 Committee Member | ENG | Voter |
+| 5 | `r04.member2@abusaleem.test` | R04 Committee Member | FIN | Voter |
+| 6 | `r04.member3@abusaleem.test` | R04 Committee Member | ADM | Voter — **the third seat is what makes a 2-1 plurality reachable**; a tie is refused outright |
 | 7 | `r05.manager@abusaleem.test` | R05 Admin Manager | ADM | Stage 10 approval, and filing on another employee's behalf — Stage 87 moved the stage-4 registration onto R12 |
 | 8 | `r06.ministry@abusaleem.test` | R06 Ministry | ABS | Stage 11; holds `export` on reports, registers and the audit log |
 | 9 | `r07.director@abusaleem.test` | R07 Director / Dean | ABS | Stage 12; **no intake access at all** |
 | 10 | `r08.sysadmin@abusaleem.test` | R08 System Admin | ADM | Administration; keeps `admin@abusaleem.test` free as a spare |
-| 11 | `multi.role@abusaleem.test` | R03 **+** R04 | CMT | Permissions must be a **union**, never an intersection |
+| 11 | `multi.role@abusaleem.test` | R03 **+** R04 | ABS | Permissions must be a **union**, never an intersection |
 | 12 | `inactive.user@abusaleem.test` | R01, `is_active = false` | FIN | Must be refused at login *and* refused as a workflow actor |
-| 13 | `r09.secretary@abusaleem.test` | R09 Committee Secretary | CMT | **Stage 96 — a retained login with no seeded duty.** Everything it held went back to R02 |
+| 13 | `r09.secretary@abusaleem.test` | R09 Committee Secretary | ABS | **Stage 96 — a retained login with no seeded duty.** Everything it held went back to R02 |
 | 14 | `r10.diwan@abusaleem.test` | R10 Diwan Deputy | ABS | **Stage 96 — a retained login with no seeded duty.** The Diwan route is retired |
-| 15 | `r11.legal@abusaleem.test` | R11 Legal Officer | CMT | The only role that may record [D] Art. 21's pre-meeting legal review |
+| 15 | `r11.legal@abusaleem.test` | R11 Legal Officer | ADM | The only role that may record [D] Art. 21's pre-meeting legal review |
 | 16 | `r12.hr@abusaleem.test` | R12 HR Manager | HR | Prepares the employment file and registers at stage 4; a bounded, non-controlling reach into the study at stages 2 and 5; the `hr_director` committee seat (votes); records execution and archives the service file |
 
 > **The manager link matters.** `r01.employee@`'s `manager_id` points at `r02.reviewer@`. Stage 2
@@ -173,7 +173,7 @@ actor finds the file in **«المهام المعلقة»** and acts from the wi
 
 | # | Actor | Where | Action | Request lands at |
 |---|---|---|---|---|
-| 0 | **R08 — setup, once** | الاجتماعات | Create the committee and fill its five seats: chair `r03.head@`, legal `r11.legal@`, HR `r12.hr@`, civil-service delegate `r04.member1@`, rapporteur `r02.reviewer@`. Record its identity card with a quorum rule, then remove R08's own seatless row from the roster (creating a committee adds its creator as a member, and the quorum counts every member) | The five seated accounts gain the `إدارة الاجتماعات` group; the committee has exactly five members |
+| 0 | **R02 — setup, once** | الاجتماعات | Create the committee (R02 is seated as rapporteur at once) and fill the other four seats: chair `r03.head@`, legal `r11.legal@`, HR `r12.hr@`, civil-service delegate `r04.member1@`. Only the مقرر may form a committee or pick its seats (2026-10-02). Record its identity card with a quorum rule | The five seated accounts gain the `إدارة الاجتماعات` group; the committee has exactly five members |
 | 1 | R01 employee | إرسال الطلب (`/requests/create`) | Fill, attach the (required) documents, submit | Stage 2 `مراجعة الطلب من المدير المباشر`, status `قيد المراجعة`; receipt `PM-RCV/…` |
 | 2 | R02 **as manager** | المهام المعلقة → request wizard | Checks: validity of every attachment. Choose: «موافقة وإحالة» (`forward`) | Stage 4 `الاستلام والتسجيل`, status `موجّه إلى الموارد البشرية` — one click; stage 3 is never visited |
 | 3 | R12 HR manager | المهام المعلقة → request wizard | Checks: prepare the employment file. Choose: «تسجيل الاستلام» (`register`) | Stage 5 `فحص استيفاء المتطلبات`, status `قيد المراجعة` — delivered to be checked, **no reference number yet** |
@@ -484,12 +484,13 @@ record waiting for a ruling shows up in `المهام المعلقة` as its own
 > المحاضر · المتابعة", and R02 held none of the four in bold. Stage 97 then took تسجيل النتيجة back to
 > the chair, and Stage 102 made scheduling R02's **alone**. Walk each:
 
-- [ ] **Schedule the month's meeting** for the committee this account sits on — a five-step modal
+- [ ] **Schedule this month's meeting** (at least one a month; R02's «المهام المعلقة» lists any committee still without one) for the committee this account sits on — a five-step modal
       that picks its requests from the pending list. The five seats are invited automatically and
       nobody else can be added; afterwards **mark attendance** ([D] Art. 15 (أ) أولًا 12-13، ثانيًا 1).
 - [ ] Scheduling for a committee this account does **not** sit on → **422**, naming `committee_id`.
-      A second meeting in the same calendar month, or a meeting for a committee with an empty
-      seat, is refused too.
+      A meeting for a committee with an empty seat is refused too; a second meeting in the same
+      calendar month is accepted.
+- [ ] **Form a committee and pick its seats** — R02 alone; R08 and the chair get 422.
 - [ ] **Build the agenda**: add (from the pending list only), reorder, apply [D] Art. 83's computed
       order, and remove items — until the chair adopts it. After adoption only an item's priority
       and time can change.
@@ -615,12 +616,10 @@ Sign in as `r03.head@abusaleem.test`.
 
 **B1 — Committees.**
 
-- [ ] On the committee R08 set up, **maintain the roster** (`meetings,edit`). **Creating** one is
-      not the chair's — `POST /api/committees` → **403**, since `meetings,add` is R02's alone.
-      Each of the five named seats is bound to a role, and seating someone without that role is
-      refused ([D] Art. 10's roster: رئيس، قانوني، مدير الموارد البشرية، مندوب الخدمة المدنية، مقرر).
-- [ ] Assigning `chair` forces the head flag. Two members cannot hold the same seat — try it and
-      confirm the refusal. The committee form and the «إدارة الأعضاء» roster open in modals.
+- [ ] The roster is **not** the chair's: on the committee R02 set up, adding or removing a seat
+      holder → **422** «اختيار أعضاء اللجنة من صلاحية المقرر وحده.», and **creating** one →
+      **403** (`meetings,add` is R02's alone). The chair keeps renaming and retiring the committee
+      (`meetings,edit`). The «إدارة الأعضاء» roster opens in a modal, read-only for the chair.
 - [ ] Record the committee's **identity card** ([D] Appendix 65): formation decision number and
       date, legal basis, minutes-approval body, and the quorum / majority / tie-break rules **in the
       text's own words alongside the structured form**.
@@ -628,10 +627,8 @@ Sign in as `r03.head@abusaleem.test`.
       with `قواعد اللجنة غير مثبتة`. This is deliberate: [D] Appendix 64 forbids the system
       inventing a quorum — "ولا يجوز للدليل إنشاء نسبة نصاب أو أغلبية من تلقاء نفسه". A committee
       showing a computed quorum it was never given is a **defect**.
-- [ ] Record `أكثر من نصف الأعضاء` while the creator's seatless row is still on the roster (six
-      active members — the quorum counts them all) → required quorum is **4**; with that row
-      removed (five) it is **3**.
-      (`لا يقل عن نصف` on six is 3 — the comparator is what distinguishes them.)
+- [ ] Record `أكثر من نصف الأعضاء` on the five-member committee → required quorum is **3** (the
+      creator holds the rapporteur seat, so there is no seatless row to count).
 - [ ] Deleting a committee that has meetings is refused; deactivate instead.
 
 **B2 — The meeting's date ([D] Arts. 23–24).**
@@ -1022,7 +1019,8 @@ Sign in as `r08.sysadmin@abusaleem.test` (leave `admin@abusaleem.test` untouched
       `الملاحظات والمرفقات` and the **five approval grant rows**, which have no page — they are
       rows on the Roles & Permissions grid only.
 - [ ] The whole `إدارة الاجتماعات` group (nine screens) **without a seat** — R08 is exempt from
-      the seat rule, because it is the role that builds the roster.
+      the seat rule. It no longer builds the roster: forming a committee and picking its seats are
+      the مقرر's alone (2026-10-02) → 422.
 - [ ] `المهام المعلقة` never lists anything under «بانتظار اعتمادك» — R08 holds no approval role.
       The group it does get is «طلبات متأخرة بانتظار التصعيد».
 
