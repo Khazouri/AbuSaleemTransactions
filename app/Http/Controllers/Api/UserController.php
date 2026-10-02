@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Http\Resources\UserResource;
+use App\Models\CommitteeMember;
 use App\Models\Department;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 /**
  * CRUD for user accounts (المستخدمون) — Stage 7.
@@ -40,6 +43,7 @@ class UserController extends Controller
     {
         $data = $request->safe()->except('role_ids');
         $data['password'] = Hash::make($data['password']);
+        $this->refuseSecondRapporteur(null, $request->validated('role_ids', []), $data['is_active'] ?? true);
 
         $user = User::create($data);
         $user->roles()->sync($request->validated('role_ids', []));
@@ -52,6 +56,11 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): UserResource
     {
         $data = $request->safe()->except(['role_ids', 'password']);
+        $this->refuseSecondRapporteur(
+            $user,
+            $request->has('role_ids') ? $request->validated('role_ids') : $user->roles()->pluck('roles.id')->all(),
+            $data['is_active'] ?? $user->is_active,
+        );
 
         // A blank/omitted password means "keep the current one" — only hash
         // and assign it when the admin actually typed a replacement.
@@ -84,6 +93,10 @@ class UserController extends Controller
             ], 422);
         }
 
+        if (! $user->is_active) {
+            $this->refuseSecondRapporteur($user, $user->roles()->pluck('roles.id')->all(), true);
+        }
+
         $user->update(['is_active' => ! $user->is_active]);
         $this->releaseHeadSlots($user);
 
@@ -107,6 +120,28 @@ class UserController extends Controller
         $this->releaseHeadSlots($user);
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * One مقرر in the system (user decision 2026-10-02): an account may be an
+     * active R02 holder only while nobody else is. A deactivated مقرر does not
+     * block a successor, so enabling them again is what clashes instead.
+     *
+     * @param  array<int|string>  $roleIds  the roles the user will hold
+     */
+    private function refuseSecondRapporteur(?User $user, array $roleIds, bool $active): void
+    {
+        $rapporteurRoleId = Role::query()->where('code', CommitteeMember::SEAT_ROLES['rapporteur'])->value('id');
+        if (! $active || ! in_array($rapporteurRoleId, array_map('intval', $roleIds), true)) {
+            return;
+        }
+
+        $holder = User::activeRapporteur($user?->id);
+        if ($holder !== null) {
+            throw ValidationException::withMessages([
+                'role_ids' => ["يوجد مقرر نشط في النظام بالفعل ({$holder->name})، يجب تعطيله أو نزع الدور منه أولاً."],
+            ]);
+        }
     }
 
     /**

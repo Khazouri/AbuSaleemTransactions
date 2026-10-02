@@ -52,7 +52,8 @@ class SeatDutyGrantTest extends TestCase
         $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $this->userWithRole('R03')->id, 'seat' => 'rapporteur'])
             ->assertStatus(422)
-            ->assertJsonPath('errors.user_id.0', 'هذا المقعد مقصور على من يحمل دور «المقرر».');
+            // The seat is never filled by hand now (Committee::seatRapporteur()).
+            ->assertJsonPath('errors.seat.0', 'مقعد المقرر يشغله مقرر النظام تلقائيًا.');
     }
 
     public function test_the_grant_starts_at_the_invitation_and_covers_only_meeting_duties(): void

@@ -187,6 +187,8 @@ const memberError = ref(null)
 // one (the server binds each seat to its role and derives the head from the
 // chair seat), so there is no seatless option and no separate head checkbox.
 const SEAT_CODES = ['chair', 'legal', 'hr_director', 'ministry_delegate', 'rapporteur']
+// The rapporteur seat is always the system's one مقرر, seated by the server.
+const ASSIGNABLE_SEATS = SEAT_CODES.filter((seat) => seat !== 'rapporteur')
 
 // Looked up by id rather than held as an object, so the modal shows the
 // refreshed roster after every add/remove reload.
@@ -532,7 +534,7 @@ onMounted(async () => {
         </select>
         <select v-model="memberSeat" required :aria-label="t('committees.seats.label')">
           <option value="">{{ t('committees.seats.choose') }}</option>
-          <option v-for="seat in SEAT_CODES" :key="seat" :value="seat" :disabled="Boolean(membersCommittee.seats?.[seat])">
+          <option v-for="seat in ASSIGNABLE_SEATS" :key="seat" :value="seat" :disabled="Boolean(membersCommittee.seats?.[seat])">
             {{ t(`committees.seats.${seat}`) }}
           </option>
         </select>

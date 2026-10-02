@@ -114,6 +114,16 @@ class MeetingController extends Controller
         $data = $request->validated();
         $actor = $request->user();
 
+        // One مقرر in the system (user decision 2026-10-02), seated here as
+        // well as at the committee's creation: a committee formed before the
+        // rule, or before the role changed hands, still invites today's مقرر.
+        $committee = Committee::query()->findOrFail($data['committee_id']);
+        if ($committee->seatRapporteur() === null) {
+            throw ValidationException::withMessages([
+                'committee_id' => ['لا يمكن جدولة اجتماع قبل تعيين مقرر نشط في النظام.'],
+            ]);
+        }
+
         $isSystemAdmin = $actor->roles()->where('code', 'R08')->exists();
         $isCommitteeMember = CommitteeMember::query()
             ->where('committee_id', $data['committee_id'])
@@ -130,7 +140,6 @@ class MeetingController extends Controller
         // meeting invites exactly them: no sitting until every seat is held by
         // an active user. The chair and rapporteur of the sitting are whoever
         // holds those seats, never picked per meeting.
-        $committee = Committee::query()->findOrFail($data['committee_id']);
         $seats = $committee->activeMembers()->whereNotNull('seat')->get()->keyBy('seat');
         if ($seats->count() < count(CommitteeMember::SEATS)) {
             throw ValidationException::withMessages([

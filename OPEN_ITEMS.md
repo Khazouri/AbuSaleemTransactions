@@ -43,6 +43,9 @@ Not checked: what `DecisionTally` does with the extra member under each majority
 whether the quorum base is the five seats (`whereNotNull('seat')`, as `MeetingController::store()` already
 reads them) or the whole roster, and either count seats only or drop the creator's row once five seats are
 filled.
+**Narrowed (2026-10-02, one مقرر in the system).** A committee now seats the system's مقرر in the rapporteur
+seat at creation, so when the مقرر creates it (the usual case) there is no seatless row. A creator who is
+not the مقرر (R08) still gets one, so the quorum question above stands for that case.
 
 ### `TEST_PLAN*.md` still describe the pre-wizard UI — docs refresh — opened 2026-10-02
 **Resolved (2026-10-02, test-plan refresh).** All four plans re-derived from the seeders, `routes/api.php`,

@@ -60,12 +60,16 @@ class CommitteeController extends Controller
      * `meetings,add` is held by R02 (المقرر) as well as R03, and making the
      * rapporteur the chair would be a governance claim this action has no
      * business making. addMember() still assigns the chair seat explicitly.
+     *
+     * The system's مقرر is seated in the rapporteur seat first (user decision
+     * 2026-10-02), so when they are the creator that is their one row.
      */
     public function store(StoreCommitteeRequest $request): JsonResponse
     {
         $committee = DB::transaction(function () use ($request) {
             $committee = Committee::create($request->validated());
-            $committee->members()->create(['user_id' => $request->user()->id]);
+            $committee->seatRapporteur();
+            $committee->members()->firstOrCreate(['user_id' => $request->user()->id]);
 
             return $committee;
         });

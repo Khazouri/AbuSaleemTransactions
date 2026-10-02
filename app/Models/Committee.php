@@ -92,6 +92,32 @@ class Committee extends Model
         return CommitteeVotingRules::fromCommittee($this);
     }
 
+    /**
+     * Seat the system's مقرر in the rapporteur seat (user decision 2026-10-02),
+     * so every meeting invites them without anyone seating them by hand. A
+     * holder who is still an active R02 is kept; anyone else in the seat (the
+     * role was handed over, or they were deactivated) is replaced. Null when
+     * the system has no active مقرر.
+     */
+    public function seatRapporteur(): ?User
+    {
+        $seated = $this->members()->where('seat', 'rapporteur')->with('user.roles')->first();
+        $rapporteurRole = CommitteeMember::SEAT_ROLES['rapporteur'];
+        if ($seated?->user?->is_active && $seated->user->hasRole($rapporteurRole)) {
+            return $seated->user;
+        }
+
+        $rapporteur = User::activeRapporteur();
+        if ($rapporteur === null) {
+            return null;
+        }
+
+        $seated?->delete();
+        $this->members()->updateOrCreate(['user_id' => $rapporteur->id], ['seat' => 'rapporteur', 'is_head' => false]);
+
+        return $rapporteur;
+    }
+
     /** Members currently eligible to be invited to a new meeting. */
     public function activeMembers(): HasMany
     {

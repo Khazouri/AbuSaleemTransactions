@@ -128,7 +128,9 @@ class CommitteeSeatRosterTest extends TestCase
     /**
      * Stage 102 bound every seat to its role (CommitteeMember::SEAT_ROLES);
      * 2026-10-02 narrowed that to the rapporteur seat, and a stand-in in any
-     * other seat carries its role's meeting duties while invited.
+     * other seat carries its role's meeting duties while invited. Later the
+     * same day the rapporteur seat stopped being fillable by hand at all: it
+     * is always the system's one مقرر (Committee::seatRapporteur()).
      */
     public function test_only_the_rapporteur_seat_is_bound_to_its_role(): void
     {
@@ -141,12 +143,12 @@ class CommitteeSeatRosterTest extends TestCase
         $member = $this->userWithRole('R04');
         $hr = $this->userWithRole('R12');
 
-        // Since 2026-10-02 only the rapporteur seat (المقرر, the inviter) stays
-        // bound; any other seat may go to a stand-in (SeatDutyGrant).
+        // The rapporteur seat is the system's مقرر's alone; any other seat may
+        // go to a stand-in (SeatDutyGrant).
         $this->actingAs($chair, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'rapporteur'])
             ->assertStatus(422)
-            ->assertJsonPath('errors.user_id.0', 'هذا المقعد مقصور على من يحمل دور «المقرر».');
+            ->assertJsonPath('errors.seat.0', 'مقعد المقرر يشغله مقرر النظام تلقائيًا.');
 
         $this->actingAs($chair, 'sanctum')
             ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'hr_director'])

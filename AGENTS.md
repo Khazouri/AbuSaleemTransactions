@@ -100,8 +100,12 @@ Key architectural facts worth knowing before changing things:
   deferral puts it back. Agenda items are `employee_request` or `appeal` only.
   A committee is its five Art. 10 (أ) seats, each tied to a role
   (`CommitteeMember::SEAT_ROLES`: chair R03, legal R11, hr_director R12,
-  ministry_delegate R04, rapporteur R02). Only the rapporteur seat requires
-  holding its role (user decision 2026-10-02): a stand-in in any other seat
+  ministry_delegate R04, rapporteur R02). There is one مقرر in the system: at
+  most one active R02 holder (`UserController` refuses a second, including
+  re-enabling a former one), and `Committee::seatRapporteur()` puts that
+  person in every committee's rapporteur seat at creation and again at
+  scheduling, so it is never filled by hand (user decision 2026-10-02). A
+  stand-in in any other seat
   carries that role's grants on the seven meeting-duty screens, plus its
   workflow rows on its own meeting's requests, from the invitation until every
   meeting it was invited to is concluded and none of the files it decided is

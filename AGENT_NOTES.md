@@ -19,6 +19,30 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-02 17:45 EET — Claude — One مقرر in the system, auto-seated on every committee (complete)
+
+Built per the plan below; no migration. `User::activeRapporteur()` is the one active R02 holder; `UserController`
+refuses a second on store/update/toggle-active (an inactive holder does not block, re-enabling one does).
+`Committee::seatRapporteur()` keeps a still-valid holder and otherwise replaces the seat's occupant; it runs in
+`CommitteeController::store()` and before `MeetingController::store()`'s membership check, which refuses with no مقرر.
+`addMember` no longer accepts `seat=rapporteur`, so the R02 role rule there is gone. In the SPA, the add-member picker
+drops that seat and the scheduling wizard no longer blocks on it. Two tests that pinned the old manual rule were updated
+in place. Verified: new `SingleRapporteurTest` (6, RED then GREEN), full suite 822 + 9 + 13 green, Pint clean, build
+passes (`dist` committed), parity 2086, `aislop ci` exit 0. The real DB already holds exactly one R02 (`r02.reviewer@`);
+committee #16's seat is filled at its next scheduling. Not checked in a browser.
+
+---
+### 2026-10-02 17:20 EET — Claude — Implementation plan: one مقرر in the system, auto-seated on every committee
+
+User: «there can be only one مقرر in the system and he is auto invited to every meeting»; put to the user and answered:
+only an **active** R02 holder blocks another, and re-enabling a former مقرر is refused while another is active. Plan:
+`UserController` store/update/toggle-active refuse (422) a state where two active users hold R02. A new
+`Committee::seatRapporteur()` puts the current active R02 holder in the rapporteur seat (replacing a stale holder). It
+runs on committee creation and again in `MeetingController::store()`, so every meeting invites the مقرر; with no مقرر,
+scheduling is refused. Manual rapporteur seating via `addMember` is refused. No migration, no frontend change. Verify:
+new feature test, full PHPUnit, Pint, aislop ci.
+
+---
 ### 2026-10-02 17:00 EET — Claude — aislop scanner adopted (complete)
 
 Built per the plan below. `.aislop/config.yml` (pinned 0.16.1, `failBelow: 85`, telemetry off) raises the score from

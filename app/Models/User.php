@@ -169,6 +169,21 @@ class User extends Authenticatable
     }
 
     /**
+     * The system's one مقرر (user decision 2026-10-02): the active R02 holder.
+     * UserController refuses a second active one, so ordering by id only
+     * matters for rows written around that endpoint (seeders, fixtures).
+     */
+    public static function activeRapporteur(?int $exceptUserId = null): ?self
+    {
+        return static::query()
+            ->where('is_active', true)
+            ->whereHas('roles', fn ($roles) => $roles->where('code', CommitteeMember::SEAT_ROLES['rapporteur']))
+            ->when($exceptUserId, fn ($query, int $id) => $query->whereKeyNot($id))
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
      * Does ANY of the user's roles grant this capability?
      *
      * Effective permissions are the union across all their roles: holding both

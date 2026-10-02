@@ -96,7 +96,8 @@ const step2Valid = computed(() =>
 // --- Step 3: the five seats ---------------------------------------------------
 
 const seats = computed(() => selectedCommittee.value?.seats ?? {})
-const allSeatsFilled = computed(() => SEAT_CODES.every((seat) => seats.value[seat]))
+// An empty rapporteur seat does not block: scheduling seats the system's مقرر.
+const allSeatsFilled = computed(() => SEAT_CODES.every((seat) => seat === 'rapporteur' || seats.value[seat]))
 
 // --- Step 4: review & agenda order -------------------------------------------
 
