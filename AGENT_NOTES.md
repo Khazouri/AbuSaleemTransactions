@@ -19,6 +19,28 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-03 10:20 EET — Claude — Test button: 5 random requests per reachable stage (complete)
+
+Built per the plan below. The maintenance console's «توليد طلبات تجريبية» (`db:seed:test-requests`, debug-only) runs
+`TestRequestSeeder`, which adds 40 requests (8 stages × 5) filed by random active R01 holders who have a manager. With
+no such user it warns and does nothing, so "Seed test users" comes first. The rows are inserted at their stage: files
+at committee or approval stages have no meeting, decision or Approval rows behind them. Verified: new
+`TestRequestSeederTest` (RED then GREEN) and a MaintenanceConsoleTest case, full suite 855 / 5585 green, Pint clean,
+`aislop ci` exit 0 (97). The catalog file now draws a non-blocking `file-too-large` warning. Not run against the real
+database: clicking the button is left to the user.
+
+---
+### 2026-10-03 10:00 EET — Claude — Implementation plan: a test button that generates 5 random requests per stage
+
+User: «make a test button that generates me 5 random request for each stage». Decisions put to the user and answered:
+the requests are inserted directly at the stage (no gates walked), the button sits on the maintenance console, and
+only reachable stages are covered (3 and 6–8 are skipped), so one click adds 8 × 5 = 40 requests. Plan: a new
+`TestRequestSeeder` (a random active R01 holder with a manager as filer, a random type, PM-RCV for every request and
+PM-COM from `receive_from_committee` on, one stage-log row and one status-history row, no notifications). It gets a
+`debug_only` catalog entry `db:seed:test-requests` modelled on `db:seed:test-users`. No frontend, route or migration.
+Verify: new `TestRequestSeederTest`, a MaintenanceConsoleTest case, full PHPUnit, Pint, aislop ci.
+
+---
 ### 2026-10-03 09:20 EET — Claude — The employee sees their manager and department; «المسؤول الحالي» names the person (complete)
 
 Built per the plan below; no migration. Login and `/auth/me` load `manager:id,name`, and the topbar's user menu shows

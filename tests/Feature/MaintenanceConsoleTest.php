@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\MaintenanceRun;
+use App\Models\Request;
 use App\Models\Role;
 use App\Models\Screen;
 use App\Models\ScreenRolePermission;
 use App\Models\User;
 use App\Services\Maintenance\MaintenanceCommandCatalog;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\TestRequestSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -52,6 +54,28 @@ class MaintenanceConsoleTest extends TestCase
             ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-users'])
             ->assertOk();
         $this->assertNotNull(User::query()->where('email', 'r01.employee@abusaleem.test')->first());
+    }
+
+    /** Fabricated requests are offered and accepted only while APP_DEBUG is on. */
+    public function test_the_test_request_generator_exists_only_when_app_debug_is_on(): void
+    {
+        config()->set('app.debug', true);
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-users'])
+            ->assertOk();
+
+        config()->set('app.debug', false);
+        $this->assertNotContains('db:seed:test-requests', MaintenanceCommandCatalog::codes());
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-requests'])
+            ->assertStatus(422);
+        $this->assertSame(0, Request::count());
+
+        config()->set('app.debug', true);
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-requests'])
+            ->assertOk();
+        $this->assertSame(count(TestRequestSeeder::STAGES) * 5, Request::count());
     }
 
     public function test_the_screen_reports_the_hosts_own_limits_and_the_command_catalogue(): void
