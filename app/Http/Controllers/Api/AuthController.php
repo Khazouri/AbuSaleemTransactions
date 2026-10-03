@@ -73,7 +73,7 @@ class AuthController extends Controller
             // on the very first navigation after signing in — without it the
             // SPA holds an empty permission set until the next page refresh,
             // and every screen (including the dashboard) looks forbidden.
-            'user' => (new UserResource($user->load('roles', 'department')))->withPermissions(),
+            'user' => (new UserResource($user->load('roles', 'department', 'manager:id,name')))->withPermissions(),
         ]);
     }
 
@@ -85,7 +85,7 @@ class AuthController extends Controller
     public function me(Request $request): UserResource
     {
         return (new UserResource(
-            $request->user()->load('roles', 'department'),
+            $request->user()->load('roles', 'department', 'manager:id,name'),
         ))->withPermissions();
     }
 

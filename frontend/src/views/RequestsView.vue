@@ -236,7 +236,9 @@ onMounted(async () => {
               </td>
               <td>
                 <span v-if="request.responsibility" class="responsibility">
-                  <strong>{{ t(`lifecycle.responsibility.parties.${request.responsibility.responsible.code}`) }}</strong>
+                  <strong>
+                    {{ t(`lifecycle.responsibility.parties.${request.responsibility.responsible.code}`) }}<template v-if="request.responsibility.responsible.names?.length"> — {{ request.responsibility.responsible.names.join(' / ') }}</template>
+                  </strong>
                   <small>{{ t(`lifecycle.responsibility.actions.${request.responsibility.next_action.code}`) }}</small>
                 </span>
               </td>

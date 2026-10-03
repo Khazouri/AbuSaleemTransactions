@@ -19,6 +19,31 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-03 09:20 EET — Claude — The employee sees their manager and department; «المسؤول الحالي» names the person (complete)
+
+Built per the plan below; no migration. Login and `/auth/me` load `manager:id,name`, and the topbar's user menu shows
+الإدارة and المدير المباشر (new `account.manager`). `responsibility.responsible.names` lists صاحب العلاقة's live manager
+(via `WorkflowService::subjectsLiveManagerId()`, now public) or the active R12 holders, shown after the label on the
+request page, the requests list and «متابعة طلباتي». R12 → `hr_department` fixed `receive_and_register`. **One addition
+beyond the plan:** the manager check now also reads exception rows, so the two real files parked at the retired
+`administrative_routing` stage (whose only exit is the manager-gated `route_to_hr`) read الرئيس المباشر instead of
+«قسم شؤون الموظفين». Verified: 4 new `RequestResponsibilityTest` cases (RED then GREEN), full suite green, Pint clean,
+build passes (`dist` committed), parity 2088, `aislop ci` exit 0. A live GET as r01.employee@ confirmed the payloads. Not
+checked in a browser.
+
+---
+### 2026-10-03 08:43 EET — Claude — Implementation plan: the employee sees their manager and department; «المسؤول الحالي» names the person
+
+User: «the employee should be able to see his manager account name and his department», and at the direct manager / HR
+director stage «clarify the name of the account». Plan: `/auth/me` and login also load `manager` (UserResource already
+shapes it), and the topbar's user menu shows the department and the manager. `RequestResponsibilityService::for()` adds
+`responsible.names`: صاحب العلاقة's live manager at the manager-gated stage (reusing
+`WorkflowService::subjectsLiveManagerId()`, now public), and the active R12 holders when an R12 rule decides the party.
+`ROLE_TO_PARTY` gains R12 → `hr_department`; without it `receive_and_register` read «قسم شؤون الموظفين». The three views
+that render responsibility append the names. No migration. Verify: RequestResponsibilityTest cases, an auth/me case, full
+PHPUnit, Pint, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-02 19:20 EET — Claude — The committee is a group the مقرر picks, not a department (complete)
 
 Built per the plan below; no migration. `DepartmentSeeder` no longer seeds CMT and soft-deletes an existing row after

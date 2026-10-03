@@ -4,7 +4,9 @@ namespace App\Services\Lifecycle;
 
 use App\Models\Request;
 use App\Models\Role;
+use App\Models\User;
 use App\Models\WorkflowTransition;
+use App\Services\WorkflowService;
 use Illuminate\Support\Collection;
 
 /**
@@ -132,6 +134,10 @@ class RequestResponsibilityService
         'R09' => 'staff_affairs',
         'R10' => 'diwan_deputy',
         'R11' => 'legal_member',
+        // R12 holds the `register` row at receive_and_register (Stage 96 left
+        // it the only registering party); without this the stage fell through
+        // to «قسم شؤون الموظفين», a desk that no longer handles the file.
+        'R12' => 'hr_department',
     ];
 
     /**
@@ -218,6 +224,9 @@ class RequestResponsibilityService
     /** @var array<int, string>|null role id => role code */
     private ?array $roleCodes = null;
 
+    /** @var list<string>|null */
+    private ?array $hrDirectorNames = null;
+
     /**
      * Appendix 17's المسؤول الحالي and Appendix 18's الإجراء التالي for one
      * request, both always answered.
@@ -226,7 +235,7 @@ class RequestResponsibilityService
      * everywhere this is read.
      *
      * @return array{
-     *     responsible: array{code: string, ar: string, en: string},
+     *     responsible: array{code: string, ar: string, en: string, names: list<string>},
      *     next_action: array{code: string, ar: string, en: string}
      * }
      */
@@ -235,7 +244,9 @@ class RequestResponsibilityService
         $statusCode = $requestRecord->status?->code;
         $stageCode = $requestRecord->currentStage?->code;
 
-        $party = self::STATUS_TO_PARTY[$statusCode] ?? $this->partyFromStage($requestRecord);
+        [$party, $roleCode] = isset(self::STATUS_TO_PARTY[$statusCode])
+            ? [self::STATUS_TO_PARTY[$statusCode], null]
+            : $this->partyFromStage($requestRecord);
         $action = self::STATUS_TO_NEXT_ACTION[$statusCode]
             ?? self::STAGE_TO_NEXT_ACTION[$stageCode]
             // Never empty: a request with neither a mapped status nor a known
@@ -244,9 +255,45 @@ class RequestResponsibilityService
             ?? 'completeness_check';
 
         return [
-            'responsible' => ['code' => $party] + self::PARTIES[$party],
+            'responsible' => ['code' => $party] + self::PARTIES[$party]
+                + ['names' => $this->names($requestRecord, $party, $roleCode)],
             'next_action' => ['code' => $action] + self::NEXT_ACTIONS[$action],
         ];
+    }
+
+    /**
+     * The people behind the label, where the label alone leaves صاحب العلاقة
+     * asking "who?": their own manager at the manager-gated hop, and the HR
+     * director when an R12 rule owns the stage. Every other party is a body
+     * (a committee, a ministry) rather than one account, so it names nobody.
+     *
+     * The manager is read through WorkflowService's own live-manager rule, so
+     * the name shown is always the person the gate will actually let act.
+     *
+     * @return list<string>
+     */
+    private function names(Request $requestRecord, string $party, ?string $roleCode): array
+    {
+        if ($party === 'direct_manager') {
+            // ponytail: two queries per row at direct_manager_review on a list
+            // page; batch the managers per page if lists ever get slow.
+            $managerId = app(WorkflowService::class)->subjectsLiveManagerId($requestRecord);
+
+            return $managerId === null ? [] : [User::query()->whereKey($managerId)->value('name')];
+        }
+
+        return $roleCode === 'R12' ? $this->hrDirectorNames() : [];
+    }
+
+    /** @return list<string> */
+    private function hrDirectorNames(): array
+    {
+        return $this->hrDirectorNames ??= User::query()
+            ->where('is_active', true)
+            ->whereHas('roles', fn ($query) => $query->where('roles.code', 'R12'))
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
     }
 
     /**
@@ -267,13 +314,19 @@ class RequestResponsibilityService
      * `requires_submitter_manager` is read as الرئيس المباشر directly rather
      * than through a role, because that gate names a person by relationship
      * (Stage 3's `users.manager_id`) and carries no `required_role_id` at all.
+     *
+     * Returns the party with the role code that decided it, since two roles
+     * share a party (R05 and R12 are both hr_department) and only R12's
+     * holders are the people to name.
+     *
+     * @return array{0: string, 1: ?string}
      */
-    private function partyFromStage(Request $requestRecord): string
+    private function partyFromStage(Request $requestRecord): array
     {
         $stage = $requestRecord->currentStage;
 
         if ($stage === null) {
-            return 'staff_affairs';
+            return ['staff_affairs', null];
         }
 
         $applicable = $this->rules()->filter(
@@ -281,45 +334,46 @@ class RequestResponsibilityService
                 && ($rule->request_type_id === null || $rule->request_type_id === $requestRecord->request_type_id)
         );
 
+        // Exception rows count here and nowhere else: the retired
+        // administrative_routing stage is left only through the manager-gated
+        // `route_to_hr` exception, so a file parked there is still the
+        // manager's, while R08's exception overrides name nobody's duty.
         if ($applicable->contains(fn (WorkflowTransition $rule) => (bool) $rule->requires_submitter_manager)) {
-            return 'direct_manager';
+            return ['direct_manager', null];
         }
+
+        $applicable = $applicable->reject(fn (WorkflowTransition $rule) => (bool) $rule->is_exception);
 
         // `submit` after a manager's return is the filer's own move.
         if ($applicable->contains(fn (WorkflowTransition $rule) => (bool) $rule->requires_creator)) {
-            return 'employee';
+            return ['employee', null];
         }
 
         foreach ($applicable as $rule) {
-            $party = $this->partyForRoleId($rule->required_role_id);
+            $code = $this->roleCode($rule->required_role_id);
 
-            if ($party !== null) {
-                return $party;
+            if (isset(self::ROLE_TO_PARTY[$code])) {
+                return [self::ROLE_TO_PARTY[$code], $code];
             }
         }
 
         // The stage's own seeded owner, rather than reporting nobody — which
         // is the one answer Appendix 17 rules out.
-        return $this->partyForRoleId($stage->responsible_role_id) ?? 'staff_affairs';
+        $code = $this->roleCode($stage->responsible_role_id);
+
+        return [self::ROLE_TO_PARTY[$code] ?? 'staff_affairs', $code];
     }
 
-    private function partyForRoleId(?int $roleId): ?string
+    private function roleCode(?int $roleId): ?string
     {
-        if ($roleId === null) {
-            return null;
-        }
-
-        $code = $this->roleCodes()[$roleId] ?? null;
-
-        return $code === null ? null : (self::ROLE_TO_PARTY[$code] ?? null);
+        return $roleId === null ? null : ($this->roleCodes()[$roleId] ?? null);
     }
 
     /** @return Collection<int, WorkflowTransition> */
     private function rules(): Collection
     {
         return $this->rules ??= WorkflowTransition::query()
-            ->where('is_exception', false)
-            ->get(['from_stage_id', 'request_type_id', 'required_role_id', 'requires_submitter_manager', 'requires_creator']);
+            ->get(['from_stage_id', 'request_type_id', 'required_role_id', 'requires_submitter_manager', 'requires_creator', 'is_exception']);
     }
 
     /** @return array<int, string> */

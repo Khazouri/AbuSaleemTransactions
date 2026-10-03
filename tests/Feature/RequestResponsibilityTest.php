@@ -86,6 +86,71 @@ class RequestResponsibilityTest extends TestCase
         $this->assertSame('manager_review', $answer['next_action']['code']);
     }
 
+    /**
+     * A role label tells صاحب العلاقة which desk, not which person; at the
+     * manager's stage the person is known, so it is named — and only while
+     * that manager is live, the same rule the gate itself applies.
+     */
+    public function test_the_manager_gated_stage_names_the_subjects_live_manager(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $requestRecord = $this->requestAt('direct_manager_review', 'in_review');
+        $manager = User::factory()->create(['is_active' => true, 'name' => 'مدير الاختبار']);
+        $requestRecord->subject->update(['manager_id' => $manager->id]);
+        $service = app(RequestResponsibilityService::class);
+
+        $this->assertSame(['مدير الاختبار'], $service->for($requestRecord)['responsible']['names']);
+
+        $manager->update(['is_active' => false]);
+
+        $this->assertSame([], $service->for($requestRecord)['responsible']['names']);
+    }
+
+    /**
+     * A file parked at the retired routing stage leaves only through the
+     * manager-gated `route_to_hr` exception row, so it is the manager's too.
+     */
+    public function test_the_legacy_routing_stage_is_still_the_managers(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $answer = app(RequestResponsibilityService::class)
+            ->for($this->requestAt('administrative_routing', 'in_review'));
+
+        $this->assertSame('direct_manager', $answer['responsible']['code']);
+    }
+
+    /** R12 registers the file, so the HR department is named there, not شؤون الموظفين. */
+    public function test_the_registration_stage_names_the_hr_director(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $director = User::factory()->create(['is_active' => true, 'name' => 'مدير الموارد البشرية للاختبار']);
+        $director->roles()->attach(Role::where('code', 'R12')->value('id'));
+
+        $answer = app(RequestResponsibilityService::class)
+            ->for($this->requestAt('receive_and_register', 'routed_to_hr'));
+
+        $this->assertSame('hr_department', $answer['responsible']['code']);
+        $this->assertContains('مدير الموارد البشرية للاختبار', $answer['responsible']['names']);
+    }
+
+    /** The employee's own account answers who their manager is and where they sit. */
+    public function test_the_signed_in_user_payload_carries_the_manager_and_department(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $manager = User::factory()->create(['is_active' => true, 'name' => 'مدير الاختبار']);
+        $employee = User::factory()->create([
+            'is_active' => true,
+            'manager_id' => $manager->id,
+            'department_id' => Department::where('code', 'ADM')->value('id'),
+        ]);
+
+        $this->actingAs($employee, 'sanctum')
+            ->getJson('/api/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.manager.name', 'مدير الاختبار')
+            ->assertJsonPath('data.department.code', 'ADM');
+    }
+
     public function test_a_concluded_file_reports_the_archive_and_no_action_required(): void
     {
         $this->seed(DatabaseSeeder::class);

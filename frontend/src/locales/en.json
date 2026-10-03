@@ -32,6 +32,7 @@
     "name": "Name",
     "email": "Email",
     "department": "Department",
+    "manager": "Direct manager",
     "roles": "Roles"
   },
   "common": {

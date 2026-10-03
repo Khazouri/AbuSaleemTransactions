@@ -644,7 +644,7 @@ class WorkflowService
      * soft-deleted — the default scope excludes trashed rows — and active),
      * else null. A dangling link counts as no manager.
      */
-    private function subjectsLiveManagerId(Request $requestRecord): ?int
+    public function subjectsLiveManagerId(Request $requestRecord): ?int
     {
         $managerId = $requestRecord->subject_user_id === null
             ? null

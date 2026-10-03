@@ -278,7 +278,9 @@ function onWizardUpdated(updated) {
       <section v-if="request.responsibility" class="routing-slip">
         <div>
           <span>{{ t('lifecycle.responsibility.label') }}</span>
-          <strong>{{ t(`lifecycle.responsibility.parties.${request.responsibility.responsible.code}`) }}</strong>
+          <strong>
+            {{ t(`lifecycle.responsibility.parties.${request.responsibility.responsible.code}`) }}<template v-if="request.responsibility.responsible.names?.length"> — {{ request.responsibility.responsible.names.join(' / ') }}</template>
+          </strong>
         </div>
         <div>
           <span>{{ t('lifecycle.responsibility.nextAction') }}</span>

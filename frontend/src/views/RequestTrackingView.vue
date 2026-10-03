@@ -210,7 +210,9 @@ onMounted(() => load())
           <dl class="answers">
             <div>
               <dt>{{ t('lifecycle.responsibility.label') }}</dt>
-              <dd>{{ row.request.responsibility?.responsible?.[locale === 'ar' ? 'ar' : 'en'] || t('common.none') }}</dd>
+              <dd>
+                {{ row.request.responsibility?.responsible?.[locale === 'ar' ? 'ar' : 'en'] || t('common.none') }}<template v-if="row.request.responsibility?.responsible?.names?.length"> — {{ row.request.responsibility.responsible.names.join(' / ') }}</template>
+              </dd>
             </div>
             <div>
               <dt>{{ t('lifecycle.responsibility.nextAction') }}</dt>

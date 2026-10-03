@@ -266,6 +266,10 @@ async function signOut() {
               <div class="who">
                 <strong>{{ auth.user?.name }}</strong>
                 <small v-if="auth.user?.email" class="ltr">{{ auth.user.email }}</small>
+                <small v-if="auth.user?.department">
+                  {{ t('account.department') }}: {{ locale === 'ar' ? auth.user.department.name_ar : auth.user.department.name_en }}
+                </small>
+                <small>{{ t('account.manager') }}: {{ auth.user?.manager?.name ?? t('users.noManager') }}</small>
               </div>
             </div>
 
