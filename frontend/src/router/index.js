@@ -133,6 +133,13 @@ const routes = [
         meta: { screenCode: 'settings' },
       },
       {
+        // Stage 103 — R08 names the مقرر, the مقرر names the other seat holders.
+        path: 'committee-roles',
+        name: 'committee_roles',
+        component: () => import('../views/CommitteeRolesView.vue'),
+        meta: { screenCode: 'committee_roles' },
+      },
+      {
         // Stage 10 — reusable bilingual text templates.
         path: 'templates',
         name: 'templates',

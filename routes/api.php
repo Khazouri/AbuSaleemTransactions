@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\CommitteeCandidateController;
 use App\Http\Controllers\Api\CommitteeController;
+use App\Http\Controllers\Api\CommitteeRoleController;
 use App\Http\Controllers\Api\ConflictOfInterestController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DecisionController;
@@ -42,6 +43,7 @@ use App\Http\Controllers\Api\ScreenRolePermissionController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\UserController;
+use App\Models\CommitteeMember;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -239,6 +241,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->put('settings/{setting}', [SettingController::class, 'update']);
     Route::middleware('screen.permission:settings,delete')
         ->delete('settings/{setting}', [SettingController::class, 'destroy']);
+
+    // Stage 103 — «أدوار اللجنة»: R08 names the مقرر, the مقرر names the rest.
+    Route::middleware('screen.permission:committee_roles,view')
+        ->get('committee-roles', [CommitteeRoleController::class, 'index']);
+    Route::middleware('screen.permission:committee_roles,edit')
+        ->put('committee-roles/{seat}', [CommitteeRoleController::class, 'assign'])
+        ->whereIn('seat', CommitteeMember::SEATS);
 
     Route::middleware('screen.permission:templates,view')
         ->get('templates', [TemplateController::class, 'index']);
@@ -564,8 +573,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:meetings,edit')->group(function () {
         Route::patch('committees/{committee}/toggle-active', [CommitteeController::class, 'toggleActive']);
         Route::put('committees/{committee}', [CommitteeController::class, 'update']);
-        Route::post('committees/{committee}/members', [CommitteeController::class, 'addMember']);
-        Route::delete('committees/{committee}/members/{member}', [CommitteeController::class, 'removeMember']);
     });
     Route::middleware('screen.permission:meetings,delete')
         ->delete('committees/{committee}', [CommitteeController::class, 'destroy']);

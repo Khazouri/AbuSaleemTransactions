@@ -21,7 +21,8 @@ use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
- * A stand-in seat holder — someone المقرر seats without the seat's role —
+ * A stand-in seat holder — someone still seated after the seat's role passed
+ * to someone else (Stage 103: the seat follows at the next scheduling) —
  * carries that role's meeting duties while invited, and loses them once every
  * meeting they were invited to is concluded and nothing it decided is still
  * waiting on an approving body (user decision 2026-10-02).
@@ -37,23 +38,6 @@ class SeatDutyGrantTest extends TestCase
         parent::setUp();
 
         $this->seed(DatabaseSeeder::class);
-    }
-
-    public function test_any_user_may_be_seated_except_in_the_rapporteur_seat(): void
-    {
-        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
-        $rapporteur = $this->userWithRole('R02');
-        $committee->members()->create(['user_id' => $rapporteur->id]);
-
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $this->userWithRole('R01')->id, 'seat' => 'chair'])
-            ->assertCreated();
-
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $this->userWithRole('R03')->id, 'seat' => 'rapporteur'])
-            ->assertStatus(422)
-            // The seat is never filled by hand now (Committee::seatRapporteur()).
-            ->assertJsonPath('errors.seat.0', 'مقعد المقرر يشغله مقرر النظام تلقائيًا.');
     }
 
     public function test_the_grant_starts_at_the_invitation_and_covers_only_meeting_duties(): void

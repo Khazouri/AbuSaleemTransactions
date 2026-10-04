@@ -132,6 +132,7 @@
     "noDepartment": "No department",
     "manager": "Direct manager",
     "noManager": "No direct manager",
+    "seatRoleHint": "Committee roles (the rapporteur and members) are assigned on the Committee Roles page.",
     "managerHint": "Only the direct manager may delegate this employee's requests. With none assigned, their requests stall at direct manager review and nobody can move them on.",
     "roles": "Roles",
     "empty": "No users yet.",
@@ -177,6 +178,18 @@
     "enabled": "Enabled",
     "customRoleHint": "A new role grants screen access only; workflow steps stay with the built-in roles.",
     "roleSaveFailed": "The role could not be saved. Please try again."
+  },
+  "committeeRoles": {
+    "title": "Committee Roles",
+    "subtitle": "The system admin names the rapporteur, and the rapporteur names the other committee members. Each role has one holder, seated when a committee is formed or its next meeting is scheduled.",
+    "seat": "Seat",
+    "role": "Role",
+    "holder": "Current holder",
+    "vacant": "Vacant",
+    "assign": "Assign",
+    "assignTitle": "Assign {seat}",
+    "chooseUser": "— Choose a user —",
+    "replaces": "{name} will lose this role."
   },
   "settings": {
     "title": "General Settings",
@@ -845,23 +858,19 @@
     "empty": "No committees yet.",
     "members": "members",
     "meetingsHeld": "meetings",
-    "manageMembers": "Manage members",
-    "addMember": "Add",
-    "chooseUser": "— Choose a user —",
+    "manageMembers": "Committee members",
+    "membersHint": "Each seat is held by its role's holder in the system, named on the Committee Roles page.",
     "head": "Head",
-    "removeMember": "Remove",
     "noMembers": "No members yet.",
     "cannotDeleteHasMeetings": "A committee that has held meetings cannot be deleted.",
     "rapporteurVotes": "The rapporteur votes too (per the committee's formation decision)",
     "seats": {
-      "label": "Seat",
       "empty": "Vacant",
       "chair": "Chair",
       "legal": "Legal affairs member",
       "hr_director": "HR director member",
       "ministry_delegate": "Ministry of Local Governance delegate",
-      "rapporteur": "Committee rapporteur",
-      "choose": "— Choose a seat —"
+      "rapporteur": "Committee rapporteur"
     },
     "card": {
       "title": "Committee identity card",

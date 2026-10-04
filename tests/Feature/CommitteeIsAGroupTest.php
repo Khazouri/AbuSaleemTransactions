@@ -64,24 +64,16 @@ class CommitteeIsAGroupTest extends TestCase
 
         $chair = $this->userWith('R03');
         $this->seatOn(Committee::findOrFail($committeeId), $chair, ['seat' => 'chair', 'is_head' => true]);
-        $legal = $this->userWith('R11');
+        $legal = User::factory()->create();
 
+        // Stage 103 — members are picked on «أدوار اللجنة», not per committee.
         // The chair holds meetings,edit and sits on the committee, yet may not pick.
         $this->actingAs($chair, 'sanctum')
-            ->postJson("/api/committees/{$committeeId}/members", ['user_id' => $legal->id, 'seat' => 'legal'])
-            ->assertStatus(422);
-
-        $memberId = $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committees/{$committeeId}/members", ['user_id' => $legal->id, 'seat' => 'legal'])
-            ->assertCreated()
-            ->json('data.id');
-
-        $this->actingAs($chair, 'sanctum')
-            ->deleteJson("/api/committees/{$committeeId}/members/{$memberId}")
-            ->assertStatus(422);
+            ->putJson('/api/committee-roles/legal', ['user_id' => $legal->id])
+            ->assertForbidden();
         $this->actingAs($rapporteur, 'sanctum')
-            ->deleteJson("/api/committees/{$committeeId}/members/{$memberId}")
-            ->assertNoContent();
+            ->putJson('/api/committee-roles/legal', ['user_id' => $legal->id])
+            ->assertOk();
     }
 
     public function test_the_rapporteur_is_reminded_of_a_committee_with_no_meeting_this_month(): void

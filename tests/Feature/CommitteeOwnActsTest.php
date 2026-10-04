@@ -191,23 +191,6 @@ class CommitteeOwnActsTest extends TestCase
     }
 
     /**
-     * Stage 99 bound the legal seat to R11. Since 2026-10-02 a stand-in may
-     * hold it and carries R11's meeting duties while invited (SeatDutyGrantTest).
-     * The chair used to seat them; only the مقرر picks seats now (2026-10-02).
-     */
-    public function test_the_legal_seat_may_go_to_a_stand_in(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [, $member, $meeting] = $this->sitting();
-        $this->userWithRole('R02');
-        $rapporteur = $meeting->committee->seatRapporteur();
-
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committees/{$meeting->committee_id}/members", ['user_id' => $member->id, 'seat' => 'legal'])
-            ->assertCreated();
-    }
-
-    /**
      * The one path Appendix 8's gate did not already close: every attendee
      * recorded absent under a count-0 quorum passes all sixteen checks, and
      * Stage 36 then approved the محضر with nobody's signature on it.

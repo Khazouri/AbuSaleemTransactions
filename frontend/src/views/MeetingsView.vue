@@ -21,7 +21,6 @@ const { t, locale } = useI18n()
 const auth = useAuthStore()
 
 const committees = ref([])
-const userOptions = ref([])
 const meetings = ref([])
 const loadingCommittees = ref(false)
 const loadingMeetings = ref(false)
@@ -80,12 +79,8 @@ async function loadCommittees() {
   loadingCommittees.value = true
   loadError.value = null
   try {
-    const [committeesRes, usersRes] = await Promise.all([
-      api.get('/committees'),
-      api.get('/committees/user-options'),
-    ])
-    committees.value = committeesRes.data.data ?? []
-    userOptions.value = usersRes.data.data ?? []
+    const { data } = await api.get('/committees')
+    committees.value = data.data ?? []
   } catch (e) {
     loadError.value = e
   } finally {
@@ -182,60 +177,17 @@ async function removeCommittee(committee) {
 // --- Committee membership ---------------------------------------------------
 
 const expandedCommitteeId = ref(null)
-const memberUserId = ref('')
-const memberSeat = ref('')
-const memberError = ref(null)
 
-// Stage 45 — [D] Art. 10's fixed 5-seat roster. Stage 102 — every member holds
-// one (the server binds each seat to its role and derives the head from the
-// chair seat), so there is no seatless option and no separate head checkbox.
+// Stage 45 — [D] Art. 10's fixed 5-seat roster. Stage 103 — read-only here:
+// each seat is held by its role's one holder, named on «أدوار اللجنة».
 const SEAT_CODES = ['chair', 'legal', 'hr_director', 'ministry_delegate', 'rapporteur']
-// The rapporteur seat is always the system's one مقرر, seated by the server.
-const ASSIGNABLE_SEATS = SEAT_CODES.filter((seat) => seat !== 'rapporteur')
 
 // Looked up by id rather than held as an object, so the modal shows the
-// refreshed roster after every add/remove reload.
+// roster of the latest load.
 const membersCommittee = computed(() => committees.value.find((c) => c.id === expandedCommitteeId.value) ?? null)
 
 function toggleMembers(committee) {
   expandedCommitteeId.value = expandedCommitteeId.value === committee.id ? null : committee.id
-  memberUserId.value = ''
-  memberSeat.value = ''
-  memberError.value = null
-}
-
-// A seatless row (the committee's creator is seated that way) can still be
-// given a seat, so only people who already hold one are excluded.
-function availableUsersFor(committee) {
-  const seatedIds = new Set((committee.members ?? []).filter((m) => m.seat).map((m) => m.user.id))
-  return userOptions.value.filter((u) => !seatedIds.has(u.id))
-}
-
-async function addMember(committee) {
-  if (!memberUserId.value || !memberSeat.value) return
-
-  memberError.value = null
-  try {
-    await api.post(`/committees/${committee.id}/members`, {
-      user_id: memberUserId.value,
-      seat: memberSeat.value,
-    })
-    memberUserId.value = ''
-    memberSeat.value = ''
-    await loadCommittees()
-  } catch (e) {
-    memberError.value = e?.response?.data?.message ?? t('common.none')
-  }
-}
-
-async function removeMember(committee, member) {
-  memberError.value = null
-  try {
-    await api.delete(`/committees/${committee.id}/members/${member.id}`)
-    await loadCommittees()
-  } catch (e) {
-    memberError.value = e?.response?.data?.message ?? t('common.none')
-  }
 }
 
 // --- Meetings ----------------------------------------------------------------
@@ -518,33 +470,15 @@ onMounted(async () => {
           </span>
         </li>
       </ul>
-      <p v-if="memberError" class="alert">{{ memberError }}</p>
+      <p class="hint">{{ t('committees.membersHint') }}</p>
       <p v-if="!membersCommittee.members?.length" class="state">{{ t('committees.noMembers') }}</p>
       <ul v-else class="members">
         <li v-for="member in membersCommittee.members" :key="member.id">
           <span>{{ member.user.name }}</span>
           <span v-if="member.seat" class="pill">{{ t(`committees.seats.${member.seat}`) }}</span>
           <span v-else-if="member.is_head" class="pill">{{ t('committees.head') }}</span>
-          <button v-if="auth.hasRole('R02')" class="ghost danger" type="button" @click="removeMember(membersCommittee, member)">
-            {{ t('committees.removeMember') }}
-          </button>
         </li>
       </ul>
-      <form v-if="auth.hasRole('R02')" class="add-member" @submit.prevent="addMember(membersCommittee)">
-        <select v-model="memberUserId" :aria-label="t('committees.chooseUser')">
-          <option value="">{{ t('committees.chooseUser') }}</option>
-          <option v-for="user in availableUsersFor(membersCommittee)" :key="user.id" :value="user.id">
-            {{ user.name }}
-          </option>
-        </select>
-        <select v-model="memberSeat" required :aria-label="t('committees.seats.label')">
-          <option value="">{{ t('committees.seats.choose') }}</option>
-          <option v-for="seat in ASSIGNABLE_SEATS" :key="seat" :value="seat" :disabled="Boolean(membersCommittee.seats?.[seat])">
-            {{ t(`committees.seats.${seat}`) }}
-          </option>
-        </select>
-        <button class="ghost" type="submit" :disabled="!memberUserId || !memberSeat">{{ t('committees.addMember') }}</button>
-      </form>
       <div class="modal-actions">
         <button class="ghost" type="button" @click="expandedCommitteeId = null">{{ t('common.close') }}</button>
       </div>
@@ -629,7 +563,6 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--color-brand
 .seat-summary li.filled .seat-occupant { color: var(--color-success-fg); font-weight: 600; }
 .members { display: grid; gap: .4rem; padding: 0; margin: 0 0 var(--space-3); list-style: none; }
 .members li { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-base); }
-.add-member { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 
 a { color: var(--color-brand-text); text-decoration: none; font-weight: 600; }
 a:hover { text-decoration: underline; }

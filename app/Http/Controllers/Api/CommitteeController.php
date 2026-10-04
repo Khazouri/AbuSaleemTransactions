@@ -5,11 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Committee\StoreCommitteeRequest;
 use App\Http\Requests\Committee\UpdateCommitteeRequest;
-use App\Http\Requests\CommitteeMember\StoreCommitteeMemberRequest;
-use App\Http\Resources\CommitteeMemberResource;
 use App\Http\Resources\CommitteeResource;
 use App\Models\Committee;
-use App\Models\CommitteeMember;
 use App\Models\User;
 use App\Services\MeetingVisibility;
 use Illuminate\Http\JsonResponse;
@@ -54,9 +51,9 @@ class CommitteeController extends Controller
      *
      * Without this the creator immediately loses sight of what they just made:
      * index() lists only committees you sit on. Only the system's مقرر forms a
-     * committee (user decision 2026-10-02), and seatRapporteur() puts them in
-     * the rapporteur seat, so that one row is the creator's seat too.
-     * addMember() assigns the chair seat explicitly.
+     * committee (user decision 2026-10-02), and seatRoleHolders() puts them in
+     * the rapporteur seat, so that one row is the creator's seat too. The other
+     * four seats come from «أدوار اللجنة» (Stage 103), never picked here.
      */
     public function store(StoreCommitteeRequest $request): JsonResponse
     {
@@ -64,7 +61,7 @@ class CommitteeController extends Controller
 
         $committee = DB::transaction(function () use ($request) {
             $committee = Committee::create($request->validated());
-            $committee->seatRapporteur();
+            $committee->seatRoleHolders();
 
             return $committee;
         });
@@ -114,68 +111,6 @@ class CommitteeController extends Controller
     }
 
     /**
-     * Add one member. Marking them as head (is_head) demotes any existing
-     * head of this committee in the same request — a committee has at
-     * most one head at a time, and the alternative (two "the" heads) would be
-     * ambiguous everywhere the UI shows one.
-     *
-     * Stage 45 — filling the `chair` seat (Art. 10's رئيس اللجنة = وكيل ديوان
-     * البلدية) is also always the head, so it forces is_head the same way an
-     * explicit is_head=true does, rather than leaving the two concepts able
-     * to disagree about who chairs the committee. The other 4 named seats
-     * carry no such implication — a `seat` is purely an identity slot, and
-     * uniqueness per (committee, seat) is enforced by the request's own
-     * validation plus a DB-level unique index as a second line of defence.
-     */
-    public function addMember(StoreCommitteeMemberRequest $request, Committee $committee): JsonResponse
-    {
-        $this->authorizeCommittee($request->user(), $committee);
-        $this->refuseUnlessRapporteur($request->user());
-
-        $data = $request->validated();
-
-        // Stage 102 — every member now holds a seat, so the chair seat alone
-        // decides who is head (DecisionTally::chairVote()'s fallback).
-        $data['is_head'] = $data['seat'] === 'chair';
-
-        $member = DB::transaction(function () use ($committee, $data) {
-            if ($data['is_head'] ?? false) {
-                $committee->members()->where('is_head', true)->update(['is_head' => false]);
-            }
-
-            // updateOrCreate, not create: there is no unique index on
-            // (committee_id, user_id), and store() now always seats the
-            // creator — so promoting that same person to a named seat would
-            // otherwise leave the committee holding two rows for one person.
-            return $committee->members()->updateOrCreate(['user_id' => $data['user_id']], $data);
-        });
-
-        return (new CommitteeMemberResource($member->load('user:id,name')))
-            ->response()
-            ->setStatusCode(201);
-    }
-
-    public function removeMember(HttpRequest $request, Committee $committee, CommitteeMember $member): JsonResponse
-    {
-        $this->authorizeCommittee($request->user(), $committee);
-        $this->refuseUnlessRapporteur($request->user());
-
-        abort_unless($member->committee_id === $committee->id, 404);
-
-        $member->delete();
-
-        return response()->json(null, 204);
-    }
-
-    /**
-     * Active users, for the committee-member and meeting-attendee pickers.
-     *
-     * Kept separate from GET /users: that endpoint sits behind the `users`
-     * screen, which defaults to R08 only, while committee heads (R03) need to
-     * pick people here without being handed the broader Users administration
-     * screen just to do it.
-     */
-    /**
      * Membership gate — you may only act on a committee you can see.
      *
      * 404 rather than 403, matching the meeting gate and RequestVisibility:
@@ -190,14 +125,18 @@ class CommitteeController extends Controller
 
     /**
      * The committee is a group the مقرر picks, not a standing body (user
-     * decision 2026-10-02): forming one and choosing who sits on it are theirs
-     * alone. The chair keeps `meetings,edit` for renaming and retiring it.
+     * decision 2026-10-02): forming one is theirs alone. The chair keeps
+     * `meetings,edit` for renaming and retiring it.
      */
     private function refuseUnlessRapporteur(User $actor): void
     {
-        abort_unless(User::activeRapporteur()?->id === $actor->id, 422, 'اختيار أعضاء اللجنة من صلاحية المقرر وحده.');
+        abort_unless(User::activeRapporteur()?->id === $actor->id, 422, 'تشكيل اللجنة من صلاحية المقرر وحده.');
     }
 
+    /**
+     * Active users, kept separate from GET /users: that endpoint sits behind
+     * the R08-only `users` screen.
+     */
     public function userOptions(): JsonResponse
     {
         return response()->json([

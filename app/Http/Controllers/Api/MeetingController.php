@@ -113,10 +113,11 @@ class MeetingController extends Controller
         $data = $request->validated();
         $actor = $request->user();
 
-        // One مقرر in the system (user decision 2026-10-02), seated here as
-        // well as at the committee's creation: a committee formed before the
-        // rule, or before the role changed hands, still invites today's مقرر.
+        // One holder per seat role (user decisions 2026-10-02/04), seated here
+        // as well as at the committee's creation: a committee formed before
+        // the rule, or before a role changed hands, still invites today's.
         $committee = Committee::query()->findOrFail($data['committee_id']);
+        $committee->seatRoleHolders();
         $rapporteur = $committee->seatRapporteur();
         if ($rapporteur === null) {
             throw ValidationException::withMessages([

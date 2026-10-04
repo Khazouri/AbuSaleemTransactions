@@ -32,42 +32,16 @@ class SingleRapporteurTest extends TestCase
         $this->admin = $this->userWith('R08');
     }
 
-    public function test_a_second_active_rapporteur_is_refused_on_create_and_update(): void
-    {
-        $this->userWith('R02');
-        $r02 = Role::query()->where('code', 'R02')->value('id');
-
-        $this->actingAs($this->admin, 'sanctum')->postJson('/api/users', [
-            'name' => 'مقرر ثانٍ',
-            'email' => 'second@example.test',
-            'password' => 'password123',
-            'role_ids' => [$r02],
-        ])->assertStatus(422)->assertJsonValidationErrors('role_ids');
-
-        $other = User::factory()->create();
-        $this->actingAs($this->admin, 'sanctum')
-            ->putJson("/api/users/{$other->id}", ['role_ids' => [$r02]])
-            ->assertStatus(422)->assertJsonValidationErrors('role_ids');
-
-        // An inactive account may hold the role; it is enabling it that clashes.
-        $this->actingAs($this->admin, 'sanctum')->postJson('/api/users', [
-            'name' => 'مقرر معطل',
-            'email' => 'inactive@example.test',
-            'password' => 'password123',
-            'role_ids' => [$r02],
-            'is_active' => false,
-        ])->assertCreated();
-    }
-
-    public function test_a_deactivated_rapporteur_does_not_block_a_new_one_but_cannot_be_re_enabled(): void
+    /**
+     * Stage 103 — the مقرر is named on «أدوار اللجنة», which takes the role
+     * from every former holder (CommitteeRolesTest). An account deactivated
+     * before that rule may still hold R02, so enabling it is what clashes.
+     */
+    public function test_a_deactivated_rapporteur_cannot_be_re_enabled_beside_the_current_one(): void
     {
         $former = $this->userWith('R02');
-        $this->actingAs($this->admin, 'sanctum')->patchJson("/api/users/{$former->id}/toggle-active")->assertOk();
-
-        $successor = User::factory()->create();
-        $this->actingAs($this->admin, 'sanctum')
-            ->putJson("/api/users/{$successor->id}", ['role_ids' => [Role::query()->where('code', 'R02')->value('id')]])
-            ->assertOk();
+        $former->update(['is_active' => false]);
+        $this->userWith('R02');
 
         $this->actingAs($this->admin, 'sanctum')
             ->patchJson("/api/users/{$former->id}/toggle-active")
@@ -147,16 +121,6 @@ class SingleRapporteurTest extends TestCase
         // The chair keeps the rest of the meeting's edits.
         $this->actingAs($seats['chair'], 'sanctum')->putJson("/api/meetings/{$meetingId}", ['title' => 'اجتماع أكتوبر'])->assertOk();
         $this->actingAs($rapporteur, 'sanctum')->putJson("/api/meetings/{$meetingId}", $newDate)->assertOk();
-    }
-
-    public function test_the_rapporteur_seat_cannot_be_filled_by_hand(): void
-    {
-        $rapporteur = $this->userWith('R02');
-        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
-
-        $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $rapporteur->id, 'seat' => 'rapporteur'])
-            ->assertStatus(422)->assertJsonValidationErrors('seat');
     }
 
     private function userWith(string $roleCode): User

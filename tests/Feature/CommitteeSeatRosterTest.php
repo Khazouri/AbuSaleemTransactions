@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Committee;
-use App\Models\CommitteeMember;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\Request;
@@ -31,6 +30,10 @@ class CommitteeSeatRosterTest extends TestCase
     use RefreshDatabase;
     use RunsStudySequence;
 
+    /**
+     * Stage 103 — seats are no longer picked per committee: each is held by
+     * the one holder of its role, seated by Committee::seatRoleHolders().
+     */
     public function test_a_committees_five_seats_are_individually_identifiable(): void
     {
         $this->seed(DatabaseSeeder::class);
@@ -38,37 +41,9 @@ class CommitteeSeatRosterTest extends TestCase
         $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
         $chair = $this->userWithRole('R03');
         $legal = $this->userWithRole('R11');
-        $unseated = $this->userWithRole('R04');
+        $rapporteur = $this->userWithRole('R02');
 
-        // Only the مقرر picks seats (2026-10-02), so they make the calls the
-        // chair used to; seatRapporteur() gives them the seat that lets them
-        // reach the committee, as CommitteeController::store() does.
-        $this->userWithRole('R02');
-        $rapporteur = $committee->seatRapporteur();
-
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", [
-                'user_id' => $chair->id,
-                'seat' => 'chair',
-            ])
-            ->assertCreated()
-            ->assertJsonPath('data.seat', 'chair')
-            ->assertJsonPath('data.is_head', true);
-
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", [
-                'user_id' => $legal->id,
-                'seat' => 'legal',
-            ])
-            ->assertCreated();
-
-        // Stage 102 — there is no plain seatless membership any more: the
-        // committee is its five seats, and a member without one is never
-        // invited to a meeting.
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $unseated->id])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('seat');
+        $committee->seatRoleHolders();
 
         $response = $this->actingAs($chair, 'sanctum')->getJson('/api/committees')->assertOk();
         $row = collect($response->json('data'))->firstWhere('id', $committee->id);
@@ -81,84 +56,13 @@ class CommitteeSeatRosterTest extends TestCase
         $this->assertCount(3, $row['members']);
     }
 
-    public function test_a_seat_can_only_be_held_by_one_member_at_a_time(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
-        $chair = $this->userWithRole('R03');
-        $rival = $this->userWithRole('R04');
-
-        $committee->members()->create(['user_id' => $chair->id, 'seat' => 'chair', 'is_head' => true]);
-
-        $this->actingAs($chair, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", [
-                'user_id' => $rival->id,
-                'seat' => 'chair',
-            ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('seat');
-
-        $this->assertSame(
-            $chair->id,
-            CommitteeMember::where('committee_id', $committee->id)->where('seat', 'chair')->value('user_id'),
-        );
-    }
-
     public function test_an_unknown_seat_value_is_rejected(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
-        $chair = $this->userWithRole('R03');
-        $committee->members()->create(['user_id' => $chair->id, 'seat' => 'chair', 'is_head' => true]);
-
-        $someone = $this->userWithRole('R04');
-
-        $this->actingAs($chair, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", [
-                'user_id' => $someone->id,
-                'seat' => 'treasurer',
-            ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('seat');
-    }
-
-    /**
-     * Stage 102 bound every seat to its role (CommitteeMember::SEAT_ROLES);
-     * 2026-10-02 narrowed that to the rapporteur seat, and a stand-in in any
-     * other seat carries its role's meeting duties while invited. Later the
-     * same day the rapporteur seat stopped being fillable by hand at all: it
-     * is always the system's one مقرر (Committee::seatRapporteur()).
-     */
-    public function test_only_the_rapporteur_seat_is_bound_to_its_role(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
-        $chair = $this->userWithRole('R03');
-        $committee->members()->create(['user_id' => $chair->id, 'seat' => 'chair', 'is_head' => true]);
-
-        $member = $this->userWithRole('R04');
-        $hr = $this->userWithRole('R12');
-        // The chair made these calls before only the مقرر picked seats (2026-10-02).
-        $this->userWithRole('R02');
-        $rapporteur = $committee->seatRapporteur();
-
-        // The rapporteur seat is the system's مقرر's alone; any other seat may
-        // go to a stand-in (SeatDutyGrant).
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'rapporteur'])
-            ->assertStatus(422)
-            ->assertJsonPath('errors.seat.0', 'مقعد المقرر يشغله مقرر النظام تلقائيًا.');
-
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $member->id, 'seat' => 'hr_director'])
-            ->assertCreated();
-
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/committees/{$committee->id}/members", ['user_id' => $hr->id, 'seat' => 'ministry_delegate'])
-            ->assertCreated();
+        $this->actingAs($this->userWithRole('R02'), 'sanctum')
+            ->putJson('/api/committee-roles/treasurer', ['user_id' => $this->userWithRole('R01')->id])
+            ->assertNotFound();
     }
 
     /**

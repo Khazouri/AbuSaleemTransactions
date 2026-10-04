@@ -168,16 +168,22 @@ class User extends Authenticatable
         return $this->roles->contains('code', $code);
     }
 
-    /**
-     * The system's one مقرر (user decision 2026-10-02): the active R02 holder.
-     * UserController refuses a second active one, so ordering by id only
-     * matters for rows written around that endpoint (seeders, fixtures).
-     */
+    /** The system's one مقرر (user decision 2026-10-02): the active R02 holder. */
     public static function activeRapporteur(?int $exceptUserId = null): ?self
+    {
+        return static::activeSeatHolder('rapporteur', $exceptUserId);
+    }
+
+    /**
+     * The one active holder of a committee seat's role (Stage 103). Naming a
+     * holder on «أدوار اللجنة» takes the role from everyone else, so ordering
+     * by id only matters for rows written around that page (seeders, fixtures).
+     */
+    public static function activeSeatHolder(string $seat, ?int $exceptUserId = null): ?self
     {
         return static::query()
             ->where('is_active', true)
-            ->whereHas('roles', fn ($roles) => $roles->where('code', CommitteeMember::SEAT_ROLES['rapporteur']))
+            ->whereHas('roles', fn ($roles) => $roles->where('code', CommitteeMember::SEAT_ROLES[$seat]))
             ->when($exceptUserId, fn ($query, int $id) => $query->whereKeyNot($id))
             ->orderBy('id')
             ->first();

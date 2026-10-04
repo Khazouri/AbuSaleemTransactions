@@ -73,8 +73,8 @@ class SeatDutyGrant
 
     /**
      * The seats $user sits in on a meeting that still lends them its duties.
-     * The rapporteur seat is left out: it stays bound to R02, the inviter
-     * (StoreCommitteeMemberRequest), so it never lends anything.
+     * The rapporteur seat is left out: the inviter always holds R02 (it is
+     * reseated at every scheduling), so it never lends anything.
      */
     private function liveSeats(User $user): Builder
     {

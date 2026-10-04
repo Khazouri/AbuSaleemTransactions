@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\CommitteeMember;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,6 +26,9 @@ class RoleResource extends JsonResource
             'name_ar' => $this->name_ar,
             'name_en' => $this->name_en,
             'description' => $this->description,
+            // Stage 103 — the seat this role fills, if any: the Users screen
+            // shows such a role but cannot grant it.
+            'committee_seat' => array_search($this->code, CommitteeMember::SEAT_ROLES, true) ?: null,
         ];
     }
 }

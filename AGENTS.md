@@ -100,12 +100,16 @@ Key architectural facts worth knowing before changing things:
   deferral puts it back. Agenda items are `employee_request` or `appeal` only.
   A committee is its five Art. 10 (أ) seats, each tied to a role
   (`CommitteeMember::SEAT_ROLES`: chair R03, legal R11, hr_director R12,
-  ministry_delegate R04, rapporteur R02). There is one مقرر in the system: at
-  most one active R02 holder (`UserController` refuses a second, including
-  re-enabling a former one), and `Committee::seatRapporteur()` puts that
-  person in every committee's rapporteur seat at creation and again at
-  scheduling, so it is never filled by hand (user decision 2026-10-02). A
-  stand-in in any other seat
+  ministry_delegate R04, rapporteur R02). **Each seat role has one holder in
+  the system, named on «أدوار اللجنة»** (`committee_roles`,
+  `CommitteeRoleController`, user decision 2026-10-04): R08 names the مقرر,
+  the مقرر names the other four, and naming someone takes the role from every
+  former holder. Every account starts as R01, and the Users screen cannot
+  grant a seat role (`CommitteeMember::seatRoleIds()`). `Committee::seatRoleHolders()`
+  fills every seat from those holders when a committee is formed and again at
+  scheduling, so no seat is picked by hand — deliberately not at naming time,
+  so a sitting already under way keeps its invitees. A former holder still
+  seated until then is a stand-in, and
   carries that role's grants on the seven meeting-duty screens, plus its
   workflow rows on its own meeting's requests, from the invitation until every
   meeting it was invited to is concluded and none of the files it decided is
@@ -116,7 +120,7 @@ Key architectural facts worth knowing before changing things:
   them, and is `regular`. The committee is **a group the مقرر picks, not a
   department** (user decision 2026-10-02): there is no committee row in
   `departments`, and its members belong to their own units. Only the active
-  R02 holder forms a committee or adds or removes a seat holder
+  R02 holder forms a committee
   (`CommitteeController::refuseUnlessRapporteur()`). It meets **at least** once
   a month, with no cap, and a committee with no live meeting dated this month
   is a `meeting_due` task in the مقرر's «المهام المعلقة». A new meeting is `pending_confirmation` and becomes

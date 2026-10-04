@@ -47,7 +47,8 @@ const blankForm = () => ({
   password: '',
   department_id: null,
   manager_id: null,
-  role_ids: [],
+  // Stage 103 — every account starts as an employee (the server adds R01 anyway).
+  role_ids: roles.value.filter((role) => role.code === 'R01').map((role) => role.id),
   is_active: true,
 })
 const form = ref(blankForm())
@@ -293,9 +294,11 @@ onMounted(() => {
         <fieldset class="roles-field">
           <legend>{{ t('users.roles') }}</legend>
           <label v-for="role in roles" :key="role.id" class="checkbox role-option">
-            <input v-model="form.role_ids" type="checkbox" :value="role.id" />
+            <!-- Stage 103 — a committee seat's role is named on «أدوار اللجنة» only. -->
+            <input v-model="form.role_ids" type="checkbox" :value="role.id" :disabled="Boolean(role.committee_seat)" />
             {{ role.code }} — {{ roleLabel(role) }}
           </label>
+          <small class="hint">{{ t('users.seatRoleHint') }}</small>
         </fieldset>
 
         <label class="checkbox">
@@ -427,6 +430,7 @@ input:focus, select:focus { outline: 2px solid var(--color-brand-text); outline-
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
+.roles-field .hint { display: block; margin-top: var(--space-2); }
 .roles-field legend {
   padding: 0 .4rem;
   font-size: var(--text-sm);

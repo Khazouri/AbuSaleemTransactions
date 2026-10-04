@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\User;
 
+use App\Models\CommitteeMember;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -47,7 +48,12 @@ class UpdateUserRequest extends FormRequest
             ],
 
             'role_ids' => ['sometimes', 'array'],
-            'role_ids.*' => ['integer', 'exists:roles,id'],
+            // Stage 103 — a seat role the user already holds may ride along
+            // (the edit form sends back every role), but none can be added.
+            'role_ids.*' => [
+                'integer', 'exists:roles,id',
+                Rule::notIn(array_diff(CommitteeMember::seatRoleIds(), $user->roles()->pluck('roles.id')->all())),
+            ],
 
             'is_active' => ['sometimes', 'boolean'],
         ];
@@ -68,6 +74,7 @@ class UpdateUserRequest extends FormRequest
             'manager_id.exists' => 'المدير المباشر المحدد غير موجود.',
             'manager_id.not_in' => 'لا يمكن أن يكون المستخدم مديره المباشر.',
             'role_ids.*.exists' => 'أحد الأدوار المحددة غير موجود.',
+            'role_ids.*.not_in' => 'أدوار اللجنة تُعيَّن من صفحة «أدوار اللجنة».',
         ];
     }
 }

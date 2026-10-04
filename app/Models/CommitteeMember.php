@@ -33,6 +33,17 @@ class CommitteeMember extends Model
         'rapporteur' => 'R02',
     ];
 
+    /**
+     * Stage 103 — the ids of the five seat roles, which only «أدوار اللجنة»
+     * grants (CommitteeRoleController), never the Users screen.
+     *
+     * @return list<int>
+     */
+    public static function seatRoleIds(): array
+    {
+        return Role::query()->whereIn('code', self::SEAT_ROLES)->pluck('id')->all();
+    }
+
     protected $fillable = [
         'committee_id',
         'user_id',

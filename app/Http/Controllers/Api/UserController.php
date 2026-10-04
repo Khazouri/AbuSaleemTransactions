@@ -43,10 +43,13 @@ class UserController extends Controller
     {
         $data = $request->safe()->except('role_ids');
         $data['password'] = Hash::make($data['password']);
-        $this->refuseSecondRapporteur(null, $request->validated('role_ids', []), $data['is_active'] ?? true);
+
+        // Stage 103 — every account starts as an employee (user decision
+        // 2026-10-04); committee roles come later from «أدوار اللجنة».
+        $employee = Role::query()->where('code', 'R01')->value('id');
 
         $user = User::create($data);
-        $user->roles()->sync($request->validated('role_ids', []));
+        $user->roles()->sync(array_unique([$employee, ...$request->validated('role_ids', [])]));
 
         return (new UserResource($user->load('department', 'roles', 'manager')))
             ->response()
@@ -56,11 +59,9 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): UserResource
     {
         $data = $request->safe()->except(['role_ids', 'password']);
-        $this->refuseSecondRapporteur(
-            $user,
-            $request->has('role_ids') ? $request->validated('role_ids') : $user->roles()->pluck('roles.id')->all(),
-            $data['is_active'] ?? $user->is_active,
-        );
+        if ($data['is_active'] ?? false) {
+            $this->refuseSecondRapporteur($user);
+        }
 
         // A blank/omitted password means "keep the current one" — only hash
         // and assign it when the admin actually typed a replacement.
@@ -70,8 +71,11 @@ class UserController extends Controller
 
         $user->update($data);
 
+        // Seat roles the user holds stay put: unticking one here is not how a
+        // committee seat changes hands (CommitteeRoleController is).
         if ($request->has('role_ids')) {
-            $user->roles()->sync($request->validated('role_ids'));
+            $heldSeatRoles = $user->roles()->whereIn('roles.id', CommitteeMember::seatRoleIds())->pluck('roles.id')->all();
+            $user->roles()->sync(array_unique([...$request->validated('role_ids'), ...$heldSeatRoles]));
         }
 
         $this->releaseHeadSlots($user);
@@ -94,7 +98,7 @@ class UserController extends Controller
         }
 
         if (! $user->is_active) {
-            $this->refuseSecondRapporteur($user, $user->roles()->pluck('roles.id')->all(), true);
+            $this->refuseSecondRapporteur($user);
         }
 
         $user->update(['is_active' => ! $user->is_active]);
@@ -123,20 +127,18 @@ class UserController extends Controller
     }
 
     /**
-     * One مقرر in the system (user decision 2026-10-02): an account may be an
-     * active R02 holder only while nobody else is. A deactivated مقرر does not
-     * block a successor, so enabling them again is what clashes instead.
-     *
-     * @param  array<int|string>  $roleIds  the roles the user will hold
+     * One مقرر in the system (user decision 2026-10-02). Naming a new one on
+     * «أدوار اللجنة» takes the role from every former holder, but an account
+     * deactivated before that rule may still hold it, so enabling it is what
+     * clashes.
      */
-    private function refuseSecondRapporteur(?User $user, array $roleIds, bool $active): void
+    private function refuseSecondRapporteur(User $user): void
     {
-        $rapporteurRoleId = Role::query()->where('code', CommitteeMember::SEAT_ROLES['rapporteur'])->value('id');
-        if (! $active || ! in_array($rapporteurRoleId, array_map('intval', $roleIds), true)) {
+        if (! $user->roles()->where('code', CommitteeMember::SEAT_ROLES['rapporteur'])->exists()) {
             return;
         }
 
-        $holder = User::activeRapporteur($user?->id);
+        $holder = User::activeRapporteur($user->id);
         if ($holder !== null) {
             throw ValidationException::withMessages([
                 'role_ids' => ["يوجد مقرر نشط في النظام بالفعل ({$holder->name})، يجب تعطيله أو نزع الدور منه أولاً."],

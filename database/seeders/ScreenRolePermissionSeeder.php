@@ -293,6 +293,9 @@ class ScreenRolePermissionSeeder extends Seeder
         'request_types' => [],
         'roles_permissions' => [],
         'settings' => [],
+        // Stage 103 — the مقرر names the other four seat holders here; who
+        // may name which seat is CommitteeRoleController's own check.
+        'committee_roles' => ['view' => ['R02'], 'edit' => ['R02']],
         'templates' => [],
         'backup' => [],
         // The maintenance console. Empty, i.e. R08-only on every action — and

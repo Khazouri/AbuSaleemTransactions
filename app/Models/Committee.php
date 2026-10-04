@@ -92,30 +92,42 @@ class Committee extends Model
         return CommitteeVotingRules::fromCommittee($this);
     }
 
-    /**
-     * Seat the system's مقرر in the rapporteur seat (user decision 2026-10-02),
-     * so every meeting invites them without anyone seating them by hand. A
-     * holder who is still an active R02 is kept; anyone else in the seat (the
-     * role was handed over, or they were deactivated) is replaced. Null when
-     * the system has no active مقرر.
-     */
+    /** Stage 103 — every seat is held by its role's one holder, never picked by hand. */
+    public function seatRoleHolders(): void
+    {
+        foreach (CommitteeMember::SEATS as $seat) {
+            $this->seatHolder($seat);
+        }
+    }
+
     public function seatRapporteur(): ?User
     {
-        $seated = $this->members()->where('seat', 'rapporteur')->with('user.roles')->first();
-        $rapporteurRole = CommitteeMember::SEAT_ROLES['rapporteur'];
-        if ($seated?->user?->is_active && $seated->user->hasRole($rapporteurRole)) {
+        return $this->seatHolder('rapporteur');
+    }
+
+    /**
+     * Seat the system's holder of this seat's role (user decisions 2026-10-02
+     * and 2026-10-04), so every meeting invites them without anyone seating
+     * them by hand. A holder who still has the role and is active is kept;
+     * anyone else in the seat (the role was handed over, or they were
+     * deactivated) is replaced. Null when nobody active holds the role.
+     */
+    public function seatHolder(string $seat): ?User
+    {
+        $seated = $this->members()->where('seat', $seat)->with('user.roles')->first();
+        if ($seated?->user?->is_active && $seated->user->hasRole(CommitteeMember::SEAT_ROLES[$seat])) {
             return $seated->user;
         }
 
-        $rapporteur = User::activeRapporteur();
-        if ($rapporteur === null) {
+        $holder = User::activeSeatHolder($seat);
+        if ($holder === null) {
             return null;
         }
 
         $seated?->delete();
-        $this->members()->updateOrCreate(['user_id' => $rapporteur->id], ['seat' => 'rapporteur', 'is_head' => false]);
+        $this->members()->updateOrCreate(['user_id' => $holder->id], ['seat' => $seat, 'is_head' => $seat === 'chair']);
 
-        return $rapporteur;
+        return $holder;
     }
 
     /** Members currently eligible to be invited to a new meeting. */

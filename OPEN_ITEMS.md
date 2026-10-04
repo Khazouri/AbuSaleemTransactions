@@ -13,6 +13,14 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### «أدوار اللجنة» leaves R05, unassigning and the stale roster open — Stage 103 — opened 2026-10-04
+(1) The user named مدير الشؤون الإدارية among the roles the مقرر assigns, then said «don't include it for now»: R05
+(an approver, not a seat) is still granted on the Users screen. (2) A seat role can only change hands; there is no
+"remove the holder and leave the seat vacant". (3) The seat follows the role at the committee's next scheduling, not
+at naming time (so a live sitting keeps its invitees), so the committee roster on the meetings screen shows the former
+holder until then. **To close:** decide (1) with the user; (2) is a DELETE on `committee-roles/{seat}` if wanted; (3)
+could reseat committees with no live meeting at naming time.
+
 ### A stand-in seat holder's temporary grant is invisible and includes the chair's roster edit — stand-in seats — opened 2026-10-02
 `SeatDutyGrant` lends a non-role seat holder its role's grants on the seven meeting-duty screens. Three
 consequences were left as they are. (1) The Users and Roles screens show only held roles, so an admin

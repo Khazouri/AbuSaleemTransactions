@@ -19,6 +19,45 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-04 21:40 EET — Claude — «أدوار اللجنة»: R08 names the مقرر, the مقرر names the other four (complete)
+
+Built per the plan below. There is no migration. The new `committee_roles` screen (R02 + R08) has
+`GET committee-roles` and `PUT committee-roles/{seat}`. Naming a holder takes the role from every other holder.
+`UserController::store()` always adds R01, and the Users screen cannot grant a seat role
+(`CommitteeMember::seatRoleIds()`). `Committee::seatRoleHolders()` fills all five seats at committee creation and at
+scheduling. The add/remove-member endpoints and `StoreCommitteeMemberRequest` are deleted, and the meetings roster is
+read-only. **One deviation from the plan:** the seats are *not* refilled at naming time, because that would pull a
+former holder out of a sitting already under way, which the new holder was never invited to. Until the next
+scheduling the former holder is a stand-in (`SeatDutyGrant`).
+
+Tests that covered hand-seating were deleted or rewritten in place:
+- deleted: the stand-in seat test in `CommitteeOwnActsTest` and in `SeatDutyGrantTest`, and two roster tests;
+- rewritten: the two R02-via-Users tests in `SingleRapporteurTest`.
+
+Verified:
+- the new `CommitteeRolesTest` (7 tests) failed first, then passed;
+- full suite 833 + 14 + 9 green;
+- Pint clean; build passes (`dist` committed); parity 2095; `aislop ci` exit 0 (97);
+- `check-layout.mjs`: 450 views, failing only on the existing `/decisions` overflow at 1024px;
+- both screen seeders reseeded on the real MySQL;
+- a live GET as r08 and r02 returned the right `can_assign` flags.
+
+No live PUT was run, because it would strip roles from seeded accounts (e.g. multi.role@'s R03). Open items are in
+OPEN_ITEMS.md: R05, unassigning, and the roster staying stale until the next scheduling.
+
+---
+### 2026-10-04 20:45 EET — Claude — Implementation plan: «أدوار اللجنة» — R08 names the مقرر, the مقرر names the other seats
+
+User: «all the users start out as normal users; the system admin assigns the مقرر using a new page in the system
+settings; the مقرر assigns the rest of the committee members on the same page». Put to the user and answered: role +
+auto-seat (one active holder per seat role, every committee seats them, add/remove-member goes away); assigning
+replaces the previous holder; R05 is out «for now»; the مقرر also names the chair (R03); the Users screen keeps its
+picker for non-seat roles and always gives R01; seeded test accounts keep their roles. Plan: `User::activeSeatHolder()`,
+`Committee::seatHolder()`/`seatRoleHolders()`, a new `committee_roles` screen + `CommitteeRoleController` (GET/PUT
+`committee-roles/{seat}`), `StoreCommitteeMemberRequest` and the two `/members` routes deleted. No migration. Verify:
+new `CommitteeRolesTest`, full PHPUnit, Pint, build (`dist` committed), parity, aislop ci, reseed the two screen seeders.
+
+---
 ### 2026-10-03 10:20 EET — Claude — Test button: 5 random requests per reachable stage (complete)
 
 Built per the plan below. The maintenance console's «توليد طلبات تجريبية» (`db:seed:test-requests`, debug-only) runs
