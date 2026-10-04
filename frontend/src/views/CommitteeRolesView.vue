@@ -1,8 +1,8 @@
 <script setup>
 /**
- * Stage 103 — «أدوار اللجنة». R08 names the مقرر; the مقرر names the other four
- * seat holders. Which rows a viewer may assign is the server's `can_assign`,
- * so this screen never guesses at the rule.
+ * Stage 103 — «المناصب الفردية». R08 names the مقرر and العميد; the مقرر names
+ * the other four seat holders. Which rows a viewer may assign is the server's
+ * `can_assign`, so this screen never guesses at the rule.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -19,6 +19,8 @@ const userId = ref('')
 const saving = ref(false)
 const formError = ref(null)
 
+// العميد is a post, not a committee seat, so its label lives on this page.
+const postName = (seat) => (seat === 'dean' ? t('committeeRoles.dean') : t(`committees.seats.${seat}`))
 const roleName = (role) => (locale.value === 'ar' ? role.name_ar : role.name_en || role.name_ar)
 
 function apply(data) {
@@ -82,7 +84,7 @@ onMounted(load)
 
     <AppModal
       v-if="assigning"
-      :title="t('committeeRoles.assignTitle', { seat: t(`committees.seats.${assigning.seat}`) })"
+      :title="t('committeeRoles.assignTitle', { seat: postName(assigning.seat) })"
       @close="cancelAssign"
     >
       <form class="form" @submit.prevent="save">
@@ -118,7 +120,7 @@ onMounted(load)
         </thead>
         <tbody>
           <tr v-for="seat in seats" :key="seat.seat">
-            <td>{{ t(`committees.seats.${seat.seat}`) }}</td>
+            <td>{{ postName(seat.seat) }}</td>
             <td><span class="pill">{{ seat.role.code }}</span> {{ roleName(seat.role) }}</td>
             <td :class="{ vacant: !seat.holder }">{{ seat.holder?.name ?? t('committeeRoles.vacant') }}</td>
             <td class="row-actions">

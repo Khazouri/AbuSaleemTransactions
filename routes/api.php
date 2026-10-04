@@ -242,12 +242,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:settings,delete')
         ->delete('settings/{setting}', [SettingController::class, 'destroy']);
 
-    // Stage 103 — «أدوار اللجنة»: R08 names the مقرر, the مقرر names the rest.
+    // Stage 103 — «المناصب الفردية»: R08 names the مقرر and العميد, the مقرر names the rest.
     Route::middleware('screen.permission:committee_roles,view')
         ->get('committee-roles', [CommitteeRoleController::class, 'index']);
     Route::middleware('screen.permission:committee_roles,edit')
         ->put('committee-roles/{seat}', [CommitteeRoleController::class, 'assign'])
-        ->whereIn('seat', CommitteeMember::SEATS);
+        ->whereIn('seat', array_keys(CommitteeMember::SOLE_ROLES));
 
     Route::middleware('screen.permission:templates,view')
         ->get('templates', [TemplateController::class, 'index']);

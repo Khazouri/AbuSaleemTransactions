@@ -125,7 +125,7 @@ class ScreenSeeder extends Seeder
             ['settings',                 'الإعدادات العامة',           'General Settings',             '/settings',                 'settings',     null],
             // Stage 103 — R08 names the مقرر here, and the مقرر names the
             // other four seat holders. Beside the settings it extends.
-            ['committee_roles',          'أدوار اللجنة',               'Committee Roles',              '/committee-roles',          'shield',       null],
+            ['committee_roles',          'المناصب الفردية',            'Sole-holder Posts',              '/committee-roles',          'shield',       null],
 
             // --- Oversight and support -----------------------------------------
             ['reports',                  'التقارير والإحصائيات',       'Reports & Statistics',         '/reports',                  'bar-chart',    null],

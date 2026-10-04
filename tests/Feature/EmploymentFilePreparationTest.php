@@ -245,10 +245,10 @@ class EmploymentFilePreparationTest extends TestCase
 
     public function test_a_role_without_the_notes_grant_is_refused(): void
     {
-        // R10 holds no notes_attachments grant at all. Stage 100 gave R06/R07 `notes_attachments,add` (Appendix 6 row 13's supervision), so R10 — a retained login with no duty since Stage 96 — is the role that holds no such grant.
+        // R09 holds no notes_attachments grant at all. Stage 100 gave R06/R07 `notes_attachments,add` (Appendix 6 row 13's supervision), so R09 — a retained login with no duty since Stage 96 — is the role that holds no such grant.
         $requestRecord = $this->requestBeingPrepared();
 
-        $this->actingAs($this->userWithRole('R10'), 'sanctum')
+        $this->actingAs($this->userWithRole('R09'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
                 'documents' => $this->allPresent($requestRecord),
                 'assembled' => true,

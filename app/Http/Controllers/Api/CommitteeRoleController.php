@@ -12,11 +12,12 @@ use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Stage 103 — «أدوار اللجنة» (user decision 2026-10-04). Every account starts
- * as an employee; R08 names the مقرر, and the مقرر names the other four seat
- * holders. Each seat role has one holder in the system, and every committee
- * seats that holder (Committee::seatRoleHolders()), so naming someone here is
- * the only way onto a committee.
+ * Stage 103 — «المناصب الفردية» (user decisions 2026-10-04). Every account
+ * starts as an employee; R08 names the مقرر and العميد, and the مقرر names the
+ * other four seat holders. Each of these roles has one holder in the system,
+ * and every committee seats the five seat holders
+ * (Committee::seatRoleHolders()), so naming someone here is the only way onto
+ * a committee.
  *
  * The seat follows the role when a committee is formed or its next meeting is
  * scheduled, not here: reseating now would pull the former holder out of a
@@ -28,9 +29,9 @@ class CommitteeRoleController extends Controller
     public function index(HttpRequest $request): JsonResponse
     {
         $actor = $request->user();
-        $roles = Role::query()->whereIn('code', CommitteeMember::SEAT_ROLES)->get()->keyBy('code');
+        $roles = Role::query()->whereIn('code', CommitteeMember::SOLE_ROLES)->get()->keyBy('code');
 
-        $seats = collect(CommitteeMember::SEAT_ROLES)->map(function (string $code, string $seat) use ($actor, $roles) {
+        $seats = collect(CommitteeMember::SOLE_ROLES)->map(function (string $code, string $seat) use ($actor, $roles) {
             $holder = User::activeSeatHolder($seat);
 
             return [
@@ -57,7 +58,7 @@ class CommitteeRoleController extends Controller
         $refusal = $this->assignRefusal($request->user(), $seat);
         abort_if($refusal !== null, 422, $refusal);
 
-        $roleId = Role::query()->where('code', CommitteeMember::SEAT_ROLES[$seat])->value('id');
+        $roleId = Role::query()->where('code', CommitteeMember::SOLE_ROLES[$seat])->value('id');
         $userId = $request->validated('user_id');
 
         DB::transaction(function () use ($roleId, $userId) {
@@ -70,8 +71,8 @@ class CommitteeRoleController extends Controller
 
     private function assignRefusal(User $actor, string $seat): ?string
     {
-        if ($seat === 'rapporteur') {
-            return $actor->hasRole('R08') ? null : 'تعيين المقرر من صلاحية مدير النظام وحده.';
+        if (in_array($seat, ['rapporteur', 'dean'], true)) {
+            return $actor->hasRole('R08') ? null : 'تعيين المقرر والعميد من صلاحية مدير النظام وحده.';
         }
 
         return User::activeRapporteur()?->id === $actor->id ? null : 'تعيين أعضاء اللجنة من صلاحية المقرر وحده.';

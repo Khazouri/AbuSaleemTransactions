@@ -23,8 +23,8 @@ class AssignCommitteeRoleRequest extends FormRequest
      */
     public function rules(): array
     {
-        $seatRole = CommitteeMember::SEAT_ROLES[$this->route('seat')];
-        $otherSeatRoles = array_values(array_diff(CommitteeMember::SEAT_ROLES, [$seatRole]));
+        $seatRole = CommitteeMember::SOLE_ROLES[$this->route('seat')];
+        $otherSeatRoles = array_values(array_diff(CommitteeMember::SOLE_ROLES, [$seatRole]));
 
         return [
             'user_id' => [
@@ -32,9 +32,10 @@ class AssignCommitteeRoleRequest extends FormRequest
                 Rule::exists('users', 'id')->whereNull('deleted_at')->where('is_active', true),
                 // A committee keeps one row per person, so one person cannot
                 // fill two seats: naming them here would silently move them.
+                // The dean approves what the committee decides, so he holds none.
                 function (string $attribute, mixed $value, Closure $fail) use ($otherSeatRoles) {
                     if (User::query()->whereKey($value)->whereHas('roles', fn ($roles) => $roles->whereIn('code', $otherSeatRoles))->exists()) {
-                        $fail('هذا المستخدم يشغل مقعدًا آخر في اللجنة.');
+                        $fail('هذا المستخدم يشغل منصبًا فرديًا آخر (مقعدًا في اللجنة أو العميد).');
                     }
                 },
             ],

@@ -7,6 +7,7 @@ use App\Models\CommitteeMember;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -52,14 +53,14 @@ class CommitteeRolesTest extends TestCase
 
         $chair = $this->userWith('R03');
         $this->actingAs($this->admin, 'sanctum')
-            ->putJson("/api/users/{$chair->id}", ['role_ids' => [$this->roleId('R03'), $this->roleId('R07')]])
+            ->putJson("/api/users/{$chair->id}", ['role_ids' => [$this->roleId('R03'), $this->roleId('R05')]])
             ->assertOk();
         // Unticking a seat role there changes nothing either.
         $this->actingAs($this->admin, 'sanctum')
-            ->putJson("/api/users/{$chair->id}", ['role_ids' => [$this->roleId('R07')]])
+            ->putJson("/api/users/{$chair->id}", ['role_ids' => [$this->roleId('R05')]])
             ->assertOk();
 
-        $this->assertEqualsCanonicalizing(['R03', 'R07'], $chair->roles()->pluck('code')->all());
+        $this->assertEqualsCanonicalizing(['R03', 'R05'], $chair->roles()->pluck('code')->all());
     }
 
     public function test_the_admin_names_the_rapporteur_and_the_old_one_loses_the_role(): void
@@ -97,7 +98,63 @@ class CommitteeRolesTest extends TestCase
 
         $seats = $this->actingAs($rapporteur, 'sanctum')->getJson('/api/committee-roles')
             ->assertOk()->json('data.seats');
-        $this->assertSame([true, true, true, true, false], array_column($seats, 'can_assign'));
+        $this->assertSame([true, true, true, true, false, false], array_column($seats, 'can_assign'));
+    }
+
+    public function test_the_admin_names_the_one_dean_who_never_sits_on_the_committee(): void
+    {
+        $former = $this->userWith('R07');
+        $successor = User::factory()->create();
+        $rapporteur = $this->userWith('R02');
+
+        $this->actingAs($rapporteur, 'sanctum')
+            ->putJson('/api/committee-roles/dean', ['user_id' => $successor->id])
+            ->assertStatus(422);
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson('/api/committee-roles/dean', ['user_id' => $successor->id])
+            ->assertOk();
+
+        $this->assertSame($successor->id, User::activeSeatHolder('dean')?->id);
+        $this->assertFalse($former->roles()->where('code', 'R07')->exists());
+
+        // The dean approves the committee's decisions, so he holds no seat on it.
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson('/api/committee-roles/dean', ['user_id' => $rapporteur->id])
+            ->assertStatus(422)->assertJsonValidationErrors('user_id');
+        $this->actingAs($rapporteur, 'sanctum')
+            ->putJson('/api/committee-roles/chair', ['user_id' => $successor->id])
+            ->assertStatus(422)->assertJsonValidationErrors('user_id');
+
+        $committeeId = $this->actingAs($rapporteur, 'sanctum')
+            ->postJson('/api/committees', ['name_ar' => 'لجنة شؤون الموظفين'])
+            ->assertCreated()->json('data.id');
+        $this->assertFalse(CommitteeMember::query()->where('committee_id', $committeeId)->where('user_id', $successor->id)->exists());
+    }
+
+    public function test_the_users_screen_cannot_grant_the_dean(): void
+    {
+        $this->actingAs($this->admin, 'sanctum')->postJson('/api/users', [
+            'name' => 'عميد',
+            'email' => 'dean@example.test',
+            'password' => 'password123',
+            'role_ids' => [$this->roleId('R07')],
+        ])->assertStatus(422)->assertJsonValidationErrors('role_ids.0');
+    }
+
+    public function test_r10_is_retired_into_the_chair_and_its_holders_become_employees(): void
+    {
+        $this->assertNull(Role::query()->where('code', 'R10')->first());
+        $this->assertStringContainsString('وكيل ديوان البلدية', Role::query()->where('code', 'R03')->value('name_ar'));
+
+        // A database seeded before the merge still holds R10 and its accounts.
+        $r10 = Role::create(['code' => 'R10', 'name_ar' => 'وكيل الديوان', 'name_en' => 'Diwan Deputy']);
+        $holder = User::factory()->create();
+        $holder->roles()->attach($r10->id);
+
+        $this->seed(RoleSeeder::class);
+
+        $this->assertNull(Role::query()->where('code', 'R10')->first());
+        $this->assertSame(['R01'], $holder->roles()->pluck('code')->all());
     }
 
     public function test_an_inactive_user_or_another_seat_holder_is_refused(): void

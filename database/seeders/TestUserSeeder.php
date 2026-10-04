@@ -18,12 +18,12 @@ use Illuminate\Support\Facades\Hash;
  * path deliberately needs several different people to reach `in_execution`:
  * submit (R01) -> direct-manager review + administrative routing (the
  * submitter's own manager, or an R08 override) -> receive & register
- * (R12/R10/R09, whichever matches the chosen route) -> R02 -> R05 -> R03 ->
+ * (R12) -> R02 -> R05 -> R03 ->
  * R05 -> R06 -> R07. Without these accounts none of those gates is ever
  * actually hit. See TEST_PLAN.md for the script that uses them.
  *
  * Diagram-alignment redesign (see AGENT_NOTES.md): r09.secretary@ and
- * r10.diwan@ cover the two new receiving roles at receive_and_register
+ * r10.diwan@ (removed with R10, 2026-10-04) covered the two new receiving roles at receive_and_register
  * (R05/HR existed as r05.manager@ at the time, since replaced — see below).
  * r01.employee@'s `manager_id` is wired to r02.reviewer@ below so the new
  * front-half stages are walkable end to end with a real assigned manager,
@@ -97,10 +97,10 @@ class TestUserSeeder extends Seeder
         ['r08.sysadmin@abusaleem.test',   'مدير نظام تجريبي',        'System admin',                 ['R08'],        'ADM', '+218910000010', true],
         ['multi.role@abusaleem.test',     'رئيس وعضو لجنة',          'Head + member (union check)',  ['R03', 'R04'], 'ABS', '+218910000011', true],
         ['inactive.user@abusaleem.test',  'مستخدم موقوف',            'Suspended user',               ['R01'],        'FIN', '+218910000012', false],
-        // Diagram-alignment redesign — the two new receiving roles at
-        // receive_and_register (R05/HR already existed as r05.manager@).
+        // Diagram-alignment redesign — a receiving role at receive_and_register
+        // until Stage 96. Its twin r10.diwan@ went with R10 (merged into R03,
+        // 2026-10-04); an existing database keeps that account as an R01.
         ['r09.secretary@abusaleem.test',  'أمين سر اللجنة التجريبي', 'Committee secretary',          ['R09'],        'ABS', '+218910000013', true],
-        ['r10.diwan@abusaleem.test',      'وكيل الديوان التجريبي',   'Diwan deputy',                 ['R10'],        'ABS', '+218910000014', true],
         // Stage 68 — [D] Art. 21's العضو القانوني, the one role the
         // pre-meeting legal review can be recorded by.
         ['r11.legal@abusaleem.test',      'العضو القانوني التجريبي',  'Legal officer',                ['R11'],        'ADM', '+218910000015', true],

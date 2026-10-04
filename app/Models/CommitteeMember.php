@@ -34,14 +34,22 @@ class CommitteeMember extends Model
     ];
 
     /**
-     * Stage 103 — the ids of the five seat roles, which only «أدوار اللجنة»
-     * grants (CommitteeRoleController), never the Users screen.
+     * The posts one person holds at a time (user decision 2026-10-04): the
+     * five seats plus العميد. The dean is named on the same page but is not a
+     * seat — he approves the committee's decisions — so SEAT_ROLES, not this,
+     * decides who sits on a committee.
+     */
+    public const SOLE_ROLES = self::SEAT_ROLES + ['dean' => 'R07'];
+
+    /**
+     * Stage 103 — the ids of the sole-holder roles, which only «المناصب
+     * الفردية» grants (CommitteeRoleController), never the Users screen.
      *
      * @return list<int>
      */
-    public static function seatRoleIds(): array
+    public static function soleRoleIds(): array
     {
-        return Role::query()->whereIn('code', self::SEAT_ROLES)->pluck('id')->all();
+        return Role::query()->whereIn('code', self::SOLE_ROLES)->pluck('id')->all();
     }
 
     protected $fillable = [

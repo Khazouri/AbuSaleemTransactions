@@ -294,8 +294,8 @@ onMounted(() => {
         <fieldset class="roles-field">
           <legend>{{ t('users.roles') }}</legend>
           <label v-for="role in roles" :key="role.id" class="checkbox role-option">
-            <!-- Stage 103 — a committee seat's role is named on «أدوار اللجنة» only. -->
-            <input v-model="form.role_ids" type="checkbox" :value="role.id" :disabled="Boolean(role.committee_seat)" />
+            <!-- Stage 103 — a sole-holder post's role is named on «المناصب الفردية» only. -->
+            <input v-model="form.role_ids" type="checkbox" :value="role.id" :disabled="Boolean(role.sole_post)" />
             {{ role.code }} — {{ roleLabel(role) }}
           </label>
           <small class="hint">{{ t('users.seatRoleHint') }}</small>

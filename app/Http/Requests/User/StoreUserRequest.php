@@ -42,7 +42,7 @@ class StoreUserRequest extends FormRequest
             'manager_id' => ['nullable', 'integer', 'exists:users,id'],
 
             'role_ids' => ['sometimes', 'array'],
-            'role_ids.*' => ['integer', 'exists:roles,id', Rule::notIn(CommitteeMember::seatRoleIds())],
+            'role_ids.*' => ['integer', 'exists:roles,id', Rule::notIn(CommitteeMember::soleRoleIds())],
 
             'is_active' => ['sometimes', 'boolean'],
         ];
@@ -63,7 +63,7 @@ class StoreUserRequest extends FormRequest
             'department_id.exists' => 'الإدارة المحددة غير موجودة.',
             'manager_id.exists' => 'المدير المباشر المحدد غير موجود.',
             'role_ids.*.exists' => 'أحد الأدوار المحددة غير موجود.',
-            'role_ids.*.not_in' => 'أدوار اللجنة تُعيَّن من صفحة «أدوار اللجنة».',
+            'role_ids.*.not_in' => 'أدوار اللجنة ودور العميد تُعيَّن من صفحة «المناصب الفردية».',
         ];
     }
 }

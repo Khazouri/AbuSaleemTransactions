@@ -219,10 +219,11 @@ class DirectManagerRoutingTest extends TestCase
             $this->assertSame('لا يملك المستخدم الدور المطلوب لتنفيذ هذا الإجراء.', $exception->getMessage());
         }
 
-        // Stage 87 refused R05 here; Stage 96 refuses R10 and R09 the same
+        // Stage 87 refused R05 here; Stage 96 refuses R09 (and R10, since
+        // merged into R03) the same
         // way, for the same reason — the receiving party [D] Appendix 6 names
         // is الموارد البشرية, and none of the three is it.
-        foreach (['R05', 'R10', 'R09'] as $formerRegistrarRole) {
+        foreach (['R05', 'R09'] as $formerRegistrarRole) {
             try {
                 $service->transition(
                     $this->newRequest('receive_and_register', 'routed_to_hr'),
@@ -289,9 +290,9 @@ class DirectManagerRoutingTest extends TestCase
         $this->assertSame('receive_and_register', $moved->currentStage->code);
         $this->assertSame('cancelled', $moved->status->code);
 
-        // The superseded R09/R10 cancel rows are exceptions, so only their own
-        // targeted delete removes them — this fails if that delete is dropped.
-        foreach (['R09', 'R10'] as $retiredRegistrar) {
+        // The superseded R09 cancel row (R10's went with the role) is an exception, so only its own
+        // targeted delete removes it — this fails if that delete is dropped.
+        foreach (['R09'] as $retiredRegistrar) {
             try {
                 $service->transition(
                     $this->newRequest('receive_and_register', 'routed_to_hr'),
@@ -425,8 +426,8 @@ class DirectManagerRoutingTest extends TestCase
             ->assertCreated();
 
         // The grant is still bounded — a role that holds no `register` row
-        // here gets nothing. Stage 100 gave R06/R07 `notes_attachments,add` (Appendix 6 row 13's supervision), so R10 — a retained login with no duty since Stage 96 — is the role that holds no such grant.
-        $outsider = $this->userWithRole('R10');
+        // here gets nothing. Stage 100 gave R06/R07 `notes_attachments,add` (Appendix 6 row 13's supervision), so R09 — a retained login with no duty since Stage 96 — is the role that holds no such grant.
+        $outsider = $this->userWithRole('R09');
         $requestRecord = $this->newRequest('receive_and_register', 'routed_to_hr', $this->userWithRole('R01')->id);
 
         $this->actingAs($outsider, 'sanctum')

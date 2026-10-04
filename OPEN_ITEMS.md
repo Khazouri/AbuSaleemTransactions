@@ -13,6 +13,14 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### Seeded accounts can still double a sole-holder role; the test plans still describe R10 — العميد/R10 merge — opened 2026-10-04
+(1) One holder per post is enforced when someone is named, not on the data already there: `TestUserSeeder` still gives
+`multi.role@` R03 beside `r03.head@` (the 2026-10-04 decision that seeded accounts keep their roles), so the real
+database has two chairs until the chair is named on «المناصب الفردية»; `activeSeatHolder()` seats the lower id. (2)
+`TEST_PLAN.md`/`.ar.md`, `TEST_PLAN.roles.md`/`.ar.md` and `USER_GUIDE.ar.md` still list R10 and `r10.diwan@`, and
+don't cover naming العميد. **To close:** decide whether the seeder should hold one holder per post too (drop R03
+from `multi.role@`); rewrite the R10 sections and add an R08 "name العميد" check to the role plans.
+
 ### «أدوار اللجنة» leaves R05, unassigning and the stale roster open — Stage 103 — opened 2026-10-04
 (1) The user named مدير الشؤون الإدارية among the roles the مقرر assigns, then said «don't include it for now»: R05
 (an approver, not a seat) is still granted on the Users screen. (2) A seat role can only change hands; there is no

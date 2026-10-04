@@ -4,12 +4,13 @@ namespace Database\Seeders;
 
 use App\Models\Role;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Seeds the system roles, R01 onward. The first eight come from the Role
- * Matrix sheet; R09/R10 were added by the diagram-alignment redesign, R11 by
- * Stage 68, and R12 by Stage 87 — so treat the array below as the count, not
- * this sentence.
+ * Matrix sheet; R09/R10 were added by the diagram-alignment redesign (R10
+ * since retired into R03), R11 by Stage 68, and R12 by Stage 87 — so treat
+ * the array below as the count, not this sentence.
  *
  * These roles are reference data fixed by the municipality's approval
  * structure, not user-editable content — but "fixed" means an administrator
@@ -25,7 +26,9 @@ class RoleSeeder extends Seeder
         $roles = [
             ['code' => 'R01', 'name_ar' => 'موظف', 'name_en' => 'Employee', 'description' => 'يقدم الطلب ويتابع حالته ويستلم القرارات'],
             ['code' => 'R02', 'name_ar' => 'المقرر', 'name_en' => 'Reviewer', 'description' => 'يراجع الطلبات ويضيف الملاحظات والتوصيات'],
-            ['code' => 'R03', 'name_ar' => 'رئيس اللجنة', 'name_en' => 'Committee Head', 'description' => 'يعتمد دخول الطلب إلى اللجنة ويصدر القرارات'],
+            // 2026-10-04 — [D] Art. 10 (أ) names وكيل ديوان البلدية as رئيس
+            // اللجنة, so the chair is the diwan deputy and R10 is merged in.
+            ['code' => 'R03', 'name_ar' => 'رئيس اللجنة (وكيل ديوان البلدية)', 'name_en' => 'Committee Chair (Diwan Deputy)', 'description' => 'يعتمد دخول الطلب إلى اللجنة ويصدر القرارات'],
             ['code' => 'R04', 'name_ar' => 'عضو اللجنة', 'name_en' => 'Committee Member', 'description' => 'يشارك في الاجتماع ويصوت على القرارات'],
             ['code' => 'R05', 'name_ar' => 'مدير إدارة الشؤون الإدارية', 'name_en' => 'Admin Manager', 'description' => 'يدقق ويعتمد الطلبات حسب الصلاحيات'],
             ['code' => 'R06', 'name_ar' => 'وزارة الحكم المحلي', 'name_en' => 'Ministry', 'description' => 'تراجع وتدقق الطلبات قبل الاعتماد النهائي'],
@@ -34,14 +37,11 @@ class RoleSeeder extends Seeder
             // Diagram-alignment roles — see AGENT_NOTES.md for the source
             // (the "Employee Affairs Committee request" infographic). Additive
             // only: RoleSeeder upserts on `code`, so nothing above is affected.
-            // Stage 96 — R09 and R10 keep their logins and hold no seeded duty:
-            // [D] الملحق السادس (مصفوفة المسؤوليات) has no column for either,
-            // and every duty they held belongs to a party that does have one
-            // (المقرر = R02, الموارد البشرية = R12). The rows stay rather than
-            // being deleted so existing accounts, audit rows and historical
-            // stage logs keep resolving a role.
+            // Stage 96 — R09 keeps its login and holds no seeded duty: [D]
+            // الملحق السادس (مصفوفة المسؤوليات) has no column for it, and every
+            // duty it held belongs to المقرر (R02). R10 (وكيل الديوان) was the
+            // same until 2026-10-04, when it was merged into R03 (below).
             ['code' => 'R09', 'name_ar' => 'أمين سر اللجنة', 'name_en' => 'Committee Secretary', 'description' => 'دور محتفظ به بلا مهام مُسنَدة — مهامه السابقة تعود إلى مقرر اللجنة وفق الملحق السادس'],
-            ['code' => 'R10', 'name_ar' => 'وكيل الديوان', 'name_en' => 'Diwan Deputy', 'description' => 'دور محتفظ به بلا مهام مُسنَدة — مسار الإحالة الإدارية يعود إلى إدارة الموارد البشرية وفق الملحق السادس'],
             // Stage 68 (Track K) — [D] Art. 21 / Art. 14 (ب)'s العضو القانوني.
             // Stage 45 gave the committee a `legal` SEAT, but Art. 109 and
             // Appendix 45 both list the legal officer as a system ROLE with
@@ -64,5 +64,31 @@ class RoleSeeder extends Seeder
             // changing role ids (which other tables reference).
             Role::updateOrCreate(['code' => $role['code']], $role);
         }
+
+        $this->retireDiwanDeputy();
+    }
+
+    /**
+     * R10 duplicated the chair, who IS وكيل ديوان البلدية, and R03 has one
+     * holder (CommitteeMember::SOLE_ROLES), so its holders cannot simply take
+     * R03: they fall back to R01, the role every account starts with. A rule
+     * row is deleted rather than left to the FK's nullOnDelete, which would
+     * turn "R10 only" into "anyone". No approval can point at R10 — it never
+     * held an approval level — so the restrictOnDelete there never fires.
+     */
+    private function retireDiwanDeputy(): void
+    {
+        $r10 = Role::query()->where('code', 'R10')->first();
+        if ($r10 === null) {
+            return;
+        }
+
+        $employee = Role::query()->where('code', 'R01')->value('id');
+        foreach ($r10->users()->get() as $user) {
+            $user->roles()->syncWithoutDetaching([$employee]);
+        }
+
+        DB::table('workflow_transitions')->where('required_role_id', $r10->id)->delete();
+        $r10->delete();
     }
 }

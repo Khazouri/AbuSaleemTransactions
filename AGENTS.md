@@ -100,12 +100,16 @@ Key architectural facts worth knowing before changing things:
   deferral puts it back. Agenda items are `employee_request` or `appeal` only.
   A committee is its five Art. 10 (أ) seats, each tied to a role
   (`CommitteeMember::SEAT_ROLES`: chair R03, legal R11, hr_director R12,
-  ministry_delegate R04, rapporteur R02). **Each seat role has one holder in
-  the system, named on «أدوار اللجنة»** (`committee_roles`,
-  `CommitteeRoleController`, user decision 2026-10-04): R08 names the مقرر,
-  the مقرر names the other four, and naming someone takes the role from every
-  former holder. Every account starts as R01, and the Users screen cannot
-  grant a seat role (`CommitteeMember::seatRoleIds()`). `Committee::seatRoleHolders()`
+  ministry_delegate R04, rapporteur R02). **Each seat role, and العميد (R07),
+  has one holder in the system, named on «المناصب الفردية»** (`committee_roles`,
+  `CommitteeRoleController`, `CommitteeMember::SOLE_ROLES`, user decisions
+  2026-10-04): R08 names the مقرر and العميد, the مقرر names the other four,
+  and naming someone takes the role from every former holder. العميد is not a
+  seat (he approves the committee's decisions), and nobody holds two of these
+  posts. R03 is the chair = وكيل ديوان البلدية; the old R10 «وكيل الديوان» was
+  merged into it and `RoleSeeder` deletes it. Every account starts as R01, and
+  the Users screen cannot grant any of these roles
+  (`CommitteeMember::soleRoleIds()`). `Committee::seatRoleHolders()`
   fills every seat from those holders when a committee is formed and again at
   scheduling, so no seat is picked by hand — deliberately not at naming time,
   so a sitting already under way keeps its invitees. A former holder still

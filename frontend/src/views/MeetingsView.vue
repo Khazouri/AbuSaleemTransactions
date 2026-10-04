@@ -179,7 +179,7 @@ async function removeCommittee(committee) {
 const expandedCommitteeId = ref(null)
 
 // Stage 45 — [D] Art. 10's fixed 5-seat roster. Stage 103 — read-only here:
-// each seat is held by its role's one holder, named on «أدوار اللجنة».
+// each seat is held by its role's one holder, named on «المناصب الفردية».
 const SEAT_CODES = ['chair', 'legal', 'hr_director', 'ministry_delegate', 'rapporteur']
 
 // Looked up by id rather than held as an object, so the modal shows the

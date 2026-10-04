@@ -26,9 +26,10 @@ class RoleResource extends JsonResource
             'name_ar' => $this->name_ar,
             'name_en' => $this->name_en,
             'description' => $this->description,
-            // Stage 103 — the seat this role fills, if any: the Users screen
-            // shows such a role but cannot grant it.
-            'committee_seat' => array_search($this->code, CommitteeMember::SEAT_ROLES, true) ?: null,
+            // Stage 103 — the sole-holder post this role fills, if any (a
+            // committee seat or العميد): the Users screen shows such a role but
+            // cannot grant it.
+            'sole_post' => array_search($this->code, CommitteeMember::SOLE_ROLES, true) ?: null,
         ];
     }
 }

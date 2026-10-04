@@ -19,6 +19,38 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-04 22:40 EET — Claude — العميد is a single-holder post; R10 merged into R03 (complete)
+
+Built per the plan below. There is no migration.
+
+What changed:
+- `CommitteeMember::SOLE_ROLES` (the five seats plus `dean` → R07) drives «المناصب الفردية», its route, `activeSeatHolder()` and the Users-screen exclusion. `seatRoleIds()` was renamed `soleRoleIds()`, and `RoleResource`'s `committee_seat` became `sole_post`.
+- R08 names العميد, and the مقرر is refused.
+- Nobody may hold two of these posts, and `SEAT_ROLES` keeps العميد off every committee.
+- `RoleSeeder` renames R03, gives R10's holders R01, deletes any rule row requiring R10 (the FK would otherwise null it into "anyone") and deletes R10. `PermissionSeeder`'s legacy arrays dropped R10.
+- Three tests that used R10 as "a role with no notes grant" now use R09.
+
+Verified:
+- 4 new `CommitteeRolesTest` cases failed first, then passed.
+- Full suite 859 green; Pint clean; build passes (`dist` committed); parity 2096; `aislop ci` exit 0 (97).
+- RoleSeeder and ScreenSeeder were reseeded on the real MySQL and checked by query: R10 is gone and `r10.diwan@` is R01.
+- A live GET as r08 showed six rows, with `can_assign` true only for the مقرر and العميد.
+
+Open items are in OPEN_ITEMS.md: the seeded second R03 holder, and the stale R10 sections of the test plans and the guide.
+
+---
+### 2026-10-04 21:56 EET — Claude — Implementation plan: العميد is a single-holder post; R10 merged into R03
+
+User: «there can only be one user for each» of the five Art. 10 (أ) posts plus العميد. The five already have one
+holder each (Stage 103). Put to the user and answered: «وكيل ديوان» is the chair, so R10 is retired into R03, and
+R08 names العميد (R07) on the same page as the مقرر, with the same replace semantics. Plan: `CommitteeMember::SOLE_ROLES`
+(the five seats + `dean` → R07) drives the page, the route, `activeSeatHolder()` and the Users-screen exclusion
+(`soleRoleIds()`), while `SEAT_ROLES` still decides who sits on a committee, so العميد is never seated. A seat holder
+cannot be named العميد, and the reverse is also refused. `RoleSeeder` renames R03 «رئيس اللجنة (وكيل ديوان البلدية)», gives
+R10's holders R01 and deletes R10; `TestUserSeeder` drops `r10.diwan@`. The page is retitled «المناصب الفردية». No
+migration. Verify: CommitteeRolesTest cases, full PHPUnit, Pint, build (`dist` committed), parity, aislop ci, reseed.
+
+---
 ### 2026-10-04 21:40 EET — Claude — «أدوار اللجنة»: R08 names the مقرر, the مقرر names the other four (complete)
 
 Built per the plan below. There is no migration. The new `committee_roles` screen (R02 + R08) has

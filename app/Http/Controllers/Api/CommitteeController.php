@@ -53,7 +53,7 @@ class CommitteeController extends Controller
      * index() lists only committees you sit on. Only the system's مقرر forms a
      * committee (user decision 2026-10-02), and seatRoleHolders() puts them in
      * the rapporteur seat, so that one row is the creator's seat too. The other
-     * four seats come from «أدوار اللجنة» (Stage 103), never picked here.
+     * four seats come from «المناصب الفردية» (Stage 103), never picked here.
      */
     public function store(StoreCommitteeRequest $request): JsonResponse
     {

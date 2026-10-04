@@ -45,7 +45,7 @@ class UserController extends Controller
         $data['password'] = Hash::make($data['password']);
 
         // Stage 103 — every account starts as an employee (user decision
-        // 2026-10-04); committee roles come later from «أدوار اللجنة».
+        // 2026-10-04); committee roles come later from «المناصب الفردية».
         $employee = Role::query()->where('code', 'R01')->value('id');
 
         $user = User::create($data);
@@ -71,11 +71,11 @@ class UserController extends Controller
 
         $user->update($data);
 
-        // Seat roles the user holds stay put: unticking one here is not how a
-        // committee seat changes hands (CommitteeRoleController is).
+        // Sole-holder roles the user holds stay put: unticking one here is not how a
+        // post changes hands (CommitteeRoleController is).
         if ($request->has('role_ids')) {
-            $heldSeatRoles = $user->roles()->whereIn('roles.id', CommitteeMember::seatRoleIds())->pluck('roles.id')->all();
-            $user->roles()->sync(array_unique([...$request->validated('role_ids'), ...$heldSeatRoles]));
+            $heldSoleRoles = $user->roles()->whereIn('roles.id', CommitteeMember::soleRoleIds())->pluck('roles.id')->all();
+            $user->roles()->sync(array_unique([...$request->validated('role_ids'), ...$heldSoleRoles]));
         }
 
         $this->releaseHeadSlots($user);
@@ -128,7 +128,7 @@ class UserController extends Controller
 
     /**
      * One مقرر in the system (user decision 2026-10-02). Naming a new one on
-     * «أدوار اللجنة» takes the role from every former holder, but an account
+     * «المناصب الفردية» takes the role from every former holder, but an account
      * deactivated before that rule may still hold it, so enabling it is what
      * clashes.
      */

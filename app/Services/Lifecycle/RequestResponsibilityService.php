@@ -108,7 +108,7 @@ class RequestResponsibilityService
     ];
 
     /**
-     * Appendix 17's own vocabulary, reached from this system's eleven roles.
+     * Appendix 17's own vocabulary, reached from this system's roles.
      *
      * R05 (مدير إدارة الشؤون الإدارية) maps onto إدارة الموارد البشرية and R07
      * (المدير العام / العميد) onto عميد البلدية: neither role name is the
@@ -127,12 +127,12 @@ class RequestResponsibilityService
         'R06' => 'ministry',
         'R07' => 'mayor',
         'R08' => 'staff_affairs',
-        // Stage 96 left these two mappings in place although neither role
-        // holds an outbound rule any more: Appendix 17's party vocabulary is
-        // fixed, the rows cost nothing, and a stage that ever re-seats R09 or
-        // R10 would need them back.
+        // Stage 96 left this mapping in place although R09 holds no outbound
+        // rule any more: the row costs nothing, and a stage that ever re-seats
+        // R09 would need it back. R10's went with the role (merged into R03,
+        // 2026-10-04); Appendix 17's `diwan_deputy` party stays in PARTIES
+        // because the appendix's vocabulary is fixed.
         'R09' => 'staff_affairs',
-        'R10' => 'diwan_deputy',
         'R11' => 'legal_member',
         // R12 holds the `register` row at receive_and_register (Stage 96 left
         // it the only registering party); without this the stage fell through

@@ -52,7 +52,7 @@ class UpdateUserRequest extends FormRequest
             // (the edit form sends back every role), but none can be added.
             'role_ids.*' => [
                 'integer', 'exists:roles,id',
-                Rule::notIn(array_diff(CommitteeMember::seatRoleIds(), $user->roles()->pluck('roles.id')->all())),
+                Rule::notIn(array_diff(CommitteeMember::soleRoleIds(), $user->roles()->pluck('roles.id')->all())),
             ],
 
             'is_active' => ['sometimes', 'boolean'],
@@ -74,7 +74,7 @@ class UpdateUserRequest extends FormRequest
             'manager_id.exists' => 'المدير المباشر المحدد غير موجود.',
             'manager_id.not_in' => 'لا يمكن أن يكون المستخدم مديره المباشر.',
             'role_ids.*.exists' => 'أحد الأدوار المحددة غير موجود.',
-            'role_ids.*.not_in' => 'أدوار اللجنة تُعيَّن من صفحة «أدوار اللجنة».',
+            'role_ids.*.not_in' => 'أدوار اللجنة ودور العميد تُعيَّن من صفحة «المناصب الفردية».',
         ];
     }
 }

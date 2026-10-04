@@ -175,15 +175,15 @@ class User extends Authenticatable
     }
 
     /**
-     * The one active holder of a committee seat's role (Stage 103). Naming a
-     * holder on «أدوار اللجنة» takes the role from everyone else, so ordering
+     * The one active holder of a sole-holder post (Stage 103: a seat or العميد). Naming a
+     * holder on «المناصب الفردية» takes the role from everyone else, so ordering
      * by id only matters for rows written around that page (seeders, fixtures).
      */
     public static function activeSeatHolder(string $seat, ?int $exceptUserId = null): ?self
     {
         return static::query()
             ->where('is_active', true)
-            ->whereHas('roles', fn ($roles) => $roles->where('code', CommitteeMember::SEAT_ROLES[$seat]))
+            ->whereHas('roles', fn ($roles) => $roles->where('code', CommitteeMember::SOLE_ROLES[$seat]))
             ->when($exceptUserId, fn ($query, int $id) => $query->whereKeyNot($id))
             ->orderBy('id')
             ->first();
