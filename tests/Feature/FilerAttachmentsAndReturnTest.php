@@ -107,11 +107,7 @@ class FilerAttachmentsAndReturnTest extends TestCase
             ->getJson("/api/requests/{$requestRecord->id}")
             ->assertOk();
 
-        // ...and must say why when sending it back.
-        $this->actingAs($manager, 'sanctum')
-            ->postJson("/api/requests/{$requestRecord->id}/transition", ['action' => 'return_to_employee'])
-            ->assertUnprocessable();
-
+        // ...and may say why when sending it back (optional since 2026-10-07).
         $this->actingAs($manager, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/transition", [
                 'action' => 'return_to_employee',

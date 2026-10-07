@@ -13,6 +13,12 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The manager's return and cancel still require a reason on the real database — optional note — opened 2026-10-07
+`WorkflowTransitionSeeder` now seeds `return_to_employee` and both manager `cancel` rows with `requires_comment = false`,
+but Homestead's MySQL was unreachable, so the real database still demands a reason for them. The removed
+document-validity gate is code and is live already. **To close:** the same
+`php artisan db:seed --class=WorkflowTransitionSeeder` as the entry below; one run closes both.
+
 ### R08's `submit` row still on the real database — admin may not file — opened 2026-10-07
 `WorkflowTransitionSeeder` now deletes R08's `submit` exception at `receive_from_municipality`, but Homestead's MySQL
 was unreachable, so the real database still has it: until then an admin can push an employee's returned file

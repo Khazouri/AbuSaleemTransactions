@@ -74,8 +74,7 @@ async function load() {
           <li v-for="row in data.document_validity" :key="row.attachment_id">
             <p class="round-head">
               <strong>{{ row.original_name }}</strong>
-              <span v-if="row.card" :class="['verdict', row.card.verdict]">{{ t(`lifecycle.validity.verdicts.${row.card.verdict}`) }}</span>
-              <span v-else class="verdict unchecked">{{ t('lifecycle.validity.unchecked') }}</span>
+              <span :class="['verdict', row.card.verdict]">{{ t(`lifecycle.validity.verdicts.${row.card.verdict}`) }}</span>
             </p>
           </li>
         </ul>
@@ -145,5 +144,4 @@ async function load() {
 .lifecycle h3 { margin: 0; font-size: var(--text-lg); }
 .verdict.sound { color: var(--color-success-fg); }
 .verdict.doubtful { color: var(--color-danger-fg); }
-.verdict.unchecked { color: var(--color-black-500); }
 </style>

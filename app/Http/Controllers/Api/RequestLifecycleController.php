@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Lifecycle\DetermineWithdrawalRequest;
-use App\Http\Requests\Lifecycle\RecordDocumentValidityRequest;
 use App\Http\Requests\Lifecycle\ResolveDocumentConflictRequest;
 use App\Http\Requests\Lifecycle\ResolveSpecialCaseRequest;
 use App\Http\Requests\Lifecycle\StoreCorrectionRequest;
@@ -24,7 +23,6 @@ use App\Services\Lifecycle\DuplicatePolicy;
 use App\Services\Lifecycle\SpecialCaseRules;
 use App\Services\Lifecycle\WithdrawalService;
 use App\Services\RequestVisibility;
-use App\Services\WorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Validation\ValidationException;
@@ -163,7 +161,9 @@ class RequestLifecycleController extends Controller
                 'determined_by' => $withdrawal->determinedBy?->name,
                 'determined_at' => $withdrawal->determined_at?->toIso8601String(),
             ])->values(),
-            'document_validity' => $requestRecord->attachments->map(fn (Attachment $attachment) => [
+            // Only cards recorded before 2026-10-07, when the check stopped
+            // being recordable; an unchecked attachment says nothing any more.
+            'document_validity' => $requestRecord->attachments->whereNotNull('validity_checks')->map(fn (Attachment $attachment) => [
                 'attachment_id' => $attachment->id,
                 'original_name' => $attachment->original_name,
                 'card' => $validity->card($attachment),
@@ -199,43 +199,6 @@ class RequestLifecycleController extends Controller
         $conflicts->resolve($conflict, $request->validated(), $request->user());
 
         return response()->json(['data' => ['id' => $conflict->id]]);
-    }
-
-    /**
-     * [D] Appendix 31's nine checks over one of this file's documents —
-     * recorded by صاحب العلاقة's manager at direct_manager_review, the same
-     * people who may then `forward` it (user decision 2026-09-26).
-     */
-    public function recordDocumentValidity(
-        RecordDocumentValidityRequest $request,
-        Request $requestRecord,
-        Attachment $attachment,
-        DocumentValidityRules $rules,
-        WorkflowService $workflow,
-    ): JsonResponse {
-        abort_unless($attachment->request_id === $requestRecord->getKey(), 404);
-        abort_unless(
-            $requestRecord->currentStage()->value('code') === DocumentValidityRules::GATED_STAGE
-                && $workflow->mayActAsSubjectsManager($requestRecord, $request->user()),
-            403,
-        );
-
-        $checks = $request->validated('checks');
-
-        if (($refusal = $rules->refusalReason($checks)) !== null) {
-            throw ValidationException::withMessages(['checks' => [$refusal]]);
-        }
-
-        $attachment->update([
-            'validity_checks' => $checks,
-            'validity_checked_by_user_id' => $request->user()->id,
-            'validity_checked_at' => now(),
-        ]);
-
-        return response()->json(['data' => [
-            'attachment_id' => $attachment->id,
-            'verdict' => $rules->verdict($checks),
-        ]]);
     }
 
     /** [D] Appendix 60 — one special case with its own determinations. */

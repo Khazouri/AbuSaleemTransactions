@@ -299,6 +299,10 @@ class WorkflowTransitionSeeder extends Seeder
         // back to intake — mirrors the shape of the return_missing_docs /
         // reject_review / request_edit rows above, but manager-gated instead
         // of role-gated, and reuses the existing `returned` status.
+        //
+        // The manager acts with an optional note only (user decision
+        // 2026-10-07): no row he holds demands a reason, this one included.
+        // Art. 101's return notice simply carries no detail when none is given.
         $this->seedException(
             $stages['direct_manager_review']->id,
             $stages['receive_from_municipality']->id,
@@ -307,6 +311,7 @@ class WorkflowTransitionSeeder extends Seeder
             $statuses['returned']->id,
             21,
             requiresSubmitterManager: true,
+            requiresComment: false,
         );
 
         // Stage 102 — reviewer_review, observations and forward_to_committee
@@ -361,7 +366,8 @@ class WorkflowTransitionSeeder extends Seeder
         // should be able to cancel at that point. Note the consequence,
         // which is intended rather than overlooked: with no admin override
         // anywhere on a manager-gated row, a request whose creator has no
-        // live manager can be neither delegated nor cancelled here.
+        // live manager can be neither delegated nor cancelled here. Optional
+        // note, like every other manager row (2026-10-07).
         foreach (['direct_manager_review', 'administrative_routing'] as $managerGatedStage) {
             $this->seedException(
                 $stages[$managerGatedStage]->id,
@@ -371,6 +377,7 @@ class WorkflowTransitionSeeder extends Seeder
                 $statuses['cancelled']->id,
                 99,
                 requiresSubmitterManager: true,
+                requiresComment: false,
             );
         }
 

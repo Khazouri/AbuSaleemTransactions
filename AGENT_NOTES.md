@@ -19,6 +19,28 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-07 15:40 EET — Claude — The direct manager acts with an optional note only (complete)
+
+Built per the plan below; no migration. `return_to_employee` and both manager `cancel` rows are `requires_comment =
+false`, and `controlGateRefusal()` no longer gates `forward`. `PATCH …/attachments/{a}/validity`, its Form Request,
+`WorkflowService::mayActAsSubjectsManager()`, `DocumentValidityPanel.vue` and the wizard's validity step are deleted.
+The lifecycle panel lists only cards recorded before today. Three tests that pinned the required reason were updated
+in place. Verified: new `DocumentIntegrityTest` case (RED then GREEN), full suite 834 + 9 + 14 green after those
+updates, Pint clean, build passes (`dist` committed), parity 2075, `aislop ci` exit 0. **Not reseeded:** MySQL timed
+out (OPEN_ITEMS.md).
+
+---
+### 2026-10-07 15:07 EET — Claude — Implementation plan: the direct manager acts with an optional note only
+
+User: «the direct manager moves the request with an optional note only». Put to the user and answered: every
+manager-gated row (`forward`, `return_to_employee`, `cancel` at `direct_manager_review`, plus `cancel` at
+`administrative_routing`) becomes `requires_comment = false`, and Appendix 31's document-validity check stops gating
+`forward` (reverses the 2026-09-26 decision). The record endpoint, `RecordDocumentValidityRequest`,
+`DocumentValidityPanel.vue`, the wizard's validity step and `control_gates.document_validity` go with it. Recorded
+cards stay readable in the lifecycle panel. Verify: DocumentIntegrityTest rewritten, full PHPUnit, Pint, build
+(`dist` committed), parity, aislop ci, reseed `WorkflowTransitionSeeder`.
+
+---
 ### 2026-10-07 14:35 EET — Claude — The dashboard shows only the files the reader can open (complete)
 
 Built per the plan below; no migration. `DashboardController` sets `visible_to` unless the reader holds

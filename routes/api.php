@@ -524,7 +524,8 @@ Route::middleware('auth:sanctum')->group(function () {
      * ride `meeting_outputs,edit` (R02 المقرر + R03) — the same grant Stages
      * 75/76/77/80 already use for the rapporteur's own determinations about a
      * file, and the audience Appendices 30/53/60 address. Document validity
-     * left that group on 2026-09-26: it is the direct manager's check.
+     * has no recording route since 2026-10-07 (the manager acts with an
+     * optional note only); cards recorded before then are still read here.
      *
      * Filing a withdrawal is the ONE exception, and deliberately: Appendix 68's
      * first step is the employee putting a written request on their own file,
@@ -547,11 +548,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('requests/{requestRecord}/corrections/{correction}/approve', [RequestLifecycleController::class, 'approveCorrection']);
         Route::patch('requests/{requestRecord}/withdrawals/{withdrawal}/determine', [RequestLifecycleController::class, 'determineWithdrawal']);
     });
-
-    // Appendix 31's validity check is the direct manager's (2026-09-26), a
-    // relationship no screen grant can name — the controller checks it.
-    Route::middleware('screen.permission:request_details,view')
-        ->patch('requests/{requestRecord}/attachments/{attachment}/validity', [RequestLifecycleController::class, 'recordDocumentValidity']);
 
     Route::middleware('screen.permission:notes_attachments,add')
         ->post('requests/{requestRecord}/withdrawals', [RequestLifecycleController::class, 'storeWithdrawal']);

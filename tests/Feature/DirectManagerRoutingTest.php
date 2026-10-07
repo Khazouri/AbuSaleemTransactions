@@ -237,7 +237,8 @@ class DirectManagerRoutingTest extends TestCase
         }
     }
 
-    public function test_return_to_employee_sends_it_back_to_stage_one_and_requires_a_comment(): void
+    /** The note is optional since 2026-10-07: the manager acts with an optional note only. */
+    public function test_return_to_employee_sends_it_back_to_stage_one_without_requiring_a_comment(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -249,14 +250,7 @@ class DirectManagerRoutingTest extends TestCase
         $service = app(WorkflowService::class);
         $requestRecord = $this->newRequest('direct_manager_review', 'in_review', $employee->id);
 
-        try {
-            $service->transition($requestRecord, 'return_to_employee', $manager);
-            $this->fail('return_to_employee should require a comment.');
-        } catch (WorkflowTransitionException $exception) {
-            $this->assertSame('يجب إدخال سبب لتنفيذ هذا الإجراء.', $exception->getMessage());
-        }
-
-        $moved = $service->transition($requestRecord->refresh(), 'return_to_employee', $manager, 'بيانات ناقصة.');
+        $moved = $service->transition($requestRecord, 'return_to_employee', $manager);
         $this->assertSame('receive_from_municipality', $moved->currentStage->code);
         $this->assertSame('returned', $moved->status->code);
     }

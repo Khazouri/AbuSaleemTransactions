@@ -1974,10 +1974,6 @@
     "saving": "Saving…",
     "cancel": "Cancel",
     "error": "The action could not be completed.",
-    "documentValidity": {
-      "passed": "Every attached document has been verified as sound.",
-      "noDocuments": "There are no attached documents to verify."
-    },
     "intake": {
       "title": "Gate 1 — before registration",
       "question": "Are the facts and documents correct and complete?",
@@ -2240,28 +2236,9 @@
     "validity": {
       "title": "Document validity",
       "note": "Study of the request may be suspended where there is serious doubt about an essential document, until it is officially verified.",
-      "action": "Verify the document",
-      "recheckAction": "Verify again",
-      "unchecked": "Not verified",
       "verdicts": {
         "sound": "Sound",
         "doubtful": "In doubt"
-      },
-      "answers": {
-        "yes": "Satisfied",
-        "no": "Not satisfied",
-        "not_applicable": "Not applicable"
-      },
-      "checks": {
-        "issuing_body": "Issuing body",
-        "document_number": "Document number",
-        "document_date": "Document date",
-        "signature": "Signature",
-        "stamp": "Stamp, where required",
-        "copy_integrity": "Integrity of the copy",
-        "copy_matches_original": "Copy matches the original, where required",
-        "no_unapproved_alteration": "No unapproved alteration or erasure",
-        "linked_to_employee": "The document belongs to the employee concerned"
       }
     },
     "specialCases": {
@@ -2501,7 +2478,6 @@
     },
     "checks": {
       "lede": "These checks are yours to complete before some actions open up. Each one saves with its own button.",
-      "document_validity": "Document validity",
       "employment_file": "Employment file",
       "intake": "Gate 1: file completeness",
       "jurisdiction_test": "Jurisdiction test (Art. 45)",

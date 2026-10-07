@@ -3,35 +3,21 @@
 namespace App\Services\Lifecycle;
 
 use App\Models\Attachment;
-use App\Models\Request;
 
 /**
  * Stage 83 — [D] Appendix 31's التحقق من صحة المستندات, nine checks per
  * document.
  *
- * **A gate on the manager's `forward`, and nowhere else** (user decision
- * 2026-09-26). The checks are الرئيس المباشر's, answered at
- * `direct_manager_review` before the file leaves the manager: every attached document
- * must carry a card and none may be `doubtful` — a doubtful document is sent
- * back to the employee (`return_to_employee`), not forwarded. Stage 83 left
- * this ungated, reading the appendix's «يجوز تعليق» as permissive; that still
- * holds later in the file, where Art. 105's suspension is the only hold.
+ * **Read-only since 2026-10-07.** The checks were the direct manager's gate on
+ * `forward` (user decision 2026-09-26) until the user decided the manager acts
+ * with an optional note only; nothing records a card any more. Cards recorded
+ * before then stay on their attachments and are still shown on the file.
  *
- * **Two of the nine are conditional, and the appendix says so itself**: الختم
- * carries "عند الحاجة" and مطابقة الصورة للأصل carries "عند اشتراطها", so both
- * may honestly be answered `not_applicable`. The other seven bind — a
- * document either has an issuing body or it does not. A `no` on any of them
- * makes the document `doubtful`, which holds the manager's `forward` above and
- * otherwise feeds Appendix 30's conflict record or Art. 105's suspension.
+ * Two of the nine are conditional (الختم "عند الحاجة", مطابقة الصورة للأصل
+ * "عند اشتراطها"), so a recorded card may hold `not_applicable` for them.
  */
 class DocumentValidityRules
 {
-    public const ANSWERS = ['yes', 'no', 'not_applicable'];
-
-    public const GATED_STAGE = 'direct_manager_review';
-
-    public const GATED_ACTION = 'forward';
-
     /**
      * The nine, in the appendix's own order, with the two its own qualifiers
      * make conditional flagged as such.
@@ -49,28 +35,6 @@ class DocumentValidityRules
         'no_unapproved_alteration' => ['ar' => 'عدم وجود تعديل أو كشط غير معتمد', 'en' => 'No unapproved alteration or erasure', 'conditional' => false],
         'linked_to_employee' => ['ar' => 'ارتباط المستند بالموظف المعني', 'en' => 'The document belongs to the employee concerned', 'conditional' => false],
     ];
-
-    /**
-     * The Arabic reason a submitted answer set may not be recorded, or null.
-     *
-     * @param  array<string, string>  $answers
-     */
-    public function refusalReason(array $answers): ?string
-    {
-        foreach (self::CHECKS as $key => $check) {
-            $answer = $answers[$key] ?? null;
-
-            if ($answer === null) {
-                return 'يجب الإجابة على جميع بنود التحقق من صحة المستند: '.$check['ar'].' غير مجاب عليه.';
-            }
-
-            if ($answer === 'not_applicable' && ! $check['conditional']) {
-                return 'البند "'.$check['ar'].'" مطلوب في كل مستند ولا يجوز اعتباره غير منطبق.';
-            }
-        }
-
-        return null;
-    }
 
     /**
      * `sound` when nothing was answered `no`, else `doubtful`.
@@ -120,24 +84,5 @@ class DocumentValidityRules
                 ->values()
                 ->all(),
         ];
-    }
-
-    /**
-     * Why the manager may not forward this file yet, or null. A file with no
-     * attachments has nothing to check.
-     */
-    public function forwardRefusal(Request $requestRecord): ?string
-    {
-        foreach ($requestRecord->attachments()->get(['id', 'original_name', 'validity_checks']) as $attachment) {
-            if ($attachment->validity_checks === null) {
-                return 'يجب التحقق من صحة جميع المستندات قبل الموافقة والإحالة: لم يُتحقق من «'.$attachment->original_name.'».';
-            }
-
-            if ($this->verdict($attachment->validity_checks) === 'doubtful') {
-                return 'لا تجوز الإحالة والمستند «'.$attachment->original_name.'» محل شك؛ أعد الطلب إلى الموظف لاستكماله.';
-            }
-        }
-
-        return null;
     }
 }

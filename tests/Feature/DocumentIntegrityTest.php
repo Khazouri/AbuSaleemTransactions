@@ -13,7 +13,6 @@ use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
-use App\Services\Lifecycle\DocumentValidityRules;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\PassesControlGates;
@@ -162,125 +161,29 @@ class DocumentIntegrityTest extends TestCase
         $this->assertContains('unresolved_document_conflict', $codes->all());
     }
 
-    public function test_appendix_31s_nine_checks_record_with_the_two_conditional_ones_optional(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [$manager, $requestRecord] = $this->requestAwaitingManager();
-        $attachment = $this->attachment($requestRecord);
-        $url = "/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity";
-
-        // The seven unconditional checks may not be waived.
-        $this->actingAs($manager, 'sanctum')
-            ->patchJson($url, ['checks' => [...$this->soundChecks(), 'issuing_body' => 'not_applicable']])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('checks');
-
-        // An unanswered check is refused too — the record is the nine, or none.
-        $partial = $this->soundChecks();
-        unset($partial['signature']);
-        $this->actingAs($manager, 'sanctum')->patchJson($url, ['checks' => $partial])->assertStatus(422);
-
-        // The appendix's own two qualifiers — الختم عند الحاجة and مطابقة
-        // الصورة للأصل عند اشتراطها — may honestly be غير منطبق.
-        $this->actingAs($manager, 'sanctum')
-            ->patchJson($url, ['checks' => [
-                ...$this->soundChecks(),
-                'stamp' => 'not_applicable',
-                'copy_matches_original' => 'not_applicable',
-            ]])
-            ->assertOk()
-            ->assertJsonPath('data.verdict', 'sound');
-    }
-
     /**
-     * 2026-09-26 (user decision): the check is the direct manager's, at
-     * direct_manager_review only — not the rapporteur's, not at other stages.
+     * 2026-10-07 (user decision): the direct manager acts with an optional
+     * note only. No document-validity check holds the forward back, and none
+     * of the manager's rows demands a reason.
      */
-    public function test_only_the_subjects_manager_records_validity_and_only_at_direct_manager_review(): void
+    public function test_the_manager_acts_with_an_optional_note_only(): void
     {
         $this->seed(DatabaseSeeder::class);
-        [$manager, $requestRecord] = $this->requestAwaitingManager();
-        $attachment = $this->attachment($requestRecord);
-        $url = "/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity";
 
-        $this->actingAs($this->userWithRole('R02'), 'sanctum')
-            ->patchJson($url, ['checks' => $this->soundChecks()])
-            ->assertForbidden();
+        foreach (['forward' => 'receive_and_register', 'return_to_employee' => 'receive_from_municipality', 'cancel' => 'direct_manager_review'] as $action => $landsOn) {
+            [$manager, $requestRecord] = $this->requestAwaitingManager();
+            $this->attachment($requestRecord);
 
-        $requestRecord->update(['current_stage_id' => WorkflowStage::where('code', 'requirements_check')->value('id')]);
-        $this->actingAs($manager, 'sanctum')
-            ->patchJson($url, ['checks' => $this->soundChecks()])
-            ->assertForbidden();
-    }
+            $detail = $this->actingAs($manager, 'sanctum')->getJson("/api/requests/{$requestRecord->id}")->assertOk();
+            $this->assertArrayNotHasKey('document_validity', $detail->json('data.control_gates'));
+            $this->assertNull(collect($detail->json('data.blocked_transitions'))->firstWhere('action', $action));
+            $this->assertFalse(collect($detail->json('data.available_transitions'))->firstWhere('action', $action)['requires_comment']);
 
-    public function test_r08_records_validity_only_when_the_employee_has_no_live_manager(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [$manager, $requestRecord] = $this->requestAwaitingManager();
-        $attachment = $this->attachment($requestRecord);
-        $url = "/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity";
-        $admin = $this->userWithRole('R08');
-
-        $this->actingAs($admin, 'sanctum')->patchJson($url, ['checks' => $this->soundChecks()])->assertForbidden();
-
-        $manager->update(['is_active' => false]);
-        $this->actingAs($admin, 'sanctum')->patchJson($url, ['checks' => $this->soundChecks()])->assertOk();
-    }
-
-    /**
-     * The manager's «موافقة وإحالة» waits for every document to be checked
-     * and refuses a doubtful one — that goes back to the employee instead.
-     */
-    public function test_forward_waits_for_every_document_to_be_checked_sound(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [$manager, $requestRecord] = $this->requestAwaitingManager();
-        $attachment = $this->attachment($requestRecord);
-        $url = "/api/requests/{$requestRecord->id}/attachments/{$attachment->id}/validity";
-        $forward = fn () => $this->actingAs($manager, 'sanctum')
-            ->postJson("/api/requests/{$requestRecord->id}/transition", ['action' => 'forward']);
-
-        $detail = $this->actingAs($manager, 'sanctum')->getJson("/api/requests/{$requestRecord->id}")->assertOk();
-        $this->assertTrue($detail->json('data.control_gates.document_validity.can_record'));
-        $this->assertNotContains('forward', $detail->json('data.available_actions'));
-        // Decision wizard — the hidden forward is reported as blocked, with the
-        // same refusal the endpoint gives, so the wizard can say why.
-        $blocked = collect($detail->json('data.blocked_transitions'))->firstWhere('action', 'forward');
-        $this->assertNotNull($blocked);
-        $this->assertSame(
-            app(DocumentValidityRules::class)->forwardRefusal($requestRecord),
-            $blocked['reason'],
-        );
-        $forward()->assertStatus(422)->assertJsonValidationErrors('action');
-
-        $this->actingAs($manager, 'sanctum')
-            ->patchJson($url, ['checks' => [...$this->soundChecks(), 'no_unapproved_alteration' => 'no']])
-            ->assertOk()
-            ->assertJsonPath('data.verdict', 'doubtful');
-        $forward()->assertStatus(422);
-        $this->assertContains(
-            'return_to_employee',
-            $this->actingAs($manager, 'sanctum')->getJson("/api/requests/{$requestRecord->id}")->json('data.available_actions'),
-        );
-
-        $this->actingAs($manager, 'sanctum')->patchJson($url, ['checks' => $this->soundChecks()])->assertOk();
-        $ready = $this->actingAs($manager, 'sanctum')->getJson("/api/requests/{$requestRecord->id}");
-        $this->assertNull(collect($ready->json('data.blocked_transitions'))->firstWhere('action', 'forward'));
-        $offered = collect($ready->json('data.available_transitions'))->firstWhere('action', 'forward');
-        $this->assertSame('receive_and_register', $offered['to_stage']['code']);
-        $this->assertSame('routed_to_hr', $offered['to_status']['code']);
-        $forward()->assertOk();
-        $this->assertSame('receive_and_register', $requestRecord->refresh()->currentStage->code);
-    }
-
-    public function test_a_file_with_no_attachments_forwards_without_a_check(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [$manager, $requestRecord] = $this->requestAwaitingManager();
-
-        $this->actingAs($manager, 'sanctum')
-            ->postJson("/api/requests/{$requestRecord->id}/transition", ['action' => 'forward'])
-            ->assertOk();
+            $this->actingAs($manager, 'sanctum')
+                ->postJson("/api/requests/{$requestRecord->id}/transition", ['action' => $action])
+                ->assertOk();
+            $this->assertSame($landsOn, $requestRecord->refresh()->currentStage->code);
+        }
     }
 
     public function test_a_role_without_the_grant_cannot_record_a_conflict(): void
@@ -298,12 +201,6 @@ class DocumentIntegrityTest extends TestCase
     }
 
     // --- fixtures ----------------------------------------------------------
-
-    /** @return array<string, string> */
-    private function soundChecks(): array
-    {
-        return collect(DocumentValidityRules::CHECKS)->map(fn () => 'yes')->all();
-    }
 
     /** @return array{0: User, 1: User, 2: Meeting} */
     private function committeeAndMeeting(): array

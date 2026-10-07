@@ -16,7 +16,6 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import DocumentValidityPanel from './DocumentValidityPanel.vue'
 import FileUpload from './FileUpload.vue'
 import IntakeGatePanel from './IntakeGatePanel.vue'
 import JurisdictionTestForm from './JurisdictionTestForm.vue'
@@ -75,7 +74,6 @@ const gates = computed(() => props.request.control_gates ?? {})
 // walked through someone else's gate.
 const checks = computed(() => {
   const list = []
-  if (gates.value.document_validity?.can_record) list.push('document_validity')
   if (stage.value === 'receive_and_register' && offered.value.has('register') && gates.value.employment_file) list.push('employment_file')
   if (stage.value === 'requirements_check' && CLASSIFYING.some((action) => offered.value.has(action))) {
     if (gates.value.intake) list.push('intake')
@@ -214,16 +212,10 @@ const recentTimeline = computed(() => (props.request.timeline ?? []).slice(-3).r
 const dateTime = (value) => new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
 const reference = computed(() => props.request.reference_number || props.request.intake_receipt_number || `#${props.request.id}`)
 
-// DocumentValidityPanel answers with nothing, the others with the full detail
-// resource; either way the page's copy of the request is replaced, so the
-// Choose step reflects what the check just unlocked.
-async function onCheckSaved(resource) {
-  if (resource) {
-    emit('updated', resource)
-    return
-  }
-  const { data } = await api.get(`/requests/${props.request.id}`)
-  emit('updated', data.data)
+// Every check answers with the full detail resource; replacing the page's
+// copy of the request lets the Choose step reflect what the check unlocked.
+function onCheckSaved(resource) {
+  emit('updated', resource)
 }
 
 async function post(item, note) {
@@ -359,15 +351,8 @@ if (props.initial?.action) {
       <p class="lede">{{ t('decisionWizard.checks.lede') }}</p>
       <div v-for="check in checks" :key="check" class="check">
         <h4>{{ t(`decisionWizard.checks.${check}`) }}</h4>
-        <DocumentValidityPanel
-          v-if="check === 'document_validity'"
-          :request-id="request.id"
-          :rows="gates.document_validity.rows"
-          :refusal="gates.document_validity.refusal"
-          @updated="onCheckSaved()"
-        />
         <IntakeGatePanel
-          v-else-if="check === 'employment_file'"
+          v-if="check === 'employment_file'"
           :request-id="request.id"
           :required-documents="gates.employment_file.required_documents"
           :record="gates.employment_file.record"

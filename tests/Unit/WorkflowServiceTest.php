@@ -333,10 +333,12 @@ class WorkflowServiceTest extends TestCase
             [1, 2, 3, 4, 5, 9, 10, 11, 12],
             $cancelRules->pluck('fromStage.order_no')->all(),
         );
+        // The two manager-gated cancels take an optional note (2026-10-07);
+        // every other cancel still demands a reason.
         $this->assertTrue($cancelRules->every(
             fn (WorkflowTransition $rule) => $rule->fromStage->is($rule->toStage)
                 && $rule->is_exception
-                && $rule->requires_comment,
+                && $rule->requires_comment === ! $rule->requires_submitter_manager,
         ));
     }
 
