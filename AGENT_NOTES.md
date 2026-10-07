@@ -19,6 +19,33 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-07 21:20 EET — Claude — Several files at once, and a drop zone (complete)
+
+Built per the plan below. It is frontend only, with no PHP and no backend change. `FileDropZone.vue` is used by
+intake and by `FileUpload.vue`. `FileUpload` gives each file its own row (document type, folder, label) and posts
+them one at a time. A refused file keeps its row with the server's reason. A file is previewed by opening its name
+in a new tab, which replaces the single inline frame. `attachments.file`, `.chooseFile` and `.selectedPreview` gave
+way to `dropZone`/`dropZoneBrowse`. The select in `FileUpload` also now inherits its text colour, because it was
+invisible in dark mode. Verified: build passes (`dist` committed), parity 2074, `aislop ci` exit 0. A headless
+Chrome run, with every write mocked so nothing reached the DB, covered three cases:
+- dropping 2 PDFs and a .txt on intake gave 2 rows and 1 named rejection;
+- the same drop on the request-list modal gave the same result, and submit stayed disabled until each row was classified;
+- a 422 on the 2nd file kept the modal open with that row only, and the retry closed it.
+There were no console errors. Not run: PHPUnit, because no PHP changed.
+
+---
+### 2026-10-07 20:55 EET — Claude — Implementation plan: several files at once, and a drop zone
+
+User: «multiple files can be attached in the request as one go, and add a drop file zone». Intake already takes
+several files; the request page's `FileUpload.vue` (returned file, RequestsView modal, the wizard's
+`attach_document`, appeals) takes one. Plan: a new `components/FileDropZone.vue` (a `<label>` around a
+`multiple` file input, with dragover/drop, emitting a `File[]`) replaces the bare input in both places.
+`FileUpload` keeps a list of picked files, each with its own document type, folder and label, and uploads them
+one by one to the unchanged single-file endpoint. A failed file keeps its row and error, and `uploaded` is
+emitted once the list is empty, so the two callers that close on it no longer close mid-batch. Frontend only,
+with no backend change. Verify: build (`dist` committed), parity, aislop ci, headless check.
+
+---
 ### 2026-10-07 16:20 EET — Claude — العميد's request goes straight to HR (complete)
 
 Built per the plan below. There is no migration, seeder or frontend change. `WorkflowService::skipManagerReviewForDean()`

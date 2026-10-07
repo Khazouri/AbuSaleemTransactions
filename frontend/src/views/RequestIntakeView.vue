@@ -2,6 +2,7 @@
 /** Stage 13 — single-submit request intake, including private attachments. */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import FileDropZone from '../components/FileDropZone.vue'
 import RequestStageRail from '../components/RequestStageRail.vue'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
@@ -423,9 +424,7 @@ function rejectionReason(file, remaining) {
   return ''
 }
 
-async function chooseFiles(event) {
-  const selected = Array.from(event.target.files ?? [])
-  event.target.value = ''
+async function chooseFiles(selected) {
   rejectedFiles.value = []
   error.value = ''
 
@@ -844,7 +843,7 @@ onMounted(async () => {
                attachments.* keys: those are read by FileUpload.vue on the
                committee-cycle path, which still takes DOC/DOCX. -->
           <p class="hint">{{ t('intake.files.acceptedHint') }}</p>
-          <input class="file-input" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" @change="chooseFiles" />
+          <FileDropZone accept=".pdf,.jpg,.jpeg,.png" :disabled="isBusy" @files="chooseFiles" />
           <small v-if="errors.attachments">{{ errors.attachments[0] }}</small>
 
           <!-- Stage 90 — the files the picker would not take, each named with
@@ -975,7 +974,7 @@ onMounted(async () => {
 
 <style scoped>
 .form, .review { max-inline-size: 52rem; }.form fieldset { min-inline-size: 0; padding: 0; margin: 0 0 1.5rem; border: 0; }.form legend { margin-bottom: .85rem; color: var(--color-brand-text); font-weight: 700; }.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }.wide { grid-column: 1 / -1; }
-label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .85rem; }input, select, textarea { min-inline-size: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }textarea { resize: vertical; }small { color: var(--color-danger-fg); font-size: .78rem; }.field-hint, .hint, .state { color: var(--color-muted); font-size: .78rem; }.hint, .state { margin: 0 0 .75rem; }.file-input { max-inline-size: 100%; }
+label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .85rem; }input, select, textarea { min-inline-size: 0; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); font: inherit; }textarea { resize: vertical; }small { color: var(--color-danger-fg); font-size: .78rem; }.field-hint, .hint, .state { color: var(--color-muted); font-size: .78rem; }.hint, .state { margin: 0 0 .75rem; }
 /* Restyled pass — the checklist and uploader read as one joined block: a
    shared border with the seam between them muted, rather than two separate
    fieldsets with equal weight. */
