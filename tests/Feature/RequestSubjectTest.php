@@ -155,80 +155,30 @@ class RequestSubjectTest extends TestCase
     }
 
     /**
-     * [D] Appendix 16 searches «برقم الموظف». Keyed on the filer, a clerk who
-     * files one promotion could never file the next employee's — the feature
-     * this stage enables would have shipped broken.
+     * Filing on another employee's behalf was removed (user decision
+     * 2026-10-07): a `subject_user_id` in the payload is ignored, the intake
+     * screen is offered no picker, and the request is about whoever filed it —
+     * even for R02, which used to hold the grant.
      */
-    public function test_appendix_16s_search_is_per_subject_not_per_filer(): void
+    public function test_a_request_is_always_about_its_filer(): void
     {
         Storage::fake('local');
         $this->seed(DatabaseSeeder::class);
 
-        $clerk = $this->clerkWhoMayFileForOthers();
-        $first = $this->userWithRole('R01');
-        $second = $this->userWithRole('R01');
-        $type = RequestType::where('code', 'PROM')->firstOrFail();
-
-        $this->actingAs($clerk, 'sanctum')
-            ->post('/api/requests', $this->intakePayload($type, $first), ['Accept' => 'application/json'])
-            ->assertCreated();
-
-        // A different employee, same type: a fresh matter, not a duplicate.
-        $this->actingAs($clerk, 'sanctum')
-            ->post('/api/requests', $this->intakePayload($type, $second), ['Accept' => 'application/json'])
-            ->assertCreated();
-
-        // The same employee again, while their file is still open: refused.
-        $this->actingAs($clerk, 'sanctum')
-            ->post('/api/requests', $this->intakePayload($type, $first), ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('request_type_id');
-
-        $this->assertSame(2, Request::count());
-    }
-
-    /** Naming someone else is a grant, not something every filer may do. */
-    public function test_filing_for_another_employee_needs_the_grant(): void
-    {
-        Storage::fake('local');
-        $this->seed(DatabaseSeeder::class);
-
-        $type = RequestType::where('code', 'PROM')->firstOrFail();
+        $clerk = $this->userWithRole('R02');
         $colleague = $this->userWithRole('R01');
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
 
-        // R01 holds request_intake,add but not its `approve` tier.
-        $employee = $this->userWithRole('R01');
+        $this->actingAs($clerk, 'sanctum')
+            ->getJson('/api/requests/intake-options')
+            ->assertOk()
+            ->assertJsonMissingPath('data.may_file_for_others')
+            ->assertJsonMissingPath('data.subject_options');
 
-        $this->actingAs($employee, 'sanctum')
+        $this->actingAs($clerk, 'sanctum')
             ->post('/api/requests', $this->intakePayload($type, $colleague), ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('subject_user_id');
-
-        $this->assertSame(0, Request::count());
-
-        // Naming yourself needs nothing beyond the ordinary intake grant.
-        $this->actingAs($employee, 'sanctum')
-            ->post('/api/requests', $this->intakePayload($type, $employee), ['Accept' => 'application/json'])
             ->assertCreated()
-            ->assertJsonPath('data.id', fn ($id) => Request::find($id)->subject_user_id === $employee->id);
-    }
-
-    /** The picker's options are offered to exactly the callers who may use it. */
-    public function test_intake_options_offer_the_subject_picker_only_with_the_grant(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        $this->actingAs($this->clerkWhoMayFileForOthers(), 'sanctum')
-            ->getJson('/api/requests/intake-options')
-            ->assertOk()
-            ->assertJsonPath('data.may_file_for_others', true)
-            ->assertJsonPath('data.subject_options', fn ($options) => count($options) > 0);
-
-        $this->actingAs($this->userWithRole('R01'), 'sanctum')
-            ->getJson('/api/requests/intake-options')
-            ->assertOk()
-            ->assertJsonPath('data.may_file_for_others', false)
-            ->assertJsonPath('data.subject_options', []);
+            ->assertJsonPath('data.id', fn ($id) => Request::find($id)->subject_user_id === $clerk->id);
     }
 
     /**
@@ -323,12 +273,6 @@ class RequestSubjectTest extends TestCase
             'documents' => array_fill_keys(array_keys($gate->requiredDocuments($requestRecord)), 'present'),
             'facts_verified' => true,
         ];
-    }
-
-    /** R02 holds request_intake's `approve` tier, seeded by Stage 95. */
-    private function clerkWhoMayFileForOthers(): User
-    {
-        return $this->userWithRole('R02');
     }
 
     /** @return array<string, mixed> */

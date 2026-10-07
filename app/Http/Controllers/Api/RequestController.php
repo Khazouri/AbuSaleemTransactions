@@ -288,26 +288,10 @@ class RequestController extends Controller
     }
 
     /** Lookup values for intake are separate from work-queue access rights. */
-    public function intakeOptions(HttpRequest $request): JsonResponse
+    public function intakeOptions(): JsonResponse
     {
-        // Stage 95 — the صاحب العلاقة picker's options, present only for a
-        // caller who may actually name someone else (request_intake,approve).
-        // Folded into the payload the intake screen already fetches rather
-        // than given a route of its own, and deliberately NOT reusing
-        // committees/user-options: Stage 92's membership gate zeroes
-        // `meetings,can_view` for anyone with no committee seat, so an R05
-        // who sits on none would 403 on it.
-        $mayFileForOthers = $request->user()->hasScreenPermission('request_intake', 'can_approve');
-
         return response()->json([
             'data' => [
-                'may_file_for_others' => $mayFileForOthers,
-                'subject_options' => $mayFileForOthers
-                    ? User::query()
-                        ->where('is_active', true)
-                        ->orderBy('name')
-                        ->get(['id', 'name'])
-                    : [],
                 'departments' => Department::query()
                     ->where('is_active', true)
                     ->whereNotNull('code')
@@ -347,18 +331,9 @@ class RequestController extends Controller
         $data = $request->validated();
         $storedPaths = [];
 
-        // Stage 95 — صاحب العلاقة. Defaults to the filer, which is what an
-        // ordinary intake means and what every request before this stage
-        // was. Naming anyone else needs the grant, checked here rather than
-        // in the FormRequest because it is a permission question.
-        $subject = User::query()->find($data['subject_user_id'] ?? null) ?? $request->user();
-
-        if (! $subject->is($request->user())
-            && ! $request->user()->hasScreenPermission('request_intake', 'can_approve')) {
-            throw ValidationException::withMessages([
-                'subject_user_id' => ['لا يجوز تقديم طلب نيابة عن موظف آخر.'],
-            ]);
-        }
+        // صاحب العلاقة is always the filer: filing on another employee's
+        // behalf (Stage 95) was removed by user decision 2026-10-07.
+        $subject = $request->user();
 
         // Stage 88 — a submission from a saved draft. The draft supplies the
         // FILES ONLY; every field above still came in this payload and was
@@ -422,8 +397,6 @@ class RequestController extends Controller
                     'status_id' => $newStatus->id,
                     'current_stage_id' => $firstStage->id,
                     'created_by_user_id' => $request->user()->id,
-                    // Stage 95 — who this file is ABOUT. The filer unless
-                    // somebody with the grant named another employee.
                     'subject_user_id' => $subject->id,
                     'submitted_at' => $submittedAt,
                     'due_date' => $deadlines->dueDateFor($type, $submittedAt),

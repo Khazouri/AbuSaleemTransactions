@@ -666,10 +666,7 @@
       "descriptionTooLong": "The request description cannot exceed 5000 characters.",
       "reasonsTooLong": "The reasons cannot exceed 5000 characters.",
       "fixBeforeReview": "Please complete the required fields before reviewing and submitting."
-    },
-    "subjectUser": "Employee concerned",
-    "subjectIsMe": "This request is about me",
-    "subjectUserHint": "Pick the employee this request is about if you are filing on their behalf."
+    }
   },
   "approvals": {
     "subtitle": "Only requests currently waiting at this checkpoint appear here.",

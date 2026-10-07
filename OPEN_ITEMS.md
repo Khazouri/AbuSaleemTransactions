@@ -13,6 +13,13 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### `request_intake,approve` still granted to R02/R05 on the real database — on-behalf removal — opened 2026-10-07
+`ScreenRolePermissionSeeder` no longer grants that tier, but Homestead's MySQL was unreachable when the change was made,
+so the real database still has it. It is now inert: nothing reads the tier, and the intake endpoint ignores
+`subject_user_id`. Don't reseed the whole matrix to fix it, because that resets grants customised on Roles &
+Permissions. **To close:** clear `can_approve` on `request_intake` for R02 and R05 by hand (or untick it on the
+Roles & Permissions screen).
+
 ### Seeded accounts can still double a sole-holder role; the test plans still describe R10 — العميد/R10 merge — opened 2026-10-04
 (1) One holder per post is enforced when someone is named, not on the data already there: `TestUserSeeder` still gives
 `multi.role@` R03 beside `r03.head@` (the 2026-10-04 decision that seeded accounts keep their roles), so the real

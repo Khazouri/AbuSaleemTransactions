@@ -19,6 +19,29 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-07 EET — Claude — Filing on another employee's behalf removed (complete)
+
+Built per the plan below; no migration. `store()` always takes the caller as صاحب العلاقة, a posted `subject_user_id`
+is ignored (not refused, so an old client cannot fail), `duplicate-check` searches the caller's own files, and
+`intake-options` has no picker data. `subject_user_id` and every read of it stay, so a request filed for someone else
+before today still routes to that employee's manager. `RequestSubjectTest`: the per-subject search test and the two
+grant tests were replaced by `test_a_request_is_always_about_its_filer`. The guide, its PDF and the four test plans
+were updated (checkbox counts unchanged; the `request_intake` Appendix A cells for R02/R05 are now `vae`). Verified:
+full suite 857 green, Pint clean, build passes (`dist` committed), parity 2093, `aislop ci` exit 0 (97). **Not
+applied to the real database:** Homestead's MySQL was unreachable, and the leftover grant is inert (OPEN_ITEMS.md).
+
+---
+### 2026-10-07 EET — Claude — Implementation plan: remove filing a request on another employee's behalf
+
+User: «remove submitting a request for another user». Plan: Stage 95's on-behalf path goes, and صاحب العلاقة is always
+the filer from now on. `StoreRequest` and `SaveRequestDraftRequest` drop `subject_user_id`, `RequestController::store()`
+and `RequestLifecycleController::duplicateCheck()` always use the caller, and `intakeOptions()` drops
+`may_file_for_others`/`subject_options`. `request_intake,approve` is reseeded empty. The SPA picker, its review row and
+its locale keys are removed. **Kept:** the `subject_user_id` column, its model hook, and every read of it, because
+existing rows may name a subject other than the filer. Verify: RequestSubjectTest updated, full PHPUnit, Pint, build
+(`dist` committed), parity, aislop ci, reseed `ScreenRolePermissionSeeder`.
+
+---
 ### 2026-10-04 22:40 EET — Claude — العميد is a single-holder post; R10 merged into R03 (complete)
 
 Built per the plan below. There is no migration.

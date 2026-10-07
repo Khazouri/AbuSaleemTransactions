@@ -106,7 +106,7 @@ notification-preferences screen).
 | 4 | `r04.member1@abusaleem.test` | R04 | ENG | Votes — holds the civil-service delegate seat in §9. |
 | 5 | `r04.member2@abusaleem.test` | R04 | FIN | Holds no seat — proves the seat gate (§2.2). |
 | 6 | `r04.member3@abusaleem.test` | R04 | ADM | Holds no seat. |
-| 7 | `r05.manager@abusaleem.test` | R05 | ADM | Approval level 3; may file on another employee's behalf. |
+| 7 | `r05.manager@abusaleem.test` | R05 | ADM | Approval level 3. |
 | 8 | `r06.ministry@abusaleem.test` | R06 | ABS | Ministry — approval level 4, exports. |
 | 9 | `r07.director@abusaleem.test` | R07 | ABS | Final approval — level 5. |
 | 10 | `r08.sysadmin@abusaleem.test` | R08 | ADM | Admin. Second admin, so you can suspend one safely. |
@@ -265,8 +265,9 @@ needs a file that does not exist yet.
       the list; the scope switch offers In progress · Concluded · All.
 - [ ] «Show progress» expands the request's timeline and the notices sent to you about it.
 - [ ] Another employee's request is not listed, and `GET /api/my-requests/{that id}` → 404.
-- [ ] A request #2 filed **on #1's behalf** appears in #1's list — the screen follows صاحب
-      العلاقة, not only the person who typed it in.
+- [ ] Nobody can file on another employee's behalf (removed by user decision 2026-10-07), so
+      every new request in #1's list is one #1 filed. A legacy row filed *for* #1 before then
+      still appears — the screen follows صاحب العلاقة, not only the person who typed it in.
 
 ### 4.3 The wizard
 
@@ -310,8 +311,9 @@ registration**. The employee gets a *receipt*; the reference number is granted l
       and states plainly that this is a receipt, not a قيد.
 - [ ] The new request's `reference_number` is **null**, and its stage is
       `direct_manager_review` — intake auto-hops there in the same transaction.
-- [ ] As R01 the form has no «صاحب العلاقة» picker. As R02 or R05 it does, defaulting to "This
-      request is about me"; as R01, posting someone else's `subject_user_id` is refused (422).
+- [ ] No role has a «صاحب العلاقة» picker — not R01, R02 or R05 (filing for someone else was
+      removed 2026-10-07). Posting someone else's `subject_user_id` is **ignored**, not refused:
+      the request is created about the filer.
 - [ ] Try to file a **second** request of the same type for the same employee: refused, naming
       the open file to attach the documents to instead (Appendix 16's non-duplication rule).
 - [ ] File a request of a *different* type: accepted. That is what the rule actually permits.
@@ -365,8 +367,9 @@ get past any step is itself a defect. Each actor finds the file in Pending Tasks
       is the record; no signature pad appears in any wizard.
 - [ ] Skipping a level is impossible: as R07, open the request while it is still at stage 10 —
       no `approve` is offered, and `POST /api/approvals/final/{id}` is refused.
-- [ ] Neither the filer nor صاحب العلاقة may approve or attest. File a request as #2 on #1's
-      behalf: at stage 5, #2 is refused both gate 1 and `approve`.
+- [ ] Neither the filer nor صاحب العلاقة (on a new request, the same person) may approve or
+      attest. File a request as #2 (#2 has no manager, so R08 moves it past stage 2): at stage 5,
+      #2 is refused both gate 1 and `approve`.
 - [ ] R08 holds **no** approval role: as R08 no `approve` is offered at any level. An admin who
       must approve needs the role added on the Users screen.
 
@@ -413,9 +416,9 @@ come before the first of them and block the same way. All are recorded in the wi
 - [ ] **As R01, on your own request:** recording the jurisdiction test or gate 1 is
       **refused** (Stage 84 — Appendix 19's separation rule). The employee cannot attest to the
       completeness of their own file.
-- [ ] Even an R02 who *created* the request on someone's behalf is refused, with the Appendix 19
-      message. Send a **valid** payload when testing this — an invalid one fails validation
-      first and you will wrongly conclude the block is missing.
+- [ ] Even an R02 — the role that records gate 1 — is refused on a request they filed
+      themselves, with the Appendix 19 message. Send a **valid** payload when testing this — an
+      invalid one fails validation first and you will wrongly conclude the block is missing.
 - [ ] The Control gates tab displays **who recorded each half and when**.
 
 **Gate 2 — before the agenda.** Covered in §9.3.

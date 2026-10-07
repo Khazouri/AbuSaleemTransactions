@@ -79,7 +79,7 @@ list — served by `GET /api/dev/test-users`, which 404s in every other environm
 | 4 | `r04.member1@abusaleem.test` | R04 Committee Member | ENG | Voter |
 | 5 | `r04.member2@abusaleem.test` | R04 Committee Member | FIN | Voter |
 | 6 | `r04.member3@abusaleem.test` | R04 Committee Member | ADM | Voter — **the third seat is what makes a 2-1 plurality reachable**; a tie is refused outright |
-| 7 | `r05.manager@abusaleem.test` | R05 Admin Manager | ADM | Stage 10 approval, and filing on another employee's behalf — Stage 87 moved the stage-4 registration onto R12 |
+| 7 | `r05.manager@abusaleem.test` | R05 Admin Manager | ADM | Stage 10 approval — Stage 87 moved the stage-4 registration onto R12 |
 | 8 | `r06.ministry@abusaleem.test` | R06 Ministry | ABS | Stage 11; holds `export` on reports, registers and the audit log |
 | 9 | `r07.director@abusaleem.test` | R07 Director / Dean | ABS | Stage 12; **no intake access at all** |
 | 10 | `r08.sysadmin@abusaleem.test` | R08 System Admin | ADM | Administration; keeps `admin@abusaleem.test` free as a spare |
@@ -254,7 +254,7 @@ Sign in as `r01.employee@abusaleem.test`.
 - [ ] What is typed is saved as a **draft** automatically: leave the page and the request is
       under «مسودات لم تُرسل بعد», to resume or discard.
 - [ ] There is **no «صاحب العلاقة» picker** — R01 files for themselves only, and posting another
-      employee's `subject_user_id` → **422**.
+      employee's `subject_user_id` is **ignored** (not a 422): the request is created about R01.
 - [ ] On success the screen shows an **intake receipt** `PM-RCV/YYYY/NNNNNN` and states in as many
       words that this is a receipt and **not** a قيد with the committee.
 - [ ] The new request's `reference_number` is **null** — no `PM-COM/...` number yet. [D] Art. 15 is
@@ -367,7 +367,7 @@ Sign in as `r01.employee@abusaleem.test`.
 >       request** → **403** (the grant is gone). `PATCH /requests/{id}/financial-impact` → **403**
 >       too; that is the same grant and a deliberate consequence, not an oversight.
 > - [ ] The same two as an account holding **R02 that created the request** → **422**, quoting
->       «لا يجوز لمقدّم الطلب…». This second layer catches an officer filing on someone's behalf,
+>       «لا يجوز لمقدّم الطلب…». This second layer catches an officer filing their own request,
 >       whom the permission alone would let through.
 > - [ ] As an **R02 who did not create it** → **200**, and the recorded card now names them:
 >       `control_gates.intake.recorded_by` and `control_gates.intake.jurisdiction_test.recorded_by`
@@ -841,8 +841,8 @@ These are the segregation-of-duties checks; do both halves of each.
 
 **Identity.** The administrative-authority approver at stage 10 (`اعتماد (حسب الصلاحيات)`) — the
 only workflow rule it holds since Stage 87, which moved the stage-4 registration to R12 (مدير إدارة
-الموارد البشرية). Its one other capability is filing a request on another employee's behalf
-(Stage 95). If a build older than Stage 87 is under test, R05 will still hold the stage-4
+الموارد البشرية). Filing on another employee's behalf (Stage 95) was removed by user decision
+2026-10-07, so R05 files for itself only. If a build older than Stage 87 is under test, R05 will still hold the stage-4
 registration — check `WorkflowTransitionSeeder` before assuming this section describes the running
 database.
 
@@ -867,11 +867,10 @@ Sign in as `r05.manager@abusaleem.test`.
       threshold, the same `approve` lands directly on stage 12 with status `معتمدة نهائياً`,
       skipping R06 entirely.
 - [ ] `cancel` (reason required) at stage 10 only.
-- [ ] File a request on someone's behalf — R05 holds `request_intake` view/add, **and since
-      Stage 95 its `approve` tier**, which is what actually lets them name a صاحب العلاقة other
-      than themselves. Confirm the intake screen shows the «صاحب العلاقة» picker, that a request
-      filed for another employee reports that employee as صاحب العلاقة and R05 as مقدّم الطلب,
-      and that the **subject's own** direct manager — not R05's — is the one who can forward it.
+- [ ] File a request for themselves — R05 holds `request_intake` view/add/edit and, since
+      2026-10-07, **no `approve` tier** (it used to let them name another صاحب العلاقة). Confirm
+      the intake screen shows **no** «صاحب العلاقة» picker, and that posting another employee's
+      `subject_user_id` is ignored: the request reports R05 as both صاحب العلاقة and مقدّم الطلب.
 
 ### C. What they must be refused
 
@@ -999,8 +998,9 @@ Sign in as `r07.director@abusaleem.test`.
       approved → **404**, since they cannot open it.
 - [ ] Filing a request → **403**.
 - [ ] Every administration screen → **403**.
-- [ ] Approving a request they created → refused (they cannot create one, but check the guard holds
-      if an admin creates one on their behalf).
+- [ ] Approving a request about themselves is unreachable: R07 cannot file, and nobody can name
+      R07 as صاحب العلاقة — posting R07's id as `subject_user_id` from another account creates the
+      request about that account instead.
 
 ---
 
@@ -1564,7 +1564,7 @@ Letters: `v` view · `a` add · `e` edit · `d` delete · `A` approve · `p` pri
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `dashboard` — لوحة التحكم الرئيسية | vp | vp | vp | vp | vp | vp | vp | vaedApx | vp | vp | vp | vp |
 | `requests` — الطلبات | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp | vp |
-| `request_intake` — إرسال الطلب | vae | vaeA | va | va | vaeA | va | · | vaedApx | · | · | · | · |
+| `request_intake` — إرسال الطلب | vae | vae | va | va | vae | va | · | vaedApx | · | · | · | · |
 | `request_details` — تفاصيل الطلب | vpx | vpx | vpx | vpx | vpx | vpx | vpx | vaedApx | vpx | vpx | vpx | vpx |
 | `notes_attachments` — الملاحظات والمرفقات | va | vae | va | va | va | va | va | vaedApx | v | v | v | va |
 | `my_tasks` — المهام المعلقة | v | v | v | v | v | v | v | vaedApx | v | v | v | v |

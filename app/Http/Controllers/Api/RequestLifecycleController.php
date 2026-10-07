@@ -17,7 +17,6 @@ use App\Models\RequestCorrection;
 use App\Models\RequestDocumentConflict;
 use App\Models\RequestSpecialCase;
 use App\Models\RequestWithdrawal;
-use App\Models\User;
 use App\Services\Lifecycle\CorrectionRules;
 use App\Services\Lifecycle\DocumentConflictService;
 use App\Services\Lifecycle\DocumentValidityRules;
@@ -64,17 +63,7 @@ class RequestLifecycleController extends Controller
             return response()->json(['data' => ['prior_requests' => [], 'open_prior' => null]]);
         }
 
-        // Stage 95 — the prior files of صاحب العلاقة, so the intake screen
-        // shows the same answer the server will act on when a clerk is
-        // filing on an employee's behalf.
-        $subject = User::query()->find((int) $request->query('subject_user_id', 0)) ?? $request->user();
-
-        if (! $subject->is($request->user())
-            && ! $request->user()->hasScreenPermission('request_intake', 'can_approve')) {
-            $subject = $request->user();
-        }
-
-        $priors = $policy->priorRequests($subject, $typeId);
+        $priors = $policy->priorRequests($request->user(), $typeId);
 
         return response()->json(['data' => [
             'prior_requests' => $priors->map(fn (Request $prior) => [
