@@ -19,6 +19,25 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-07 16:20 EET — Claude — العميد's request goes straight to HR (complete)
+
+Built per the plan below. There is no migration, seeder or frontend change. `WorkflowService::skipManagerReviewForDean()`
+runs inside both `applySystemTransition()` and `transition()`, and `systemRule()` was extracted from the former to
+resolve the `forward` row. The timeline shows the skipped hop as a `forward` acted by the dean himself, because the
+system takes it on his behalf. Verified: new `DeanRequestTest` (RED then GREEN), full suite 860 / 5613 green, Pint
+clean, `aislop ci` exit 0 (97). Not checked in a browser.
+
+---
+### 2026-10-07 16:00 EET — Claude — Implementation plan: العميد's request goes straight to HR
+
+User: «a request made by the عميد goes directly to hr». Plan: one private step in `WorkflowService`, run after
+both the intake auto-hop (`applySystemTransition`) and a `submit` (re-submit after a return): when the file lands on
+`direct_manager_review` and صاحب العلاقة (= the filer since 2026-10-07) holds R07, it takes that stage's own seeded
+`forward` row on to `receive_and_register` + `routed_to_hr` in the same transaction. `stageChanged` is sent once for
+the whole move, so a manager set on the dean's account is never prompted for a step that has already passed. No
+migration, seeder or frontend change. Verify: new test (intake and re-submit), full PHPUnit, Pint, aislop ci.
+
+---
 ### 2026-10-07 15:40 EET — Claude — The direct manager acts with an optional note only (complete)
 
 Built per the plan below; no migration. `return_to_employee` and both manager `cancel` rows are `requires_comment =

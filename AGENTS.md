@@ -154,7 +154,10 @@ Key architectural facts worth knowing before changing things:
   with an optional note only** (user decision 2026-10-07): none of those rows
   sets `requires_comment`, and nothing else gates them. Appendix 31's document
   validity check (2026-09-26's gate on that `forward`) is gone, and only cards
-  recorded before then are still shown, read-only. **Approvals stay
+  recorded before then are still shown, read-only. **العميد's own file
+  skips the manager** (user decision 2026-10-07): when صاحب العلاقة holds R07,
+  `WorkflowService::skipManagerReviewForDean()` takes the `forward` row out of
+  `direct_manager_review` in the same beat, at intake and on re-submit. **Approvals stay
   role-segregated** (R02/R03/R05/R06/R07); R08 holds none of them, so an admin
   who must approve needs that role on the Users screen.
 - **RTL/i18n**: layout CSS uses logical properties (`margin-inline-start`,

@@ -224,7 +224,10 @@ class WorkflowService
                 throw WorkflowTransitionException::ambiguousConfiguration();
             }
 
-            return $this->applyRule($lockedRequest, $rule, $action, $actor, $comment);
+            return $this->skipManagerReviewForDean(
+                $this->applyRule($lockedRequest, $rule, $action, $actor, $comment),
+                $actor,
+            );
         });
 
         // Outside the request: the notifications describe a move that has
@@ -276,6 +279,54 @@ class WorkflowService
         User $actor,
         ?string $comment = null,
     ): Request {
+        [$movedRequest, $fromStageModel, $toStageModel] = $this->skipManagerReviewForDean(
+            $this->applyRule($requestRecord, $this->systemRule($requestRecord, $fromStageCode, $action), $action, $actor, $comment),
+            $actor,
+        );
+
+        $this->notifications->stageChanged($movedRequest, $actor, $action, $fromStageModel, $toStageModel);
+
+        return $movedRequest;
+    }
+
+    /**
+     * العميد has no direct manager to approve his own file (user decision
+     * 2026-10-07): when it lands on `direct_manager_review` — at intake or
+     * on re-submit after a return — it takes that stage's own seeded
+     * `forward` row on to HR in the same transaction. The caller notifies
+     * once for the whole move, so a manager set on the dean's account is
+     * never prompted for a step that has already passed.
+     *
+     * @param  array{0: Request, 1: ?WorkflowStage, 2: ?WorkflowStage}  $move
+     * @return array{0: Request, 1: ?WorkflowStage, 2: ?WorkflowStage}
+     */
+    private function skipManagerReviewForDean(array $move, User $actor): array
+    {
+        [$movedRequest, $fromStage, $toStage] = $move;
+
+        if ($toStage?->code !== 'direct_manager_review' || ! $movedRequest->subject?->hasRole('R07')) {
+            return $move;
+        }
+
+        [$movedRequest, , $toStage] = $this->applyRule(
+            $movedRequest,
+            $this->systemRule($movedRequest, 'direct_manager_review', 'forward'),
+            'forward',
+            $actor,
+            null,
+        );
+
+        return [$movedRequest, $fromStage, $toStage];
+    }
+
+    /**
+     * The one canonical (non-exception) rule for a hop the code itself
+     * decides on — a type-specific row outranks the generic one.
+     *
+     * @throws WorkflowTransitionException
+     */
+    private function systemRule(Request $requestRecord, string $fromStageCode, string $action): WorkflowTransition
+    {
         $fromStage = WorkflowStage::query()->where('code', $fromStageCode)->firstOrFail();
 
         $candidates = WorkflowTransition::query()
@@ -305,20 +356,7 @@ class WorkflowService
             throw WorkflowTransitionException::ambiguousConfiguration();
         }
 
-        /** @var WorkflowTransition $rule */
-        $rule = $applicable->first();
-
-        [$movedRequest, $fromStageModel, $toStageModel] = $this->applyRule(
-            $requestRecord,
-            $rule,
-            $action,
-            $actor,
-            $comment,
-        );
-
-        $this->notifications->stageChanged($movedRequest, $actor, $action, $fromStageModel, $toStageModel);
-
-        return $movedRequest;
+        return $applicable->first();
     }
 
     /**
