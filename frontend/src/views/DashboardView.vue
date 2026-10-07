@@ -17,6 +17,7 @@ const auth = useAuthStore()
 
 const kpis = ref(null)
 const breakdowns = ref({ by_status: [], by_stage: [], by_department: [], by_month: [] })
+const scoped = ref(false)
 const loading = ref(false)
 const loadError = ref(null)
 
@@ -89,6 +90,7 @@ async function load() {
     const { data } = await api.get('/dashboard')
     kpis.value = data.data.kpis
     breakdowns.value = data.data.breakdowns
+    scoped.value = data.data.scoped
   } catch (error) {
     loadError.value = error
   } finally {
@@ -105,6 +107,7 @@ onMounted(load)
       <div>
         <h2>{{ t('dashboard.title') }}</h2>
         <p class="subtitle">{{ t('auth.welcome') }}، {{ auth.user?.name }}</p>
+        <p v-if="scoped" class="subtitle">{{ t('dashboard.scopedNote') }}</p>
       </div>
       <RouterLink v-if="auth.can('reports', 'view')" class="ghost" :to="{ name: 'reports' }">
         {{ t('dashboard.openReports') }}

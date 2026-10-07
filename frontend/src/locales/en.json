@@ -1904,6 +1904,7 @@
   "dashboard": {
     "title": "Dashboard",
     "openReports": "Open reports",
+    "scopedNote": "These figures cover only the requests you can open.",
     "byStatus": "By status",
     "byStage": "By stage ({total} in total)",
     "byDepartment": "By department",

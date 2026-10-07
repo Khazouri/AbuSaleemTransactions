@@ -195,6 +195,13 @@ class ReportMetricsService
         // Every column is table-qualified: the breakdowns join this query onto
         // workflow_stages and departments, which carry their own created_at.
         return Request::query()
+            // Set by DashboardController alone (IndexReportRequest never
+            // accepts it): a reader without the export grant sees the
+            // dashboard over the files they may open. A user id rather than
+            // the User, so it folds into the cache key like any other filter.
+            // ponytail: a role or manager change does not bump the generation,
+            // so a reader's scope can lag it by up to CACHE_TTL_SECONDS.
+            ->when($filters['visible_to'] ?? null, fn (Builder $query, int $userId) => app(RequestVisibility::class)->apply($query, User::findOrFail($userId)))
             ->when($filters['department_id'] ?? null, fn (Builder $query, int $id) => $query->where('requests.department_id', $id))
             ->when($filters['type_id'] ?? null, fn (Builder $query, int $id) => $query->where('requests.request_type_id', $id))
             ->when($filters['status'] ?? null, fn (Builder $query, string $code) => $query->whereHas(

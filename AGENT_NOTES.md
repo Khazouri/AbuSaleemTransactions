@@ -19,6 +19,26 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-07 14:35 EET — Claude — The dashboard shows only the files the reader can open (complete)
+
+Built per the plan below; no migration. `DashboardController` sets `visible_to` unless the reader holds
+`reports,export`, `ReportMetricsService::query()` applies `RequestVisibility` for it, and the payload's `scoped` flag
+shows `dashboard.scopedNote`. **Known lag (`ponytail:` note):** a role or manager change does not bump the cache
+generation, so a reader's scope can trail it by up to 5 minutes. The reports screen still shows whole-population KPIs.
+Verified: new `DashboardReportTest` case (RED then GREEN), full suite 861 / 5618 green, Pint clean, build passes
+(`dist` committed), parity 2093, `aislop ci` exit 0. Not checked in a browser.
+
+---
+### 2026-10-07 14:15 EET — Claude — Implementation plan: the dashboard shows only the files the reader can open
+
+User: «specific users dashboard page should only show their info only». Put to the user and answered: everyone
+without `reports,export` (R06/R07/R08 keep the organisation-wide figures) sees the dashboard computed over the files
+`RequestVisibility` lets them open. Plan: `ReportMetricsService::query()` honours a server-set `visible_to` key, which
+`DashboardController` adds (the client cannot send it, since `IndexReportRequest::filters()` whitelists), so the
+cache key is per reader for free. The reports screen keeps its whole-population KPIs. The SPA labels a scoped
+dashboard. Verify: a new DashboardReportTest case, full PHPUnit, Pint, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-07 13:40 EET — Claude — Intake refused for a filer with no department (complete)
 
 Built per the plan below; no migration. `StoreRequest::after()` adds the refusal on `department_id` unless the filer's

@@ -77,6 +77,33 @@ class DashboardReportTest extends TestCase
         $this->assertSame(2, $byMonth->last()['completed']);
     }
 
+    /**
+     * A reader without the report export grant sees the dashboard over the
+     * files they may open; an export holder still sees the whole population.
+     */
+    public function test_the_dashboard_counts_only_the_files_the_reader_may_open(): void
+    {
+        $this->buildFixture();
+        $employee = $this->userWithRole('R01');
+        $this->request('new', overdue: false, departmentCode: 'FIN')
+            ->forceFill(['created_by_user_id' => $employee->id, 'subject_user_id' => $employee->id])
+            ->save();
+
+        $response = $this->actingAs($employee, 'sanctum')
+            ->getJson('/api/dashboard?visible_to='.$this->admin()->id)
+            ->assertOk()
+            ->assertJsonPath('data.scoped', true)
+            ->assertJsonPath('data.kpis.total', 1)
+            ->assertJsonPath('data.kpis.overdue', 0);
+        $this->assertSame(['FIN'], collect($response->json('data.breakdowns.by_department'))->pluck('code')->all());
+
+        $this->actingAs($this->userWithRole('R06'), 'sanctum')
+            ->getJson('/api/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.scoped', false)
+            ->assertJsonPath('data.kpis.total', 7);
+    }
+
     /** Narrowing the filters narrows every figure, not just the row list. */
     public function test_filters_narrow_the_kpis(): void
     {
