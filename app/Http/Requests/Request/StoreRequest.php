@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Request;
 
+use App\Models\Attachment;
 use App\Models\Department;
 use App\Models\RequestDraftAttachment;
 use App\Models\RequestType;
@@ -183,6 +184,11 @@ class StoreRequest extends FormRequest
                     'department_id',
                     'لا توجد إدارة مفعّلة مسندة إلى حسابك. يرجى مراجعة مدير النظام لإسناد إدارتك قبل تقديم الطلب.',
                 );
+            }
+
+            // Every file is named after the employee number (2026-10-07).
+            if (blank($this->user()?->employee_number)) {
+                $validator->errors()->add('employee_number', Attachment::NO_EMPLOYEE_NUMBER);
             }
 
             // The type's own `exists` rule already reported an unknown or

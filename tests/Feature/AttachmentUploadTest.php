@@ -27,6 +27,8 @@ class AttachmentUploadTest extends TestCase
         // Only a request's own filer attaches documents — an admin included, so
         // the admin here is the one who filed it (Request::attachmentRight()).
         $requestRecord = $this->request($admin->id);
+        // A file is named after the employee number and refused without one (2026-10-07).
+        $admin->update(['employee_number' => '9001']);
 
         $response = $this->actingAs($admin, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/attachments", [
@@ -43,7 +45,7 @@ class AttachmentUploadTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonPath('data.request_id', $requestRecord->id)
-            ->assertJsonPath('data.original_name', 'supporting-document.pdf')
+            ->assertJsonPath('data.original_name', 'المستند الداعم - 9001.pdf')
             ->assertJsonPath('data.size_bytes', 122880)
             ->assertJsonPath('data.label', 'المستند الداعم');
 

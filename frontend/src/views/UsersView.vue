@@ -44,6 +44,7 @@ const showForm = ref(false)
 const blankForm = () => ({
   name: '',
   email: '',
+  employee_number: '',
   password: '',
   department_id: null,
   manager_id: null,
@@ -127,6 +128,7 @@ function startEdit(user) {
   form.value = {
     name: user.name ?? '',
     email: user.email ?? '',
+    employee_number: user.employee_number ?? '',
     password: '',
     department_id: user.department?.id ?? null,
     manager_id: user.manager?.id ?? null,
@@ -153,6 +155,7 @@ async function save() {
   const payload = {
     name: form.value.name,
     email: form.value.email,
+    employee_number: form.value.employee_number,
     department_id: form.value.department_id,
     manager_id: form.value.manager_id,
     role_ids: form.value.role_ids,
@@ -252,6 +255,12 @@ onMounted(() => {
             {{ t('users.email') }} *
             <input v-model="form.email" type="email" dir="ltr" required />
             <small v-if="errors.email" class="field-error">{{ errors.email[0] }}</small>
+          </label>
+
+          <label>
+            {{ t('users.employeeNumber') }}
+            <input v-model="form.employee_number" type="text" dir="ltr" maxlength="32" />
+            <small v-if="errors.employee_number" class="field-error">{{ errors.employee_number[0] }}</small>
           </label>
 
           <label>

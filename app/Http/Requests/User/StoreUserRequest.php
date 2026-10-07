@@ -31,6 +31,13 @@ class StoreUserRequest extends FormRequest
                 Rule::unique('users', 'email')->whereNull('deleted_at'),
             ],
 
+            // Nullable: intake, not account creation, refuses an account
+            // without one, since HR may issue the number later.
+            'employee_number' => [
+                'nullable', 'string', 'max:32',
+                Rule::unique('users', 'employee_number'),
+            ],
+
             'password' => ['required', 'string', 'min:8'],
 
             // Null is allowed — an account can exist before it's assigned to
@@ -58,6 +65,8 @@ class StoreUserRequest extends FormRequest
             'email.required' => 'البريد الإلكتروني مطلوب.',
             'email.email' => 'صيغة البريد الإلكتروني غير صحيحة.',
             'email.unique' => 'هذا البريد الإلكتروني مستخدم بالفعل.',
+            'employee_number.max' => 'لا يمكن أن يتجاوز الرقم الوظيفي 32 حرفاً.',
+            'employee_number.unique' => 'هذا الرقم الوظيفي مسند لمستخدم آخر.',
             'password.required' => 'كلمة المرور مطلوبة.',
             'password.min' => 'كلمة المرور يجب ألا تقل عن 8 أحرف.',
             'department_id.exists' => 'الإدارة المحددة غير موجودة.',

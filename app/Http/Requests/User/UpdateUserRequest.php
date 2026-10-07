@@ -36,6 +36,11 @@ class UpdateUserRequest extends FormRequest
                 Rule::unique('users', 'email')->ignore($user->id)->whereNull('deleted_at'),
             ],
 
+            'employee_number' => [
+                'nullable', 'string', 'max:32',
+                Rule::unique('users', 'employee_number')->ignore($user->id),
+            ],
+
             'password' => ['nullable', 'string', 'min:8'],
 
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
@@ -69,6 +74,8 @@ class UpdateUserRequest extends FormRequest
             'email.required' => 'البريد الإلكتروني مطلوب.',
             'email.email' => 'صيغة البريد الإلكتروني غير صحيحة.',
             'email.unique' => 'هذا البريد الإلكتروني مستخدم بالفعل.',
+            'employee_number.max' => 'لا يمكن أن يتجاوز الرقم الوظيفي 32 حرفاً.',
+            'employee_number.unique' => 'هذا الرقم الوظيفي مسند لمستخدم آخر.',
             'password.min' => 'كلمة المرور يجب ألا تقل عن 8 أحرف.',
             'department_id.exists' => 'الإدارة المحددة غير موجودة.',
             'manager_id.exists' => 'المدير المباشر المحدد غير موجود.',

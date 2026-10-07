@@ -51,6 +51,7 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
+            'employee_number' => $this->employee_number,
             'is_active' => $this->is_active,
 
             // whenLoaded() omits the key entirely unless the relation was

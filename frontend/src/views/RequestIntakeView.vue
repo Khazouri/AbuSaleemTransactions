@@ -189,6 +189,8 @@ const formIncomplete = computed(() => Object.keys(fieldErrors.value).length > 0
   // StoreRequest refuses a filer with no department; an inactive one is
   // refused there too, since the account payload does not carry is_active.
   || !ownDepartment.value
+  // Every file is named after it (2026-10-07), so StoreRequest refuses without one.
+  || !auth.user?.employee_number
   || unclassifiedFiles.value
   || uncoveredMandatory.value.length > 0)
 
@@ -679,6 +681,7 @@ onMounted(async () => {
       <form v-show="step === 'form'" class="card card-flat card-pad form" novalidate @submit.prevent="review">
         <p v-if="error" class="alert" role="alert">{{ error }}</p>
         <p v-if="!ownDepartment" class="alert" role="alert">{{ t('intake.noDepartment') }}</p>
+        <p v-if="!auth.user?.employee_number" class="alert" role="alert">{{ t('intake.noEmployeeNumber') }}</p>
         <p v-if="loadingOptions || resuming" class="state">{{ t('common.loading') }}</p>
 
         <!-- Deliberately quiet: an autosave notice that shouts would be on
@@ -935,6 +938,7 @@ onMounted(async () => {
         <dl class="review-grid">
           <div><dt>{{ t('intake.subject') }}</dt><dd>{{ form.title }}</dd></div>
           <div><dt>{{ t('requests.department') }}</dt><dd>{{ ownDepartment ? name(ownDepartment) : '—' }}</dd></div>
+          <div><dt>{{ t('users.employeeNumber') }}</dt><dd>{{ auth.user?.employee_number || '—' }}</dd></div>
           <div><dt>{{ t('requests.type') }}</dt><dd>{{ selectedType ? name(selectedType) : '—' }}</dd></div>
           <div><dt>{{ t('intake.decisionGrade') }}</dt><dd>{{ form.decision_grade || '—' }}</dd></div>
           <div v-if="form.prior_relation">

@@ -76,6 +76,27 @@ class Attachment extends Model
      */
     public const DEFAULT_SUBMITTER_SECTION = 'supporting_documents';
 
+    /** Both writers refuse a file they could not name — see displayName(). */
+    public const NO_EMPLOYEE_NUMBER = 'لا يوجد رقم وظيفي مسند إلى حساب الموظف. يرجى مراجعة مدير النظام لإسناده قبل تقديم الطلب أو إرفاق المستندات.';
+
+    /**
+     * «<document name> - <employee number>.<ext>», the name a request file
+     * carries once filed (user decision 2026-10-07). It is only the display
+     * and download name: the stored path stays the upload's random hash, so
+     * no part of this ever reaches the disk.
+     */
+    public static function displayName(?RequestType $type, ?string $documentKey, ?string $label, User $subject, string $clientName): string
+    {
+        $document = $type?->documentOptions()[$documentKey]['ar'] ?? null;
+        $document = $document ?: ($label ?: 'مستند آخر');
+        // A browser saving the download would otherwise mangle or refuse these.
+        $document = trim(preg_replace('/\s+/u', ' ', str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '', $document)));
+
+        $extension = pathinfo($clientName, PATHINFO_EXTENSION);
+
+        return "{$document} - {$subject->employee_number}".($extension === '' ? '' : ".{$extension}");
+    }
+
     protected $guarded = [];
 
     /** The appendix's own Arabic folder name, or غير مصنف for a legacy row. */

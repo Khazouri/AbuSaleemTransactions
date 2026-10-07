@@ -58,6 +58,11 @@ class AttachmentController extends Controller
             ], 403);
         }
 
+        $subject = $requestRecord->subject;
+        if (blank($subject?->employee_number)) {
+            return response()->json(['message' => Attachment::NO_EMPLOYEE_NUMBER], 422);
+        }
+
         $file = $request->file('file');
         $disk = 'local';
 
@@ -70,7 +75,9 @@ class AttachmentController extends Controller
                 'request_id' => $requestRecord->id,
                 'disk' => $disk,
                 'path' => $path,
-                'original_name' => $file->getClientOriginalName(),
+                'original_name' => Attachment::displayName(
+                    $requestRecord->requestType, $documentKey, $request->validated('label'), $subject, $file->getClientOriginalName(),
+                ),
                 'mime_type' => $file->getMimeType(),
                 'size_bytes' => $file->getSize(),
                 'label' => $request->validated('label'),

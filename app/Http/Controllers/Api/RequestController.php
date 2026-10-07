@@ -420,7 +420,9 @@ class RequestController extends Controller
                         'request_id' => $requestRecord->id,
                         'disk' => 'local',
                         'path' => $path,
-                        'original_name' => $source['original_name'],
+                        'original_name' => Attachment::displayName(
+                            $requestType, $documentKey, $source['label'], $subject, $source['original_name'],
+                        ),
                         'mime_type' => $source['mime_type'],
                         'size_bytes' => $source['size_bytes'],
                         'label' => $source['label'],

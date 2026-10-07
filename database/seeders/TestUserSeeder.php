@@ -131,6 +131,9 @@ class TestUserSeeder extends Seeder
                     'name' => $name,
                     'password' => Hash::make(self::PASSWORD),
                     'phone' => $phone,
+                    // Intake refuses an account without one; the phone's
+                    // suffix is already unique per test account.
+                    'employee_number' => 'T'.substr($phone, -4),
                     'department_id' => $departments[$departmentCode]?->id,
                     'is_active' => $isActive,
                     // Pre-verified: there is no mail server in local dev.

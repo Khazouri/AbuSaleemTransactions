@@ -19,6 +19,31 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-07 22:25 EET — Claude — An attached file is named «document - employee number» (complete)
+
+Built per the plan below. Migration `users.employee_number` (nullable, unique) is applied to the real MySQL.
+`Attachment::displayName()` writes `original_name` at intake and on a later upload, and both refuse with
+`Attachment::NO_EMPLOYEE_NUMBER` when the employee has none. The Users modal edits the number. The intake screen
+blocks the review step with `intake.noEmployeeNumber`. `UserFactory` gives every fixture user a number, and
+`TestUserSeeder` sets `T` + the phone suffix. On the real DB only that column was filled for the test accounts,
+because re-running the seeder would reset their roles; **2 of 17 accounts there still have none** and cannot
+file until R08 sets one. `AttachmentUploadTest`'s admin filer was given a number in place. Verified: new
+`AttachmentNamingTest` (RED then GREEN), full suite 865 / 5622 with that one test updated, Pint clean, build
+passes (`dist` committed), parity 2076, `aislop ci` exit 0. Not checked in a browser.
+
+---
+### 2026-10-07 21:48 EET — Claude — Implementation plan: an attached file is named «document - employee number»
+
+User: «when a file is submitted its name is changed to the document name in the system - the employee number».
+Put to the user and answered: a new `users.employee_number` (nullable, unique, set on the Users screen), with
+**no fallback**: intake is refused (422 on `employee_number`) until an admin assigns one, the same shape as the
+no-department refusal. An `other` file takes its label, or «مستند آخر» if it has none. Plan:
+`Attachment::displayName()` builds «<Appendix 57 name> - <number>.<ext>» for both writers
+(`RequestController::store()` and `AttachmentController::store()`, which also refuses with no number) and
+overwrites `original_name`. The stored path stays a hash. Drafts and appeals are unchanged. Verify: a new
+`AttachmentNamingTest` (RED then GREEN), full PHPUnit, Pint, migrate, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-07 21:20 EET — Claude — Several files at once, and a drop zone (complete)
 
 Built per the plan below. It is frontend only, with no PHP and no backend change. `FileDropZone.vue` is used by

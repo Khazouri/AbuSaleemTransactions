@@ -50,6 +50,7 @@ class User extends Authenticatable
         'email',
         'password',
         'phone',
+        'employee_number',
         'department_id',
         'manager_id',
         'is_active',
