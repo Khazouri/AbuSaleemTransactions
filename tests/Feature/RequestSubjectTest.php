@@ -315,7 +315,7 @@ class RequestSubjectTest extends TestCase
     /** @param  list<string>  $roleCodes */
     private function userWithRoles(array $roleCodes): User
     {
-        $user = User::factory()->create(['is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'department_id' => Department::where('code', 'ADM')->value('id')]);
         $user->roles()->attach(Role::whereIn('code', $roleCodes)->pluck('id'));
 
         return $user;

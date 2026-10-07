@@ -608,6 +608,7 @@
     "loadFailed": "The intake form options could not be loaded.",
     "successTitle": "Request created",
     "successBody": "The request has entered the official track. Its intake receipt number is:",
+    "noDepartment": "Your account has no department, so you cannot file a request. Ask the system administrator to assign your department.",
     "receiptNotice": "This is an intake receipt, not a registration with the Employee Affairs Committee. The committee reference number is granted once the file is confirmed complete.",
     "createAnother": "Enter another request",
     "viewQueue": "View request queue",

@@ -324,7 +324,7 @@ class IntakeFidelityTest extends TestCase
 
     private function userWithRole(string $roleCode): User
     {
-        $user = User::factory()->create(['is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'department_id' => Department::where('code', 'ADM')->value('id')]);
         $user->roles()->attach(Role::where('code', $roleCode)->value('id'));
 
         return $user;

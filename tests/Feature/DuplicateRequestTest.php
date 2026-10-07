@@ -180,7 +180,7 @@ class DuplicateRequestTest extends TestCase
 
     private function employee(): User
     {
-        $user = User::factory()->create(['is_active' => true]);
+        $user = User::factory()->create(['is_active' => true, 'department_id' => Department::where('code', 'ADM')->value('id')]);
         $user->roles()->attach(Role::where('code', 'R01')->value('id'));
 
         return $user;

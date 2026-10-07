@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Request;
 
+use App\Models\Department;
 use App\Models\RequestDraftAttachment;
 use App\Models\RequestType;
 use App\Services\DocumentCompletenessService;
@@ -168,6 +169,22 @@ class StoreRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
+            // The request takes the filer's own department (there is no
+            // choice on the form), so intake waits until an admin assigns an
+            // active one — the same bar the old department picker set.
+            $hasDepartment = Department::query()
+                ->whereKey($this->user()?->department_id)
+                ->where('is_active', true)
+                ->whereNotNull('code')
+                ->exists();
+
+            if (! $hasDepartment) {
+                $validator->errors()->add(
+                    'department_id',
+                    'لا توجد إدارة مفعّلة مسندة إلى حسابك. يرجى مراجعة مدير النظام لإسناد إدارتك قبل تقديم الطلب.',
+                );
+            }
+
             // The type's own `exists` rule already reported an unknown or
             // retired type; naming documents from a type that failed would
             // report a second, confusing failure about the first one.

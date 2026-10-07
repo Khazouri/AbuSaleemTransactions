@@ -185,6 +185,9 @@ function fieldError(field) {
 // rather than restating them — one rule set, so a field that validates live
 // and the button that gates the review step cannot disagree.
 const formIncomplete = computed(() => Object.keys(fieldErrors.value).length > 0
+  // StoreRequest refuses a filer with no department; an inactive one is
+  // refused there too, since the account payload does not carry is_active.
+  || !ownDepartment.value
   || unclassifiedFiles.value
   || uncoveredMandatory.value.length > 0)
 
@@ -676,6 +679,7 @@ onMounted(async () => {
            semantics a screen reader announces, not the UI. -->
       <form v-show="step === 'form'" class="card card-flat card-pad form" novalidate @submit.prevent="review">
         <p v-if="error" class="alert" role="alert">{{ error }}</p>
+        <p v-if="!ownDepartment" class="alert" role="alert">{{ t('intake.noDepartment') }}</p>
         <p v-if="loadingOptions || resuming" class="state">{{ t('common.loading') }}</p>
 
         <!-- Deliberately quiet: an autosave notice that shouts would be on

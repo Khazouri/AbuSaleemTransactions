@@ -19,6 +19,25 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-07 13:40 EET — Claude — Intake refused for a filer with no department (complete)
+
+Built per the plan below; no migration. `StoreRequest::after()` adds the refusal on `department_id` unless the filer's
+department exists, is active and has a code. The intake screen shows `intake.noDepartment` and keeps the review step
+disabled when the account has no department. An inactive one is caught only by the server, because the account
+payload carries no `is_active`. Fixture filers in `RequestIntakeTest`, `DuplicateRequestTest`, `IntakeFidelityTest`,
+`RequestSubjectTest` and `UnifiedNumberingTest` now get ADM. Verified: the new test went RED then GREEN, full suite
+860 / 5610 green, Pint clean, build passes (`dist` committed), parity 2092, `aislop ci` exit 0. **Not checked:** how
+many real accounts have no department, because MySQL timed out; such an account cannot file until R08 assigns one.
+
+---
+### 2026-10-07 13:15 EET — Claude — Implementation plan: intake refused for a filer with no department
+
+User follow-up: a filer with no department is refused until an admin assigns one. `store()` refuses (422 on
+`department_id`, Arabic) unless the filer's department exists and is active, the same bar the old dropdown rule set.
+The intake screen shows the reason and blocks the review step. Verify: a new RequestIntakeTest case, fixture filers
+given a department, full PHPUnit, Pint, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-07 13:00 EET — Claude — No department dropdown on intake (complete)
 
 Built per the plan below; no migration. A new request's `department_id` is the filer's `users.department_id`, so a

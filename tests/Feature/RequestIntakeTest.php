@@ -441,10 +441,45 @@ class RequestIntakeTest extends TestCase
         $this->assertDatabaseCount('requests', 0);
     }
 
+    /**
+     * The request takes the filer's own department, so a filer with none, or
+     * with a retired one, is refused until an admin assigns one (2026-10-07).
+     */
+    public function test_intake_is_refused_until_the_filer_has_an_active_department(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $filer = $this->filer();
+        $filer->update(['department_id' => null]);
+        $payload = [
+            'title' => 'طلب بلا إدارة',
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'decision_grade' => 11,
+        ];
+
+        $this->actingAs($filer, 'sanctum')
+            ->postJson('/api/requests', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['department_id' => 'لا توجد إدارة مفعّلة مسندة إلى حسابك']);
+
+        $retired = Department::where('code', 'FIN')->firstOrFail();
+        $retired->update(['is_active' => false]);
+        $filer->update(['department_id' => $retired->id]);
+
+        $this->postJson('/api/requests', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('department_id');
+
+        $this->assertDatabaseCount('requests', 0);
+    }
+
     /** The system admin files nothing (2026-10-07), so intake is an employee's. */
     private function filer(): User
     {
-        $user = User::factory()->create(['is_active' => true]);
+        // A filer needs an active department: the request takes it.
+        $user = User::factory()->create([
+            'is_active' => true,
+            'department_id' => Department::where('code', 'ADM')->value('id'),
+        ]);
         $user->roles()->attach(Role::where('code', 'R01')->value('id'));
 
         return $user;
