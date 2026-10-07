@@ -19,6 +19,27 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-07 12:10 EET — Claude — R08 cannot file or submit requests (complete)
+
+Built per the plan below; no migration and no frontend file (the sidebar, router guard and `v-can` buttons all read
+the cleared map). **Side effect, accepted:** the `submit` override was R08's only row at `receive_from_municipality`,
+so `RequestVisibility` no longer shows the admin a file sitting there. That stage is the filer's alone anyway. Four
+fixtures that used the admin as the filer or on a stage-1 file moved to an R01 filer or to `direct_manager_review`.
+Verified: new `AdminCannotFileTest` (RED then GREEN), full suite 836 + 9 + 14 green, Pint clean, `aislop ci` exit 0
+(97). **Not applied to the real database:** MySQL unreachable again (OPEN_ITEMS.md).
+
+---
+### 2026-10-07 11:40 EET — Claude — Implementation plan: R08 cannot file or submit requests
+
+User: «system admin r8 should not be able to submit requests». Every account also holds R01 (Stage 103), so
+removing R08's seeded `request_intake` grant alone changes nothing. Plan: `User::screenPermissions()`, the one map
+the API middleware, router guard, sidebar and `v-can` all read, clears every `request_intake` action for an R08
+holder, so the Roles & Permissions grid cannot grant it back. `WorkflowTransitionSeeder` drops R08's `submit`
+exception (pushing someone else's returned file forward) with a targeted delete, since exception rows survive the
+generic one. Kept: an R08 who filed before today still re-submits their own returned file through the creator row.
+Verify: new test, full PHPUnit, Pint, aislop ci, reseed `WorkflowTransitionSeeder`. No frontend file changes.
+
+---
 ### 2026-10-07 EET — Claude — Filing on another employee's behalf removed (complete)
 
 Built per the plan below; no migration. `store()` always takes the caller as صاحب العلاقة, a posted `subject_user_id`

@@ -129,19 +129,14 @@ class WorkflowTransitionSeeder extends Seeder
             );
         }
 
-        // R08 override sibling for the new intake handoff: any active R01
-        // submitter's row is the normal path, but an admin can always push a
-        // stuck submission forward too. Modelled as an exception (matching
-        // every other R08 bypass already in this file — cancel, deadline
-        // escalation), not as a second happy-path row.
-        $this->seedException(
-            $stages['receive_from_municipality']->id,
-            $stages['direct_manager_review']->id,
-            'submit',
-            $roles['R08']->id,
-            $statuses['in_review']->id,
-            25,
-        );
+        // The R08 `submit` override is gone (user decision 2026-10-07: the
+        // admin submits nothing). It was an exception row, which the generic
+        // delete above does not sweep, so an existing database needs this.
+        WorkflowTransition::query()
+            ->where('from_stage_id', $stages['receive_from_municipality']->id)
+            ->where('action', 'submit')
+            ->where('required_role_id', $roles['R08']->id)
+            ->delete();
 
         // Diagram-alignment redesign: the manager's own review, moving the
         // request on to the routing decision. This is the deterministic

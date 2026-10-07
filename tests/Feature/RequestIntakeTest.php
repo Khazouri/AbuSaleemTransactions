@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
+use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\IntakeGateService;
@@ -25,9 +26,9 @@ class RequestIntakeTest extends TestCase
     public function test_an_authorized_user_can_load_intake_options_before_the_request_wildcard_route(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $filer = $this->filer();
 
-        $this->actingAs($admin, 'sanctum')
+        $this->actingAs($filer, 'sanctum')
             ->getJson('/api/requests/intake-options')
             ->assertOk()
             ->assertJsonPath('data.departments.0.code', 'ADM')
@@ -42,9 +43,9 @@ class RequestIntakeTest extends TestCase
     public function test_intake_options_expose_appendix_57s_grouped_document_matrix_per_type(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $filer = $this->filer();
 
-        $response = $this->actingAs($admin, 'sanctum')
+        $response = $this->actingAs($filer, 'sanctum')
             ->getJson('/api/requests/intake-options')
             ->assertOk();
 
@@ -139,11 +140,11 @@ class RequestIntakeTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
-        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $filer = $this->filer();
         $department = Department::where('code', 'ADM')->firstOrFail();
         $type = RequestType::where('code', 'PROM')->firstOrFail();
 
-        $response = $this->actingAs($admin, 'sanctum')
+        $response = $this->actingAs($filer, 'sanctum')
             ->post('/api/requests', [
                 'title' => 'طلب ترقية جديد',
                 'description' => 'وصف طلب الترقية.',
@@ -187,7 +188,7 @@ class RequestIntakeTest extends TestCase
             ->assertJsonPath('data.current_stage.code', 'direct_manager_review');
 
         $requestRecord = Request::firstOrFail();
-        $this->assertSame($admin->id, $requestRecord->created_by_user_id);
+        $this->assertSame($filer->id, $requestRecord->created_by_user_id);
         $this->assertSame(11, $requestRecord->decision_grade);
         $this->assertNotNull($requestRecord->submitted_at);
         $this->assertSame(
@@ -208,7 +209,7 @@ class RequestIntakeTest extends TestCase
             'from_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
             'to_stage_id' => WorkflowStage::where('code', 'direct_manager_review')->value('id'),
             'action' => 'submit',
-            'acted_by_user_id' => $admin->id,
+            'acted_by_user_id' => $filer->id,
         ]);
         $this->assertDatabaseHas('request_status_history', [
             'request_id' => $requestRecord->id,
@@ -241,11 +242,11 @@ class RequestIntakeTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
-        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $filer = $this->filer();
         $department = Department::where('code', 'ADM')->firstOrFail();
         $type = RequestType::where('code', 'PROM')->firstOrFail();
 
-        $this->actingAs($admin, 'sanctum')
+        $this->actingAs($filer, 'sanctum')
             ->post('/api/requests', [
                 'title' => 'طلب بمرفق بلا نوع',
                 'department_id' => $department->id,
@@ -272,7 +273,7 @@ class RequestIntakeTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
-        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $filer = $this->filer();
         $department = Department::where('code', 'ADM')->firstOrFail();
         $type = RequestType::where('code', 'PROM')->firstOrFail();
         $otherType = RequestType::where('code', 'TRNS')->firstOrFail();
@@ -281,7 +282,7 @@ class RequestIntakeTest extends TestCase
         $foreignKey = $this->documentKeyFor($otherType, 'رأي أو موافقة الجهة المنقول إليها');
         $this->assertArrayNotHasKey($foreignKey, $type->documentOptions());
 
-        $this->actingAs($admin, 'sanctum')
+        $this->actingAs($filer, 'sanctum')
             ->post('/api/requests', [
                 'title' => 'طلب بمستند من نوع آخر',
                 'department_id' => $department->id,
@@ -310,11 +311,11 @@ class RequestIntakeTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
-        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $filer = $this->filer();
         $department = Department::where('code', 'ADM')->firstOrFail();
         $type = RequestType::where('code', 'PROM')->firstOrFail();
 
-        $this->actingAs($admin, 'sanctum')
+        $this->actingAs($filer, 'sanctum')
             ->post('/api/requests', [
                 'title' => 'طلب ترقية بمرفقين',
                 'department_id' => $department->id,
@@ -388,7 +389,7 @@ class RequestIntakeTest extends TestCase
     public function test_intake_receipts_increment_within_the_year(): void
     {
         $this->seed(DatabaseSeeder::class);
-        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $filer = $this->filer();
         $department = Department::where('code', 'ADM')->firstOrFail();
         // Stage 83 — two different types, deliberately: [D] Appendix 16 now
         // refuses a second request while an open file on the *same* subject
@@ -399,7 +400,7 @@ class RequestIntakeTest extends TestCase
         Storage::fake('local');
 
         foreach ([1 => 'PROM', 2 => 'LEAV'] as $sequence => $code) {
-            $this->actingAs($admin, 'sanctum')
+            $this->actingAs($filer, 'sanctum')
                 ->post('/api/requests', [
                     'title' => "طلب {$sequence}",
                     'department_id' => $department->id,
@@ -420,9 +421,9 @@ class RequestIntakeTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        $filer = $this->filer();
 
-        $this->actingAs($admin, 'sanctum')
+        $this->actingAs($filer, 'sanctum')
             ->postJson('/api/requests', [
                 'title' => 'طلب بلا درجة',
                 'department_id' => Department::where('code', 'ADM')->value('id'),
@@ -432,5 +433,14 @@ class RequestIntakeTest extends TestCase
             ->assertJsonValidationErrors('decision_grade');
 
         $this->assertDatabaseCount('requests', 0);
+    }
+
+    /** The system admin files nothing (2026-10-07), so intake is an employee's. */
+    private function filer(): User
+    {
+        $user = User::factory()->create(['is_active' => true]);
+        $user->roles()->attach(Role::where('code', 'R01')->value('id'));
+
+        return $user;
     }
 }

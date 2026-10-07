@@ -41,10 +41,10 @@ class FilerAttachmentsAndReturnTest extends TestCase
 
         $this->upload($filer, $requestRecord)->assertCreated();
 
-        // The admin can see the file but, with no override, cannot add to it.
-        $this->upload($this->userWithRole('R08'), $requestRecord)
-            ->assertForbidden()
-            ->assertJsonPath('message', 'إرفاق المستندات مقصور على مقدّم الطلب.');
+        // The admin cannot even see it: its only row at this stage was the
+        // `submit` override, removed 2026-10-07, so a returned file is the
+        // filer's alone.
+        $this->upload($this->userWithRole('R08'), $requestRecord)->assertNotFound();
 
         $this->assertSame(1, $requestRecord->attachments()->count());
     }

@@ -24,8 +24,10 @@ class RequestNoteTest extends TestCase
             'title' => 'طلب للملاحظات',
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
-            'status_id' => RequestStatus::where('code', 'new')->value('id'),
-            'current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id'),
+            'status_id' => RequestStatus::where('code', 'in_review')->value('id'),
+            // Not stage 1: that stage is the filer's alone, hidden from the
+            // admin since its `submit` override went (2026-10-07).
+            'current_stage_id' => WorkflowStage::where('code', 'direct_manager_review')->value('id'),
         ]);
 
         $this->actingAs($admin, 'sanctum')

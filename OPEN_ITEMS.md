@@ -13,6 +13,12 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### R08's `submit` row still on the real database — admin may not file — opened 2026-10-07
+`WorkflowTransitionSeeder` now deletes R08's `submit` exception at `receive_from_municipality`, but Homestead's MySQL
+was unreachable, so the real database still has it: until then an admin can push an employee's returned file
+forward. The intake block itself is code (`User::screenPermissions()`) and is already live. **To close:**
+`php artisan db:seed --class=WorkflowTransitionSeeder` (safe, it does not touch the permission matrix).
+
 ### `request_intake,approve` still granted to R02/R05 on the real database — on-behalf removal — opened 2026-10-07
 `ScreenRolePermissionSeeder` no longer grants that tier, but Homestead's MySQL was unreachable when the change was made,
 so the real database still has it. It is now inert: nothing reads the tier, and the intake endpoint ignores

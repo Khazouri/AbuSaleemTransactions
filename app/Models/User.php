@@ -243,6 +243,14 @@ class User extends Authenticatable
             }
         }
 
+        // The system admin files nothing (user decision 2026-10-07). Cleared
+        // here rather than in the seeder because every account also holds R01,
+        // whose grant would otherwise reopen intake, and so the Roles &
+        // Permissions grid cannot grant it back.
+        if ($this->hasRole('R08') && isset($map['request_intake'])) {
+            $map['request_intake'] = array_fill_keys(ScreenRolePermission::ACTIONS, false);
+        }
+
         return $this->screenPermissionsCache = $this->hideMeetingsSectionIfUnseated($map);
     }
 

@@ -80,8 +80,9 @@ class RequestTypeCrudTest extends TestCase
         $this->assertDatabaseHas('request_types', ['id' => $id, 'is_active' => false]);
 
         // An inactive type disappears from intake but stays on the admin list,
-        // which is the whole point of preferring it to a delete.
-        $this->actingAs($admin, 'sanctum')
+        // which is the whole point of preferring it to a delete. Asked as an
+        // employee, since the admin has no intake screen (2026-10-07).
+        $this->actingAs($this->userWithRole('R01'), 'sanctum')
             ->getJson('/api/requests/intake-options')
             ->assertOk()
             ->assertJsonMissing(['code' => 'TEST']);

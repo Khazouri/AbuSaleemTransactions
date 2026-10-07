@@ -89,6 +89,9 @@ class AttachmentUploadTest extends TestCase
         Storage::fake('local');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
         $requestRecord = $this->request();
+        // Past stage 1, which is the filer's alone and hidden from the admin
+        // since its `submit` override went (2026-10-07).
+        $requestRecord->update(['current_stage_id' => WorkflowStage::where('code', 'direct_manager_review')->value('id')]);
         $attachment = Attachment::create([
             'request_id' => $requestRecord->id,
             'disk' => 'local',
