@@ -597,7 +597,6 @@
     "basicData": "Basic details",
     "subject": "Request subject",
     "description": "Description",
-    "chooseDepartment": "— Choose a department —",
     "chooseType": "— Choose a request type —",
     "decisionGrade": "Decision grade",
     "decisionGradeHint": "Grades at or above {threshold} require ministry approval.",
@@ -657,7 +656,6 @@
     "validation": {
       "titleRequired": "A request subject is required.",
       "titleTooLong": "The request subject cannot exceed 255 characters.",
-      "departmentRequired": "Please choose a department.",
       "typeRequired": "Please choose a request type.",
       "gradeRequired": "A decision grade is required for this request type.",
       "gradeInteger": "The decision grade must be a whole number.",

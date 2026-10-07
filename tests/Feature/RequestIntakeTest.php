@@ -31,7 +31,9 @@ class RequestIntakeTest extends TestCase
         $this->actingAs($filer, 'sanctum')
             ->getJson('/api/requests/intake-options')
             ->assertOk()
-            ->assertJsonPath('data.departments.0.code', 'ADM')
+            // The request takes the filer's own department, so there is no
+            // department to choose (user decision 2026-10-07).
+            ->assertJsonMissingPath('data.departments')
             ->assertJsonFragment(['code' => 'PROM']);
     }
 
@@ -141,6 +143,7 @@ class RequestIntakeTest extends TestCase
         $this->seed(DatabaseSeeder::class);
         Storage::fake('local');
         $filer = $this->filer();
+        $filer->update(['department_id' => Department::where('code', 'FIN')->value('id')]);
         $department = Department::where('code', 'ADM')->firstOrFail();
         $type = RequestType::where('code', 'PROM')->firstOrFail();
 
@@ -189,6 +192,9 @@ class RequestIntakeTest extends TestCase
 
         $requestRecord = Request::firstOrFail();
         $this->assertSame($filer->id, $requestRecord->created_by_user_id);
+        // A posted department_id (an old client) is ignored: the request
+        // belongs to the filer's own unit.
+        $this->assertSame($filer->department_id, $requestRecord->department_id);
         $this->assertSame(11, $requestRecord->decision_grade);
         $this->assertNotNull($requestRecord->submitted_at);
         $this->assertSame(

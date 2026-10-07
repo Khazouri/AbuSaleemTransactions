@@ -67,10 +67,6 @@ class StoreRequest extends FormRequest
             // SaveRequestDraftRequest's own, so a reason a draft accepted can
             // always be submitted.
             'reasons' => ['nullable', 'string', 'max:5000'],
-            // Intake must not route fresh work to retired master-data rows.
-            'department_id' => ['required', 'integer', Rule::exists('departments', 'id')->where(
-                fn ($query) => $query->where('is_active', true)->whereNotNull('code'),
-            )],
             'request_type_id' => ['required', 'integer', Rule::exists('request_types', 'id')->where('is_active', true)],
             // Types with a threshold need a grade now; otherwise the ministry
             // branch could only guess after the request reached approval.
@@ -223,8 +219,6 @@ class StoreRequest extends FormRequest
     {
         return [
             'title.required' => 'عنوان الطلب مطلوب.',
-            'department_id.required' => 'يرجى اختيار الإدارة.',
-            'department_id.exists' => 'الإدارة المحددة غير صالحة أو غير مفعّلة.',
             'request_type_id.required' => 'يرجى اختيار نوع الطلب.',
             'request_type_id.exists' => 'نوع الطلب المحدد غير صالح أو غير مفعّل.',
             'decision_grade.required' => 'درجة القرار مطلوبة لهذا النوع من الطلبات.',

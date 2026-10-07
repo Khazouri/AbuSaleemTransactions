@@ -292,11 +292,6 @@ class RequestController extends Controller
     {
         return response()->json([
             'data' => [
-                'departments' => Department::query()
-                    ->where('is_active', true)
-                    ->whereNotNull('code')
-                    ->orderBy('name_ar')
-                    ->get(['id', 'name_ar', 'name_en', 'code']),
                 'types' => RequestType::query()
                     ->where('is_active', true)
                     ->orderBy('name_ar')
@@ -370,7 +365,6 @@ class RequestController extends Controller
 
         try {
             $requestRecord = DB::transaction(function () use ($data, $request, $subject, $numbers, $deadlines, $workflow, $priorRelation, $priorRequestId, $draft, &$storedPaths) {
-                $department = Department::query()->findOrFail($data['department_id']);
                 $type = RequestType::query()->findOrFail($data['request_type_id']);
                 $newStatus = RequestStatus::query()->where('code', 'new')->firstOrFail();
                 $firstStage = WorkflowStage::query()->where('code', 'receive_from_municipality')->firstOrFail();
@@ -392,7 +386,9 @@ class RequestController extends Controller
                     // Stage 90 — [G]'s «الأسباب», stated separately from the
                     // description it used to fold into.
                     'reasons' => $data['reasons'] ?? null,
-                    'department_id' => $department->id,
+                    // The filer's own unit, not a choice: صاحب العلاقة is
+                    // always the filer, so the request belongs where they work.
+                    'department_id' => $subject->department_id,
                     'request_type_id' => $data['request_type_id'],
                     'status_id' => $newStatus->id,
                     'current_stage_id' => $firstStage->id,

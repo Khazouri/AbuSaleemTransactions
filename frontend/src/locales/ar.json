@@ -597,7 +597,6 @@
     "basicData": "البيانات الأساسية",
     "subject": "عنوان الطلب",
     "description": "الوصف",
-    "chooseDepartment": "— اختر الإدارة —",
     "chooseType": "— اختر نوع الطلب —",
     "decisionGrade": "درجة القرار",
     "decisionGradeHint": "تتطلب الدرجات من {threshold} فأعلى اعتماد الوزارة.",
@@ -657,7 +656,6 @@
     "validation": {
       "titleRequired": "عنوان الطلب مطلوب.",
       "titleTooLong": "لا يمكن أن يتجاوز عنوان الطلب 255 حرفاً.",
-      "departmentRequired": "يرجى اختيار الإدارة.",
       "typeRequired": "يرجى اختيار نوع الطلب.",
       "gradeRequired": "درجة القرار مطلوبة لهذا النوع من الطلبات.",
       "gradeInteger": "يجب أن تكون درجة القرار رقماً صحيحاً.",

@@ -19,7 +19,7 @@ import { DOCUMENT_GROUPS } from '../lib/requiredDocuments'
 
 const { t, locale } = useI18n()
 const auth = useAuthStore()
-const options = ref({ departments: [], types: [] })
+const options = ref({ types: [] })
 const form = ref(blankForm())
 const files = ref([])
 // Stage 90 — files the picker would not take, kept by name with the reason
@@ -82,9 +82,8 @@ const unclassifiedFiles = computed(() => files.value.some((attachment) => !attac
 const selectedType = computed(() => options.value.types.find(
   (type) => String(type.id) === String(form.value.request_type_id),
 ))
-const selectedDepartment = computed(() => options.value.departments.find(
-  (department) => String(department.id) === String(form.value.department_id),
-))
+// The request belongs to the filer's own unit — there is no choice to make.
+const ownDepartment = computed(() => auth.user?.department ?? null)
 // The same matrix as the checklist above, but keyed — one <optgroup> per
 // Appendix 57 group, in the appendix's own order.
 const documentOptionGroups = computed(() => DOCUMENT_GROUPS
@@ -141,13 +140,12 @@ const needsPriorRelation = computed(() => !duplicate.value?.open_prior
 
 const fieldErrors = computed(() => {
   const found = {}
-  const { title, description, reasons, department_id: departmentId, request_type_id: typeId } = form.value
+  const { title, description, reasons, request_type_id: typeId } = form.value
   const grade = form.value.decision_grade
 
   if (!title.trim()) found.title = t('intake.validation.titleRequired')
   else if (title.length > 255) found.title = t('intake.validation.titleTooLong')
 
-  if (!departmentId) found.department_id = t('intake.validation.departmentRequired')
   if (!typeId) found.request_type_id = t('intake.validation.typeRequired')
 
   // Required only for a type that carries a ministry threshold, which is the
@@ -174,7 +172,7 @@ const fieldErrors = computed(() => {
  * What to show under one field.
  *
  * A server message wins over the local mirror: the endpoint knows things this
- * form cannot, such as a department retired since the page was loaded.
+ * form cannot, such as a request type retired since the page was loaded.
  */
 function fieldError(field) {
   if (errors.value[field]) return errors.value[field][0]
@@ -198,7 +196,6 @@ function blankForm() {
     // free-text description until now. Optional, like the description it came
     // out of — see the column's own migration note.
     reasons: '',
-    department_id: '',
     request_type_id: '',
     decision_grade: '',
     prior_relation: '',
@@ -278,7 +275,6 @@ function draftPayload() {
     title: form.value.title || null,
     description: form.value.description || null,
     reasons: form.value.reasons || null,
-    department_id: form.value.department_id || null,
     request_type_id: form.value.request_type_id || null,
     decision_grade: form.value.decision_grade === '' ? null : form.value.decision_grade,
     prior_relation: form.value.prior_relation || null,
@@ -586,7 +582,6 @@ function inlinePayload() {
   payload.append('title', form.value.title)
   payload.append('description', form.value.description)
   payload.append('reasons', form.value.reasons)
-  payload.append('department_id', form.value.department_id)
   payload.append('request_type_id', form.value.request_type_id)
   if (form.value.decision_grade !== '') payload.append('decision_grade', form.value.decision_grade)
   if (form.value.prior_relation !== '') payload.append('prior_relation', form.value.prior_relation)
@@ -712,20 +707,6 @@ onMounted(async () => {
                 @blur="markTouched('title')"
               />
               <small v-if="fieldError('title')">{{ fieldError('title') }}</small>
-            </label>
-            <label>
-              {{ t('requests.department') }}<span class="required-mark" aria-hidden="true">*</span>
-              <select
-                v-model="form.department_id"
-                required
-                :aria-invalid="fieldError('department_id') ? 'true' : undefined"
-                @change="markTouched('department_id')"
-                @blur="markTouched('department_id')"
-              >
-                <option disabled value="">{{ t('intake.chooseDepartment') }}</option>
-                <option v-for="department in options.departments" :key="department.id" :value="department.id">{{ name(department) }}</option>
-              </select>
-              <small v-if="fieldError('department_id')">{{ fieldError('department_id') }}</small>
             </label>
             <label>
               {{ t('requests.type') }}<span class="required-mark" aria-hidden="true">*</span>
@@ -950,7 +931,7 @@ onMounted(async () => {
 
         <dl class="review-grid">
           <div><dt>{{ t('intake.subject') }}</dt><dd>{{ form.title }}</dd></div>
-          <div><dt>{{ t('requests.department') }}</dt><dd>{{ selectedDepartment ? name(selectedDepartment) : '—' }}</dd></div>
+          <div><dt>{{ t('requests.department') }}</dt><dd>{{ ownDepartment ? name(ownDepartment) : '—' }}</dd></div>
           <div><dt>{{ t('requests.type') }}</dt><dd>{{ selectedType ? name(selectedType) : '—' }}</dd></div>
           <div><dt>{{ t('intake.decisionGrade') }}</dt><dd>{{ form.decision_grade || '—' }}</dd></div>
           <div v-if="form.prior_relation">

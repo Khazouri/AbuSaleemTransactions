@@ -19,6 +19,25 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-07 13:00 EET — Claude — No department dropdown on intake (complete)
+
+Built per the plan below; no migration. A new request's `department_id` is the filer's `users.department_id`, so a
+filer with no department files with none, which the nullable column already allows. Drafts still store a
+`department_id` that is never sent. Verified: the two updated `RequestIntakeTest` cases went RED then GREEN; full
+suite 859 / 5603 green; Pint clean; build passes (`dist` committed); parity 2091; `aislop ci` exit 0. Not checked
+in a browser.
+
+---
+### 2026-10-07 12:40 EET — Claude — Implementation plan: no department dropdown on intake
+
+User: «remove department dropdown from request submition». Since صاحب العلاقة is always the filer, the request's
+department is the filer's own `users.department_id` (null if none, as `requests.department_id` is nullable).
+`StoreRequest` drops the `department_id` rule and `store()` ignores a posted value (an old client cannot fail),
+`intakeOptions()` drops `departments`, and the SPA removes the select, its validation, payload field and locale keys;
+the review step shows the account's department. Drafts keep their column. Verify: RequestIntakeTest updated,
+full PHPUnit, Pint, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-07 12:10 EET — Claude — R08 cannot file or submit requests (complete)
 
 Built per the plan below; no migration and no frontend file (the sidebar, router guard and `v-can` buttons all read
