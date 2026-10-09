@@ -545,13 +545,14 @@ class NotificationDispatcher
     }
 
     /**
-     * Queue one notification for a set of recipients.
+     * Send one notification to a set of recipients, as soon as the act commits.
      *
-     * afterCommit() matters more than it looks: DecisionController runs
+     * The sync connection delivers in this request: the cPanel host runs no
+     * queue worker, so a notification left on the `database` queue would never
+     * arrive. afterCommit() still matters on sync: DecisionController runs
      * WorkflowService::transition() inside its own database transaction, so
-     * without it a worker could pick up a job describing a decision that the
-     * outer transaction had not committed yet — or that ends up rolling back.
-     * It is set here rather than on the notifications because "only announce
+     * without it a decision that ends up rolling back would still be announced.
+     * Both are set here rather than on the notifications because "only announce
      * what actually happened" is this class's job, not each message's.
      *
      * @param  Collection<int, User>  $recipients
@@ -562,6 +563,6 @@ class NotificationDispatcher
             return;
         }
 
-        Notification::send($recipients, $notification->afterCommit());
+        Notification::send($recipients, $notification->onConnection('sync')->afterCommit());
     }
 }

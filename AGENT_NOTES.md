@@ -19,6 +19,25 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-09 19:15 EET — Claude — Notifications are sent instantly (complete)
+
+Built per the plan below; no migration and no frontend change. `NotificationDispatcher::send()` now sends on `sync`
+after commit, so in-app, email and SMS all go out in the request that caused them. **Trade-off:** a failing mail
+transport now surfaces as a 500 after the act has committed, instead of as a failed job. **Not touched:** the jobs
+already sitting in the real database's `jobs` table stay there until someone runs `php artisan queue:work
+--stop-when-empty` or clears them. Verified: the new `NotificationTest` case (RED then GREEN), full suite 870 / 5652
+green, Pint clean, `aislop ci` exit 0.
+
+---
+### 2026-10-09 19:00 EET — Claude — Implementation plan: notifications are sent instantly
+
+User: «notifications should be send instantly». Cause: `SystemNotification` is `ShouldQueue` on the `database` queue,
+so nothing reaches anyone until a `queue:work` worker runs, and the cPanel host has none. Plan: one line in
+`NotificationDispatcher::send()`, `onConnection('sync')` before the existing `afterCommit()`. `SyncQueue` honours
+after-commit, so a rolled-back act still announces nothing. Verify: a new `NotificationTest` case with the default
+queue set to `database` (RED then GREEN), full PHPUnit, Pint, aislop ci.
+
+---
 ### 2026-10-09 17:55 EET — Claude — Hover/click preview for timeline and memo documents (complete)
 
 Built per the plan below, with no migration and no locale change. The new route is

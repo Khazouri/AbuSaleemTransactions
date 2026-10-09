@@ -16,6 +16,7 @@ use App\Notifications\RequestStageChangedNotification;
 use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
@@ -209,6 +210,25 @@ class NotificationTest extends TestCase
             ->assertOk();
 
         $this->assertSame(1, $creator->refresh()->unreadNotifications()->count());
+    }
+
+    /**
+     * The suite runs on the sync queue, which would hide a notification left
+     * on the app's real `database` queue: the cPanel host runs no worker, so
+     * such a notification would never arrive.
+     */
+    public function test_notifications_are_delivered_without_a_queue_worker(): void
+    {
+        config(['queue.default' => 'database']);
+
+        $creator = $this->userWithRole('R01');
+        $requestRecord = $this->requestAtStage('requirements_check', $creator);
+
+        DB::transaction(fn () => app(WorkflowService::class)
+            ->transition($requestRecord, 'approve', $this->userWithRole('R02')));
+
+        $this->assertSame(2, $creator->unreadNotifications()->count());
+        $this->assertSame(0, DB::table('jobs')->count());
     }
 
     /** The endpoints are scoped to the caller — a permission grant is not a window onto someone else's queue. */
