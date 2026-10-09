@@ -59,7 +59,7 @@ onMounted(load)
       <form class="form" @submit.prevent="save">
         <p v-if="formError" class="alert">{{ formError }}</p>
         <div class="grid">
-          <label>{{ t('templates.code') }} *<input v-model="form.code" class="ltr" required /><small class="hint">{{ t('templates.codeHint') }}</small><small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small></label>
+          <label>{{ t('templates.code') }}<span class="required-mark" aria-hidden="true">*</span><input v-model="form.code" class="ltr" required /><small class="hint">{{ t('templates.codeHint') }}</small><small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small></label>
           <label>{{ t('templates.category') }}
             <select v-model="form.category">
               <option value="">{{ t('templates.categoryGeneral') }}</option>
@@ -67,13 +67,13 @@ onMounted(load)
             </select>
             <small v-if="errors.category" class="field-error">{{ errors.category[0] }}</small>
           </label>
-          <label>{{ t('templates.nameAr') }} *<input v-model="form.name_ar" required /><small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small></label>
+          <label>{{ t('templates.nameAr') }}<span class="required-mark" aria-hidden="true">*</span><input v-model="form.name_ar" required /><small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small></label>
           <label>{{ t('templates.nameEn') }}<input v-model="form.name_en" class="ltr" /><small v-if="errors.name_en" class="field-error">{{ errors.name_en[0] }}</small></label>
           <label>{{ t('templates.subjectAr') }}<input v-model="form.subject_ar" /><small v-if="errors.subject_ar" class="field-error">{{ errors.subject_ar[0] }}</small></label>
           <label>{{ t('templates.subjectEn') }}<input v-model="form.subject_en" class="ltr" /><small v-if="errors.subject_en" class="field-error">{{ errors.subject_en[0] }}</small></label>
         </div>
         <div class="grid bodies">
-          <label>{{ t('templates.bodyAr') }} *<textarea v-model="form.body_ar" rows="7" required /><small v-if="errors.body_ar" class="field-error">{{ errors.body_ar[0] }}</small></label>
+          <label>{{ t('templates.bodyAr') }}<span class="required-mark" aria-hidden="true">*</span><textarea v-model="form.body_ar" rows="7" required /><small v-if="errors.body_ar" class="field-error">{{ errors.body_ar[0] }}</small></label>
           <label>{{ t('templates.bodyEn') }}<textarea v-model="form.body_en" class="ltr" rows="7" /><small v-if="errors.body_en" class="field-error">{{ errors.body_en[0] }}</small></label>
         </div>
         <p v-if="form.category === 'decision'" class="hint placeholders-hint">

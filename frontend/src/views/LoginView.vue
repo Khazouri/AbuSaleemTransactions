@@ -154,14 +154,14 @@ function signInAs({ email: testEmail }) {
       <p class="sub">{{ t('app.subtitle') }} — {{ t('auth.login') }}</p>
 
       <label>
-        {{ t('auth.email') }}
+        <span>{{ t('auth.email') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <!-- Email and password are Latin text on an Arabic page, so both
              inputs are forced left-to-right to read correctly. -->
         <input v-model="email" type="email" required autocomplete="username" dir="ltr" />
       </label>
 
       <label>
-        {{ t('auth.password') }}
+        <span>{{ t('auth.password') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="password" type="password" required autocomplete="current-password" dir="ltr" />
       </label>
 

@@ -10,7 +10,7 @@ const { t } = useI18n()
 <template>
   <div class="gate-form">
     <label>
-      <span>{{ t('notes.add') }} *</span>
+      <span>{{ t('notes.add') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.body" rows="4" maxlength="5000" required />
     </label>
   </div>

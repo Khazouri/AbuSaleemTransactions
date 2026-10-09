@@ -24,11 +24,11 @@ const result = computed(() => {
     <p><strong>{{ t('appeals.closure.finalResult') }}:</strong> {{ result }}</p>
     <div class="field-grid">
       <label>
-        <span>{{ t('appeals.closure.approvingBody') }} *</span>
+        <span>{{ t('appeals.closure.approvingBody') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.approving_body" type="text" required>
       </label>
       <label>
-        <span>{{ t('appeals.closure.fileStorageLocation') }} *</span>
+        <span>{{ t('appeals.closure.fileStorageLocation') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.file_storage_location" type="text" required>
       </label>
       <label>

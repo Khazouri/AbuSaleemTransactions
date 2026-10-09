@@ -28,19 +28,19 @@ watch(() => form.value.return_kind, () => {
     <p class="hint">{{ t('approvalReturn.formNote') }}</p>
     <div class="field-grid">
       <label>
-        <span>{{ t('approvalReturn.fields.return_kind') }} *</span>
-        <select v-model="form.return_kind">
+        <span>{{ t('approvalReturn.fields.return_kind') }}<span class="required-mark" aria-hidden="true">*</span></span>
+        <select v-model="form.return_kind" required>
           <option v-for="kind in RETURN_KINDS" :key="kind" :value="kind">{{ t(`approvalReturn.kinds.${kind}`) }}</option>
         </select>
       </label>
       <label>
-        <span>{{ t('approvalReturn.fields.return_reason_code') }} *</span>
-        <select v-model="form.return_reason_code">
+        <span>{{ t('approvalReturn.fields.return_reason_code') }}<span class="required-mark" aria-hidden="true">*</span></span>
+        <select v-model="form.return_reason_code" required>
           <option v-for="code in reasonOptions" :key="code" :value="code">{{ t(`approvalReturn.reasons.${code}`) }}</option>
         </select>
       </label>
       <label>
-        <span>{{ t('approvalReturn.fields.received_at') }} *</span>
+        <span>{{ t('approvalReturn.fields.received_at') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.received_at" type="date" required>
       </label>
       <label>
@@ -49,7 +49,7 @@ watch(() => form.value.return_kind, () => {
       </label>
     </div>
     <label>
-      <span>{{ t('approvalReturn.fields.return_note') }} *</span>
+      <span>{{ t('approvalReturn.fields.return_note') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.return_note" rows="3" required />
     </label>
     <p class="hint">

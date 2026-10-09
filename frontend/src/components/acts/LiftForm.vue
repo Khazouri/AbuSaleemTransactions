@@ -12,8 +12,8 @@ const { t } = useI18n()
   <div class="gate-form">
     <p class="hint">{{ t('controlGates.suspension.liftNote') }}</p>
     <label>
-      <span>{{ t('controlGates.suspension.fields.resolution_action') }} *</span>
-      <select v-model="form.resolution_action">
+      <span>{{ t('controlGates.suspension.fields.resolution_action') }}<span class="required-mark" aria-hidden="true">*</span></span>
+      <select v-model="form.resolution_action" required>
         <option v-for="action in SUSPENSION_RESOLUTIONS" :key="action" :value="action">
           {{ t(`controlGates.suspension.resolutions.${action}`) }}
         </option>

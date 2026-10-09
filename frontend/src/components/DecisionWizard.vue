@@ -435,7 +435,7 @@ if (props.initial?.action) {
         <p v-if="choice?.destination" class="slip-destination">{{ choice.destination }}</p>
         <p v-if="actSpec?.summary" class="slip-destination">{{ actSpec.summary(t, request) }}</p>
         <label v-if="showsNote" class="slip-note">
-          {{ choice?.requiresComment ? t('decisionWizard.slip.reasonRequired') : t('decisionWizard.slip.noteOptional') }}
+          <span>{{ choice?.requiresComment ? t('decisionWizard.slip.reasonRequired') : t('decisionWizard.slip.noteOptional') }}<span v-if="choice?.requiresComment" class="required-mark" aria-hidden="true">*</span></span>
           <textarea v-model="comment" rows="3" maxlength="5000" :required="choice?.requiresComment" :disabled="submitting" />
         </label>
       </WizardSlip>

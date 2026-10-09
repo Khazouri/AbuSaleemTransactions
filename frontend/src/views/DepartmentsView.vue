@@ -218,7 +218,7 @@ onMounted(() => {
 
         <div class="grid">
           <label>
-            {{ t('departments.nameAr') }} *
+            <span>{{ t('departments.nameAr') }}<span class="required-mark" aria-hidden="true">*</span></span>
             <input v-model="form.name_ar" type="text" required />
             <small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small>
           </label>

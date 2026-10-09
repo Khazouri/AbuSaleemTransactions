@@ -21,14 +21,14 @@ watch(() => form.value.case_kind, () => {
 <template>
   <div class="gate-form">
     <label>
-      <span>{{ t('lifecycle.specialCases.fields.case_kind') }} *</span>
-      <select v-model="form.case_kind">
+      <span>{{ t('lifecycle.specialCases.fields.case_kind') }}<span class="required-mark" aria-hidden="true">*</span></span>
+      <select v-model="form.case_kind" required>
         <option v-for="entry in SPECIAL_CASES" :key="entry.code" :value="entry.code">{{ t(`lifecycle.specialCases.kinds.${entry.code}`) }}</option>
       </select>
     </label>
     <label v-for="field in selectedCase.fields" :key="field.code">
-      <span>{{ t(`lifecycle.specialCases.fields.${field.code}`) }} *</span>
-      <select v-if="field.options" v-model="form.determinations[field.code]">
+      <span>{{ t(`lifecycle.specialCases.fields.${field.code}`) }}<span class="required-mark" aria-hidden="true">*</span></span>
+      <select v-if="field.options" v-model="form.determinations[field.code]" required>
         <option v-for="option in field.options" :key="option" :value="option">
           {{ t(`lifecycle.specialCases.options.${field.code}.${option}`) }}
         </option>

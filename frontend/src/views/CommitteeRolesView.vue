@@ -90,7 +90,7 @@ onMounted(load)
       <form class="form" @submit.prevent="save">
         <p v-if="formError" class="alert">{{ formError }}</p>
         <label>
-          {{ t('committeeRoles.holder') }}
+          <span>{{ t('committeeRoles.holder') }}<span class="required-mark" aria-hidden="true">*</span></span>
           <select v-model="userId" required>
             <option value="">{{ t('committeeRoles.chooseUser') }}</option>
             <option v-for="user in users" :key="user.id" :value="user.id">{{ user.name }}</option>

@@ -17,7 +17,7 @@ const file = computed(() => (props.act.action === 'archive_service_file' ? 'serv
   <div class="gate-form">
     <p class="hint">{{ t('requestArchive.intro') }}</p>
     <label>
-      <span>{{ t(`requestArchive.files.${file}`) }} *</span>
+      <span>{{ t(`requestArchive.files.${file}`) }}<span class="required-mark" aria-hidden="true">*</span></span>
       <input
         v-model="form.location"
         type="text"

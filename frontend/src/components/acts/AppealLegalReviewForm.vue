@@ -20,8 +20,8 @@ const LABELS = {
     <p class="hint">{{ t('appeals.legalReview.hint') }}</p>
     <div class="field-grid">
       <label v-for="key in LEGAL_REVIEW_CHECKS" :key="key">
-        <span>{{ t(`appeals.legalReview.${LABELS[key]}`) }} *</span>
-        <select v-model="form[key]">
+        <span>{{ t(`appeals.legalReview.${LABELS[key]}`) }}<span class="required-mark" aria-hidden="true">*</span></span>
+        <select v-model="form[key]" required>
           <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
           <option value="yes">{{ t('appeals.verify.yes') }}</option>
           <option value="no">{{ t('appeals.verify.no') }}</option>

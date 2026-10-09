@@ -12,15 +12,15 @@ const { t } = useI18n()
   <div class="gate-form">
     <div class="field-grid">
       <label>
-        <span>{{ t('approvalReferral.fields.result_outcome') }} *</span>
-        <select v-model="form.result_outcome">
+        <span>{{ t('approvalReferral.fields.result_outcome') }}<span class="required-mark" aria-hidden="true">*</span></span>
+        <select v-model="form.result_outcome" required>
           <option v-for="outcome in REFERRAL_OUTCOMES" :key="outcome" :value="outcome">
             {{ t(`approvalReferral.outcomes.${outcome}`) }}
           </option>
         </select>
       </label>
       <label>
-        <span>{{ t('approvalReferral.fields.result_received_at') }} *</span>
+        <span>{{ t('approvalReferral.fields.result_received_at') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.result_received_at" type="date" required>
       </label>
       <label>

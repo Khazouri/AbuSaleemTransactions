@@ -32,14 +32,14 @@ onMounted(async () => {
   <div class="gate-form">
     <p class="hint">{{ t('requestDetail.reopen.hint') }}</p>
     <label>
-      <span>{{ t('requestDetail.reopen.reasonLabel') }} *</span>
+      <span>{{ t('requestDetail.reopen.reasonLabel') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <select v-model="form.reason_code" required>
         <option value="" disabled>{{ t('requestDetail.reopen.chooseReason') }}</option>
         <option v-for="code in REASON_CODES" :key="code" :value="code">{{ t(`reopenReasons.${code}`) }}</option>
       </select>
     </label>
     <label>
-      <span>{{ t('requestDetail.reopen.targetStageLabel') }} *</span>
+      <span>{{ t('requestDetail.reopen.targetStageLabel') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <select v-model="form.target_stage_id" required>
         <option value="" disabled>{{ t('requestDetail.reopen.chooseStage') }}</option>
         <option v-for="stage in stages" :key="stage.id" :value="stage.id">{{ locale === 'ar' ? stage.name_ar : stage.name_en }}</option>

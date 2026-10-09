@@ -722,7 +722,7 @@ onMounted(async () => {
           <p class="required-legend"><span class="required-mark" aria-hidden="true">*</span> {{ t('intake.requiredLegend') }}</p>
           <div class="grid">
             <label class="wide">
-              {{ t('intake.subject') }}<span class="required-mark" aria-hidden="true">*</span>
+              <span>{{ t('intake.subject') }}<span class="required-mark" aria-hidden="true">*</span></span>
               <input
                 v-model="form.title"
                 type="text"
@@ -734,7 +734,7 @@ onMounted(async () => {
               <small v-if="fieldError('title')">{{ fieldError('title') }}</small>
             </label>
             <label>
-              {{ t('requests.type') }}<span class="required-mark" aria-hidden="true">*</span>
+              <span>{{ t('requests.type') }}<span class="required-mark" aria-hidden="true">*</span></span>
               <select
                 v-model="form.request_type_id"
                 required
@@ -754,7 +754,7 @@ onMounted(async () => {
               {{ t('lifecycle.duplicate.openPrior', { title: duplicate.open_prior.title }) }}
             </div>
             <label v-else-if="duplicate?.prior_requests?.length" class="wide">
-              {{ t('lifecycle.duplicate.classify') }}<span class="required-mark" aria-hidden="true">*</span>
+              <span>{{ t('lifecycle.duplicate.classify') }}<span class="required-mark" aria-hidden="true">*</span></span>
               <select
                 v-model="form.prior_relation"
                 required
@@ -777,10 +777,9 @@ onMounted(async () => {
             </label>
             <p v-else-if="duplicateChecking" class="wide state">{{ t('common.loading') }}</p>
             <label>
-              {{ t('intake.decisionGrade') }}
               <!-- The one genuinely conditional requirement on this form: only
                    a type carrying a ministry threshold needs a grade. -->
-              <span v-if="selectedType?.decision_grade_threshold != null" class="required-mark" aria-hidden="true">*</span>
+              <span>{{ t('intake.decisionGrade') }}<span v-if="selectedType?.decision_grade_threshold != null" class="required-mark" aria-hidden="true">*</span></span>
               <input
                 v-model="form.decision_grade"
                 type="number"
@@ -796,8 +795,7 @@ onMounted(async () => {
               <small v-if="fieldError('decision_grade')">{{ fieldError('decision_grade') }}</small>
             </label>
             <label>
-              {{ t('intake.entitledGrade') }}
-              <span class="required-mark" aria-hidden="true">*</span>
+              <span>{{ t('intake.entitledGrade') }}<span class="required-mark" aria-hidden="true">*</span></span>
               <input
                 v-model="form.entitled_grade"
                 type="number"
@@ -810,8 +808,7 @@ onMounted(async () => {
               <small v-if="fieldError('entitled_grade')">{{ fieldError('entitled_grade') }}</small>
             </label>
             <label>
-              {{ t('intake.gradeDate') }}
-              <span class="required-mark" aria-hidden="true">*</span>
+              <span>{{ t('intake.gradeDate') }}<span class="required-mark" aria-hidden="true">*</span></span>
               <input
                 v-model="form.grade_date"
                 type="date"
@@ -1037,7 +1034,7 @@ label { display: grid; gap: .35rem; color: var(--color-black-700); font-size: .8
 .checklist ul { display: grid; gap: .35rem; padding-inline-start: 0; margin: 0; color: var(--color-black-700); font-size: .85rem; list-style: none; }
 .checklist li.covered { color: var(--color-success-fg); }.checklist li.outstanding { color: var(--color-black-700); font-weight: 600; }.doc-required { color: var(--color-danger-fg); font-size: .75rem; }.outstanding-list { display: block; margin-block-start: .25rem; font-weight: 600; }.checklist .tick { display: inline-block; min-inline-size: 1rem; }
 .sr-only { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.required-mark { margin-inline-start: .15rem; color: var(--color-danger-fg); font-weight: 700; }.required-legend { margin: 0 0 .85rem; color: var(--color-muted); font-size: .76rem; }
+.required-legend { margin: 0 0 .85rem; color: var(--color-muted); font-size: .76rem; }
 .rejected { display: grid; gap: .4rem; padding: .5rem .6rem; margin: .6rem 0 0; border: 1px solid var(--color-danger-border); border-radius: var(--radius-lg); background: var(--color-danger-bg); list-style: none; }.rejected li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; align-items: baseline; }.rejected-reason { color: var(--color-danger-fg); font-size: .76rem; }
 [aria-invalid='true'] { border-color: var(--color-danger-border); }
 .doc-group + .doc-group { margin-block-start: .85rem; }.doc-group h3 { margin: 0 0 .35rem; color: var(--color-black-700); font-size: .8rem; font-weight: 600; }.doc-condition { color: var(--color-black-500); font-size: .75rem; }

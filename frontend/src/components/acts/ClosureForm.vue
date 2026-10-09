@@ -17,7 +17,7 @@ const { t } = useI18n()
     <p class="hint">{{ t('requestClosure.formNote') }}</p>
     <div class="field-grid">
       <label>
-        <span>{{ t('requestClosure.fields.approving_body') }} *</span>
+        <span>{{ t('requestClosure.fields.approving_body') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.approving_body" type="text" required>
       </label>
       <label>

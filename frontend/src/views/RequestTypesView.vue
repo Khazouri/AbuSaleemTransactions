@@ -261,7 +261,7 @@ onMounted(load)
             <small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small>
           </label>
           <label>
-            {{ t('requestTypes.nameAr') }} *
+            <span>{{ t('requestTypes.nameAr') }}<span class="required-mark" aria-hidden="true">*</span></span>
             <input v-model="form.name_ar" required />
             <small v-if="errors.name_ar" class="field-error">{{ errors.name_ar[0] }}</small>
           </label>
@@ -330,7 +330,7 @@ onMounted(load)
 
           <div v-for="(doc, index) in form.required_documents" :key="index" class="document-row">
             <label>
-              {{ t('requestTypes.documents.nameAr') }} *
+              <span>{{ t('requestTypes.documents.nameAr') }}<span class="required-mark" aria-hidden="true">*</span></span>
               <input v-model="doc.ar" required />
               <small v-if="documentError(index, 'ar')" class="field-error">
                 {{ documentError(index, 'ar') }}

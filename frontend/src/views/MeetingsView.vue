@@ -252,7 +252,7 @@ onMounted(async () => {
         <p v-if="committeeFormError" class="alert">{{ committeeFormError }}</p>
         <div class="grid">
           <label>
-            {{ t('committees.nameAr') }} *
+            <span>{{ t('committees.nameAr') }}<span class="required-mark" aria-hidden="true">*</span></span>
             <input v-model="committeeForm.name_ar" type="text" required />
             <small v-if="committeeErrors.name_ar" class="field-error">{{ committeeErrors.name_ar[0] }}</small>
           </label>

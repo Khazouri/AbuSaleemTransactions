@@ -27,7 +27,7 @@ onMounted(async () => {
     <p><strong>{{ t('appeals.execution.decidedOutcome') }}:</strong> {{ t(`decisions.outcome.${appeal.committee_decision?.outcome}`) }}</p>
     <template v-if="appeal.committee_decision?.outcome === 'appeal_redo'">
       <label>
-        <span>{{ t('appeals.execution.redoStage') }} *</span>
+        <span>{{ t('appeals.execution.redoStage') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <select v-model="form.redo_stage_id" required>
           <option value="" disabled>{{ t('appeals.execution.chooseStage') }}</option>
           <option v-for="stage in stages" :key="stage.id" :value="stage.id">{{ locale === 'ar' ? stage.name_ar : stage.name_en }}</option>
