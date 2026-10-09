@@ -10,9 +10,8 @@ use Illuminate\Validation\Rule;
  * Stage 76 — النموذج 17's أمر تنفيذ قرار وظيفي plus Appendix 70's دليل التنفيذ.
  *
  * Format only, the split StoreDecisionRequest's own docblock established:
- * whether the nominated documents actually belong to this request, and whether
- * Art. 97's financial referral binds, both depend on state a FormRequest cannot
- * see, so RequestExecutionService owns them.
+ * whether the nominated documents actually belong to this request depends on
+ * state a FormRequest cannot see, so RequestExecutionService owns it.
  *
  * Four of النموذج 17's card fields are required. Appendix 70's premise is that
  * the executing body's claim must be substantiated, and each of the four is
@@ -42,7 +41,6 @@ class ExecuteMeetingOutputRequest extends FormRequest
             'approving_body' => ['required', 'string', 'max:255'],
             'approval_number' => ['nullable', 'string', 'max:255'],
             'approval_date' => ['nullable', 'date'],
-            'financial_effect_note' => ['nullable', 'string', 'max:2000'],
             'checklist' => ['required', 'array'],
             // Appendix 70 — at least one document, always. The array-level
             // `min:1` is the shape of the rule; the service states it in the
@@ -76,7 +74,6 @@ class ExecuteMeetingOutputRequest extends FormRequest
             'approving_body.max' => 'لا يمكن أن يتجاوز اسم جهة الاعتماد 255 حرفاً.',
             'approval_number.max' => 'لا يمكن أن يتجاوز رقم الاعتماد 255 حرفاً.',
             'approval_date.date' => 'صيغة تاريخ الاعتماد غير صحيحة.',
-            'financial_effect_note.max' => 'لا يمكن أن يتجاوز بيان الأثر المالي 2000 حرف.',
             'checklist.required' => 'يجب استيفاء متابعة التنفيذ قبل إثبات التنفيذ.',
             'evidence.required' => 'لا يكفي أن تقول الجهة المنفذة (تم التنفيذ)؛ يجب إرفاق دليل التنفيذ.',
             'evidence.min' => 'لا يكفي أن تقول الجهة المنفذة (تم التنفيذ)؛ يجب إرفاق دليل التنفيذ.',

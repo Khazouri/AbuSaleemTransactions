@@ -316,14 +316,6 @@ function onWizardUpdated(updated) {
                   </template>
                 </strong>
               </div>
-              <!-- Stage 47 — derived from request type at intake; read-only here,
-                   corrected through the wizard's set_financial_impact act. -->
-              <div>
-                <span>{{ t('requestDetail.financialImpact.label') }}</span>
-                <strong>
-                  {{ request.has_financial_impact ? t('requestDetail.financialImpact.yes') : t('requestDetail.financialImpact.no') }}
-                </strong>
-              </div>
             </section>
 
             <section class="card card-flat card-pad description">
@@ -713,10 +705,6 @@ function onWizardUpdated(updated) {
             <div class="wide">
               <span>{{ t('requestExecution.fields.action_taken') }}</span>
               <strong>{{ request.execution.action_taken ?? '—' }}</strong>
-            </div>
-            <div v-if="request.execution.financial_effect_note" class="wide">
-              <span>{{ t('requestExecution.fields.financial_effect_note') }}</span>
-              <strong>{{ request.execution.financial_effect_note }}</strong>
             </div>
           </dl>
           <h4>{{ t('requestExecution.checklistTitle') }}</h4>

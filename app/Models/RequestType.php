@@ -18,8 +18,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $default_sla_days
  * @property int|null $decision_grade_threshold Typically 10
  * @property bool $is_active
- * @property bool $default_has_financial_impact Stage 47 — starting value for a
- *                                              new request's own has_financial_impact flag; overridable per request.
  * @property array|null $required_documents Stage 72 — [D] Appendix 57's
  *                                          مصفوفة المستندات الإلزامية for this type, as
  *                                          {ar, en, group, condition} entries: `group` is `basic`
@@ -145,7 +143,6 @@ class RequestType extends Model
      */
     protected $attributes = [
         'is_active' => true,
-        'default_has_financial_impact' => false,
     ];
 
     protected $fillable = [
@@ -155,7 +152,6 @@ class RequestType extends Model
         'default_sla_days',
         'decision_grade_threshold',
         'is_active',
-        'default_has_financial_impact',
         'required_documents',
         'default_administrative_route',
         'legal_basis_ar',
@@ -166,7 +162,6 @@ class RequestType extends Model
     {
         return [
             'is_active' => 'boolean',
-            'default_has_financial_impact' => 'boolean',
             'required_documents' => 'array',
         ];
     }

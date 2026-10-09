@@ -84,9 +84,6 @@ class MeetingOutputResource extends JsonResource
                 'executed_at' => $requestRecord->executed_at?->toIso8601String(),
             ],
             'execution_checklist' => $requestRecord?->execution_checklist,
-            // Art. 97 — the one متابعة التنفيذ answer that binds against real
-            // state, surfaced so the panel can say so before submitting.
-            'has_financial_impact' => (bool) $requestRecord?->has_financial_impact,
         ];
     }
 

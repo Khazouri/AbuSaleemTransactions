@@ -73,7 +73,6 @@ class Request extends Model
         'decision_grade',
         'entitled_grade',
         'grade_date',
-        'has_financial_impact',
         'jurisdiction_test',
         // Stage 84 — who answered Art. 45's test and when. Written only by
         // RequestController::recordJurisdictionTest(), cleared by reopen().
@@ -134,7 +133,6 @@ class Request extends Model
             // `overdue_at`, which a mass-assigned fixture must also set by
             // direct property assignment).
             'escalation_notified_at' => 'datetime',
-            'has_financial_impact' => 'boolean',
             // Stage 54 — [D] Art. 45's 6-question jurisdiction test, recorded
             // once at requirements_check and gating that stage's approve/
             // declare_no_jurisdiction/reject_formally outcomes.
@@ -616,9 +614,8 @@ class Request extends Model
      * to reason about the deadline itself rather than its existence.
      *
      * The condition's second limb (حق وظيفي) has no field anywhere in this
-     * schema. It is deliberately left unrepresented rather than proxied off
-     * `has_financial_impact` or a request type, which would report a guess as
-     * something a human recorded.
+     * schema. It is deliberately left unrepresented rather than proxied off a
+     * request type, which would report a guess as something a human recorded.
      */
     public function legallyTimeBound(): bool
     {

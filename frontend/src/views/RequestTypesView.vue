@@ -4,9 +4,8 @@
  *
  * The rows here are not just labels. A type carries the SLA that becomes a
  * request's due_date, the decision grade at/above which the case must reach
- * the ministry, the default financial-impact flag, and [D] Appendix 57's
- * required-document matrix — so this screen is the one place those rules can
- * be changed without a reseed.
+ * the ministry, and [D] Appendix 57's required-document matrix — so this
+ * screen is the one place those rules can be changed without a reseed.
  *
  * Retiring a type is `toggle-active`, not delete: an inactive type disappears
  * from the intake picker while every request already filed under it keeps
@@ -44,7 +43,6 @@ const blankForm = () => ({
   default_sla_days: '',
   decision_grade_threshold: '',
   is_active: true,
-  default_has_financial_impact: false,
   default_administrative_route: '',
   legal_basis_ar: '',
   legal_basis_note_ar: '',
@@ -314,10 +312,6 @@ onMounted(load)
           <label class="checkbox">
             <input v-model="form.is_active" type="checkbox" />{{ t('common.active') }}
           </label>
-          <label class="checkbox">
-            <input v-model="form.default_has_financial_impact" type="checkbox" />
-            {{ t('requestTypes.financialImpact') }}
-          </label>
         </div>
 
         <fieldset class="documents">
@@ -401,9 +395,6 @@ onMounted(load)
               <td>
                 {{ label(type) }}
                 <span v-if="!type.is_active" class="pill">{{ t('common.inactive') }}</span>
-                <span v-if="type.default_has_financial_impact" class="pill">
-                  {{ t('requestTypes.financialImpactShort') }}
-                </span>
                 <span v-if="type.default_administrative_route" class="pill">
                   {{ t('requestTypes.routes.' + type.default_administrative_route) }}
                 </span>

@@ -68,7 +68,6 @@ export const REQUEST_ACTS = {
       approving_body: '',
       approval_number: '',
       approval_date: '',
-      financial_effect_note: '',
       checklist: Object.fromEntries(EXECUTOR_CHECKS.map((key) => [key, 'yes'])),
       evidence: {},
     }),
@@ -233,19 +232,6 @@ export const REQUEST_ACTS = {
     url: (request) => `${base(request)}/notices/issue`,
     blank: () => ({}),
     ready: () => true,
-  },
-  set_financial_impact: {
-    labelKey: 'decisionWizard.acts.set_financial_impact',
-    form: null,
-    method: 'patch',
-    url: (request) => `${base(request)}/financial-impact`,
-    blank: () => ({}),
-    ready: () => true,
-    // The act flips the flag, so the slip states what it becomes.
-    body: (form, request) => ({ has_financial_impact: !request.has_financial_impact }),
-    summary: (t, request) => t('decisionWizard.financialImpactTo', {
-      value: request.has_financial_impact ? t('requestDetail.financialImpact.no') : t('requestDetail.financialImpact.yes'),
-    }),
   },
   reopen: {
     labelKey: 'requestDetail.reopen.action',

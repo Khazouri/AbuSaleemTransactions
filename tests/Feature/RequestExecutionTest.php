@@ -150,46 +150,21 @@ class RequestExecutionTest extends TestCase
     }
 
     /**
-     * Art. 97 — the one متابعة التنفيذ answer with a system fact behind it.
-     * A request Stage 47 flagged as carrying a financial effect cannot be
-     * executed until that effect has actually been referred.
+     * «الأثر المالي» was removed (user decision 2026-10-09): the execution
+     * card no longer asks about a financial referral, records one, or takes
+     * a financial note.
      */
-    public function test_a_financial_effect_must_be_referred_before_execution_is_proven(): void
-    {
-        [$executor, $meeting, $agendaItem, $requestRecord] = $this->executableOutput();
-        $requestRecord->update(['has_financial_impact' => true]);
-
-        $this->actingAs($executor, 'sanctum')
-            ->postJson($this->executeUrl($meeting, $agendaItem), $this->executionPayload($requestRecord, checklistOverrides: [
-                'financial_effect_referred' => 'not_applicable',
-            ]))
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('action');
-
-        $this->assertNull($requestRecord->fresh()->executed_at);
-
-        $this->actingAs($executor, 'sanctum')
-            ->postJson($this->executeUrl($meeting, $agendaItem), $this->executionPayload($requestRecord, checklistOverrides: [
-                'financial_effect_referred' => 'yes',
-            ]))
-            ->assertOk()
-            ->assertJsonPath('data.outputs.0.execution_status.code', 'executed');
-    }
-
-    /**
-     * "لا ينطبق" stays honest on a request that carries no financial effect —
-     * the binding above is not a blanket requirement.
-     */
-    public function test_an_unflagged_request_may_answer_the_financial_check_as_not_applicable(): void
+    public function test_execution_no_longer_asks_about_a_financial_effect(): void
     {
         [$executor, $meeting, $agendaItem, $requestRecord] = $this->executableOutput();
 
-        $this->actingAs($executor, 'sanctum')
-            ->postJson($this->executeUrl($meeting, $agendaItem), $this->executionPayload($requestRecord, checklistOverrides: [
-                'financial_effect_referred' => 'not_applicable',
-            ]))
+        $checklist = $this->actingAs($executor, 'sanctum')
+            ->postJson($this->executeUrl($meeting, $agendaItem), $this->executionPayload($requestRecord))
             ->assertOk()
-            ->assertJsonPath('data.outputs.0.execution_checklist.financial_effect_referred', 'not_applicable');
+            ->json('data.outputs.0.execution_checklist');
+
+        $this->assertArrayNotHasKey('financial_effect_referred', $checklist);
+        $this->assertArrayNotHasKey('financial_effect_note', $requestRecord->fresh()->execution);
     }
 
     /** One-shot, like every other post-decision act since Stage 26. */

@@ -91,8 +91,6 @@
       "diwan": "وكيل الديوان",
       "committee_secretary": "أمين سر اللجنة"
     },
-    "financialImpact": "له أثر مالي بشكل افتراضي",
-    "financialImpactShort": "أثر مالي",
     "legalBasis": "السند القانوني",
     "legalBasisHint": "يُستخدم لتعبئة بطاقة السند القانوني في المراجعة القانونية.",
     "legalBasisNote": "الملاحظة الإجرائية",
@@ -761,11 +759,6 @@
     "noAttachments": "لا توجد مرفقات بعد.",
     "loadFailed": "تعذّر تحميل تفاصيل الطلب.",
     "actionFailed": "تعذّر تنفيذ إجراء سير العمل. حاول مرة أخرى.",
-    "financialImpact": {
-      "label": "أثر مالي",
-      "yes": "له أثر مالي",
-      "no": "لا يوجد أثر مالي"
-    },
     "documentsComplete": {
       "label": "اكتمال الملف",
       "yes": "الملف مكتمل",
@@ -1709,7 +1702,6 @@
     "notEvidence": "ليس دليل تنفيذ",
     "checklistTitle": "متابعة التنفيذ",
     "checklistNote": "يجاب على كل بند؛ ويعد إرفاق مستند التنفيذ محققاً تلقائياً من المستندات المحددة أعلاه.",
-    "financialBinds": "هذه المعاملة ذات أثر مالي، فلا يثبت التنفيذ قبل إحالته.",
     "executedAt": "تاريخ إثبات التنفيذ",
     "executedBy": "مسؤول التنفيذ",
     "fields": {
@@ -1718,14 +1710,12 @@
       "effective_date": "تاريخ سريان الأثر",
       "approving_body": "جهة الاعتماد",
       "approval_number": "رقم الاعتماد",
-      "approval_date": "تاريخ الاعتماد",
-      "financial_effect_note": "بيان الأثر المالي"
+      "approval_date": "تاريخ الاعتماد"
     },
     "checks": {
       "administrative_decision_issued": "هل تم إصدار القرار الإداري؟",
       "employee_file_updated": "هل تم تحديث ملف الموظف؟",
       "system_updated": "هل تم تحديث النظام؟",
-      "financial_effect_referred": "هل تمت إحالة الأثر المالي؟",
       "organizational_unit_notified": "هل تم إخطار التقسيم التنظيمي؟",
       "employee_notified": "هل تم إخطار الموظف؟",
       "execution_document_attached": "هل تم إرفاق مستند التنفيذ؟"
@@ -1741,7 +1731,6 @@
       "transfer_decision": "قرار نقل",
       "secondment_decision": "قرار ندب",
       "grade_amendment": "تعديل درجة",
-      "financial_statement": "إفادة مالية",
       "commencement_document": "مستند مباشرة",
       "other": "وثيقة أخرى تثبت تحقق الأثر"
     },
@@ -1894,7 +1883,6 @@
       "meeting_scheduled": "دعوة لاجتماع",
       "decision_recorded": "تسجيل قرار لجنة",
       "minutes_approved": "اعتماد محضر اجتماع",
-      "financial_impact_review": "مراجعة الأثر المالي",
       "appeal_decided": "نتيجة التظلم",
       "delay_escalation": "تصعيد تأخير المعاملة",
       "request_notice": "إشعار المعاملة (المادة 101)",
@@ -2619,10 +2607,8 @@
     "acts": {
       "archive_committee_file": "أرشفة ملف اللجنة",
       "archive_service_file": "أرشفة ملف الخدمة",
-      "set_financial_impact": "تصحيح الأثر المالي",
       "add_note": "إضافة ملاحظة",
       "attach_document": "إرفاق مستند"
-    },
-    "financialImpactTo": "يصبح الأثر المالي: {value}"
+    }
   }
 }

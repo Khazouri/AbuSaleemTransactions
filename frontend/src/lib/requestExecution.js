@@ -2,7 +2,7 @@
 // mirrored once for every screen that renders them (the requestClosure.js
 // precedent).
 //
-// Seven checks, verbatim and in the form's own order. Six are answered by the
+// Six checks, verbatim and in the form's own order. Five are answered by the
 // executing officer; `execution_document_attached` is derived server-side from
 // the evidence actually attached, because Appendix 70 refuses to let it be a
 // claim ("لا يكفي أن تقول الجهة المنفذة: (تم التنفيذ) بل يجب إرفاق دليل
@@ -11,7 +11,6 @@ export const TRACKING_CHECKS = [
   'administrative_decision_issued',
   'employee_file_updated',
   'system_updated',
-  'financial_effect_referred',
   'organizational_unit_notified',
   'employee_notified',
   'execution_document_attached',
@@ -29,7 +28,6 @@ export const EVIDENCE_TYPES = [
   'transfer_decision',
   'secondment_decision',
   'grade_amendment',
-  'financial_statement',
   'commencement_document',
   'other',
 ]
@@ -43,7 +41,6 @@ export const EXECUTION_FIELDS = [
   'approving_body',
   'approval_number',
   'approval_date',
-  'financial_effect_note',
 ]
 
 // Appendix 52's قواعد تحديث الملف الوظيفي بعد التنفيذ, shown as the prompt for

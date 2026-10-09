@@ -28,7 +28,6 @@ class RequestTypeResource extends JsonResource
             'default_sla_days' => $this->default_sla_days,
             'decision_grade_threshold' => $this->decision_grade_threshold,
             'is_active' => $this->is_active,
-            'default_has_financial_impact' => $this->default_has_financial_impact,
             'default_administrative_route' => $this->default_administrative_route,
             'legal_basis_ar' => $this->legal_basis_ar,
             'legal_basis_note_ar' => $this->legal_basis_note_ar,

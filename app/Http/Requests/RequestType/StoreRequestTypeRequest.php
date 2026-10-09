@@ -11,8 +11,7 @@ use Illuminate\Validation\Rule;
  *
  * Most fields are plain scalars other stages already read — default_sla_days
  * (Stage 17's due_date), decision_grade_threshold (Stage 18's ministry
- * escalation), default_has_financial_impact (Stage 47), the Appendix 21 legal
- * basis (Stage 68). The one field with real structure is required_documents,
+ * escalation), the Appendix 21 legal basis (Stage 68). The one field with real structure is required_documents,
  * [D] Appendix 57's مصفوفة المستندات الإلزامية, validated row by row rather
  * than accepted as a JSON blob: it is read by two screens through
  * frontend/src/lib/requiredDocuments.js, so one malformed entry would break
@@ -88,7 +87,6 @@ class StoreRequestTypeRequest extends FormRequest
             'decision_grade_threshold' => ['nullable', 'integer', 'min:1', 'max:100'],
 
             'is_active' => ['sometimes', 'boolean'],
-            'default_has_financial_impact' => ['sometimes', 'boolean'],
 
             // Stage 56 — advisory only; all three routes stay selectable
             // whatever this says, so a wrong value misleads rather than blocks.

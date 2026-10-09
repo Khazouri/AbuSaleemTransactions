@@ -130,7 +130,6 @@ class MeetingOutputService
                     'approving_body' => $card['approving_body'],
                     'approval_number' => $card['approval_number'] ?? null,
                     'approval_date' => $card['approval_date'] ?? null,
-                    'financial_effect_note' => $card['financial_effect_note'] ?? null,
                 ],
                 'execution_checklist' => $this->rules->checklistRecord($checklist, $attachmentIds),
                 'executed_by_user_id' => $actor->id,

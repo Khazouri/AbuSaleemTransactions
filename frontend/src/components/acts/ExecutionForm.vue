@@ -44,11 +44,6 @@ const { t } = useI18n()
       <textarea v-model="form.action_taken" rows="2" required />
     </label>
 
-    <label v-if="act.has_financial_impact" class="wide">
-      <span>{{ t('requestExecution.fields.financial_effect_note') }}</span>
-      <textarea v-model="form.financial_effect_note" rows="2" />
-    </label>
-
     <h4>{{ t('requestExecution.evidenceTitle') }}</h4>
     <p class="hint">{{ t('requestExecution.evidenceNote') }}</p>
     <p v-if="!request.attachments?.length" class="alert warning">{{ t('requestExecution.noAttachments') }}</p>
@@ -70,7 +65,6 @@ const { t } = useI18n()
       <li v-for="check in EXECUTOR_CHECKS" :key="check">
         <span class="question">
           {{ t(`requestExecution.checks.${check}`) }}
-          <em v-if="check === 'financial_effect_referred' && act.has_financial_impact">{{ t('requestExecution.financialBinds') }}</em>
           <em v-if="check === 'employee_file_updated'">
             {{ SERVICE_FILE_ITEMS.map((item) => t(`requestExecution.serviceFile.${item}`)).join(' · ') }}
           </em>

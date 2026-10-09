@@ -39,9 +39,6 @@ class RequestResource extends JsonResource
             'entitled_grade' => $this->entitled_grade,
             'grade_date' => $this->grade_date?->toDateString(),
             'requires_ministry_approval' => $this->requiresMinistryApproval(),
-            // Stage 47 — derived from request type at intake, correctable
-            // afterward via PATCH .../financial-impact.
-            'has_financial_impact' => (bool) $this->has_financial_impact,
             'status' => $this->status ? [
                 'code' => $this->status->code,
                 'name_ar' => $this->status->name_ar,

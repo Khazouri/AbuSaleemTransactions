@@ -28,7 +28,7 @@ class RequestExecutionService
     /**
      * النموذج 17's متابعة التنفيذ list, verbatim and in the form's own order.
      *
-     * Seven, and the seventh is not a question this system asks: Appendix 70
+     * Six, and the sixth is not a question this system asks: Appendix 70
      * refuses to let "تم إرفاق مستند التنفيذ" be an attestation, so it is
      * derived from real `attachments.execution_evidence_type` rows instead —
      * the same split Stage 60 established for appeal formal verification and
@@ -41,31 +41,28 @@ class RequestExecutionService
         'administrative_decision_issued' => 'هل تم إصدار القرار الإداري؟',
         'employee_file_updated' => 'هل تم تحديث ملف الموظف؟',
         'system_updated' => 'هل تم تحديث النظام؟',
-        'financial_effect_referred' => 'هل تمت إحالة الأثر المالي؟',
         'organizational_unit_notified' => 'هل تم إخطار التقسيم التنظيمي؟',
         'employee_notified' => 'هل تم إخطار الموظف؟',
         'execution_document_attached' => 'هل تم إرفاق مستند التنفيذ؟',
     ];
 
-    /** The six the executing officer answers; the seventh is derived. */
+    /** The five the executing officer answers; the sixth is derived. */
     public const EXECUTOR_CHECKS = [
         'administrative_decision_issued',
         'employee_file_updated',
         'system_updated',
-        'financial_effect_referred',
         'organizational_unit_notified',
         'employee_notified',
     ];
 
     /**
      * Tri-state for Stage 75's own reasons: not every executed decision issues
-     * an administrative قرار, touches an organisational unit, or carries a
-     * financial effect, and demanding "نعم" where the source itself does not
-     * would have the system forbid what [D] permits.
+     * an administrative قرار or touches an organisational unit, and demanding
+     * "نعم" where the source itself does not would have the system forbid
+     * what [D] permits.
      *
      * `not_applicable` is not a loophole — Appendix 70's evidence requirement
-     * and Art. 97's financial referral below are read from real state and
-     * cannot be ticked away.
+     * is read from real state and cannot be ticked away.
      */
     public const ANSWERS = ['yes', 'no', 'not_applicable'];
 
@@ -84,7 +81,6 @@ class RequestExecutionService
         'transfer_decision' => 'قرار نقل',
         'secondment_decision' => 'قرار ندب',
         'grade_amendment' => 'تعديل درجة',
-        'financial_statement' => 'إفادة مالية',
         'commencement_document' => 'مستند مباشرة',
         'other' => 'وثيقة أخرى تثبت تحقق الأثر المطلوب',
     ];
@@ -144,7 +140,7 @@ class RequestExecutionService
             return null;
         }
 
-        return $this->checklistRefusal($requestRecord, $checklist);
+        return $this->checklistRefusal($checklist);
     }
 
     /**
@@ -172,12 +168,11 @@ class RequestExecutionService
     }
 
     /**
-     * النموذج 17's own rule, plus Art. 97's — the one check with a system fact
-     * behind it rather than an attestation.
+     * النموذج 17's own rule: a "لا" on any check holds execution back.
      *
      * @param  array<string, string>  $checklist
      */
-    private function checklistRefusal(Request $requestRecord, array $checklist): ?string
+    private function checklistRefusal(array $checklist): ?string
     {
         foreach (self::EXECUTOR_CHECKS as $key) {
             if (($checklist[$key] ?? null) === 'no') {
@@ -185,22 +180,12 @@ class RequestExecutionService
             }
         }
 
-        // Art. 97 — "إذا ترتب على القرار أثر مالي، يحال إلى الجهة المالية أو
-        // قسم المرتبات والمهايا بعد اكتمال الاعتماد". Stage 47 already records
-        // whether this request carries a financial effect, so unlike the other
-        // five this answer binds against real state and "لا ينطبق" is refused
-        // when the flag is set. The inverse is deliberately not enforced: the
-        // flag is a per-type default the executing body may know better than.
-        if ($requestRecord->has_financial_impact && ($checklist['financial_effect_referred'] ?? null) !== 'yes') {
-            return 'لا يثبت تنفيذ معاملة ذات أثر مالي قبل إحالة الأثر المالي إلى قسم المرتبات والمهايا.';
-        }
-
         return null;
     }
 
     /**
-     * The stored checklist is all seven of النموذج 17's checks — the officer's
-     * six answers plus the derived seventh — so the record reads as the form's
+     * The stored checklist is all six of النموذج 17's checks — the officer's
+     * five answers plus the derived sixth — so the record reads as the form's
      * own list rather than a subset a reader has to reassemble. Stage 75's
      * `auditRecord()` precedent.
      *
