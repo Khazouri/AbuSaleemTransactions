@@ -19,6 +19,32 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-09 17:45 EET — Claude — Attachment preview on hover, full preview on click (complete)
+
+Built per the plan below. `AttachmentLink.vue` is used on the request page, the decision wizard's Review step, the
+live runner's attachments tab and the appeal documents. Their Preview/Download buttons, the request page's own modal
+and two local helpers are gone, along with the dead keys `attachments.preview` and
+`appeals.file.documents.previewFailed`. Names use `dir="auto"`, not `.ltr`, because stored names are now Arabic
+document names. A PDF sheet fades at its foot, because Chrome's viewer ignores `view=Fit` and pages are not all A4, so
+page 2 peeked in. Verified: build passes (`dist` committed), parity 2088, `aislop ci` exit 0 (97). Headless Chrome on
+request 51 (ar/en 1280, ar 375) showed the sheet on hover, the dialog on click with focus on Close, and Escape closing it
+without re-opening the sheet. There were no console errors. Not covered: intake and `FileUpload` (local files
+have no `preview_url`), the timeline's document rows (no URL in that payload) and the memo's key-document lists.
+
+---
+### 2026-10-09 17:19 EET — Claude — Implementation plan: attachment preview on hover, full preview on click
+
+User (/frontend-design): hovering an attachment's name shows a tooltip with a preview of it, and clicking the name opens a
+popup with the full preview. Plan: one new `components/AttachmentLink.vue` that takes any payload carrying
+`original_name`/`mime_type`/`preview_url`. Hovering with a mouse, or focusing with the keyboard, shows an A4-sheet
+card with the image or the PDF's first page, fetched once through the bearer-aware `api`. A click opens a dialog with
+the full preview and Download. A DOC/DOCX says it cannot be previewed and offers Download. It replaces the
+Preview/Download buttons and the page-local modal on the request page, and the plain names in the decision wizard's
+Review step, the live runner's attachments tab and the appeal documents. Frontend only, one new locale key. Verify:
+build (`dist` committed), parity, aislop ci, and a headless hover/click check. (Clock note: the machine reads 17:19,
+behind the entry below; position gives the order.)
+
+---
 ### 2026-10-09 17:40 EET — Claude — The employee's grade data at intake, confirmed by HR (complete)
 
 Built per the plan below. Migration `requests.entitled_grade`/`grade_date` is applied to the real MySQL. «درجة القرار» is now

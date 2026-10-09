@@ -20,6 +20,7 @@ import { useRoute, useRouter } from 'vue-router'
 import api from '../lib/api'
 import AppealFilingWizard from '../components/AppealFilingWizard.vue'
 import AppealWizard from '../components/AppealWizard.vue'
+import AttachmentLink from '../components/AttachmentLink.vue'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -142,21 +143,6 @@ function formatBytes(bytes) {
     unitIndex += 1
   }
   return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
-}
-
-// The appeal's own documents carry a real preview_url (unlike the read-only
-// original-request/memo document listings above), fetched through the
-// bearer-aware axios instance — a plain <a href> would hit the private
-// stream unauthenticated, matching RequestDetailView.vue's own pattern.
-async function openAppealDocument(doc) {
-  try {
-    const { data } = await api.get(doc.preview_url, { responseType: 'blob' })
-    const url = URL.createObjectURL(data)
-    window.open(url, '_blank', 'noopener')
-    window.setTimeout(() => URL.revokeObjectURL(url), 60000)
-  } catch {
-    fileError.value = t('appeals.file.documents.previewFailed')
-  }
 }
 
 // --- Stage 65 — notification & closure: label only -----------------------------------
@@ -470,7 +456,7 @@ onMounted(() => load())
                     <p v-if="!fileData.appeal_documents?.length" class="state">{{ t('appeals.empty') }}</p>
                     <ul v-else class="doc-list">
                       <li v-for="doc in fileData.appeal_documents" :key="doc.id">
-                        <button class="link" type="button" @click="openAppealDocument(doc)">{{ doc.original_name }}</button>
+                        <AttachmentLink :attachment="doc" />
                         <small class="muted">({{ formatBytes(doc.size_bytes) }})</small>
                       </li>
                     </ul>

@@ -11,6 +11,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
 import AgendaItemWizard from '../components/AgendaItemWizard.vue'
+import AttachmentLink from '../components/AttachmentLink.vue'
 import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import StudySequencePanel from '../components/StudySequencePanel.vue'
 import api from '../lib/api'
@@ -246,22 +247,6 @@ function fileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`
-}
-
-async function downloadAttachment(attachment) {
-  try {
-    const { data } = await api.get(attachment.preview_url, { responseType: 'blob' })
-    const url = URL.createObjectURL(data)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = attachment.original_name
-    document.body.append(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 0)
-  } catch {
-    contextError.value = t('attachments.downloadFailed')
-  }
 }
 
 // --- Presentation memo (Stage 46, [D] Art. 22) --------------------------------
@@ -590,11 +575,8 @@ onMounted(async () => {
                 <p v-if="!context.attachments?.length" class="state">{{ t('meetingsUnit.live.context.attachments.empty') }}</p>
                 <ul v-else class="attachment-list">
                   <li v-for="attachment in context.attachments" :key="attachment.id">
-                    <span>{{ attachment.original_name }}</span>
+                    <AttachmentLink :attachment="attachment" />
                     <span class="muted">{{ fileSize(attachment.size_bytes) }}</span>
-                    <button class="ghost" type="button" @click="downloadAttachment(attachment)">
-                      {{ t('attachments.download') }}
-                    </button>
                   </li>
                 </ul>
               </div>

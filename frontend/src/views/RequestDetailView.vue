@@ -8,10 +8,11 @@
  * stacked in a row. Every v-if, v-can, prop and endpoint below is unchanged
  * from before this pass — only where each block renders moved.
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import TimelineDocuments from '../components/TimelineDocuments.vue'
+import AttachmentLink from '../components/AttachmentLink.vue'
 import DecisionWizard from '../components/DecisionWizard.vue'
 import IntakeGatePanel from '../components/IntakeGatePanel.vue'
 import JurisdictionTestForm from '../components/JurisdictionTestForm.vue'
@@ -39,10 +40,6 @@ const request = ref(null)
 const loading = ref(false)
 const error = ref('')
 const actionError = ref('')
-const selectedAttachment = ref(null)
-const attachmentPreviewUrl = ref('')
-const attachmentPreviewing = ref(false)
-const attachmentPreviewError = ref('')
 
 // Restyled pass — the tab strip. `?tab=` keeps a link openable to a specific
 // section; `v-show` (not v-if) keeps every panel's own components mounted
@@ -152,57 +149,6 @@ function fileSize(bytes) {
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`
 }
 
-function isPreviewable(attachment) {
-  return attachment?.mime_type === 'application/pdf' || attachment?.mime_type?.startsWith('image/')
-}
-
-function isImage(attachment) {
-  return attachment?.mime_type?.startsWith('image/')
-}
-
-function clearAttachmentPreview() {
-  if (attachmentPreviewUrl.value) URL.revokeObjectURL(attachmentPreviewUrl.value)
-  attachmentPreviewUrl.value = ''
-}
-
-function closeAttachmentPreview() {
-  if (attachmentPreviewing.value) return
-  clearAttachmentPreview()
-  selectedAttachment.value = null
-  attachmentPreviewError.value = ''
-}
-
-async function openAttachmentPreview(attachment) {
-  clearAttachmentPreview()
-  selectedAttachment.value = attachment
-  attachmentPreviewing.value = true
-  attachmentPreviewError.value = ''
-  try {
-    const { data } = await api.get(attachment.preview_url, { responseType: 'blob' })
-    attachmentPreviewUrl.value = URL.createObjectURL(data)
-  } catch (requestError) {
-    attachmentPreviewError.value = requestError.response?.data?.message ?? t('attachments.previewFailed')
-  } finally {
-    attachmentPreviewing.value = false
-  }
-}
-
-async function downloadAttachment(attachment) {
-  try {
-    const { data } = await api.get(attachment.preview_url, { responseType: 'blob' })
-    const url = URL.createObjectURL(data)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = attachment.original_name
-    document.body.append(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 0)
-  } catch {
-    actionError.value = t('attachments.downloadFailed')
-  }
-}
-
 async function load() {
   loading.value = true
   error.value = ''
@@ -220,7 +166,6 @@ async function load() {
 
 watch(() => route.params.id, load)
 onMounted(load)
-onBeforeUnmount(clearAttachmentPreview)
 
 // Decision wizard — sub-project 3. After any act the wizard hands back the
 // fresh file; the lifecycle card and notes fetch their own data, so a new
@@ -416,21 +361,12 @@ function onWizardUpdated(updated) {
               <p v-if="!request.attachments?.length" class="state">{{ t('requestDetail.noAttachments') }}</p>
               <ul v-else>
                 <li v-for="attachment in request.attachments" :key="attachment.id">
-                  <strong class="file-name ltr">{{ attachment.original_name }}</strong>
+                  <AttachmentLink :attachment="attachment" />
                   <small>{{ attachment.label || attachment.mime_type }} · {{ fileSize(attachment.size_bytes) }}</small>
                   <small class="doc-section">{{ fileSectionName(attachment.file_section) }}</small>
                   <small v-if="attachment.execution_evidence_type" class="evidence-tag">
                     {{ t('requestExecution.evidenceBadge') }} — {{ t(`requestExecution.evidenceTypes.${attachment.execution_evidence_type}`) }}
                   </small>
-                  <div class="attachment-actions">
-                    <button
-                      v-if="isPreviewable(attachment)"
-                      class="ghost"
-                      type="button"
-                      @click="openAttachmentPreview(attachment)"
-                    >{{ t('attachments.preview') }}</button>
-                    <button v-else class="ghost" type="button" @click="downloadAttachment(attachment)">{{ t('attachments.download') }}</button>
-                  </div>
                 </li>
               </ul>
             </section>
@@ -848,21 +784,6 @@ function onWizardUpdated(updated) {
         </section>
       </div>
 
-      <Teleport to="body">
-        <div v-if="selectedAttachment" class="modal-backdrop" @click.self="closeAttachmentPreview">
-          <section class="attachment-modal" role="dialog" aria-modal="true" :aria-label="t('attachments.preview')">
-            <div class="modal-actions">
-              <strong class="file-name ltr">{{ selectedAttachment.original_name }}</strong>
-              <button class="ghost" type="button" :disabled="attachmentPreviewing" @click="closeAttachmentPreview">×</button>
-            </div>
-            <p v-if="attachmentPreviewing" class="state">{{ t('common.loading') }}</p>
-            <p v-else-if="attachmentPreviewError" class="action-error" role="alert">{{ attachmentPreviewError }}</p>
-            <img v-else-if="attachmentPreviewUrl && isImage(selectedAttachment)" class="attachment-image" :src="attachmentPreviewUrl" :alt="selectedAttachment.original_name" />
-            <iframe v-else-if="attachmentPreviewUrl" class="attachment-pdf" :src="attachmentPreviewUrl" :title="selectedAttachment.original_name" />
-          </section>
-        </div>
-
-      </Teleport>
     </template>
   </section>
 </template>
@@ -923,7 +844,6 @@ function onWizardUpdated(updated) {
 .legal-review strong.ok { color: var(--color-success-fg); }
 .legal-review strong.warn { color: var(--color-warning-fg); }
 .legal-review .ghost { margin-inline-start: 0; }
-.attachment-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
 .action-error { color: var(--color-danger-fg); margin: 0.6rem 0 0; font-size: var(--text-sm); }
 
 /* -- Tab panels ---------------------------------------------------------- */
@@ -944,12 +864,7 @@ function onWizardUpdated(updated) {
 .entry-comment { white-space: pre-wrap; }
 .attachments ul { display: grid; gap: 0.65rem; padding: 0; margin: var(--space-3) 0; list-style: none; }
 .attachments li { display: grid; gap: 0.15rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--color-border); }
-.file-name { overflow-wrap: anywhere; color: var(--color-black-700); font-size: var(--text-sm); }
 
-/* -- Modals ---------------------------------------------------------------- */
-.attachment-modal { inline-size: min(64rem, 100%); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface); box-shadow: var(--shadow-2xl); max-block-size: calc(100vh - 2rem); overflow: auto; }
-.attachment-image, .attachment-pdf { display: block; inline-size: 100%; max-block-size: 72vh; border: 0; object-fit: contain; }
-.attachment-pdf { block-size: 72vh; }
 
 .checklist h3 { margin: 0 0 0.3rem; color: var(--color-brand-text); font-size: var(--text-lg); }
 .checklist ul { display: grid; gap: 0.3rem; padding-inline-start: 1.2rem; margin: 0; color: var(--color-black-700); font-size: var(--text-sm); }

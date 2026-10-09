@@ -502,8 +502,7 @@
         "decidedAt": "Decided at"
       },
       "documents": {
-        "heading": "Appeal documents",
-        "previewFailed": "The document could not be opened."
+        "heading": "Appeal documents"
       },
       "notifications": {
         "heading": "Proof of notification",
@@ -716,9 +715,9 @@
     "upload": "Upload files",
     "uploading": "Uploading…",
     "uploadFailed": "The file could not be uploaded. Please try again.",
-    "preview": "Preview",
     "download": "Download",
     "previewFailed": "The file could not be previewed. Please try again.",
+    "noPreview": "This file type can't be previewed here. Download it to open it.",
     "downloadFailed": "The file could not be downloaded. Please try again.",
     "fileSection": "File section (Appendix 14)",
     "chooseFileSection": "Choose a section…",

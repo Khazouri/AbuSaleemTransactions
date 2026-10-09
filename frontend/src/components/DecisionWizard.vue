@@ -16,6 +16,7 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AttachmentLink from './AttachmentLink.vue'
 import FileUpload from './FileUpload.vue'
 import IntakeGatePanel from './IntakeGatePanel.vue'
 import JurisdictionTestForm from './JurisdictionTestForm.vue'
@@ -330,7 +331,7 @@ if (props.initial?.action) {
       <p v-if="!request.attachments?.length" class="state">{{ t('requestDetail.noAttachments') }}</p>
       <ul v-else class="plain-list">
         <li v-for="attachment in request.attachments" :key="attachment.id">
-          <span class="ltr file-name">{{ attachment.original_name }}</span>
+          <AttachmentLink :attachment="attachment" />
           <small>{{ attachment.label || '' }}</small>
         </li>
       </ul>
@@ -444,6 +445,5 @@ if (props.initial?.action) {
 <style scoped>
 .description, .quote { margin: 0; color: var(--color-black-700); white-space: pre-wrap; max-inline-size: 70ch; }
 .quote { padding-inline-start: var(--space-3); border-inline-start: 2px solid var(--color-border-hover); font-size: var(--text-sm); }
-.file-name { overflow-wrap: anywhere; color: var(--color-black-700); font-size: var(--text-sm); }
 .ltr { direction: ltr; justify-self: start; }
 </style>

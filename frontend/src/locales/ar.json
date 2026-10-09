@@ -502,8 +502,7 @@
         "decidedAt": "بتاريخ"
       },
       "documents": {
-        "heading": "مستندات التظلم",
-        "previewFailed": "تعذّر فتح المستند."
+        "heading": "مستندات التظلم"
       },
       "notifications": {
         "heading": "إثبات التبليغ",
@@ -716,9 +715,9 @@
     "upload": "رفع الملفات",
     "uploading": "جارٍ الرفع…",
     "uploadFailed": "تعذّر رفع الملف. حاول مرة أخرى.",
-    "preview": "معاينة",
     "download": "تنزيل",
     "previewFailed": "تعذّرت معاينة الملف. حاول مرة أخرى.",
+    "noPreview": "لا يمكن معاينة هذا النوع من الملفات هنا. نزّله لفتحه.",
     "downloadFailed": "تعذّر تنزيل الملف. حاول مرة أخرى.",
     "fileSection": "قسم الملف (الملحق 14)",
     "chooseFileSection": "اختر القسم…",
