@@ -399,5 +399,9 @@ instead of cramming it in here. Rules:
   default scaffold, not the real SPA in `frontend/`.
 - `database/database.sqlite` exists but the real `.env` points at MySQL
   (`abu_saleem`); don't assume sqlite is the active connection.
+- A JSON API Resource re-indexes any nested array whose keys are all numeric,
+  so a map keyed by ids (e.g. a gate record's `documents`, keyed by attachment
+  id) reaches the SPA as a plain list. Read a list of `{id, …}` objects instead
+  (the gate panel reads `record.items`).
 - `frontend/postcss.config.js` is intentionally empty — don't "fix" it by
   adding Tailwind or removing it; the comment in the file explains why.

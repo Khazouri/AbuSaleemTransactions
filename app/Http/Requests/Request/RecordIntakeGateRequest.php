@@ -2,19 +2,18 @@
 
 namespace App\Http\Requests\Request;
 
-use App\Services\IntakeGateService;
+use App\Services\DocumentReview;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Stage 78 — [D] Appendix 63's بوابة 1 (قبل القيد), answered per required
- * document.
+ * Stage 78 — [D] Appendix 63's بوابة 1 (قبل القيد), one verdict per attached
+ * file, keyed by attachment id.
  *
  * Named without the doubled word, per AGENTS.md's convention for this one
- * resource. Format only: *which* documents are required, and whether an
- * unconditional one may be waived, both depend on the request's own type and
- * are therefore resolved by `IntakeGateService` — the documented split
- * `StoreDecisionRequest` and `CloseRequest` already follow.
+ * resource. Format only: which files are under review, and whether the
+ * reviewer opened each one, are resolved by DocumentReview — the documented
+ * split `StoreDecisionRequest` and `CloseRequest` already follow.
  */
 class RecordIntakeGateRequest extends FormRequest
 {
@@ -27,7 +26,7 @@ class RecordIntakeGateRequest extends FormRequest
     {
         return [
             'documents' => ['present', 'array'],
-            'documents.*' => [Rule::in(IntakeGateService::ANSWERS)],
+            'documents.*' => [Rule::in(DocumentReview::ANSWERS)],
             'facts_verified' => ['required', 'boolean'],
         ];
     }

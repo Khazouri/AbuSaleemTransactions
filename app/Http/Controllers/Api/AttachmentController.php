@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Attachment\StoreAttachmentRequest;
 use App\Http\Resources\AttachmentResource;
 use App\Models\Attachment;
+use App\Models\AttachmentPreview;
 use App\Models\Request;
 use App\Models\RequestType;
 use App\Services\DocumentCompletenessService;
@@ -13,6 +14,7 @@ use App\Services\EmploymentFilePreparationService;
 use App\Services\RequestVisibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -159,5 +161,24 @@ class AttachmentController extends Controller
             ['Content-Type' => $attachment->mime_type],
             'inline',
         );
+    }
+
+    /**
+     * The reader opened this file's full preview. The hover card fetches the
+     * same bytes through preview() above, which is why the open is reported
+     * separately rather than inferred from a download: only the full preview
+     * counts as having looked at the document.
+     */
+    public function previewed(HttpRequest $request, Request $requestRecord, Attachment $attachment, RequestVisibility $visibility): Response
+    {
+        abort_unless($attachment->request_id === $requestRecord->id, 404);
+        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
+
+        AttachmentPreview::create([
+            'attachment_id' => $attachment->id,
+            'user_id' => $request->user()->id,
+        ]);
+
+        return response()->noContent();
     }
 }

@@ -35,6 +35,11 @@ class AttachmentResource extends JsonResource
                 'requestRecord' => $this->request_id,
                 'attachment' => $this->id,
             ]),
+            // Reported when the full preview opens; the document gates read it.
+            'previewed_url' => route('requests.attachments.previewed', [
+                'requestRecord' => $this->request_id,
+                'attachment' => $this->id,
+            ]),
             'uploaded_by_user_id' => $this->uploaded_by_user_id,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

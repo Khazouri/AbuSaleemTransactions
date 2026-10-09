@@ -11,7 +11,6 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\DocumentCompletenessService;
-use App\Services\EmploymentFilePreparationService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -108,7 +107,7 @@ class EmploymentFilePreparationTest extends TestCase
 
         $this->actingAs($hr, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => $this->allPresent($requestRecord),
+                'documents' => [],
                 'assembled' => true,
                 'grade_verified' => true,
             ])
@@ -122,62 +121,13 @@ class EmploymentFilePreparationTest extends TestCase
             ->assertJsonPath('data.current_stage.code', 'requirements_check');
     }
 
-    public function test_a_missing_row_refuses_and_not_applicable_only_where_the_source_conditions_it(): void
-    {
-        $hr = $this->userWithRole('R12');
-        $requestRecord = $this->requestBeingPrepared();
-
-        $documents = app(EmploymentFilePreparationService::class)->requiredDocuments($requestRecord);
-        $unconditional = $this->firstKeyWhere($documents, false);
-        $conditional = $this->firstKeyWhere($documents, true);
-
-        $this->assertNotNull($unconditional, 'الملف الوظيفي should carry an unconditional row');
-        $this->assertNotNull($conditional, 'الملف الوظيفي should carry a conditional row');
-
-        $answers = $this->allPresent($requestRecord);
-
-        $this->actingAs($hr, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => [...$answers, $unconditional => 'missing'],
-                'assembled' => true,
-                'grade_verified' => true,
-            ])
-            ->assertOk()
-            ->assertJsonPath(
-                'data.control_gates.employment_file.refusal',
-                'لا يجوز التسجيل قبل استكمال الملف الوظيفي. المستند الناقص: '.$documents[$unconditional]['ar'],
-            );
-
-        // Appendix 57's own qualifier decides which may be waived.
-        $this->actingAs($hr, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => [...$answers, $unconditional => 'not_applicable'],
-                'assembled' => true,
-                'grade_verified' => true,
-            ])
-            ->assertOk()
-            ->assertJsonPath(
-                'data.control_gates.employment_file.refusal',
-                'هذا المستند مطلوب في جميع الحالات ولا يجوز اعتباره غير منطبق: '.$documents[$unconditional]['ar'],
-            );
-
-        $this->actingAs($hr, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => [...$answers, $conditional => 'not_applicable'],
-                'assembled' => true,
-                'grade_verified' => true,
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.control_gates.employment_file.refusal', null);
-    }
-
     public function test_the_attestation_is_required_on_top_of_the_documents(): void
     {
         $requestRecord = $this->requestBeingPrepared();
 
         $this->actingAs($this->userWithRole('R12'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => $this->allPresent($requestRecord),
+                'documents' => [],
                 'assembled' => false,
                 'grade_verified' => true,
             ])
@@ -194,7 +144,7 @@ class EmploymentFilePreparationTest extends TestCase
 
         $this->actingAs($this->userWithRole('R12'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => $this->allPresent($requestRecord),
+                'documents' => [],
                 'assembled' => true,
                 'grade_verified' => false,
             ])
@@ -210,7 +160,7 @@ class EmploymentFilePreparationTest extends TestCase
         // later reader sees what HR actually checked.
         $this->actingAs($this->userWithRole('R12'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => $this->allPresent($requestRecord),
+                'documents' => [],
                 'assembled' => true,
                 'grade_verified' => true,
             ])
@@ -221,36 +171,6 @@ class EmploymentFilePreparationTest extends TestCase
                 'entitled_grade' => 11,
                 'grade_date' => '2024-03-01',
             ]);
-    }
-
-    /**
-     * Stage 78's own precedence, reused: a document in the file outranks
-     * whatever anyone recorded about it, in both directions.
-     */
-    public function test_an_attached_document_overrides_a_recorded_missing(): void
-    {
-        $hr = $this->userWithRole('R12');
-        $requestRecord = $this->requestBeingPrepared();
-
-        $documents = app(EmploymentFilePreparationService::class)->requiredDocuments($requestRecord);
-        $unconditional = $this->firstKeyWhere($documents, false);
-        $this->attachDocument($requestRecord, $unconditional);
-
-        $this->actingAs($hr, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => [...$this->allPresent($requestRecord), $unconditional => 'missing'],
-                'assembled' => true,
-                'grade_verified' => true,
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.control_gates.employment_file.refusal', null);
-
-        $stored = $requestRecord->fresh()->employment_file;
-        $this->assertSame('present', $stored['documents'][$unconditional]);
-        $this->assertTrue(
-            collect($stored['items'])->firstWhere('key', $unconditional)['covered'],
-            'a proven answer should be distinguishable from an attested one',
-        );
     }
 
     // --- who may act --------------------------------------------------
@@ -265,7 +185,7 @@ class EmploymentFilePreparationTest extends TestCase
 
         $this->actingAs($filer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => $this->allPresent($requestRecord),
+                'documents' => [],
                 'assembled' => true,
                 'grade_verified' => true,
             ])
@@ -277,7 +197,7 @@ class EmploymentFilePreparationTest extends TestCase
 
         $this->actingAs($subject, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => $this->allPresent($requestRecord),
+                'documents' => [],
                 'assembled' => true,
                 'grade_verified' => true,
             ])
@@ -293,7 +213,7 @@ class EmploymentFilePreparationTest extends TestCase
 
         $this->actingAs($this->userWithRole('R09'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => $this->allPresent($requestRecord),
+                'documents' => [],
                 'assembled' => true,
                 'grade_verified' => true,
             ])
@@ -334,6 +254,7 @@ class EmploymentFilePreparationTest extends TestCase
 
     // --- fixtures -----------------------------------------------------
 
+    /** Carries no file, so HR's per-file verdicts are an empty list here; DocumentReviewTest covers them. */
     private function requestBeingPrepared(?User $creator = null): Request
     {
         $creator ??= $this->userWithRole('R01');
@@ -352,27 +273,6 @@ class EmploymentFilePreparationTest extends TestCase
             'entitled_grade' => 11,
             'grade_date' => '2024-03-01',
         ]);
-    }
-
-    /** @return array<string, string> */
-    private function allPresent(Request $requestRecord): array
-    {
-        return array_fill_keys(
-            array_keys(app(EmploymentFilePreparationService::class)->requiredDocuments($requestRecord)),
-            'present',
-        );
-    }
-
-    /** @param  array<string, array{conditional: bool}>  $documents */
-    private function firstKeyWhere(array $documents, bool $conditional): ?string
-    {
-        foreach ($documents as $key => $document) {
-            if ($document['conditional'] === $conditional) {
-                return $key;
-            }
-        }
-
-        return null;
     }
 
     private function attachDocument(Request $requestRecord, string $key): void

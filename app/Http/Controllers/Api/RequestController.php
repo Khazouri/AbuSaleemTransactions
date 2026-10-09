@@ -39,6 +39,7 @@ use App\Services\ApprovalReferralService;
 use App\Services\ApprovalReturnService;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\CommitteeStatusService;
+use App\Services\DocumentReview;
 use App\Services\EmployeeNoticeRegister;
 use App\Services\EmployeeNoticeService;
 use App\Services\EmploymentFilePreparationService;
@@ -1127,7 +1128,7 @@ class RequestController extends Controller
             ], 422);
         }
 
-        $requestRecord->loadMissing('requestType:id,required_documents');
+        $this->refuseUnpreviewed($requestRecord, $request->validated('documents'), $actor);
 
         $requestRecord->update([
             'intake_gate' => $gate->record(
@@ -1176,6 +1177,8 @@ class RequestController extends Controller
             ], 422);
         }
 
+        $this->refuseUnpreviewed($requestRecord, $request->validated('documents'), $actor);
+
         $requestRecord->update([
             'employment_file' => $preparation->record(
                 $requestRecord,
@@ -1188,6 +1191,22 @@ class RequestController extends Controller
         ]);
 
         return $this->detailResource($requestRecord, $workflow, $actor);
+    }
+
+    /**
+     * Both document gates take a verdict only on a file the reviewer opened in
+     * full; the server knows because AttachmentController::previewed()
+     * recorded the open, so the client cannot simply claim it.
+     *
+     * @param  array<int|string, string>  $verdicts
+     */
+    private function refuseUnpreviewed(Request $requestRecord, array $verdicts, User $actor): void
+    {
+        $unpreviewed = app(DocumentReview::class)->unpreviewed($requestRecord, $verdicts, $actor);
+
+        if ($unpreviewed !== null) {
+            throw ValidationException::withMessages(['documents' => $unpreviewed]);
+        }
     }
 
     /**
@@ -1394,7 +1413,7 @@ class RequestController extends Controller
         // Stage 78 — Appendix 63's four-gate matrix, rendered for this one
         // file. Every value here comes from the same services the endpoints
         // enforce with, so the screen and the refusal can never disagree.
-        $requestRecord->setAttribute('control_gates', $this->controlGateState($requestRecord));
+        $requestRecord->setAttribute('control_gates', $this->controlGateState($requestRecord, $actor));
         // Stage 79 — [D] Art. 101's notices actually delivered for this file.
         // Stage 89 moved the query into EmployeeNoticeRegister so this card and
         // the employee tracking panel read one register rather than two copies
@@ -1494,9 +1513,10 @@ class RequestController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function controlGateState(Request $requestRecord): array
+    private function controlGateState(Request $requestRecord, ?User $viewer): array
     {
         $intake = app(IntakeGateService::class);
+        $review = app(DocumentReview::class);
         $soundness = app(ExecutionSoundnessService::class);
         $employmentFile = app(EmploymentFilePreparationService::class);
 
@@ -1513,7 +1533,7 @@ class RequestController extends Controller
                     'name' => $requestRecord->employmentFilePreparedBy->name,
                 ] : null,
                 'record' => $requestRecord->employment_file,
-                'required_documents' => $employmentFile->requiredDocuments($requestRecord),
+                'review_attachments' => $review->forViewer($requestRecord, $viewer),
                 'refusal' => $employmentFile->refusalReason($requestRecord),
             ],
             // بوابة 1 — قبل القيد: هل الملف صالح للدخول إلى مسار اللجنة؟
@@ -1524,7 +1544,7 @@ class RequestController extends Controller
                     'name' => $requestRecord->intakeGateCheckedBy->name,
                 ] : null,
                 'record' => $requestRecord->intake_gate,
-                'required_documents' => $intake->requiredDocuments($requestRecord),
+                'review_attachments' => $review->forViewer($requestRecord, $viewer),
                 'refusal' => $intake->refusalReason($requestRecord),
                 // Art. 45's test is the other half of this same gate, and it
                 // has been enforced on the same hop since Stage 54. Stage 84

@@ -10,24 +10,6 @@
 /** Appendix 63's own four points, in its own order. */
 export const GATES = ['intake', 'agenda', 'minutes', 'closure']
 
-// --- بوابة 1 — قبل القيد -----------------------------------------------
-
-/**
- * The per-document answers. `missing` is the one that refuses; `not_applicable`
- * is honest only for a document Appendix 57 itself qualifies with a condition,
- * which the server enforces and this picker mirrors (see `answersFor`).
- */
-export const INTAKE_ANSWERS = ['present', 'not_applicable', 'missing']
-
-/**
- * An unconditional Appendix 57 entry cannot be waived, so "لا ينطبق" is not
- * offered for one — the server refuses it, and offering a choice that always
- * 422s is worse than not offering it.
- */
-export function intakeAnswersFor(document) {
-  return document?.conditional ? INTAKE_ANSWERS : ['present', 'missing']
-}
-
 // --- Art. 103 — قائمة فحص سلامة القرار ---------------------------------
 
 /** All twelve, in the article's own order, for rendering the recorded card. */

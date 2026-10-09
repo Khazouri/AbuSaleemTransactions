@@ -411,7 +411,6 @@ function onWizardUpdated(updated) {
             <p class="hint">{{ t('controlGates.employmentFile.owner') }}</p>
             <IntakeGatePanel
               :request-id="request.id"
-              :required-documents="request.control_gates.employment_file.required_documents"
               :record="request.control_gates.employment_file.record"
               :refusal="request.control_gates.employment_file.refusal"
               :recorded-by="request.control_gates.employment_file.prepared_by"
@@ -440,7 +439,6 @@ function onWizardUpdated(updated) {
             <p class="hint">{{ t('controlGates.intake.question') }}</p>
             <IntakeGatePanel
               :request-id="request.id"
-              :required-documents="request.control_gates.intake.required_documents"
               :record="request.control_gates.intake.record"
               :refusal="request.control_gates.intake.refusal"
               :recorded-by="request.control_gates.intake.recorded_by"

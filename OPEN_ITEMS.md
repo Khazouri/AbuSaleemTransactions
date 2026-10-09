@@ -13,6 +13,20 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### A rejected «مستند آخر» file cannot be replaced — per-file document review — opened 2026-10-09
+On both document gates a «غير معتمد» file blocks until a newer upload of the **same document type** replaces it
+(`DocumentReview::attachments()`). A file typed «مستند آخر», or one with no type, has no type to be replaced under,
+and attachments are never deleted, so once rejected it holds the gate. The reviewer's only way out is to mark it
+approved after all. **To close:** decide how such a file leaves the review: a «superseded by» link chosen at upload,
+removal by the reviewer, or a third verdict such as «مستبعد».
+
+### HR's register no longer checks the service-file rows are present — per-file document review — opened 2026-10-09
+HR's «تجهيز الملف الوظيفي» card used to answer each الملف الوظيفي row of Appendix 57's matrix. Since 2026-10-09 it
+judges the files attached instead (user decision). The matrix is still enforced at intake (the submitter's rows) and
+before the agenda (`DocumentCompletenessService::refusalForRequest()`), so a missing service-file document is now
+first caught when المقرر tries to put the file on an agenda, not at register. **To close:** confirm that is
+acceptable, or add the matrix check back beside the per-file review at `register`.
+
 ### The manager's return and cancel still require a reason on the real database — optional note — opened 2026-10-07
 `WorkflowTransitionSeeder` now seeds `return_to_employee` and both manager `cancel` rows with `requires_comment = false`,
 but Homestead's MySQL was unreachable, so the real database still demands a reason for them. The removed

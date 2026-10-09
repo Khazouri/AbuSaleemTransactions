@@ -20,6 +20,9 @@ const props = defineProps({
   attachment: { type: Object, required: true },
 })
 
+// The document gates accept a verdict only on a file its reviewer opened.
+const emit = defineEmits(['previewed'])
+
 const { t } = useI18n()
 const tipId = useId()
 
@@ -112,21 +115,39 @@ function onFocus() {
 async function openDialog() {
   hideTip()
   dialogOpen.value = true
-  document.addEventListener('keydown', onDialogKeydown)
+  // Captured on window so the preview's Escape closes only the preview, not an
+  // AppModal (the decision wizard) open underneath it, whose listener sits on document.
+  window.addEventListener('keydown', onDialogKeydown, true)
   if (previewable.value) fetchFile()
+  reportPreviewed()
   await nextTick()
   closeButton.value?.focus()
 }
 
+// Only request files carry `previewed_url`; the server records the open (and
+// audits it), so the gate can trust it. A failed report just leaves the file
+// unticked, and opening it again retries.
+async function reportPreviewed() {
+  if (!props.attachment.previewed_url) return
+  try {
+    await api.post(props.attachment.previewed_url)
+    emit('previewed', props.attachment.id)
+  } catch {
+    // Nothing to show: the gate's own checkbox stays unticked.
+  }
+}
+
 function closeDialog() {
   dialogOpen.value = false
-  document.removeEventListener('keydown', onDialogKeydown)
+  window.removeEventListener('keydown', onDialogKeydown, true)
   returningFocus = true
   trigger.value?.focus({ preventScroll: true })
 }
 
 function onDialogKeydown(event) {
-  if (event.key === 'Escape') closeDialog()
+  if (event.key !== 'Escape') return
+  event.stopPropagation()
+  closeDialog()
 }
 
 function onTriggerKeydown(event) {
@@ -151,7 +172,7 @@ async function download() {
 
 onBeforeUnmount(() => {
   hideTip()
-  document.removeEventListener('keydown', onDialogKeydown)
+  window.removeEventListener('keydown', onDialogKeydown, true)
   if (objectUrl.value) URL.revokeObjectURL(objectUrl.value)
 })
 </script>

@@ -9,6 +9,7 @@ use App\Models\Request;
 use App\Models\RequestType;
 use App\Models\User;
 use App\Services\DocumentCompletenessService;
+use App\Services\DocumentReview;
 use App\Services\EmploymentFilePreparationService;
 use App\Services\ExecutionSoundnessService;
 use App\Services\IntakeGateService;
@@ -95,20 +96,16 @@ trait PassesControlGates
     }
 
     /**
-     * Answer Appendix 63's بوابة 1 for this request's own Appendix 57 matrix,
-     * every document present.
+     * Answer Appendix 63's بوابة 1 with every attached file approved.
      *
      * Written directly rather than through the endpoint because the callers
-     * are mid-walk through a different story; ControlGateTest exercises the
-     * endpoint itself.
+     * are mid-walk through a different story, so no preview is needed either;
+     * DocumentReviewTest exercises the endpoint and the preview rule.
      */
     protected function passIntakeGate(Request $requestRecord): Request
     {
-        $gate = app(IntakeGateService::class);
-        $answers = array_fill_keys(array_keys($gate->requiredDocuments($requestRecord)), 'present');
-
         $requestRecord->forceFill([
-            'intake_gate' => $gate->record($requestRecord, $answers, true),
+            'intake_gate' => app(IntakeGateService::class)->record($requestRecord, $this->approveEveryFile($requestRecord), true),
             'intake_gate_checked_at' => now(),
         ])->save();
 
@@ -116,25 +113,27 @@ trait PassesControlGates
     }
 
     /**
-     * Stage 98 — record [D] Appendix 6 row 3's تجهيز الملف الوظيفي, every
-     * service-file document present.
-     *
-     * Written directly for the same reason passIntakeGate() above is: the
-     * callers are mid-walk through a different story, and the `register` hop
-     * they need past is not what they are testing.
-     * EmploymentFilePreparationTest exercises the endpoint itself.
+     * Stage 98 — record [D] Appendix 6 row 3's تجهيز الملف الوظيفي with every
+     * attached file approved, for the same reason passIntakeGate() above
+     * writes directly. EmploymentFilePreparationTest exercises the endpoint.
      */
     protected function prepareEmploymentFile(Request $requestRecord): Request
     {
-        $preparation = app(EmploymentFilePreparationService::class);
-        $answers = array_fill_keys(array_keys($preparation->requiredDocuments($requestRecord)), 'present');
-
         $requestRecord->forceFill([
-            'employment_file' => $preparation->record($requestRecord, $answers, true, true),
+            'employment_file' => app(EmploymentFilePreparationService::class)
+                ->record($requestRecord, $this->approveEveryFile($requestRecord), true, true),
             'employment_file_prepared_at' => now(),
         ])->save();
 
         return $requestRecord->refresh();
+    }
+
+    /** @return array<int, string> */
+    protected function approveEveryFile(Request $requestRecord): array
+    {
+        return app(DocumentReview::class)->attachments($requestRecord)
+            ->mapWithKeys(fn (Attachment $file): array => [$file->id => 'approved'])
+            ->all();
     }
 
     /**

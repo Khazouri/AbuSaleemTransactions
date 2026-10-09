@@ -13,7 +13,6 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\DocumentCompletenessService;
-use App\Services\IntakeGateService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -202,82 +201,9 @@ class DocumentCompletenessTest extends TestCase
             ->assertCreated();
     }
 
-    // --- the officer's gate reads the files ------------------------------
-
-    public function test_the_gate_derives_present_from_the_submitters_own_files(): void
-    {
-        $requestRecord = $this->requestAtRequirementsCheck();
-        $this->supplyRequiredDocuments($requestRecord);
-
-        $gate = app(IntakeGateService::class);
-        $derived = $gate->derivedAnswers($requestRecord->refresh());
-        $mandatory = app(DocumentCompletenessService::class)
-            ->mandatoryDocuments($requestRecord->requestType);
-
-        $this->assertSame(array_keys($mandatory), array_keys($derived));
-        $this->assertSame(['present'], array_values(array_unique($derived)));
-
-        // ...and the row reports itself as covered, so the panel can render it
-        // as a fact rather than as an input.
-        foreach ($gate->requiredDocuments($requestRecord) as $key => $document) {
-            $this->assertSame(array_key_exists($key, $mandatory), $document['covered'], $document['ar']);
-        }
-    }
-
-    /**
-     * A document in the file outranks what anyone recorded about it. Same
-     * discipline ExecutionSoundnessService applies to its own derived checks,
-     * and for Art. 104's reason: a document check that can be ticked away is
-     * the إجراء شكلي the article rules out.
-     */
-    public function test_a_covered_row_cannot_be_recorded_as_missing(): void
-    {
-        $reviewer = $this->userWithRole('R02');
-        $requestRecord = $this->requestAtRequirementsCheck();
-        $this->supplyRequiredDocuments($requestRecord);
-
-        $gate = app(IntakeGateService::class);
-        $spoofed = array_fill_keys(array_keys($gate->requiredDocuments($requestRecord->refresh())), 'missing');
-
-        $this->actingAs($reviewer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", [
-                'documents' => $spoofed,
-                'facts_verified' => true,
-            ])
-            ->assertOk();
-
-        $stored = $requestRecord->refresh()->intake_gate['documents'];
-        $mandatory = app(DocumentCompletenessService::class)
-            ->mandatoryDocuments($requestRecord->requestType);
-
-        foreach (array_keys($mandatory) as $key) {
-            $this->assertSame('present', $stored[$key], 'a covered row recorded as '.$stored[$key]);
-        }
-    }
-
-    /**
-     * The derivation does not soften the gate: a mandatory row with neither a
-     * file nor an answer still refuses, which is what a file created before
-     * the submission rule looks like.
-     */
-    public function test_an_uncovered_mandatory_row_still_refuses_the_gate(): void
-    {
-        $requestRecord = $this->requestAtRequirementsCheck();
-        $gate = app(IntakeGateService::class);
-
-        // Nothing recorded at all is still the gate's own first refusal.
-        $this->assertStringContainsString(
-            'قبل استيفاء بوابة الرقابة الأولى',
-            (string) $gate->refusalReason($requestRecord),
-        );
-
-        // ...and a record that leaves a mandatory row unanswered — what a file
-        // predating the submission rule looks like — names that row.
-        $this->assertStringContainsString(
-            'لم يتم بعد التحقق من المستند المطلوب',
-            (string) $gate->refusalReason($requestRecord, [], true),
-        );
-    }
+    // The officer's gate no longer reads Appendix 57's rows: since
+    // 2026-10-09 it judges each attached file (DocumentReviewTest), and this
+    // matrix is enforced here, at intake and before the agenda.
 
     // --- [F] footer 2 — the agenda gate -----------------------------------
 

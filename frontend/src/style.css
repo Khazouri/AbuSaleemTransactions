@@ -1007,8 +1007,40 @@ textarea {
 .answer {
   font-weight: 600;
 }
-.answer.yes, .answer.present { color: var(--color-success-fg); }
-.answer.no, .answer.missing { color: var(--color-danger-fg); }
+.answer.yes, .answer.present, .answer.approved { color: var(--color-success-fg); }
+.answer.no, .answer.missing, .answer.not_approved { color: var(--color-danger-fg); }
+
+/* The document gates' per-file rows (IntakeGatePanel): the file's name, its
+   self-ticking «تمت المعاينة» box, and the verdict pair. Wraps on a phone. */
+.review-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.review-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding-block-end: var(--space-2);
+  border-block-end: 1px solid var(--color-border);
+}
+/* The name keeps its own width and the checkbox's margin pushes the rest to
+   the far edge. The margin sits on the checkbox, not on the name: a logical
+   margin follows the element's own direction, and a dir="auto" Arabic name is
+   RTL on an English page. */
+.review-list li > label.inline { margin-inline-start: auto; }
+.review-list .verdicts {
+  display: flex;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.review-list .verdicts:disabled { opacity: 0.5; }
 .answer.not_applicable, .answer.pending { color: var(--color-black-500); }
 
 /* HR's employment-file card: the grade data the employee stated, which HR

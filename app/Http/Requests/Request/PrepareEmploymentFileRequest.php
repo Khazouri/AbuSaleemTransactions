@@ -2,23 +2,17 @@
 
 namespace App\Http\Requests\Request;
 
-use App\Services\IntakeGateService;
+use App\Services\DocumentReview;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Stage 98 — [D] Appendix 6 row 3's تجهيز الملف الوظيفي, answered per
- * service-file document.
+ * Stage 98 — [D] Appendix 6 row 3's تجهيز الملف الوظيفي, one verdict per
+ * attached file, keyed by attachment id.
  *
  * Named without the doubled word, per AGENTS.md's convention for this one
- * resource. Format only, for the same documented reason Stage 78's own gate
- * request gives: *which* rows are asked about, and whether an unconditional
- * one may be waived, both depend on the request's type and are resolved by
- * EmploymentFilePreparationService.
- *
- * Reuses IntakeGateService::ANSWERS rather than restating the three values —
- * the two cards answer different rows, but «موجود / لا ينطبق / ناقص» is one
- * vocabulary, and a second copy would be free to drift.
+ * resource. Format only: which files are under review, and whether the
+ * reviewer opened each one, are resolved by DocumentReview.
  */
 class PrepareEmploymentFileRequest extends FormRequest
 {
@@ -31,7 +25,7 @@ class PrepareEmploymentFileRequest extends FormRequest
     {
         return [
             'documents' => ['present', 'array'],
-            'documents.*' => [Rule::in(IntakeGateService::ANSWERS)],
+            'documents.*' => [Rule::in(DocumentReview::ANSWERS)],
             'assembled' => ['required', 'boolean'],
             'grade_verified' => ['required', 'boolean'],
         ];

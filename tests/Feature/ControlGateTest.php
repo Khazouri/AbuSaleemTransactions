@@ -15,7 +15,6 @@ use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
-use App\Services\IntakeGateService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\PassesControlGates;
@@ -63,75 +62,15 @@ class ControlGateTest extends TestCase
         $this->assertSame('requirements_check', $requestRecord->fresh()->currentStage->code);
     }
 
-    /**
-     * Appendix 57 writes its conditional items as an inline qualifier rather
-     * than a separate list, so "لا ينطبق" is honest for one and refused for
-     * an item the source states unconditionally.
-     */
-    public function test_a_missing_document_refuses_and_not_applicable_is_allowed_only_where_the_source_conditions_it(): void
-    {
-        $reviewer = $this->userWithRole('R02');
-        $requestRecord = $this->requestAtRequirementsCheck();
-
-        $documents = app(IntakeGateService::class)->requiredDocuments($requestRecord);
-        $unconditional = null;
-        $conditional = null;
-        foreach ($documents as $key => $document) {
-            if ($document['conditional'] && $conditional === null) {
-                $conditional = $key;
-            }
-            if (! $document['conditional'] && $unconditional === null) {
-                $unconditional = $key;
-            }
-        }
-
-        $this->assertNotNull($unconditional, 'the seeded matrix should carry at least one unconditional document');
-        $this->assertNotNull($conditional, 'the seeded matrix should carry at least one conditional document');
-
-        $answers = array_fill_keys(array_keys($documents), 'present');
-
-        // A missing document refuses, quoting the document back.
-        $this->actingAs($reviewer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", [
-                'documents' => [...$answers, $unconditional => 'missing'],
-                'facts_verified' => true,
-            ])
-            ->assertOk()
-            ->assertJsonPath(
-                'data.control_gates.intake.refusal',
-                'لا يجوز القيد قبل اكتمال المستندات المطلوبة. المستند الناقص: '.$documents[$unconditional]['ar'],
-            );
-
-        // Waiving an unconditional one refuses too.
-        $this->actingAs($reviewer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", [
-                'documents' => [...$answers, $unconditional => 'not_applicable'],
-                'facts_verified' => true,
-            ])
-            ->assertOk()
-            ->assertJsonPath(
-                'data.control_gates.intake.refusal',
-                'هذا المستند مطلوب في جميع الحالات ولا يجوز اعتباره غير منطبق: '.$documents[$unconditional]['ar'],
-            );
-
-        // Waiving a conditional one is honest, and the gate passes.
-        $this->actingAs($reviewer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", [
-                'documents' => [...$answers, $conditional => 'not_applicable'],
-                'facts_verified' => true,
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.control_gates.intake.refusal', null);
-    }
+    // The per-file verdicts are DocumentReviewTest's; this file keeps the
+    // gate's own first refusal above and the facts half below.
 
     public function test_the_facts_attestation_is_required_and_the_gate_passes_once_it_is_given(): void
     {
         $reviewer = $this->userWithRole('R02');
         $requestRecord = $this->requestAtRequirementsCheck();
-        $answers = array_fill_keys(
-            array_keys(app(IntakeGateService::class)->requiredDocuments($requestRecord)),
-            'present',
-        );
+        // No file is attached, so the documents half has nothing to judge.
+        $answers = [];
 
         $this->actingAs($reviewer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", [

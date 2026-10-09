@@ -13,7 +13,6 @@ use App\Models\WorkflowStage;
 use App\Notifications\ActionRequiredNotification;
 use App\Notifications\RequestNoticeNotification;
 use App\Services\CommitteeStatusService;
-use App\Services\IntakeGateService;
 use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -226,7 +225,7 @@ class RequestSubjectTest extends TestCase
         $requestRecord = $this->newRequest('requirements_check', 'in_review', $clerk->id, $subject->id);
 
         $this->actingAs($subject, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload($requestRecord))
+            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload())
             ->assertStatus(422)
             ->assertJsonPath('message', 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إثبات اكتمال الملف بنفسه.');
 
@@ -265,14 +264,10 @@ class RequestSubjectTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function intakeGatePayload(Request $requestRecord): array
+    private function intakeGatePayload(): array
     {
-        $gate = app(IntakeGateService::class);
-
-        return [
-            'documents' => array_fill_keys(array_keys($gate->requiredDocuments($requestRecord)), 'present'),
-            'facts_verified' => true,
-        ];
+        // The fixture carries no file, so there is no per-file verdict to give.
+        return ['documents' => [], 'facts_verified' => true];
     }
 
     /** @return array<string, mixed> */

@@ -346,6 +346,15 @@ Route::middleware('auth:sanctum')->group(function () {
         )
         ->name('requests.attachments.preview');
 
+    // The full preview was opened. The two document gates accept a verdict
+    // only on a file its reviewer opened, and each open is audited.
+    Route::middleware('screen.permission:request_details,view')
+        ->post(
+            'requests/{requestRecord}/attachments/{attachment}/previewed',
+            [AttachmentController::class, 'previewed'],
+        )
+        ->name('requests.attachments.previewed');
+
     // Stage 15 — the detail screen is read by its own capability. The action
     // endpoint uses that same view gate, then WorkflowService enforces the
     // transition's configured role under lock (not one broad screen flag).

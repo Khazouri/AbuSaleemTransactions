@@ -9,7 +9,6 @@ use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
-use App\Services\IntakeGateService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -49,7 +48,7 @@ class GateAuthorshipTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($employee, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload($requestRecord))
+            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload())
             ->assertForbidden();
 
         $requestRecord->refresh();
@@ -75,7 +74,7 @@ class GateAuthorshipTest extends TestCase
             ->assertJsonPath('message', 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إجراء اختبار الاختصاص على الطلب بنفسه.');
 
         $this->actingAs($officer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload($requestRecord))
+            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload())
             ->assertStatus(422)
             ->assertJsonPath('message', 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إثبات اكتمال الملف بنفسه.');
 
@@ -100,7 +99,7 @@ class GateAuthorshipTest extends TestCase
             ->assertOk();
 
         $response = $this->actingAs($reviewer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload($requestRecord))
+            ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload())
             ->assertOk();
 
         $response->assertJsonPath('data.control_gates.intake.jurisdiction_test.recorded', true)
@@ -187,14 +186,10 @@ class GateAuthorshipTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function intakeGatePayload(Request $requestRecord): array
+    private function intakeGatePayload(): array
     {
-        $gate = app(IntakeGateService::class);
-
-        return [
-            'documents' => array_fill_keys(array_keys($gate->requiredDocuments($requestRecord)), 'present'),
-            'facts_verified' => true,
-        ];
+        // The fixture carries no file, so there is no per-file verdict to give.
+        return ['documents' => [], 'facts_verified' => true];
     }
 
     private function requestAtRequirementsCheck(User $creator): Request

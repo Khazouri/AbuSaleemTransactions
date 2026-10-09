@@ -355,7 +355,8 @@ if (props.initial?.action) {
         <IntakeGatePanel
           v-if="check === 'employment_file'"
           :request-id="request.id"
-          :required-documents="gates.employment_file.required_documents"
+          :attachments="request.attachments ?? []"
+          :review="gates.employment_file.review_attachments"
           :record="gates.employment_file.record"
           :refusal="gates.employment_file.refusal"
           :recorded-by="gates.employment_file.prepared_by"
@@ -370,7 +371,8 @@ if (props.initial?.action) {
         <IntakeGatePanel
           v-else-if="check === 'intake'"
           :request-id="request.id"
-          :required-documents="gates.intake.required_documents"
+          :attachments="request.attachments ?? []"
+          :review="gates.intake.review_attachments"
           :record="gates.intake.record"
           :refusal="gates.intake.refusal"
           :recorded-by="gates.intake.recorded_by"

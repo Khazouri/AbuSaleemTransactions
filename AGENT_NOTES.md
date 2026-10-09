@@ -38,6 +38,48 @@ after-commit, so a rolled-back act still announces nothing. Verify: a new `Notif
 queue set to `database` (RED then GREEN), full PHPUnit, Pint, aislop ci.
 
 ---
+### 2026-10-09 19:05 EET — Claude — Each attached file previewed and approved on both document gates (complete)
+
+Built per the plan below. Migration `attachment_previews` is applied to the real MySQL, and the model is audited. Since
+`DocumentReview` replaced the matrix answers, `IntakeGateService`/`EmploymentFilePreparationService` lost
+`requiredDocuments()`/`derivedAnswers()`, and the panel's `required_documents` prop became `review_attachments`.
+
+Two bugs found in the headless walk, both fixed:
+- **Escape in the preview closed the whole decision wizard** (`AppModal` listens on `document`). `AttachmentLink` now
+  captures Escape on `window`.
+- **Saved verdicts came back blank.** A JSON resource lists a numeric-keyed array, so the panel seeds from
+  `record.items` (now in AGENTS.md Gotchas).
+
+Tests: matrix-only gate tests in four files were deleted, and fixtures with no files now send `documents: []`.
+
+Verified:
+- new `DocumentReviewTest` (7) went RED, then GREEN;
+- full suite 870 / 5652 green; Pint clean; build passes (`dist` committed); parity 2081; `aislop ci` exit 0 (97);
+- headless Chrome on a temporary request (ar/en 1280, ar/en 375): a row locked until its preview opened, Submit
+  disabled until every row had a verdict, the rejection refusal shown, verdicts restored on reopen, no console errors;
+- 27 previews gave 27 audit rows; the fixture was removed and every table count matched its baseline.
+
+Two open items are in OPEN_ITEMS.md.
+
+---
+### 2026-10-09 18:23 EET — Claude — Implementation plan: each attached file previewed and approved on both document gates
+
+User: in the document-verification step, each document is previewed and marked approved or not approved, and one
+button at the end submits the form. Put to the user and answered:
+- Both cards change: HR's «تجهيز الملف الوظيفي» and المقرر's «البوابة الأولى». Their rows become **every attached
+  file**, replacing Appendix 57's required-document list.
+- «غير معتمد» blocks the gate. A newer upload with the same `required_document_key` replaces the rejected file.
+- The system records a preview itself: opening the full preview POSTs `…/attachments/{a}/previewed`, which writes an
+  audited `attachment_previews` row (audit log only). A verdict on a file the actor never opened gets a 422.
+
+Plan: a new `DocumentReview` service is shared by both gate services. `DocumentCompletenessService` is unchanged, so
+the agenda still demands every mandatory matrix row, but HR's register no longer checks the service-file rows.
+`IntakeGatePanel` shows the form inline, with an auto-ticked «تمت المعاينة» box, a verdict pair per file and one
+submit button.
+
+Verify: new tests RED then GREEN, full PHPUnit, Pint, migrate, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-09 17:55 EET — Claude — Hover/click preview for timeline and memo documents (complete)
 
 Built per the plan below, with no migration and no locale change. The new route is

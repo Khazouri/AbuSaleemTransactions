@@ -21,10 +21,8 @@ use App\Models\Request;
  * service-record extracts below are literally الملف الوظيفي; only the first
  * and last of the nine basics are not" — and Stage 80 seeded that distinction
  * as each row's `section`. So الملف الوظيفي is exactly the rows whose section
- * is `service_file` (Attachment::FILE_SECTIONS), read through
- * RequestType::documentOptions() so the keys here are the same slugs the
- * submitter's picker offers and Stage 78's gate answers under. Two
- * identifiers for one matrix is the drift this codebase keeps refusing.
+ * is `service_file` (Attachment::FILE_SECTIONS); applies() reads it to decide
+ * whether this type has an employment file for HR to prepare at all.
  *
  * DELIBERATELY AN ACTION ON AN EXISTING STAGE. `receive_and_register` is where
  * R12 already holds the `register` row (Stage 96 left it the one registering
@@ -32,11 +30,11 @@ use App\Models\Request;
  * workflow_stages row of its own would renumber the chain, which is Stage-57
  * territory and far more than this row asks for.
  *
- * The three answers, the conditional rule and the derived override are all
- * Stage 78's, reused rather than re-decided — see IntakeGateService for why
- * each is what it is. What differs is only which rows are asked about, and by
- * whom: rows 3 and 4 of the same appendix are two parties assembling two
- * things at two moments.
+ * Like Stage 78's gate, HR's card judges the files actually attached, one
+ * verdict per file after HR opened it (DocumentReview, user decision
+ * 2026-10-09), and no longer the service-file rows of Appendix 57's matrix.
+ * Those rows are still demanded before the agenda by
+ * DocumentCompletenessService; they are simply no longer checked at register.
  */
 class EmploymentFilePreparationService
 {
@@ -62,54 +60,25 @@ class EmploymentFilePreparationService
      */
     public const GRADE_NOT_VERIFIED = 'لا يجوز التسجيل قبل تأكد الموارد البشرية من مطابقة الدرجة الوظيفية والدرجة المستحقة وتاريخ الدرجة لسجلات الجهة.';
 
-    public function __construct(private readonly DocumentCompletenessService $completeness) {}
+    public function __construct(private readonly DocumentReview $review) {}
 
     /**
-     * The service-file rows of this request's type, keyed by the shared slug.
-     *
-     * @return array<string, array{ar: string, en: string, conditional: bool, covered: bool}>
+     * Whether this request's type has any الملف الوظيفي row. A type that has
+     * none (an administrator-created one whose rows declare no section) has
+     * nothing for HR to prepare, and a gate with nothing to check must not
+     * hold the file.
      */
-    public function requiredDocuments(Request $requestRecord): array
+    public function applies(Request $requestRecord): bool
     {
         $requestRecord->loadMissing('requestType:id,required_documents');
-        $covered = array_fill_keys($this->completeness->coveredKeys($requestRecord), true);
 
-        $documents = [];
-        foreach ($requestRecord->requestType?->documentOptions() ?? [] as $key => $document) {
-            if (($document['section'] ?? null) !== self::SECTION) {
-                continue;
-            }
-
-            $documents[$key] = [
-                'ar' => $document['ar'],
-                'en' => $document['en'],
-                'conditional' => ($document['condition'] ?? null) !== null,
-                'covered' => isset($covered[$key]),
-            ];
-        }
-
-        return $documents;
-    }
-
-    /**
-     * Rows one of the file's own attachments already names.
-     *
-     * A document in the file outranks anything anyone recorded about it, in
-     * both directions — Stage 78's own precedence, for Art. 104's reason
-     * ("صحة المستند والاختصاص ليستا إجراءات شكلية").
-     *
-     * @return array<string, string>
-     */
-    public function derivedAnswers(Request $requestRecord): array
-    {
-        $derived = [];
-        foreach ($this->requiredDocuments($requestRecord) as $key => $document) {
-            if ($document['covered']) {
-                $derived[$key] = 'present';
+        foreach ($requestRecord->requestType?->documentOptions() ?? [] as $document) {
+            if (($document['section'] ?? null) === self::SECTION) {
+                return true;
             }
         }
 
-        return $derived;
+        return false;
     }
 
     /**
@@ -120,13 +89,7 @@ class EmploymentFilePreparationService
      */
     public function refusalReason(Request $requestRecord): ?string
     {
-        $required = $this->requiredDocuments($requestRecord);
-
-        // Every type [D] covers carries the seven shared service-file rows, so
-        // this is not the empty case in practice — but an administrator-created
-        // type whose rows declare no section is, and a gate with nothing to
-        // check must not hold the file.
-        if ($required === []) {
+        if (! $this->applies($requestRecord)) {
             return null;
         }
 
@@ -136,27 +99,13 @@ class EmploymentFilePreparationService
             return 'لا يجوز تسجيل المعاملة قبل تجهيز الملف الوظيفي للموظف من قبل إدارة الموارد البشرية.';
         }
 
-        $answers = [
-            ...(is_array($record['documents'] ?? null) ? $record['documents'] : []),
-            ...$this->derivedAnswers($requestRecord),
-        ];
+        $documents = $this->review->refusal(
+            $requestRecord,
+            is_array($record['documents'] ?? null) ? $record['documents'] : [],
+        );
 
-        foreach ($required as $key => $document) {
-            $answer = $answers[$key] ?? null;
-
-            if ($answer === null) {
-                return 'لم يتم بعد تجهيز مستند الملف الوظيفي: '.$document['ar'];
-            }
-
-            if ($answer === 'missing') {
-                return 'لا يجوز التسجيل قبل استكمال الملف الوظيفي. المستند الناقص: '.$document['ar'];
-            }
-
-            // Appendix 57's own qualifier is what makes لا ينطبق honest — an
-            // item the source states unconditionally cannot be waived.
-            if ($answer === 'not_applicable' && ! $document['conditional']) {
-                return 'هذا المستند مطلوب في جميع الحالات ولا يجوز اعتباره غير منطبق: '.$document['ar'];
-            }
+        if ($documents !== null) {
+            return $documents;
         }
 
         if (($record['assembled'] ?? false) !== true) {
@@ -171,42 +120,16 @@ class EmploymentFilePreparationService
     }
 
     /**
-     * The stored card: every service-file row with its label frozen beside its
-     * answer, so it reads later as Appendix 57's own list rather than as
-     * opaque keys a reader has to reassemble from a seeder. Stage 75's
-     * auditRecord() precedent, Stage 78's shape.
+     * The stored card. The grade data is frozen beside HR's confirmation, so
+     * the card shows the values that were actually checked.
      *
-     * The grade data is frozen beside HR's confirmation, so the card shows
-     * the values that were actually checked.
-     *
-     * @param  array<string, string>  $answers
-     * @return array{documents: array<string, string>, items: list<array{key: string, label_ar: string, label_en: string, conditional: bool, covered: bool, answer: string}>, assembled: bool, grade_verified: bool, grade: array{decision_grade: int|null, entitled_grade: int|null, grade_date: string|null}}
+     * @param  array<int|string, string>  $verdicts
+     * @return array{documents: array<int, string>, items: list<array{attachment_id: int, name: string, verdict: string}>, assembled: bool, grade_verified: bool, grade: array{decision_grade: int|null, entitled_grade: int|null, grade_date: string|null}}
      */
-    public function record(Request $requestRecord, array $answers, bool $assembled, bool $gradeVerified): array
+    public function record(Request $requestRecord, array $verdicts, bool $assembled, bool $gradeVerified): array
     {
-        $answers = [...$answers, ...$this->derivedAnswers($requestRecord)];
-
-        $items = [];
-        $documents = [];
-        foreach ($this->requiredDocuments($requestRecord) as $key => $document) {
-            $answer = $answers[$key] ?? 'missing';
-            $documents[$key] = $answer;
-            $items[] = [
-                'key' => $key,
-                'label_ar' => $document['ar'],
-                'label_en' => $document['en'],
-                'conditional' => $document['conditional'],
-                // Whether the answer came from a file rather than from HR,
-                // frozen beside it: an attested `present` and a proven one are
-                // different facts.
-                'covered' => $document['covered'],
-                'answer' => $answer,
-            ];
-        }
-
         return [
-            'documents' => $documents,
-            'items' => $items,
+            ...$this->review->record($requestRecord, $verdicts),
             'assembled' => $assembled,
             'grade_verified' => $gradeVerified,
             'grade' => [

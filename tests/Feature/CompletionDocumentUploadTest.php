@@ -13,7 +13,6 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\DocumentCompletenessService;
-use App\Services\IntakeGateService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -99,8 +98,7 @@ class CompletionDocumentUploadTest extends TestCase
 
     /**
      * A named row already declares its folder, so the folder is derived — and
-     * a submitted one is overridden rather than trusted, the same discipline
-     * IntakeGateService::derivedAnswers() applies to a spoofed `missing`.
+     * a submitted one is overridden rather than trusted.
      */
     public function test_a_named_row_derives_its_own_folder_over_a_submitted_one(): void
     {
@@ -161,15 +159,11 @@ class CompletionDocumentUploadTest extends TestCase
         $requestRecord = $this->presentableRequest();
         $missingKey = $this->supplyAllMandatoryDocumentsBarOne($requestRecord);
 
-        // The gap is real: the agenda refuses the file, and the officer's gate
-        // has no derived answer for the row nothing covers.
+        // The gap is real: the agenda refuses the file.
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestRecord->id])
             ->assertStatus(422)
             ->assertJsonValidationErrors('request_id');
-
-        $gate = app(IntakeGateService::class);
-        $this->assertArrayNotHasKey($missingKey, $gate->derivedAnswers($requestRecord->fresh()));
 
         // The officer who found the gap may not fill it themselves...
         $this->actingAs($this->userWithRole('R02'), 'sanctum')

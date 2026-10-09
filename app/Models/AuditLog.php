@@ -34,6 +34,9 @@ class AuditLog extends Model
         RequestStatusHistory::class,
         Approval::class,
         Attachment::class,
+        // Opening a file's full preview: the document gates rely on it, so
+        // who looked at what is part of the trail.
+        AttachmentPreview::class,
         Note::class,
 
         // Committees, meetings and the decisions they produce
