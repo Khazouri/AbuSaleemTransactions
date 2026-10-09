@@ -410,3 +410,9 @@ instead of cramming it in here. Rules:
   (the gate panel reads `record.items`).
 - `frontend/postcss.config.js` is intentionally empty — don't "fix" it by
   adding Tailwind or removing it; the comment in the file explains why.
+- `frontend/.env` and `frontend/.env.production` are git-ignored, so a new git
+  worktree starts without them. Copy both in from the main checkout first.
+  Without `.env` the dev SPA calls `/api` on Vite itself and every screen reads
+  «تعذّر الاتصال بالخادم». Without `.env.production`, `npm run build` bakes no
+  API URL into `dist/`. Before committing a build, check that the bundle
+  contains the production URL (`grep -o 'https://[^"]*/api' frontend/dist/assets/index-*.js`).
