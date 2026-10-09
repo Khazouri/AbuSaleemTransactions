@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Appeal;
 use App\Models\AppealAttachment;
 use App\Models\AppealStatus;
+use App\Models\Attachment;
 use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
@@ -252,7 +253,60 @@ class AppealFileTest extends TestCase
         }
     }
 
+    /**
+     * The original request's documents open through the appeal itself, so a
+     * reader who may see the appeal but not the original file can still preview
+     * them, and only documents of that one request are served.
+     */
+    public function test_original_request_documents_preview_through_the_appeal(): void
+    {
+        $appellant = $this->userWithRole('R01');
+        $reviewer = $this->userWithRole('R02');
+        $stranger = $this->userWithRole('R01');
+        [$appeal, , , , , $target] = $this->decidedAppealFixture($appellant, withMemo: false, withMinutes: false);
+
+        Storage::fake('local');
+        $document = $this->storedAttachment($target, 'service.pdf');
+        $foreign = $this->storedAttachment(
+            Request::where('id', '!=', $target->id)->firstOrFail(),
+            'other.pdf',
+        );
+
+        $url = route('appeals.original-documents.preview', ['appeal' => $appeal, 'attachment' => $document]);
+
+        $response = $this->actingAs($appellant, 'sanctum')
+            ->getJson("/api/appeals/{$appeal->id}/file")
+            ->assertOk();
+        $response->assertJsonPath('data.original_request.attachments.0.preview_url', $url);
+        $response->assertJsonPath('data.presentation_memo.derived.key_documents.0.preview_url', $url);
+
+        foreach ([$appellant, $reviewer] as $actor) {
+            $this->actingAs($actor, 'sanctum')->get($url)->assertOk();
+        }
+
+        $this->actingAs($stranger, 'sanctum')->get($url)->assertNotFound();
+        $this->actingAs($appellant, 'sanctum')
+            ->get(route('appeals.original-documents.preview', ['appeal' => $appeal, 'attachment' => $foreign]))
+            ->assertNotFound();
+    }
+
     // --- helpers --------------------------------------------------------------
+
+    private function storedAttachment(Request $requestRecord, string $name): Attachment
+    {
+        $attachment = Attachment::create([
+            'request_id' => $requestRecord->id,
+            'disk' => 'local',
+            'path' => "attachments/{$requestRecord->id}/{$name}",
+            'original_name' => $name,
+            'mime_type' => 'application/pdf',
+            'size_bytes' => 9,
+            'file_section' => 'service_file',
+        ]);
+        Storage::disk('local')->put($attachment->path, 'pdf-bytes');
+
+        return $attachment;
+    }
 
     /**
      * A request decided by a real committee vote, with an optional generated+

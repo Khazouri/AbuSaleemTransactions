@@ -355,7 +355,7 @@ onMounted(() => load())
                       <h5>{{ t('appeals.file.originalRequest.attachments') }}</h5>
                       <ul class="doc-list">
                         <li v-for="doc in fileData.original_request.attachments" :key="doc.id">
-                          {{ doc.original_name }} <small class="muted">({{ formatBytes(doc.size_bytes) }})</small>
+                          <AttachmentLink :attachment="doc" /> <small class="muted">({{ formatBytes(doc.size_bytes) }})</small>
                         </li>
                       </ul>
                     </div>
@@ -375,7 +375,7 @@ onMounted(() => load())
                         <h5>{{ t('appeals.file.memo.keyDocuments') }}</h5>
                         <ul class="doc-list">
                           <li v-for="doc in fileData.presentation_memo.derived.key_documents" :key="doc.id">
-                            {{ doc.original_name }}
+                            <AttachmentLink :attachment="doc" />
                           </li>
                         </ul>
                       </div>

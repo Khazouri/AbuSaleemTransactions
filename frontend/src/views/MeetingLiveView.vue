@@ -270,6 +270,13 @@ function syncMemoDraft() {
   }
 }
 
+// The stored memo carries no links (a route saved in it would go stale), so a
+// key document borrows the agenda-item preview route from this item's own
+// attachments. One deleted since the memo was generated stays plain text.
+function contextPreviewUrl(document) {
+  return context.value?.attachments?.find((attachment) => attachment.id === document.id)?.preview_url
+}
+
 async function loadMemo(item) {
   memo.value = null
   memoError.value = ''
@@ -620,7 +627,8 @@ onMounted(async () => {
                     <p v-if="!memo.derived.key_documents?.length" class="state">{{ t('meetingsUnit.live.context.attachments.empty') }}</p>
                     <ul v-else class="attachment-list">
                       <li v-for="document in memo.derived.key_documents" :key="document.id">
-                        <span>{{ document.original_name }}</span>
+                        <AttachmentLink v-if="contextPreviewUrl(document)" :attachment="{ ...document, preview_url: contextPreviewUrl(document) }" />
+                        <span v-else>{{ document.original_name }}</span>
                         <span class="muted">{{ fileSize(document.size_bytes) }}</span>
                       </li>
                     </ul>

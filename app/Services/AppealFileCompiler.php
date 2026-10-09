@@ -46,8 +46,8 @@ class AppealFileCompiler
         $agendaItem = $appeal->originalDecision?->meetingRequest;
 
         return [
-            'original_request' => $this->originalRequest($originalRequest),
-            'presentation_memo' => $this->presentationMemo($agendaItem),
+            'original_request' => $this->originalRequest($appeal, $originalRequest),
+            'presentation_memo' => $this->presentationMemo($appeal, $agendaItem),
             'meeting_minutes' => $this->meetingMinutes($agendaItem),
             'decision' => $appeal->originalDecision
                 ? (new DecisionResource($appeal->originalDecision))->resolve()
@@ -68,7 +68,7 @@ class AppealFileCompiler
     }
 
     /** @return array<string, mixed>|null */
-    private function originalRequest(?Request $originalRequest): ?array
+    private function originalRequest(Appeal $appeal, ?Request $originalRequest): ?array
     {
         if ($originalRequest === null) {
             return null;
@@ -110,8 +110,18 @@ class AppealFileCompiler
                 'mime_type' => $attachment->mime_type,
                 'size_bytes' => $attachment->size_bytes,
                 'label' => $attachment->label,
+                'preview_url' => $this->documentUrl($appeal, $attachment->id),
             ])->values()->all(),
         ];
+    }
+
+    /**
+     * The original file's documents open through the appeal, whose reader may
+     * not be able to open that file itself (AppealAttachmentController::originalDocument).
+     */
+    private function documentUrl(Appeal $appeal, int $attachmentId): string
+    {
+        return route('appeals.original-documents.preview', ['appeal' => $appeal->id, 'attachment' => $attachmentId]);
     }
 
     /**
@@ -121,16 +131,23 @@ class AppealFileCompiler
      *
      * @return array<string, mixed>|null
      */
-    private function presentationMemo(?MeetingRequest $agendaItem): ?array
+    private function presentationMemo(Appeal $appeal, ?MeetingRequest $agendaItem): ?array
     {
         if ($agendaItem === null) {
             return null;
         }
 
         $memo = $agendaItem->presentationMemo;
+        $derived = $this->presentationMemoCompiler->compile($agendaItem);
+        // The compiler stays URL-free because its output is also stored on the
+        // memo row; a link is added only here, where it is read.
+        $derived['key_documents'] = array_map(
+            fn (array $document) => [...$document, 'preview_url' => $this->documentUrl($appeal, $document['id'])],
+            $derived['key_documents'],
+        );
 
         return [
-            'derived' => $this->presentationMemoCompiler->compile($agendaItem),
+            'derived' => $derived,
             'authored' => $memo?->content['authored'] ?? null,
             'generated_at' => $memo?->generated_at?->toIso8601String(),
         ];

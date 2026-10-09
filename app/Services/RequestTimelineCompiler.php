@@ -120,6 +120,8 @@ class RequestTimelineCompiler
                 // Appendix 14's folder, so a linked document says which part
                 // of the file it belongs to rather than only its filename.
                 'section' => $attachment->file_section,
+                'mime_type' => $attachment->mime_type,
+                'size_bytes' => $attachment->size_bytes,
                 'url' => route('requests.attachments.preview', [
                     'requestRecord' => $attachment->request_id,
                     'attachment' => $attachment->id,

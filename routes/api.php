@@ -1023,6 +1023,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:appeals,view')
         ->get('appeals/{appeal}/attachments/{attachment}/preview', [AppealAttachmentController::class, 'preview'])
         ->name('appeals.attachments.preview');
+    // The original request's documents, opened from the appeal dossier. A reader
+    // the appeal admits may not pass RequestVisibility on the original file, so
+    // the appeal is what grants this read, never the request route.
+    Route::middleware('screen.permission:appeals,view')
+        ->get('appeals/{appeal}/original-documents/{attachment}', [AppealAttachmentController::class, 'originalDocument'])
+        ->name('appeals.original-documents.preview');
 
     // Stage 60 — the formal-verification gate (صفة المتظلم / القرار محل
     // التظلم / المواعيد القانونية / عدم التكرار). One-shot: only an appeal

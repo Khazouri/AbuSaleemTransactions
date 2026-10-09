@@ -132,6 +132,9 @@ class RequestTimelineTest extends TestCase
         );
         // Appendix 14's folder travels with the document.
         $this->assertSame('service_file', $timeline[0]['documents'][0]['section']);
+        // What the SPA's hover preview needs to decide how to draw the file.
+        $this->assertSame('application/pdf', $timeline[0]['documents'][0]['mime_type']);
+        $this->assertSame(10, $timeline[0]['documents'][0]['size_bytes']);
 
         $this->assertSame($second->id, $timeline[1]['id']);
         $kinds = array_column($timeline[1]['documents'], 'kind');

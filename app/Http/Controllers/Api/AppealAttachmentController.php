@@ -7,6 +7,7 @@ use App\Http\Requests\Appeal\StoreAppealAttachmentRequest;
 use App\Http\Resources\AppealAttachmentResource;
 use App\Models\Appeal;
 use App\Models\AppealAttachment;
+use App\Models\Attachment;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
@@ -58,14 +59,18 @@ class AppealAttachmentController extends Controller
         $this->authorizeAccess($request->user(), $appeal);
 
         abort_unless($attachment->appeal_id === $appeal->id, 404);
-        abort_unless(Storage::disk($attachment->disk)->exists($attachment->path), 404);
 
-        return Storage::disk($attachment->disk)->response(
-            $attachment->path,
-            $attachment->original_name,
-            ['Content-Type' => $attachment->mime_type],
-            'inline',
-        );
+        return $this->stream($attachment);
+    }
+
+    /** A document of the request this appeal contests, and of no other request. */
+    public function originalDocument(HttpRequest $request, Appeal $appeal, Attachment $attachment): StreamedResponse
+    {
+        $this->authorizeAccess($request->user(), $appeal);
+
+        abort_unless($attachment->request_id === $appeal->original_request_id, 404);
+
+        return $this->stream($attachment);
     }
 
     /**
@@ -76,5 +81,17 @@ class AppealAttachmentController extends Controller
     private function authorizeAccess(User $actor, Appeal $appeal): void
     {
         abort_unless($appeal->isVisibleTo($actor), 404);
+    }
+
+    private function stream(AppealAttachment|Attachment $attachment): StreamedResponse
+    {
+        abort_unless(Storage::disk($attachment->disk)->exists($attachment->path), 404);
+
+        return Storage::disk($attachment->disk)->response(
+            $attachment->path,
+            $attachment->original_name,
+            ['Content-Type' => $attachment->mime_type],
+            'inline',
+        );
     }
 }

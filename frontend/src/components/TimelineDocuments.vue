@@ -10,6 +10,7 @@
  */
 import { useI18n } from 'vue-i18n'
 import AppIcon from './AppIcon.vue'
+import AttachmentLink from './AttachmentLink.vue'
 import { fileSectionLabel } from '../lib/fileSections'
 
 defineProps({
@@ -19,6 +20,11 @@ defineProps({
 const { t } = useI18n()
 
 const ICONS = { attachment: 'file-text', decision: 'scale' }
+
+// A stored attachment carries its preview route; a decision row never does.
+function asAttachment(doc) {
+  return { original_name: doc.reference, mime_type: doc.mime_type, size_bytes: doc.size_bytes, preview_url: doc.url }
+}
 </script>
 
 <template>
@@ -28,8 +34,9 @@ const ICONS = { attachment: 'file-text', decision: 'scale' }
         <AppIcon :name="ICONS[doc.kind] || 'file-text'" :size="16" />
       </span>
       <span class="name">
-        <span class="label">{{ doc.label }}</span>
-        <span v-if="doc.reference && doc.reference !== doc.label" class="reference">{{ doc.reference }}</span>
+        <span v-if="!doc.url || doc.label !== doc.reference" class="label">{{ doc.label }}</span>
+        <AttachmentLink v-if="doc.url" :attachment="asAttachment(doc)" />
+        <span v-else-if="doc.reference && doc.reference !== doc.label" class="reference">{{ doc.reference }}</span>
       </span>
       <span v-if="doc.section" class="section">{{ fileSectionLabel(t, doc.section) }}</span>
     </li>

@@ -19,6 +19,36 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-09 17:55 EET — Claude — Hover/click preview for timeline and memo documents (complete)
+
+Built per the plan below, with no migration and no locale change. The new route is
+`appeals.original-documents.preview`, and `AppealAttachmentController::stream()` now serves both appeal routes.
+`PresentationMemoCompiler` still emits no URL. A key document deleted after the memo was generated has no match in
+the live runner and stays plain text there. Verified: the new AppealFileTest case and the timeline assertion went RED
+then GREEN, the full suite is 868 / 5656 green, Pint is clean on the six touched PHP files, the build passes (`dist`
+committed), parity is 2088, and `aislop ci` exits 0 (97). Headless Chrome hovered and clicked a timeline document on
+request 51 (ar/en 1280, ar 375) with no console errors. **Not browser-checked:** the live runner's memo tab and the
+appeal dossier, because the real DB has no fixture for them; the dossier's links are covered by the feature test.
+
+---
+### 2026-10-09 17:31 EET — Claude — Implementation plan: hover/click preview for timeline and memo documents
+
+User follow-up: the timeline's documents and the presentation memo's key documents get the same `AttachmentLink`
+preview. Plan, in three parts:
+- Timeline: `RequestTimelineCompiler`'s attachment rows already carry `url`, and gain `mime_type`/`size_bytes`.
+  `TimelineDocuments` uses `AttachmentLink` for an attachment row with a URL.
+- Live runner: the stored memo stays URL-free, because a route baked into `presentation_memos.content` would go stale.
+  The memo tab matches each key document by id to `context.attachments`, which already carry the agenda-item
+  attachment route.
+- Appeal dossier: a new `GET appeals/{appeal}/original-documents/{attachment}` (`appeals,view`,
+  `Appeal::isVisibleTo`, and the attachment must belong to the appeal's original request). This is needed because an
+  `appeals,edit` reader may not pass `RequestVisibility` on the original request. `AppealFileCompiler` adds that
+  `preview_url` to `original_request.attachments` and `presentation_memo.derived.key_documents`.
+
+Verify: AppealFileTest/RequestTimelineTest cases (RED then GREEN), full PHPUnit, Pint, build (`dist` committed),
+parity, aislop ci, and a headless check. (Clock note: the machine reads 17:31, behind the entries below.)
+
+---
 ### 2026-10-09 17:45 EET — Claude — Attachment preview on hover, full preview on click (complete)
 
 Built per the plan below. `AttachmentLink.vue` is used on the request page, the decision wizard's Review step, the
