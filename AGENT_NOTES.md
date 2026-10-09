@@ -19,6 +19,14 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-09 20:20 EET — Claude — One branch per task, merged into main when done
+
+User: «branch out for every new task and commit to the main branch». AGENTS.md (Conventions) and the
+`verify-and-commit` skill now say: cut a fresh branch from `main` at the start of every task, commit there once
+verified, then `git merge --no-ff` it into `main` and delete it (merge style chosen by the user). Pushing and PRs
+still need an explicit request. Instruction change only; no code touched.
+
+---
 ### 2026-10-09 19:15 EET — Claude — Notifications are sent instantly (complete)
 
 Built per the plan below; no migration and no frontend change. `NotificationDispatcher::send()` now sends on `sync`

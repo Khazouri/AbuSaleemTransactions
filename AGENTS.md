@@ -292,9 +292,14 @@ Key architectural facts worth knowing before changing things:
   to the host, so a stale one ships the old UI. A task with no frontend
   change leaves `dist/` alone (revert it if a build touched it). Put the
   AGENT_NOTES.md entry in the same commit as the work it
-  describes, so the record and the change cannot drift apart. Branch first if
-  the current branch is `main`. Pushing and opening a PR stay on explicit
-  request — this covers committing only.
+  describes, so the record and the change cannot drift apart. Pushing and
+  opening a PR stay on explicit request — this covers committing only.
+- **One branch per task** (user decision 2026-10-09): start every new task on
+  a fresh branch cut from `main` (`git switch main && git switch -c
+  <type>/<short-name>`). When the task is verified, commit on that branch,
+  then `git switch main && git merge --no-ff <branch>` and
+  `git branch -d <branch>`. If the working tree holds unrelated uncommitted
+  work when a task starts, ask before switching.
 
 ## Build / run / test commands
 

@@ -15,4 +15,4 @@ AGENTS.md ("Commit finished work") defines verified. Run each step and report re
 6. `graphify update .`
 7. Write the completion entry at the top of `AGENT_NOTES.md` (what was built, counts, deviations from the plan, open items). Add every open item to `OPEN_ITEMS.md`.
 8. `node scripts/archive-agent-notes.mjs` (no-op under 150 KB).
-9. Commit the work and the notes entry together. Branch first if on `main`. Do not push or open a PR unless asked.
+9. Commit the work and the notes entry together on the task's own branch (cut from `main` when the task started), then `git switch main && git merge --no-ff <branch> && git branch -d <branch>`. Do not push or open a PR unless asked.
