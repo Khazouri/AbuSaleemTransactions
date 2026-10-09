@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * WorkflowTransition — one legal move in the state machine.
  *
  * Read a row as:
- *   "A transaction at {fromStage}, when {action} is performed by {requiredRole},
+ *   "A request at {fromStage}, when {action} is performed by {requiredRole},
  *    moves to {toStage} and takes status {setStatus}."
  *
  * WorkflowService::transition() (Stage 14) matches the current stage, the
@@ -17,18 +17,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * matches, the move is refused — which means the rules are entirely data, and
  * adding a path is an INSERT rather than a code change.
  *
- * @property string   $action            approve, reject, return_missing_docs...
- * @property bool     $is_exception      Exception path vs normal progress
- * @property bool     $requires_comment  Force the actor to give a reason
+ * @property string $action approve, reject, return_missing_docs...
+ * @property bool $is_exception Exception path vs normal progress
+ * @property bool $requires_comment Force the actor to give a reason
  */
 class WorkflowTransition extends Model
 {
     protected $fillable = [
-        'transaction_type_id',
+        'request_type_id',
         'from_stage_id',
         'to_stage_id',
         'action',
         'required_role_id',
+        'requires_submitter_manager',
+        'requires_creator',
+        'required_status_id',
         'set_status_id',
         'is_exception',
         'requires_comment',
@@ -40,19 +43,21 @@ class WorkflowTransition extends Model
         return [
             'is_exception' => 'boolean',
             'requires_comment' => 'boolean',
+            'requires_submitter_manager' => 'boolean',
+            'requires_creator' => 'boolean',
         ];
     }
 
     /**
-     * Limits this rule to a single transaction type.
+     * Limits this rule to a single request type.
      * Null means the rule applies to every type.
      */
-    public function transactionType(): BelongsTo
+    public function requestType(): BelongsTo
     {
-        return $this->belongsTo(TransactionType::class);
+        return $this->belongsTo(RequestType::class);
     }
 
-    /** Stage the transaction must currently be at for this rule to fire. */
+    /** Stage the request must currently be at for this rule to fire. */
     public function fromStage(): BelongsTo
     {
         return $this->belongsTo(WorkflowStage::class, 'from_stage_id');
@@ -69,16 +74,27 @@ class WorkflowTransition extends Model
 
     /**
      * The role permitted to perform this action. This is the authoritative
-     * check for moving a transaction through the workflow.
+     * check for moving a request through the workflow.
      */
     public function requiredRole(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'required_role_id');
     }
 
-    /** Status stamped on the transaction when the move succeeds. */
+    /** Status stamped on the request when the move succeeds. */
     public function setStatus(): BelongsTo
     {
-        return $this->belongsTo(TransactionStatus::class, 'set_status_id');
+        return $this->belongsTo(RequestStatus::class, 'set_status_id');
+    }
+
+    /**
+     * The request's CURRENT status this rule additionally requires, on
+     * top of `required_role_id`. Null means no status restriction. This is
+     * what makes three-way administrative routing enforceable: role alone
+     * can't distinguish which of several routed-to statuses a file carries.
+     */
+    public function requiredStatus(): BelongsTo
+    {
+        return $this->belongsTo(RequestStatus::class, 'required_status_id');
     }
 }

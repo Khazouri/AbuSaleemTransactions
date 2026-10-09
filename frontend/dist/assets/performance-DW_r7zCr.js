@@ -1,0 +1,1 @@
+function e(e,t,n,r=`—`){if(e==null)return r;let i=new Intl.NumberFormat(n===`ar`?`ar-LY`:`en-GB`,{maximumFractionDigits:1});return t===`percent`?`${i.format(e)}%`:i.format(e)}function t(e){return e===`period`?`scope-period`:e===`cross_cutting`?`scope-cross`:`scope-live`}function n(e){return e?`level-${e}`:``}export{e as n,n as r,t};

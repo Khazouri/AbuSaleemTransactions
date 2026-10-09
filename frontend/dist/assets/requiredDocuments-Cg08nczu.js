@@ -1,0 +1,1 @@
+var e=[`basic`,`specific`];function t(e,t){return t===`ar`?e.ar||e.en:e.en||e.ar}function n(e,n){return e.condition?t(e.condition,n):``}function r(t){let n=Array.isArray(t)?t:[];return e.map(e=>({group:e,items:n.filter(t=>(t.group||`basic`)===e)})).filter(e=>e.items.length>0)}export{r as i,n,t as r,e as t};

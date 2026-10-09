@@ -30,6 +30,8 @@ class ScreenResource extends JsonResource
             // Vue router path this entry links to.
             'route' => $this->route,
             'icon' => $this->icon,
+            // Stage 28: sidebar cluster slug, null for ungrouped (top-level) screens.
+            'group' => $this->group,
             'sort_order' => $this->sort_order,
         ];
     }

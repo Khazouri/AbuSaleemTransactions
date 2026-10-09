@@ -2,12 +2,13 @@
 
 namespace Database\Factories;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
@@ -29,6 +30,16 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            // Intake refuses a filer without one (2026-10-07).
+            'employee_number' => fake()->unique()->numerify('######'),
+            // Mirrors the column's own default. Without it the RETURNED model
+            // carries is_active = null in memory even though the row is true,
+            // and actingAs() hands that exact instance to the request — so any
+            // visibility rule reading $actor->is_active (RequestVisibility and
+            // MeetingVisibility both do) silently sees an inactive user and
+            // 404s everything. A test that wants an inactive user still gets
+            // one by passing is_active => false explicitly.
+            'is_active' => true,
         ];
     }
 

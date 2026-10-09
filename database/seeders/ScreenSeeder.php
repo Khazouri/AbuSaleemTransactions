@@ -6,8 +6,13 @@ use App\Models\Screen;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds the 22 application screens, in the order they appear on the
- * screen-permissions sheet.
+ * Seeds the application screens, in the order they appear on the
+ * screen-permissions sheet — originally 29 from that sheet (Stage 28 adds 7
+ * to the original 22 for the meetings-unit redesign; Stage 57 later removes
+ * one, `authority_approval`), plus `departments` (see the note beside it
+ * below), Stage 58's `appeals`, Stage 68's `legal_review`, Stage 80's
+ * `registers`, the maintenance console, `request_types` and Stage 89's
+ * `request_tracking` = 35 total.
  *
  * Two consumers:
  *   - the sidebar (Stage 5) renders these rows, filtered by can_view
@@ -24,42 +29,124 @@ class ScreenSeeder extends Seeder
 {
     public function run(): void
     {
-        // [code, Arabic name, English name, Vue route, icon]
+        // Stage 57 — the first screen this seeder has ever had to actually
+        // remove, not just add/modify: dropping a row from the upsert array
+        // below leaves it orphaned, since updateOrCreate() never deletes.
+        // Its screen_role_permissions rows cascade-delete with it.
+        Screen::query()->where('code', 'authority_approval')->delete();
+
+        // [code, Arabic name, English name, Vue route, icon, group]
+        // `group` is null for every ungrouped (flat, top-level) screen —
+        // Stage 28 is the first to use it, on the Committee block below.
         $screens = [
             // --- Day-to-day work ---------------------------------------------
-            ['dashboard',                'لوحة التحكم الرئيسية',       'Dashboard',                    '/dashboard',                'gauge'],
-            ['transactions',             'طلبات المعاملات',            'Transaction Requests',         '/transactions',             'list'],
-            ['transaction_intake',       'استلام المعاملة',            'Transaction Intake',           '/transactions/create',      'inbox'],
-            ['transaction_details',      'تفاصيل المعاملة',            'Transaction Details',          '/transactions/:id',         'file-text'],
-            ['notes_attachments',        'الملاحظات والمرفقات',        'Notes & Attachments',          '/transactions/:id/notes',   'paperclip'],
+            ['dashboard',                'لوحة التحكم الرئيسية',       'Dashboard',                    '/dashboard',                'gauge',        null],
+            ['requests',             'الطلبات',                  'Requests',                 '/requests',             'list',         null],
+            ['request_intake',       'إرسال الطلب',            'Request Intake',           '/requests/create',      'inbox',        null],
+            // Stage 89 — «متابعة طلباتي», the employee's own view of the files
+            // they filed. Top-level and ungrouped beside the two other
+            // employee-facing request screens, not inside any committee block:
+            // tracking your own request is the counterpart of submitting it,
+            // which is why it sits here rather than beside `requests` (the
+            // internal work queue, whose framing is "work I can act on").
+            ['my_tasks',             'المهام المعلقة',           'Pending Tasks',            '/my-tasks',             'inbox',        null],
+            ['request_tracking',     'متابعة طلباتي',           'My Requests',              '/my-requests',          'compass',      null],
+            ['request_details',      'تفاصيل الطلب',            'Request Details',          '/requests/:id',         'file-text',    null],
+            ['notes_attachments',        'الملاحظات والمرفقات',        'Notes & Attachments',          '/requests/:id/notes',   'paperclip',    null],
+            // Stage 58 — appeals (تظلمات) against an already-decided request.
+            // Top-level and ungrouped on purpose: filing an appeal is an
+            // employee-facing action, not committee administration, so it
+            // does NOT sit inside meetings_management below (see
+            // STAGE_PLAN.md Track J's intro).
+            ['appeals',               'التظلمات',                'Appeals',                  '/appeals',              'flag',         null],
 
-            // --- Committee ----------------------------------------------------
-            ['meetings',                 'الاجتماعات',                'Meetings',                     '/meetings',                 'users'],
-            ['decisions',                'القرارات والتوصيات',         'Decisions & Recommendations',  '/decisions',                'check-square'],
+            // --- Committee (Stage 28: "إدارة الاجتماعات" / meetings_management) --
+            // 8 grouped slots for Track H (stages 28-37). `meetings` already
+            // existed (Stage 20) and is unchanged apart from gaining a
+            // `group`; 6 more are empty navigation shells until later stages
+            // give them real content. `decisions` (Stage 25) was grouped here
+            // too until Stage 43 pulled it back out — [C] is explicit that
+            // decisions is a shared system-wide unit, not a meetings-only one
+            // ("وحدات مشتركة في النظام ولا نكررها داخل قسم الاجتماعات") — so it
+            // stays in this array position for a stable diff but carries no
+            // `group`, same as every other shared screen.
+            ['meetings_dashboard',       'لوحة قيادة الاجتماعات',      'Meetings Dashboard',           '/meetings/dashboard',       'grid',         'meetings_management'],
+            ['committee_candidates',     'الطلبات المرشحة',            'Committee Candidates',         '/meetings/candidates',      'file-plus',    'meetings_management'],
+            // Stage 68 — [D] Art. 21's pre-meeting legal review. Grouped with
+            // the committee block because it is agenda preparation ([E] stage
+            // 08 sits between completeness and the presentation memo), not an
+            // employee-facing screen like `appeals`.
+            ['legal_review',             'المراجعة القانونية',          'Legal Review',                 '/meetings/legal-review',    'scale',        'meetings_management'],
+            ['meetings',                 'الاجتماعات',                'Meetings',                     '/meetings',                 'users',        'meetings_management'],
+            ['meeting_agenda',           'جدول الأعمال',               'Meeting Agenda',               '/meetings/agenda',          'file-text',    'meetings_management'],
+            ['meeting_readiness',        'جاهزية الاجتماع',            'Meeting Readiness',            '/meetings/readiness',       'check-square', 'meetings_management'],
+            ['meeting_live',             'مباشرة الاجتماع',            'Live Meeting',                 '/meetings/live',            'video',        'meetings_management'],
+            // Stage 43 — decisions is shared, not part of meetings_management.
+            ['decisions',                'القرارات والتوصيات',         'Decisions & Recommendations',  '/decisions',                'check-square', null],
+            ['meeting_minutes',          'المحاضر',                    'Minutes',                      '/meetings/minutes',         'book',         'meetings_management'],
+            ['meeting_outputs',          'المخرجات',                   'Outputs',                      '/meetings/outputs',         'bar-chart',    'meetings_management'],
 
             // --- The approval chain, one screen per authority ------------------
-            ['reviewer_approval',        'اعتماد المقرر',              'Reviewer Approval',            '/approvals/reviewer',       'user-check'],
-            ['committee_head_approval',  'اعتماد رئيس اللجنة',         'Committee Head Approval',      '/approvals/committee-head', 'award'],
-            ['admin_manager_approval',   'اعتماد مدير الإدارة',        'Admin Manager Approval',       '/approvals/admin-manager',  'briefcase'],
-            ['ministry_approval',        'اعتماد وزارة الحكم المحلي',   'Ministry Approval',            '/approvals/ministry',       'landmark'],
-            ['authority_approval',       'اعتماد الجهة المختصة',       'Competent Authority Approval', '/approvals/authority',      'shield'],
-            ['final_approval',           'الاعتماد النهائي والأرشفة',   'Final Approval & Archiving',   '/approvals/final',          'archive'],
+            //
+            // Route deliberately NULL: the unified task inbox replaced these
+            // five queues, so they have no page of their own any more and the
+            // SPA's navItems filter (which requires a route) drops them from
+            // the sidebar. The ROWS and their grants stay, because they were
+            // never only menu entries: RequestController::actorCanApproveCurrentLevel()
+            // resolves each approval stage to one of these codes and checks
+            // `can_approve` on it, so deleting them would make that false for
+            // everyone and the approve button would vanish at every checkpoint,
+            // for every role. They are the per-checkpoint segregation of duties
+            // the whole approval chain rests on, and they stay editable on the
+            // Roles & Permissions grid.
+            ['reviewer_approval',        'اعتماد المقرر',              'Reviewer Approval',           null,       'user-check',   null],
+            ['committee_head_approval',  'اعتماد رئيس اللجنة',         'Committee Head Approval',     null, 'award',        null],
+            ['admin_manager_approval',   'اعتماد مدير الإدارة',        'Admin Manager Approval',      null,  'briefcase',    null],
+            ['ministry_approval',        'اعتماد وزارة الحكم المحلي',   'Ministry Approval',           null,       'landmark',     null],
+            // Stage 57 removed `authority_approval` (competent_authority) —
+            // no standard document names a fourth post-committee approving
+            // party; see the explicit delete() call below.
+            ['final_approval',           'الاعتماد النهائي والأرشفة',   'Final Approval & Archiving',  null,          'archive',      null],
 
             // --- Administration ------------------------------------------------
-            ['users',                    'المستخدمون',                'Users',                        '/users',                    'user'],
-            ['roles_permissions',        'الأدوار والصلاحيات',         'Roles & Permissions',          '/roles',                    'key'],
-            ['settings',                 'الإعدادات العامة',           'General Settings',             '/settings',                 'settings'],
+            ['users',                    'المستخدمون',                'Users',                        '/users',                    'user',         null],
+            // NOTE: `departments` is a 23rd screen, not on the original
+            // 22-screen sheet. The system needs somewhere to manage the org
+            // tree (Stage 6) and no existing screen covers it. Restricted to
+            // R08 like the other administration screens.
+            ['departments',              'الإدارات والأقسام',          'Departments',                  '/departments',              'sitemap',      null],
+            // The request-type catalogue (أنواع الطلبات). Seeded since Stage
+            // 53 with no way to maintain it — the type carries the SLA, the
+            // ministry-escalation grade and Appendix 57's document matrix, so
+            // it needs a screen. Administration, i.e. R08-only, like its
+            // neighbours here.
+            ['request_types',            'أنواع الطلبات',              'Request Types',                '/request-types',            'layers',       null],
+            ['roles_permissions',        'الأدوار والصلاحيات',         'Roles & Permissions',          '/roles',                    'key',          null],
+            ['settings',                 'الإعدادات العامة',           'General Settings',             '/settings',                 'settings',     null],
+            // Stage 103 — R08 names the مقرر here, and the مقرر names the
+            // other four seat holders. Beside the settings it extends.
+            ['committee_roles',          'المناصب الفردية',            'Sole-holder Posts',              '/committee-roles',          'shield',       null],
 
             // --- Oversight and support -----------------------------------------
-            ['reports',                  'التقارير والإحصائيات',       'Reports & Statistics',         '/reports',                  'bar-chart'],
-            ['audit_log',                'سجل التدقيق',               'Audit Log',                    '/audit-log',                'clipboard'],
-            ['notifications',            'الإشعارات',                 'Notifications',                '/notifications',            'bell'],
-            ['templates',                'القوالب والنماذج',           'Templates & Forms',            '/templates',                'layout'],
-            ['backup',                   'النسخ الاحتياطي',            'Backup',                       '/backup',                   'database'],
-            ['user_guide',               'دليل الاستخدام',             'User Guide',                   '/guide',                    'book'],
+            ['reports',                  'التقارير والإحصائيات',       'Reports & Statistics',         '/reports',                  'bar-chart',    null],
+            // Stage 80 — [D] Art. 98's twelve official registers. Top-level
+            // and ungrouped beside `reports`/`audit_log`: a register is a
+            // system-wide oversight record, not committee administration, so
+            // it does NOT sit inside meetings_management.
+            ['registers',                'السجلات الرسمية',            'Official Registers',           '/registers',                'book',         null],
+            ['audit_log',                'سجل التدقيق',               'Audit Log',                    '/audit-log',                'clipboard',    null],
+            ['notifications',            'الإشعارات',                 'Notifications',                '/notifications',            'bell',         null],
+            ['templates',                'القوالب والنماذج',           'Templates & Forms',            '/templates',                'layout',       null],
+            ['backup',                   'النسخ الاحتياطي',            'Backup',                       '/backup',                   'database',     null],
+            // The maintenance console. Beside `backup` because it is the same
+            // kind of screen: a server operation an administrator performs on
+            // the deployment rather than on the committee's work. R08-only
+            // through an empty DEFAULTS entry in ScreenRolePermissionSeeder.
+            ['maintenance',              'الصيانة والنشر',             'Maintenance & Deployment',     '/maintenance',              'terminal',     null],
+            ['user_guide',               'دليل الاستخدام',             'User Guide',                   '/guide',                    'book',         null],
         ];
 
-        foreach ($screens as $i => [$code, $nameAr, $nameEn, $route, $icon]) {
+        foreach ($screens as $i => [$code, $nameAr, $nameEn, $route, $icon, $group]) {
             Screen::updateOrCreate(
                 ['code' => $code],
                 [
@@ -67,7 +154,11 @@ class ScreenSeeder extends Seeder
                     'name_en' => $nameEn,
                     'route' => $route,
                     'icon' => $icon,
-                    // Array position drives sidebar order (1-based).
+                    'group' => $group,
+                    // Array position drives sidebar order (1-based). Inserting
+                    // the 7 new Committee rows renumbers everything after
+                    // them — cosmetic only, since `orderBy('sort_order')` is
+                    // the only thing that reads this.
                     'sort_order' => $i + 1,
                     'is_active' => true,
                 ],

@@ -1,0 +1,1 @@
+var e=[`request`,`referrals`,`service_file`,`supporting_documents`,`legal_review`,`presentation_memo`,`meeting_agenda`,`minutes_decision`,`approval`,`execution`,`notices`,`closure`];function t(t,n){return n&&e.includes(n)?t(`fileSections.${n}`):t(`fileSections.unclassified`)}export{t as n,e as t};

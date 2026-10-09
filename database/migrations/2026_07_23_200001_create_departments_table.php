@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\Schema;
  *
  * Why it matters elsewhere:
  *  - Every user belongs to a department (users.department_id).
- *  - Every transaction is owned by a department (transactions.department_id).
- *  - The department `code` becomes the middle segment of a transaction's
+ *  - Every request is owned by a department (requests.department_id).
+ *  - The department `code` becomes the middle segment of a request's
  *    reference number: YYYY-DEPT-000123 (built in Stage 13).
  */
 return new class extends Migration
@@ -42,7 +42,7 @@ return new class extends Migration
             // Soft disable: keeps history intact when a department is retired.
             $table->boolean('is_active')->default(true);
 
-            // deleted_at — rows are never truly removed, so transactions that
+            // deleted_at — rows are never truly removed, so requests that
             // reference a department keep resolving after "deletion".
             $table->softDeletes();
             $table->timestamps();

@@ -1,0 +1,52 @@
+# Apache config for the built SPA. Lives in public/ so Vite copies it verbatim
+# into dist/ on every build — it must sit NEXT TO the built index.html on the
+# server, not in the project root.
+#
+# Deliberately written WITHOUT a RewriteBase: every path here is relative to
+# whatever directory this file ends up in, so the same file works unchanged at a
+# domain root, on a subdomain, or inside a subfolder.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # A request that maps to a real file or directory (index.html, /assets/*.js,
+  # favicon.svg) is served as-is. This rule must come FIRST, or the catch-all
+  # below would swallow the JS bundle and hand back HTML — which the browser
+  # then refuses with a MIME-type error and a blank page.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Everything else is a client-side route. The Vue router uses
+  # createWebHistory(), so /departments and /meetings/12 are real URLs the user
+  # can refresh or bookmark, but no such file exists on disk. Hand back
+  # index.html and let the router resolve the path.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Vite fingerprints every asset filename (index-0VymlHit.js), so a changed
+  # file is always a changed URL and these can be cached permanently.
+  <FilesMatch "\.(js|css|woff2?|svg|png|jpe?g|gif|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # index.html is the ONE unfingerprinted file, and it is what points at the
+  # current bundle. If a proxy or browser caches it, a redeployed site keeps
+  # serving the previous build's asset URLs — which no longer exist — and the
+  # app breaks for exactly the people who visited before the deploy.
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# Some cPanel hosts still serve .js as text/plain, which a `type="module"`
+# script tag rejects outright.
+<IfModule mod_mime.c>
+  AddType application/javascript .js
+  AddType image/svg+xml .svg
+</IfModule>

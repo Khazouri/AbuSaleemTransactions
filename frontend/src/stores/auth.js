@@ -41,11 +41,29 @@ export const useAuthStore = defineStore('auth', () => {
   /** Just the role codes, e.g. ['R08'] — handy for quick checks. */
   const roleCodes = computed(() => (user.value?.roles ?? []).map((r) => r.code))
 
+  /**
+   * Resolved screen x action permission map from /auth/login or /auth/me,
+   * e.g. { users: { can_view: true, can_add: false, ... }, ... }. Empty until
+   * a user is loaded, which makes `can()` fail closed rather than open.
+   */
+  const permissions = computed(() => user.value?.permissions ?? {})
+
   // ---- actions --------------------------------------------------------------
 
   /** Does the current user hold this role? e.g. hasRole('R08'). */
   function hasRole(code) {
     return roleCodes.value.includes(code)
+  }
+
+  /**
+   * Does the current user's role grant this screen/action? e.g.
+   * can('users', 'edit'). Mirrors the API's screen.permission middleware
+   * (CheckScreenPermission) and drives both the router guard and the v-can
+   * directive, so a hidden button and a blocked route always agree with what
+   * the server actually allows.
+   */
+  function can(screenCode, action) {
+    return !!permissions.value[screenCode]?.[`can_${action}`]
   }
 
   /** Keep the ref and localStorage in step; pass null to clear both. */
@@ -128,7 +146,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     token, user, loading, ready,
-    isAuthenticated, roleCodes,
-    hasRole, login, logout, fetchMe, clear, init,
+    isAuthenticated, roleCodes, permissions,
+    hasRole, can, login, logout, fetchMe, clear, init,
   }
 })

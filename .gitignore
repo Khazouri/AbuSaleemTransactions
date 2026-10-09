@@ -1,11 +1,11 @@
 /.phpunit.cache
 /node_modules
-/public/build
 /public/hot
 /public/storage
 /storage/*.key
 /storage/pail
 /vendor
+/docs
 .env
 .env.backup
 .env.production
@@ -21,3 +21,10 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+/graphify-out/cache
+/graphify-out/cost.json
+/graphify-out/20*/
+
+# aislop runtime state (hook session, baseline, lock); only the config is shared.
+/.aislop/*
+!/.aislop/config.yml

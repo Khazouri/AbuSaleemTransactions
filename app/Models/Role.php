@@ -6,7 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * Role (الدور) — one of the eight fixed system roles, R01..R08.
+ * Role (الدور) — one of the fixed system roles, R01 onward. The first eight
+ * came from the Role Matrix sheet; R09/R10 (diagram alignment), R11 (Stage
+ * 68's العضو القانوني) and R12 (Stage 87's مدير إدارة الموارد البشرية) were
+ * appended later, so read RoleSeeder for the roster rather than assuming the
+ * range ends at R08. Roles created on the Roles & Permissions screen get
+ * server-assigned `C01`, `C02`… codes (RoleController::store()); they hold
+ * no workflow transition, so they grant screen access and nothing else.
  *
  * Roles are the hinge of the whole authorisation design: permissions attach to
  * roles (never to users), workflow transitions require a role, and the
@@ -16,8 +22,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * Always identify a role by its `code` ('R08'), not its database id — ids
  * differ between a fresh seed and production, codes don't.
  *
- * @property string      $code   R01..R08
- * @property string      $name_ar
+ * @property string $code R01..R12 (see RoleSeeder — the list has grown)
+ * @property string $name_ar
  * @property string|null $name_en
  */
 class Role extends Model
@@ -45,7 +51,7 @@ class Role extends Model
     }
 
     /**
-     * Does this role carry the given capability key, e.g. 'transactions.delete'?
+     * Does this role carry the given capability key, e.g. 'requests.delete'?
      *
      * Queries the pivot directly instead of loading the whole permission list,
      * which keeps it cheap when checking a single key.

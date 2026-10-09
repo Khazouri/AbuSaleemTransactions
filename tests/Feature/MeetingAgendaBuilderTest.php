@@ -1,0 +1,322 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Committee;
+use App\Models\Department;
+use App\Models\Meeting;
+use App\Models\Request;
+use App\Models\RequestStatus;
+use App\Models\RequestType;
+use App\Models\Role;
+use App\Models\User;
+use App\Models\WorkflowStage;
+use Database\Seeders\DatabaseSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\PassesControlGates;
+use Tests\RunsStudySequence;
+use Tests\TestCase;
+
+/**
+ * Stage 31 — the agenda outgrows a request-only ordered list: admin/
+ * emerging items with no request, priority, estimated time, and the
+ * agenda-builder screen's stats/grouping endpoint.
+ */
+class MeetingAgendaBuilderTest extends TestCase
+{
+    use PassesControlGates;
+    use RefreshDatabase;
+    use RunsStudySequence;
+
+    /**
+     * Stage 102 — the agenda is the pending list's requests plus appeals; the
+     * free-standing administrative and emerging items Stage 31 added are gone.
+     */
+    public function test_administrative_and_emerging_items_are_refused(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , $meeting] = $this->committeeAndMeeting();
+
+        foreach (['administrative', 'emerging'] as $itemType) {
+            $this->actingAs($head, 'sanctum')
+                ->postJson("/api/meetings/{$meeting->id}/agenda", ['item_type' => $itemType, 'subject' => 'بند'])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('item_type');
+        }
+
+        $this->assertDatabaseCount('meeting_requests', 0);
+    }
+
+    /** Stage 102 — a request reaches an agenda only from the committee's pending list. */
+    public function test_a_request_not_on_the_pending_list_is_refused(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , $meeting] = $this->committeeAndMeeting();
+        $notYetApproved = $this->request('CCC', Department::where('code', 'ADM')->value('id'));
+        $notYetApproved->update([
+            'status_id' => RequestStatus::where('code', 'in_review')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'requirements_check')->value('id'),
+        ]);
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $notYetApproved->id])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.request_id.0', 'لا يُدرج في جدول الأعمال إلا طلب من قائمة الطلبات المعلقة للجنة.');
+    }
+
+    public function test_agenda_stats_totals_and_groups_by_effective_department(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , $meeting] = $this->committeeAndMeeting();
+        $admId = Department::where('code', 'ADM')->value('id');
+
+        $requestRecord = $this->request('AAA', $admId);
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", [
+                'request_id' => $requestRecord->id,
+                'priority' => 'normal',
+                'estimated_minutes' => 20,
+            ])
+            ->assertCreated();
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", [
+                'request_id' => $this->request('ABB', $admId)->id,
+                // Stage 83 — Appendix 33: a declared عاجل names one of its five
+                // grounds and records the reason.
+                'priority' => 'high',
+                'priority_reason_code' => 'official_directive',
+                'priority_reason' => 'توجيه رسمي بسرعة البت.',
+                'estimated_minutes' => 10,
+            ])
+            ->assertCreated();
+
+        $response = $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/stats")
+            ->assertOk();
+
+        $this->assertSame(2, $response->json('data.total_items'));
+        $this->assertSame(30, $response->json('data.total_estimated_minutes'));
+        $this->assertSame(1, $response->json('data.by_priority.normal'));
+        $this->assertSame(1, $response->json('data.by_priority.high'));
+        $this->assertSame(2, $response->json('data.by_type.employee_request'));
+        $this->assertSame(0, $response->json('data.by_type.administrative'));
+
+        $groups = $response->json('data.groups');
+        $this->assertSame('department', $response->json('data.group_by'));
+        $this->assertCount(1, $groups);
+        $this->assertSame($admId, $groups[0]['department']['id']);
+        $this->assertCount(2, $groups[0]['items']);
+    }
+
+    public function test_agenda_stats_can_group_by_request_type_instead(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , $meeting] = $this->committeeAndMeeting();
+        $admId = Department::where('code', 'ADM')->value('id');
+
+        // A promotion request (the helper's default type)...
+        $promotionRequest = $this->request('AAA', $admId);
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $promotionRequest->id])
+            ->assertCreated();
+
+        // ...a leave request, a different type...
+        $leaveRequest = $this->withPassingLegalReview(Request::create([
+            'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
+            'title' => 'طلب إجازة',
+            'department_id' => $admId,
+            'request_type_id' => RequestType::where('code', 'LEAV')->value('id'),
+            'status_id' => RequestStatus::where('code', 'registered')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
+            'submitted_at' => now(),
+        ]));
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $leaveRequest->id])
+            ->assertCreated();
+
+        // (Stage 102 dropped the third, typeless administrative item.)
+
+        $response = $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/stats?group_by=request_type")
+            ->assertOk();
+
+        $this->assertSame('request_type', $response->json('data.group_by'));
+        $groups = collect($response->json('data.groups'));
+        $this->assertCount(2, $groups);
+
+        $promotionTypeId = RequestType::where('code', 'PROM')->value('id');
+        $leaveTypeId = RequestType::where('code', 'LEAV')->value('id');
+
+        $this->assertCount(1, $groups->firstWhere('type.id', $promotionTypeId)['items']);
+        $this->assertCount(1, $groups->firstWhere('type.id', $leaveTypeId)['items']);
+    }
+
+    public function test_agenda_stats_rejects_an_unknown_group_by(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , $meeting] = $this->committeeAndMeeting();
+
+        $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/stats?group_by=nonsense")
+            ->assertStatus(422);
+    }
+
+    public function test_updating_priority_and_estimated_minutes_on_an_existing_item(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , $meeting] = $this->committeeAndMeeting();
+        $requestRecord = $this->request('BBB', Department::where('code', 'ADM')->value('id'));
+        $item = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
+
+        $this->actingAs($head, 'sanctum')
+            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}", [
+                // Stage 83 — Appendix 33; see the administrative-item test above.
+                'priority' => 'high',
+                'priority_reason_code' => 'legal_period',
+                'priority_reason' => 'مرتبطة بمدة قانونية.',
+                'estimated_minutes' => 45,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.priority', 'high')
+            ->assertJsonPath('data.estimated_minutes', 45);
+
+        $this->assertDatabaseHas('meeting_requests', [
+            'id' => $item->id,
+            'priority' => 'high',
+            'estimated_minutes' => 45,
+        ]);
+    }
+
+    public function test_voting_and_deciding_are_rejected_on_a_non_request_item(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, $member, $meeting] = $this->committeeAndMeeting();
+        $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
+
+        $item = $meeting->agendaItems()->create([
+            'item_type' => 'administrative',
+            'subject' => 'بند إداري',
+            'agenda_order' => 1,
+        ]);
+
+        $this->actingAs($member, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/votes", ['vote' => 'approve'])
+            ->assertStatus(422);
+
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/decision", [])
+            ->assertStatus(422);
+
+        $this->assertDatabaseCount('votes', 0);
+        $this->assertDatabaseCount('decisions', 0);
+    }
+
+    public function test_pending_votes_worklist_excludes_administrative_items(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        [$head, , $meeting] = $this->committeeAndMeeting();
+        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
+
+        $requestRecord = $this->requestAtCommitteeStage();
+        $requestItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
+        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
+        // Tests\RunsStudySequence for why it is written directly here.
+        $this->completeStudySequence($requestItem);
+        $meeting->agendaItems()->create(['item_type' => 'administrative', 'subject' => 'بند إداري', 'agenda_order' => 2]);
+
+        $response = $this->actingAs($head, 'sanctum')
+            ->getJson('/api/decisions/pending')
+            ->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertSame([$requestItem->id], $ids);
+    }
+
+    /** @return array{0: User, 1: User, 2: Meeting} */
+    private function committeeAndMeeting(): array
+    {
+        $head = $this->userWithRole('R03');
+        $member = $this->userWithRole('R04');
+
+        $committee = Committee::create(['name_ar' => 'لجنة المشتريات']);
+        $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
+        $committee->members()->create(['user_id' => $member->id]);
+
+        $meeting = Meeting::create([
+            'committee_id' => $committee->id,
+            'title' => 'اجتماع بناء جدول الأعمال',
+            'scheduled_at' => now()->addDay(),
+            'created_by_user_id' => $head->id,
+        ]);
+
+        return [$head, $member, $meeting];
+    }
+
+    private function request(string $suffix, ?int $departmentId): Request
+    {
+        return $this->withPassingLegalReview(Request::create([
+            'reference_number' => now()->format('Y')."-ADM-{$suffix}".fake()->unique()->numberBetween(1000, 9999),
+            'title' => "طلب {$suffix}",
+            'department_id' => $departmentId,
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            // Stage 102 — on the committee's pending list.
+            'status_id' => RequestStatus::where('code', 'registered')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
+            'submitted_at' => now(),
+        ]));
+    }
+
+    private function requestAtCommitteeStage(): Request
+    {
+        return $this->withPassingLegalReview(Request::create([
+            'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
+            'title' => 'طلب معروض على اللجنة',
+            'department_id' => Department::where('code', 'ADM')->value('id'),
+            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
+            'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
+            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
+            'submitted_at' => now(),
+        ]));
+    }
+
+    /**
+     * Stage 68 — [D] Art. 21's legal review now gates agenda insertion, so
+     * every fixture request these tests put on an agenda needs one. Seeded
+     * directly rather than through the endpoint so these tests stay about the
+     * agenda-builder mechanics they were written for; the gate itself has its
+     * own coverage in RequestLegalReviewTest.
+     */
+    private function withPassingLegalReview(Request $requestRecord): Request
+    {
+        $requestRecord->legalReviews()->create([
+            'verdict' => 'sound_ready',
+            'reviewed_at' => now(),
+        ]);
+
+        // Stage 85 — [F] footer 2 now refuses an agenda insertion for a file
+        // that does not cover its type's mandatory [D] Appendix 57 rows.
+        // Supplied here for the same reason the legal review above is, and
+        // with the same split: the rule itself is covered by
+        // DocumentCompletenessTest.
+        $this->supplyRequiredDocuments($requestRecord);
+
+        return $requestRecord->refresh();
+    }
+
+    private function userWithRole(string $roleCode): User
+    {
+        $user = User::factory()->create(['is_active' => true]);
+        $user->roles()->attach(Role::where('code', $roleCode)->value('id'));
+
+        return $user;
+    }
+}

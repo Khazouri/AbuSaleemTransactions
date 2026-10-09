@@ -19,29 +19,31 @@ class ScreenController extends Controller
     /**
      * Active screens the signed-in user is allowed to SEE in the menu.
      *
-     * ------------------------------------------------------------------------
-     * IMPORTANT — this is menu filtering, NOT access control.
+     * Reads User::screenPermissions() rather than querying
+     * screen_role_permissions itself. It used to do the latter, which made this
+     * a second, independent implementation of "which screens may you view" —
+     * harmless while the answer was a plain role lookup, but a real hazard once
+     * the membership gate started suppressing can_view for a user with no
+     * committee seat: the sidebar would have kept listing meetings links that
+     * every call behind them then refused.
      *
-     * Hiding a link stops it appearing in the sidebar; it does not stop anyone
-     * typing the URL directly, and it does not protect a single API endpoint.
-     * Real enforcement — route guards plus middleware on every protected
-     * endpoint — is Stage 9. Until then, treat this purely as cosmetics.
-     * ------------------------------------------------------------------------
+     * Still menu filtering rather than access control — hiding a link does not
+     * stop anyone typing the URL. Real enforcement is CheckScreenPermission on
+     * every protected endpoint, plus CheckMeetingMembership on the meeting-bound
+     * ones. Because all three now read the same resolved map, they agree.
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        // The roles this user holds. A user may have several, and their
-        // visible menu is the union of what those roles can view.
-        $roleIds = $request->user()->roles()->pluck('roles.id');
+        $viewable = array_keys(array_filter(
+            $request->user()->screenPermissions(),
+            fn (array $actions) => $actions['can_view'] ?? false,
+        ));
 
         $screens = Screen::query()
+            ->whereIn('code', $viewable)
+            // The permission map says nothing about whether a screen is still
+            // live, so this filter has to survive the rewrite above.
             ->where('is_active', true)
-            // Keep a screen if ANY of the user's roles has can_view on it.
-            // whereHas builds one EXISTS subquery, so this stays a single
-            // round trip regardless of how many roles the user holds.
-            ->whereHas('rolePermissions', fn ($query) => $query
-                ->whereIn('role_id', $roleIds)
-                ->where('can_view', true))
             ->orderBy('sort_order')
             ->get();
 

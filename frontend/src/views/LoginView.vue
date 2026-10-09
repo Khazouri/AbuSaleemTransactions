@@ -6,15 +6,41 @@
  * Collects credentials, hands them to the auth store, and on success sends the
  * user wherever they were originally headed.
  */
-import { ref } from 'vue'
+import { defineAsyncComponent, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
+import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 
 const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+
+// One-click sign-in for the TestUserSeeder accounts. Whether it appears is the
+// BACKEND's decision, not this build's: GET /api/dev/test-users answers 404
+// unless Laravel is running with APP_ENV=local, so the same dist/ shows the
+// panel against a local API and hides it against a real one.
+//
+// It is loaded asynchronously so the chunk is only fetched once that call has
+// said yes — a production visitor never downloads it. The accounts themselves
+// come from the response, so no address and no known password is ever compiled
+// into the bundle.
+const TestUserPicker = defineAsyncComponent(() => import('../components/TestUserPicker.vue'))
+
+// Null until the API confirms a local environment; hides the panel outright.
+const testAccounts = ref(null)
+
+onMounted(async () => {
+  try {
+    testAccounts.value = (await api.get('/dev/test-users')).data
+  } catch {
+    // A 404 (not local) is the expected answer in production, and an
+    // unreachable API already reports itself through the login attempt. Either
+    // way the panel simply stays hidden — this is a convenience, never
+    // something whose absence deserves an error message.
+  }
+})
 
 // Form fields, bound with v-model in the template.
 const email = ref('')
@@ -45,11 +71,79 @@ async function submit() {
       // Tripped the throttle:6,1 limit on the login route — waiting is the fix.
       error.value = 'محاولات كثيرة جداً. يرجى الانتظار دقيقة ثم المحاولة مجدداً.'
     } else {
-      // No response at all: the API is unreachable (VM down, wrong host entry,
-      // CORS). Nothing to do with the credentials, so say so.
-      error.value = 'تعذّر الاتصال بالخادم. تأكد من تشغيل abusaleem.test'
+      // No response at all. TWO different faults land here and the browser
+      // reports them identically — axios cannot see a response in either case:
+      //
+      //   a) the API is genuinely unreachable (VM down, wrong host entry)
+      //   b) the API answered, but its Access-Control-Allow-Origin did not
+      //      match this page's origin, so the browser discarded the reply
+      //
+      // Telling the reader only (a) actively misleads when it is (b): the
+      // server is running and the password is right, yet the message says the
+      // server is down. So find out which one it is before choosing the text.
+      error.value = await describeUnreachable()
     }
   }
+}
+
+/**
+ * Work out WHY a request produced no response, and say so.
+ *
+ * A cross-origin block and an unreachable server are indistinguishable to
+ * axios, but a no-cors probe separates them: that mode asks the browser to
+ * make the request WITHOUT enforcing the origin check, so it resolves (with an
+ * unreadable "opaque" response) whenever the server is actually reachable, and
+ * rejects only when the network call itself fails.
+ *
+ * Reachable, while the real call was blocked, therefore means the origin is
+ * being rejected — a configuration fault (Laravel's FRONTEND_URL has to equal
+ * this page's origin exactly), not something the user can wait out.
+ */
+async function describeUnreachable() {
+  const origin = window.location.origin
+
+  if (await apiIsReachable()) {
+    // The server answered the probe, so it is up — the reply to the real call
+    // was discarded by the browser over the origin mismatch.
+    return import.meta.env.DEV
+      ? `الخادم يعمل، لكن المتصفّح حجب ردّه (CORS). اضبط FRONTEND_URL في ملف .env الخاص بـ Laravel على ${origin} تماماً، ثم نفّذ php artisan config:clear`
+      : 'تعذّر إكمال الاتصال بالخادم بسبب إعداد في النظام. يرجى التواصل مع الدعم الفني.'
+  }
+
+  // The probe failed too: nothing is answering at that address at all.
+  return import.meta.env.DEV
+    ? 'تعذّر الاتصال بالخادم. تأكد من تشغيل abusaleem.test'
+    : 'تعذّر الاتصال بالخادم. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني.'
+}
+
+/** True when the API host answers at all, regardless of the origin check. */
+async function apiIsReachable() {
+  try {
+    await fetch(new URL('auth/login', `${api.defaults.baseURL}/`), {
+      method: 'POST',
+      mode: 'no-cors',
+      // Kept short: this only runs on a failure the user is already waiting
+      // on, so a slow probe would just make a bad moment worse.
+      signal: AbortSignal.timeout(4000),
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Fill the form from the test-account picker and sign in.
+ *
+ * It fills the real fields and calls the real submit() rather than posting
+ * directly, so the shortcut exercises exactly the path a typed login takes —
+ * including the error handling above, which is what makes the deliberately
+ * inactive test account show its refusal message instead of failing silently.
+ */
+function signInAs({ email: testEmail }) {
+  email.value = testEmail
+  password.value = testAccounts.value.password
+  return submit()
 }
 </script>
 
@@ -71,59 +165,61 @@ async function submit() {
         <input v-model="password" type="password" required autocomplete="current-password" dir="ltr" />
       </label>
 
-      <p v-if="error" class="error">{{ error }}</p>
+      <p v-if="error" class="alert">{{ error }}</p>
 
-      <button type="submit" :disabled="auth.loading">
+      <button class="primary" type="submit" :disabled="auth.loading">
         {{ auth.loading ? t('auth.loggingIn') : t('auth.login') }}
       </button>
     </form>
+
+    <!-- Renders only when the API answered /dev/test-users, i.e. APP_ENV=local. -->
+    <TestUserPicker
+      v-if="testAccounts"
+      :users="testAccounts.users"
+      :password="testAccounts.password"
+      :seed-command="testAccounts.seed_command"
+      :busy="auth.loading"
+      @select="signInAs"
+    />
   </div>
 </template>
 
 <style scoped>
 .login-page {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: #f4f6f5;
-}
-.card {
-  width: min(400px, 92vw);
-  background: #fff;
-  padding: 2rem;
-  border-radius: 14px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, .08);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-5) 0;
+  background: var(--color-background);
 }
-h1 { margin: 0; font-size: 1.35rem; color: #0f5132; text-align: center; }
-.sub { margin: 0; text-align: center; color: #6b7280; font-size: .9rem; }
-label { display: flex; flex-direction: column; gap: .35rem; font-size: .9rem; color: #374151; }
+.card {
+  inline-size: min(400px, 92vw);
+  background: var(--color-surface);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+h1 { margin: 0; font-size: var(--text-xl); color: var(--color-brand-text); text-align: center; }
+.sub { margin: 0; text-align: center; color: var(--color-muted); font-size: var(--text-base); }
+label { display: flex; flex-direction: column; gap: .35rem; font-size: var(--text-base); color: var(--color-black-700); }
 input {
-  padding: .6rem .7rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 1rem;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  font-size: var(--text-lg);
 }
-input:focus { outline: 2px solid #0f5132; outline-offset: 1px; }
+input:focus { outline: 2px solid var(--color-brand-text); outline-offset: 1px; }
 button {
-  padding: .7rem;
-  border: 0;
-  border-radius: 8px;
-  background: #0f5132;
-  color: #fff;
-  font-size: 1rem;
-  cursor: pointer;
-}
-button:disabled { opacity: .6; cursor: default; }
-.error {
-  margin: 0;
-  padding: .6rem .7rem;
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  font-size: .875rem;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-lg);
 }
 </style>

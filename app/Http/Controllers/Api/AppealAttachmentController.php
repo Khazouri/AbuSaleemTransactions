@@ -1,0 +1,97 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Appeal\StoreAppealAttachmentRequest;
+use App\Http\Resources\AppealAttachmentResource;
+use App\Models\Appeal;
+use App\Models\AppealAttachment;
+use App\Models\Attachment;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request as HttpRequest;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
+
+/**
+ * Stage 59, Track J — private supporting-document upload/preview for an
+ * Appeal, mirroring AttachmentController's Stage 12 mechanism but scoped to
+ * the appeal's own appellant (or R08), not RequestVisibility — an appeal's
+ * documents belong to the appeal, not the original request's workspace.
+ */
+class AppealAttachmentController extends Controller
+{
+    public function store(StoreAppealAttachmentRequest $request, Appeal $appeal): JsonResponse
+    {
+        $this->authorizeAccess($request->user(), $appeal);
+
+        $file = $request->file('file');
+        $disk = 'local';
+
+        $path = $file->store("appeal-attachments/{$appeal->id}", $disk);
+
+        try {
+            $attachment = AppealAttachment::create([
+                'appeal_id' => $appeal->id,
+                'disk' => $disk,
+                'path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'size_bytes' => $file->getSize(),
+                'label' => $request->validated('label'),
+                'uploaded_by_user_id' => $request->user()->id,
+            ]);
+        } catch (Throwable $exception) {
+            Storage::disk($disk)->delete($path);
+
+            throw $exception;
+        }
+
+        return (new AppealAttachmentResource($attachment))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    public function preview(HttpRequest $request, Appeal $appeal, AppealAttachment $attachment): StreamedResponse
+    {
+        $this->authorizeAccess($request->user(), $appeal);
+
+        abort_unless($attachment->appeal_id === $appeal->id, 404);
+
+        return $this->stream($attachment);
+    }
+
+    /** A document of the request this appeal contests, and of no other request. */
+    public function originalDocument(HttpRequest $request, Appeal $appeal, Attachment $attachment): StreamedResponse
+    {
+        $this->authorizeAccess($request->user(), $appeal);
+
+        abort_unless($attachment->request_id === $appeal->original_request_id, 404);
+
+        return $this->stream($attachment);
+    }
+
+    /**
+     * Appeal::isVisibleTo() — owner, R08, or (Stage 61) anyone holding
+     * `appeals,edit`, matching AppealController::index()'s own scoping so a
+     * verifier who can list an appeal can also open its documents.
+     */
+    private function authorizeAccess(User $actor, Appeal $appeal): void
+    {
+        abort_unless($appeal->isVisibleTo($actor), 404);
+    }
+
+    private function stream(AppealAttachment|Attachment $attachment): StreamedResponse
+    {
+        abort_unless(Storage::disk($attachment->disk)->exists($attachment->path), 404);
+
+        return Storage::disk($attachment->disk)->response(
+            $attachment->path,
+            $attachment->original_name,
+            ['Content-Type' => $attachment->mime_type],
+            'inline',
+        );
+    }
+}

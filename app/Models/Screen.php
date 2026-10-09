@@ -13,11 +13,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * this table (Stage 5), and each screen forms one axis of the permission
  * matrix, the other being Role.
  *
- * @property string      $code   Stable key, e.g. 'transaction_details'
- * @property string      $name_ar
- * @property string|null $route  Matching Vue router path
- * @property int         $sort_order
- * @property bool        $is_active
+ * @property string $code Stable key, e.g. 'request_details'
+ * @property string $name_ar
+ * @property string|null $route Matching Vue router path
+ * @property string|null $group Stage 28: sidebar cluster slug, e.g. 'meetings_management'
+ * @property int $sort_order
+ * @property bool $is_active
  */
 class Screen extends Model
 {
@@ -28,6 +29,7 @@ class Screen extends Model
         'route',
         'icon',
         'parent_id',
+        'group',
         'sort_order',
         'is_active',
     ];
@@ -52,8 +54,8 @@ class Screen extends Model
     }
 
     /**
-     * The eight permission rows for this screen — one per role.
-     * This is the screen's slice of the permission matrix.
+     * This screen's permission rows — one per role, so the count follows
+     * RoleSeeder rather than being fixed. The screen's slice of the matrix.
      */
     public function rolePermissions(): HasMany
     {

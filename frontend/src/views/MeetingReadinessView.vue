@@ -1,0 +1,230 @@
+<script setup>
+// Stage 33 — the pre-meeting readiness gate: pick a meeting, see the four
+// percentages/quorum/exceptions GET /meetings/{id}/readiness computes, and
+// convene it (blocked without an override reason unless every exception is
+// resolved). Meeting-picker pattern mirrors MeetingAgendaBuilderView.
+import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
+import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
+import api from '../lib/api'
+import { readinessExceptionMessage } from '../lib/readiness'
+
+const route = useRoute()
+const { t, locale } = useI18n()
+
+function dateTime(value) {
+  if (!value) return t('common.none')
+  return new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+    .format(new Date(value))
+}
+
+// --- Meeting picker ----------------------------------------------------------
+
+const meetings = ref([])
+const meetingId = ref(route.query.meeting ? Number(route.query.meeting) : '')
+
+async function loadMeetings() {
+  try {
+    const { data } = await api.get('/meetings')
+    meetings.value = data.data ?? []
+  } catch {
+    meetings.value = []
+  }
+}
+
+// --- Readiness -----------------------------------------------------------------
+
+const meeting = ref(null)
+const readiness = ref(null)
+const loading = ref(false)
+const error = ref('')
+// F3 — enough of what this screen already reloads to notice an act taken
+// elsewhere (e.g. the agenda being adopted from the agenda builder's card).
+const dutiesRefreshKey = computed(() => `${meeting.value?.status ?? ''}:${meeting.value?.convened_at ?? ''}`)
+
+async function load() {
+  if (!meetingId.value) {
+    meeting.value = null
+    readiness.value = null
+    return
+  }
+  loading.value = true
+  error.value = ''
+  try {
+    const [{ data: meetingData }, { data: readinessData }] = await Promise.all([
+      api.get(`/meetings/${meetingId.value}`),
+      api.get(`/meetings/${meetingId.value}/readiness`),
+    ])
+    meeting.value = meetingData.data
+    readiness.value = readinessData.data
+  } catch (requestError) {
+    error.value = requestError.response?.data?.message ?? t('meetingsUnit.readiness.error')
+    meeting.value = null
+    readiness.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(meetingId, load)
+
+const PERCENTAGE_ROWS = [
+  ['file', 'file_percentage'],
+  ['member', 'member_percentage'],
+  ['agenda', 'agenda_percentage'],
+  ['invitation', 'invitation_percentage'],
+]
+
+const percentageRows = computed(() => {
+  if (!readiness.value) return []
+  return PERCENTAGE_ROWS.map(([key, apiKey]) => ({ key, value: readiness.value[apiKey] }))
+})
+
+const overallScore = computed(() => {
+  if (!percentageRows.value.length) return 0
+  const sum = percentageRows.value.reduce((acc, row) => acc + row.value, 0)
+  return Math.round(sum / percentageRows.value.length)
+})
+
+const donutStyle = computed(() => {
+  const ready = readiness.value?.ready
+  const color = ready ? 'var(--color-success-fg)' : 'var(--color-danger-fg)'
+  const pct = overallScore.value
+  return {
+    background: `conic-gradient(${color} ${pct}%, var(--color-surface-hover) ${pct}% 100%)`,
+  }
+})
+
+const exceptionMessage = (exception) => readinessExceptionMessage(t, exception)
+
+onMounted(loadMeetings)
+</script>
+
+<template>
+  <section class="page readiness">
+    <div class="heading">
+      <div>
+        <h2>{{ t('meetingsUnit.readiness.title') }}</h2>
+        <p class="subtitle">{{ t('meetingsUnit.readiness.subtitle') }}</p>
+      </div>
+    </div>
+
+    <div class="card card-flat card-pad picker">
+      <label>
+        {{ t('meetingsUnit.readiness.chooseMeeting') }}
+        <select v-model="meetingId">
+          <option value="">{{ t('meetingsUnit.readiness.chooseMeetingPlaceholder') }}</option>
+          <option v-for="m in meetings" :key="m.id" :value="m.id">{{ m.title }} — {{ dateTime(m.scheduled_at) }}</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Decision wizard — sub-project 2: convening and every other meeting act. -->
+    <MeetingDutiesCard :meeting-id="meetingId" :refresh-key="dutiesRefreshKey" @updated="load" />
+
+    <p v-if="!meetingId" class="state">{{ t('meetingsUnit.readiness.noMeetingSelected') }}</p>
+    <p v-else-if="loading" class="state">{{ t('common.loading') }}</p>
+    <div v-else-if="error" class="alert" role="alert">
+      {{ error }} <button class="ghost" type="button" @click="load">{{ t('common.retry') }}</button>
+    </div>
+
+    <template v-else-if="readiness && meeting">
+      <div v-if="meeting.convened_at" class="card card-flat card-pad notice">
+        {{ t('meetingsUnit.readiness.convene.alreadyConvened', { date: dateTime(meeting.convened_at) }) }}
+        <span v-if="meeting.readiness_override_reason" class="muted">— {{ meeting.readiness_override_reason }}</span>
+      </div>
+
+      <div class="grid">
+        <section class="card card-flat card-pad verdict-card">
+          <div class="donut" :style="donutStyle">
+            <div class="donut-hole">
+              <strong>{{ overallScore }}%</strong>
+            </div>
+          </div>
+          <span class="pill" :class="readiness.ready ? 'good' : 'bad'">
+            {{ readiness.ready ? t('meetingsUnit.readiness.verdict.ready') : t('meetingsUnit.readiness.verdict.notReady') }}
+          </span>
+        </section>
+
+        <section class="card card-flat card-pad panel">
+          <h3>{{ t('meetingsUnit.readiness.quorum.title') }}</h3>
+          <p class="quorum-line">
+            {{ t('meetingsUnit.readiness.quorum.confirmed') }}: <strong>{{ readiness.quorum_confirmed }}</strong>
+            / {{ t('meetingsUnit.readiness.quorum.required') }}:
+            <!-- Stage 73 — a committee whose قرار التشكيل has not been
+                 transcribed has no quorum, and the screen says so rather than
+                 showing a figure the system made up. -->
+            <strong>{{ readiness.quorum_required ?? t('meetingsUnit.readiness.quorum.notRecorded') }}</strong>
+          </p>
+          <p v-if="readiness.quorum_rule?.quorum_text" class="quorum-source">
+            {{ t('meetingsUnit.readiness.quorum.perText') }}: {{ readiness.quorum_rule.quorum_text }}
+          </p>
+          <span v-if="readiness.quorum_required !== null" class="pill" :class="readiness.quorum_met ? 'good' : 'bad'">
+            {{ readiness.quorum_met ? t('meetingsUnit.readiness.quorum.met') : t('meetingsUnit.readiness.quorum.notMet') }}
+          </span>
+          <span v-else class="pill bad">{{ t('meetingsUnit.readiness.quorum.notRecorded') }}</span>
+        </section>
+
+        <section class="card card-flat card-pad panel">
+          <h3>{{ t('meetingsUnit.dashboard.funnel.title') }}</h3>
+          <ul class="bars">
+            <li v-for="row in percentageRows" :key="row.key">
+              <span class="bar-label">{{ t(`meetingsUnit.readiness.percentages.${row.key}`) }}</span>
+              <span class="bar-track">
+                <span class="bar-fill" :style="{ inlineSize: `${row.value}%` }" />
+              </span>
+              <span class="bar-value">{{ row.value }}%</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="card card-flat card-pad panel">
+          <h3>{{ t('meetingsUnit.readiness.exceptions.title') }}</h3>
+          <p v-if="!readiness.exceptions.length" class="state good-text">{{ t('meetingsUnit.readiness.exceptions.none') }}</p>
+          <ul v-else class="exceptions">
+            <li v-for="(exception, index) in readiness.exceptions" :key="index">{{ exceptionMessage(exception) }}</li>
+          </ul>
+        </section>
+      </div>
+    </template>
+  </section>
+</template>
+
+<style scoped>
+.page.readiness { max-inline-size: 78rem; }
+.picker { margin-bottom: var(--space-4); }
+.picker label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text-base); color: var(--color-black-700); max-inline-size: 24rem; }
+select {
+  padding: .5rem .6rem;
+  border: 1px solid var(--color-border-hover);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  font: inherit;
+}
+
+.good-text { color: var(--color-success-fg); }
+.notice { margin-bottom: var(--space-4); font-size: var(--text-base); color: var(--color-black-700); }
+.muted { color: var(--color-muted); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: var(--space-4); }
+.panel h3 { margin: 0 0 var(--space-4); font-size: var(--text-lg); color: var(--color-black-800); }
+
+.verdict-card { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; }
+.donut { inline-size: 120px; block-size: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.donut-hole { inline-size: 84px; block-size: 84px; border-radius: 50%; background: var(--color-surface); display: flex; align-items: center; justify-content: center; }
+.donut-hole strong { color: var(--color-brand-text); font-size: var(--text-xl); }
+
+.quorum-line { margin: 0 0 var(--space-2); font-size: var(--text-lg); color: var(--color-black-700); }
+.quorum-source { margin: 0 0 var(--space-2); font-size: var(--text-sm); color: var(--color-muted); }
+
+.bars { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
+.bars li { display: grid; grid-template-columns: minmax(90px, 40%) 1fr auto; align-items: center; gap: .6rem; }
+.bar-label { font-size: var(--text-sm); color: var(--color-black-700); }
+.bar-track { block-size: 9px; background: var(--color-surface-hover); border-radius: var(--radius-full); overflow: hidden; }
+.bar-fill { display: block; block-size: 100%; border-radius: var(--radius-full); background: var(--color-brand); }
+.bar-value { font-size: var(--text-sm); color: var(--color-muted); font-variant-numeric: tabular-nums; }
+
+.exceptions { margin: 0; padding-inline-start: 1.2rem; display: grid; gap: .4rem; font-size: var(--text-base); color: var(--color-black-700); }
+</style>

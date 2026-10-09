@@ -9,8 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * ScreenRolePermission — one cell of the permission matrix.
  *
  * Each row answers, for a single (screen, role) pair, which of the seven
- * actions that role may perform on that screen. 22 screens x 8 roles = 176
- * rows, and together they are the SOURCE OF TRUTH for access control:
+ * actions that role may perform on that screen — one row per pair, so the
+ * matrix is exactly (screens x roles) and grows whenever either list does.
+ * Together they are the SOURCE OF TRUTH for access control:
  *
  *   - Stage 5  sidebar shows only screens where can_view is true
  *   - Stage 8  admin grid edits these flags

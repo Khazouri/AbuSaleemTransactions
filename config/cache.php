@@ -17,6 +17,11 @@ return [
 
     'default' => env('CACHE_STORE', 'database'),
 
+    // Rate limiting (throttle middleware) on its own store, file by default:
+    // the unauthenticated /maintenance/bootstrap page is throttled and must
+    // work on an empty database, where a database store has no `cache` table.
+    'limiter' => env('CACHE_LIMITER', 'file'),
+
     /*
     |--------------------------------------------------------------------------
     | Cache Stores

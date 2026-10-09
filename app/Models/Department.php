@@ -15,16 +15,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * at the department above, which is what makes the structure a hierarchy
  * rather than a flat list.
  *
- * @property string      $name_ar
+ * @property string $name_ar
  * @property string|null $name_en
- * @property string|null $code       Short code (ADM, ENG...) used in reference numbers
- * @property int|null    $parent_id
- * @property bool        $is_active
+ * @property string|null $code Short code (ADM, ENG...) used in reference numbers
+ * @property int|null $parent_id
+ * @property bool $is_active
  */
 class Department extends Model
 {
     /** SoftDeletes: a "deleted" department is hidden but still resolvable
-     *  by the transactions and users that reference it. */
+     *  by the requests and users that reference it. */
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
@@ -32,6 +32,7 @@ class Department extends Model
         'name_en',
         'code',
         'parent_id',
+        'manager_user_id',
         'is_active',
     ];
 
@@ -65,5 +66,46 @@ class Department extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    /**
+     * Ids of every department below this one, at any depth.
+     *
+     * Exists to stop a cycle. If a department were re-parented under one of its
+     * own descendants, that branch would point at itself in a loop: it would
+     * vanish from the tree (no path from the root) and any recursive walk over
+     * it would never terminate. UpdateDepartmentRequest rejects such a move.
+     *
+     * Fetches the whole table once and walks it in memory — one query no
+     * matter how deep the tree, and an org chart is small enough that loading
+     * it entirely is cheaper than a query per level.
+     *
+     * Iterative rather than recursive, so a malformed tree can't blow the
+     * stack.
+     *
+     * @return array<int> descendant ids (excludes this department)
+     */
+    public function descendantIds(): array
+    {
+        // Children grouped by their parent, so lookups below are O(1).
+        $byParent = static::query()
+            ->select('id', 'parent_id')
+            ->get()
+            ->groupBy('parent_id');
+
+        $ids = [];
+        $queue = [$this->id];
+
+        while ($queue) {
+            $currentId = array_pop($queue);
+
+            foreach ($byParent[$currentId] ?? [] as $child) {
+                $ids[] = $child->id;
+                // Descend into this child on a later pass.
+                $queue[] = $child->id;
+            }
+        }
+
+        return $ids;
     }
 }

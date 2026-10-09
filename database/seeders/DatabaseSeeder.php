@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\AuditLog;
 use Illuminate\Database\Seeder;
 
 /**
@@ -9,25 +10,35 @@ use Illuminate\Database\Seeder;
  *
  * ORDER IS NOT ARBITRARY. Each seeder looks up rows the previous ones created:
  *
- *   RoleSeeder          the 8 roles — nothing else works without them
+ *   RoleSeeder          the system roles — nothing else works without them
  *   PermissionSeeder    attaches capabilities to those roles
  *   DepartmentSeeder    the org tree
  *   AdminUserSeeder     needs both the ADM department and the R08 role
- *   WorkflowStageSeeder the 11 stages (looks up responsible roles)
- *   TransactionStatus.. the statuses a transaction can hold
- *   TransactionType..   the request types
- *   ScreenSeeder        the 22 screens
- *   ScreenRolePerm..    the 22 x 8 matrix — needs screens AND roles
+ *   WorkflowStageSeeder the workflow stages (looks up responsible roles)
+ *   RequestStatus.. the statuses a request can hold
+ *   RequestType..   the request types
+ *   WorkflowTransition. the Stage 14/16 normal and exception state machine
+ *   AppealStatusSeeder  Stage 58's own small appeal status machine
+ *   SettingSeeder       Stage 60's appeal_filing_deadline_days default (no
+ *                       dependency — the settings table stands alone)
+ *   TemplateSeeder      Stage 74's seven Appendix 59 decision formulas (same:
+ *                       no dependency)
+ *   ScreenSeeder        the menu screens
+ *   ScreenRolePerm..    one row per screen x role — needs screens AND roles
  *
- * Deliberately NOT seeded here: workflow_transitions. The state machine stays
- * empty until Stage 14 adds the happy path and Stage 16 the exception paths.
- * An empty table is the correct state right now, not an oversight.
+ * Deliberately no row counts above: every one of these lists has grown since
+ * it was written (roles 8 -> 11, stages 14 -> 12 after Stage 57's cut, screens
+ * 22 -> 33), and a number baked into a comment goes stale silently. Count the
+ * seeder's own array when you need the figure.
  */
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([
+        // Stage 22 — bootstrap data is not user activity. Without this, every
+        // `migrate:fresh --seed` would open the audit viewer on hundreds of
+        // rows describing the system setting itself up.
+        AuditLog::withoutAuditing(fn () => $this->call([
             // Stage 2 — organisation and identity
             RoleSeeder::class,
             PermissionSeeder::class,
@@ -36,10 +47,19 @@ class DatabaseSeeder extends Seeder
 
             // Stage 3 — workflow definition and lookup data
             WorkflowStageSeeder::class,
-            TransactionStatusSeeder::class,
-            TransactionTypeSeeder::class,
+            RequestStatusSeeder::class,
+            RequestTypeSeeder::class,
+            // Stages 14/16 — data-driven normal and exception transition map.
+            WorkflowTransitionSeeder::class,
+            // Stage 58 — the appeal (تظلم) status machine, independent of the
+            // above (see AppealStatusSeeder's own docblock).
+            AppealStatusSeeder::class,
+            SettingSeeder::class,
+            // Stage 74 — Appendix 59's seven official decision formulas; no
+            // dependency of its own, the templates table stands alone.
+            TemplateSeeder::class,
             ScreenSeeder::class,
             ScreenRolePermissionSeeder::class,
-        ]);
+        ]));
     }
 }

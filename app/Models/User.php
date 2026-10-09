@@ -3,9 +3,13 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Services\MeetingVisibility;
+use App\Services\SeatDutyGrant;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -18,19 +22,19 @@ use Laravel\Sanctum\HasApiTokens;
  * permissions of their own: everything they may do is inherited from the roles
  * attached to them.
  *
- * @property string      $name
- * @property string      $email
- * @property int|null    $department_id
- * @property bool        $is_active     False blocks login (see AuthController)
+ * @property string $name
+ * @property string $email
+ * @property int|null $department_id
+ * @property bool $is_active False blocks login (see AuthController)
  */
 class User extends Authenticatable
 {
     /**
      * HasApiTokens  — issues Sanctum bearer tokens for the Vue SPA
      * Notifiable    — receives the notifications built in Stage 23
-     * SoftDeletes   — keeps the record alive for historical transactions
+     * SoftDeletes   — keeps the record alive for historical requests
      *
-     * @use HasFactory<\Database\Factories\UserFactory>
+     * @use HasFactory<UserFactory>
      */
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
@@ -45,7 +49,10 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'phone',
+        'employee_number',
         'department_id',
+        'manager_id',
         'is_active',
     ];
 
@@ -61,6 +68,25 @@ class User extends Authenticatable
     ];
 
     /**
+     * Memoized screenPermissions() result, per model instance.
+     *
+     * Not an attribute — a plain property, so it never reaches toArray(), the
+     * database or a serialized payload. Memoizing matters now that resolving
+     * the map also asks whether the user holds a committee seat:
+     * RequestVisibility::apply() calls hasScreenPermission() three times and
+     * canView() wraps apply(), so an unmemoized map would run that seat query
+     * on every one of them.
+     *
+     * Per-instance rather than static or container-level on purpose: a real
+     * request resolves one actor, while a test that seats a user between two
+     * calls gets a fresh instance from the database and so is never stale.
+     * Where an instance IS mutated in place, call forgetScreenPermissions().
+     *
+     * @var array<string, array<string, bool>>|null
+     */
+    private ?array $screenPermissionsCache = null;
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -74,10 +100,56 @@ class User extends Authenticatable
         ];
     }
 
+    // Stage 23 — where SmsChannel delivers to. Named by Laravel's convention
+    // (routeNotificationFor<Channel>), so the channel never reads the column
+    // itself and a future gateway can route on something else entirely.
+    public function routeNotificationForSms(): ?string
+    {
+        return $this->phone;
+    }
+
+    /** Stage 23 — this user's per-event channel preferences. */
+    public function notificationSettings(): HasMany
+    {
+        return $this->hasMany(NotificationSetting::class);
+    }
+
     /** The department this employee works in (الإدارة التابع لها). */
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * This employee's direct manager (المدير المباشر) — the actor
+     * WorkflowService::actorMayUse resolves for `requires_submitter_manager`
+     * rows, and the ONLY actor who may use one — there is no admin override.
+     * Nullable, and the consequence of leaving it null is real: that
+     * employee's requests cannot be delegated out of direct_manager_review
+     * by anyone at all until a live manager is assigned here.
+     */
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    /** Employees who report directly to this user. */
+    public function directReports(): HasMany
+    {
+        return $this->hasMany(User::class, 'manager_id');
+    }
+
+    /**
+     * Seats this user holds on committees.
+     *
+     * Membership gate — the inverse relation that did not exist before it was
+     * needed: nothing in the app could ask "which committees is this person
+     * on" without querying CommitteeMember directly, which is why the three
+     * pre-existing membership checks each spelled that query out inline.
+     */
+    public function committeeMemberships(): HasMany
+    {
+        return $this->hasMany(CommitteeMember::class);
     }
 
     /** Roles held by this user — the source of all their capabilities. */
@@ -97,6 +169,27 @@ class User extends Authenticatable
         return $this->roles->contains('code', $code);
     }
 
+    /** The system's one مقرر (user decision 2026-10-02): the active R02 holder. */
+    public static function activeRapporteur(?int $exceptUserId = null): ?self
+    {
+        return static::activeSeatHolder('rapporteur', $exceptUserId);
+    }
+
+    /**
+     * The one active holder of a sole-holder post (Stage 103: a seat or العميد). Naming a
+     * holder on «المناصب الفردية» takes the role from everyone else, so ordering
+     * by id only matters for rows written around that page (seeders, fixtures).
+     */
+    public static function activeSeatHolder(string $seat, ?int $exceptUserId = null): ?self
+    {
+        return static::query()
+            ->where('is_active', true)
+            ->whereHas('roles', fn ($roles) => $roles->where('code', CommitteeMember::SOLE_ROLES[$seat]))
+            ->when($exceptUserId, fn ($query, int $id) => $query->whereKeyNot($id))
+            ->orderBy('id')
+            ->first();
+    }
+
     /**
      * Does ANY of the user's roles grant this capability?
      *
@@ -108,5 +201,119 @@ class User extends Authenticatable
         return $this->roles()
             ->whereHas('permissions', fn ($q) => $q->where('key', $key))
             ->exists();
+    }
+
+    /**
+     * Resolved screen x action permission map — the SOURCE OF TRUTH consumed
+     * by both CheckScreenPermission (API) and UserResource (so the SPA's
+     * router guard and v-can directive see the same answer).
+     *
+     * Unioned across every role the user holds: if ANY role grants an action
+     * on a screen, the user has it. Two queries regardless of role count
+     * (roles, then the matching screen_role_permissions rows with their
+     * screen eager-loaded) rather than N.
+     *
+     * @return array<string, array<string, bool>> screen code => action => bool
+     */
+    public function screenPermissions(): array
+    {
+        if ($this->screenPermissionsCache !== null) {
+            return $this->screenPermissionsCache;
+        }
+
+        $roleIds = $this->roles()->pluck('roles.id');
+
+        $rows = ScreenRolePermission::query()
+            ->with('screen:id,code')
+            ->whereIn('role_id', $roleIds)
+            ->get()
+            // A stand-in seat holder carries the seat role's meeting duties
+            // while invited — those screens only, never the rest of the role.
+            ->concat(ScreenRolePermission::query()
+                ->with('screen:id,code')
+                ->whereIn('role_id', app(SeatDutyGrant::class)->roleIdsFor($this))
+                ->whereHas('screen', fn ($q) => $q->whereIn('code', SeatDutyGrant::SCREENS))
+                ->get());
+
+        $map = [];
+        foreach ($rows as $row) {
+            $code = $row->screen->code;
+            $map[$code] ??= array_fill_keys(ScreenRolePermission::ACTIONS, false);
+            foreach (ScreenRolePermission::ACTIONS as $action) {
+                $map[$code][$action] = $map[$code][$action] || $row->$action;
+            }
+        }
+
+        // The system admin files nothing (user decision 2026-10-07). Cleared
+        // here rather than in the seeder because every account also holds R01,
+        // whose grant would otherwise reopen intake, and so the Roles &
+        // Permissions grid cannot grant it back.
+        if ($this->hasRole('R08') && isset($map['request_intake'])) {
+            $map['request_intake'] = array_fill_keys(ScreenRolePermission::ACTIONS, false);
+        }
+
+        return $this->screenPermissionsCache = $this->hideMeetingsSectionIfUnseated($map);
+    }
+
+    /**
+     * Membership gate — a user with no committee seat does not get the
+     * meetings section at all.
+     *
+     * Applied HERE, inside the resolved map, because this method is the single
+     * source of truth every consumer reads: CheckScreenPermission on the API,
+     * UserResource for the SPA's router guard and v-can, and ScreenController
+     * for the sidebar. Gating any one of those alone would let them disagree —
+     * a sidebar that lists links the API refuses, or a guard that admits a
+     * route whose every call then 403s.
+     *
+     * ONLY can_view is suppressed. See MeetingVisibility::GATED_SCREENS for
+     * why touching the other flags would break request visibility for R11,
+     * R02, R03 and R12.
+     *
+     * @param  array<string, array<string, bool>>  $map
+     * @return array<string, array<string, bool>>
+     */
+    private function hideMeetingsSectionIfUnseated(array $map): array
+    {
+        if (app(MeetingVisibility::class)->sitsOnAnyCommittee($this)) {
+            return $map;
+        }
+
+        foreach (MeetingVisibility::GATED_SCREENS as $code) {
+            // المقرر (`meetings,add`, R02 alone since Stage 102) forms the
+            // committee that seats them, so the screen that does it cannot
+            // wait for the seat. CommitteeController::store() seats the creator,
+            // which then opens the rest of the section.
+            if ($code === 'meetings' && ($map[$code]['can_add'] ?? false)) {
+                continue;
+            }
+            if (isset($map[$code])) {
+                $map[$code]['can_view'] = false;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Drop the memoized permission map.
+     *
+     * Needed only where roles or committee membership change on an instance
+     * that has already answered once — in practice a test, since a real
+     * request resolves the actor fresh.
+     */
+    public function forgetScreenPermissions(): void
+    {
+        $this->screenPermissionsCache = null;
+    }
+
+    /**
+     * Does any of the user's roles grant $action (e.g. 'can_view') on the
+     * screen identified by $screenCode? The single check CheckScreenPermission
+     * runs on every route it guards.
+     */
+    public function hasScreenPermission(string $screenCode, string $action): bool
+    {
+        return (bool) ($this->screenPermissions()[$screenCode][$action] ?? false);
     }
 }

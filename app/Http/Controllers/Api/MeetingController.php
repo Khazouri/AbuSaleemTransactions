@@ -1,0 +1,1044 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Meeting\IndexMeetingRequest;
+use App\Http\Requests\Meeting\StoreMeetingRequest;
+use App\Http\Requests\Meeting\UpdateMeetingRequest;
+use App\Http\Requests\MeetingAgenda\ReorderMeetingAgendaRequest;
+use App\Http\Requests\MeetingAgenda\StoreMeetingAgendaRequest;
+use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemRequest;
+use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemStateRequest;
+use App\Http\Requests\MeetingAgenda\UpdateStudySequenceRequest;
+use App\Http\Requests\MeetingAttendee\RespondToMeetingInvitationRequest;
+use App\Http\Requests\MeetingAttendee\UpdateMeetingAttendeeRequest;
+use App\Http\Resources\MeetingAttendeeResource;
+use App\Http\Resources\MeetingRequestResource;
+use App\Http\Resources\MeetingResource;
+use App\Models\Appeal;
+use App\Models\Attachment;
+use App\Models\Committee;
+use App\Models\CommitteeMember;
+use App\Models\Department;
+use App\Models\Meeting;
+use App\Models\MeetingAttendee;
+use App\Models\MeetingRequest;
+use App\Models\Request;
+use App\Models\RequestStageLog;
+use App\Models\User;
+use App\Services\AgendaOrderingService;
+use App\Services\ArtifactNumberGenerator;
+use App\Services\CommitteeStatusService;
+use App\Services\DocumentCompletenessService;
+use App\Services\Lifecycle\DocumentConflictService;
+use App\Services\Lifecycle\UrgencyRules;
+use App\Services\MeetingVisibility;
+use App\Services\NotificationDispatcher;
+use App\Services\StudySequenceRules;
+use App\Services\Tasks\MeetingDuties;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request as HttpRequest;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+/**
+ * Stage 20 — scheduling meetings and building their agenda/attendance.
+ *
+ * Everything here rides the `meetings` screen's own permissions (view/add/edit
+ * from ScreenRolePermissionSeeder), the same as CommitteeController.
+ */
+class MeetingController extends Controller
+{
+    /**
+     * Stage 99 — [D] Art. 84: «اعتماد جدول الأعمال» comes «قبل مناقشة أول بند».
+     * Shared by the two endpoints that record deliberation (item state and
+     * Art. 85's study sequence); voting inherits it through the study
+     * sequence it already requires.
+     */
+    public const AGENDA_NOT_ADOPTED = 'لا تبدأ مناقشة البنود قبل اعتماد جدول الأعمال (المادة 84).';
+
+    /**
+     * Deliberation, like the vote (DecisionEligibility::MEETING_NOT_CONVENED),
+     * belongs to a sitting that convene() has opened. Adoption itself is not
+     * gated: Art. 12 (أ) 3 puts it «قبل الاجتماع».
+     */
+    public const MEETING_NOT_CONVENED = 'لا تبدأ مناقشة البنود قبل مباشرة الاجتماع (المادة 84).';
+
+    /** Stage 99 — the adopted agenda is the one the committee deliberates on. */
+    public const AGENDA_ALREADY_ADOPTED = 'تم اعتماد جدول الأعمال، ولا يجوز تعديل بنوده.';
+
+    // Membership gate — the list half of the same rule CheckMeetingMembership
+    // enforces per row, so a sitting this omits is never one whose detail
+    // endpoint would have opened.
+    public function index(IndexMeetingRequest $request, MeetingVisibility $visibility): AnonymousResourceCollection
+    {
+        $filters = $request->validated();
+
+        $meetings = $visibility->apply(Meeting::query(), $request->user())
+            ->with('committee:id,name_ar,name_en')
+            ->withCount(['attendees', 'agendaItems'])
+            ->when($filters['committee_id'] ?? null, fn ($query, int $committeeId) => $query->where('committee_id', $committeeId))
+            ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+            ->when($filters['date_from'] ?? null, fn ($query, string $dateFrom) => $query->whereDate('scheduled_at', '>=', $dateFrom))
+            ->when($filters['date_to'] ?? null, fn ($query, string $dateTo) => $query->whereDate('scheduled_at', '<=', $dateTo))
+            ->orderByDesc('scheduled_at')
+            ->get();
+
+        return MeetingResource::collection($meetings);
+    }
+
+    /**
+     * Schedule a meeting and invite the committee's current active members.
+     *
+     * Attendance rows are seeded here rather than computed on the fly, since
+     * committee membership can change later and the meeting's attendee list
+     * for a given sitting must stay fixed to who was actually invited to it.
+     *
+     * Only the committee's مقرر may schedule (user decision 2026-10-02):
+     * Appendix 45 gives إنشاء الاجتماع to the مقرر, and the date is theirs to
+     * propose. That replaces Stage 84's "a committee you sit on, or R08"
+     * check — the مقرر is seated on every committee — and R08 no longer
+     * schedules at all.
+     */
+    public function store(
+        StoreMeetingRequest $request,
+        NotificationDispatcher $notifications,
+        ArtifactNumberGenerator $numbers,
+    ): JsonResponse {
+        $data = $request->validated();
+        $actor = $request->user();
+
+        // One holder per seat role (user decisions 2026-10-02/04), seated here
+        // as well as at the committee's creation: a committee formed before
+        // the rule, or before a role changed hands, still invites today's.
+        $committee = Committee::query()->findOrFail($data['committee_id']);
+        $committee->seatRoleHolders();
+        $rapporteur = $committee->seatRapporteur();
+        if ($rapporteur === null) {
+            throw ValidationException::withMessages([
+                'committee_id' => ['لا يمكن جدولة اجتماع قبل تعيين مقرر نشط في النظام.'],
+            ]);
+        }
+        $this->refuseUnlessRapporteur($rapporteur, $actor);
+
+        // Stage 102 — the committee is its five Art. 10 (أ) seats, and the
+        // meeting invites exactly them: no sitting until every seat is held by
+        // an active user. The chair and rapporteur of the sitting are whoever
+        // holds those seats, never picked per meeting.
+        $seats = $committee->activeMembers()->whereNotNull('seat')->get()->keyBy('seat');
+        if ($seats->count() < count(CommitteeMember::SEATS)) {
+            throw ValidationException::withMessages([
+                'committee_id' => ['لا يمكن جدولة اجتماع قبل شغل مقاعد اللجنة الخمسة (الرئيس، العضو القانوني، مدير الموارد البشرية، مندوب الخدمة المدنية، المقرر).'],
+            ]);
+        }
+
+        [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request, $numbers, $seats) {
+            $rapporteurId = $seats['rapporteur']->user_id;
+
+            $meeting = Meeting::create([
+                ...$data,
+                'meeting_type' => 'regular',
+                'chairman_user_id' => $seats['chair']->user_id,
+                'rapporteur_user_id' => $rapporteurId,
+                // Stage 102 — a proposed date, approved only once every
+                // invited member accepts it (respond()).
+                'status' => Meeting::STATUS_PENDING_CONFIRMATION,
+                // Stage 70 — [D] Appendix 15 numbers the meeting itself
+                // (PM-MTG/YEAR/NN), and Appendix 8 refuses to send a محضر for
+                // approval without "تطابق رقم الاجتماع". Server-minted rather
+                // than typed into the scheduling wizard as it was from Stage
+                // 30: a number a human retypes can neither be guaranteed
+                // unique nor guaranteed to match.
+                'meeting_number' => $numbers->nextMeetingNumber(),
+                'created_by_user_id' => $request->user()->id,
+            ]);
+
+            // The مقرر proposes the date, so their own answer is already yes.
+            $memberUserIds = $seats->pluck('user_id')->values();
+            foreach ($memberUserIds as $userId) {
+                MeetingAttendee::create([
+                    'meeting_id' => $meeting->id,
+                    'user_id' => $userId,
+                    ...($userId === $rapporteurId ? ['invitation_status' => 'confirmed', 'responded_at' => now()] : []),
+                ]);
+            }
+
+            return [$meeting, $memberUserIds];
+        });
+
+        // Stage 23 — the invitation follows the attendee rows just written,
+        // not the committee roster, so the two can never disagree.
+        $notifications->meetingScheduled($meeting, $invitedUserIds, $request->user());
+
+        return (new MeetingResource($this->loadDetail($meeting)))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    public function show(Meeting $meeting): MeetingResource
+    {
+        return new MeetingResource($this->loadDetail($meeting));
+    }
+
+    /**
+     * Stage 34 — closing a meeting rides this same generic status update, so
+     * the gate protects every path to it from one place. Decision wizard
+     * sub-project 2's `MeetingWizard` `close` act is what PUTs
+     * status=completed here now; `MeetingDetailView`'s own status dropdown
+     * lost `completed` once Stage 102 narrowed the statuses a person may set
+     * by hand — it offers only `cancelled`. Blocked (422) while any agenda
+     * item is unresolved — see MeetingRequest::isResolved().
+     *
+     * Stage 36 adds a second, independent gate right after: closing also
+     * requires the meeting's minutes to have completed their own
+     * generate → review → sign lifecycle. Stage 99 closed the one exemption
+     * this used to have — an empty/attendee-less meeting no longer
+     * auto-approves at review(); it is refused instead
+     * (MeetingDuties::approveMinutesRefusal()), so `generate` then `review`
+     * stays the required path for every meeting, none excepted.
+     */
+    public function update(UpdateMeetingRequest $request, Meeting $meeting, NotificationDispatcher $notifications, MeetingDuties $duties): MeetingResource|JsonResponse
+    {
+        $data = $request->validated();
+
+        // Stage 102 — a new date is a new proposal: every member answers it
+        // again, and the meeting is not approved until they all accept.
+        $dateChanged = isset($data['scheduled_at'])
+            && ! Carbon::parse($data['scheduled_at'])->equalTo($meeting->scheduled_at);
+        if ($dateChanged) {
+            if ($meeting->convened_at !== null || ! in_array($meeting->status, [Meeting::STATUS_PENDING_CONFIRMATION, 'scheduled'], true)) {
+                return response()->json(['message' => 'لا يمكن تغيير موعد اجتماع انعقد أو أُغلق أو أُلغي.'], 422);
+            }
+            $this->refuseUnlessRapporteur($meeting->committee->seatRapporteur(), $request->user());
+        }
+
+        if (($data['status'] ?? null) === 'completed') {
+            if ($refusal = $duties->closeRefusal($meeting)) {
+                return response()->json(['message' => $refusal], 422);
+            }
+        }
+
+        DB::transaction(function () use ($meeting, $data, $dateChanged) {
+            $meeting->update($dateChanged ? [...$data, 'status' => Meeting::STATUS_PENDING_CONFIRMATION] : $data);
+
+            if ($dateChanged) {
+                $meeting->attendees()->update(['invitation_status' => 'pending', 'responded_at' => null]);
+                $meeting->attendees()->where('user_id', $meeting->rapporteur_user_id)
+                    ->update(['invitation_status' => 'confirmed', 'responded_at' => now()]);
+            }
+        });
+
+        if ($dateChanged) {
+            $notifications->meetingScheduled($meeting, $meeting->attendees()->pluck('user_id'), $request->user());
+        }
+
+        return new MeetingResource($this->loadDetail($meeting));
+    }
+
+    /**
+     * Only the system's مقرر sets a meeting's date, first or proposed again
+     * (user decision 2026-10-02); the chair keeps the rest of `meetings,edit`.
+     */
+    private function refuseUnlessRapporteur(?User $rapporteur, User $actor): void
+    {
+        if ($rapporteur?->id !== $actor->id) {
+            throw ValidationException::withMessages([
+                'scheduled_at' => ['تحديد موعد الاجتماع من صلاحية المقرر وحده.'],
+            ]);
+        }
+    }
+
+    /**
+     * Stage 102 — each invited member answers the proposed date themselves;
+     * nobody records it for them. The meeting is approved (`scheduled`) the
+     * moment the last member accepts. A decline leaves it awaiting
+     * confirmation until the مقرر proposes another date (update()).
+     */
+    public function respond(RespondToMeetingInvitationRequest $request, Meeting $meeting, NotificationDispatcher $notifications): MeetingResource|JsonResponse
+    {
+        $refusal = DB::transaction(function () use ($request, $meeting) {
+            $locked = Meeting::query()->lockForUpdate()->findOrFail($meeting->id);
+
+            if ($locked->status !== Meeting::STATUS_PENDING_CONFIRMATION) {
+                return 'لا يمكن الرد على الدعوة إلا والاجتماع بانتظار تأكيد موعده.';
+            }
+
+            $attendee = $locked->attendees()->where('user_id', $request->user()->id)->first();
+            if ($attendee === null) {
+                return 'لست من المدعوين إلى هذا الاجتماع.';
+            }
+
+            $attendee->update([
+                'invitation_status' => $request->validated('response') === 'accept' ? 'confirmed' : 'declined',
+                'responded_at' => now(),
+            ]);
+
+            if (! $locked->attendees()->where('invitation_status', '!=', 'confirmed')->exists()) {
+                $locked->update(['status' => 'scheduled']);
+            }
+
+            return null;
+        });
+
+        if ($refusal !== null) {
+            return response()->json(['message' => $refusal], 422);
+        }
+
+        $meeting->refresh();
+        $notifications->invitationAnswered($meeting, $request->user(), $request->validated('response'));
+
+        return new MeetingResource($this->loadDetail($meeting));
+    }
+
+    /**
+     * Delete a meeting. Blocked (422) once any of its agenda items has a
+     * recorded decision — that history must stay attached to a resolvable
+     * meeting, the same "preserve, don't erase" rule CommitteeController's
+     * own destroy() applies to a committee that has held meetings.
+     */
+    public function destroy(Meeting $meeting): JsonResponse
+    {
+        $hasDecisions = MeetingRequest::query()
+            ->where('meeting_id', $meeting->id)
+            ->whereHas('decision')
+            ->exists();
+
+        if ($hasDecisions) {
+            return response()->json([
+                'message' => 'لا يمكن حذف اجتماع تم تسجيل قرارات فيه. لا يمكن حذف السجل التاريخي المرتبط به.',
+            ], 422);
+        }
+
+        $meeting->delete();
+
+        return response()->json(null, 204);
+    }
+
+    /** Every agenda-item read that needs enough of a request/appeal to render one row. */
+    private const AGENDA_ITEM_WITH = [
+        'request:id,reference_number,title,status_id',
+        'request.status:id,code,name_ar,name_en,color',
+        // Stage 74 — the recording panel pre-selects Art. 90's instrument
+        // from Appendix 22's own answer; see MeetingRequestResource.
+        // NOTE: no column list. A latestOfMany relation's generated
+        // subquery join collides with a restricted select and fails with
+        // "ambiguous column name: request_id" — the same gotcha Stage 52
+        // hit eager-loading latestStageLog.
+        'request.latestLegalReview',
+        'appeal:id,appellant_user_id,original_request_id,appeal_status_id',
+        'appeal.appellant:id,name',
+        'appeal.originalRequest:id,reference_number,title',
+        'appeal.status:id,code,name_ar,name_en,color',
+        'department:id,name_ar,name_en',
+    ];
+
+    /**
+     * An item is either an `employee_request` riding a request or (Stage 63)
+     * an `appeal`. Stage 102 removed Stage 31's standalone `administrative`/
+     * `emerging` items: the agenda is the pending list's requests, plus appeals.
+     *
+     * The one business rule the FormRequest can't express: an appeal may
+     * only be nominated once it has passed legal review (Stage 62's own
+     * "cannot reach Stage 63 without both records present" done-when, read
+     * as a nomination-time gate).
+     */
+    public function addAgendaItem(
+        StoreMeetingAgendaRequest $request,
+        Meeting $meeting,
+        NotificationDispatcher $notifications,
+    ): JsonResponse {
+        $validated = $request->validated();
+        $subject = null;
+
+        $itemType = $validated['item_type'] ?? 'employee_request';
+
+        // Stage 99 — once adopted, the agenda is fixed. Stage 102 removed the
+        // `emerging` exception along with the type itself.
+        if ($meeting->agenda_adopted_at !== null) {
+            return response()->json(['message' => self::AGENDA_ALREADY_ADOPTED], 422);
+        }
+
+        // Stage 102 — a request reaches a meeting only from the committee's
+        // pending list (the مقرر's approve puts it there), never by picking
+        // any file the actor happens to be able to see.
+        if ($itemType === 'employee_request'
+            && ! app(CommitteeStatusService::class)->candidatesQuery()->whereKey($validated['request_id'])->exists()) {
+            throw ValidationException::withMessages([
+                'request_id' => ['لا يُدرج في جدول الأعمال إلا طلب من قائمة الطلبات المعلقة للجنة.'],
+            ]);
+        }
+
+        if ($itemType === 'appeal') {
+            $appeal = Appeal::query()->with('status:id,code')->findOrFail($validated['appeal_id']);
+
+            if ($appeal->status?->code !== 'legal_review') {
+                throw ValidationException::withMessages([
+                    'appeal_id' => ['لا يمكن عرض التظلم على اللجنة إلا بعد اجتياز المراجعة القانونية.'],
+                ]);
+            }
+        }
+
+        // Stage 68 — [D] Art. 21 / Appendix 2's file-readiness rule ("مراجعًا
+        // قانونيًا") and Appendix 7's own checklist question ("هل تمت المراجعة
+        // القانونية المطلوبة؟"). Art. 24 lists المراجعة أو الرأي القانوني as
+        // component 7 of the ملف العرض, so a file with no completed review is
+        // simply not presentable.
+        //
+        // The gate lives here rather than in CommitteeStatusService's
+        // place_on_agenda because Stage 44 established that an item can be
+        // inserted without that action ever firing — gating the service alone
+        // would be trivially bypassable through this very endpoint.
+        //
+        // Two of Art. 21's five verdicts permit insertion: سليم قانونيًا, and
+        // مسألة قانونية تستوجب العرض مع بيانها (whose whole point is that the
+        // matter IS presented, with the issue stated). See
+        // RequestLegalReview::PERMITTING_VERDICTS.
+        if ($itemType === 'employee_request') {
+            // Reused below for the Art. 101 notice, so the gate and the
+            // notice speak about the same loaded row.
+            $subject = Request::query()
+                ->with('latestLegalReview')
+                ->findOrFail($validated['request_id']);
+
+            if (! $subject->latestLegalReview?->permitsAgenda()) {
+                throw ValidationException::withMessages([
+                    'request_id' => ['لا يمكن إدراج الطلب في جدول الأعمال قبل استكمال المراجعة القانونية بنتيجة تجيز العرض.'],
+                ]);
+            }
+
+            // Stage 83 — [D] Appendix 30: "**فلا تعرض المعاملة قبل معالجة
+            // التعارض**". Here rather than in CommitteeStatusService for the
+            // same reason the legal-review gate above is — an item is inserted
+            // through this endpoint without `place_on_agenda` ever firing.
+            if (app(DocumentConflictService::class)->hasOpenConflict($subject)) {
+                throw ValidationException::withMessages([
+                    'request_id' => [DocumentConflictService::AGENDA_BLOCK_MESSAGE],
+                ]);
+            }
+
+            // Stage 85 — [F]'s own footer rule 2, enforced where it is named:
+            // "لا يُعرض أي طلب على اللجنة قبل استكمال المستندات المطلوبة".
+            //
+            // The file's documents were already checked once, at
+            // `requirements_check → approve` — but that check is recorded and
+            // never re-verified, so completeness that regressed afterwards
+            // (a row added to the type's matrix through the Request Types
+            // screen, or a file that predates Stage 85's submission rule)
+            // reaches the agenda unnoticed. This reads live coverage rather
+            // than the frozen gate record, because the record is an
+            // attestation and cannot regress while the documents can.
+            //
+            // Here rather than in CommitteeStatusService for the third time
+            // and the same documented reason as the two gates above: an item
+            // is inserted through this endpoint without `place_on_agenda`
+            // ever firing.
+            if (($incomplete = app(DocumentCompletenessService::class)->refusalForRequest($subject)) !== null) {
+                throw ValidationException::withMessages(['request_id' => [$incomplete]]);
+            }
+        }
+
+        // Stage 83 — [D] Appendix 33: "لا تعتبر المعاملة مستعجلة لمجرد طلب
+        // صاحبها ذلك" plus "ويثبت سبب الاستعجال في النظام". A declared عالية
+        // needs one of the appendix's five grounds AND the recorded مبرر.
+        if (($urgency = app(UrgencyRules::class)->refusalReason($validated)) !== null) {
+            throw ValidationException::withMessages(['priority' => [$urgency]]);
+        }
+
+        $nextOrder = ($meeting->agendaItems()->max('agenda_order') ?? 0) + 1;
+
+        $item = $meeting->agendaItems()->create([
+            ...$validated,
+            'item_type' => $validated['item_type'] ?? 'employee_request',
+            'agenda_order' => $nextOrder,
+        ]);
+
+        // Stage 79 — [D] Art. 101's fourth moment (إدراج الطلب بجدول
+        // الأعمال). This is the one moment with no status behind it:
+        // CommitteeStatusService's `place_on_agenda` (which would set
+        // `on_agenda`) has no caller anywhere, because Stage 44 established
+        // that an item is inserted through this endpoint without that action
+        // ever firing — the same reason Stage 68 put its legal-review gate
+        // here rather than on the service. Only a request item has an
+        // employee to tell; an administrative or emerging item has none, and
+        // an appeal has its own Track J notice.
+        if ($item->item_type === 'employee_request' && $item->request_id !== null) {
+            $subject = $subject ?? Request::query()->find($item->request_id);
+
+            if ($subject !== null) {
+                $notifications->requestNotice($subject, 'placed_on_agenda', [], $request->user()?->id);
+            }
+        }
+
+        return (new MeetingRequestResource($item->load(self::AGENDA_ITEM_WITH)))
+            ->response()->setStatusCode(201);
+    }
+
+    /** Stage 31 — priority/time/subject/department only; see the FormRequest for why item_type/request_id/appeal_id stay fixed. */
+    public function updateAgendaItem(UpdateMeetingAgendaItemRequest $request, Meeting $meeting, MeetingRequest $agendaItem): MeetingRequestResource
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        $validated = $request->validated();
+
+        // Stage 83 — Appendix 33, checked against the values the write would
+        // leave behind rather than the payload alone: an update may raise the
+        // level without restating the ground, or clear the ground while the
+        // level stays عالية, and either would slip past a payload-only check.
+        $merged = [
+            'priority' => array_key_exists('priority', $validated) ? $validated['priority'] : $agendaItem->priority,
+            'priority_reason_code' => array_key_exists('priority_reason_code', $validated) ? $validated['priority_reason_code'] : $agendaItem->priority_reason_code,
+            'priority_reason' => array_key_exists('priority_reason', $validated) ? $validated['priority_reason'] : $agendaItem->priority_reason,
+        ];
+
+        if (($urgency = app(UrgencyRules::class)->refusalReason($merged)) !== null) {
+            throw ValidationException::withMessages(['priority' => [$urgency]]);
+        }
+
+        $agendaItem->update($validated);
+
+        return new MeetingRequestResource($agendaItem->load(self::AGENDA_ITEM_WITH));
+    }
+
+    /**
+     * Stage 34 — the live runner advancing (or reopening) one agenda item's
+     * state. A resolved item (already has a decision) refuses any further
+     * change, mirroring DecisionEligibility's "voting closes once decided"
+     * rule. `complete` is refused outright for a request or appeal item —
+     * that state is only ever reached as a side effect of
+     * DecisionController::record()/recordAppealDecision(), so a `complete`
+     * item of either kind always means a real recorded decision.
+     */
+    public function updateItemState(UpdateMeetingAgendaItemStateRequest $request, Meeting $meeting, MeetingRequest $agendaItem): MeetingRequestResource|JsonResponse
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        if ($meeting->convened_at === null) {
+            return response()->json(['message' => self::MEETING_NOT_CONVENED], 422);
+        }
+
+        if ($meeting->agenda_adopted_at === null) {
+            return response()->json(['message' => self::AGENDA_NOT_ADOPTED], 422);
+        }
+
+        if ($agendaItem->decision()->exists()) {
+            return response()->json([
+                'message' => 'تم إنهاء هذا البند بالفعل، لا يمكن تغيير حالته.',
+            ], 422);
+        }
+
+        $newState = $request->validated('item_state');
+
+        if ($newState === 'complete' && in_array($agendaItem->item_type, ['employee_request', 'appeal'], true)) {
+            return response()->json([
+                'message' => 'بنود الطلبات والتظلمات تُستكمل تلقائياً عند تسجيل القرار، لا يمكن إنهاؤها يدوياً.',
+            ], 422);
+        }
+
+        if ($newState !== $agendaItem->item_state) {
+            $agendaItem->update(['item_state' => $newState, 'state_changed_at' => now()]);
+        }
+
+        return new MeetingRequestResource($agendaItem->load(self::AGENDA_ITEM_WITH));
+    }
+
+    /**
+     * Stage 44 — the live runner's quick-info panel: [C] §6's six tabs
+     * (ملخص الطلب | بيانات الموظف | الدراسة | المرفقات | الطلبات السابقة |
+     * مالحظات اللجنة — the sixth, committee notes, is already served by the
+     * existing discussion feed, so this endpoint covers the other five).
+     * Deliberately not gated by RequestVisibility (the direct-workspace
+     * gate `AttachmentController`/`RequestController` use) — a committee
+     * member reading an item during a live meeting isn't necessarily the
+     * request's creator or its current actionable assignee (only the R03
+     * head's decide-action role passes that gate; R04 members would 404).
+     * `meeting_live,view` is the right gate here, same as the discussion
+     * feed and the notes list already use.
+     */
+    public function agendaItemContext(Meeting $meeting, MeetingRequest $agendaItem): JsonResponse
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        if ($agendaItem->item_type !== 'employee_request') {
+            return response()->json([
+                'message' => 'لا تتوفر بيانات طلب لبند غير مرتبط بطلب.',
+            ], 422);
+        }
+
+        $agendaItem->loadMissing([
+            'request.department:id,name_ar,name_en',
+            'request.requestType:id,name_ar,name_en',
+            'request.status:id,code,name_ar,name_en,color',
+            // Stage 95 — [C] §6's بيانات الموظف tab is صاحب العلاقة and
+            // THEIR manager; before this stage a file filed on an
+            // employee's behalf showed the clerk's details to the committee.
+            'request.subject:id,name,email,phone,department_id,manager_id',
+            'request.subject.department:id,name_ar,name_en',
+            'request.subject.manager:id,name',
+            'request.attachments',
+        ]);
+
+        $requestRecord = $agendaItem->request;
+        $employee = $requestRecord->subject;
+
+        // "الدراسة" — [C]'s study stage has no free-standing result field to
+        // read; the honest equivalent is the actual stage-log entries
+        // recorded while this request sat at the مقرر's own checkpoint —
+        // `requirements_check` since Stage 102 took `observations` off the path.
+        $study = RequestStageLog::query()
+            ->where('request_id', $requestRecord->id)
+            ->where(function ($query) {
+                $query->whereHas('fromStage', fn ($stage) => $stage->whereIn('code', ['requirements_check', 'observations']))
+                    ->orWhereHas('toStage', fn ($stage) => $stage->whereIn('code', ['requirements_check', 'observations']));
+            })
+            ->with('actedBy:id,name')
+            ->orderBy('acted_at')
+            ->get();
+
+        // Membership gate — [C] §6 names the الطلبات السابقة tab, but bound to
+        // files that actually reached the committee: a reference_number is
+        // Art. 20's قيد, the point at which a matter becomes the committee's
+        // own. Before it, Art. 15 is explicit that the file is not theirs, so
+        // an employee's unregistered intakes are not the sitting's business.
+        // Same bound RequestVisibility's own closer clause already uses.
+        $previousRequests = Request::query()
+            ->where('subject_user_id', $requestRecord->subject_user_id)
+            ->where('id', '!=', $requestRecord->id)
+            ->whereNotNull('reference_number')
+            ->with('status:id,code,name_ar,name_en,color')
+            ->orderByDesc('submitted_at')
+            ->limit(10)
+            ->get();
+
+        return response()->json(['data' => [
+            'request' => [
+                'id' => $requestRecord->id,
+                'reference_number' => $requestRecord->reference_number,
+                'title' => $requestRecord->title,
+                'description' => $requestRecord->description,
+                'reasons' => $requestRecord->reasons,
+                'department' => $requestRecord->department ? [
+                    'id' => $requestRecord->department->id,
+                    'name_ar' => $requestRecord->department->name_ar,
+                    'name_en' => $requestRecord->department->name_en,
+                ] : null,
+                'request_type' => $requestRecord->requestType ? [
+                    'id' => $requestRecord->requestType->id,
+                    'name_ar' => $requestRecord->requestType->name_ar,
+                    'name_en' => $requestRecord->requestType->name_en,
+                ] : null,
+                'status' => $requestRecord->status ? [
+                    'code' => $requestRecord->status->code,
+                    'name_ar' => $requestRecord->status->name_ar,
+                    'name_en' => $requestRecord->status->name_en,
+                    'color' => $requestRecord->status->color,
+                ] : null,
+                'decision_grade' => $requestRecord->decision_grade,
+                'submitted_at' => $requestRecord->submitted_at?->toIso8601String(),
+                'due_date' => $requestRecord->due_date?->toDateString(),
+            ],
+            'employee' => $employee ? [
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'email' => $employee->email,
+                'phone' => $employee->phone,
+                'department' => $employee->department ? [
+                    'id' => $employee->department->id,
+                    'name_ar' => $employee->department->name_ar,
+                    'name_en' => $employee->department->name_en,
+                ] : null,
+                'manager' => $employee->manager ? [
+                    'id' => $employee->manager->id,
+                    'name' => $employee->manager->name,
+                ] : null,
+            ] : null,
+            'study' => $study->map(fn (RequestStageLog $log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'comment' => $log->comment,
+                'acted_by' => $log->actedBy ? ['id' => $log->actedBy->id, 'name' => $log->actedBy->name] : null,
+                'acted_at' => $log->acted_at?->toIso8601String(),
+            ])->values(),
+            'attachments' => $requestRecord->attachments->map(fn (Attachment $attachment) => [
+                'id' => $attachment->id,
+                'original_name' => $attachment->original_name,
+                'mime_type' => $attachment->mime_type,
+                'size_bytes' => $attachment->size_bytes,
+                'label' => $attachment->label,
+                'preview_url' => route('meetings.agenda-item.attachment', [
+                    'meeting' => $meeting->id,
+                    'agendaItem' => $agendaItem->id,
+                    'attachment' => $attachment->id,
+                ]),
+            ])->values(),
+            'previous_requests' => $previousRequests->map(fn ($previous) => [
+                'id' => $previous->id,
+                'reference_number' => $previous->reference_number,
+                'title' => $previous->title,
+                'status' => $previous->status ? [
+                    'code' => $previous->status->code,
+                    'name_ar' => $previous->status->name_ar,
+                    'name_en' => $previous->status->name_en,
+                    'color' => $previous->status->color,
+                ] : null,
+                'submitted_at' => $previous->submitted_at?->toIso8601String(),
+            ])->values(),
+        ]]);
+    }
+
+    /**
+     * Stage 44 — streams a request's attachment for the live-runner context
+     * panel above. A sibling of AttachmentController::preview, deliberately
+     * not reusing it: that route is gated by RequestVisibility (creator or
+     * current actionable assignee only), which a non-head committee member
+     * reading an agenda item during a meeting would fail. Trust here comes
+     * from the meeting_live screen grant plus the attachment/agenda-item/
+     * meeting chain actually matching, not from RequestVisibility.
+     */
+    public function agendaItemAttachment(Meeting $meeting, MeetingRequest $agendaItem, Attachment $attachment): StreamedResponse
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+        abort_unless($agendaItem->item_type === 'employee_request', 404);
+        abort_unless($attachment->request_id === $agendaItem->request_id, 404);
+        abort_unless(Storage::disk($attachment->disk)->exists($attachment->path), 404);
+
+        return Storage::disk($attachment->disk)->response(
+            $attachment->path,
+            $attachment->original_name,
+            ['Content-Type' => $attachment->mime_type],
+            'inline',
+        );
+    }
+
+    public function removeAgendaItem(Meeting $meeting, MeetingRequest $agendaItem): JsonResponse
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        if ($meeting->agenda_adopted_at !== null) {
+            return response()->json(['message' => self::AGENDA_ALREADY_ADOPTED], 422);
+        }
+
+        $agendaItem->delete();
+
+        return response()->json(null, 204);
+    }
+
+    /** Rewrites agenda_order 1..n to match the submitted order — see the FormRequest for the exact-set guard. */
+    public function reorderAgenda(ReorderMeetingAgendaRequest $request, Meeting $meeting): AnonymousResourceCollection|JsonResponse
+    {
+        if ($meeting->agenda_adopted_at !== null) {
+            return response()->json(['message' => self::AGENDA_ALREADY_ADOPTED], 422);
+        }
+
+        DB::transaction(function () use ($request) {
+            foreach ($request->validated('order') as $index => $id) {
+                MeetingRequest::query()->where('id', $id)->update(['agenda_order' => $index + 1]);
+            }
+        });
+
+        return MeetingRequestResource::collection(
+            $meeting->agendaItems()->with(self::AGENDA_ITEM_WITH)->get(),
+        );
+    }
+
+    /**
+     * Stage 99 — [D] Appendix 6 row 8: the committee's «اعتماد تنظيمي» of the
+     * agenda, recorded by the chair (Art. 12 (أ) 3, «مراجعة واعتماد جدول
+     * الأعمال قبل الاجتماع»). One-shot: after it the agenda is fixed and
+     * deliberation may begin — see AGENDA_NOT_ADOPTED / AGENDA_ALREADY_ADOPTED.
+     */
+    public function adoptAgenda(HttpRequest $request, Meeting $meeting, MeetingDuties $duties): MeetingResource|JsonResponse
+    {
+        // Decision wizard — sub-project 2: the same refusal the wizard shows.
+        if ($refusal = $duties->adoptRefusal($meeting)) {
+            return response()->json(['message' => $refusal], 422);
+        }
+
+        $meeting->update([
+            'agenda_adopted_at' => now(),
+            'agenda_adopted_by_user_id' => $request->user()->id,
+        ]);
+
+        return new MeetingResource($this->loadDetail($meeting));
+    }
+
+    /**
+     * Stage 82 — [D] Art. 83's ordering and Appendix 24's per-item profile,
+     * read-only. The builder screen shows each item's rank and the twelve
+     * fields the appendix requires of an agenda ("يجب ألا يكون جدول الأعمال
+     * مجرد قائمة أسماء، بل وثيقة إدارة قرار"), plus whether the agenda as it
+     * stands already follows the article's own order.
+     */
+    public function agendaOrdering(Meeting $meeting, AgendaOrderingService $ordering): JsonResponse
+    {
+        return response()->json(['data' => $ordering->forMeeting($meeting)]);
+    }
+
+    /**
+     * Stage 82 — rewrite `agenda_order` to Art. 83's computed sequence.
+     *
+     * Offered, never imposed: the article's fifth rule leaves the ordering to
+     * the chair "بما لا يخل بالمساواة وسلامة الإجراءات", so Stage 39's manual
+     * reorder stays exactly as it was and this is one more way to arrive at an
+     * order. Applying the rule clears any recorded departure justification —
+     * it justified a departure that no longer exists.
+     */
+    public function applyAgendaOrder(Meeting $meeting, AgendaOrderingService $ordering): AnonymousResourceCollection|JsonResponse
+    {
+        if ($meeting->agenda_adopted_at !== null) {
+            return response()->json(['message' => self::AGENDA_ALREADY_ADOPTED], 422);
+        }
+
+        $items = $meeting->agendaItems()->orderBy('agenda_order')->get();
+        $sequence = $ordering->orderedIds($items, $ordering->profiles($items));
+
+        DB::transaction(function () use ($meeting, $sequence) {
+            foreach ($sequence as $index => $id) {
+                MeetingRequest::query()->where('id', $id)->update(['agenda_order' => $index + 1]);
+            }
+
+            $meeting->update(['agenda_order_justification' => null]);
+        });
+
+        return MeetingRequestResource::collection(
+            $meeting->agendaItems()->with(self::AGENDA_ITEM_WITH)->get(),
+        );
+    }
+
+    /**
+     * Stage 82 — النموذج 11's card for one agenda item: Art. 85's nine-step
+     * sequence with its two derived steps read from the item's own votes and
+     * decision rather than attested.
+     */
+    public function studySequence(Meeting $meeting, MeetingRequest $agendaItem, StudySequenceRules $sequence): JsonResponse
+    {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        $agendaItem->loadMissing(['request.latestLegalReview', 'appeal:id,legal_review']);
+
+        return response()->json(['data' => $sequence->card($agendaItem)]);
+    }
+
+    /**
+     * Stage 82 — tick (or untick) one step of Art. 85's sequence.
+     *
+     * The order is enforced, because the article states one: "يتبع في كل بند
+     * التسلسل الآتي". Unticking is refused once voting has begun, per Appendix
+     * 25's own closing rule.
+     */
+    public function updateStudySequence(
+        UpdateStudySequenceRequest $request,
+        Meeting $meeting,
+        MeetingRequest $agendaItem,
+        StudySequenceRules $sequence,
+    ): JsonResponse {
+        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
+
+        if ($meeting->convened_at === null) {
+            return response()->json(['message' => self::MEETING_NOT_CONVENED], 422);
+        }
+
+        if ($meeting->agenda_adopted_at === null) {
+            return response()->json(['message' => self::AGENDA_NOT_ADOPTED], 422);
+        }
+
+        $agendaItem->loadMissing(['request.latestLegalReview', 'appeal:id,legal_review']);
+
+        $step = $request->validated('step');
+        $done = $request->boolean('done');
+
+        if ($problem = $sequence->firstProblemMarking($agendaItem, $step, $done)) {
+            return response()->json(['message' => $problem], 422);
+        }
+
+        $sequence->mark($agendaItem, $step, $done, $request->user());
+
+        return response()->json(['data' => $sequence->card($agendaItem)]);
+    }
+
+    /**
+     * Stage 31 — totals and a "group similar" view over the agenda, so the
+     * builder screen can show a computed total time and cluster items either
+     * by effective department (the item's own for an admin item, its
+     * request's for a request) or, Stage 40, by the request's type — [C]
+     * §4's own example groups by request type ("جميع طلبات الترقية...
+     * في مجموعة واحدة"), not department. An admin/emerging/appeal item has
+     * no request and therefore no type, so under request_type grouping it
+     * always lands in the null-type bucket, mirroring how a department-less
+     * item already lands in the null-department bucket today.
+     */
+    public function agendaStats(HttpRequest $request, Meeting $meeting): JsonResponse
+    {
+        $groupBy = $request->query('group_by', 'department');
+        abort_unless(in_array($groupBy, ['department', 'request_type'], true), 422);
+
+        $items = $meeting->agendaItems()->with([
+            'request:id,reference_number,title,department_id,request_type_id',
+            'request.department:id,name_ar,name_en',
+            'request.requestType:id,name_ar,name_en',
+            'department:id,name_ar,name_en',
+            'appeal:id,original_request_id',
+            'appeal.originalRequest:id,title',
+        ])->get();
+
+        // Stage 82 — Appendix 24's two levels replace Stage 31's invented
+        // three; `none` is an item whose level has not been declared yet.
+        $byPriority = ['high' => 0, 'normal' => 0, 'none' => 0];
+        // Stage 63 — a fourth bucket for appeal items, alongside Stage 31's
+        // original three.
+        $byType = ['employee_request' => 0, 'administrative' => 0, 'emerging' => 0, 'appeal' => 0];
+        $groups = [];
+
+        foreach ($items as $item) {
+            $byPriority[$item->priority ?? 'none']++;
+            $byType[$item->item_type]++;
+
+            if ($groupBy === 'request_type') {
+                $type = $item->request?->requestType;
+                $key = $type?->id ?? 0;
+                $groups[$key]['type'] ??= $type ? [
+                    'id' => $type->id,
+                    'name_ar' => $type->name_ar,
+                    'name_en' => $type->name_en,
+                ] : null;
+            } else {
+                $department = $item->department ?? $item->request?->department;
+                $key = $department?->id ?? 0;
+                $groups[$key]['department'] ??= $department ? [
+                    'id' => $department->id,
+                    'name_ar' => $department->name_ar,
+                    'name_en' => $department->name_en,
+                ] : null;
+            }
+
+            $groups[$key]['items'][] = [
+                'id' => $item->id,
+                // Stage 63 — an appeal item has neither a title-bearing
+                // request nor a subject; fall back to the original request's
+                // own title rather than rendering a blank label.
+                'label' => $item->request?->title ?? $item->subject ?? $item->appeal?->originalRequest?->title ?? ('#'.$item->id),
+            ];
+        }
+
+        return response()->json(['data' => [
+            'total_items' => $items->count(),
+            'total_estimated_minutes' => (int) $items->sum('estimated_minutes'),
+            'by_priority' => $byPriority,
+            'by_type' => $byType,
+            'group_by' => $groupBy,
+            'groups' => array_values($groups),
+        ]]);
+    }
+
+    /** Stage 31 — department picker for the agenda builder's admin-item form; `departments` itself grants no role access. */
+    public function departmentOptions(): JsonResponse
+    {
+        return response()->json([
+            'data' => Department::query()
+                ->where('is_active', true)
+                ->orderBy('name_ar')
+                ->get(['id', 'name_ar', 'name_en']),
+        ]);
+    }
+
+    /**
+     * Stage 63 — the appeal picker for the agenda builder's `appeal` item
+     * form. A narrow, purpose-built lookup, same "picker, not the full
+     * resource's own visibility rule" precedent as departmentOptions()/
+     * CommitteeController::userOptions() — AppealController::index() scopes
+     * a non-R08/non-`appeals,edit` actor to their own filings, which the
+     * `meeting_agenda,edit` roles (R02/R03) don't hold. Excludes an appeal
+     * already nominated on some agenda (Appeal::committeeAgendaItem) — once
+     * nominated it stays nominated until decided, never re-offered here.
+     */
+    public function appealOptions(): JsonResponse
+    {
+        return response()->json([
+            'data' => Appeal::query()
+                ->whereHas('status', fn ($query) => $query->where('code', 'legal_review'))
+                ->whereDoesntHave('committeeAgendaItem')
+                ->with(['appellant:id,name', 'originalRequest:id,reference_number,title'])
+                ->latest()
+                ->get()
+                ->map(fn (Appeal $appeal) => [
+                    'id' => $appeal->id,
+                    'appellant' => $appeal->appellant ? [
+                        'id' => $appeal->appellant->id,
+                        'name' => $appeal->appellant->name,
+                    ] : null,
+                    'original_request' => $appeal->originalRequest ? [
+                        'id' => $appeal->originalRequest->id,
+                        'reference_number' => $appeal->originalRequest->reference_number,
+                        'title' => $appeal->originalRequest->title,
+                    ] : null,
+                ])
+                ->values(),
+        ]);
+    }
+
+    /**
+     * Roll call: whether an invited member attended. Stage 102 removed the
+     * RSVP from here (members answer through respond()) and removed ad-hoc
+     * attendees altogether — a meeting invites exactly the five seats.
+     */
+    public function markAttendance(UpdateMeetingAttendeeRequest $request, Meeting $meeting, MeetingAttendee $attendee): MeetingAttendeeResource
+    {
+        abort_unless($attendee->meeting_id === $meeting->id, 404);
+
+        $attendee->update($request->validated());
+
+        return new MeetingAttendeeResource($attendee->load('user:id,name'));
+    }
+
+    /**
+     * Stage 30 — (re)sends the meeting invitation to its current attendees.
+     * Decoupled from store() so the scheduling wizard's final step, and a
+     * later "resend" from the meeting detail screen, both go through the
+     * same explicit action rather than only ever firing once at creation.
+     */
+    public function sendInvitations(Meeting $meeting, NotificationDispatcher $notifications, HttpRequest $request): MeetingResource
+    {
+        $attendeeUserIds = $meeting->attendees()->pluck('user_id');
+
+        $notifications->meetingScheduled($meeting, $attendeeUserIds, $request->user());
+
+        return new MeetingResource($this->loadDetail($meeting));
+    }
+
+    private function loadDetail(Meeting $meeting): Meeting
+    {
+        return $meeting->load([
+            // Stage 48 — rapporteur_votes travels with the committee so the
+            // panel can tell a non-voting rapporteur apart from a voting one.
+            'committee:id,name_ar,name_en,rapporteur_votes',
+            'createdBy:id,name',
+            'chairman:id,name',
+            'rapporteur:id,name',
+            'convenedBy:id,name',
+            'agendaAdoptedBy:id,name',
+            'meetingMinutes',
+            'attendees.user:id,name',
+            'agendaItems.request:id,reference_number,title,status_id',
+            'agendaItems.request.status:id,code,name_ar,name_en,color',
+            // Stage 74 — see AGENDA_ITEM_WITH (including why there is
+            // no column list).
+            'agendaItems.request.latestLegalReview',
+            // Stage 63 — the appeal riding an `appeal` item, mirroring the
+            // request block above.
+            'agendaItems.appeal:id,appellant_user_id,original_request_id,appeal_status_id',
+            'agendaItems.appeal.appellant:id,name',
+            'agendaItems.appeal.originalRequest:id,reference_number,title',
+            'agendaItems.appeal.status:id,code,name_ar,name_en,color',
+            'agendaItems.department:id,name_ar,name_en',
+            'agendaItems.votes.user:id,name',
+            'agendaItems.decision.decidedBy:id,name',
+            'agendaItems.decision.template:id,code,name_ar,name_en',
+            'agendaItems.notes.createdBy:id,name',
+            'agendaItems.conflictDeclarations.user:id,name',
+        ]);
+    }
+}

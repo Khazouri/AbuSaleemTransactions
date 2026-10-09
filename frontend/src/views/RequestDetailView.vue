@@ -1,0 +1,906 @@
+<script setup>
+/**
+ * Stage 15 — the workflow workspace for a single request.
+ *
+ * Restyled/restructured pass: the page reads cover → stage rail → routing
+ * slip → actions, then five tabs (الملف / البوابات / الاعتمادات /
+ * اللجنة والقانون / المخرجات) instead of thirteen always-rendered cards
+ * stacked in a row. Every v-if, v-can, prop and endpoint below is unchanged
+ * from before this pass — only where each block renders moved.
+ */
+import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
+import TimelineDocuments from '../components/TimelineDocuments.vue'
+import AttachmentLink from '../components/AttachmentLink.vue'
+import DecisionWizard from '../components/DecisionWizard.vue'
+import IntakeGatePanel from '../components/IntakeGatePanel.vue'
+import JurisdictionTestForm from '../components/JurisdictionTestForm.vue'
+import RequestSoundnessPanel from '../components/RequestSoundnessPanel.vue'
+import RequestSuspensionPanel from '../components/RequestSuspensionPanel.vue'
+import ApprovalTrail from '../components/ApprovalTrail.vue'
+import RequestArchivePanel from '../components/RequestArchivePanel.vue'
+import RequestLifecyclePanel from '../components/RequestLifecyclePanel.vue'
+import RequestNotes from '../components/RequestNotes.vue'
+import RequestStageRail from '../components/RequestStageRail.vue'
+import api from '../lib/api'
+// Stage 72 — [D] Appendix 57's grouped document matrix, shared with the intake
+// screen so both read the same list the same way.
+import { documentCondition, documentLabel, groupDocuments } from '../lib/requiredDocuments'
+import { fileSectionLabel } from '../lib/fileSections'
+import { stageProgressLabel } from '../lib/stageProgress'
+// Stage 75 — [D] Appendix 47's twelve checks, mirrored once for every screen.
+import { AUDIT_CHECKS } from '../lib/requestClosure'
+import { TRACKING_CHECKS } from '../lib/requestExecution'
+
+const route = useRoute()
+const router = useRouter()
+const { t, locale } = useI18n()
+const request = ref(null)
+const loading = ref(false)
+const error = ref('')
+const actionError = ref('')
+
+// Restyled pass — the tab strip. `?tab=` keeps a link openable to a specific
+// section; `v-show` (not v-if) keeps every panel's own components mounted
+// regardless of the active tab, matching how they already mounted before
+// this pass, and is what lets @media print force every panel visible.
+const TABS = ['file', 'gates', 'approvals', 'legal', 'outputs']
+const activeTab = ref(TABS.includes(route.query.tab) ? route.query.tab : 'file')
+function selectTab(tab) {
+  activeTab.value = tab
+  router.replace({ query: { ...route.query, tab } })
+}
+watch(() => route.query.tab, (value) => {
+  if (value && TABS.includes(value) && value !== activeTab.value) activeTab.value = value
+})
+
+/**
+ * Arrow-key tab navigation, direction-aware: "next" always moves the reading
+ * direction the tabs are actually laid out in, so Right and Left swap roles
+ * between Arabic (RTL) and English (LTR) rather than always meaning the same
+ * physical arrow key regardless of which way the strip reads.
+ */
+function stepTab(direction) {
+  const delta = (locale.value === 'ar' ? -1 : 1) * direction
+  const index = TABS.indexOf(activeTab.value)
+  selectTab(TABS[(index + delta + TABS.length) % TABS.length])
+}
+
+// Stage 79 — an Art. 101 notice stores both languages in its payload, so the
+// register reads back the one the viewer is in without re-deriving the text.
+const noticeText = (notice, field) => (locale.value === 'ar'
+  ? notice[`${field}_ar`] || notice[`${field}_en`]
+  : notice[`${field}_en`] || notice[`${field}_ar`]) ?? '—'
+
+const name = (item) => {
+  if (!item) return t('common.none')
+  return locale.value === 'ar' ? item.name_ar || item.name_en : item.name_en || item.name_ar
+}
+// Stage 80 — [D] Appendix 14's folder name for a linked document, or the
+// honest "unclassified" label for a row written before that column existed.
+const fileSectionName = (code) => fileSectionLabel(t, code)
+const dateTime = (value) => value
+  ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+  : t('common.none')
+const date = (value) => value
+  ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
+  : t('common.none')
+const actionLabel = (action) => t(`workflow.actions.${action}`)
+// The round still awaiting an answer, read off the register itself now that
+// the eligibility fields are gone (decision wizard sub-project 3).
+const openApprovalReferral = computed(() => request.value?.approval_referrals?.find((entry) => !entry.result_outcome) ?? null)
+const openApprovalReturn = computed(() => request.value?.approval_returns?.find((entry) => !entry.resolved_at) ?? null)
+// Stage 52 — "3" for a single-day target, "5–10" for a range.
+const stageTargetLabel = (st) => st.target_days_min === st.target_days_max
+  ? String(st.target_days_max)
+  : `${st.target_days_min}–${st.target_days_max}`
+const timelineMovement = (entry) => entry.from_stage
+  ? `${name(entry.from_stage)} ${locale.value === 'ar' ? '←' : '→'} ${name(entry.to_stage)}`
+  : name(entry.to_stage)
+// Decision wizard — sub-project 1. It replaces the action card and the gate
+// panels that sat above it: one button opens the wizard, and a task from
+// «المهام المعلقة» arrives with `?decide=1` to open it straight away.
+const wizardOpen = ref(false)
+const canDecide = computed(() => Boolean(
+  request.value?.available_transitions?.length || request.value?.blocked_transitions?.length
+  || request.value?.committee_actions?.length
+  || request.value?.acts?.available?.length || request.value?.acts?.blocked?.length,
+))
+// Decision wizard — sub-project 3. `?decide=<act>&target=<row>` opens on that act.
+const wizardInitial = computed(() => (route.query.decide && route.query.decide !== '1'
+  ? { action: route.query.decide, target: route.query.target ?? null }
+  : null))
+function closeWizard() {
+  wizardOpen.value = false
+  if (route.query.decide) {
+    const { decide, target, ...query } = route.query
+    router.replace({ query })
+  }
+}
+// Stage 72 — Appendix 57's groups for this request's own type.
+const documentSections = computed(() => groupDocuments(request.value?.required_documents))
+const currentStageName = computed(() => request.value?.current_stage ? name(request.value.current_stage) : '')
+
+// Restyled pass — a tab that can genuinely be empty says so, rather than
+// showing a bare card border with nothing in it. Each mirrors the exact
+// v-if conditions its own panels already carried.
+const hasGatesTabContent = computed(() => request.value?.current_stage?.code === 'requirements_check' || !!request.value?.control_gates)
+const hasApprovalsTabContent = computed(() => Boolean(
+  request.value?.approval_referrals?.length || request.value?.approval_returns?.length
+  || request.value?.approvals?.length,
+))
+const hasLegalTabContent = computed(() => Boolean(
+  request.value?.legal_review || request.value?.committee_summary,
+))
+
+function docLabel(doc) {
+  return documentLabel(doc, locale.value)
+}
+
+function docCondition(doc) {
+  return documentCondition(doc, locale.value)
+}
+
+function fileSize(bytes) {
+  if (!Number.isFinite(bytes)) return t('common.none')
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`
+}
+
+async function load() {
+  loading.value = true
+  error.value = ''
+  actionError.value = ''
+  try {
+    const { data } = await api.get(`/requests/${route.params.id}`)
+    request.value = data.data
+    if (route.query.decide && canDecide.value) wizardOpen.value = true
+  } catch (requestError) {
+    error.value = requestError.response?.data?.message ?? t('requestDetail.loadFailed')
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(() => route.params.id, load)
+onMounted(load)
+
+// Decision wizard — sub-project 3. After any act the wizard hands back the
+// fresh file; the lifecycle card and notes fetch their own data, so a new
+// key remounts them.
+const refreshKey = ref(0)
+function onWizardUpdated(updated) {
+  // null: the act landed but the wizard's reload failed — retry it here.
+  if (updated === null) load()
+  else request.value = updated
+  refreshKey.value += 1
+}
+</script>
+
+<template>
+  <section class="detail">
+    <RouterLink class="back" :to="{ name: 'requests' }">{{ t('requestDetail.back') }}</RouterLink>
+
+    <p v-if="loading" class="state">{{ t('common.loading') }}</p>
+    <div v-else-if="error" class="alert" role="alert">
+      {{ error }} <button class="ghost" type="button" @click="load">{{ t('common.retry') }}</button>
+    </div>
+
+    <template v-else-if="request">
+      <!-- Cover band. -->
+      <header class="cover" :class="{ overdue: request.is_overdue }">
+        <div>
+          <!-- A request before the قيد genuinely has no reference number; its
+               intake receipt is the only handle that exists, and labelling it
+               as such keeps the two distinct. -->
+          <p class="reference ltr">{{ request.reference_number || request.intake_receipt_number || `#${request.id}` }}</p>
+          <p v-if="!request.reference_number && request.intake_receipt_number" class="reference-hint">{{ t('requestDetail.awaitingRegistration') }}</p>
+          <h2>{{ request.title }}</h2>
+        </div>
+        <span v-if="request.status" class="status" :style="{ '--status-color': request.status.color || 'var(--color-muted)' }">
+          {{ name(request.status) }}
+        </span>
+      </header>
+
+      <!-- Stage 17 — a breach remains visible without replacing workflow status. -->
+      <p v-if="request.is_overdue" class="sla-alert" role="status">
+        {{ t('requestDetail.overdue', { date: date(request.due_date) }) }}
+      </p>
+
+      <RequestStageRail
+        variant="full"
+        :stage-progress="request.stage_progress"
+        :stage-timeliness="request.stage_timeliness"
+        :current-stage-name="currentStageName"
+      />
+
+      <!-- Stage 83 — [D] Appendices 17 and 18's المسؤول الحالي / الإجراء
+           التالي, promoted out of the summary grid: the appendix says this
+           pair must never be blank, which is exactly the burial risk of
+           ranking it field 6 of 11. -->
+      <section v-if="request.responsibility" class="routing-slip">
+        <div>
+          <span>{{ t('lifecycle.responsibility.label') }}</span>
+          <strong>
+            {{ t(`lifecycle.responsibility.parties.${request.responsibility.responsible.code}`) }}<template v-if="request.responsibility.responsible.names?.length"> — {{ request.responsibility.responsible.names.join(' / ') }}</template>
+          </strong>
+        </div>
+        <div>
+          <span>{{ t('lifecycle.responsibility.nextAction') }}</span>
+          <strong>{{ t(`lifecycle.responsibility.actions.${request.responsibility.next_action.code}`) }}</strong>
+        </div>
+      </section>
+
+      <!-- Decision wizard — sub-project 1. -->
+      <section v-if="canDecide" class="card card-flat card-pad decide">
+        <p>{{ t('decisionWizard.prompt') }}</p>
+        <button class="primary" type="button" @click="wizardOpen = true">{{ t('decisionWizard.open') }}</button>
+      </section>
+      <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
+      <DecisionWizard v-if="wizardOpen" :request="request" :initial="wizardInitial" @updated="onWizardUpdated" @close="closeWizard" />
+
+      <!-- Tab strip. -->
+      <div class="tabs" role="tablist" :aria-label="t('requestDetail.tabsLabel')" @keydown.right.prevent="stepTab(1)" @keydown.left.prevent="stepTab(-1)">
+        <button
+          v-for="tab in TABS"
+          :id="`tab-${tab}`"
+          :key="tab"
+          class="tab"
+          role="tab"
+          type="button"
+          :aria-selected="activeTab === tab ? 'true' : 'false'"
+          :aria-controls="`panel-${tab}`"
+          :tabindex="activeTab === tab ? 0 : -1"
+          @click="selectTab(tab)"
+        >
+          {{ t(`requestDetail.tabs.${tab}`) }}
+        </button>
+      </div>
+
+      <!-- الملف -->
+      <div id="panel-file" v-show="activeTab === 'file'" role="tabpanel" aria-labelledby="tab-file">
+        <div class="columns">
+          <div class="main-column">
+            <section class="card card-flat card-pad summary">
+              <div>
+                <span>{{ t('requests.department') }}</span>
+                <strong>{{ name(request.department) }}</strong>
+              </div>
+              <!-- Stage 95 — صاحب العلاقة, rendered only when somebody filed
+                   on this employee's behalf. An ordinary self-filed request
+                   would just say the same name twice. -->
+              <div v-if="request.subject && request.subject.id !== request.created_by?.id">
+                <span>{{ t('requestDetail.subjectUser') }}</span>
+                <strong>{{ request.subject.name }}</strong>
+              </div>
+              <div v-if="request.subject && request.subject.id !== request.created_by?.id">
+                <span>{{ t('requestDetail.filedBy') }}</span>
+                <strong>{{ request.created_by?.name }}</strong>
+              </div>
+              <div>
+                <span>{{ t('requests.type') }}</span>
+                <strong>{{ name(request.request_type) }}</strong>
+              </div>
+              <div>
+                <span>{{ t('requestDetail.submittedAt') }}</span>
+                <strong>{{ dateTime(request.submitted_at || request.created_at) }}</strong>
+              </div>
+              <div v-if="request.due_date">
+                <span>{{ t('requestDetail.dueDate') }}</span>
+                <strong>{{ date(request.due_date) }}</strong>
+              </div>
+              <!-- Stage 51 — [A] §7's "المستندات الناقصة" flag, derived from status. -->
+              <div>
+                <span>{{ t('requestDetail.documentsComplete.label') }}</span>
+                <strong>{{ request.documents_complete ? t('requestDetail.documentsComplete.yes') : t('requestDetail.documentsComplete.no') }}</strong>
+              </div>
+              <!-- Stage 52 — a non-blocking, per-stage soft-SLA indicator. -->
+              <div v-if="request.stage_timeliness">
+                <span>{{ t('requestDetail.stageTimeliness.label') }}</span>
+                <strong>
+                  <span class="timeliness" :class="`level-${request.stage_timeliness.level}`">
+                    {{ t(`requestDetail.stageTimeliness.level.${request.stage_timeliness.level}`) }}
+                  </span>
+                  <br>
+                  <small>{{ t('requestDetail.stageTimeliness.elapsed', { days: request.stage_timeliness.elapsed_days, target: stageTargetLabel(request.stage_timeliness) }) }}</small>
+                  <template v-if="request.stage_timeliness.escalation">
+                    <br>
+                    <small>
+                      {{ t('requestDetail.stageTimeliness.escalation') }}:
+                      {{ t(`requestDetail.stageTimeliness.level.${request.stage_timeliness.escalation.level}`) }}
+                      —
+                      {{ t('requestDetail.stageTimeliness.escalated', { date: dateTime(request.stage_timeliness.escalation.notified_at) }) }}
+                    </small>
+                  </template>
+                </strong>
+              </div>
+              <!-- Stage 47 — derived from request type at intake; read-only here,
+                   corrected through the wizard's set_financial_impact act. -->
+              <div>
+                <span>{{ t('requestDetail.financialImpact.label') }}</span>
+                <strong>
+                  {{ request.has_financial_impact ? t('requestDetail.financialImpact.yes') : t('requestDetail.financialImpact.no') }}
+                </strong>
+              </div>
+            </section>
+
+            <section class="card card-flat card-pad description">
+              <h3>{{ t('requestDetail.description') }}</h3>
+              <p>{{ request.description || t('requestDetail.noDescription') }}</p>
+              <h3 class="reasons-heading">{{ t('requestDetail.reasons') }}</h3>
+              <p>{{ request.reasons || t('requestDetail.noReasons') }}</p>
+            </section>
+
+            <section class="card card-flat card-pad timeline">
+              <h3>{{ t('requestDetail.timeline') }}</h3>
+              <p v-if="!request.timeline?.length" class="state">{{ t('requestDetail.noTimeline') }}</p>
+              <ol v-else>
+                <li v-for="entry in request.timeline" :key="entry.id">
+                  <span class="dot" />
+                  <div>
+                    <strong>{{ actionLabel(entry.action) }}</strong>
+                    <p v-if="entry.to_stage">{{ timelineMovement(entry) }}</p>
+                    <p v-if="entry.comment" class="entry-comment">{{ entry.comment }}</p>
+                    <small>
+                      {{ entry.acted_by?.name || t('common.none') }}
+                      <template v-if="entry.body"> · {{ name(entry.body) }}</template>
+                      · {{ dateTime(entry.acted_at) }}
+                    </small>
+                    <TimelineDocuments v-if="entry.documents?.length" :documents="entry.documents" />
+                  </div>
+                </li>
+              </ol>
+            </section>
+          </div>
+
+          <aside class="side-column">
+            <section class="card card-flat card-pad attachments">
+              <h3>{{ t('attachments.title') }}</h3>
+              <p v-if="!request.attachments?.length" class="state">{{ t('requestDetail.noAttachments') }}</p>
+              <ul v-else>
+                <li v-for="attachment in request.attachments" :key="attachment.id">
+                  <AttachmentLink :attachment="attachment" />
+                  <small>{{ attachment.label || attachment.mime_type }} · {{ fileSize(attachment.size_bytes) }}</small>
+                  <small class="doc-section">{{ fileSectionName(attachment.file_section) }}</small>
+                  <small v-if="attachment.execution_evidence_type" class="evidence-tag">
+                    {{ t('requestExecution.evidenceBadge') }} — {{ t(`requestExecution.evidenceTypes.${attachment.execution_evidence_type}`) }}
+                  </small>
+                </li>
+              </ul>
+            </section>
+
+            <section v-if="documentSections.length" class="card card-flat card-pad checklist">
+              <h3>{{ t('requestDetail.requiredDocuments.title') }}</h3>
+              <p class="state">{{ t('requestDetail.requiredDocuments.hint') }}</p>
+              <div v-for="section in documentSections" :key="section.group" class="doc-group">
+                <h4>{{ t(`intake.requiredDocuments.groups.${section.group}`) }}</h4>
+                <ul>
+                  <li v-for="(doc, index) in section.items" :key="index">
+                    {{ docLabel(doc) }}
+                    <span v-if="docCondition(doc)" class="doc-condition">({{ docCondition(doc) }})</span>
+                  </li>
+                </ul>
+              </div>
+            </section>
+
+            <section class="card card-flat card-pad"><RequestNotes :key="refreshKey" :request-id="request.id" /></section>
+          </aside>
+        </div>
+      </div>
+
+      <!-- البوابات -->
+      <div id="panel-gates" v-show="activeTab === 'gates'" role="tabpanel" aria-labelledby="tab-gates" class="stacked">
+        <p v-if="!hasGatesTabContent" class="state">{{ t('requestDetail.tabs.empty') }}</p>
+
+        <!-- Stage 78 — [D] Appendix 63's مصفوفة الرقابة الداخلية for this one file. -->
+        <section v-if="request.control_gates" class="card card-flat card-pad summary closure">
+          <h3>{{ t('controlGates.title') }}</h3>
+          <p class="hint">{{ t('controlGates.intro') }}</p>
+
+          <!-- Stage 98 — [D] Appendix 6 row 3. Above gate 1 because it comes
+               before it: HR assembles الملف الوظيفي at receive_and_register,
+               then المقرر checks the committee file at the قيد. -->
+          <div
+            v-if="request.current_stage?.code === 'receive_and_register' || request.control_gates.employment_file.record"
+            class="gate-block"
+          >
+            <h4>{{ t('controlGates.employmentFile.title') }}</h4>
+            <p class="hint">{{ t('controlGates.employmentFile.question') }}</p>
+            <p class="hint">{{ t('controlGates.employmentFile.owner') }}</p>
+            <IntakeGatePanel
+              :request-id="request.id"
+              :record="request.control_gates.employment_file.record"
+              :refusal="request.control_gates.employment_file.refusal"
+              :recorded-by="request.control_gates.employment_file.prepared_by"
+              :recorded-at="request.control_gates.employment_file.prepared_at"
+              endpoint="employment-file"
+              attestation-field="assembled"
+              grant="notes_attachments.add"
+              copy="employmentFile"
+              :grade="{ decision_grade: request.decision_grade, entitled_grade: request.entitled_grade, grade_date: request.grade_date }"
+              readonly
+            />
+          </div>
+
+          <!-- Stage 54 — [D] Art. 45, kept here read-only for whoever may open the
+               file; المقرر answers it inside the decision wizard. -->
+          <div v-if="request.current_stage?.code === 'requirements_check'" class="gate-block">
+            <h4>{{ t('requestDetail.jurisdictionTest.title') }}</h4>
+            <JurisdictionTestForm :request="request" readonly />
+          </div>
+
+          <div
+            v-if="request.current_stage?.code === 'requirements_check' || request.control_gates.intake.record"
+            class="gate-block"
+          >
+            <h4>{{ t('controlGates.intake.title') }}</h4>
+            <p class="hint">{{ t('controlGates.intake.question') }}</p>
+            <IntakeGatePanel
+              :request-id="request.id"
+              :record="request.control_gates.intake.record"
+              :refusal="request.control_gates.intake.refusal"
+              :recorded-by="request.control_gates.intake.recorded_by"
+              :recorded-at="request.control_gates.intake.recorded_at"
+              readonly
+            />
+          </div>
+
+          <div
+            v-if="request.current_stage?.code === 'final_approval_archiving' || request.control_gates.execution_soundness.record"
+            class="gate-block"
+          >
+            <h4>{{ t('controlGates.soundness.title') }}</h4>
+            <p class="hint">{{ t('controlGates.soundness.question') }}</p>
+            <RequestSoundnessPanel
+              :record="request.control_gates.execution_soundness.record"
+              :derived="request.control_gates.execution_soundness.derived"
+              :refusal="request.control_gates.execution_soundness.refusal"
+            />
+          </div>
+
+          <div v-if="request.suspensions?.length" class="gate-block">
+            <h4>{{ t('controlGates.suspension.title') }}</h4>
+            <p class="hint">{{ t('controlGates.suspension.question') }}</p>
+            <RequestSuspensionPanel :suspensions="request.suspensions" />
+          </div>
+        </section>
+      </div>
+
+      <!-- الاعتمادات -->
+      <div id="panel-approvals" v-show="activeTab === 'approvals'" role="tabpanel" aria-labelledby="tab-approvals" class="stacked">
+        <p v-if="!hasApprovalsTabContent" class="state">{{ t('requestDetail.tabs.empty') }}</p>
+
+        <!-- Stage 80 — [D] Art. 30's سجل الإحالات للاعتماد. -->
+        <section v-if="request.approval_referrals?.length" class="card card-flat card-pad summary closure">
+          <h3>{{ t('approvalReferral.title') }}</h3>
+          <ol v-if="request.approval_referrals?.length" class="return-list">
+            <li v-for="entry in request.approval_referrals" :key="entry.id">
+              <div class="return-head">
+                <span class="return-kind">{{ entry.letter_number }}</span>
+                <span>{{ entry.referred_to_body }}</span>
+                <span class="muted">{{ date(entry.referred_at) }}</span>
+              </div>
+              <dl>
+                <div>
+                  <span>{{ t('approvalReferral.referredFrom') }}</span>
+                  <strong>{{ entry.referred_from_stage ? name(entry.referred_from_stage) : '—' }}</strong>
+                </div>
+                <div>
+                  <span>{{ t('approvalReferral.recordedBy') }}</span>
+                  <strong>{{ entry.recorded_by?.name ?? '—' }}</strong>
+                </div>
+                <div>
+                  <span>{{ t('approvalReferral.fields.result_outcome') }}</span>
+                  <strong>
+                    {{ entry.result_outcome
+                      ? t(`approvalReferral.outcomes.${entry.result_outcome}`)
+                      : t('approvalReferral.awaitingResult') }}
+                  </strong>
+                </div>
+                <div v-if="entry.result_received_at">
+                  <span>{{ t('approvalReferral.fields.result_received_at') }}</span>
+                  <strong>{{ date(entry.result_received_at) }}</strong>
+                </div>
+                <div v-if="entry.approval_decision_number">
+                  <span>{{ t('approvalReferral.fields.approval_decision_number') }}</span>
+                  <strong>{{ entry.approval_decision_number }}</strong>
+                </div>
+                <div v-if="entry.result_note" class="wide">
+                  <span>{{ t('approvalReferral.fields.result_note') }}</span>
+                  <strong>{{ entry.result_note }}</strong>
+                </div>
+              </dl>
+            </li>
+          </ol>
+          <p v-if="openApprovalReferral" class="alert info">
+            {{ t('approvalReferral.pendingResult', { letter: openApprovalReferral.letter_number, body: openApprovalReferral.referred_to_body }) }}
+          </p>
+        </section>
+
+        <!-- Stage 77 — [D] Art. 94's إعادة المحضر من جهة الاعتماد. -->
+        <section v-if="request.approval_returns?.length" class="card card-flat card-pad summary closure">
+          <h3>{{ t('approvalReturn.title') }}</h3>
+          <ol v-if="request.approval_returns?.length" class="return-list">
+            <li v-for="entry in request.approval_returns" :key="entry.id">
+              <div class="return-head">
+                <span class="return-kind">{{ t(`approvalReturn.kinds.${entry.return_kind}`) }}</span>
+                <span>{{ t(`approvalReturn.reasons.${entry.return_reason_code}`) }}</span>
+                <span class="muted">{{ date(entry.received_at) }}</span>
+              </div>
+              <dl>
+                <div class="wide">
+                  <span>{{ t('approvalReturn.fields.return_note') }}</span>
+                  <strong>{{ entry.return_note }}</strong>
+                </div>
+                <div>
+                  <span>{{ t('approvalReturn.returnedFrom') }}</span>
+                  <strong>{{ entry.returned_from_stage ? name(entry.returned_from_stage) : '—' }}</strong>
+                </div>
+                <div>
+                  <span>{{ t('approvalReturn.fields.letter_number') }}</span>
+                  <strong>{{ entry.letter_number ?? '—' }}</strong>
+                </div>
+                <div>
+                  <span>{{ t('approvalReturn.recordedBy') }}</span>
+                  <strong>{{ entry.recorded_by?.name ?? '—' }}</strong>
+                </div>
+                <div class="wide">
+                  <span>{{ t('approvalReturn.fields.resolution_action') }}</span>
+                  <strong>{{ entry.resolution_action ?? t('approvalReturn.notResolved') }}</strong>
+                </div>
+                <div v-if="entry.resolved_at">
+                  <span>{{ t('approvalReturn.resolvedAt') }}</span>
+                  <strong>{{ dateTime(entry.resolved_at) }}</strong>
+                </div>
+                <div v-if="entry.resolution_target_stage">
+                  <span>{{ t('approvalReturn.resolvedTo') }}</span>
+                  <strong>{{ name(entry.resolution_target_stage) }}</strong>
+                </div>
+              </dl>
+            </li>
+          </ol>
+          <p v-if="openApprovalReturn" class="alert warning">{{ t('approvalReturn.pendingResolution') }}</p>
+        </section>
+
+        <ApprovalTrail :approvals="request.approvals ?? []" />
+      </div>
+
+      <!-- اللجنة والقانون -->
+      <div id="panel-legal" v-show="activeTab === 'legal'" role="tabpanel" aria-labelledby="tab-legal" class="stacked">
+        <p v-if="!hasLegalTabContent" class="state">{{ t('requestDetail.tabs.empty') }}</p>
+
+        <!-- Stage 68 — [D] Art. 21's pre-meeting legal review. -->
+        <section v-if="request.legal_review" class="card card-flat card-pad summary legal-review">
+          <h3>{{ t('requestDetail.legalReview.title') }}</h3>
+          <div>
+            <span>{{ t('requestDetail.legalReview.verdict') }}</span>
+            <strong :class="request.legal_review.permits_agenda ? 'ok' : 'warn'">
+              {{ t(`meetingsUnit.legalReview.verdicts.${request.legal_review.verdict}`) }}
+            </strong>
+          </div>
+          <div>
+            <span>{{ t('requestDetail.legalReview.reviewedBy') }}</span>
+            <strong>{{ request.legal_review.reviewed_by?.name ?? t('common.none') }}</strong>
+          </div>
+          <div>
+            <span>{{ t('requestDetail.legalReview.reviewedAt') }}</span>
+            <strong>{{ date(request.legal_review.reviewed_at) }}</strong>
+          </div>
+          <div v-if="request.legal_review.primary_legislation">
+            <span>{{ t('meetingsUnit.legalReview.fields.primaryLegislation') }}</span>
+            <strong>{{ request.legal_review.primary_legislation }}</strong>
+          </div>
+          <div v-if="request.legal_review.legal_note" class="full">
+            <span>{{ t('meetingsUnit.legalReview.fields.legalNote') }}</span>
+            <strong>{{ request.legal_review.legal_note }}</strong>
+          </div>
+          <div v-if="request.legal_reviews_count > 1">
+            <span>{{ t('requestDetail.legalReview.rounds') }}</span>
+            <strong>{{ request.legal_reviews_count }}</strong>
+          </div>
+        </section>
+
+        <!-- Stage 51 — [A] §7's committee-presentation fields. -->
+        <section v-if="request.committee_summary" class="card card-flat card-pad summary committee-summary">
+          <h3>{{ t('requestDetail.committeeSummary.title') }}</h3>
+          <div>
+            <span>{{ t('requestDetail.committeeSummary.meetingNumber') }}</span>
+            <strong>{{ request.committee_summary.meeting_number || t('common.none') }}</strong>
+          </div>
+          <div>
+            <span>{{ t('requestDetail.committeeSummary.meetingDate') }}</span>
+            <strong>{{ date(request.committee_summary.meeting_date) }}</strong>
+          </div>
+          <div>
+            <span>{{ t('requestDetail.committeeSummary.agendaItemNumber') }}</span>
+            <strong>{{ request.committee_summary.agenda_item_number ?? t('common.none') }}</strong>
+          </div>
+          <div>
+            <span>{{ t('requestDetail.committeeSummary.committeeResult') }}</span>
+            <strong>
+              {{ request.committee_summary.committee_result
+                ? t(`decisions.outcome.${request.committee_summary.committee_result}`)
+                : t('requestDetail.committeeSummary.resultPending') }}
+            </strong>
+          </div>
+          <div v-if="request.committee_summary.decision_date">
+            <span>{{ t('requestDetail.committeeSummary.decisionDate') }}</span>
+            <strong>{{ date(request.committee_summary.decision_date) }}</strong>
+          </div>
+        </section>
+      </div>
+
+      <!-- المخرجات -->
+      <div id="panel-outputs" v-show="activeTab === 'outputs'" role="tabpanel" aria-labelledby="tab-outputs" class="stacked">
+        <!-- Stage 81 — [D] Appendix 71's بطاقة قياس زمن المعاملة. -->
+        <section v-if="request.time_card?.length" class="card card-flat card-pad time-card">
+          <h3>{{ t('requestDetail.timeCard.title') }}</h3>
+          <p class="source">{{ t('requestDetail.timeCard.source') }}</p>
+          <ul class="segments">
+            <li v-for="segment in request.time_card" :key="segment.key">
+              <span class="segment-code">T{{ segment.number }}</span>
+              <span class="segment-label">{{ segment.label }}</span>
+              <span class="segment-days" :class="{ pending: segment.days === null }">
+                {{ segment.days === null
+                  ? t('requestDetail.timeCard.pending')
+                  : t('requestDetail.timeCard.days', { days: segment.days }) }}
+              </span>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Stage 83 — [D]'s lifecycle edge cases. -->
+        <section class="card card-flat card-pad summary closure">
+          <h3>{{ t('lifecycle.title') }}</h3>
+          <p class="hint">{{ t('lifecycle.intro') }}</p>
+          <RequestLifecyclePanel :key="refreshKey" :request-id="request.id" />
+        </section>
+
+        <!-- Stage 79 — [D] Art. 101's register for this file. -->
+        <section v-if="request.employee_notices?.length" class="card card-flat card-pad summary closure">
+          <h3>{{ t('employeeNotices.title') }}</h3>
+          <p class="hint">{{ t('employeeNotices.intro') }}</p>
+          <ul class="notice-list">
+            <li v-for="notice in request.employee_notices" :key="notice.id">
+              <div class="notice-head">
+                <strong>{{ noticeText(notice, 'title') }}</strong>
+                <span v-if="notice.moment_number" class="notice-moment">{{ t('employeeNotices.moment', { number: notice.moment_number }) }}</span>
+                <span v-else class="notice-moment">{{ t(`notifications.events.${notice.event_type}`) }}</span>
+                <span class="notice-date">{{ dateTime(notice.sent_at) }}</span>
+              </div>
+              <p>{{ noticeText(notice, 'body') }}</p>
+              <small v-if="notice.issued_by">{{ t('employeeNotices.issuedBy', { name: notice.issued_by }) }}</small>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Stage 76 — [D] النموذج 17's recorded execution card, read-only here. -->
+        <section v-if="request.execution" class="card card-flat card-pad summary closure">
+          <h3>{{ t('requestExecution.title') }}</h3>
+          <dl>
+            <div>
+              <span>{{ t('requestExecution.executedAt') }}</span>
+              <strong>{{ dateTime(request.execution.executed_at) }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestExecution.executedBy') }}</span>
+              <strong>{{ request.execution.executed_by?.name ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestExecution.fields.executing_body') }}</span>
+              <strong>{{ request.execution.executing_body ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestExecution.fields.effective_date') }}</span>
+              <strong>{{ request.execution.effective_date ? date(request.execution.effective_date) : '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestExecution.fields.approving_body') }}</span>
+              <strong>{{ request.execution.approving_body ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestExecution.fields.approval_number') }}</span>
+              <strong>{{ request.execution.approval_number ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestExecution.fields.approval_date') }}</span>
+              <strong>{{ request.execution.approval_date ? date(request.execution.approval_date) : '—' }}</strong>
+            </div>
+            <div class="wide">
+              <span>{{ t('requestExecution.fields.action_taken') }}</span>
+              <strong>{{ request.execution.action_taken ?? '—' }}</strong>
+            </div>
+            <div v-if="request.execution.financial_effect_note" class="wide">
+              <span>{{ t('requestExecution.fields.financial_effect_note') }}</span>
+              <strong>{{ request.execution.financial_effect_note }}</strong>
+            </div>
+          </dl>
+          <h4>{{ t('requestExecution.checklistTitle') }}</h4>
+          <ul class="audit-record">
+            <li v-for="check in TRACKING_CHECKS" :key="check">
+              <span>{{ t(`requestExecution.checks.${check}`) }}</span>
+              <strong>{{ t(`requestExecution.answers.${request.execution_checklist?.[check] ?? 'no'}`) }}</strong>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Stage 75 — [D] Art. 37's الإقفال. -->
+        <!-- Stage 100 — [D] Appendix 6 row 15's two archive records. -->
+        <section
+          v-if="request.archive && (request.archive.committee_file || request.archive.service_file)"
+          class="card card-flat card-pad summary closure"
+        >
+          <h3>{{ t('requestArchive.title') }}</h3>
+          <RequestArchivePanel :archive="request.archive" />
+        </section>
+
+        <section v-if="request.closure" class="card card-flat card-pad summary closure">
+          <h3>{{ t('requestClosure.title') }}</h3>
+          <dl>
+            <div>
+              <span>{{ t('requestClosure.fields.final_result_code') }}</span>
+              <strong>{{ t(`requestClosure.results.${request.closure.final_result_code}`) }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.closedAt') }}</span>
+              <strong>{{ dateTime(request.closure.closed_at) }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.closedBy') }}</span>
+              <strong>{{ request.closure.closed_by?.name ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.approving_body') }}</span>
+              <strong>{{ request.closure.approving_body ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.final_decision_number') }}</span>
+              <strong>{{ request.closure.final_decision_number ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.execution_date') }}</span>
+              <strong>{{ request.closure.execution_date ? date(request.closure.execution_date) : '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.executing_body') }}</span>
+              <strong>{{ request.closure.executing_body ?? '—' }}</strong>
+            </div>
+            <div>
+              <span>{{ t('requestClosure.fields.notice_status') }}</span>
+              <strong>{{ t(`requestClosure.notice.${request.closure.notice_status}`) }}</strong>
+            </div>
+          </dl>
+          <h4>{{ t('requestClosure.auditTitle') }}</h4>
+          <ul class="audit-record">
+            <li v-for="check in AUDIT_CHECKS" :key="check">
+              <span>{{ t(`requestClosure.checks.${check}`) }}</span>
+              <strong>{{ t(`requestClosure.answers.${request.closure_audit?.[check] ?? 'no'}`) }}</strong>
+            </li>
+          </ul>
+        </section>
+      </div>
+
+    </template>
+  </section>
+</template>
+
+<style scoped>
+.detail { max-inline-size: var(--page-max); margin-inline: auto; padding: var(--space-5) 0; }
+.back { display: inline-block; margin-bottom: var(--space-3); color: var(--color-brand-text); font-size: var(--text-sm); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+
+/* -- Cover ----------------------------------------------------------------- */
+.cover {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-inline-start: 4px solid var(--color-border-hover);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.cover.overdue { border-inline-start-color: var(--color-danger-fg); }
+.cover h2 { margin: 0.15rem 0 0; color: var(--color-brand-text); font-size: clamp(1.25rem, 3vw, 1.7rem); }
+.reference { margin: 0; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.reference-hint { margin: 0.15rem 0 0; color: var(--color-info-fg); font-size: var(--text-xs); }
+.sla-alert { padding: var(--space-3) var(--space-4); margin: 0 0 var(--space-4); border: 1px solid var(--color-warning-border); border-radius: var(--radius-lg); color: var(--color-warning-fg); background: var(--color-warning-bg); font-size: var(--text-base); }
+.timeliness { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.5rem; border-radius: var(--radius-full); font-size: var(--text-sm); font-weight: 600; }
+.timeliness::before { content: ''; inline-size: 0.5rem; block-size: 0.5rem; border-radius: 50%; background: currentColor; }
+.timeliness.level-green { color: var(--color-success-fg); background: var(--color-success-bg); border: 1px solid var(--color-success-border); }
+.timeliness.level-yellow { color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }
+.timeliness.level-red { color: var(--color-danger-fg); background: var(--color-danger-bg); border: 1px solid var(--color-danger-border); }
+.timeliness.level-critical { color: var(--color-on-brand); background: var(--color-danger-fg); border: 1px solid var(--color-danger-fg); }
+
+/* -- Routing slip ----------------------------------------------------------- */
+.routing-slip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  margin: var(--space-4) 0;
+  border-block: 1px solid var(--color-border);
+}
+.routing-slip > div { display: grid; gap: 0.15rem; }
+.routing-slip span { color: var(--color-muted); font-size: var(--text-xs); }
+.routing-slip strong { color: var(--color-black-700); font-size: var(--text-lg); }
+
+/* -- Actions ----------------------------------------------------------------- */
+/* Decision wizard — the one way in; the action card and top gates it replaced
+   used to sit here. */
+.decide { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-brand); }
+.decide p { margin: 0; color: var(--color-black-700); }
+.description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
+.committee-summary { margin-bottom: 0; }
+.legal-review h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); grid-column: 1 / -1; }
+.legal-review .full { grid-column: 1 / -1; }
+.legal-review .muted { margin: 0; color: var(--color-muted); font-size: var(--text-sm); grid-column: 1 / -1; }
+.legal-review strong.ok { color: var(--color-success-fg); }
+.legal-review strong.warn { color: var(--color-warning-fg); }
+.legal-review .ghost { margin-inline-start: 0; }
+.action-error { color: var(--color-danger-fg); margin: 0.6rem 0 0; font-size: var(--text-sm); }
+
+/* -- Tab panels ---------------------------------------------------------- */
+.tabs { margin-bottom: var(--space-4); }
+.stacked { display: grid; gap: var(--space-4); }
+
+/* -- Two-column file tab ---------------------------------------------------- */
+.columns { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.85fr); gap: var(--space-4); align-items: start; }
+.main-column, .side-column { display: grid; gap: var(--space-4); }
+.description p { margin: 0; color: var(--color-black-700); line-height: var(--leading-relaxed); white-space: pre-wrap; }
+.description .reasons-heading { margin-block-start: var(--space-4); }
+.timeline ol { display: grid; gap: 0; padding: 0; margin: var(--space-3) 0 0; list-style: none; }
+.timeline ol > li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: 0.6rem; padding-bottom: var(--space-4); }
+.timeline ol > li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: 0.45rem; inset-block-start: 0.85rem; inline-size: 1px; block-size: calc(100% - 0.25rem); background: var(--color-border); }
+.dot { position: relative; z-index: 1; inline-size: 0.9rem; block-size: 0.9rem; margin-top: 0.15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }
+.timeline p { margin: 0.2rem 0; color: var(--color-black-700); font-size: var(--text-sm); }
+.timeline small, .attachments small { color: var(--color-muted); font-size: var(--text-xs); }
+.entry-comment { white-space: pre-wrap; }
+.attachments ul { display: grid; gap: 0.65rem; padding: 0; margin: var(--space-3) 0; list-style: none; }
+.attachments li { display: grid; gap: 0.15rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--color-border); }
+
+
+.checklist h3 { margin: 0 0 0.3rem; color: var(--color-brand-text); font-size: var(--text-lg); }
+.checklist ul { display: grid; gap: 0.3rem; padding-inline-start: 1.2rem; margin: 0; color: var(--color-black-700); font-size: var(--text-sm); }
+.doc-group { margin-block-start: 0.7rem; }
+.doc-group h4 { margin: 0 0 0.3rem; color: var(--color-black-700); font-size: var(--text-xs); font-weight: 600; }
+.doc-condition { color: var(--color-black-500); font-size: var(--text-xs); }
+.audit-record { display: grid; gap: 0.3rem; padding: 0; margin: var(--space-2) 0 0; list-style: none; font-size: var(--text-sm); }
+.audit-record li { display: flex; justify-content: space-between; gap: var(--space-3); }
+.evidence-tag { color: var(--color-success-fg); font-weight: 600; }
+.return-list { display: grid; gap: var(--space-4); padding: 0; margin: 0 0 var(--space-4); list-style: none; grid-column: 1 / -1; }
+.return-list > li { padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
+.return-list dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-3); margin: var(--space-2) 0 0; }
+.return-list dl > div { display: grid; gap: 0.2rem; }
+.return-list dl span { color: var(--color-muted); font-size: var(--text-xs); }
+.return-list dl strong { color: var(--color-black-700); font-size: var(--text-sm); white-space: pre-wrap; }
+.return-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--color-black-700); }
+.return-head .muted { color: var(--color-muted); font-size: var(--text-xs); }
+.return-kind { padding: 0.1rem 0.45rem; border-radius: var(--radius-full); color: var(--color-warning-fg); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); font-size: 0.72rem; font-weight: 600; }
+
+.notice-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.notice-list li { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-3); background: var(--color-surface); }
+.notice-list p { margin: 0.35rem 0 0; color: var(--color-black-700); line-height: var(--leading-normal); }
+.notice-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.notice-moment { font-size: var(--text-xs); padding: 0.1rem 0.45rem; border-radius: var(--radius-full); background: var(--color-info-bg); color: var(--color-info-fg); border: 1px solid var(--color-info-border); }
+.notice-date { margin-inline-start: auto; font-size: var(--text-sm); color: var(--color-black-500); }
+
+.time-card .source { margin: -0.4rem 0 var(--space-3); color: var(--color-muted); font-size: var(--text-xs); }
+.segments { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.segments li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.6rem; padding: 0.35rem 0.55rem; border-radius: var(--radius-lg); background: var(--color-surface-hover); font-size: var(--text-sm); }
+.segment-code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); }
+.segment-label { min-width: 0; }
+.segment-days { color: var(--color-brand-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.segment-days.pending { color: var(--color-muted); }
+
+@media (max-width: 720px) {
+  .columns { grid-template-columns: 1fr; }
+  .cover { flex-direction: column; }
+  .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .routing-slip { grid-template-columns: 1fr; }
+}
+</style>

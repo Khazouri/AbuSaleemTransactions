@@ -7,13 +7,13 @@ use Illuminate\Support\Facades\Schema;
 /**
  * PERMISSIONS (الصلاحيات) — coarse capability list
  * ---------------------------------------------------------------------------
- * A flat catalogue of things a role is allowed to do, e.g. "transactions.delete".
+ * A flat catalogue of things a role is allowed to do, e.g. "requests.delete".
  *
  * IMPORTANT — this system has TWO permission layers, and they answer different
  * questions:
  *
  *   1. permissions + permission_role  (this table)
- *      Coarse, capability-level: "may this role delete transactions at all?"
+ *      Coarse, capability-level: "may this role delete requests at all?"
  *      Convenient for business-rule checks inside services.
  *
  *   2. screen_role_permissions        (Stage 3)
@@ -30,14 +30,14 @@ return new class extends Migration
         Schema::create('permissions', function (Blueprint $table) {
             $table->id();
 
-            // Dot-notation capability key, e.g. "transactions.view",
+            // Dot-notation capability key, e.g. "requests.view",
             // "decisions.final_approve". Checked via $user->hasPermission($key).
             $table->string('key', 100)->unique();
 
             $table->string('name_ar');
             $table->string('name_en')->nullable();
 
-            // Bucket used to group rows in the admin UI: transactions,
+            // Bucket used to group rows in the admin UI: requests,
             // workflow, admin, reports, audit.
             $table->string('group', 100)->nullable();
 

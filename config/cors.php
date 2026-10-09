@@ -27,7 +27,11 @@ return [
 
     'allowed_headers' => ['*'],
 
-    'exposed_headers' => [],
+    // Stage 24 — the SPA downloads exports through axios (the bearer token has
+    // to be attached, so a plain <a href> won't do) and reads the server's
+    // filename off this header. Cross-origin JS can't see it unless it is
+    // explicitly exposed.
+    'exposed_headers' => ['Content-Disposition'],
 
     'max_age' => 0,
 

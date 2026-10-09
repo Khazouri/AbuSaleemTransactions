@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import AppLayout from '../layouts/AppLayout.vue'
-import PlaceholderView from '../views/PlaceholderView.vue'
 
 /**
  * Application routes and the navigation guard.
@@ -19,42 +18,20 @@ import PlaceholderView from '../views/PlaceholderView.vue'
  *                 it to check the permission matrix before allowing entry
  */
 
-/**
- * Screens that exist in the menu but whose real UI arrives in a later stage.
- * Each becomes a route rendering PlaceholderView, so every sidebar link works
- * today. As each stage lands, its entry moves out of this list and gets a real
- * component.
- *
- * Paths are relative to the layout's "/" parent, hence no leading slash.
- * Format: [screenCode, path]
+/*
+ * There used to be a `placeholderScreens` list here — screens that existed in
+ * the menu but whose real UI was still to come, each rendering PlaceholderView.
+ * Stages 25-27 built the last three (decisions, backup, user_guide), so the
+ * list is gone and PlaceholderView with it: every seeded screen now has a real
+ * component below.
  */
-const placeholderScreens = [
-  ['transactions', 'transactions'],                          // Stage 11
-  ['transaction_intake', 'transactions/create'],             // Stage 13
-  ['meetings', 'meetings'],                                  // Stage 20
-  ['decisions', 'decisions'],                                // Stage 21
-  ['reviewer_approval', 'approvals/reviewer'],               // Stage 18
-  ['committee_head_approval', 'approvals/committee-head'],   // Stage 18
-  ['admin_manager_approval', 'approvals/admin-manager'],     // Stage 18
-  ['ministry_approval', 'approvals/ministry'],               // Stage 18
-  ['authority_approval', 'approvals/authority'],             // Stage 18
-  ['final_approval', 'approvals/final'],                     // Stage 18
-  ['users', 'users'],                                        // Stage 7
-  ['roles_permissions', 'roles'],                            // Stage 8
-  ['settings', 'settings'],                                  // Stage 10
-  ['reports', 'reports'],                                    // Stage 24
-  ['audit_log', 'audit-log'],                                // Stage 22
-  ['notifications', 'notifications'],                        // Stage 23
-  ['templates', 'templates'],                                // Stage 10
-  ['backup', 'backup'],                                      // later
-  ['user_guide', 'guide'],                                   // later
-]
 
 /*
- * Note the two screens absent from that list: transaction_details
- * ("/transactions/:id") and notes_attachments. They need a specific
- * transaction id, so they can't be linked from a static menu — the sidebar
- * filters them out and they get real routes in Stage 15.
+ * Two seeded screens are deliberately absent from the sidebar: request_details
+ * ("/requests/:id") and notes_attachments. Both need a specific request id, so
+ * they can't be linked from a static menu — stores/screens.js filters any
+ * screen whose route carries ":id" out of navItems, while they keep real
+ * routes below (added in Stage 15).
  */
 
 const routes = [
@@ -79,13 +56,240 @@ const routes = [
         component: () => import('../views/DashboardView.vue'),
         meta: { screenCode: 'dashboard' },
       },
-      // Expand the list above into one placeholder route each.
-      ...placeholderScreens.map(([screenCode, path]) => ({
-        path,
-        name: screenCode,
-        component: PlaceholderView,
-        meta: { screenCode },
-      })),
+      {
+        // Stage 11 — searchable, paginated request work queue.
+        path: 'requests',
+        name: 'requests',
+        component: () => import('../views/RequestsView.vue'),
+        meta: { screenCode: 'requests' },
+      },
+      {
+        // Stage 13 — full request intake and reference allocation.
+        path: 'requests/create',
+        name: 'request_intake',
+        component: () => import('../views/RequestIntakeView.vue'),
+        meta: { screenCode: 'request_intake' },
+      },
+      {
+        // The unified pending-task inbox. Replaces the five per-role approval
+        // queues, which had no path of their own after this change; it lists
+        // every queue the signed-in user works and links each row to the
+        // screen that already owns that action.
+        path: 'my-tasks',
+        name: 'my_tasks',
+        component: () => import('../views/MyTasksView.vue'),
+        meta: { screenCode: 'my_tasks' },
+      },
+      {
+        // Stage 89 — «متابعة طلباتي», the employee's own view of the files
+        // they filed. A separate path from `requests` on purpose: that is the
+        // internal work queue ("work I can act on"), this is ownership.
+        path: 'my-requests',
+        name: 'request_tracking',
+        component: () => import('../views/RequestTrackingView.vue'),
+        meta: { screenCode: 'request_tracking' },
+      },
+      {
+        // Stage 15 — request workspace with workflow actions and timeline.
+        path: 'requests/:id',
+        name: 'request_details',
+        component: () => import('../views/RequestDetailView.vue'),
+        meta: { screenCode: 'request_details' },
+      },
+      {
+        // Stage 6 — department tree management.
+        path: 'departments',
+        name: 'departments',
+        component: () => import('../views/DepartmentsView.vue'),
+        meta: { screenCode: 'departments' },
+      },
+      {
+        // Stage 7 — user account management.
+        path: 'users',
+        name: 'users',
+        component: () => import('../views/UsersView.vue'),
+        meta: { screenCode: 'users' },
+      },
+      {
+        // The request-type catalogue — the SLA, the ministry-escalation
+        // grade and Appendix 57's document matrix all live on these rows.
+        path: 'request-types',
+        name: 'request_types',
+        component: () => import('../views/RequestTypesView.vue'),
+        meta: { screenCode: 'request_types' },
+      },
+      {
+        // Stage 8 — roles & permissions matrix editor.
+        path: 'roles',
+        name: 'roles_permissions',
+        component: () => import('../views/RolesPermissionsView.vue'),
+        meta: { screenCode: 'roles_permissions' },
+      },
+      {
+        // Stage 10 — key/value application settings.
+        path: 'settings',
+        name: 'settings',
+        component: () => import('../views/SettingsView.vue'),
+        meta: { screenCode: 'settings' },
+      },
+      {
+        // Stage 103 — R08 names the مقرر, the مقرر names the other seat holders.
+        path: 'committee-roles',
+        name: 'committee_roles',
+        component: () => import('../views/CommitteeRolesView.vue'),
+        meta: { screenCode: 'committee_roles' },
+      },
+      {
+        // Stage 10 — reusable bilingual text templates.
+        path: 'templates',
+        name: 'templates',
+        component: () => import('../views/TemplatesView.vue'),
+        meta: { screenCode: 'templates' },
+      },
+      {
+        // Stage 20 — committee administration and the meeting schedule.
+        path: 'meetings',
+        name: 'meetings',
+        component: () => import('../views/MeetingsView.vue'),
+        meta: { screenCode: 'meetings' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: dashboard.
+        path: 'meetings/dashboard',
+        name: 'meetings_dashboard',
+        component: () => import('../views/MeetingsDashboardView.vue'),
+        meta: { screenCode: 'meetings_dashboard' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: candidate requests.
+        path: 'meetings/candidates',
+        name: 'committee_candidates',
+        component: () => import('../views/CommitteeCandidatesView.vue'),
+        meta: { screenCode: 'committee_candidates' },
+      },
+      {
+        // Stage 68 — [D] Art. 21 / [E] stage 08: pre-meeting legal review.
+        path: 'meetings/legal-review',
+        name: 'legal_review',
+        component: () => import('../views/LegalReviewView.vue'),
+        meta: { screenCode: 'legal_review' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: agenda builder.
+        path: 'meetings/agenda',
+        name: 'meeting_agenda',
+        component: () => import('../views/MeetingAgendaBuilderView.vue'),
+        meta: { screenCode: 'meeting_agenda' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: readiness gate.
+        path: 'meetings/readiness',
+        name: 'meeting_readiness',
+        component: () => import('../views/MeetingReadinessView.vue'),
+        meta: { screenCode: 'meeting_readiness' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: live runner.
+        path: 'meetings/live',
+        name: 'meeting_live',
+        component: () => import('../views/MeetingLiveView.vue'),
+        meta: { screenCode: 'meeting_live' },
+      },
+      {
+        // Stage 20 — single meeting workspace: agenda builder + attendance.
+        // Needs a specific meeting id, so (like request_details) it has no
+        // separate sidebar entry. vue-router
+        // ranks static segments (meetings/agenda etc. above) over this :id
+        // route regardless of declaration order, so they aren't shadowed.
+        path: 'meetings/:id',
+        name: 'meeting_details',
+        component: () => import('../views/MeetingDetailView.vue'),
+        meta: { screenCode: 'meetings' },
+      },
+      {
+        // Stage 22 — read-only audit trail viewer.
+        path: 'audit-log',
+        name: 'audit_log',
+        component: () => import('../views/AuditLogView.vue'),
+        meta: { screenCode: 'audit_log' },
+      },
+      {
+        // Stage 24 — filtered request reporting with Excel/PDF export.
+        path: 'reports',
+        name: 'reports',
+        component: () => import('../views/ReportsView.vue'),
+        meta: { screenCode: 'reports' },
+      },
+      {
+        // Stage 80 — [D] Art. 98's twelve official registers.
+        path: 'registers',
+        name: 'registers',
+        component: () => import('../views/RegistersView.vue'),
+        meta: { screenCode: 'registers' },
+      },
+      {
+        // Stage 23 — notification history and channel preferences.
+        path: 'notifications',
+        name: 'notifications',
+        component: () => import('../views/NotificationsView.vue'),
+        meta: { screenCode: 'notifications' },
+      },
+      // The five per-role approval queues are gone: the unified pending-task
+      // inbox lists that work now, and approving happens on the request's own
+      // detail screen, which has always offered the same transition. Their
+      // `screens` rows and grants deliberately survive — see ScreenSeeder.
+      {
+        // Stage 25 — the decisions register and the pending-votes worklist.
+        // Recording a decision stays on the meeting screen, where the agenda
+        // context already is.
+        path: 'decisions',
+        name: 'decisions',
+        component: () => import('../views/DecisionsView.vue'),
+        meta: { screenCode: 'decisions' },
+      },
+      {
+        // Stage 28 — meetings-unit navigation shell: minutes.
+        path: 'meetings/minutes',
+        name: 'meeting_minutes',
+        component: () => import('../views/MeetingMinutesView.vue'),
+        meta: { screenCode: 'meeting_minutes' },
+      },
+      {
+        // Stage 37 — meeting decisions followed through execution and close.
+        path: 'meetings/outputs',
+        name: 'meeting_outputs',
+        component: () => import('../views/MeetingOutputsView.vue'),
+        meta: { screenCode: 'meeting_outputs' },
+      },
+      {
+        // Stage 26 — snapshots of the database and its stored files.
+        path: 'backup',
+        name: 'backup',
+        component: () => import('../views/BackupView.vue'),
+        meta: { screenCode: 'backup' },
+      },
+      {
+        // The maintenance console — migrations, caches and dependency
+        // installs for a host with no shell (cPanel shared hosting).
+        path: 'maintenance',
+        name: 'maintenance',
+        component: () => import('../views/MaintenanceView.vue'),
+        meta: { screenCode: 'maintenance' },
+      },
+      {
+        // Stage 27 — help articles, read by everyone and edited by R08.
+        path: 'guide',
+        name: 'user_guide',
+        component: () => import('../views/GuideView.vue'),
+        meta: { screenCode: 'user_guide' },
+      },
+      {
+        // Stage 58, Track J — appeals against an already-decided request.
+        path: 'appeals',
+        name: 'appeals',
+        component: () => import('../views/AppealsView.vue'),
+        meta: { screenCode: 'appeals' },
+      },
     ],
   },
 
@@ -105,8 +309,11 @@ const router = createRouter({
  * Global guard — runs before every navigation.
  * Return a location to redirect, or true to allow.
  *
- * Stage 9 extends this to check `meta.screenCode` against the user's
- * permission matrix, so a user can't reach a screen their role can't view.
+ * Stage 9 — checks `meta.screenCode` against the user's permission matrix
+ * (auth.can), so a user can't reach a screen their role can't view just by
+ * typing/bookmarking the URL. This is UX only: the matching
+ * screen.permission middleware on the API is what actually enforces it, so
+ * a blocked route and a rejected request always agree.
  */
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
@@ -123,6 +330,12 @@ router.beforeEach(async (to) => {
 
   if (to.meta.guestOnly && auth.isAuthenticated) {
     return { name: 'dashboard' }
+  }
+
+  if (to.meta.screenCode && auth.isAuthenticated && !auth.can(to.meta.screenCode, 'view')) {
+    // Bail out instead of redirecting if even the dashboard is denied —
+    // redirecting to it would just bounce straight back here forever.
+    return to.name === 'dashboard' ? false : { name: 'dashboard' }
   }
 
   return true

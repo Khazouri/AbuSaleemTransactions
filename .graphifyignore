@@ -1,0 +1,4 @@
+# Tracked build output — minified bundles, not source.
+frontend/dist/
+# Vendored PHPUnit cache / coverage artifacts.
+.phpunit.cache/

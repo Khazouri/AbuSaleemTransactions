@@ -1,0 +1,32 @@
+# aislop (https://github.com/scanaislop/aislop) — tuned to this repo's own conventions.
+# Run: npx --yes aislop@0.16.1 scan   |   gate: npx --yes aislop@0.16.1 ci
+version: 1
+
+# Every line here was added to the defaults, which a list replaces — so the defaults are restated.
+exclude:
+  - node_modules
+  - .git
+  - dist
+  - build
+  - coverage
+  - vendor
+  - storage
+  - graphify-out
+  # The unused Laravel Blade scaffold (AGENTS.md: leave it alone).
+  - resources/js
+
+rules:
+  # Flags the `// Stage N —` markers AGENTS.md requires on every new feature (user decision 2026-10-02).
+  ai-slop/meta-comment: "off"
+  # Flags the why-comments AGENTS.md asks for, and is the one rule the agent hook calls "MUST fix" —
+  # left on, it would have agents deleting the reasoning this codebase is written around.
+  ai-slop/narrative-comment: "off"
+  # A React rule: it reads Pinia's useXStore() as a React hook. This SPA is Vue.
+  react-hooks/rules-of-hooks: "off"
+
+ci:
+  failBelow: 85
+
+# Anonymous usage events go to PostHog by default; an internal government system sends none.
+telemetry:
+  enabled: false
