@@ -11,13 +11,13 @@ const { t } = useI18n()
 <template>
   <div class="gate-form">
     <label>
-      <span>{{ t('lifecycle.conflicts.fields.conflict_kind') }} *</span>
-      <select v-model="form.conflict_kind">
+      <span>{{ t('lifecycle.conflicts.fields.conflict_kind') }}<span class="required-mark" aria-hidden="true">*</span></span>
+      <select v-model="form.conflict_kind" required>
         <option v-for="kind in CONFLICT_KINDS" :key="kind" :value="kind">{{ t(`lifecycle.conflicts.kinds.${kind}`) }}</option>
       </select>
     </label>
     <label>
-      <span>{{ t('lifecycle.conflicts.fields.detail') }} *</span>
+      <span>{{ t('lifecycle.conflicts.fields.detail') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.detail" rows="3" required />
     </label>
   </div>

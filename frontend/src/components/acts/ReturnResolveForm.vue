@@ -13,7 +13,7 @@ const { t } = useI18n()
       {{ act.return_kind === 'substantive' ? t('approvalReturn.routing.substantive') : t('approvalReturn.routing.formal') }}
     </p>
     <label>
-      <span>{{ t('approvalReturn.fields.resolution_action') }} *</span>
+      <span>{{ t('approvalReturn.fields.resolution_action') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.resolution_action" rows="3" required />
     </label>
   </div>

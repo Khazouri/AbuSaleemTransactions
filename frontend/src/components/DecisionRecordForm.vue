@@ -133,7 +133,7 @@ async function useTemplate() {
       <textarea v-model="draft.comment" :placeholder="t('decisions.commentPlaceholder')" rows="2" maxlength="2000" />
     </label>
     <label v-if="needsReferral" class="field">
-      <span>{{ t('decisions.referralAuthorityLabel') }}</span>
+      <span>{{ t('decisions.referralAuthorityLabel') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <input v-model="draft.referral_authority" type="text" required :placeholder="t('decisions.referralAuthorityPlaceholder')" />
     </label>
   </div>

@@ -359,7 +359,7 @@ onMounted(async () => {
         <form class="propose-date" @submit.prevent="proposeDate">
           <p class="hint">{{ t('meetings.rsvp.proposeHint') }}</p>
           <label>
-            <span>{{ t('meetings.rsvp.newDate') }}</span>
+            <span>{{ t('meetings.rsvp.newDate') }}<span class="required-mark" aria-hidden="true">*</span></span>
             <input v-model="newDate" type="datetime-local" required />
           </label>
           <p v-if="actionError" class="alert">{{ actionError }}</p>

@@ -249,7 +249,7 @@ onMounted(load)
       <form class="role-form" @submit.prevent="saveRole">
         <p v-if="roleFormError" class="alert">{{ roleFormError }}</p>
         <label>
-          {{ t('rolesPermissions.nameAr') }} *
+          <span>{{ t('rolesPermissions.nameAr') }}<span class="required-mark" aria-hidden="true">*</span></span>
           <input v-model="roleForm.name_ar" required />
           <small v-if="roleErrors.name_ar" class="field-error">{{ roleErrors.name_ar[0] }}</small>
         </label>

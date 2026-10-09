@@ -18,15 +18,15 @@ const { t } = useI18n()
 
     <div class="field-grid">
       <label>
-        <span>{{ t('requestExecution.fields.executing_body') }} *</span>
+        <span>{{ t('requestExecution.fields.executing_body') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.executing_body" type="text" required>
       </label>
       <label>
-        <span>{{ t('requestExecution.fields.effective_date') }} *</span>
+        <span>{{ t('requestExecution.fields.effective_date') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.effective_date" type="date" required>
       </label>
       <label>
-        <span>{{ t('requestExecution.fields.approving_body') }} *</span>
+        <span>{{ t('requestExecution.fields.approving_body') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.approving_body" type="text" required>
       </label>
       <label>
@@ -40,7 +40,7 @@ const { t } = useI18n()
     </div>
 
     <label class="wide">
-      <span>{{ t('requestExecution.fields.action_taken') }} *</span>
+      <span>{{ t('requestExecution.fields.action_taken') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.action_taken" rows="2" required />
     </label>
 

@@ -10,7 +10,7 @@ const { t } = useI18n()
 <template>
   <div class="gate-form">
     <label>
-      <span>{{ t('lifecycle.withdrawals.fields.reason') }} *</span>
+      <span>{{ t('lifecycle.withdrawals.fields.reason') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.reason" rows="3" required maxlength="2000" />
     </label>
   </div>

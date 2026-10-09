@@ -222,7 +222,7 @@ function goBack() {
     <section v-else-if="step === 2" class="step-body">
       <div class="grid">
         <label>
-          {{ t('meetings.committee') }} *
+          <span>{{ t('meetings.committee') }}<span class="required-mark" aria-hidden="true">*</span></span>
           <select v-model="details.committee_id" required>
             <option value="">{{ t('meetings.chooseCommittee') }}</option>
             <option v-for="committee in activeCommittees" :key="committee.id" :value="committee.id">
@@ -239,12 +239,12 @@ function goBack() {
           <small>{{ t('meetings.meetingNumberAuto') }}</small>
         </label>
         <label>
-          {{ t('meetings.meetingTitle') }} *
+          <span>{{ t('meetings.meetingTitle') }}<span class="required-mark" aria-hidden="true">*</span></span>
           <input v-model="details.title" type="text" required />
           <small v-if="detailErrors.title" class="field-error">{{ t('meetings.meetingTitle') }}</small>
         </label>
         <label>
-          {{ t('meetings.scheduledAt') }} *
+          <span>{{ t('meetings.scheduledAt') }}<span class="required-mark" aria-hidden="true">*</span></span>
           <input v-model="details.scheduled_at" type="datetime-local" required />
           <small v-if="detailErrors.scheduled_at" class="field-error">{{ t('meetings.scheduledAt') }}</small>
         </label>

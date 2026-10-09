@@ -209,7 +209,7 @@ async function submit() {
         <p class="slip-action">{{ choice ? t(`decisionWizard.ledger.${choice.action}`) : '' }}</p>
         <p class="slip-destination">{{ meeting?.title }}</p>
         <label v-if="choice && TAKES_NOTE.includes(choice.action)" class="slip-note">
-          {{ choice.requiresComment ? t('decisionWizard.slip.reasonRequired') : t('decisionWizard.slip.noteOptional') }}
+          <span>{{ choice.requiresComment ? t('decisionWizard.slip.reasonRequired') : t('decisionWizard.slip.noteOptional') }}<span v-if="choice.requiresComment" class="required-mark" aria-hidden="true">*</span></span>
           <textarea v-model="note" rows="3" maxlength="5000" :required="choice.requiresComment" :disabled="submitting" />
         </label>
       </WizardSlip>

@@ -14,8 +14,8 @@ const LABELS = { appellant_standing: 'appellantStanding', valid_target_decision:
     <p class="hint">{{ t('appeals.verify.hint') }}</p>
     <div class="field-grid">
       <label v-for="key in VERIFY_CHECKS" :key="key">
-        <span>{{ t(`appeals.verify.${LABELS[key]}`) }} *</span>
-        <select v-model="form[key]">
+        <span>{{ t(`appeals.verify.${LABELS[key]}`) }}<span class="required-mark" aria-hidden="true">*</span></span>
+        <select v-model="form[key]" required>
           <option value="" disabled>{{ t('appeals.verify.choose') }}</option>
           <option value="yes">{{ t('appeals.verify.yes') }}</option>
           <option value="no">{{ t('appeals.verify.no') }}</option>

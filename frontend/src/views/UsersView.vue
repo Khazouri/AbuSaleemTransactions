@@ -246,13 +246,13 @@ onMounted(() => {
 
         <div class="grid">
           <label>
-            {{ t('users.name') }} *
+            <span>{{ t('users.name') }}<span class="required-mark" aria-hidden="true">*</span></span>
             <input v-model="form.name" type="text" required />
             <small v-if="errors.name" class="field-error">{{ errors.name[0] }}</small>
           </label>
 
           <label>
-            {{ t('users.email') }} *
+            <span>{{ t('users.email') }}<span class="required-mark" aria-hidden="true">*</span></span>
             <input v-model="form.email" type="email" dir="ltr" required />
             <small v-if="errors.email" class="field-error">{{ errors.email[0] }}</small>
           </label>
@@ -264,7 +264,7 @@ onMounted(() => {
           </label>
 
           <label>
-            {{ t('users.password') }}{{ editingId === null ? ' *' : '' }}
+            <span>{{ t('users.password') }}<span v-if="editingId === null" class="required-mark" aria-hidden="true">*</span></span>
             <input
               v-model="form.password"
               type="password"

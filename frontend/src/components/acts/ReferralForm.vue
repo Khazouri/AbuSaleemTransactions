@@ -12,15 +12,15 @@ const { t } = useI18n()
     <p class="hint">{{ t('approvalReferral.formNote') }}</p>
     <div class="field-grid">
       <label>
-        <span>{{ t('approvalReferral.fields.referred_at') }} *</span>
+        <span>{{ t('approvalReferral.fields.referred_at') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.referred_at" type="date" required>
       </label>
       <label>
-        <span>{{ t('approvalReferral.fields.letter_number') }} *</span>
+        <span>{{ t('approvalReferral.fields.letter_number') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.letter_number" type="text" required>
       </label>
       <label>
-        <span>{{ t('approvalReferral.fields.referred_to_body') }} *</span>
+        <span>{{ t('approvalReferral.fields.referred_to_body') }}<span class="required-mark" aria-hidden="true">*</span></span>
         <input v-model="form.referred_to_body" type="text" required>
       </label>
     </div>

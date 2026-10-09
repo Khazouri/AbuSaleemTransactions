@@ -38,7 +38,7 @@ onMounted(async () => {
     <p v-else-if="loadError" class="alert" role="alert">{{ loadError }}</p>
     <p v-else-if="!open.length" class="alert warning">{{ t('decisionWizard.appeal.noOpenMeeting') }}</p>
     <label v-else>
-      <span>{{ t('decisionWizard.appeal.meeting') }} *</span>
+      <span>{{ t('decisionWizard.appeal.meeting') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <select v-model="form.meeting_id" required>
         <option value="" disabled>{{ t('decisionWizard.appeal.chooseMeeting') }}</option>
         <option v-for="meeting in open" :key="meeting.id" :value="meeting.id">

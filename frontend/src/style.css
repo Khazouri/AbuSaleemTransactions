@@ -382,6 +382,23 @@ textarea {
   opacity: 1;
 }
 
+/* A required field is marked twice: a red star after its label, and a red
+   outline while it is still empty. Keyed on the browser's own `required` +
+   `:invalid`, so the outline lets go the moment the field is filled and no
+   screen has to track "empty" itself. Outline and box-shadow, not border,
+   because many screens set `border` in scoped rules that would out-rank this;
+   and focus is excluded so each screen's own focus ring still shows. */
+.required-mark {
+  margin-inline-start: 0.15rem;
+  color: var(--color-danger-fg);
+  font-weight: 700;
+}
+:is(input, select, textarea):required:invalid:not(:focus, :disabled) {
+  outline: 1px solid var(--color-danger-fg);
+  outline-offset: -1px;
+  box-shadow: 0 0 0 3px var(--color-danger-bg);
+}
+
 ::selection {
   background-color: var(--color-primary);
   color: var(--color-on-primary);

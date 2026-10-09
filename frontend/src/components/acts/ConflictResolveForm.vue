@@ -14,15 +14,15 @@ const { t } = useI18n()
   <div class="gate-form">
     <p class="hint">{{ t('lifecycle.conflicts.resolveNote') }}</p>
     <label>
-      <span>{{ t('lifecycle.conflicts.fields.authority_consulted') }} *</span>
+      <span>{{ t('lifecycle.conflicts.fields.authority_consulted') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <input v-model="form.authority_consulted" required>
     </label>
     <label>
-      <span>{{ t('lifecycle.conflicts.fields.authoritative_document') }} *</span>
+      <span>{{ t('lifecycle.conflicts.fields.authoritative_document') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.authoritative_document" rows="2" required />
     </label>
     <label>
-      <span>{{ t('lifecycle.conflicts.fields.correction_note') }} *</span>
+      <span>{{ t('lifecycle.conflicts.fields.correction_note') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.correction_note" rows="2" required />
     </label>
   </div>

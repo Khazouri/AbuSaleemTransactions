@@ -19,6 +19,31 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-09 20:25 EET — Claude — Every required input gets a red star and a highlighted outline (complete)
+
+Built per the plan below. It touches frontend only, with no locale key and no PHP. `.required-mark` now lives in
+`style.css`, and every label in `frontend/src` puts it next to its text. Stars and `required` were cross-checked
+by script and now agree:
+- 13 starred selects gained `required`;
+- 13 required controls gained a star, among them login, Guide, Committee Roles, the date proposal, the soundness
+  checks and a wizard's mandatory reason.
+
+The text and the star share one `<span>`, because labels are flex/grid columns and a bare star dropped to its own
+row. That was already happening on the intake screen. Verified: build passes (`dist` committed) and `aislop ci`
+exits 0. Headless screenshots of `/login` in light and dark show the empty field outlined and the focused one
+keeping its focus ring. No other screen was screenshotted.
+
+---
+### 2026-10-09 20:07 EET — Claude — Implementation plan: every required input gets a red star and a highlighted outline
+
+User (/frontend-design): «every required input should have a red star and outline highlighted». Labels mark a
+required field today with a plain, uncoloured « *» in ~60 places; only the intake screen has a red `.required-mark`.
+Plan, frontend only: move `.required-mark` into `style.css`, swap every plain « *» for it, and give every
+`:required` control that is still empty (`:invalid`) a danger-tinted outline plus a soft halo. It uses `outline`
+and `box-shadow` instead of `border`, so no screen's scoped border rule can mask it. Verify: build (`dist`
+committed), aislop ci, and a headless screenshot in both themes.
+
+---
 ### 2026-10-09 20:20 EET — Claude — One branch per task, merged into main when done
 
 User: «branch out for every new task and commit to the main branch». AGENTS.md (Conventions) and the

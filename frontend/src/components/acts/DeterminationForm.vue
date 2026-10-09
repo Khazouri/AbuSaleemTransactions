@@ -14,13 +14,13 @@ const { t } = useI18n()
   <div class="gate-form">
     <p class="quote">{{ act.target?.label }}</p>
     <label>
-      <span>{{ t('lifecycle.withdrawals.fields.outcome') }} *</span>
-      <select v-model="form.outcome">
+      <span>{{ t('lifecycle.withdrawals.fields.outcome') }}<span class="required-mark" aria-hidden="true">*</span></span>
+      <select v-model="form.outcome" required>
         <option v-for="outcome in act.outcomes" :key="outcome" :value="outcome">{{ t(`lifecycle.withdrawals.outcomes.${outcome}`) }}</option>
       </select>
     </label>
     <label>
-      <span>{{ t('lifecycle.withdrawals.fields.determination_note') }} *</span>
+      <span>{{ t('lifecycle.withdrawals.fields.determination_note') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.determination_note" rows="3" required maxlength="2000" />
     </label>
   </div>

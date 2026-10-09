@@ -112,7 +112,7 @@ onMounted(load)
         <p v-if="formError" class="alert">{{ formError }}</p>
         <div class="grid">
           <label>
-            {{ t('settings.key') }} *
+            <span>{{ t('settings.key') }}<span class="required-mark" aria-hidden="true">*</span></span>
             <input v-model="form.key" class="ltr" type="text" required />
             <small class="hint">{{ t('settings.keyHint') }}</small>
             <small v-if="errors.key" class="field-error">{{ errors.key[0] }}</small>

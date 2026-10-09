@@ -12,15 +12,15 @@ const { t } = useI18n()
   <div class="gate-form">
     <p class="hint">{{ t('controlGates.suspension.formNote') }}</p>
     <label>
-      <span>{{ t('controlGates.suspension.fields.ground') }} *</span>
-      <select v-model="form.ground">
+      <span>{{ t('controlGates.suspension.fields.ground') }}<span class="required-mark" aria-hidden="true">*</span></span>
+      <select v-model="form.ground" required>
         <option v-for="ground in SUSPENSION_GROUNDS" :key="ground" :value="ground">
           {{ t(`controlGates.suspension.grounds.${ground}`) }}
         </option>
       </select>
     </label>
     <label>
-      <span>{{ t('controlGates.suspension.fields.detail') }} *</span>
+      <span>{{ t('controlGates.suspension.fields.detail') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.detail" rows="3" required />
     </label>
   </div>

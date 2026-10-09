@@ -16,7 +16,7 @@ const { t } = useI18n()
   <div class="gate-form">
     <p class="hint">{{ t('controlGates.soundness.formNote') }}</p>
     <label v-for="key in SOUNDNESS_CERTIFIER_CHECKS" :key="key">
-      <span>{{ t(`controlGates.soundness.checks.${key}`) }}</span>
+      <span>{{ t(`controlGates.soundness.checks.${key}`) }}<span class="required-mark" aria-hidden="true">*</span></span>
       <select v-model="form.checks[key]" required>
         <option value="" disabled>{{ t('controlGates.intake.choose') }}</option>
         <option v-for="answer in SOUNDNESS_ANSWERS" :key="answer" :value="answer">

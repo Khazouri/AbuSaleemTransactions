@@ -15,7 +15,7 @@ const REASON_CODES = [
   <div class="gate-form">
     <p class="hint">{{ t('appeals.reopen.hint') }}</p>
     <label>
-      <span>{{ t('appeals.reopen.reasonLabel') }} *</span>
+      <span>{{ t('appeals.reopen.reasonLabel') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <select v-model="form.reason_code" required>
         <option value="" disabled>{{ t('appeals.reopen.chooseReason') }}</option>
         <option v-for="code in REASON_CODES" :key="code" :value="code">{{ t(`reopenReasons.${code}`) }}</option>

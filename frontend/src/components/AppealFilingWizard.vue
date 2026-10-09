@@ -117,15 +117,15 @@ async function submit() {
     <template #grounds>
       <div class="gate-form">
         <div class="field-grid">
-          <label><span>{{ t('appeals.create.knownAt') }} *</span><input v-model="grounds.known_at" type="date" required /></label>
+          <label><span>{{ t('appeals.create.knownAt') }}<span class="required-mark" aria-hidden="true">*</span></span><input v-model="grounds.known_at" type="date" required /></label>
           <label>
             <span>{{ t('appeals.create.decisionReference') }}</span>
             <input v-model="grounds.original_decision_reference" type="text" :placeholder="t('appeals.create.decisionReferencePlaceholder')" />
           </label>
           <label><span>{{ t('appeals.create.decisionDate') }}</span><input v-model="grounds.original_decision_date" type="date" /></label>
         </div>
-        <label><span>{{ t('appeals.create.appealReasons') }} *</span><textarea v-model="grounds.appeal_reasons" rows="3" required /></label>
-        <label><span>{{ t('appeals.create.finalRequest') }} *</span><textarea v-model="grounds.final_request" rows="2" required /></label>
+        <label><span>{{ t('appeals.create.appealReasons') }}<span class="required-mark" aria-hidden="true">*</span></span><textarea v-model="grounds.appeal_reasons" rows="3" required /></label>
+        <label><span>{{ t('appeals.create.finalRequest') }}<span class="required-mark" aria-hidden="true">*</span></span><textarea v-model="grounds.final_request" rows="2" required /></label>
         <label>
           <span>{{ t('appeals.create.newFactsDeclaration') }}</span>
           <textarea v-model="grounds.new_facts_declaration" rows="2" :placeholder="t('appeals.create.newFactsDeclarationHint')" />

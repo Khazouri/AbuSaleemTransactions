@@ -14,8 +14,8 @@ const { t, locale } = useI18n()
 <template>
   <div class="gate-form">
     <label>
-      <span>{{ t('lifecycle.corrections.fields.error_kind') }} *</span>
-      <select v-model="form.error_kind">
+      <span>{{ t('lifecycle.corrections.fields.error_kind') }}<span class="required-mark" aria-hidden="true">*</span></span>
+      <select v-model="form.error_kind" required>
         <option v-for="kind in MATERIAL_ERROR_KINDS" :key="kind" :value="kind">{{ t(`lifecycle.corrections.kinds.${kind}`) }}</option>
       </select>
     </label>
@@ -24,15 +24,15 @@ const { t, locale } = useI18n()
       {{ SUBSTANTIVE_ERROR_KINDS.map((kind) => t(`lifecycle.corrections.kinds.${kind}`)).join(locale === 'ar' ? '، ' : ', ') }}
     </p>
     <label>
-      <span>{{ t('lifecycle.corrections.fields.detail') }} *</span>
+      <span>{{ t('lifecycle.corrections.fields.detail') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.detail" rows="2" required />
     </label>
     <label>
-      <span>{{ t('lifecycle.corrections.fields.incorrect_value') }} *</span>
+      <span>{{ t('lifecycle.corrections.fields.incorrect_value') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <input v-model="form.incorrect_value" required>
     </label>
     <label>
-      <span>{{ t('lifecycle.corrections.fields.corrected_value') }} *</span>
+      <span>{{ t('lifecycle.corrections.fields.corrected_value') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <input v-model="form.corrected_value" required>
     </label>
     <label>

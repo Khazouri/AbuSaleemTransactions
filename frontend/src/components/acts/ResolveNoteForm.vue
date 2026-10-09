@@ -10,7 +10,7 @@ const { t } = useI18n()
 <template>
   <div class="gate-form">
     <label>
-      <span>{{ t('lifecycle.specialCases.resolvePrompt') }} *</span>
+      <span>{{ t('lifecycle.specialCases.resolvePrompt') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <textarea v-model="form.resolution_note" rows="3" required maxlength="2000" />
     </label>
   </div>

@@ -198,7 +198,7 @@ onMounted(load)
       <h3>{{ editingId === null ? t('guide.add') : t('guide.edit') }}</h3>
       <div class="grid">
         <label>
-          {{ t('guide.code') }}
+          <span>{{ t('guide.code') }}<span class="required-mark" aria-hidden="true">*</span></span>
           <input v-model="form.code" class="ltr" type="text" required />
           <small v-if="errors.code" class="field-error">{{ errors.code[0] }}</small>
           <small v-else class="hint">{{ t('guide.codeHint') }}</small>
@@ -215,7 +215,7 @@ onMounted(load)
       </div>
       <div class="grid">
         <label>
-          {{ t('guide.titleAr') }}
+          <span>{{ t('guide.titleAr') }}<span class="required-mark" aria-hidden="true">*</span></span>
           <input v-model="form.title_ar" type="text" required />
           <small v-if="errors.title_ar" class="field-error">{{ errors.title_ar[0] }}</small>
         </label>
@@ -226,7 +226,7 @@ onMounted(load)
       </div>
       <div class="grid bodies">
         <label>
-          {{ t('guide.bodyAr') }}
+          <span>{{ t('guide.bodyAr') }}<span class="required-mark" aria-hidden="true">*</span></span>
           <textarea v-model="form.body_ar" rows="10" required />
           <small v-if="errors.body_ar" class="field-error">{{ errors.body_ar[0] }}</small>
           <small v-else class="hint">{{ t('guide.bodyHint') }}</small>
