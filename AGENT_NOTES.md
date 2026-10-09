@@ -19,6 +19,16 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-09 19:22 EET — Claude — The committed dist had no API URL; rebuilt
+
+The user's dev login showed «تعذّر الاتصال بالخادم» while Homestead was up. The cause was that the `main-wt` worktree
+had no `frontend/.env*` (both git-ignored). The same gap meant `e7e58f8`'s committed `dist` had no
+`VITE_API_BASE_URL` baked in, so the deployed SPA would have failed the same way. Both files were copied from
+the main checkout, and `dist` was rebuilt (its bundle now contains `https://transactions.scco.ly/api`, as
+`a8ad916`'s did). The gotcha is now in AGENTS.md. No source change. (Clock note: the machine reads 19:22, behind the
+entry below; position gives the order.)
+
+---
 ### 2026-10-09 20:25 EET — Claude — Every required input gets a red star and a highlighted outline (complete)
 
 Built per the plan below. It touches frontend only, with no locale key and no PHP. `.required-mark` now lives in
