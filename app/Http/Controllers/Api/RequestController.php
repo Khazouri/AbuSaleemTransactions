@@ -388,6 +388,8 @@ class RequestController extends Controller
                     'submitted_at' => $submittedAt,
                     'due_date' => $deadlines->dueDateFor($type, $submittedAt),
                     'decision_grade' => $data['decision_grade'] ?? null,
+                    'entitled_grade' => $data['entitled_grade'],
+                    'grade_date' => $data['grade_date'],
                     // Stage 83 — Appendix 16's classification of a request
                     // raised after an earlier file on the same subject closed.
                     'prior_relation' => $priorRelation,
@@ -1179,6 +1181,7 @@ class RequestController extends Controller
                 $requestRecord,
                 $request->validated('documents'),
                 $request->boolean('assembled'),
+                $request->boolean('grade_verified'),
             ),
             'employment_file_prepared_by_user_id' => $actor->id,
             'employment_file_prepared_at' => now(),

@@ -36,6 +36,8 @@ class RequestResource extends JsonResource
                 'default_administrative_route' => $this->requestType->default_administrative_route,
             ] : null,
             'decision_grade' => $this->decision_grade,
+            'entitled_grade' => $this->entitled_grade,
+            'grade_date' => $this->grade_date?->toDateString(),
             'requires_ministry_approval' => $this->requiresMinistryApproval(),
             // Stage 47 — derived from request type at intake, correctable
             // afterward via PATCH .../financial-impact.

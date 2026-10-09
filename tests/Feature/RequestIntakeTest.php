@@ -154,6 +154,8 @@ class RequestIntakeTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => [
                     // Stage 85 — a submission now has to cover every row [D]
                     // Appendix 57 states unconditionally for this type, so a
@@ -258,6 +260,8 @@ class RequestIntakeTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => [[
                     'file' => UploadedFile::fake()->create('unnamed.pdf', 60, 'application/pdf'),
                 ]],
@@ -294,6 +298,8 @@ class RequestIntakeTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => [[
                     'file' => UploadedFile::fake()->create('foreign.pdf', 60, 'application/pdf'),
                     'required_document_key' => $foreignKey,
@@ -327,6 +333,8 @@ class RequestIntakeTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => [
                     // Stage 85 — the mandatory rows first, since a submission
                     // that leaves one uncovered is now refused. بيان الدرجة
@@ -412,6 +420,8 @@ class RequestIntakeTest extends TestCase
                     'department_id' => $department->id,
                     'request_type_id' => $types[$code]->id,
                     'decision_grade' => 9,
+                    'entitled_grade' => 9,
+                    'grade_date' => '2024-03-01',
                     'attachments' => $this->mandatoryAttachments($types[$code]),
                 ], ['Accept' => 'application/json'])
                 ->assertCreated()
@@ -442,6 +452,40 @@ class RequestIntakeTest extends TestCase
     }
 
     /**
+     * The employee states their entitled grade and its date at intake, and HR
+     * confirms them against the organisation's records before registering.
+     */
+    public function test_the_entitled_grade_and_its_date_are_required_and_stored(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $filer = $this->filer();
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
+        $payload = [
+            'title' => 'طلب ترقية',
+            'request_type_id' => $type->id,
+            'decision_grade' => 9,
+            'attachments' => $this->mandatoryAttachments($type),
+        ];
+
+        $this->actingAs($filer, 'sanctum')
+            ->post('/api/requests', $payload, ['Accept' => 'application/json'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['entitled_grade', 'grade_date']);
+
+        $this->actingAs($filer, 'sanctum')
+            ->post('/api/requests', [...$payload, 'entitled_grade' => 10, 'grade_date' => now()->addDay()->toDateString()], ['Accept' => 'application/json'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('grade_date');
+
+        $this->actingAs($filer, 'sanctum')
+            ->post('/api/requests', [...$payload, 'entitled_grade' => 10, 'grade_date' => '2024-03-01'], ['Accept' => 'application/json'])
+            ->assertCreated()
+            ->assertJsonPath('data.entitled_grade', 10)
+            ->assertJsonPath('data.grade_date', '2024-03-01');
+    }
+
+    /**
      * The request takes the filer's own department, so a filer with none, or
      * with a retired one, is refused until an admin assigns one (2026-10-07).
      */
@@ -454,6 +498,8 @@ class RequestIntakeTest extends TestCase
             'title' => 'طلب بلا إدارة',
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
             'decision_grade' => 11,
+            'entitled_grade' => 11,
+            'grade_date' => '2024-03-01',
         ];
 
         $this->actingAs($filer, 'sanctum')

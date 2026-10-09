@@ -170,6 +170,8 @@ class RequestDraftTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => $this->mandatoryAttachments($type),
             ], ['Accept' => 'application/json'])
             ->assertCreated();
@@ -207,6 +209,8 @@ class RequestDraftTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
             ])
             ->assertCreated();
 
@@ -263,6 +267,8 @@ class RequestDraftTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => $this->mandatoryAttachments($type),
             ], ['Accept' => 'application/json'])
             ->assertStatus(422)
@@ -297,6 +303,8 @@ class RequestDraftTest extends TestCase
             'department_id' => $department->id,
             'request_type_id' => $type->id,
             'decision_grade' => 11,
+            'entitled_grade' => 11,
+            'grade_date' => '2024-03-01',
         ];
 
         $refusal = $this->actingAs($employee, 'sanctum')
@@ -367,6 +375,8 @@ class RequestDraftTest extends TestCase
             'department_id' => $department->id,
             'request_type_id' => $type->id,
             'decision_grade' => 11,
+            'entitled_grade' => 11,
+            'grade_date' => '2024-03-01',
         ];
 
         $this->actingAs($employee, 'sanctum')
@@ -427,6 +437,8 @@ class RequestDraftTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('title');
@@ -442,6 +454,8 @@ class RequestDraftTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
             ])
             ->assertCreated();
     }

@@ -283,6 +283,8 @@ class RequestSubjectTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'request_type_id' => $type->id,
             'decision_grade' => 9,
+            'entitled_grade' => 9,
+            'grade_date' => '2024-03-01',
             'subject_user_id' => $subject->id,
             'attachments' => $this->mandatoryAttachments($type),
         ];

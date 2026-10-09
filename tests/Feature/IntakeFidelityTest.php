@@ -56,6 +56,8 @@ class IntakeFidelityTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => [[
                     'file' => UploadedFile::fake()->create('memo.docx', 40, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
                     'required_document_key' => $mandatoryKey,
@@ -72,6 +74,8 @@ class IntakeFidelityTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => [[
                     'file' => UploadedFile::fake()->create('memo.pdf', 40, 'application/pdf'),
                     'required_document_key' => $mandatoryKey,
@@ -135,6 +139,8 @@ class IntakeFidelityTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
             ],
         ]);
 
@@ -157,6 +163,8 @@ class IntakeFidelityTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
             ], ['Accept' => 'application/json'])
             ->assertStatus(422)
             ->assertJsonValidationErrors('attachments');
@@ -222,6 +230,8 @@ class IntakeFidelityTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $typeA->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => [[
                     'file' => UploadedFile::fake()->create('doc-a.pdf', 20, 'application/pdf'),
                     'required_document_key' => $this->mandatoryKeyFor($typeA),
@@ -237,6 +247,8 @@ class IntakeFidelityTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $typeB->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'reasons' => 'السبب هو ظروف عائلية طارئة.',
                 'attachments' => [[
                     'file' => UploadedFile::fake()->create('doc-b.pdf', 20, 'application/pdf'),
@@ -296,6 +308,8 @@ class IntakeFidelityTest extends TestCase
                 'department_id' => $department->id,
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => [
                     [
                         'file' => UploadedFile::fake()->create('valid.pdf', 20, 'application/pdf'),

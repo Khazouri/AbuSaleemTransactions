@@ -55,6 +55,13 @@ class EmploymentFilePreparationService
     /** HR's own attestation, the half no stored document can answer. */
     public const ASSEMBLED_CHECK = 'هل تم تجهيز الملف الوظيفي للموظف واستكمال مستنداته؟';
 
+    /**
+     * The employee states their grade, entitled grade and grade date at
+     * intake; HR is the party that can check them against the organisation's
+     * own records, so registration waits on that confirmation too.
+     */
+    public const GRADE_NOT_VERIFIED = 'لا يجوز التسجيل قبل تأكد الموارد البشرية من مطابقة الدرجة الوظيفية والدرجة المستحقة وتاريخ الدرجة لسجلات الجهة.';
+
     public function __construct(private readonly DocumentCompletenessService $completeness) {}
 
     /**
@@ -108,12 +115,10 @@ class EmploymentFilePreparationService
     /**
      * Why this file may not yet be registered, or null.
      *
-     * One Arabic message at a time, the documents first and the attestation
+     * One Arabic message at a time, the documents first and the attestations
      * last, so HR is told what to fix rather than handed a wall.
-     *
-     * @param  array<string, string>|null  $answers  when one is being submitted
      */
-    public function refusalReason(Request $requestRecord, ?array $answers = null, ?bool $assembled = null): ?string
+    public function refusalReason(Request $requestRecord): ?string
     {
         $required = $this->requiredDocuments($requestRecord);
 
@@ -125,18 +130,16 @@ class EmploymentFilePreparationService
             return null;
         }
 
-        if ($answers === null) {
-            $record = $requestRecord->employment_file;
+        $record = $requestRecord->employment_file;
 
-            if (! is_array($record)) {
-                return 'لا يجوز تسجيل المعاملة قبل تجهيز الملف الوظيفي للموظف من قبل إدارة الموارد البشرية.';
-            }
-
-            $answers = is_array($record['documents'] ?? null) ? $record['documents'] : [];
-            $assembled = (bool) ($record['assembled'] ?? false);
+        if (! is_array($record)) {
+            return 'لا يجوز تسجيل المعاملة قبل تجهيز الملف الوظيفي للموظف من قبل إدارة الموارد البشرية.';
         }
 
-        $answers = [...$answers, ...$this->derivedAnswers($requestRecord)];
+        $answers = [
+            ...(is_array($record['documents'] ?? null) ? $record['documents'] : []),
+            ...$this->derivedAnswers($requestRecord),
+        ];
 
         foreach ($required as $key => $document) {
             $answer = $answers[$key] ?? null;
@@ -156,8 +159,12 @@ class EmploymentFilePreparationService
             }
         }
 
-        if ($assembled !== true) {
+        if (($record['assembled'] ?? false) !== true) {
             return 'لا يجوز التسجيل قبل إثبات تجهيز الملف الوظيفي.';
+        }
+
+        if (($record['grade_verified'] ?? false) !== true) {
+            return self::GRADE_NOT_VERIFIED;
         }
 
         return null;
@@ -169,10 +176,13 @@ class EmploymentFilePreparationService
      * opaque keys a reader has to reassemble from a seeder. Stage 75's
      * auditRecord() precedent, Stage 78's shape.
      *
+     * The grade data is frozen beside HR's confirmation, so the card shows
+     * the values that were actually checked.
+     *
      * @param  array<string, string>  $answers
-     * @return array{documents: array<string, string>, items: list<array{key: string, label_ar: string, label_en: string, conditional: bool, covered: bool, answer: string}>, assembled: bool}
+     * @return array{documents: array<string, string>, items: list<array{key: string, label_ar: string, label_en: string, conditional: bool, covered: bool, answer: string}>, assembled: bool, grade_verified: bool, grade: array{decision_grade: int|null, entitled_grade: int|null, grade_date: string|null}}
      */
-    public function record(Request $requestRecord, array $answers, bool $assembled): array
+    public function record(Request $requestRecord, array $answers, bool $assembled, bool $gradeVerified): array
     {
         $answers = [...$answers, ...$this->derivedAnswers($requestRecord)];
 
@@ -198,6 +208,12 @@ class EmploymentFilePreparationService
             'documents' => $documents,
             'items' => $items,
             'assembled' => $assembled,
+            'grade_verified' => $gradeVerified,
+            'grade' => [
+                'decision_grade' => $requestRecord->decision_grade,
+                'entitled_grade' => $requestRecord->entitled_grade,
+                'grade_date' => $requestRecord->grade_date?->toDateString(),
+            ],
         ];
     }
 }

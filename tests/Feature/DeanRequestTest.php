@@ -42,6 +42,8 @@ class DeanRequestTest extends TestCase
                 'title' => 'طلب العميد',
                 'request_type_id' => RequestType::where('code', 'ALLW')->value('id'),
                 'decision_grade' => 9,
+                'entitled_grade' => 9,
+                'grade_date' => '2024-03-01',
             ])
             ->assertCreated()
             ->assertJsonPath('data.current_stage.code', 'receive_and_register')
@@ -79,6 +81,8 @@ class DeanRequestTest extends TestCase
                 'title' => 'طلب موظف',
                 'request_type_id' => RequestType::where('code', 'ALLW')->value('id'),
                 'decision_grade' => 9,
+                'entitled_grade' => 9,
+                'grade_date' => '2024-03-01',
             ])
             ->assertCreated()
             ->assertJsonPath('data.current_stage.code', 'direct_manager_review');

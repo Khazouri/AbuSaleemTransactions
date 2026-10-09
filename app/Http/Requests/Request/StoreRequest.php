@@ -81,6 +81,11 @@ class StoreRequest extends FormRequest
                 'integer',
                 'between:1,100',
             ],
+            // Stated by the employee beside الدرجة الوظيفية, and confirmed by
+            // HR against the organisation's records before registering
+            // (EmploymentFilePreparationService).
+            'entitled_grade' => ['required', 'integer', 'between:1,100'],
+            'grade_date' => ['required', 'date', 'before_or_equal:today'],
             // Stage 83 — [D] Appendix 16. Format only: whether a classification
             // is *required* (and whether the chosen one is refused as belonging
             // to another mechanism) depends on this employee's own prior files,
@@ -244,9 +249,15 @@ class StoreRequest extends FormRequest
             'title.required' => 'عنوان الطلب مطلوب.',
             'request_type_id.required' => 'يرجى اختيار نوع الطلب.',
             'request_type_id.exists' => 'نوع الطلب المحدد غير صالح أو غير مفعّل.',
-            'decision_grade.required' => 'درجة القرار مطلوبة لهذا النوع من الطلبات.',
-            'decision_grade.integer' => 'يجب أن تكون درجة القرار رقماً صحيحاً.',
-            'decision_grade.between' => 'يجب أن تكون درجة القرار بين 1 و100.',
+            'decision_grade.required' => 'الدرجة الوظيفية مطلوبة لهذا النوع من الطلبات.',
+            'decision_grade.integer' => 'يجب أن تكون الدرجة الوظيفية رقماً صحيحاً.',
+            'decision_grade.between' => 'يجب أن تكون الدرجة الوظيفية بين 1 و100.',
+            'entitled_grade.required' => 'الدرجة الوظيفية المستحقة مطلوبة.',
+            'entitled_grade.integer' => 'يجب أن تكون الدرجة الوظيفية المستحقة رقماً صحيحاً.',
+            'entitled_grade.between' => 'يجب أن تكون الدرجة الوظيفية المستحقة بين 1 و100.',
+            'grade_date.required' => 'تاريخ الدرجة مطلوب.',
+            'grade_date.date' => 'تاريخ الدرجة غير صالح.',
+            'grade_date.before_or_equal' => 'لا يجوز أن يكون تاريخ الدرجة بعد اليوم.',
             'draft_id.exists' => 'المسودة المحددة غير موجودة.',
             'attachments.prohibited' => 'لا يمكن إرفاق ملفات مع إرسال مسودة؛ تعدل مرفقات المسودة على المسودة نفسها.',
             'attachments.max' => 'لا يمكن إرفاق أكثر من 30 ملفاً.',

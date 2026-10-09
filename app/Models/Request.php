@@ -71,6 +71,8 @@ class Request extends Model
         'submitted_at',
         'due_date',
         'decision_grade',
+        'entitled_grade',
+        'grade_date',
         'has_financial_impact',
         'jurisdiction_test',
         // Stage 84 — who answered Art. 45's test and when. Written only by
@@ -125,6 +127,7 @@ class Request extends Model
         return [
             'submitted_at' => 'datetime',
             'due_date' => 'date',
+            'grade_date' => 'date:Y-m-d',
             'overdue_at' => 'datetime',
             // Stage 71 — Appendix 38's delay ladder. Deliberately NOT
             // fillable: only the nightly sweep writes it (same discipline as

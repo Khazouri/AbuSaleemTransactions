@@ -110,6 +110,7 @@ class EmploymentFilePreparationTest extends TestCase
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
                 'documents' => $this->allPresent($requestRecord),
                 'assembled' => true,
+                'grade_verified' => true,
             ])
             ->assertOk()
             ->assertJsonPath('data.control_gates.employment_file.refusal', null)
@@ -139,6 +140,7 @@ class EmploymentFilePreparationTest extends TestCase
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
                 'documents' => [...$answers, $unconditional => 'missing'],
                 'assembled' => true,
+                'grade_verified' => true,
             ])
             ->assertOk()
             ->assertJsonPath(
@@ -151,6 +153,7 @@ class EmploymentFilePreparationTest extends TestCase
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
                 'documents' => [...$answers, $unconditional => 'not_applicable'],
                 'assembled' => true,
+                'grade_verified' => true,
             ])
             ->assertOk()
             ->assertJsonPath(
@@ -162,6 +165,7 @@ class EmploymentFilePreparationTest extends TestCase
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
                 'documents' => [...$answers, $conditional => 'not_applicable'],
                 'assembled' => true,
+                'grade_verified' => true,
             ])
             ->assertOk()
             ->assertJsonPath('data.control_gates.employment_file.refusal', null);
@@ -175,12 +179,48 @@ class EmploymentFilePreparationTest extends TestCase
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
                 'documents' => $this->allPresent($requestRecord),
                 'assembled' => false,
+                'grade_verified' => true,
             ])
             ->assertOk()
             ->assertJsonPath(
                 'data.control_gates.employment_file.refusal',
                 'لا يجوز التسجيل قبل إثبات تجهيز الملف الوظيفي.',
             );
+    }
+
+    public function test_hr_must_confirm_the_grade_data_the_employee_stated(): void
+    {
+        $requestRecord = $this->requestBeingPrepared();
+
+        $this->actingAs($this->userWithRole('R12'), 'sanctum')
+            ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
+                'documents' => $this->allPresent($requestRecord),
+                'assembled' => true,
+                'grade_verified' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath(
+                'data.control_gates.employment_file.refusal',
+                'لا يجوز التسجيل قبل تأكد الموارد البشرية من مطابقة الدرجة الوظيفية والدرجة المستحقة وتاريخ الدرجة لسجلات الجهة.',
+            )
+            ->assertJsonPath('data.entitled_grade', 11)
+            ->assertJsonPath('data.grade_date', '2024-03-01');
+
+        // The confirmation is frozen beside the values it confirmed, so a
+        // later reader sees what HR actually checked.
+        $this->actingAs($this->userWithRole('R12'), 'sanctum')
+            ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
+                'documents' => $this->allPresent($requestRecord),
+                'assembled' => true,
+                'grade_verified' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.control_gates.employment_file.refusal', null)
+            ->assertJsonPath('data.control_gates.employment_file.record.grade', [
+                'decision_grade' => 10,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
+            ]);
     }
 
     /**
@@ -200,6 +240,7 @@ class EmploymentFilePreparationTest extends TestCase
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
                 'documents' => [...$this->allPresent($requestRecord), $unconditional => 'missing'],
                 'assembled' => true,
+                'grade_verified' => true,
             ])
             ->assertOk()
             ->assertJsonPath('data.control_gates.employment_file.refusal', null);
@@ -226,6 +267,7 @@ class EmploymentFilePreparationTest extends TestCase
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
                 'documents' => $this->allPresent($requestRecord),
                 'assembled' => true,
+                'grade_verified' => true,
             ])
             ->assertStatus(422)
             ->assertJsonPath('message', 'لا يجوز لمقدّم الطلب أو صاحب العلاقة تجهيز ملفه الوظيفي بنفسه.');
@@ -237,6 +279,7 @@ class EmploymentFilePreparationTest extends TestCase
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
                 'documents' => $this->allPresent($requestRecord),
                 'assembled' => true,
+                'grade_verified' => true,
             ])
             ->assertStatus(422);
 
@@ -252,6 +295,7 @@ class EmploymentFilePreparationTest extends TestCase
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
                 'documents' => $this->allPresent($requestRecord),
                 'assembled' => true,
+                'grade_verified' => true,
             ])
             ->assertStatus(403);
     }
@@ -305,6 +349,8 @@ class EmploymentFilePreparationTest extends TestCase
             'created_by_user_id' => $creator->id,
             'submitted_at' => now(),
             'decision_grade' => 10,
+            'entitled_grade' => 11,
+            'grade_date' => '2024-03-01',
         ]);
     }
 

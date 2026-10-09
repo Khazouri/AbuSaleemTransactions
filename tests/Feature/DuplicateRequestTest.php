@@ -195,6 +195,8 @@ class DuplicateRequestTest extends TestCase
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'request_type_id' => $type->id,
             'decision_grade' => 9,
+            'entitled_grade' => 9,
+            'grade_date' => '2024-03-01',
             // Stage 85 — this test's subject is Appendix 16's duplicate rule,
             // so the file has to clear Appendix 57's own rule first to reach it.
             'attachments' => $this->mandatoryAttachments($type),

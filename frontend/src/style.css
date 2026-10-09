@@ -1011,6 +1011,18 @@ textarea {
 .answer.no, .answer.missing { color: var(--color-danger-fg); }
 .answer.not_applicable, .answer.pending { color: var(--color-black-500); }
 
+/* HR's employment-file card: the grade data the employee stated, which HR
+   confirms against the organisation's records. */
+.grade-data {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-sm);
+}
+.grade-data dt { font-weight: 600; }
+.grade-data dd { margin: 0; }
+
 /* A register of past rounds/rows — Art. 105's suspension history
    (RequestSuspensionPanel) and the request lifecycle panel's five append-only
    registers (conflicts, special cases, corrections, withdrawals) share this

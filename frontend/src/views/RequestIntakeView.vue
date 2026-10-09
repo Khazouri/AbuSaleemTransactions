@@ -139,6 +139,10 @@ function markTouched(field) {
 const needsPriorRelation = computed(() => !duplicate.value?.open_prior
   && (duplicate.value?.prior_requests?.length ?? 0) > 0)
 
+// The local calendar day, as <input type="date"> writes it, so a grade dated
+// today is never refused for the UTC offset.
+const today = new Date().toLocaleDateString('en-CA')
+
 const fieldErrors = computed(() => {
   const found = {}
   const { title, description, reasons, request_type_id: typeId } = form.value
@@ -158,6 +162,15 @@ const fieldErrors = computed(() => {
   } else if (grade !== '' && (Number(grade) < 1 || Number(grade) > 100)) {
     found.decision_grade = t('intake.validation.gradeRange')
   }
+
+  const entitled = String(form.value.entitled_grade).trim()
+  if (entitled === '') found.entitled_grade = t('intake.validation.entitledGradeRequired')
+  else if (!/^\d+$/.test(entitled) || Number(entitled) < 1 || Number(entitled) > 100) {
+    found.entitled_grade = t('intake.validation.entitledGradeRange')
+  }
+
+  if (!form.value.grade_date) found.grade_date = t('intake.validation.gradeDateRequired')
+  else if (form.value.grade_date > today) found.grade_date = t('intake.validation.gradeDateFuture')
 
   if (needsPriorRelation.value && !form.value.prior_relation) {
     found.prior_relation = t('intake.validation.priorRelationRequired')
@@ -204,6 +217,8 @@ function blankForm() {
     reasons: '',
     request_type_id: '',
     decision_grade: '',
+    entitled_grade: '',
+    grade_date: '',
     prior_relation: '',
   }
 }
@@ -283,6 +298,8 @@ function draftPayload() {
     reasons: form.value.reasons || null,
     request_type_id: form.value.request_type_id || null,
     decision_grade: form.value.decision_grade === '' ? null : form.value.decision_grade,
+    entitled_grade: form.value.entitled_grade === '' ? null : form.value.entitled_grade,
+    grade_date: form.value.grade_date || null,
     prior_relation: form.value.prior_relation || null,
   }
 }
@@ -588,6 +605,8 @@ function inlinePayload() {
   payload.append('reasons', form.value.reasons)
   payload.append('request_type_id', form.value.request_type_id)
   if (form.value.decision_grade !== '') payload.append('decision_grade', form.value.decision_grade)
+  payload.append('entitled_grade', form.value.entitled_grade)
+  payload.append('grade_date', form.value.grade_date)
   if (form.value.prior_relation !== '') payload.append('prior_relation', form.value.prior_relation)
   files.value.forEach(({ file, label, required_document_key: documentKey }, index) => {
     payload.append(`attachments[${index}][file]`, file)
@@ -776,6 +795,34 @@ onMounted(async () => {
               </small>
               <small v-if="fieldError('decision_grade')">{{ fieldError('decision_grade') }}</small>
             </label>
+            <label>
+              {{ t('intake.entitledGrade') }}
+              <span class="required-mark" aria-hidden="true">*</span>
+              <input
+                v-model="form.entitled_grade"
+                type="number"
+                min="1"
+                max="100"
+                required
+                :aria-invalid="fieldError('entitled_grade') ? 'true' : undefined"
+                @blur="markTouched('entitled_grade')"
+              />
+              <small v-if="fieldError('entitled_grade')">{{ fieldError('entitled_grade') }}</small>
+            </label>
+            <label>
+              {{ t('intake.gradeDate') }}
+              <span class="required-mark" aria-hidden="true">*</span>
+              <input
+                v-model="form.grade_date"
+                type="date"
+                :max="today"
+                required
+                :aria-invalid="fieldError('grade_date') ? 'true' : undefined"
+                @blur="markTouched('grade_date')"
+              />
+              <small class="field-hint">{{ t('intake.gradeDataHint') }}</small>
+              <small v-if="fieldError('grade_date')">{{ fieldError('grade_date') }}</small>
+            </label>
             <label class="wide">
               {{ t('intake.description') }}
               <textarea v-model="form.description" rows="5" @blur="markTouched('description')" />
@@ -941,6 +988,8 @@ onMounted(async () => {
           <div><dt>{{ t('users.employeeNumber') }}</dt><dd>{{ auth.user?.employee_number || '—' }}</dd></div>
           <div><dt>{{ t('requests.type') }}</dt><dd>{{ selectedType ? name(selectedType) : '—' }}</dd></div>
           <div><dt>{{ t('intake.decisionGrade') }}</dt><dd>{{ form.decision_grade || '—' }}</dd></div>
+          <div><dt>{{ t('intake.entitledGrade') }}</dt><dd>{{ form.entitled_grade || '—' }}</dd></div>
+          <div><dt>{{ t('intake.gradeDate') }}</dt><dd>{{ form.grade_date || '—' }}</dd></div>
           <div v-if="form.prior_relation">
             <dt>{{ t('lifecycle.duplicate.classify') }}</dt>
             <dd>{{ t(`lifecycle.duplicate.relations.${form.prior_relation}`) }}</dd>

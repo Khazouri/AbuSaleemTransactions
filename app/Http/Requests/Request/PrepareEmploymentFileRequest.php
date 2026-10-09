@@ -33,6 +33,7 @@ class PrepareEmploymentFileRequest extends FormRequest
             'documents' => ['present', 'array'],
             'documents.*' => [Rule::in(IntakeGateService::ANSWERS)],
             'assembled' => ['required', 'boolean'],
+            'grade_verified' => ['required', 'boolean'],
         ];
     }
 
@@ -44,6 +45,8 @@ class PrepareEmploymentFileRequest extends FormRequest
             'documents.*.in' => 'إجابة مستند الملف الوظيفي غير صالحة.',
             'assembled.required' => 'يرجى الإجابة عن سؤال تجهيز الملف الوظيفي.',
             'assembled.boolean' => 'إجابة سؤال تجهيز الملف الوظيفي غير صالحة.',
+            'grade_verified.required' => 'يرجى الإجابة عن سؤال مطابقة البيانات الوظيفية.',
+            'grade_verified.boolean' => 'إجابة سؤال مطابقة البيانات الوظيفية غير صالحة.',
         ];
     }
 }

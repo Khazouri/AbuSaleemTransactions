@@ -63,6 +63,8 @@ class UnifiedNumberingTest extends TestCase
                 'department_id' => Department::where('code', 'ADM')->value('id'),
                 'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
                 'decision_grade' => 9,
+                'entitled_grade' => 9,
+                'grade_date' => '2024-03-01',
                 // Stage 85 — Appendix 57's mandatory rows became a submission
                 // rule; this test's subject is the numbering, so it clears
                 // that rule rather than restating it.
@@ -284,6 +286,8 @@ class UnifiedNumberingTest extends TestCase
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'submitted_at' => now(),
             'decision_grade' => 9,
+            'entitled_grade' => 9,
+            'grade_date' => '2024-03-01',
             'jurisdiction_test' => $this->jurisdictionAnswers(),
         ]);
     }

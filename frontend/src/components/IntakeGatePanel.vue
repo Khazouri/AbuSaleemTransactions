@@ -44,6 +44,9 @@ const props = defineProps({
   // Decision wizard — sub-project 3. The gates tab shows the card only; its
   // form lives in the wizard's Checks step.
   readonly: { type: Boolean, default: false },
+  // HR's card only: the grade data the employee stated at intake, which HR
+  // confirms against the organisation's records before registering.
+  grade: { type: Object, default: null },
 })
 
 const emit = defineEmits(['updated'])
@@ -56,6 +59,10 @@ const error = ref('')
 
 const answers = reactive({})
 const attested = ref(false)
+const gradeVerified = ref(false)
+
+// What HR confirmed is frozen on the record; before that, what the employee stated.
+const gradeShown = computed(() => props.record?.grade ?? props.grade)
 
 // Stage 98 — every copy key this panel reads is namespaced by `copy`, so the
 // two cards cannot share a sentence by accident.
@@ -86,6 +93,7 @@ function seed() {
     answers[key] = document.covered ? 'present' : (stored[key] ?? '')
   }
   attested.value = props.record?.[props.attestationField] === true
+  gradeVerified.value = props.record?.grade_verified === true
 }
 
 watch(open, (isOpen) => {
@@ -109,6 +117,7 @@ async function submit() {
     const { data } = await api.patch(`/requests/${props.requestId}/${props.endpoint}`, {
       documents: { ...answers },
       [props.attestationField]: attested.value,
+      ...(props.grade ? { grade_verified: gradeVerified.value } : {}),
     })
     open.value = false
     emit('updated', data.data)
@@ -144,6 +153,18 @@ async function submit() {
         </span>
       </li>
     </ul>
+
+    <dl v-if="grade && gradeShown" class="grade-data">
+      <dt>{{ c('gradeData') }}</dt>
+      <dd>
+        {{ t('intake.decisionGrade') }}: {{ gradeShown.decision_grade ?? '—' }}
+        · {{ t('intake.entitledGrade') }}: {{ gradeShown.entitled_grade ?? '—' }}
+        · {{ t('intake.gradeDate') }}: {{ gradeShown.grade_date ?? '—' }}
+      </dd>
+      <dd v-if="record" :class="['answer', record.grade_verified ? 'present' : 'missing']">
+        {{ record.grade_verified ? c('gradeConfirmed') : c('gradeUnconfirmed') }}
+      </dd>
+    </dl>
 
     <button
       v-if="!open && !readonly"
@@ -189,6 +210,11 @@ async function submit() {
       <label class="inline">
         <input v-model="attested" type="checkbox" />
         <span>{{ c('attestation') }}</span>
+      </label>
+
+      <label v-if="grade" class="inline">
+        <input v-model="gradeVerified" type="checkbox" />
+        <span>{{ c('gradeAttestation') }}</span>
       </label>
 
       <p v-if="error" class="alert warning">{{ error }}</p>

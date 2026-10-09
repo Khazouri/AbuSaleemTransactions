@@ -130,7 +130,7 @@ trait PassesControlGates
         $answers = array_fill_keys(array_keys($preparation->requiredDocuments($requestRecord)), 'present');
 
         $requestRecord->forceFill([
-            'employment_file' => $preparation->record($requestRecord, $answers, true),
+            'employment_file' => $preparation->record($requestRecord, $answers, true, true),
             'employment_file_prepared_at' => now(),
         ])->save();
 

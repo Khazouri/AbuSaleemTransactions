@@ -363,6 +363,7 @@ if (props.initial?.action) {
           attestation-field="assembled"
           grant="notes_attachments.add"
           copy="employmentFile"
+          :grade="{ decision_grade: request.decision_grade, entitled_grade: request.entitled_grade, grade_date: request.grade_date }"
           @updated="onCheckSaved"
         />
         <IntakeGatePanel

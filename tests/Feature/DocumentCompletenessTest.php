@@ -87,6 +87,8 @@ class DocumentCompletenessTest extends TestCase
                 'department_id' => Department::where('code', 'ADM')->value('id'),
                 'request_type_id' => $type->id,
                 'decision_grade' => 9,
+                'entitled_grade' => 9,
+                'grade_date' => '2024-03-01',
                 'attachments' => $attachments,
             ], ['Accept' => 'application/json'])
             ->assertStatus(422)
@@ -111,6 +113,8 @@ class DocumentCompletenessTest extends TestCase
                 'department_id' => Department::where('code', 'ADM')->value('id'),
                 'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
                 'decision_grade' => 9,
+                'entitled_grade' => 9,
+                'grade_date' => '2024-03-01',
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('attachments');
@@ -134,6 +138,8 @@ class DocumentCompletenessTest extends TestCase
                 'department_id' => Department::where('code', 'ADM')->value('id'),
                 'request_type_id' => $type->id,
                 'decision_grade' => 9,
+                'entitled_grade' => 9,
+                'grade_date' => '2024-03-01',
                 'attachments' => $this->mandatoryAttachments($type),
             ], ['Accept' => 'application/json'])
             ->assertCreated();
@@ -163,6 +169,8 @@ class DocumentCompletenessTest extends TestCase
                 'department_id' => Department::where('code', 'ADM')->value('id'),
                 'request_type_id' => $type->id,
                 'decision_grade' => 9,
+                'entitled_grade' => 9,
+                'grade_date' => '2024-03-01',
                 'attachments' => $attachments,
             ], ['Accept' => 'application/json'])
             ->assertCreated();
@@ -187,6 +195,8 @@ class DocumentCompletenessTest extends TestCase
                 'department_id' => Department::where('code', 'ADM')->value('id'),
                 'request_type_id' => $type->id,
                 'decision_grade' => 9,
+                'entitled_grade' => 9,
+                'grade_date' => '2024-03-01',
                 'attachments' => $attachments,
             ], ['Accept' => 'application/json'])
             ->assertCreated();
@@ -422,6 +432,8 @@ class DocumentCompletenessTest extends TestCase
             'created_by_user_id' => $this->employee()->id,
             'submitted_at' => now(),
             'decision_grade' => 10,
+            'entitled_grade' => 10,
+            'grade_date' => '2024-03-01',
         ]);
     }
 

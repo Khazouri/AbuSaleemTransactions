@@ -43,6 +43,8 @@ class SaveRequestDraftRequest extends FormRequest
             'department_id' => ['nullable', 'integer'],
             'request_type_id' => ['nullable', 'integer'],
             'decision_grade' => ['nullable', 'integer', 'between:1,100'],
+            'entitled_grade' => ['nullable', 'integer', 'between:1,100'],
+            'grade_date' => ['nullable', 'date'],
             'prior_relation' => ['nullable', Rule::in(array_keys(DuplicatePolicy::RELATIONS))],
         ];
     }
@@ -53,8 +55,11 @@ class SaveRequestDraftRequest extends FormRequest
             'title.max' => 'لا يمكن أن يتجاوز عنوان الطلب 255 حرفاً.',
             'description.max' => 'لا يمكن أن يتجاوز وصف الطلب 5000 حرف.',
             'reasons.max' => 'لا يمكن أن تتجاوز أسباب الطلب 5000 حرف.',
-            'decision_grade.integer' => 'يجب أن تكون درجة القرار رقماً صحيحاً.',
-            'decision_grade.between' => 'يجب أن تكون درجة القرار بين 1 و100.',
+            'decision_grade.integer' => 'يجب أن تكون الدرجة الوظيفية رقماً صحيحاً.',
+            'decision_grade.between' => 'يجب أن تكون الدرجة الوظيفية بين 1 و100.',
+            'entitled_grade.integer' => 'يجب أن تكون الدرجة الوظيفية المستحقة رقماً صحيحاً.',
+            'entitled_grade.between' => 'يجب أن تكون الدرجة الوظيفية المستحقة بين 1 و100.',
+            'grade_date.date' => 'تاريخ الدرجة غير صالح.',
             'prior_relation.in' => 'تصنيف العلاقة بالطلب السابق غير صالح.',
         ];
     }

@@ -599,7 +599,7 @@
     "subject": "Request subject",
     "description": "Description",
     "chooseType": "— Choose a request type —",
-    "decisionGrade": "Decision grade",
+    "decisionGrade": "Job grade",
     "decisionGradeHint": "Grades at or above {threshold} require ministry approval.",
     "removeFile": "Remove",
     "tooManyFiles": "No more than 10 files may be attached.",
@@ -660,18 +660,25 @@
       "titleRequired": "A request subject is required.",
       "titleTooLong": "The request subject cannot exceed 255 characters.",
       "typeRequired": "Please choose a request type.",
-      "gradeRequired": "A decision grade is required for this request type.",
-      "gradeInteger": "The decision grade must be a whole number.",
-      "gradeRange": "The decision grade must be between 1 and 100.",
+      "gradeRequired": "A job grade is required for this request type.",
+      "gradeInteger": "The job grade must be a whole number.",
+      "gradeRange": "The job grade must be between 1 and 100.",
       "priorRelationRequired": "Please classify this request against the earlier one.",
       "descriptionTooLong": "The request description cannot exceed 5000 characters.",
       "reasonsTooLong": "The reasons cannot exceed 5000 characters.",
-      "fixBeforeReview": "Please complete the required fields before reviewing and submitting."
-    }
+      "fixBeforeReview": "Please complete the required fields before reviewing and submitting.",
+      "entitledGradeRequired": "The entitled job grade is required.",
+      "entitledGradeRange": "The entitled job grade must be a whole number between 1 and 100.",
+      "gradeDateRequired": "The grade date is required.",
+      "gradeDateFuture": "The grade date cannot be after today."
+    },
+    "entitledGrade": "Entitled job grade",
+    "gradeDate": "Grade date",
+    "gradeDataHint": "HR checks these three against the organisation's records."
   },
   "approvals": {
     "subtitle": "Only requests currently waiting at this checkpoint appear here.",
-    "decisionGrade": "Decision grade",
+    "decisionGrade": "Job grade",
     "comment": "Approval comment (optional)",
     "approve": "Approve",
     "approving": "Approving…",
@@ -1424,7 +1431,7 @@
           "status": "Status",
           "submitted": "Submitted",
           "dueDate": "Due date",
-          "decisionGrade": "Decision grade",
+          "decisionGrade": "Job grade",
           "description": "Details",
           "noDescription": "No additional details."
         },
@@ -1843,7 +1850,7 @@
       "current_stage_id": "Current stage",
       "department_id": "Department",
       "request_type_id": "Request type",
-      "decision_grade": "Decision grade",
+      "decision_grade": "Job grade",
       "due_date": "Due date",
       "overdue_at": "Flagged overdue at",
       "is_active": "Active",
@@ -1854,7 +1861,9 @@
       "password": "Password",
       "comment": "Comment",
       "outcome": "Outcome",
-      "vote": "Vote"
+      "vote": "Vote",
+      "entitled_grade": "Entitled job grade",
+      "grade_date": "Grade date"
     },
     "exportFailed": "Could not generate the export file."
   },
@@ -2014,7 +2023,11 @@
       },
       "derived": "Confirmed from the attachments",
       "derivedHint": "Documents already in the file are confirmed automatically and are not asked again.",
-      "owner": "Human Resources assembles the employment file before the request is registered."
+      "owner": "Human Resources assembles the employment file before the request is registered.",
+      "gradeData": "Job grade data as stated by the employee",
+      "gradeAttestation": "I confirm the job grade, entitled grade and grade date match the organisation's records.",
+      "gradeConfirmed": "Matches the organisation's records",
+      "gradeUnconfirmed": "Not confirmed yet"
     },
     "soundness": {
       "title": "Decision soundness checklist (Art. 103)",

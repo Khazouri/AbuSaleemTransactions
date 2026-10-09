@@ -43,6 +43,8 @@ class AttachmentNamingTest extends TestCase
                 'title' => 'طلب ترقية',
                 'request_type_id' => $type->id,
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
                 'attachments' => [
                     ...$this->mandatoryAttachments($type),
                     [
@@ -73,6 +75,8 @@ class AttachmentNamingTest extends TestCase
                 'title' => 'طلب بلا رقم وظيفي',
                 'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
                 'decision_grade' => 11,
+                'entitled_grade' => 11,
+                'grade_date' => '2024-03-01',
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('employee_number');

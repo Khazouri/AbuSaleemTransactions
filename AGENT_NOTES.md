@@ -19,6 +19,30 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-09 17:40 EET — Claude — The employee's grade data at intake, confirmed by HR (complete)
+
+Built per the plan below. Migration `requests.entitled_grade`/`grade_date` is applied to the real MySQL. «درجة القرار» is now
+«الدرجة الوظيفية» / "Job grade" in every label and Arabic message; the column and the ministry threshold are unchanged.
+HR's card freezes the three values in `employment_file.grade` beside `grade_verified`, and `refusalReason()` lost its
+never-passed `$answers`/`$assembled` parameters. A type with no `service_file` rows still skips HR's gate entirely (the
+pre-existing early return), so it skips this confirmation too. No real file sat at `receive_and_register`. Verified: two new
+tests (RED then GREEN), intake fixtures given the two fields, full suite 867 green, Pint clean, build passes (`dist`
+committed), parity 2089, `aislop ci` exit 0. Not checked in a browser.
+
+---
+### 2026-10-09 16:51 EET — Claude — Implementation plan: the employee's grade data at intake, confirmed by HR
+
+User: on the intake screen «درجة القرار» becomes «الدرجة الوظيفية», plus two new inputs «الدرجة الوظيفية المستحقة» (number) and
+«تاريخ الدرجة» (date), all three checked by HR against the organisation's records. Put to the user and answered: both new
+inputs are required, and HR confirms them on its «تجهيز الملف الوظيفي» card with a required checkbox that blocks `register`.
+Plan: migration `requests.entitled_grade` (smallint) + `grade_date` (date), both nullable for existing rows;
+`StoreRequest` requires them (1–100, a date not after today), drafts accept them. The `decision_grade` column and the
+ministry threshold are unchanged, only its label. `PrepareEmploymentFileRequest` takes `grade_verified`, the record
+freezes it, and `EmploymentFilePreparationService::refusalReason()` refuses until it is true. `IntakeGatePanel` shows
+the three values and the checkbox on HR's card. Verify: new tests (RED then GREEN), intake fixtures updated, full
+PHPUnit, Pint, migrate, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-07 22:25 EET — Claude — An attached file is named «document - employee number» (complete)
 
 Built per the plan below. Migration `users.employee_number` (nullable, unique) is applied to the real MySQL.
