@@ -27,6 +27,33 @@ verified, then `git merge --no-ff` it into `main` and delete it (merge style cho
 still need an explicit request. Instruction change only; no code touched.
 
 ---
+### 2026-10-09 20:05 EET — Claude — A search box on every select (complete)
+
+Built per the plan below; frontend only, no template touched. `lib/selectSearch.js` is the whole feature. The popover's
+CSS sits in `style.css` beside the modals, and `selectSearch.placeholder|empty` are new (parity 2083). A select
+that is `disabled`, `multiple` or has `size` > 1 keeps the native list. **Gotcha for a future test:** the audit log's
+filters apply on submit, not on change, so "the request carries the filter" needs the form submitted. Verified: build
+passes (`dist` committed), `aislop ci` exit 0, and headless Chrome on the audit-log user filter and the Users modal
+(ar/en × 1280/375, touch at 375): opening by press, Enter and a typed letter; filtering with highlight and empty state;
+keyboard pick setting the value, refocusing the select and reaching `v-model`; Escape closing the list but not the
+modal; and an outside press closing it. 76/76 passed, with no console errors. `check-layout.mjs` (440 views) fails
+only on pre-existing issues: the `/decisions` overflow at 1024px, and `/requests/create` bouncing R08 to the
+dashboard since R08 stopped filing (2026-10-07). The script still logs in as R08, so that route is never checked. **Not checked:** iOS Safari, where
+preventing `mousedown` may not suppress the native picker.
+
+---
+### 2026-10-09 19:40 EET — Claude — Implementation plan: a search box on every select
+
+User: «add search to every select input» (then /frontend-design). Plan: one global `lib/selectSearch.js`, imported
+once in `main.js` like `lib/cardTables.js`, so none of the ~75 selects in 42 files changes and a future one is covered.
+A press (or Enter/Space/Alt+↓/F4, or a typed letter) on any single `<select>` suppresses the native list and opens a
+body-level popover with a search input and the select's own options (optgroup headings kept, disabled shown but not
+pickable). Picking sets `option.selected` and fires `input` + `change`, so every `v-model` (number values included)
+is untouched. Arabic matching folds أإآ→ا, ة→ه, ى→ي. Escape is captured on window so it never closes an AppModal
+underneath. Tokens only; two new locale keys. Verify: build (`dist` committed), parity, aislop ci, check-layout,
+headless check (ar/en, 1280/375).
+
+---
 ### 2026-10-09 19:15 EET — Claude — Notifications are sent instantly (complete)
 
 Built per the plan below; no migration and no frontend change. `NotificationDispatcher::send()` now sends on `sync`

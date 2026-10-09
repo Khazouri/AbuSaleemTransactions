@@ -14,6 +14,8 @@ import './style.css'
 import './lib/theme'
 // Imported for its side effect: labels table cells for the phone card layout.
 import './lib/cardTables'
+// Imported for its side effect: every <select> opens a searchable list.
+import './lib/selectSearch'
 import App from './App.vue'
 import router from './router'
 import i18n from './i18n'

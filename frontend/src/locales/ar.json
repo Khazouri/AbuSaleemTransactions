@@ -53,6 +53,10 @@
     "confirmDelete": "هل أنت متأكد من الحذف؟",
     "close": "إغلاق"
   },
+  "selectSearch": {
+    "placeholder": "ابحث في القائمة",
+    "empty": "لا يوجد في القائمة ما يطابق"
+  },
   "departments": {
     "title": "الإدارات والأقسام",
     "add": "إضافة إدارة",
