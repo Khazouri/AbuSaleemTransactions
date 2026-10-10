@@ -56,6 +56,7 @@ use App\Services\RequestDeadlineService;
 use App\Services\RequestSuspensionService;
 use App\Services\RequestTimelineCompiler;
 use App\Services\RequestVisibility;
+use App\Services\StepChecklistService;
 use App\Services\Tasks\RequestActs;
 use App\Services\WorkflowService;
 use DomainException;
@@ -103,6 +104,16 @@ class RequestController extends Controller
      */
     public static function controlGateRefusal(Request $requestRecord, string $action): ?string
     {
+        // Workflow designer — slice 4. An outcome an admin marked as waiting
+        // on its step's checklist. First, because it is the only gate a custom
+        // step has; Art. 105 still comes before it, as at every checkpoint.
+        $checklist = app(StepChecklistService::class);
+        if ($checklist->gates($requestRecord, $action)) {
+            return $requestRecord->openSuspension()->exists()
+                ? RequestSuspensionService::BLOCK_MESSAGE
+                : $checklist->refusalReason($requestRecord);
+        }
+
         // Stage 98 — [D] Appendix 6 row 3. The only non-`approve` hop with a
         // gate of its own: HR assembles الملف الوظيفي before registering the
         // file, at the stage R12 already holds. Answered before the `approve`
@@ -1458,6 +1469,8 @@ class RequestController extends Controller
             'action' => $rule->action,
             'is_exception' => $rule->is_exception,
             'requires_comment' => $rule->requires_comment,
+            // Workflow designer — slice 4. The wizard shows the checklist only to someone offered such an outcome.
+            'requires_checks' => $rule->requires_checks,
             // Workflow designer — slice 3. A custom outcome has no locale key.
             'label_ar' => $rule->label_ar,
             'label_en' => $rule->label_en,

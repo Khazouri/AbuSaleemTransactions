@@ -192,6 +192,13 @@ class WorkflowService
             throw WorkflowTransitionException::cannotApproveOwnRequest();
         }
 
+        // Workflow designer — slice 4. actorMayUse() would refuse it too, but as
+        // "no role"; say why instead. Re-checked under the lock by actorMayUse().
+        if ($this->actorIsAnInterestedParty($requestRecord, $actor)
+            && $this->transitionCandidates($requestRecord, $action)->contains('requires_checks', true)) {
+            throw WorkflowTransitionException::cannotCompleteOwnStep();
+        }
+
         // Read before the transaction so the قيد can be detected after it:
         // grantReferenceNumberIfRegistering() is one-way and idempotent (null
         // -> value, never value -> a different value), so this comparison is
@@ -642,7 +649,9 @@ class WorkflowService
      */
     private function actorMayUse(WorkflowTransition $rule, Request $requestRecord, User $actor, Collection $actorRoleIds): bool
     {
-        if ($rule->action === 'approve' && $this->actorIsAnInterestedParty($requestRecord, $actor)) {
+        // Workflow designer — slice 4: an outcome that waits on a checklist is
+        // an attestation like approve, so the same parties are kept off it.
+        if (($rule->action === 'approve' || $rule->requires_checks) && $this->actorIsAnInterestedParty($requestRecord, $actor)) {
             return false;
         }
 
