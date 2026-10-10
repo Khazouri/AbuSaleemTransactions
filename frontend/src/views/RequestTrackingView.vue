@@ -20,8 +20,9 @@ import { useI18n } from 'vue-i18n'
 import RequestStageRail from '../components/RequestStageRail.vue'
 import TimelineDocuments from '../components/TimelineDocuments.vue'
 import api from '../lib/api'
+import { actionLabel } from '../lib/workflowActions'
 
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
 
 const requests = ref([])
 const loading = ref(false)
@@ -48,7 +49,8 @@ const date = (value) => value
 const dateTime = (value) => value
   ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
   : t('common.none')
-const actionLabel = (action) => t(`workflow.actions.${action}`)
+// Workflow designer — slice 3: a custom outcome is named by its own label.
+const ruleLabel = (item) => actionLabel(item, { t, te, locale: locale.value })
 // Stage 79 — a notice stores both languages in its payload, so the register
 // reads back the one the viewer is in rather than re-deriving the text.
 const noticeText = (notice, field) => (locale.value === 'ar'
@@ -248,7 +250,7 @@ onMounted(() => load())
                   <li v-for="entry in tracked.timeline" :key="entry.id">
                     <span class="dot" />
                     <div>
-                      <strong>{{ actionLabel(entry.action) }}</strong>
+                      <strong>{{ ruleLabel(entry) }}</strong>
                       <p v-if="entry.to_stage">{{ timelineMovement(entry) }}</p>
                       <p v-if="entry.comment" class="entry-comment">{{ entry.comment }}</p>
                       <small>

@@ -2184,7 +2184,8 @@
         "other_central": "جهة مركزية أخرى",
         "payroll": "قسم المرتبات",
         "execution_body": "جهة التنفيذ",
-        "archive": "الأرشيف"
+        "archive": "الأرشيف",
+        "role": "الجهة المكلّفة بالمرحلة"
       },
       "actions": {
         "complete_documents": "استكمال المستندات المطلوبة",
@@ -2204,7 +2205,8 @@
         "regulatory_review": "مراجعة المقرر وفق اللوائح",
         "prepare_presentation_memo": "إعداد مذكرة العرض",
         "reprocess_approval_return": "إثبات إجراء إعادة المعالجة",
-        "closed": "لا إجراء مطلوب — المعاملة مقفلة"
+        "closed": "لا إجراء مطلوب — المعاملة مقفلة",
+        "complete_step": "إنجاز إجراء المرحلة"
       }
     },
     "duplicate": {
@@ -2435,7 +2437,8 @@
       "jurisdiction_test": "اختبار الاختصاص",
       "legal_review": "المراجعة القانونية",
       "nominate": "إدراج في جدول الأعمال",
-      "execute_outcome": "تنفيذ نتيجة التظلم"
+      "execute_outcome": "تنفيذ نتيجة التظلم",
+      "custom_step": "إنجاز إجراء المرحلة"
     }
   },
   "decisionWizard": {

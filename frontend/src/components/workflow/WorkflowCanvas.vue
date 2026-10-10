@@ -10,15 +10,16 @@ import { useI18n } from 'vue-i18n'
 import { VueFlow } from '@vue-flow/core'
 import StageNode from './StageNode.vue'
 import { buildGraph } from '../../lib/workflowGraph'
+import { actionLabel } from '../../lib/workflowActions'
 
 const props = defineProps({
   version: { type: Object, required: true },
   currentStageId: { type: Number, default: null },
 })
 const emit = defineEmits(['select'])
-const { t, te } = useI18n()
+const { t, te, locale } = useI18n()
 
-const actionLabel = (action) => (te(`workflow.actions.${action}`) ? t(`workflow.actions.${action}`) : action)
+const ruleLabel = (rule) => actionLabel(rule, { t, te, locale: locale.value })
 const graph = computed(() => buildGraph(props.version))
 const nodes = computed(() => graph.value.nodes.map((node) => ({
   ...node,
@@ -29,7 +30,7 @@ const nodes = computed(() => graph.value.nodes.map((node) => ({
 // unlabelled — dashed, with their actions one click away in the inspector.
 const edges = computed(() => graph.value.edges.map((edge) => ({
   ...edge,
-  label: edge.data.exception ? '' : edge.data.actions.map(actionLabel).join(' · '),
+  label: edge.data.exception ? '' : edge.data.rules.map(ruleLabel).join(' · '),
   class: { exception: edge.data.exception },
 })))
 

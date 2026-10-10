@@ -26,6 +26,7 @@ import WizardShell from './WizardShell.vue'
 import WizardSlip from './WizardSlip.vue'
 import api, { firstError } from '../lib/api'
 import { ACT_FAMILIES, REQUEST_ACTS, actLabel } from '../lib/requestActs'
+import { actionLabel } from '../lib/workflowActions'
 
 const props = defineProps({
   request: { type: Object, required: true },
@@ -56,7 +57,8 @@ const COMMITTEE_ENDPOINTS = {
 }
 
 const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en : item?.name_en || item?.name_ar) ?? ''
-const actionLabel = (action) => t(`workflow.actions.${action}`)
+// Workflow designer — slice 3: a custom outcome is named by its own label.
+const ruleLabel = (item) => actionLabel(item, { t, te, locale: locale.value })
 const meaning = (action) => (te(`decisionWizard.meaning.${action}`) ? t(`decisionWizard.meaning.${action}`) : '')
 
 const available = computed(() => props.request.available_transitions ?? [])
@@ -93,7 +95,7 @@ const choices = computed(() => [
     key: `transition:${item.action}`,
     kind: 'transition',
     action: item.action,
-    label: actionLabel(item.action),
+    label: ruleLabel(item),
     meaning: meaning(item.action),
     destination: item.to_stage
       ? t('decisionWizard.choose.destination', { stage: name(item.to_stage), status: name(item.to_status) })
@@ -160,7 +162,7 @@ const groups = computed(() => {
 
 // Held-back transitions (sub-project 1) and held-back acts, one list.
 const blockedItems = computed(() => [
-  ...blocked.value.map((item) => ({ key: `transition:${item.action}`, label: actionLabel(item.action), reason: item.reason, toChecks: true })),
+  ...blocked.value.map((item) => ({ key: `transition:${item.action}`, label: ruleLabel(item), reason: item.reason, toChecks: true })),
   ...acts.value.blocked.map((item) => ({ key: actKey(item), label: actLabel(t, item), reason: item.reason, toChecks: false })),
 ])
 
@@ -340,7 +342,7 @@ if (props.initial?.action) {
       <p v-if="!recentTimeline.length" class="state">{{ t('requestDetail.noTimeline') }}</p>
       <ul v-else class="plain-list">
         <li v-for="entry in recentTimeline" :key="entry.id">
-          <strong>{{ actionLabel(entry.action) }}</strong>
+          <strong>{{ ruleLabel(entry) }}</strong>
           <small>{{ entry.acted_by?.name || '—' }}{{ locale === 'ar' ? '، ' : ', ' }}{{ dateTime(entry.acted_at) }}</small>
           <p v-if="entry.comment" class="quote">{{ entry.comment }}</p>
         </li>

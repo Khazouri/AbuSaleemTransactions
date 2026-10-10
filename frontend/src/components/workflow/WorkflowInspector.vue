@@ -6,6 +6,7 @@
  */
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { actionLabel } from '../../lib/workflowActions'
 
 const props = defineProps({
   version: { type: Object, required: true },
@@ -16,7 +17,7 @@ const emit = defineEmits(['select'])
 const { t, te, locale } = useI18n()
 
 const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en : item?.name_en || item?.name_ar)
-const actionLabel = (action) => (te(`workflow.actions.${action}`) ? t(`workflow.actions.${action}`) : action)
+const ruleLabel = (rule) => actionLabel(rule, { t, te, locale: locale.value })
 const stageById = computed(() => Object.fromEntries(props.version.stages.map((stage) => [stage.id, stage])))
 const stages = computed(() => [...props.version.stages].sort((a, b) => a.order_no - b.order_no))
 const edgeEnds = computed(() => (props.selection?.kind === 'edge' ? props.selection.id.split('-').map(Number) : null))
@@ -94,7 +95,7 @@ function actor(rule) {
       <p v-if="!rules.length" class="hint">{{ stage && !version.transitions.some((rule) => rule.to_stage_id === stage.id) ? t('workflows.unusedHint') : t('workflows.noRules') }}</p>
       <ul v-else class="rules">
         <li v-for="rule in rules" :key="rule.id">
-          <strong>{{ actionLabel(rule.action) }}</strong>
+          <strong>{{ ruleLabel(rule) }}</strong>
           <span>{{ actor(rule) }}</span>
           <span>{{ rule.to_stage_id === rule.from_stage_id ? t('workflows.staysHere') : t('workflows.to', { stage: name(stageById[rule.to_stage_id]) }) }}</span>
           <span v-if="rule.set_status">{{ t('workflows.setsStatus', { status: name(rule.set_status) }) }}</span>

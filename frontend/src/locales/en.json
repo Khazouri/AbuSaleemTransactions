@@ -2184,7 +2184,8 @@
         "other_central": "Another central body",
         "payroll": "Payroll section",
         "execution_body": "Executing body",
-        "archive": "Archive"
+        "archive": "Archive",
+        "role": "The step's assigned role"
       },
       "actions": {
         "complete_documents": "Complete the required documents",
@@ -2204,7 +2205,8 @@
         "regulatory_review": "Rapporteur review against the regulations",
         "prepare_presentation_memo": "Prepare the presentation memo",
         "reprocess_approval_return": "Record the re-processing action",
-        "closed": "No action required — the file is closed"
+        "closed": "No action required — the file is closed",
+        "complete_step": "Complete this step's action"
       }
     },
     "duplicate": {
@@ -2435,7 +2437,8 @@
       "jurisdiction_test": "Jurisdiction test",
       "legal_review": "Legal review",
       "nominate": "Add to an agenda",
-      "execute_outcome": "Execute the appeal outcome"
+      "execute_outcome": "Execute the appeal outcome",
+      "custom_step": "Complete this step"
     }
   },
   "decisionWizard": {
