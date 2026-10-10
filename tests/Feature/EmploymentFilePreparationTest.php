@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Attachment;
+use App\Models\AttachmentPreview;
 use App\Models\Department;
 use App\Models\Request;
 use App\Models\RequestStatus;
@@ -11,6 +12,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Services\DocumentCompletenessService;
+use App\Services\EmploymentFilePreparationService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -72,7 +74,7 @@ class EmploymentFilePreparationTest extends TestCase
 
     public function test_the_agenda_gate_still_demands_the_employment_file_rows(): void
     {
-        $requestRecord = $this->requestBeingPrepared();
+        $requestRecord = $this->requestBeingPrepared(documented: false);
 
         // Only the submitter's own rows are attached, which intake now
         // accepts — the committee-facing check does not.
@@ -107,7 +109,7 @@ class EmploymentFilePreparationTest extends TestCase
 
         $this->actingAs($hr, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => [],
+                'documents' => $this->approveRequiredFiles($requestRecord, $hr),
                 'assembled' => true,
                 'grade_verified' => true,
             ])
@@ -123,11 +125,12 @@ class EmploymentFilePreparationTest extends TestCase
 
     public function test_the_attestation_is_required_on_top_of_the_documents(): void
     {
+        $hr = $this->userWithRole('R12');
         $requestRecord = $this->requestBeingPrepared();
 
-        $this->actingAs($this->userWithRole('R12'), 'sanctum')
+        $this->actingAs($hr, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => [],
+                'documents' => $this->approveRequiredFiles($requestRecord, $hr),
                 'assembled' => false,
                 'grade_verified' => true,
             ])
@@ -140,11 +143,13 @@ class EmploymentFilePreparationTest extends TestCase
 
     public function test_hr_must_confirm_the_grade_data_the_employee_stated(): void
     {
+        $hr = $this->userWithRole('R12');
         $requestRecord = $this->requestBeingPrepared();
+        $verdicts = $this->approveRequiredFiles($requestRecord, $hr);
 
-        $this->actingAs($this->userWithRole('R12'), 'sanctum')
+        $this->actingAs($hr, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => [],
+                'documents' => $verdicts,
                 'assembled' => true,
                 'grade_verified' => false,
             ])
@@ -158,9 +163,9 @@ class EmploymentFilePreparationTest extends TestCase
 
         // The confirmation is frozen beside the values it confirmed, so a
         // later reader sees what HR actually checked.
-        $this->actingAs($this->userWithRole('R12'), 'sanctum')
+        $this->actingAs($hr, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                'documents' => [],
+                'documents' => $verdicts,
                 'assembled' => true,
                 'grade_verified' => true,
             ])
@@ -171,6 +176,70 @@ class EmploymentFilePreparationTest extends TestCase
                 'entitled_grade' => 11,
                 'grade_date' => '2024-03-01',
             ]);
+    }
+
+    /**
+     * HR checks every required attachment: the box ticked on Request Types
+     * holds registration until a file answers that row, whoever uploads it.
+     */
+    public function test_registration_waits_for_every_required_document(): void
+    {
+        $hr = $this->userWithRole('R12');
+        $requestRecord = $this->requestBeingPrepared(documented: false);
+
+        $refusal = $this->actingAs($hr, 'sanctum')
+            ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
+                'documents' => [],
+                'assembled' => true,
+                'grade_verified' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.control_gates.employment_file.missing_required.0.ar', 'البيانات الوظيفية')
+            ->json('data.control_gates.employment_file.refusal');
+
+        $this->assertStringStartsWith(EmploymentFilePreparationService::REQUIRED_MISSING, (string) $refusal);
+        $this->assertStringContainsString('البيانات الوظيفية', (string) $refusal);
+
+        $this->supplyRequiredDocuments($requestRecord);
+
+        $this->actingAs($hr, 'sanctum')
+            ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
+                'documents' => $this->approveRequiredFiles($requestRecord, $hr),
+                'assembled' => true,
+                'grade_verified' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.control_gates.employment_file.refusal', null)
+            ->assertJsonPath('data.control_gates.employment_file.missing_required', []);
+    }
+
+    /**
+     * And only those: a file outside the required rows is not HR's to judge,
+     * so it is neither listed on HR's card nor able to hold registration.
+     */
+    public function test_hr_reviews_only_the_files_answering_a_required_row(): void
+    {
+        $hr = $this->userWithRole('R12');
+        $requestRecord = $this->requestBeingPrepared();
+        $this->attachDocument($requestRecord, RequestType::OTHER_DOCUMENT);
+        $other = Attachment::where('required_document_key', RequestType::OTHER_DOCUMENT)->value('id');
+
+        $listed = array_column($this->actingAs($hr, 'sanctum')
+            ->getJson("/api/requests/{$requestRecord->id}")
+            ->assertOk()
+            ->json('data.control_gates.employment_file.review_attachments'), 'id');
+
+        $this->assertCount(count($this->mandatoryKeys($requestRecord)), $listed);
+        $this->assertNotContains($other, $listed);
+
+        $this->actingAs($hr, 'sanctum')
+            ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
+                'documents' => $this->approveRequiredFiles($requestRecord, $hr),
+                'assembled' => true,
+                'grade_verified' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.control_gates.employment_file.refusal', null);
     }
 
     // --- who may act --------------------------------------------------
@@ -254,12 +323,12 @@ class EmploymentFilePreparationTest extends TestCase
 
     // --- fixtures -----------------------------------------------------
 
-    /** Carries no file, so HR's per-file verdicts are an empty list here; DocumentReviewTest covers them. */
-    private function requestBeingPrepared(?User $creator = null): Request
+    /** Carries one file per required row unless told otherwise; DocumentReviewTest covers the verdicts themselves. */
+    private function requestBeingPrepared(?User $creator = null, bool $documented = true): Request
     {
         $creator ??= $this->userWithRole('R01');
 
-        return Request::create([
+        $requestRecord = Request::create([
             'reference_number' => null,
             'intake_receipt_number' => 'PM-RCV/2026/'.str_pad((string) (Request::count() + 1), 6, '0', STR_PAD_LEFT),
             'title' => 'طلب عند تجهيز الملف الوظيفي',
@@ -273,6 +342,37 @@ class EmploymentFilePreparationTest extends TestCase
             'entitled_grade' => 11,
             'grade_date' => '2024-03-01',
         ]);
+
+        if ($documented) {
+            $this->supplyRequiredDocuments($requestRecord);
+        }
+
+        return $requestRecord;
+    }
+
+    /**
+     * HR's approval of every required file, each one previewed first as the
+     * endpoint demands.
+     *
+     * @return array<int, string>
+     */
+    private function approveRequiredFiles(Request $requestRecord, User $hr): array
+    {
+        $files = Attachment::where('request_id', $requestRecord->id)
+            ->whereIn('required_document_key', $this->mandatoryKeys($requestRecord))
+            ->get();
+
+        foreach ($files as $file) {
+            AttachmentPreview::firstOrCreate(['attachment_id' => $file->id, 'user_id' => $hr->id]);
+        }
+
+        return $files->mapWithKeys(fn (Attachment $file): array => [$file->id => 'approved'])->all();
+    }
+
+    /** @return list<string> */
+    private function mandatoryKeys(Request $requestRecord): array
+    {
+        return array_keys(app(DocumentCompletenessService::class)->mandatoryDocuments($requestRecord->requestType));
     }
 
     private function attachDocument(Request $requestRecord, string $key): void

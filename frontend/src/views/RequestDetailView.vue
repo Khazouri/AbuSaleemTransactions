@@ -413,6 +413,7 @@ function onWizardUpdated(updated) {
               :request-id="request.id"
               :record="request.control_gates.employment_file.record"
               :refusal="request.control_gates.employment_file.refusal"
+              :missing="request.control_gates.employment_file.missing_required"
               :recorded-by="request.control_gates.employment_file.prepared_by"
               :recorded-at="request.control_gates.employment_file.prepared_at"
               endpoint="employment-file"

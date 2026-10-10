@@ -357,6 +357,7 @@ if (props.initial?.action) {
           :request-id="request.id"
           :attachments="request.attachments ?? []"
           :review="gates.employment_file.review_attachments"
+          :missing="gates.employment_file.missing_required"
           :record="gates.employment_file.record"
           :refusal="gates.employment_file.refusal"
           :recorded-by="gates.employment_file.prepared_by"

@@ -184,6 +184,30 @@ class RequestTypeCrudTest extends TestCase
         $this->assertNull($type->required_documents[2]['condition']);
     }
 
+    /**
+     * The «مطلوب» box is stored per row; a row sent without it keeps the old
+     * reading (no condition = required), so an older client cannot quietly
+     * make every document optional.
+     */
+    public function test_the_required_flag_round_trips_and_defaults_from_the_condition(): void
+    {
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/request-types', [
+                'name_ar' => 'نوع بعلامة الإلزام',
+                'required_documents' => [
+                    ['ar' => 'مستند غير مطلوب', 'group' => 'basic', 'condition' => null, 'required' => false],
+                    ['ar' => 'مستند مشروط مطلوب', 'group' => 'basic', 'condition' => ['ar' => 'عند الحاجة'], 'required' => true],
+                    ['ar' => 'مستند بلا علامة', 'group' => 'specific', 'condition' => null],
+                    ['ar' => 'مستند مشروط بلا علامة', 'group' => 'specific', 'condition' => ['ar' => 'عند الحاجة']],
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.required_documents.0.required', false)
+            ->assertJsonPath('data.required_documents.1.required', true)
+            ->assertJsonPath('data.required_documents.2.required', true)
+            ->assertJsonPath('data.required_documents.3.required', false);
+    }
+
     public function test_validation_rejects_a_duplicate_code_an_unknown_group_and_an_unknown_route(): void
     {
         $admin = $this->admin();

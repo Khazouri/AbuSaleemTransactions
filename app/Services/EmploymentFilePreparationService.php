@@ -34,7 +34,12 @@ use App\Models\Request;
  * verdict per file after HR opened it (DocumentReview, user decision
  * 2026-10-09), and no longer the service-file rows of Appendix 57's matrix.
  * Those rows are still demanded before the agenda by
- * DocumentCompletenessService; they are simply no longer checked at register.
+ * DocumentCompletenessService.
+ *
+ * Since 2026-10-10 (user decision) HR checks every required attachment: every
+ * row marked «مطلوب» on the Request Types screen must be answered by a file
+ * before HR may register, and HR's verdicts cover exactly those files. Other
+ * attachments are not HR's to judge; المقرر's بوابة 1 still sees them all.
  */
 class EmploymentFilePreparationService
 {
@@ -58,27 +63,52 @@ class EmploymentFilePreparationService
      * intake; HR is the party that can check them against the organisation's
      * own records, so registration waits on that confirmation too.
      */
+    public const REQUIRED_MISSING = 'لا يجوز التسجيل قبل إرفاق جميع المستندات المطلوبة. المستندات الناقصة: ';
+
     public const GRADE_NOT_VERIFIED = 'لا يجوز التسجيل قبل تأكد الموارد البشرية من مطابقة الدرجة الوظيفية والدرجة المستحقة وتاريخ الدرجة لسجلات الجهة.';
 
-    public function __construct(private readonly DocumentReview $review) {}
+    public function __construct(
+        private readonly DocumentReview $review,
+        private readonly DocumentCompletenessService $completeness,
+    ) {}
 
     /**
-     * Whether this request's type has any الملف الوظيفي row. A type that has
-     * none (an administrator-created one whose rows declare no section) has
-     * nothing for HR to prepare, and a gate with nothing to check must not
-     * hold the file.
+     * Whether this request's type has any الملف الوظيفي row or any required
+     * row. A type with neither (an administrator-created one whose rows are all
+     * optional and declare no section) has nothing for HR to check, and a gate
+     * with nothing to check must not hold the file.
      */
     public function applies(Request $requestRecord): bool
     {
         $requestRecord->loadMissing('requestType:id,required_documents');
 
         foreach ($requestRecord->requestType?->documentOptions() ?? [] as $document) {
-            if (($document['section'] ?? null) === self::SECTION) {
+            if ($document['required'] || $document['section'] === self::SECTION) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** HR's review: only the files answering a required row. */
+    public function review(Request $requestRecord): DocumentReview
+    {
+        $requestRecord->loadMissing('requestType:id,required_documents');
+
+        return $this->review->only(array_keys($this->completeness->mandatoryDocuments($requestRecord->requestType)));
+    }
+
+    /**
+     * The required rows no attached file answers yet, in the matrix's order.
+     *
+     * @return array<string, array{ar: string, en: string}>
+     */
+    public function missingRequired(Request $requestRecord): array
+    {
+        $requestRecord->loadMissing('requestType:id,required_documents');
+
+        return $this->completeness->uncovered($requestRecord->requestType, $this->completeness->coveredKeys($requestRecord));
     }
 
     /**
@@ -99,7 +129,11 @@ class EmploymentFilePreparationService
             return 'لا يجوز تسجيل المعاملة قبل تجهيز الملف الوظيفي للموظف من قبل إدارة الموارد البشرية.';
         }
 
-        $documents = $this->review->refusal(
+        if (($missing = $this->missingRequired($requestRecord)) !== []) {
+            return self::REQUIRED_MISSING.implode('، ', array_column($missing, 'ar'));
+        }
+
+        $documents = $this->review($requestRecord)->refusal(
             $requestRecord,
             is_array($record['documents'] ?? null) ? $record['documents'] : [],
         );
@@ -129,7 +163,7 @@ class EmploymentFilePreparationService
     public function record(Request $requestRecord, array $verdicts, bool $assembled, bool $gradeVerified): array
     {
         return [
-            ...$this->review->record($requestRecord, $verdicts),
+            ...$this->review($requestRecord)->record($requestRecord, $verdicts),
             'assembled' => $assembled,
             'grade_verified' => $gradeVerified,
             'grade' => [

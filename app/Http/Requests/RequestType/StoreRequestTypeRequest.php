@@ -109,6 +109,7 @@ class StoreRequestTypeRequest extends FormRequest
             'required_documents.*.condition' => ['nullable', 'array'],
             'required_documents.*.condition.ar' => ['nullable', 'string', 'max:255'],
             'required_documents.*.condition.en' => ['nullable', 'string', 'max:255'],
+            'required_documents.*.required' => ['sometimes', 'boolean'],
         ];
     }
 

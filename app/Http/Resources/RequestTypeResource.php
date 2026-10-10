@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\RequestType;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -35,8 +36,13 @@ class RequestTypeResource extends JsonResource
 
             // [D] Appendix 57's matrix. Always an array, never null, so the
             // editor can render "no documents yet" rather than having to
-            // distinguish an empty list from an absent column.
-            'required_documents' => $this->required_documents ?? [],
+            // distinguish an empty list from an absent column. Each row
+            // carries its resolved «مطلوب» flag, so the editor's checkbox
+            // starts from what the server will enforce.
+            'required_documents' => array_map(
+                fn (array $document): array => [...$document, 'required' => RequestType::isRequired($document)],
+                $this->required_documents ?? [],
+            ),
 
             // Counts come from withCount() in the controller; whenCounted()
             // omits them otherwise, so this resource never queries on its own.

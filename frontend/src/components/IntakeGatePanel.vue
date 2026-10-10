@@ -12,6 +12,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { documentLabel } from '../lib/requiredDocuments'
 import AttachmentLink from './AttachmentLink.vue'
 
 const props = defineProps({
@@ -37,6 +38,8 @@ const props = defineProps({
   // HR's card only: the grade data the employee stated at intake, which HR
   // confirms against the organisation's records before registering.
   grade: { type: Object, default: null },
+  // HR's card only: the «مطلوب» rows no attached file answers yet.
+  missing: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['updated'])
@@ -153,6 +156,16 @@ async function submit() {
         {{ record.grade_verified ? c('gradeConfirmed') : c('gradeUnconfirmed') }}
       </dd>
     </dl>
+
+    <div v-if="missing.length" class="missing">
+      <p class="hint">{{ t('controlGates.review.missingRequired') }}</p>
+      <ul class="checklist">
+        <li v-for="doc in missing" :key="doc.key">
+          <span dir="auto">{{ documentLabel(doc, locale) }}</span>
+          <span class="answer missing">{{ t('controlGates.review.notAttached') }}</span>
+        </li>
+      </ul>
+    </div>
 
     <form v-if="!readonly" v-can="grant" class="gate-form" @submit.prevent="submit">
       <p class="hint">{{ c('formNote') }}</p>
