@@ -19,6 +19,15 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-10 15:20 EET — Claude — Implementation plan: workflow designer slice 1 — every stage belongs to a version
+
+Slice 1 adds `workflows` and `workflow_versions`, and `workflow_stages.workflow_version_id` (backfilled to a published
+Standard v1). Stage code and order_no become unique per version. A transition's version is its from-stage's and a
+request's is its current stage's, so neither gets a column. The seeders are scoped to `WorkflowVersion::seededStandard()`
+so a re-seed never touches a version an admin published. There is no behaviour change: the existing suite must stay
+green with no test edits. Verify: new `WorkflowVersioningTest`, full PHPUnit, Pint.
+
+---
 ### 2026-10-10 15:30 EET — Claude — Request Types keeps each document's folder (`section`) (complete)
 
 Built per the plan below; no migration. `StoreRequestTypeRequest` now validates `required_documents.*.section`
