@@ -102,6 +102,16 @@ class WorkflowViewTest extends TestCase
         $this->assertContains('registered', collect($response->json('options.statuses'))->pluck('code')->all());
     }
 
+    public function test_the_workflow_list_offers_each_document_once_with_the_types_that_list_it(): void
+    {
+        $documents = collect($this->actingAs($this->admin(), 'sanctum')->getJson('/api/workflows')->assertOk()->json('options.documents'));
+        $promotion = RequestType::where('code', 'PROM')->firstOrFail();
+        $key = array_key_first($promotion->documentOptions());
+
+        $this->assertSame($documents->pluck('key')->unique()->count(), $documents->count());
+        $this->assertContains($promotion->id, $documents->firstWhere('key', $key)['type_ids']);
+    }
+
     public function test_a_request_shows_the_version_it_runs_on(): void
     {
         $first = Workflow::standard()->publishedVersion;

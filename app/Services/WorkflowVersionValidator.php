@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
@@ -19,6 +20,9 @@ use Illuminate\Support\Collection;
  * built-in rule leads, so the checks here are the ones an admin can break
  * with custom steps and redirected rules. Slice 5 adds the rest once
  * built-ins can be removed.
+ *
+ * Slice 4 adds E6 (an outcome waiting on a checklist its step lacks) and W2
+ * (an attachment item naming a document a bound request type does not list).
  */
 class WorkflowVersionValidator
 {
@@ -71,6 +75,15 @@ class WorkflowVersionValidator
             $errors[] = $this->entry('committee_unregistered', 'يمكن أن يبلغ الطلب اللجنة دون قيده: لا يمر بنتيجة تمنحه حالة «تم التسجيل».', $committee);
         }
 
+        // Workflow designer — slice 4 (E6). An outcome that waits on a checklist
+        // its step does not have would be refused forever (the gate fails closed).
+        foreach ($rules->where('requires_checks', true) as $rule) {
+            $from = $stages->get($rule->from_stage_id);
+            if (empty($from?->checklist)) {
+                $errors[] = $this->entry('checks_without_checklist', sprintf('النتيجة «%s» تنتظر قائمة تحقق، والمرحلة «%s» لا قائمة لها.', $rule->label_ar, $from?->name_ar), $from, $rule->id);
+            }
+        }
+
         return ['errors' => $errors, 'warnings' => $this->warnings($version, $stages, $rules)];
     }
 
@@ -104,6 +117,18 @@ class WorkflowVersionValidator
         $source = $version->cloned_from_version_id ? WorkflowVersion::find($version->cloned_from_version_id) : null;
         if ($source && $this->lastChange($source)?->gt($version->created_at)) {
             $warnings[] = $this->entry('source_changed', sprintf('تغيّر الإصدار %d بعد إنشاء هذه المسودة، فقد لا تتضمن آخر تعديلاته.', $source->number));
+        }
+
+        // Workflow designer — slice 4 (W2). A file of that type can never carry
+        // the document, so the item would hold its requests forever. A warning,
+        // not an error: the admin may be about to add the row to the type.
+        $types = RequestType::query()->where('workflow_id', $version->workflow_id)->get();
+        foreach ($stages as $stage) {
+            foreach (collect($stage->checklist ?? [])->where('type', 'attachment') as $item) {
+                foreach ($types->reject(fn (RequestType $type) => array_key_exists($item['document_key'], $type->documentOptions())) as $type) {
+                    $warnings[] = $this->entry('document_missing_for_type', sprintf('البند «%s» في المرحلة «%s» يراجع مستندًا لا يرد في نوع الطلب «%s».', $item['label_ar'], $stage->name_ar, $type->name_ar), $stage);
+                }
+            }
         }
 
         return $warnings;

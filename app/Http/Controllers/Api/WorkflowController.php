@@ -8,6 +8,7 @@ use App\Http\Requests\Workflow\StoreWorkflowRequest;
 use App\Http\Resources\WorkflowResource;
 use App\Http\Resources\WorkflowVersionResource;
 use App\Models\RequestStatus;
+use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\Workflow;
 use App\Models\WorkflowStage;
@@ -47,6 +48,22 @@ class WorkflowController extends Controller
             'options' => [
                 'roles' => Role::query()->orderBy('code')->get($label),
                 'statuses' => RequestStatus::query()->orderBy('id')->get($label),
+                // Workflow designer — slice 4. What an attachment item may name.
+                // Keys are per type (index + label hash), so the same document
+                // can appear under several; each is listed once with its types,
+                // and the editor offers the ones the workflow's own types use.
+                'documents' => RequestType::query()->where('is_active', true)->orderBy('id')->get()
+                    ->flatMap(fn (RequestType $type) => collect($type->documentOptions())
+                        ->map(fn (array $document, string $key) => ['key' => $key, 'ar' => $document['ar'], 'en' => $document['en'], 'type_id' => $type->id])
+                        ->values())
+                    ->groupBy('key')
+                    ->map(fn ($rows, string $key) => [
+                        'key' => $key,
+                        'ar' => $rows->first()['ar'],
+                        'en' => $rows->first()['en'],
+                        'type_ids' => $rows->pluck('type_id')->values(),
+                    ])
+                    ->values(),
             ],
         ]);
     }
