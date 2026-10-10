@@ -408,6 +408,15 @@ class WorkflowService
             throw WorkflowTransitionException::invalidRedoStage();
         }
 
+        // Workflow designer — slice 1. Every caller hands in a stage it chose
+        // (a picker, or a code resolved through stageByCode()); a stage of
+        // another version would move the file onto rules it was never filed
+        // under. Refused here, once, rather than in each of the four callers.
+        if ($requestRecord->current_stage_id !== null
+            && (int) WorkflowStage::query()->whereKey($requestRecord->current_stage_id)->value('workflow_version_id') !== (int) $targetStage->workflow_version_id) {
+            throw WorkflowTransitionException::stageOutsideWorkflow();
+        }
+
         [$movedRequest, $fromStageId] = DB::transaction(function () use ($requestRecord, $targetStage, $actor, $reason, $action, $statusCode, $enforceBackwardOnly) {
             $lockedRequest = Request::query()
                 ->lockForUpdate()

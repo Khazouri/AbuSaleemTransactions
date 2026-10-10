@@ -7,7 +7,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../../lib/api'
 
-defineProps({ request: { type: Object, required: true }, act: { type: Object, required: true } })
+const props = defineProps({ request: { type: Object, required: true }, act: { type: Object, required: true } })
 const form = defineModel({ type: Object, required: true })
 const { t, locale } = useI18n()
 
@@ -20,7 +20,7 @@ const loadError = ref('')
 
 onMounted(async () => {
   try {
-    const { data } = await api.get('/appeals/redo-stage-options')
+    const { data } = await api.get('/appeals/redo-stage-options', { params: { request_id: props.request.id } })
     stages.value = data.data ?? []
   } catch {
     loadError.value = t('requestDetail.reopen.loadStagesFailed')

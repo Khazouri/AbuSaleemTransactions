@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\WorkflowTransitionException;
 use App\Models\Department;
 use App\Models\Request;
 use App\Models\RequestStatus;
@@ -13,6 +14,7 @@ use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use App\Models\WorkflowVersion;
 use App\Services\WorkflowService;
+use App\Services\WorkflowStageCount;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -150,6 +152,40 @@ class WorkflowVersioningTest extends TestCase
             'current_stage_id' => $version->stage($stageCode)->id,
             'submitted_at' => now(),
         ]);
+    }
+
+    public function test_a_request_cannot_be_reopened_at_a_stage_of_another_version(): void
+    {
+        $first = Workflow::standard()->publishedVersion;
+        $second = $this->publishClone($first);
+        $older = $this->requestAt($first, 'receive_from_committee', 'registered');
+
+        $this->expectException(WorkflowTransitionException::class);
+        $this->expectExceptionMessage('المرحلة المحددة لا تنتمي إلى مسار عمل هذا الطلب.');
+
+        app(WorkflowService::class)->reopenAtStage($older, $second->stage('requirements_check'), $this->userWithRole('R08'), 'اختبار');
+    }
+
+    public function test_the_redo_stage_picker_lists_the_requests_own_version(): void
+    {
+        $first = Workflow::standard()->publishedVersion;
+        $second = $this->publishClone($first);
+        $older = $this->requestAt($first, 'receive_from_committee', 'registered');
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+
+        $forOlder = $this->actingAs($admin, 'sanctum')
+            ->getJson("/api/appeals/redo-stage-options?request_id={$older->id}")
+            ->assertOk()
+            ->json('data.*.id');
+        $this->assertNotEmpty($forOlder);
+        $this->assertSame([], array_diff($forOlder, $first->stages()->pluck('id')->all()));
+
+        $forNew = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/appeals/redo-stage-options')
+            ->assertOk()
+            ->json('data.*.id');
+        $this->assertSame([], array_diff($forNew, $second->stages()->pluck('id')->all()));
+        $this->assertSame($second->stages()->count(), app(WorkflowStageCount::class)->total());
     }
 
     private function userWithRole(string $roleCode): User

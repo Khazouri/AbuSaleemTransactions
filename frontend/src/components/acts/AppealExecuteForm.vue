@@ -13,7 +13,7 @@ const loadError = ref('')
 onMounted(async () => {
   if (props.appeal.committee_decision?.outcome !== 'appeal_redo') return
   try {
-    const { data } = await api.get('/appeals/redo-stage-options')
+    const { data } = await api.get('/appeals/redo-stage-options', { params: { request_id: props.appeal.original_request?.id } })
     stages.value = data.data ?? []
   } catch {
     loadError.value = t('appeals.execution.loadStagesFailed')
