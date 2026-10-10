@@ -192,6 +192,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('workflows', [WorkflowController::class, 'index']);
         Route::get('workflow-versions/{workflowVersion}', [WorkflowController::class, 'showVersion']);
     });
+    // Workflow designer — slice 3: drafts — clone, edit, publish, discard (R08).
+    Route::middleware('screen.permission:workflow_designer,add')->group(function () {
+        Route::post('workflows', [WorkflowController::class, 'store']);
+        Route::post('workflow-versions/{workflowVersion}/clone', [WorkflowController::class, 'cloneVersion']);
+    });
+    Route::middleware('screen.permission:workflow_designer,edit')
+        ->put('workflow-versions/{workflowVersion}', [WorkflowController::class, 'updateVersion']);
+    Route::middleware('screen.permission:workflow_designer,approve')
+        ->post('workflow-versions/{workflowVersion}/publish', [WorkflowController::class, 'publishVersion']);
+    Route::middleware('screen.permission:workflow_designer,delete')
+        ->delete('workflow-versions/{workflowVersion}', [WorkflowController::class, 'destroyVersion']);
 
     /*
      * Read-only role list (Stage 7) — the Users screen needs it to offer
