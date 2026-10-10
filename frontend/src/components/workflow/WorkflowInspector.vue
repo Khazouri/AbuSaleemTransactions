@@ -2,7 +2,8 @@
 /**
  * Workflow designer — slice 2. The details of whatever is selected on the
  * canvas — and, with nothing selected, every stage as a button: the way in
- * for a keyboard or phone user who can't drive a canvas.
+ * for a keyboard or phone user who can't drive a canvas. Slice 3: on a draft
+ * (`editable`) it also offers the edits, which the view turns into modals.
  */
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -12,8 +13,9 @@ const props = defineProps({
   version: { type: Object, required: true },
   selection: { type: Object, default: null },
   currentStageId: { type: Number, default: null },
+  editable: { type: Boolean, default: false },
 })
-const emit = defineEmits(['select'])
+const emit = defineEmits(['select', 'edit-stage', 'delete-stage', 'add-rule', 'edit-rule', 'delete-rule'])
 const { t, te, locale } = useI18n()
 
 const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en : item?.name_en || item?.name_ar)
@@ -80,6 +82,15 @@ function actor(rule) {
       <h3 v-if="stage">{{ stage.order_no }}. {{ name(stage) }}</h3>
       <h3 v-else>{{ edgeTitle }}</h3>
 
+      <div v-if="editable && stage" class="edit-actions">
+        <template v-if="stage.custom">
+          <button type="button" class="ghost" @click="emit('edit-stage', stage)">{{ t('workflows.edit.editStage') }}</button>
+          <button type="button" class="ghost danger" @click="emit('delete-stage', stage)">{{ t('workflows.edit.deleteStage') }}</button>
+        </template>
+        <p v-else class="hint">{{ t('workflows.edit.builtinStage') }}</p>
+        <button type="button" class="primary" @click="emit('add-rule', stage)">{{ t('workflows.edit.addOutcome') }}</button>
+      </div>
+
       <dl v-if="stage" class="facts">
         <template v-if="stage.responsible_role">
           <dt>{{ t('workflows.responsibleRole') }}</dt><dd>{{ name(stage.responsible_role) }}</dd>
@@ -95,7 +106,7 @@ function actor(rule) {
       <p v-if="!rules.length" class="hint">{{ stage && !version.transitions.some((rule) => rule.to_stage_id === stage.id) ? t('workflows.unusedHint') : t('workflows.noRules') }}</p>
       <ul v-else class="rules">
         <li v-for="rule in rules" :key="rule.id">
-          <strong>{{ ruleLabel(rule) }}</strong>
+          <strong>{{ ruleLabel(rule) }} <span v-if="rule.custom" class="pill">{{ t('workflows.edit.customOutcome') }}</span></strong>
           <span>{{ actor(rule) }}</span>
           <span>{{ rule.to_stage_id === rule.from_stage_id ? t('workflows.staysHere') : t('workflows.to', { stage: name(stageById[rule.to_stage_id]) }) }}</span>
           <span v-if="rule.set_status">{{ t('workflows.setsStatus', { status: name(rule.set_status) }) }}</span>
@@ -104,6 +115,10 @@ function actor(rule) {
             <span v-if="rule.requires_comment" class="pill">{{ t('workflows.flag.comment') }}</span>
             <span v-if="rule.required_status" class="pill">{{ t('workflows.flag.requiredStatus', { status: name(rule.required_status) }) }}</span>
             <span v-if="rule.request_type" class="pill">{{ t('workflows.flag.requestType', { type: name(rule.request_type) }) }}</span>
+          </span>
+          <span v-if="editable" class="edit-actions">
+            <button type="button" class="ghost" @click="emit('edit-rule', rule)">{{ t('workflows.edit.editOutcome') }}</button>
+            <button v-if="rule.custom" type="button" class="ghost danger" @click="emit('delete-rule', rule)">{{ t('workflows.edit.deleteOutcome') }}</button>
           </span>
         </li>
       </ul>
@@ -124,4 +139,5 @@ h3, h4 { margin: 0; }
 .facts dd { margin: 0; }
 .rules li { display: grid; gap: .15rem; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
 .flags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.edit-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 </style>

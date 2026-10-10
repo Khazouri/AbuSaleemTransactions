@@ -23,6 +23,9 @@ import { DOCUMENT_GROUPS } from '../lib/requiredDocuments'
 const { t, locale } = useI18n()
 
 const types = ref([])
+// Workflow designer — slice 3. The workflows a type may be bound to (each has a published version).
+const workflows = ref([])
+const standardWorkflowId = () => workflows.value.find((workflow) => workflow.code === 'standard')?.id
 const loading = ref(false)
 const saving = ref(false)
 const loadError = ref(null)
@@ -49,6 +52,7 @@ const blankForm = () => ({
   legal_basis_ar: '',
   legal_basis_note_ar: '',
   required_documents: [],
+  workflow_id: null,
 })
 const form = ref(blankForm())
 
@@ -83,6 +87,7 @@ async function load() {
   try {
     const { data } = await api.get('/request-types')
     types.value = data.data ?? data
+    workflows.value = data.workflows ?? []
   } catch (e) {
     loadError.value = e
   } finally {
@@ -92,7 +97,7 @@ async function load() {
 
 function startCreate() {
   editingId.value = null
-  form.value = blankForm()
+  form.value = { ...blankForm(), workflow_id: standardWorkflowId() ?? null }
   errors.value = {}
   formError.value = null
   showForm.value = true
@@ -178,6 +183,8 @@ async function save() {
           ? null
           : Number(form.value.decision_grade_threshold),
       default_administrative_route: form.value.default_administrative_route || null,
+      // A new type runs on Standard unless another workflow is picked.
+      workflow_id: form.value.workflow_id ?? standardWorkflowId(),
       legal_basis_ar: form.value.legal_basis_ar || null,
       legal_basis_note_ar: form.value.legal_basis_note_ar || null,
       // Back into Appendix 57's stored shape. An entirely blank condition goes
@@ -301,6 +308,16 @@ onMounted(load)
               </option>
             </select>
             <small class="hint">{{ t('requestTypes.routeHint') }}</small>
+          </label>
+          <label v-if="workflows.length">
+            {{ t('requestTypes.workflow') }}
+            <select v-model="form.workflow_id">
+              <option v-for="workflow in workflows" :key="workflow.id" :value="workflow.id">
+                {{ label(workflow) }}
+              </option>
+            </select>
+            <small class="hint">{{ t('requestTypes.workflowHint') }}</small>
+            <small v-if="errors.workflow_id" class="field-error">{{ errors.workflow_id[0] }}</small>
           </label>
         </div>
 

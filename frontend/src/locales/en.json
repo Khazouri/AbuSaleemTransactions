@@ -119,7 +119,9 @@
       "conditionEn": "Condition (English)",
       "conditionHint": "Shown beside the document name. Whether it must be attached is set by «Required».",
       "required": "Required"
-    }
+    },
+    "workflow": "Workflow",
+    "workflowHint": "New requests of this type are filed on this workflow's published version."
   },
   "users": {
     "title": "Users",
@@ -2667,6 +2669,49 @@
     "edgeRules": "{from} → {to}",
     "loadFailed": "Could not load the workflow.",
     "viewOnRequest": "View workflow",
-    "requestTitle": "This request's workflow — version {number}"
+    "requestTitle": "This request's workflow — version {number}",
+    "edit": {
+      "cloneDraft": "Create a draft to edit",
+      "cloneTitle": "Create draft",
+      "cloneConfirm": "This version is copied into a draft for editing; no request is affected until you publish it.",
+      "openDraft": "Open the draft",
+      "newWorkflow": "New workflow from this version",
+      "code": "Workflow code",
+      "addStage": "Add a step",
+      "editStage": "Edit step",
+      "deleteStage": "Delete step",
+      "builtinStage": "Built-in step: it can't be edited or deleted yet.",
+      "customStage": "Custom step",
+      "addOutcome": "Add an outcome",
+      "editOutcome": "Edit",
+      "deleteOutcome": "Delete",
+      "customOutcome": "Custom outcome",
+      "builtinLocked": "\"{action}\" is a built-in rule: only where it leads can change.",
+      "nameAr": "Arabic name",
+      "nameEn": "English name",
+      "targetMin": "Shortest target (days)",
+      "targetMax": "Longest target (days)",
+      "after": "After step",
+      "labelAr": "Outcome name (Arabic)",
+      "labelEn": "Outcome name (English)",
+      "to": "Moves the request to",
+      "actor": "Who takes this outcome",
+      "actorRole": "A specific role",
+      "setStatus": "Request status after it",
+      "keepStatus": "Unchanged",
+      "requiresComment": "Requires a note",
+      "isException": "Exception path",
+      "publish": "Publish version",
+      "publishTitle": "Publish version",
+      "publishConfirm": "This version applies to new requests only; requests already filed finish on their own version.",
+      "deleteDraft": "Delete draft",
+      "discardTitle": "Delete draft",
+      "discardConfirm": "The draft and all its changes will be deleted.",
+      "reportTitle": "Checks before publishing",
+      "reportClean": "No errors; the draft can be published.",
+      "errors": "Error",
+      "warnings": "Warning",
+      "saveFailed": "The change could not be saved."
+    }
   }
 }
