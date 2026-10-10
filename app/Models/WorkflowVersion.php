@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Workflow designer — slice 1. One version of a workflow's stages and rules.
@@ -81,5 +82,40 @@ class WorkflowVersion extends Model
 
         return $this->stagesByCode->get($code)
             ?? throw (new ModelNotFoundException)->setModel(WorkflowStage::class, [$code]);
+    }
+
+    /**
+     * Workflow designer — slice 1. A draft copy of this version: every stage
+     * and rule duplicated onto rows of its own, with each rule's from/to
+     * re-pointed at the copied stages, so editing the draft can never touch
+     * a request in flight on this one.
+     */
+    public function cloneAsDraft(): self
+    {
+        return DB::transaction(function () {
+            $draft = self::create([
+                'workflow_id' => $this->workflow_id,
+                'number' => self::query()->where('workflow_id', $this->workflow_id)->max('number') + 1,
+                'status' => 'draft',
+                'cloned_from_version_id' => $this->id,
+            ]);
+
+            $stageIds = [];
+            foreach ($this->stages()->get() as $stage) {
+                $copy = $stage->replicate();
+                $copy->workflow_version_id = $draft->id;
+                $copy->save();
+                $stageIds[$stage->id] = $copy->id;
+            }
+
+            foreach ($this->transitions()->get() as $rule) {
+                $copy = $rule->replicate(['laravel_through_key']);
+                $copy->from_stage_id = $stageIds[$rule->from_stage_id];
+                $copy->to_stage_id = $stageIds[$rule->to_stage_id];
+                $copy->save();
+            }
+
+            return $draft;
+        });
     }
 }
