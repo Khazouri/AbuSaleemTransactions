@@ -76,9 +76,12 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('workflow_stages', function (Blueprint $table) {
+            // MySQL serves the FK from the composite uniques, so the FK must go
+            // first or dropping the second unique fails mid-rollback (1553).
+            $table->dropForeign(['workflow_version_id']);
             $table->dropUnique(['workflow_version_id', 'code']);
             $table->dropUnique(['workflow_version_id', 'order_no']);
-            $table->dropConstrainedForeignId('workflow_version_id');
+            $table->dropColumn('workflow_version_id');
             $table->unique('code');
             $table->unique('order_no');
         });
