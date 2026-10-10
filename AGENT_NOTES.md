@@ -19,6 +19,25 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-10 21:12 EET — Claude — Implementation plan: workflow designer slice 4 — step checklists, gate and wizard
+
+A custom step gets a checklist: yes/no (with the answer that blocks), attachment review (one Appendix 57 document,
+judged per file after preview), note and attestation. Its outcomes can be marked `requires_checks`. One migration adds
+`workflow_stages.checklist`, `workflow_transitions.requires_checks` and `request_step_reviews`, which holds one card
+per request per arrival at the step. A return that re-arrives starts a fresh card; a self-loop does not.
+
+`StepChecklistService` is read first by `RequestController::controlGateRefusal()`, so the endpoint, the hidden button
+and `blocked_transitions` agree. `PATCH requests/{r}/step-review` records the card. It answers 403 unless the actor is
+offered a checked outcome at that step, and `actorMayUse()` keeps the filer and صاحب العلاقة off every
+`requires_checks` rule. The validator adds E6 (a checked outcome on a step with no checklist) and W2 (an attachment
+item naming a document that a bound type lacks). A malformed item is a 422 at PUT time.
+
+SPA: `ChecklistEditor` in the stage modal, a "waits on the checklist" box on the outcome modal, and
+`StepChecklistPanel` as a decision-wizard check. Verify: new `StepChecklistGateTest`, cases in
+`WorkflowDesignerTest`/`WorkflowValidatorTest`/`WorkflowViewTest`, node tests, full PHPUnit, Pint, migrate on MySQL,
+build (`dist` committed), parity, aislop ci, and a headless walk on a scratch SQLite DB.
+
+---
 ### 2026-10-10 20:27 EET — Claude — Workflow designer slice 3: draft editing and publish (complete)
 
 Built per the plan below; one migration (`workflow_transitions.label_ar/label_en`, `request_types.workflow_id`, backfilled
