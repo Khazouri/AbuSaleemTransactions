@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\WorkflowVersionValidator;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -61,6 +62,9 @@ class WorkflowVersionResource extends JsonResource
                 'required_status' => $label($rule->requiredStatus),
                 'request_type' => $label($rule->requestType),
             ]),
+            // Workflow designer — slice 3. A published version passed these
+            // checks to be published, so only a draft is checked on read.
+            'report' => $this->when($this->status === 'draft', fn () => app(WorkflowVersionValidator::class)->report($this->resource)),
         ];
     }
 }

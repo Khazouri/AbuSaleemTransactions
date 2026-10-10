@@ -74,6 +74,18 @@ class WorkflowService
     ];
 
     /**
+     * These statuses have left the stage-changing workflow even when the last
+     * stage still has configured rules. `in_execution` is deliberately here:
+     * Stage 37's status-only output service owns its eventual close.
+     * `decision_withdrawn`/`decision_amended` (Stage 64, Track J) are here
+     * too: once an appeal has finally overturned or amended a decision, the
+     * appeal body's own resolution is the final word — no further ordinary
+     * workflow move follows. Public because the workflow designer's validator
+     * (slice 3) asks the same question of a draft: can a file end?
+     */
+    public const TERMINAL_STATUS_CODES = ['cancelled', 'archived', 'not_approved', 'in_execution', 'executed', 'completed_closed', 'decision_withdrawn', 'decision_amended'];
+
+    /**
      * Actions this actor may currently attempt, for rendering the workspace.
      *
      * The transition method repeats every check under a row lock; this is only
@@ -821,19 +833,9 @@ class WorkflowService
         return self::APPROVAL_LEVELS[$rule->fromStage()->value('code')] ?? null;
     }
 
-    /**
-     * These statuses have left the stage-changing workflow even when the last
-     * stage still has configured rules. `in_execution` is deliberately here:
-     * Stage 37's status-only output service owns its eventual close.
-     * `decision_withdrawn`/`decision_amended` (Stage 64, Track J) are here
-     * too: once an appeal has finally overturned or amended a decision, the
-     * appeal body's own resolution is the final word — no further ordinary
-     * workflow move follows.
-     */
+    /** See TERMINAL_STATUS_CODES. */
     private function hasTerminalStatus(Request $requestRecord): bool
     {
-        return $requestRecord->status()
-            ->whereIn('code', ['cancelled', 'archived', 'not_approved', 'in_execution', 'executed', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
-            ->exists();
+        return $requestRecord->status()->whereIn('code', self::TERMINAL_STATUS_CODES)->exists();
     }
 }
