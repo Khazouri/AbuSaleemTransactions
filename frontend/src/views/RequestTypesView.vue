@@ -123,6 +123,7 @@ function startEdit(type) {
       condition_ar: doc.condition?.ar ?? '',
       condition_en: doc.condition?.en ?? '',
       required: doc.required ?? true,
+      section: doc.section ?? null,
     })),
   }
   errors.value = {}
@@ -145,6 +146,7 @@ function addDocument() {
     condition_ar: '',
     condition_en: '',
     required: true,
+    section: null,
   })
 }
 
@@ -192,6 +194,7 @@ async function save() {
             ? null
             : { ar: doc.condition_ar || null, en: doc.condition_en || null },
         required: doc.required,
+        section: doc.section,
       })),
     }
 

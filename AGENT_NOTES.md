@@ -19,6 +19,24 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-10 15:30 EET — Claude — Request Types keeps each document's folder (`section`) (complete)
+
+Built per the plan below; no migration. `StoreRequestTypeRequest` now validates `required_documents.*.section`
+(nullable, one of `Attachment::FILE_SECTIONS`, Arabic message), and `RequestTypesView` carries the field through the
+edit mapping, the blank row and the save payload with no UI control. Verified: the two new `RequestTypeCrudTest` cases
+went RED then GREEN, full suite 853 + 14 + 9 green, Pint clean, build passes (`dist` committed, bundle holds the
+production API URL), parity 2084, `aislop ci` exit 0.
+
+---
+### 2026-10-10 15:12 EET — Claude — Implementation plan: Request Types keeps each document's folder (`section`)
+
+Saving a type on the Request Types screen strips every `required_documents` row's `section`: the Form Request has no
+rule for it and the form never carries it. `EmploymentFilePreparationService` and `mandatorySubmitterDocuments()` read
+that field, so HR's card silently loses its service-file rows after any edit. Fix: a `nullable|in:FILE_SECTIONS` rule
+with an Arabic message, and the form round-trips the field untouched. Verify: two new `RequestTypeCrudTest` cases (RED
+then GREEN), full PHPUnit, Pint, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-10 15:10 EET — Claude — A «مطلوب» checkbox per document row; HR checks every required one (complete)
 
 Built per the plan below, with no migration and no seeder change. A row saved without the flag falls back to «no

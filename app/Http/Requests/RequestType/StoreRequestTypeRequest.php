@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\RequestType;
 
+use App\Models\Attachment;
 use App\Models\RequestType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -110,6 +111,7 @@ class StoreRequestTypeRequest extends FormRequest
             'required_documents.*.condition.ar' => ['nullable', 'string', 'max:255'],
             'required_documents.*.condition.en' => ['nullable', 'string', 'max:255'],
             'required_documents.*.required' => ['sometimes', 'boolean'],
+            'required_documents.*.section' => ['nullable', Rule::in(array_keys(Attachment::FILE_SECTIONS))],
         ];
     }
 
@@ -127,6 +129,7 @@ class StoreRequestTypeRequest extends FormRequest
             'default_administrative_route.in' => 'جهة الإحالة المقترحة غير معروفة.',
             'required_documents.*.ar.required' => 'اسم المستند بالعربية مطلوب.',
             'required_documents.*.group.in' => 'تصنيف المستند غير معروف.',
+            'required_documents.*.section.in' => 'مجلد المستند غير معروف.',
         ];
     }
 }

@@ -272,6 +272,45 @@ class RequestTypeCrudTest extends TestCase
         $this->assertDatabaseHas('request_types', ['id' => $type->id, 'is_active' => true]);
     }
 
+    public function test_saving_a_type_keeps_each_documents_folder(): void
+    {
+        // Workflow designer — slice 0. EmploymentFilePreparationService and
+        // mandatorySubmitterDocuments() read `section`; a save from the
+        // Request Types screen used to drop it, so HR's card silently lost
+        // every service-file row.
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
+        $documents = $type->required_documents;
+        $serviceFileRows = collect($documents)->where('section', 'service_file')->count();
+        $this->assertGreaterThan(0, $serviceFileRows);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/request-types/{$type->id}", [
+                'code' => $type->code,
+                'name_ar' => $type->name_ar,
+                'required_documents' => $documents,
+            ])
+            ->assertOk();
+
+        $this->assertSame(
+            $serviceFileRows,
+            collect($type->fresh()->required_documents)->where('section', 'service_file')->count(),
+        );
+    }
+
+    public function test_an_unknown_document_folder_is_refused(): void
+    {
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/request-types/{$type->id}", [
+                'code' => $type->code,
+                'name_ar' => $type->name_ar,
+                'required_documents' => [['ar' => 'مستند', 'group' => 'basic', 'section' => 'nowhere']],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['required_documents.0.section' => 'مجلد المستند غير معروف.']);
+    }
+
     private function admin(): User
     {
         return User::where('email', 'admin@abusaleem.test')->firstOrFail();
