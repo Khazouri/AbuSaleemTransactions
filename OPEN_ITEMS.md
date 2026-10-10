@@ -13,6 +13,32 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The stage modal scrolls sideways on a phone once a step has an attachment item — workflow designer slice 4 — opened 2026-10-10
+Found in slice 4's headless walk. At 375px, «تعديل المرحلة» on a step with an attachment item is 1342px wide in Arabic and
+1914px in English inside a 357px modal (`.modal` scrollWidth), so every field is cut off. Cause:
+`ChecklistEditor.vue`'s `<fieldset class="checklist">` keeps the browser's default `min-inline-size: min-content`, and the
+document `<select>` (84 options, the longest 180 characters) is as wide as its widest option. The page itself does not
+scroll, so `check-layout.mjs` cannot see it. At 1280px the modal fits.
+**To close:** `min-inline-size: 0` on that fieldset (and/or `max-inline-size: 100%` on the select), then re-measure the
+modal at 375px in both locales.
+
+### A custom step hides the file from the manager who forwarded into it — workflow designer slice 4 — opened 2026-10-10
+Seen in slice 4's walk: once the manager forwards into a custom step, their reload of the request is a 404.
+`RequestVisibility` gives صاحب العلاقة's manager the file at `direct_manager_review` (their own rule) and at
+`receive_and_register` (Stage 98) only, by stage code. A custom step between the two matches neither. This is not a
+slice 4 regression; any slice 3 custom step after the manager does the same. **To close:** decide whether a manager stays
+«مطلع» on a custom step (one more clause keyed on the custom stage's version), or accept the gap.
+
+### Checklist items can't be reordered in the editor — workflow designer slice 4 — opened 2026-10-10
+`ChecklistEditor` only adds and removes items, so changing the order means removing items and adding them again. Each
+re-added item gets a new key. That is harmless today, because only a draft is edited and no request runs on a draft.
+**To close:** up/down buttons on each item. Keys stay stable, because the writer keeps a sent key.
+
+### Earlier laps' checklist cards are kept but not shown — workflow designer slice 4 — opened 2026-10-10
+A return and re-arrival at a custom step starts a fresh `request_step_reviews` card, and the old one stays in the table.
+Only the current lap's card is shown (plan Deviation 8). **To close:** list earlier cards on the request page, if anyone
+asks for it.
+
 ### Workflow designer slice 3: review leftovers — opened 2026-10-10
 These were deferred from the final review:
 - **Responsibility at a custom step:** it names its role in Arabic only, and names nobody when its exits name no role.
@@ -34,6 +60,11 @@ These were deferred from the final review:
 filer holds lets them move their own file past it. Spec §6 ties the wider refusal to `requires_checks` rules.
 **To close (slice 4):** apply `actorIsAnInterestedParty` to `requires_checks` rules, as the spec says, and decide whether
 every non-creator custom outcome should refuse too.
+
+**Resolved (2026-10-10, workflow designer slice 4)** for `requires_checks` rules: `actorMayUse()` keeps the filer and
+صاحب العلاقة off them, and `transition()` refuses with `WorkflowTransitionException::cannotCompleteOwnStep()`. **Still
+the user's call:** whether *every* non-creator custom outcome should refuse interested parties too. Slice 4 deliberately
+did not widen it (plan Deviation 7); a yes is a one-line change in `actorMayUse()`.
 
 ### The designer has no layout persistence or dragging — workflow designer slice 3 — opened 2026-10-10
 A custom step's place is its `order_no` (picked with «بعد المرحلة»), and the canvas lays the chain out by that order. Spec

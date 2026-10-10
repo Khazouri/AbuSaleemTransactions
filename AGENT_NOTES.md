@@ -19,6 +19,68 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-10 22:32 EET — Claude — Workflow designer slice 4: step checklists, gate and wizard (complete)
+
+Built per the plan below, on `feat/workflow-checklists`. One migration (`workflow_stages.checklist`,
+`workflow_transitions.requires_checks`, `request_step_reviews`) is applied to the real MySQL, and
+`request_step_reviews` exists there. No seeder was run.
+
+What shipped:
+- a custom step's checklist (yes/no with its blocking answer, attachment review, note, attestation), edited in the
+  stage modal (now `wide`);
+- outcomes marked «لا تُتخذ إلا بعد استكمال قائمة التحقق»;
+- the gate (`StepChecklistService`, read first by `controlGateRefusal()`) and `PATCH requests/{r}/step-review`;
+- E6 and W2 in the draft report;
+- `StepChecklistPanel` as a decision-wizard check;
+- «N بنود تحقق» on the canvas node.
+
+**Deviations from the spec** (the plan's list):
+- E12 is a 422 at PUT time, not a validator error.
+- Item keys are server-minted (`c` + 10 characters) and stay stable across saves.
+- Checklists and `requires_checks` exist only on custom steps and outcomes.
+- The panel renders its own attachment rows instead of mounting `IntakeGatePanel`.
+- `actorIsAnInterestedParty` stays private.
+- A checked outcome gets its own refusal, `cannotCompleteOwnStep()`.
+- The interested-party refusal is not widened to every custom outcome. That question is still the user's.
+- Earlier laps' cards are kept but not shown.
+
+**Rulings made during execution:**
+- Deviation 7 stands.
+- The plan's fixture for the attachment refusal test was reordered (answers first, then the files are deleted). The
+  assertion is unchanged.
+- `record()` replaces the whole answer map rather than merging. The panel always sends every answered item, and the
+  docblock's «save part of it and come back» needs rewording.
+- Each task's deferred minors are in the ledger, waiting for the final review.
+
+Verified:
+- full suite 909 + 14 + 9 (20 more than slice 3), Pint clean on every touched PHP file, node tests 14/14;
+- build (`dist` committed, production API URL in the bundle), parity 2194, `aislop ci` 97 (exit 0);
+- `check-layout.mjs` (450 views) shows only the known `/decisions` 1024px overflow and the R08 `/requests/create` gap.
+
+Headless walk against this branch's API on a **scratch SQLite database** (checked by query: the server's token landed
+there; MySQL's tokens, requests, versions and audit counts were unchanged afterwards):
+- as R08, clone Standard and add «تدقيق مالي» (R05) after the manager, with three items: a yes/no that blocks on «لا»,
+  a review of «طلب الموظف» (the one document every type lists), and an attestation;
+- point the manager's «موافقة وإحالة» at the step, then add «اعتماد التدقيق» → «الاستلام والتسجيل», R05, checked;
+- remove the items: E6, and publish is disabled. Re-add them: clean. Publish: v1 retired;
+- r01.employee files an ALLW request (API); r02.reviewer forwards it in the wizard, and it lands on «تدقيق مالي»;
+- as r05.manager, the wizard has a Checks step. The verdict radios stay disabled until the preview opens, and Escape
+  closes the preview but leaves the wizard open. Saving «لا» gives the refusal, and Choose shows «اعتماد التدقيق» under
+  «غير متاح بعد». Saving «نعم» passes, and the outcome moves the file to «الاستلام والتسجيل»;
+- ar/en × 1280/375 × light/dark: no page overflow, no console errors, and the node shows its check count.
+
+**Found in the walk, not fixed here:** at 375px the stage modal scrolls sideways *inside itself* (1342px in Arabic,
+1914px in English) once a step has an attachment item. The checklist fieldset's default `min-inline-size: min-content`
+meets the 84-option document select. See OPEN_ITEMS; `dist` must be rebuilt after the fix.
+
+Also opened in OPEN_ITEMS:
+- a custom step hides the file from the forwarding manager (not a slice 4 regression);
+- items can't be reordered;
+- earlier laps' cards are not shown.
+
+The interested-parties item is resolved for checked outcomes.
+
+---
 ### 2026-10-10 21:12 EET — Claude — Implementation plan: workflow designer slice 4 — step checklists, gate and wizard
 
 A custom step gets a checklist: yes/no (with the answer that blocks), attachment review (one Appendix 57 document,
