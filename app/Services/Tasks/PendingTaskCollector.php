@@ -452,7 +452,13 @@ class PendingTaskCollector
             ->filter(fn (array $pair) => $pair[1] !== null)
             ->take(self::PER_SOURCE_LIMIT + 1)
             // Decision wizard — a transition waiting on the actor opens the wizard.
-            ->map(fn (array $pair) => $this->requestTask($pair[1]->action, $pair[0], $pair[0]->currentStage?->name_ar, ['decide' => 1]))
+            // A custom outcome has no myTasks key; its stage (the subject line) already names the step.
+            ->map(fn (array $pair) => $this->requestTask(
+                $pair[1]->isCustom() ? 'custom_step' : $pair[1]->action,
+                $pair[0],
+                $pair[0]->currentStage?->name_ar,
+                ['decide' => 1],
+            ))
             ->all());
     }
 

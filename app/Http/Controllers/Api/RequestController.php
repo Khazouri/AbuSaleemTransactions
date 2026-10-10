@@ -1458,6 +1458,9 @@ class RequestController extends Controller
             'action' => $rule->action,
             'is_exception' => $rule->is_exception,
             'requires_comment' => $rule->requires_comment,
+            // Workflow designer — slice 3. A custom outcome has no locale key.
+            'label_ar' => $rule->label_ar,
+            'label_en' => $rule->label_en,
         ];
         $availableTransitions = $mine->filter(fn (array $pair) => $pair[1] === null)->pluck(0)->values();
         $requestRecord->setAttribute('available_actions', $availableTransitions->pluck('action')->all());

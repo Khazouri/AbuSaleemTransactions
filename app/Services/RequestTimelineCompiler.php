@@ -6,6 +6,7 @@ use App\Models\Attachment;
 use App\Models\Decision;
 use App\Models\Request;
 use App\Models\RequestStageLog;
+use App\Models\WorkflowTransition;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -56,7 +57,18 @@ class RequestTimelineCompiler
         $attachments = $this->attachments($requestRecord);
         $decisions = $this->decisions($requestRecord);
 
-        return $logs->map(function (RequestStageLog $log, int $index) use ($logs, $attachments, $decisions) {
+        // Workflow designer — slice 3. A custom outcome has no locale key, so
+        // its entry carries the label the designer gave it. Keyed by the
+        // stage it left as well as the action: a cloned version repeats the
+        // action code, and its copy's label may since have been edited.
+        $custom = $logs->filter(fn (RequestStageLog $log) => str_starts_with((string) $log->action, WorkflowTransition::CUSTOM_PREFIX));
+        $labels = $custom->isEmpty() ? collect() : WorkflowTransition::query()
+            ->whereIn('from_stage_id', $custom->pluck('from_stage_id'))
+            ->whereIn('action', $custom->pluck('action'))
+            ->get(['from_stage_id', 'action', 'label_ar', 'label_en'])
+            ->keyBy(fn (WorkflowTransition $rule) => $rule->from_stage_id.'|'.$rule->action);
+
+        return $logs->map(function (RequestStageLog $log, int $index) use ($logs, $attachments, $decisions, $labels) {
             $from = $log->acted_at;
             // The window this entry opened, closed by the next move. The last
             // entry's window is still open, so it has no upper bound.
@@ -65,6 +77,8 @@ class RequestTimelineCompiler
             return [
                 'id' => $log->id,
                 'action' => $log->action,
+                'label_ar' => $labels->get($log->from_stage_id.'|'.$log->action)?->label_ar,
+                'label_en' => $labels->get($log->from_stage_id.'|'.$log->action)?->label_en,
                 'comment' => $log->comment,
                 'from_stage' => $this->stage($log->fromStage),
                 'to_stage' => $this->stage($log->toStage),

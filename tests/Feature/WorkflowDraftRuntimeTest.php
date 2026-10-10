@@ -11,6 +11,7 @@ use App\Models\Workflow;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use App\Models\WorkflowVersion;
+use App\Services\ReportMetricsService;
 use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -82,6 +83,47 @@ class WorkflowDraftRuntimeTest extends TestCase
             ->putJson('/api/request-types/'.RequestType::where('code', 'PROM')->value('id'), ['workflow_id' => Workflow::where('code', 'unpublished')->value('id')])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('workflow_id');
+    }
+
+    public function test_a_file_at_a_custom_step_names_its_role_its_action_and_its_label(): void
+    {
+        $promotion = RequestType::where('code', 'PROM')->firstOrFail();
+        $version = $this->publishFinanceWorkflow();
+        $promotion->update(['workflow_id' => $version->workflow_id]);
+        $atAudit = app(WorkflowService::class)->transition($this->file($promotion), 'forward', $this->manager);
+        $auditor = $this->userWithRole('R05');
+
+        $this->actingAs($auditor, 'sanctum')->getJson("/api/requests/{$atAudit->id}")
+            ->assertOk()
+            ->assertJsonPath('data.responsibility.responsible.code', 'role')
+            ->assertJsonPath('data.responsibility.responsible.names', [Role::where('code', 'R05')->value('name_ar')])
+            ->assertJsonPath('data.responsibility.next_action.code', 'complete_step')
+            ->assertJsonPath('data.available_transitions.0.label_ar', 'اعتماد التدقيق')
+            ->assertJsonPath('data.stage_progress.total', $version->stages()->count());
+
+        $tasks = collect($this->actingAs($auditor, 'sanctum')->getJson('/api/my-tasks')->assertOk()->json('data.sources'))
+            ->flatMap(fn ($group) => $group['tasks']);
+        $this->assertContains('custom_step', $tasks->pluck('action')->all());
+
+        $done = app(WorkflowService::class)->transition($atAudit, 'custom_audit_done', $auditor);
+        $timeline = collect($this->actingAs(User::findOrFail($done->created_by_user_id), 'sanctum')->getJson("/api/requests/{$done->id}")->assertOk()->json('data.timeline'));
+        $this->assertSame('اعتماد التدقيق', $timeline->firstWhere('action', 'custom_audit_done')['label_ar']);
+    }
+
+    public function test_the_stage_report_groups_one_code_across_versions(): void
+    {
+        $promotion = RequestType::where('code', 'PROM')->firstOrFail();
+        $this->file($promotion);
+        $version = $this->publishFinanceWorkflow();
+        // A custom step inserted before it renumbers a built-in in the new version.
+        $version->stage('direct_manager_review')->update(['order_no' => 50]);
+        $promotion->update(['workflow_id' => $version->workflow_id]);
+        $this->file($promotion);
+
+        $managerReview = collect(app(ReportMetricsService::class)->breakdowns([])['by_stage'])
+            ->where('code', 'direct_manager_review');
+        $this->assertCount(1, $managerReview);
+        $this->assertSame(2, $managerReview->first()['total']);
     }
 
     /** A new «مسار مالي» workflow: Standard plus «تدقيق مالي» after the manager, published. */

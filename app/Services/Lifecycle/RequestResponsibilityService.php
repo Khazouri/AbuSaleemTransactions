@@ -70,6 +70,9 @@ class RequestResponsibilityService
         'payroll' => ['ar' => 'قسم المرتبات', 'en' => 'Payroll section'],
         'execution_body' => ['ar' => 'جهة التنفيذ', 'en' => 'Executing body'],
         'archive' => ['ar' => 'الأرشيف', 'en' => 'Archive'],
+        // Workflow designer — slice 3: a custom step names a role, not one of
+        // Appendix 17's bodies; `names` carries which.
+        'role' => ['ar' => 'الجهة المكلّفة بالمرحلة', 'en' => "The step's assigned role"],
     ];
 
     /**
@@ -105,6 +108,8 @@ class RequestResponsibilityService
         'prepare_presentation_memo' => ['ar' => 'إعداد مذكرة العرض', 'en' => 'Prepare the presentation memo'],
         'reprocess_approval_return' => ['ar' => 'إثبات إجراء إعادة المعالجة', 'en' => 'Record the re-processing action'],
         'closed' => ['ar' => 'لا إجراء مطلوب — المعاملة مقفلة', 'en' => 'No action required — the file is closed'],
+        // Workflow designer — slice 3: whatever a custom step asks; the stage name says what.
+        'complete_step' => ['ar' => 'إنجاز إجراء المرحلة', 'en' => "Complete this step's action"],
     ];
 
     /**
@@ -224,6 +229,9 @@ class RequestResponsibilityService
     /** @var array<int, string>|null role id => role code */
     private ?array $roleCodes = null;
 
+    /** @var array<int, string>|null role id => Arabic name */
+    private ?array $roleNames = null;
+
     /** @var list<string>|null */
     private ?array $hrDirectorNames = null;
 
@@ -243,6 +251,14 @@ class RequestResponsibilityService
     {
         $statusCode = $requestRecord->status?->code;
         $stageCode = $requestRecord->currentStage?->code;
+
+        // Workflow designer — slice 3. A custom step is its own answer: the
+        // status a file carries into it (e.g. `routed_to_hr`) names the desk
+        // it came from, not the one it waits on. A closed file still reads
+        // as closed.
+        if ($requestRecord->currentStage?->isCustom() && (self::STATUS_TO_NEXT_ACTION[$statusCode] ?? null) !== 'closed') {
+            return $this->forCustomStage($requestRecord);
+        }
 
         [$party, $roleCode] = isset(self::STATUS_TO_PARTY[$statusCode])
             ? [self::STATUS_TO_PARTY[$statusCode], null]
@@ -362,6 +378,36 @@ class RequestResponsibilityService
         $code = $this->roleCode($stage->responsible_role_id);
 
         return [self::ROLE_TO_PARTY[$code] ?? 'staff_affairs', $code];
+    }
+
+    /**
+     * @return array{
+     *     responsible: array{code: string, ar: string, en: string, names: list<string>},
+     *     next_action: array{code: string, ar: string, en: string}
+     * }
+     */
+    private function forCustomStage(Request $requestRecord): array
+    {
+        [$party, $roleCode] = $this->partyFromStage($requestRecord);
+        $names = $this->names($requestRecord, $party, $roleCode);
+
+        if (! in_array($party, ['direct_manager', 'employee'], true)) {
+            $rule = $this->rules()->first(fn (WorkflowTransition $rule) => $rule->from_stage_id === $requestRecord->current_stage_id
+                && ! $rule->is_exception && $rule->required_role_id !== null);
+            $party = 'role';
+            $names = array_values(array_filter([$rule ? ($this->roleNames()[$rule->required_role_id] ?? null) : null]));
+        }
+
+        return [
+            'responsible' => ['code' => $party] + self::PARTIES[$party] + ['names' => $names],
+            'next_action' => ['code' => 'complete_step'] + self::NEXT_ACTIONS['complete_step'],
+        ];
+    }
+
+    /** @return array<int, string> */
+    private function roleNames(): array
+    {
+        return $this->roleNames ??= Role::query()->pluck('name_ar', 'id')->all();
     }
 
     private function roleCode(?int $roleId): ?string
