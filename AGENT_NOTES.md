@@ -19,6 +19,17 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-10 17:43 EET — Claude — Implementation plan: workflow designer slice 2 — read-only canvas
+
+A new `workflow_designer` screen («مسارات العمل», `/workflows`, R08 only) draws any workflow version as a diagram
+(`@vue-flow/core` 1.48.2, exact pin, the only new dependency). A request page gains «عرض مسار العمل», which opens the
+version that request runs on with its current stage marked. API: `GET workflows`, `GET workflow-versions/{v}` and
+`GET requests/{r}/workflow` (the request's own visibility rule, 404 elsewhere), all through one
+`WorkflowVersionResource`. The layout is `lib/workflowGraph.js`, which is free of Vue and covered by `node --test`.
+Nothing is editable yet. Verify: new `WorkflowViewTest`, the node test, full PHPUnit, Pint, build (`dist` committed),
+parity, aislop ci, check-layout plus a headless walk, and both screen seeders on the real DB.
+
+---
 ### 2026-10-10 16:09 EET — Claude — Workflow designer slice 1: stages belong to versions (complete)
 
 Built on `feat/workflow-versions` (not merged, by the controller's ruling): `93bde1e` (workflows / workflow_versions

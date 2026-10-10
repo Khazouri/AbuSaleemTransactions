@@ -283,6 +283,8 @@ class ScreenRolePermissionSeeder extends Seeder
         'users' => [],
         'departments' => [],
         'request_types' => [],
+        // Workflow designer — slice 2: administration, R08 only.
+        'workflow_designer' => [],
         'roles_permissions' => [],
         'settings' => [],
         // Stage 103 — the مقرر names the other four seat holders here; who

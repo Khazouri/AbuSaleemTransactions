@@ -335,7 +335,7 @@ class AppealController extends Controller
     public function redoStageOptions(Request $request): JsonResponse
     {
         $version = $request->filled('request_id')
-            ? RequestRecord::query()->findOrFail($request->integer('request_id'))->stageByCode('receive_from_municipality')->workflowVersion
+            ? RequestRecord::query()->findOrFail($request->integer('request_id'))->resolveWorkflowVersion()
             : Workflow::standard()->publishedVersion;
 
         return response()->json([
