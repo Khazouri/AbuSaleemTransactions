@@ -4,9 +4,13 @@
  * check it.
  *
  * Layout, chosen so a 12-stage chain reads top to bottom without crossings:
- * - the stages some rule touches form the chain, one column, in order_no;
- * - a stage no rule touches (kept for history) goes to a side column, so it
- *   never looks like a step a file passes through;
+ * - the chain is the entry stage plus every stage some rule reaches from
+ *   another stage, one column, in order_no;
+ * - every other stage goes to a side column, so it never looks like a step
+ *   a file passes through: one no rule touches at all (kept for history), or
+ *   one nothing reaches whose rules only let files already parked there
+ *   leave (a "drain", e.g. administrative_routing since the manager's
+ *   one-click approve). An edge to or from the side column is `aside`;
  * - a rule that stays on its stage (cancel, defer, deadline_expired) is
  *   listed on the node — Vue Flow draws a self-loop as a dot on the node;
  * - rules between the same two stages share one edge;
@@ -23,17 +27,22 @@ const HANDLES = {
   next: ['bottom', 'top'],
   skip: ['skip-out', 'skip-in'],
   back: ['back-out', 'back-in'],
+  aside: ['skip-out', 'back-in'],
 }
 
 export function buildGraph(version) {
   const stages = [...version.stages].sort((a, b) => a.order_no - b.order_no)
   const touched = new Set()
+  const reached = new Set()
   for (const rule of version.transitions) {
     touched.add(rule.from_stage_id)
     touched.add(rule.to_stage_id)
+    if (rule.from_stage_id !== rule.to_stage_id) reached.add(rule.to_stage_id)
   }
 
-  const chain = stages.filter((stage) => touched.has(stage.id))
+  const entryId = stages[0]?.id
+  const inChain = (stage) => stage.id === entryId || reached.has(stage.id)
+  const chain = stages.filter(inChain)
   const rank = new Map(chain.map((stage, index) => [stage.id, index]))
   const loops = new Map(stages.map((stage) => [stage.id, []]))
   const pairs = new Map()
@@ -48,17 +57,26 @@ export function buildGraph(version) {
     pairs.get(id).rules.push(rule)
   }
 
-  let unusedRow = 0
+  let asideRow = 0
   const nodes = stages.map((stage) => {
+    const aside = !inChain(stage)
     const unused = !touched.has(stage.id)
-    const position = unused ? { x: SIDE_X, y: unusedRow++ * ROW_HEIGHT } : { x: 0, y: rank.get(stage.id) * ROW_HEIGHT }
-    return { id: String(stage.id), type: 'stage', position, data: { stage, loops: loops.get(stage.id), unused } }
+    const position = aside ? { x: SIDE_X, y: asideRow++ * ROW_HEIGHT } : { x: 0, y: rank.get(stage.id) * ROW_HEIGHT }
+    return {
+      id: String(stage.id),
+      type: 'stage',
+      position,
+      data: { stage, loops: loops.get(stage.id), aside, unused, drainOnly: aside && !unused },
+    }
   })
 
-  const sideCount = { skip: 0, back: 0 }
+  const sideCount = { skip: 0, back: 0, aside: 0 }
   const edges = [...pairs.values()].map((pair) => {
     const step = rank.get(pair.to) - rank.get(pair.from)
-    const route = step === 1 ? 'next' : step > 1 ? 'skip' : 'back'
+    let route = 'back'
+    if (!rank.has(pair.from) || !rank.has(pair.to)) route = 'aside'
+    else if (step === 1) route = 'next'
+    else if (step > 1) route = 'skip'
     const [sourceHandle, targetHandle] = HANDLES[route]
     const offset = route === 'next' ? 0 : OFFSET_BASE + OFFSET_STEP * sideCount[route]++
     return {

@@ -26,6 +26,7 @@ const versions = computed(() => workflows.value.flatMap((workflow) => workflow.v
 const versionId = computed(() => Number(route.query.version) || versions.value.find((item) => item.status === 'published')?.id || null)
 
 async function loadVersion(id) {
+  error.value = ''
   selection.value = null
   version.value = null
   if (!id) return

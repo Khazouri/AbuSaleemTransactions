@@ -16,7 +16,7 @@ const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en :
 </script>
 
 <template>
-  <div class="stage-node" :class="{ current: props.data.current, unused: props.data.unused, selected: props.selected }">
+  <div class="stage-node" :class="{ current: props.data.current, aside: props.data.aside, selected: props.selected }">
     <Handle id="top" type="target" :position="Position.Top" :connectable="false" />
     <Handle id="bottom" type="source" :position="Position.Bottom" :connectable="false" />
     <Handle id="skip-in" type="target" :position="Position.Left" :connectable="false" />
@@ -29,6 +29,7 @@ const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en :
       <strong>{{ name(props.data.stage) }}</strong>
       <span v-if="props.data.current" class="pill current-pill">{{ t('workflows.current') }}</span>
       <span v-else-if="props.data.unused" class="muted">{{ t('workflows.unused') }}</span>
+      <span v-else-if="props.data.drainOnly" class="muted">{{ t('workflows.drainOnly') }}</span>
       <span v-if="props.data.stage.responsible_role" class="muted">{{ name(props.data.stage.responsible_role) }}</span>
       <span v-if="props.data.loops.length" class="muted">{{ t('workflows.staysHere') }}: {{ props.data.loops.length }}</span>
     </div>
@@ -50,7 +51,7 @@ const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en :
 }
 .stage-node.selected { border-color: var(--color-brand-text); }
 .stage-node.current { border: 2px solid var(--color-brand); background: var(--color-success-bg); }
-.stage-node.unused { border-style: dashed; opacity: .7; }
+.stage-node.aside { border-style: dashed; opacity: .7; }
 .order {
   flex: none;
   display: grid;

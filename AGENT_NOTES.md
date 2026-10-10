@@ -39,7 +39,16 @@ Verified:
 - both screen seeders ran on the real DB. A cell-by-cell diff against a backup showed only the overdue
   `request_intake,approve` clear for R02/R05 (OPEN_ITEMS item resolved).
 
-All 9 tokens this session minted were revoked.
+**Final-review fixes**, each proven RED then GREEN by a browser or node check:
+- Backspace no longer deletes stages from the read-only canvas.
+- The canvas adds no tab stops; the inspector's stage list is the keyboard path.
+- A bad `?version=` error clears when a real version is picked.
+- On phones, a tapped stage's details scroll into view.
+- Reopening the request modal re-centres on the file's current stage.
+- A stage that nothing reaches but whose rules let parked files leave (`administrative_routing`) sits aside as «خارج
+  المسار», so the manager's one-click approve reads as the main path.
+
+All 15 tokens this session minted were revoked.
 
 ---
 ### 2026-10-10 17:43 EET — Claude — Implementation plan: workflow designer slice 2 — read-only canvas

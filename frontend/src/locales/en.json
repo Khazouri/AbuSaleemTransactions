@@ -2640,6 +2640,8 @@
     "current": "Current stage",
     "unused": "Not in use",
     "unusedHint": "No rule reaches or leaves it; kept for older requests' history.",
+    "drainOnly": "Off the path",
+    "drainOnlyHint": "No rule reaches it; its rules only let files already here leave.",
     "responsibleRole": "Usually handled by",
     "targetDays": "Target time",
     "days": "{min}–{max} days",

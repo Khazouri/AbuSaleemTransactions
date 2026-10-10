@@ -55,6 +55,24 @@ test('each edge leaves by the side that keeps it off the chain', () => {
   assert.equal(byId['3-1'].targetHandle, 'back-in')
 })
 
+test('a stage no rule reaches, kept only to drain files already there, sits aside and the path around it stays in the chain', () => {
+  // Shaped like Standard v1: 2 → 4 is the manager's one-click approve; 3 is administrative_routing,
+  // which nothing reaches any more but whose rules still let parked files leave.
+  const drained = {
+    stages: [stage(1, 1), stage(2, 2), stage(3, 3), stage(4, 4)],
+    transitions: [rule(1, 1, 2, 'submit'), rule(2, 2, 4, 'forward'), rule(3, 3, 4, 'route_to_hr')],
+  }
+  const { nodes, edges } = buildGraph(drained)
+  const byId = Object.fromEntries(nodes.map((node) => [node.id, node]))
+  assert.deepEqual(nodes.filter((node) => !node.data.aside).map((node) => node.id), ['1', '2', '4'])
+  assert.equal(byId['3'].data.drainOnly, true)
+  assert.equal(byId['3'].data.unused, false)
+  assert.equal(byId['3'].position.x, SIDE_X)
+  const byEdge = Object.fromEntries(edges.map((edge) => [edge.id, edge]))
+  assert.equal(byEdge['2-4'].data.route, 'next')
+  assert.equal(byEdge['3-4'].data.route, 'aside')
+})
+
 test('an edge whose every rule is an exception is marked as one', () => {
   const byId = Object.fromEntries(buildGraph(version).edges.map((edge) => [edge.id, edge]))
   assert.equal(byId['3-1'].data.exception, true)

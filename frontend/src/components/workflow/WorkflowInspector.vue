@@ -4,7 +4,7 @@
  * canvas — and, with nothing selected, every stage as a button: the way in
  * for a keyboard or phone user who can't drive a canvas.
  */
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
@@ -36,6 +36,22 @@ const edgeTitle = computed(() => {
   return t('workflows.edgeRules', { from: name(stageById.value[from]), to: name(stageById.value[to]) })
 })
 
+const firstStageId = computed(() => stages.value[0]?.id)
+const reachedIds = computed(() => new Set(props.version.transitions
+  .filter((rule) => rule.from_stage_id !== rule.to_stage_id)
+  .map((rule) => rule.to_stage_id)))
+const drainOnly = computed(() => Boolean(stage.value && rules.value.length
+  && stage.value.id !== firstStageId.value && !reachedIds.value.has(stage.value.id)))
+
+// Below 1024px this panel sits under the canvas, and the canvas swallows touch
+// scrolling — so a tapped stage's details would land off-screen. Bring them in.
+const root = ref(null)
+watch(() => props.selection, async (selection) => {
+  if (!selection || !window.matchMedia('(max-width: 1023px)').matches) return
+  await nextTick()
+  root.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+})
+
 function actor(rule) {
   if (rule.requires_submitter_manager) return t('workflows.actor.manager')
   if (rule.requires_creator) return t('workflows.actor.creator')
@@ -45,7 +61,7 @@ function actor(rule) {
 </script>
 
 <template>
-  <aside class="inspector card card-flat card-pad" aria-live="polite">
+  <aside ref="root" class="inspector card card-flat card-pad" aria-live="polite">
     <template v-if="!selection">
       <p class="hint">{{ t('workflows.selectStage') }}</p>
       <ol class="stage-list">
@@ -73,6 +89,7 @@ function actor(rule) {
         </template>
       </dl>
 
+      <p v-if="drainOnly" class="hint">{{ t('workflows.drainOnlyHint') }}</p>
       <h4 v-if="stage">{{ t('workflows.rulesOut') }}</h4>
       <p v-if="!rules.length" class="hint">{{ stage && !version.transitions.some((rule) => rule.to_stage_id === stage.id) ? t('workflows.unusedHint') : t('workflows.noRules') }}</p>
       <ul v-else class="rules">

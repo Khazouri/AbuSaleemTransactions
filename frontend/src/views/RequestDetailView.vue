@@ -114,6 +114,9 @@ const requestWorkflow = ref(null)
 const workflowSelection = ref(null)
 const workflowError = ref('')
 async function openWorkflow() {
+  // Cleared, not kept: a stale version would mount the canvas centred on the
+  // stage the file was at last time, and it never re-centres when this lands.
+  requestWorkflow.value = null
   workflowOpen.value = true
   workflowError.value = ''
   workflowSelection.value = null

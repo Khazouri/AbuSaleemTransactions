@@ -48,7 +48,7 @@ function onReady(instance) {
     return
   }
   // No stage to point at: start at the top of the chain, not centred on it.
-  const top = graph.value.nodes.find((node) => !node.data.unused)
+  const top = graph.value.nodes.find((node) => !node.data.aside)
   if (!top) return
   instance.setViewport({
     x: instance.dimensions.value.width / 2 - (top.position.x + NODE_CENTRE.x) * ZOOM,
@@ -66,11 +66,17 @@ const fit = () => flow.value?.fitView({ padding: 0.15 })
       <button class="ghost" type="button" @click="fit">{{ t('workflows.fitView') }}</button>
     </div>
     <figure class="canvas" dir="ltr" :aria-label="t('workflows.canvasLabel')">
+      <!-- Read-only: Vue Flow's default Backspace would delete the selected
+           stage from view, and focusable nodes add ~24 tab stops that do
+           nothing on Enter; the inspector's stage list is the keyboard path. -->
       <VueFlow
         :nodes="nodes"
         :edges="edges"
         :nodes-draggable="false"
         :nodes-connectable="false"
+        :delete-key-code="null"
+        :nodes-focusable="false"
+        :edges-focusable="false"
         :min-zoom="0.2"
         @pane-ready="onReady"
         @node-click="({ node }) => emit('select', { kind: 'stage', id: Number(node.id) })"
