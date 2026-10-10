@@ -67,8 +67,8 @@ async function submit() {
 
 <template>
   <form v-if="card" class="step-checklist" @submit.prevent="submit">
-    <p v-if="card.refusal" class="alert warning">{{ card.refusal }}</p>
-    <p v-else class="alert success">{{ t('stepChecklist.passed') }}</p>
+    <!-- One element whose text changes, so a screen reader announces the verdict after a save. -->
+    <p class="alert" :class="card.refusal ? 'warning' : 'success'" role="status">{{ card.refusal || t('stepChecklist.passed') }}</p>
     <p v-if="card.reviewed_by" class="hint">{{ t('stepChecklist.recordedBy', { name: card.reviewed_by.name, at }) }}</p>
 
     <ol class="items">

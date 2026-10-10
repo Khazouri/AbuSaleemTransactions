@@ -87,6 +87,8 @@ class WorkflowValidatorTest extends TestCase
         $this->customStep('custom_audit');
         $this->rule('direct_manager_review', 'custom_audit', 'custom_send', 'R05');
         $this->rule('custom_audit', 'receive_and_register', 'custom_done', 'R05');
+        // An unchecked return, so the step keeps a way out once it has a checklist (checklist_no_way_out).
+        $this->rule('custom_audit', 'direct_manager_review', 'custom_return', 'R05');
         WorkflowTransition::where('action', 'custom_done')->update(['requires_checks' => true]);
 
         $this->assertSame([['checks_without_checklist', 'custom_audit']], $this->errorCodes());
@@ -94,6 +96,24 @@ class WorkflowValidatorTest extends TestCase
         WorkflowStage::where('code', 'custom_audit')->update(['checklist' => json_encode([
             ['key' => 'cq', 'type' => 'attestation', 'label_ar' => 'أقر'],
         ])]);
+        $this->assertSame([], $this->errorCodes());
+    }
+
+    public function test_a_checklist_step_whose_every_exit_waits_on_it_is_an_error(): void
+    {
+        $this->customStep('custom_audit');
+        $this->rule('direct_manager_review', 'custom_audit', 'custom_send', 'R05');
+        $this->rule('custom_audit', 'receive_and_register', 'custom_done', 'R05');
+        // A hold that never leaves the step is no way out.
+        $this->rule('custom_audit', 'custom_audit', 'custom_hold', 'R05');
+        WorkflowTransition::where('action', 'custom_done')->update(['requires_checks' => true]);
+        WorkflowStage::where('code', 'custom_audit')->update(['checklist' => json_encode([
+            ['key' => 'cq', 'type' => 'attestation', 'label_ar' => 'أقر'],
+        ])]);
+
+        $this->assertSame([['checklist_no_way_out', 'custom_audit']], $this->errorCodes());
+
+        $this->rule('custom_audit', 'direct_manager_review', 'custom_return', 'R05');
         $this->assertSame([], $this->errorCodes());
     }
 

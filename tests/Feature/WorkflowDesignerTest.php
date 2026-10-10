@@ -251,7 +251,6 @@ class WorkflowDesignerTest extends TestCase
             ->assertJsonValidationErrors('code');
     }
 
-    /** The PUT body for $version as the SPA would send it, unchanged. */
     public function test_a_custom_step_saves_its_checklist_and_an_outcome_waits_on_it(): void
     {
         $draft = Workflow::standard()->publishedVersion->cloneAsDraft();
@@ -331,6 +330,7 @@ class WorkflowDesignerTest extends TestCase
             ->assertJsonValidationErrors("transitions.{$last}.requires_checks");
     }
 
+    /** The PUT body for $version as the SPA would send it, unchanged. */
     private function payload(WorkflowVersion $version): array
     {
         $stages = $version->stages()->orderBy('order_no')->get();

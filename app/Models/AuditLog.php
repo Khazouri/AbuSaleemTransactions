@@ -37,6 +37,9 @@ class AuditLog extends Model
         // Opening a file's full preview: the document gates rely on it, so
         // who looked at what is part of the trail.
         AttachmentPreview::class,
+        // Workflow designer — slice 4. A custom step's checklist card is what
+        // its checked outcomes rely on, so who answered what joins the trail.
+        RequestStepReview::class,
         Note::class,
 
         // Committees, meetings and the decisions they produce

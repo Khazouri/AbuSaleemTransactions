@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Exceptions\WorkflowTransitionException;
 use App\Models\Attachment;
 use App\Models\AttachmentPreview;
+use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\Request;
 use App\Models\RequestStatus;
@@ -143,6 +144,21 @@ class StepChecklistGateTest extends TestCase
         $this->assertSame(1, RequestStepReview::count());
     }
 
+    public function test_a_reopen_onto_the_same_step_starts_a_new_card(): void
+    {
+        $atAudit = $this->fileAtAudit();
+        $workflow = app(WorkflowService::class);
+        $this->answer($atAudit, $this->cleanAnswers($atAudit));
+
+        $cancelled = $workflow->transition($atAudit, 'custom_audit_cancel', $this->auditor);
+        // The reopen logs from = to = the audit step, yet it is a new lap: the old card must not clear it.
+        $reopened = $workflow->reopenAtStage($cancelled, $cancelled->currentStage, $this->admin(), 'إعادة العرض',
+            action: 'reopen', statusCode: 'reopened_for_representation', enforceBackwardOnly: false);
+
+        $this->assertSame('custom_audit', $reopened->currentStage->code);
+        $this->assertSame(StepChecklistService::NOT_RECORDED, app(StepChecklistService::class)->refusalReason($reopened));
+    }
+
     public function test_the_filer_holding_the_role_can_neither_see_nor_take_the_checked_outcome(): void
     {
         $atAudit = $this->fileAtAudit();
@@ -172,6 +188,20 @@ class StepChecklistGateTest extends TestCase
         // The answer that cleared the gate moved the outcome from blocked to available in the same payload.
         $this->assertContains('custom_audit_done', collect($response->json('data.available_transitions'))->pluck('action')->all());
         $this->assertNull(app(StepChecklistService::class)->refusalReason($atAudit));
+    }
+
+    public function test_saving_the_card_is_audited(): void
+    {
+        $atAudit = $this->fileAtAudit();
+
+        $this->actingAs($this->auditor, 'sanctum')
+            ->patchJson("/api/requests/{$atAudit->id}/step-review", ['answers' => $this->cleanAnswers($atAudit)])
+            ->assertOk();
+
+        $this->assertTrue(AuditLog::where('auditable_type', RequestStepReview::class)
+            ->where('user_id', $this->auditor->id)
+            ->where('action', 'created')
+            ->exists());
     }
 
     public function test_only_someone_offered_the_checked_outcome_may_record(): void
@@ -301,6 +331,7 @@ class StepChecklistGateTest extends TestCase
             ['custom_audit_done', 'receive_and_register', 'اعتماد التدقيق', true, null],
             ['custom_audit_hold', 'custom_audit', 'تعليق', false, null],
             ['custom_audit_return', 'direct_manager_review', 'إعادة للمدير', false, 'in_review'],
+            ['custom_audit_cancel', 'custom_audit', 'إلغاء', false, 'cancelled'],
         ] as [$action, $to, $label, $checked, $status]) {
             WorkflowTransition::create([
                 'from_stage_id' => $audit->id,

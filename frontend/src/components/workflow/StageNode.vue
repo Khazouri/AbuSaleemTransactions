@@ -32,7 +32,7 @@ const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en :
       <span v-else-if="props.data.unused" class="muted">{{ t('workflows.unused') }}</span>
       <span v-else-if="props.data.drainOnly" class="muted">{{ t('workflows.drainOnly') }}</span>
       <span v-if="props.data.stage.responsible_role" class="muted">{{ name(props.data.stage.responsible_role) }}</span>
-      <span v-if="props.data.stage.checklist?.length" class="muted">{{ t('workflows.checksCount', { count: props.data.stage.checklist.length }) }}</span>
+      <span v-if="props.data.stage.checklist?.length" class="muted">{{ t('workflows.checksCount', { count: props.data.stage.checklist.length }, props.data.stage.checklist.length) }}</span>
       <span v-if="props.data.loops.length" class="muted">{{ t('workflows.staysHere') }}: {{ props.data.loops.length }}</span>
     </div>
   </div>

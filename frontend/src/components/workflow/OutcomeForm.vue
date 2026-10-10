@@ -5,7 +5,7 @@
  * the path); an outcome the admin added is fully editable. Exactly one actor
  * is chosen: a role, صاحب العلاقة's direct manager, or the filer.
  */
-import { computed, reactive } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { actionLabel } from '../../lib/workflowActions'
 
@@ -28,6 +28,10 @@ const form = reactive({
 })
 // Workflow designer — slice 4. Only a step with a checklist can have an outcome waiting on it.
 const fromChecklist = computed(() => (props.stages.find((stage) => stage.code === form.from)?.checklist ?? []).length > 0)
+// The filer is never offered a checked outcome, so the box is disabled for them; don't leave it ticked underneath.
+watch(() => form.actor, (actor) => {
+  if (actor === 'creator') form.requires_checks = false
+})
 const title = computed(() => actionLabel(props.rule, { t, te, locale: locale.value }))
 // Every account holds R01, so the server refuses it as an actor; the filer is «مقدم الطلب».
 const actorRoles = computed(() => props.roles.filter((role) => role.code !== 'R01'))

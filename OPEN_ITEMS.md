@@ -13,6 +13,15 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### A Request Types edit can re-key a document a published checklist names — workflow designer slice 4 final review — opened 2026-10-10
+An attachment item names its document by `document_key`, which is the row index plus a hash of the Arabic label
+(`IntakeGateService::documentKey`). Fixing a typo in a label on the Request Types screen, or reordering its rows, changes
+the key. Files filed after that edit carry the new key, so the item finds no file under its old one and the step refuses
+them forever (`StepChecklistService::NO_FILE`). Also, W2 (`document_missing_for_type`) runs only on drafts, so binding a
+type to an already published workflow is never warned about. **To close:** in the request-type save, refuse with a 422
+when the save would drop a key named by an attachment item of the type's workflow (published or draft), or when it binds
+the type to a workflow whose items name a key the type does not list.
+
 ### The stage modal scrolls sideways on a phone once a step has an attachment item — workflow designer slice 4 — opened 2026-10-10
 Found in slice 4's headless walk. At 375px, «تعديل المرحلة» on a step with an attachment item is 1342px wide in Arabic and
 1914px in English inside a 357px modal (`.modal` scrollWidth), so every field is cut off. Cause:
@@ -21,6 +30,11 @@ document `<select>` (84 options, the longest 180 characters) is as wide as its w
 scroll, so `check-layout.mjs` cannot see it. At 1280px the modal fits.
 **To close:** `min-inline-size: 0` on that fieldset (and/or `max-inline-size: 100%` on the select), then re-measure the
 modal at 375px in both locales.
+**Resolved (2026-10-10, slice 4 final review).** `.checklist { min-inline-size: 0 }` and
+`.checklist select { max-inline-size: 100% }` were not enough on their own: the list item and each field label (a grid
+item and a flex item) also defaulted to min-content, so they gained `min-inline-size: 0` too. On scratch SQLite the
+«تعديل المرحلة» modal with an attachment item now measures scrollWidth/clientWidth 357/357 at 375px in both ar and en
+(was 1345/357 and 1917/357), and 894/894 at 1280px.
 
 ### A custom step hides the file from the manager who forwarded into it — workflow designer slice 4 — opened 2026-10-10
 Seen in slice 4's walk: once the manager forwards into a custom step, their reload of the request is a 404.

@@ -21,8 +21,9 @@ use Illuminate\Support\Collection;
  * with custom steps and redirected rules. Slice 5 adds the rest once
  * built-ins can be removed.
  *
- * Slice 4 adds E6 (an outcome waiting on a checklist its step lacks) and W2
- * (an attachment item naming a document a bound request type does not list).
+ * Slice 4 adds E6 (an outcome waiting on a checklist its step lacks),
+ * checklist_no_way_out (a checklist step every exit of which waits on it) and
+ * W2 (an attachment item naming a document a bound request type does not list).
  */
 class WorkflowVersionValidator
 {
@@ -84,7 +85,34 @@ class WorkflowVersionValidator
             }
         }
 
-        return ['errors' => $errors, 'warnings' => $this->warnings($version, $stages, $rules)];
+        return ['errors' => [...$errors, ...$this->noWayOut($stages, $rules)], 'warnings' => $this->warnings($version, $stages, $rules)];
+    }
+
+    /**
+     * Workflow designer — slice 4. Nobody may upload at a custom step, so a
+     * blocking answer, a missing document or a `not_approved` file can never
+     * be cleared there: a step with a checklist needs an outcome that leaves
+     * without it. A hold that stays on the step without ending the file is
+     * not one.
+     *
+     * @param  Collection<int, WorkflowStage>  $stages
+     * @param  Collection<int, WorkflowTransition>  $rules
+     * @return list<array<string, mixed>>
+     */
+    private function noWayOut(Collection $stages, Collection $rules): array
+    {
+        $errors = [];
+
+        foreach ($stages->filter(fn (WorkflowStage $stage) => ! empty($stage->checklist)) as $stage) {
+            $wayOut = $rules->contains(fn (WorkflowTransition $rule) => (int) $rule->from_stage_id === (int) $stage->id
+                && ! $rule->requires_checks
+                && ((int) $rule->to_stage_id !== (int) $stage->id || in_array($rule->setStatus?->code, WorkflowService::TERMINAL_STATUS_CODES, true)));
+            if (! $wayOut) {
+                $errors[] = $this->entry('checklist_no_way_out', sprintf('لا يخرج الطلب من المرحلة «%s» إلا بعد قائمة التحقق؛ أضف نتيجة لا تنتظرها (إعادة أو إلغاء)، فالإجابة المانعة توقف الطلب.', $stage->name_ar), $stage);
+            }
+        }
+
+        return $errors;
     }
 
     /**

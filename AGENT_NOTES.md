@@ -80,6 +80,20 @@ Also opened in OPEN_ITEMS:
 
 The interested-parties item is resolved for checked outcomes.
 
+**Final-review fixes**, each backend one with a test that failed first:
+- **I1:** a reopen onto the step the file already sits on is now a new arrival (`StepChecklistService::arrival()` counts
+  the four `reopenAtStage()` actions), so the previous lap's card no longer clears the gate.
+- **I2:** `RequestStepReview` is audited, labelled «بطاقة التحقق في المرحلة».
+- **I3:** the stage modal no longer scrolls sideways on a phone: 357/357 at 375px in ar and en, on scratch SQLite. The
+  fieldset alone was not enough; the list item and the labels also needed `min-inline-size: 0`.
+- **I4:** a new validator error, `checklist_no_way_out`, for a checklist step with no unchecked outcome that leaves it
+  (a hold that stays on the step without ending the file does not count). `WorkflowValidatorTest`'s E6 fixture gained an
+  unchecked return.
+- **Minors:** `record()`'s docblock says the card is saved whole; a docblock moved back onto `payload()`; «N بنود تحقق»
+  is pluralised; the unused `requiresChecksHint` is gone; choosing the filer clears `requires_checks`; the panel's verdict
+  is one `role="status"` element; `gates()` says why it skips the type-specific override.
+- **I5** (a Request Types edit can re-key a document a checklist names) is deferred to OPEN_ITEMS.
+
 ---
 ### 2026-10-10 21:12 EET — Claude — Implementation plan: workflow designer slice 4 — step checklists, gate and wizard
 

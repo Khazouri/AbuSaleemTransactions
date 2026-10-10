@@ -38,6 +38,7 @@ class StepChecklistService
     /** Does taking $action from the file's current stage wait on that stage's checklist? */
     public function gates(Request $requestRecord, string $action): bool
     {
+        // No type-specific override as transitionCandidates() applies: custom rules never carry request_type_id.
         return WorkflowTransition::query()
             ->where('from_stage_id', $requestRecord->current_stage_id)
             ->where('action', $action)
@@ -56,13 +57,22 @@ class StepChecklistService
         return WorkflowStage::query()->find($requestRecord->current_stage_id)?->checklist ?? [];
     }
 
+    /**
+     * The actions WorkflowService::reopenAtStage()'s four callers log. A
+     * reopen onto the stage the file already sits on logs from = to, which
+     * would otherwise read as a self-loop and hand the new lap the card of the
+     * lap that ended in a cancel or a decision — the gate failing open.
+     */
+    private const REOPEN_ACTIONS = ['reopen', 'appeal_redo', 'approval_return_restudy', 'article_105_restudy'];
+
     public function arrival(Request $requestRecord): ?RequestStageLog
     {
         return $requestRecord->stageLogs()
             ->where('to_stage_id', $requestRecord->current_stage_id)
             ->where(fn ($query) => $query
                 ->whereNull('from_stage_id')
-                ->orWhere('from_stage_id', '!=', $requestRecord->current_stage_id))
+                ->orWhere('from_stage_id', '!=', $requestRecord->current_stage_id)
+                ->orWhereIn('action', self::REOPEN_ACTIONS))
             ->orderByDesc('acted_at')
             ->orderByDesc('id')
             ->first();
@@ -139,8 +149,9 @@ class StepChecklistService
     public const UNKNOWN_ITEM = 'بند لا ينتمي إلى قائمة التحقق في هذه المرحلة.';
 
     /**
-     * Save the card for this arrival (an upsert: the role may save part of it
-     * and come back). Each answer must fit its item's type; an attachment
+     * Save the card for this arrival. The card is saved whole: each save
+     * replaces every answer, so the panel resends all the items it has
+     * answered, not just the changed one. Each answer must fit its item's type; an attachment
      * verdict must be for a file under that item's document, and one this
      * reviewer opened in full — the same rule both document gates apply.
      *

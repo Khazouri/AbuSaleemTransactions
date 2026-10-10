@@ -66,7 +66,15 @@ function remove(index) {
 </template>
 
 <style scoped>
-.checklist { display: grid; gap: var(--space-2); margin: 0; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+/*
+ * The document select is as wide as its longest option (~180 characters).
+ * A fieldset, a grid item and a flex item all default to their min-content
+ * width, so each link from the select up to the modal must be allowed to
+ * shrink, or the modal scrolls sideways on a phone.
+ */
+.checklist { display: grid; gap: var(--space-2); min-inline-size: 0; margin: 0; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.checklist select { max-inline-size: 100%; }
+.item, .item .field-grid > label { min-inline-size: 0; }
 .checklist legend { padding-inline: var(--space-1); font-size: var(--text-sm); }
 .hint { margin: 0; color: var(--color-muted); font-size: var(--text-sm); }
 .items { display: grid; gap: var(--space-3); margin: 0; padding-inline-start: var(--space-4); }
