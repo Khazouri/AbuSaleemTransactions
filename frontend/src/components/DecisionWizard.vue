@@ -21,6 +21,7 @@ import FileUpload from './FileUpload.vue'
 import IntakeGatePanel from './IntakeGatePanel.vue'
 import JurisdictionTestForm from './JurisdictionTestForm.vue'
 import LegalReviewCard from './LegalReviewCard.vue'
+import StepChecklistPanel from './StepChecklistPanel.vue'
 import RequestStageRail from './RequestStageRail.vue'
 import WizardShell from './WizardShell.vue'
 import WizardSlip from './WizardSlip.vue'
@@ -82,6 +83,8 @@ const checks = computed(() => {
     if (gates.value.intake) list.push('intake')
     list.push('jurisdiction_test')
   }
+  // Workflow designer — slice 4. A custom step's checklist, for whoever is offered an outcome that waits on it.
+  if (gates.value.step_checklist && [...available.value, ...blocked.value].some((item) => item.requires_checks)) list.push('step_checklist')
   if (offersLegalOpinion.value) list.push('legal_card')
   return list
 })
@@ -382,6 +385,7 @@ if (props.initial?.action) {
           :recorded-at="gates.intake.recorded_at"
           @updated="onCheckSaved"
         />
+        <StepChecklistPanel v-else-if="check === 'step_checklist'" :request="request" @updated="onCheckSaved" />
         <LegalReviewCard v-else-if="check === 'legal_card'" v-model="legalCard" :request-id="request.id" />
         <JurisdictionTestForm v-else :request="request" @updated="onCheckSaved" />
       </div>
