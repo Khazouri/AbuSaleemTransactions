@@ -27,6 +27,8 @@ const form = reactive({
   actor: props.rule.requires_submitter_manager ? 'manager' : props.rule.requires_creator ? 'creator' : 'role',
 })
 const title = computed(() => actionLabel(props.rule, { t, te, locale: locale.value }))
+// Every account holds R01, so the server refuses it as an actor; the filer is «مقدم الطلب».
+const actorRoles = computed(() => props.roles.filter((role) => role.code !== 'R01'))
 
 function submit() {
   const { actor, ...rule } = form
@@ -74,7 +76,7 @@ function submit() {
         <label class="check"><input v-model="form.actor" type="radio" value="role" /> {{ t('workflows.edit.actorRole') }}</label>
         <div v-if="form.actor === 'role'" class="field-grid">
           <select v-model="form.required_role_id" required :aria-label="t('workflows.edit.actorRole')">
-            <option v-for="role in roles" :key="role.id" :value="role.id">{{ name(role) }}</option>
+            <option v-for="role in actorRoles" :key="role.id" :value="role.id">{{ name(role) }}</option>
           </select>
         </div>
         <label class="check"><input v-model="form.actor" type="radio" value="manager" /> {{ t('workflows.actor.manager') }}</label>

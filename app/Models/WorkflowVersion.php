@@ -28,6 +28,9 @@ class WorkflowVersion extends Model
         'published_by_user_id',
     ];
 
+    /** Workflow designer — slice 3. Every write to a version that is no longer a draft is refused with this. */
+    public const NOT_A_DRAFT = 'لا يُعدَّل إلا إصدار في حالة مسودة؛ أنشئ مسودة من هذا الإصدار.';
+
     /** @var Collection<string, WorkflowStage>|null */
     private ?Collection $stagesByCode = null;
 

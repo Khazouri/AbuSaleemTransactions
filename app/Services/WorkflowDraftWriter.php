@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Role;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use App\Models\WorkflowVersion;
@@ -29,7 +30,11 @@ class WorkflowDraftWriter
     {
         DB::transaction(function () use ($draft, $data) {
             // Two admins saving at once: the second waits, then overwrites.
-            WorkflowVersion::query()->lockForUpdate()->findOrFail($draft->id);
+            // The status is re-read under the lock: a publish that committed
+            // after the controller's own check must not be written into.
+            if (WorkflowVersion::query()->lockForUpdate()->findOrFail($draft->id)->status !== 'draft') {
+                throw ValidationException::withMessages(['version' => [WorkflowVersion::NOT_A_DRAFT]]);
+            }
 
             $stages = $draft->stages()->get()->keyBy('code');
             $rules = WorkflowTransition::query()->whereIn('from_stage_id', $stages->pluck('id'))->get()->keyBy('id');
@@ -104,6 +109,7 @@ class WorkflowDraftWriter
     {
         $errors = [];
         $sentIds = collect($sent)->pluck('id')->filter();
+        $everyone = Role::query()->where('code', 'R01')->value('id');
 
         if ($sentIds->contains(fn (int $id) => ! $rules->has($id))) {
             $errors['transitions'][] = 'نتيجة لا تنتمي إلى هذه المسودة.';
@@ -113,13 +119,13 @@ class WorkflowDraftWriter
         }
 
         foreach ($sent as $index => $item) {
+            $existing = $item['id'] !== null ? $rules->get($item['id']) : null;
+
             if (! in_array($item['from'], $kept, true) || ! in_array($item['to'], $kept, true)) {
-                $errors['transitions'][] = sprintf('النتيجة «%s» تشير إلى مرحلة غير موجودة.', $item['label_ar'] ?? $item['to']);
+                $errors['transitions'][] = $this->danglingRuleMessage($item, $existing, $stages);
 
                 continue;
             }
-
-            $existing = $item['id'] !== null ? $rules->get($item['id']) : null;
             if ($existing && ! $existing->isCustom()) {
                 if ($stages[$item['from']]->id !== $existing->from_stage_id) {
                     $errors["transitions.{$index}.from"][] = 'لا يمكن نقل قاعدة أساسية إلى مرحلة أخرى؛ تتغير وجهتها فقط.';
@@ -128,7 +134,7 @@ class WorkflowDraftWriter
                 continue;
             }
 
-            $errors = array_merge_recursive($errors, $this->customRuleErrors($index, $item));
+            $errors = array_merge_recursive($errors, $this->customRuleErrors($index, $item, $everyone));
         }
 
         if ($errors !== []) {
@@ -137,10 +143,29 @@ class WorkflowDraftWriter
     }
 
     /**
+     * A rule whose end is a step this save removes (or never had). A built-in
+     * rule cannot be deleted in this slice, so the admin is told which one to
+     * point elsewhere first; both are named by stage, never by raw code.
+     *
+     * @param  array<string, mixed>  $item
+     * @param  Collection<string, WorkflowStage>  $stages
+     */
+    private function danglingRuleMessage(array $item, ?WorkflowTransition $existing, Collection $stages): string
+    {
+        $name = fn (string $code) => $stages->get($code)?->name_ar ?? $code;
+
+        if ($existing && ! $existing->isCustom()) {
+            return sprintf('قاعدة أساسية في المرحلة «%s» تنقل الطلب إلى «%s»؛ غيّر وجهتها قبل حذف تلك المرحلة.', $name($item['from']), $name($item['to']));
+        }
+
+        return sprintf('النتيجة «%s» تشير إلى مرحلة محذوفة أو غير موجودة.', $item['label_ar'] ?? $name($item['to']));
+    }
+
+    /**
      * @param  array<string, mixed>  $item
      * @return array<string, list<string>>
      */
-    private function customRuleErrors(int $index, array $item): array
+    private function customRuleErrors(int $index, array $item, ?int $everyone): array
     {
         $errors = [];
 
@@ -151,6 +176,12 @@ class WorkflowDraftWriter
         // every account (RequestVisibility reads a null role as "anyone").
         if (($item['required_role_id'] ?? null) === null && empty($item['requires_submitter_manager']) && empty($item['requires_creator'])) {
             $errors["transitions.{$index}.required_role_id"][] = 'حدد من يتخذ هذه النتيجة: دورًا أو الرئيس المباشر أو مقدم الطلب.';
+        }
+        // Every account holds R01, so naming it would show the file to — and
+        // let it be moved by — everyone (the 2026-09-21 `submit` leak). The
+        // filer is `requires_creator`.
+        if ($everyone !== null && ($item['required_role_id'] ?? null) === $everyone) {
+            $errors["transitions.{$index}.required_role_id"][] = 'كل حساب يحمل دور «موظف»، فلا يحدد من يتخذ النتيجة؛ اختر «مقدم الطلب» إن كان المقصود صاحب الطلب.';
         }
 
         return $errors;

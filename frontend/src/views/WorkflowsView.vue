@@ -32,6 +32,9 @@ const version = ref(null)
 const selection = ref(null)
 const loading = ref(true)
 const error = ref('')
+// A refused delete has no modal to show its reason in; it gets its own alert,
+// never the page-level `error`, which would replace the whole designer.
+const actionError = ref('')
 // One open dialog at a time: { kind: 'stage'|'rule'|'workflow'|'clone'|'publish'|'discard', ...its data }.
 const dialog = ref(null)
 const dialogError = ref('')
@@ -53,6 +56,7 @@ async function loadWorkflows() {
 
 async function loadVersion(id) {
   error.value = ''
+  actionError.value = ''
   selection.value = null
   version.value = null
   if (!id) return
@@ -84,13 +88,13 @@ const close = () => { dialog.value = null }
 async function save(payload) {
   saving.value = true
   dialogError.value = ''
+  actionError.value = ''
   try {
     version.value = (await api.put(`/workflow-versions/${version.value.id}`, payload)).data.data
     close()
   } catch (e) {
     dialogError.value = firstError(e, t('workflows.edit.saveFailed'))
-    // A delete has no modal of its own to show the refusal in.
-    if (!dialog.value) error.value = dialogError.value
+    if (!dialog.value) actionError.value = dialogError.value
   } finally {
     saving.value = false
   }
@@ -180,6 +184,7 @@ const selectCode = (code) => { selection.value = { kind: 'stage', id: version.va
     <p v-if="loading" class="state">{{ t('common.loading') }}</p>
     <p v-else-if="error" class="alert" role="alert">{{ error }}</p>
     <template v-else-if="version">
+      <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
       <div class="toolbar">
         <template v-if="version.status !== 'draft'">
           <button v-if="draftOfThisWorkflow" type="button" class="primary" @click="pick(draftOfThisWorkflow.id)">{{ t('workflows.edit.openDraft') }}</button>

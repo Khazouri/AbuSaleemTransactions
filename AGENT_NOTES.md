@@ -53,6 +53,17 @@ Headless walk against this branch's API on a **scratch SQLite database**, so the
 No tokens were left on the real DB. Open items: interested parties on custom outcomes (slice 4), no layout persistence,
 and built-ins locked until slice 5. Four slice 1 items were resolved.
 
+**Final-review fixes**, each with a test that failed first:
+- **R01 refused as a custom outcome's actor.** Every account holds it, so it would show the file to everyone and let
+  anyone move it. The outcome form no longer offers it.
+- **Save and publish no longer race.** The writer re-checks the draft status under its row lock. Publish locks the
+  version row, so it waits out a save and publishes what it checked. Discard re-checks under the workflow and version
+  locks, so it can never delete a just-published version.
+- **Deleting a step a built-in rule leads into** keeps that rule in the payload. The server names the stage whose rule
+  to redirect first, and the refusal shows in its own alert instead of blanking the designer (browser-checked).
+
+The review's minors are in OPEN_ITEMS («review leftovers»).
+
 ---
 ### 2026-10-10 19:35 EET — Claude — Implementation plan: workflow designer slice 3 — draft editing and publish
 

@@ -26,10 +26,12 @@ test('placeStage inserts a new step after the chosen one, and moves an existing 
   assert.deepEqual(moved.stages.map((stage) => stage.code), ['b', 'a'])
 })
 
-test('removeStage drops the rules that touch it', () => {
-  const payload = removeStage(toPayload(version), 'b')
+test('removeStage drops its custom rules but keeps a built-in rule leading into it', () => {
+  const withCustom = upsertRule(toPayload(version), { id: null, custom: true, from: 'b', to: 'a', label_ar: 'رجوع' })
+  const payload = removeStage(withCustom, 'b')
   assert.deepEqual(payload.stages.map((stage) => stage.code), ['a'])
-  assert.equal(payload.transitions.length, 0)
+  // The built-in forward a→b stays, so the server can name it: redirect it first.
+  assert.deepEqual(payload.transitions.map((rule) => rule.id), [9])
 })
 
 test('upsertRule replaces by id and appends a new one; removeRule drops by id', () => {

@@ -25,8 +25,6 @@ use Illuminate\Validation\ValidationException;
 /** Workflow designer — slice 2: the read side of the designer screen; slice 3: drafts. */
 class WorkflowController extends Controller
 {
-    public const NOT_A_DRAFT = 'لا يُعدَّل إلا إصدار في حالة مسودة؛ أنشئ مسودة من هذا الإصدار.';
-
     public const DRAFT_EXISTS = 'لهذا المسار مسودة قائمة؛ افتحها أو احذفها أولًا.';
 
     public const HAS_ERRORS = 'لا يمكن نشر المسودة قبل إصلاح أخطائها.';
@@ -105,13 +103,16 @@ class WorkflowController extends Controller
     {
         $report = DB::transaction(function () use ($request, $workflowVersion, $validator) {
             Workflow::query()->lockForUpdate()->findOrFail($workflowVersion->workflow_id);
-            $this->refuseUnlessDraft($workflowVersion->refresh());
+            // The version's own lock too: it waits out a save in progress
+            // (WorkflowDraftWriter holds it), so what is checked is what goes live.
+            $draft = WorkflowVersion::query()->lockForUpdate()->findOrFail($workflowVersion->id);
+            $this->refuseUnlessDraft($draft);
 
-            $report = $validator->report($workflowVersion);
+            $report = $validator->report($draft);
             if ($report['errors'] === []) {
-                WorkflowVersion::query()->where('workflow_id', $workflowVersion->workflow_id)->where('status', 'published')
+                WorkflowVersion::query()->where('workflow_id', $draft->workflow_id)->where('status', 'published')
                     ->update(['status' => 'retired']);
-                $workflowVersion->update(['status' => 'published', 'published_at' => now(), 'published_by_user_id' => $request->user()->id]);
+                $draft->update(['status' => 'published', 'published_at' => now(), 'published_by_user_id' => $request->user()->id]);
             }
 
             return $report;
@@ -127,9 +128,12 @@ class WorkflowController extends Controller
     // Workflow designer — slice 3. Discarding a draft. No request ever runs on one, so nothing is orphaned.
     public function destroyVersion(WorkflowVersion $workflowVersion): Response
     {
-        $this->refuseUnlessDraft($workflowVersion);
-
+        // Checked under the workflow's lock, which publish also takes: a
+        // discard must never delete a version that was published meanwhile.
         DB::transaction(function () use ($workflowVersion) {
+            Workflow::query()->lockForUpdate()->findOrFail($workflowVersion->workflow_id);
+            $this->refuseUnlessDraft(WorkflowVersion::query()->lockForUpdate()->findOrFail($workflowVersion->id));
+
             $stageIds = $workflowVersion->stages()->pluck('id');
             WorkflowTransition::query()->whereIn('from_stage_id', $stageIds)->delete();
             WorkflowStage::query()->whereKey($stageIds)->delete();
@@ -151,7 +155,7 @@ class WorkflowController extends Controller
     private function refuseUnlessDraft(WorkflowVersion $version): void
     {
         if ($version->status !== 'draft') {
-            throw ValidationException::withMessages(['version' => [self::NOT_A_DRAFT]]);
+            throw ValidationException::withMessages(['version' => [WorkflowVersion::NOT_A_DRAFT]]);
         }
     }
 }

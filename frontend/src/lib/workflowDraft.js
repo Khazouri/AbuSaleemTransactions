@@ -19,6 +19,8 @@ export function toPayload(version) {
     })),
     transitions: version.transitions.map((rule) => ({
       id: rule.id,
+      // Read by removeStage only; the server takes custom-ness from the action, never from this.
+      custom: Boolean(rule.custom),
       from: codeOf[rule.from_stage_id],
       to: codeOf[rule.to_stage_id],
       label_ar: rule.label_ar,
@@ -42,10 +44,15 @@ export function placeStage(payload, code, fields, afterCode) {
   return { ...payload, stages }
 }
 
+/**
+ * The step and every custom outcome touching it go. A built-in rule leading
+ * into it stays, still pointing at it, so the server refuses by naming that
+ * rule's stage: redirect it first (built-in rules can't be deleted yet).
+ */
 export function removeStage(payload, code) {
   return {
     stages: payload.stages.filter((stage) => stage.code !== code),
-    transitions: payload.transitions.filter((rule) => rule.from !== code && rule.to !== code),
+    transitions: payload.transitions.filter((rule) => rule.from !== code && (rule.to !== code || !rule.custom)),
   }
 }
 

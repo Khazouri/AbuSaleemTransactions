@@ -13,6 +13,22 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### Workflow designer slice 3: review leftovers — opened 2026-10-10
+These were deferred from the final review:
+- **Responsibility at a custom step:** it names its role in Arabic only, and names nobody when its exits name no role.
+- **Two tabs:** a stale second tab's PUT silently drops what another tab added, because there is no `updated_at`/409
+  check.
+- **Orphan workflow:** discarding a new workflow's only draft leaves its `workflows` row behind, and the code stays taken.
+- **No confirmation:** deleting a step or an outcome happens without one.
+- **First position:** «بعد المرحلة» has no "first" option.
+- **Stale selection:** the selected edge goes stale after a built-in rule is redirected.
+- **Field name:** report entries use `transition_id` where spec §5 says `transition_ref`.
+- **Unchecked status:** the validator ignores `required_status_id`. A custom outcome that sets a status the next
+  built-in rule won't accept (`register` needs `routed_to_hr`) strands the file with no error. The default «لا تتغير» is
+  safe.
+
+**To close:** each is small. The status check belongs with slice 5's validator work.
+
 ### A custom outcome does not refuse interested parties — workflow designer slice 3 — opened 2026-10-10
 `WorkflowService::actorMayUse()` refuses the filer and صاحب العلاقة only on `approve`. A custom step routed to a role the
 filer holds lets them move their own file past it. Spec §6 ties the wider refusal to `requires_checks` rules.

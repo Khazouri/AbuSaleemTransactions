@@ -7,8 +7,10 @@ use App\Models\User;
 use App\Models\Workflow;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowVersion;
+use App\Services\WorkflowDraftWriter;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 /**
@@ -129,6 +131,52 @@ class WorkflowDesignerTest extends TestCase
             ->putJson("/api/workflow-versions/{$draft->id}", $payload)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(["transitions.{$last}.label_ar", "transitions.{$last}.required_role_id"]);
+    }
+
+    public function test_a_custom_outcome_cannot_name_the_role_every_account_holds(): void
+    {
+        $draft = Workflow::standard()->publishedVersion->cloneAsDraft();
+        $payload = $this->withAuditStep($this->payload($draft), $draft);
+        $last = count($payload['transitions']) - 1;
+        $payload['transitions'][$last]['required_role_id'] = Role::where('code', 'R01')->value('id');
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/workflow-versions/{$draft->id}", $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors("transitions.{$last}.required_role_id");
+    }
+
+    public function test_the_writer_refuses_a_version_that_stopped_being_a_draft(): void
+    {
+        $draft = Workflow::standard()->publishedVersion->cloneAsDraft();
+        $payload = $this->payload($draft);
+        // A publish that committed between the controller's check and the save.
+        $draft->update(['status' => 'published']);
+
+        $this->expectException(ValidationException::class);
+        app(WorkflowDraftWriter::class)->save($draft, $payload);
+    }
+
+    public function test_removing_a_step_a_built_in_rule_leads_into_says_to_redirect_it_first(): void
+    {
+        $draft = Workflow::standard()->publishedVersion->cloneAsDraft();
+        $saved = $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/workflow-versions/{$draft->id}", $this->withAuditStep($this->payload($draft), $draft))
+            ->assertOk();
+        $code = collect($saved->json('data.stages'))->firstWhere('name_ar', 'تدقيق مالي')['code'];
+
+        // What the SPA sends for «حذف المرحلة»: the step and its own outcomes
+        // go, the built-in forward that leads into it stays.
+        $payload = $this->payload($draft->fresh());
+        $payload['stages'] = array_values(array_filter($payload['stages'], fn ($stage) => $stage['code'] !== $code));
+        $payload['transitions'] = array_values(array_filter($payload['transitions'], fn ($rule) => $rule['from'] !== $code));
+
+        $message = $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/workflow-versions/{$draft->id}", $payload)
+            ->assertUnprocessable()
+            ->json('errors.transitions.0');
+        $this->assertStringContainsString('مراجعة الطلب من المدير المباشر', $message);
+        $this->assertStringContainsString('تدقيق مالي', $message);
     }
 
     public function test_an_outcome_to_a_removed_step_is_refused(): void
