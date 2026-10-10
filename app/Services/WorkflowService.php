@@ -327,7 +327,7 @@ class WorkflowService
      */
     private function systemRule(Request $requestRecord, string $fromStageCode, string $action): WorkflowTransition
     {
-        $fromStage = WorkflowStage::query()->where('code', $fromStageCode)->firstOrFail();
+        $fromStage = $requestRecord->stageByCode($fromStageCode);
 
         $candidates = WorkflowTransition::query()
             ->where('from_stage_id', $fromStage->id)
@@ -406,6 +406,15 @@ class WorkflowService
     ): Request {
         if (in_array($targetStage->code, self::REDO_EXCLUDED_STAGE_CODES, true)) {
             throw WorkflowTransitionException::invalidRedoStage();
+        }
+
+        // Workflow designer — slice 1. Every caller hands in a stage it chose
+        // (a picker, or a code resolved through stageByCode()); a stage of
+        // another version would move the file onto rules it was never filed
+        // under. Refused here, once, rather than in each of the four callers.
+        if ($requestRecord->current_stage_id !== null
+            && (int) WorkflowStage::query()->whereKey($requestRecord->current_stage_id)->value('workflow_version_id') !== (int) $targetStage->workflow_version_id) {
+            throw WorkflowTransitionException::stageOutsideWorkflow();
         }
 
         [$movedRequest, $fromStageId] = DB::transaction(function () use ($requestRecord, $targetStage, $actor, $reason, $action, $statusCode, $enforceBackwardOnly) {
@@ -777,10 +786,7 @@ class WorkflowService
             return $rule->to_stage_id;
         }
 
-        return WorkflowStage::query()
-            ->where('code', 'final_approval_archiving')
-            ->firstOrFail()
-            ->id;
+        return $requestRecord->stageByCode('final_approval_archiving')->id;
     }
 
     /**

@@ -16,7 +16,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * stages (ministry_endorsement, competent_authority) that had no counterpart
  * in the [A]/[D]/[E] standard — 14 stages became 12.
  *
- * @property int $order_no 1..12
+ * @property int $order_no 1..12, unique within its version
+ * @property int|null $workflow_version_id
  * @property string $code e.g. 'requirements_check'
  * @property string $name_ar
  * @property int|null $responsible_role_id Display only — NOT access control
@@ -26,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class WorkflowStage extends Model
 {
     protected $fillable = [
+        'workflow_version_id',
         'order_no',
         'code',
         'name_ar',
@@ -46,6 +48,12 @@ class WorkflowStage extends Model
     public function responsibleRole(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'responsible_role_id');
+    }
+
+    /** Workflow designer — slice 1. The version this stage belongs to. */
+    public function workflowVersion(): BelongsTo
+    {
+        return $this->belongsTo(WorkflowVersion::class);
     }
 
     /**

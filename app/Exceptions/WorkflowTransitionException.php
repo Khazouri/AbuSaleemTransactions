@@ -78,4 +78,10 @@ class WorkflowTransitionException extends DomainException
     {
         return new self('يجب أن تكون مرحلة إعادة الإجراءات سابقة لمرحلة الطلب الحالية أو مساوية لها.');
     }
+
+    /** Workflow designer — slice 1. A request never leaves the workflow version it was filed on. */
+    public static function stageOutsideWorkflow(): self
+    {
+        return new self('المرحلة المحددة لا تنتمي إلى مسار عمل هذا الطلب.');
+    }
 }

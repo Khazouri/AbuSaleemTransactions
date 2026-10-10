@@ -7,7 +7,6 @@ use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
 use App\Models\RequestSuspension;
 use App\Models\User;
-use App\Models\WorkflowStage;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -183,9 +182,7 @@ class RequestSuspensionService
             .($note !== null && $note !== '' ? ' — '.$note : '');
 
         if ($action === 'referred_to_committee') {
-            $targetStage = WorkflowStage::query()
-                ->where('code', self::COMMITTEE_TARGET_STAGE)
-                ->firstOrFail();
+            $targetStage = $requestRecord->stageByCode(self::COMMITTEE_TARGET_STAGE);
 
             $moved = $this->workflow->reopenAtStage(
                 $requestRecord,

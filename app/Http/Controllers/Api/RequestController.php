@@ -34,6 +34,7 @@ use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
 use App\Models\RequestType;
 use App\Models\User;
+use App\Models\Workflow;
 use App\Models\WorkflowStage;
 use App\Services\ApprovalReferralService;
 use App\Services\ApprovalReturnService;
@@ -359,7 +360,10 @@ class RequestController extends Controller
             $requestRecord = DB::transaction(function () use ($data, $request, $subject, $numbers, $deadlines, $workflow, $priorRelation, $priorRequestId, $draft, &$storedPaths) {
                 $type = RequestType::query()->findOrFail($data['request_type_id']);
                 $newStatus = RequestStatus::query()->where('code', 'new')->firstOrFail();
-                $firstStage = WorkflowStage::query()->where('code', 'receive_from_municipality')->firstOrFail();
+                // Workflow designer — slice 1. A new request is filed onto the
+                // published version; it then stays on that version's stages
+                // whatever is published after it.
+                $firstStage = Workflow::standard()->publishedVersion->stage('receive_from_municipality');
                 $submittedAt = now();
 
                 $requestRecord = Request::create([

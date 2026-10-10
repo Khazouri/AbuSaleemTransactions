@@ -184,6 +184,17 @@ Key architectural facts worth knowing before changing things:
   screen *definitions* only on an existing database; running the full
   `DatabaseSeeder` there would reset the whole permission matrix and discard
   anything customised through Roles & Permissions.
+- **Workflow versions (workflow designer, slice 1).** Every `workflow_stages`
+  row belongs to a `workflow_versions` row of a named `workflows` row
+  (`standard` is seeded). A transition's version is its from-stage's and a
+  request's is its current stage's — neither has a column — so a request is
+  pinned to the version it was filed on, and `WorkflowService::reopenAtStage()`
+  refuses a stage of another version. Code that needs a stage **row** by code
+  goes through `Request::stageByCode()` / `WorkflowVersion::stage()`; never
+  `WorkflowStage::where('code', …)->first()`, which picks an arbitrary
+  version. Comparing `currentStage->code` is fine. The workflow seeders only
+  ever write Standard v1 (`WorkflowVersion::seededStandard()`).
+
 - **Staged build-out**: [STAGE_PLAN.md](STAGE_PLAN.md) is the source of truth
   for what each stage number means (goal, what gets built, done-when) —
   consult it before starting or referencing a stage. **Tracks A–O (Stages

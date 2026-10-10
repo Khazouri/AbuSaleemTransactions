@@ -4,8 +4,8 @@ namespace Database\Seeders;
 
 use App\Models\RequestStatus;
 use App\Models\Role;
-use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
+use App\Models\WorkflowVersion;
 use Illuminate\Database\Seeder;
 
 /**
@@ -19,7 +19,11 @@ class WorkflowTransitionSeeder extends Seeder
 {
     public function run(): void
     {
-        $stages = WorkflowStage::query()->get()->keyBy('code');
+        // Workflow designer — slice 1. Every row this seeder writes or deletes
+        // hangs off a Standard v1 stage, so keying the stage map to that
+        // version scopes the whole run; the generic delete below is the one
+        // statement that does not name a stage, and is scoped explicitly.
+        $stages = WorkflowVersion::seededStandard()->stages()->get()->keyBy('code');
         $roles = Role::query()->get()->keyBy('code');
         $statuses = RequestStatus::query()->get()->keyBy('code');
 
@@ -27,6 +31,7 @@ class WorkflowTransitionSeeder extends Seeder
         // seeded generic happy path first so old rows cannot survive a re-seed
         // beside their replacement and create an ambiguous route.
         WorkflowTransition::query()
+            ->whereIn('from_stage_id', $stages->pluck('id'))
             ->whereNull('request_type_id')
             ->where('is_exception', false)
             ->delete();

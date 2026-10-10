@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Role;
 use App\Models\WorkflowStage;
+use App\Models\WorkflowVersion;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -71,6 +72,7 @@ class WorkflowStageSeeder extends Seeder
 {
     public function run(): void
     {
+        $version = WorkflowVersion::seededStandard();
         $rolesByCode = Role::all()->keyBy('code');
 
         // Stage 57 — delete first: workflow_transitions.from_stage_id/
@@ -78,7 +80,10 @@ class WorkflowStageSeeder extends Seeder
         // still pointing at either of these two (normal or exception) is
         // removed automatically. WorkflowTransitionSeeder's own rewrite has
         // nothing stale left to clean up on top of this.
-        WorkflowStage::query()->whereIn('code', ['ministry_endorsement', 'competent_authority'])->delete();
+        WorkflowStage::query()
+            ->where('workflow_version_id', $version->id)
+            ->whereIn('code', ['ministry_endorsement', 'competent_authority'])
+            ->delete();
 
         // order_no is UNIQUE. A naive in-place renumber of existing rows
         // collides mid-loop (e.g. a stage claiming order_no=8 while another
@@ -87,7 +92,11 @@ class WorkflowStageSeeder extends Seeder
         // so the second pass below can freely write final values with no row
         // ever transiently colliding with another. Safe headroom: order_no
         // is unsignedSmallInteger (max 65535) and there are only 12 rows.
-        WorkflowStage::query()->update(['order_no' => DB::raw('order_no + 1000')]);
+        // Scoped to the seeded version: order_no is unique per version, and
+        // a version an admin published is never the seeder's to renumber.
+        WorkflowStage::query()
+            ->where('workflow_version_id', $version->id)
+            ->update(['order_no' => DB::raw('order_no + 1000')]);
 
         // [order, code, Arabic name, English name, role usually holding it (or null — see docblock), target_days_min, target_days_max]
         $stages = [
@@ -134,7 +143,7 @@ class WorkflowStageSeeder extends Seeder
             // Keyed on `code` so stage ids stay stable across re-seeds —
             // requests and transitions both point at them.
             WorkflowStage::updateOrCreate(
-                ['code' => $code],
+                ['workflow_version_id' => $version->id, 'code' => $code],
                 [
                     'order_no' => $order,
                     'name_ar' => $nameAr,

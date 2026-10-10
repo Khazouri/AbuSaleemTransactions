@@ -181,6 +181,21 @@ class Request extends Model
         return $this->belongsTo(WorkflowStage::class, 'current_stage_id');
     }
 
+    /**
+     * Workflow designer — slice 1. The stage with this code in the version
+     * this request runs on. Read through current_stage_id, never through a
+     * loaded `currentStage`: list endpoints eager-load it with a column subset
+     * that would hide its version and silently fall back to the wrong one.
+     */
+    public function stageByCode(string $code): WorkflowStage
+    {
+        $version = WorkflowVersion::query()
+            ->whereHas('stages', fn ($stages) => $stages->whereKey($this->current_stage_id))
+            ->first();
+
+        return ($version ?? Workflow::standard()->publishedVersion)->stage($code);
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');

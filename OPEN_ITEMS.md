@@ -13,6 +13,35 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### Delete of a workflow version orphans its requests' stages — workflow designer slice 1 — opened 2026-10-10
+Deleting a version cascades to its stages (`workflow_stages.workflow_version_id` is `cascadeOnDelete`) and
+`requests.current_stage_id` is `nullOnDelete`, so a deleted version's requests lose their stage and
+`Request::stageByCode()` silently falls back to the published version (the `reopenAtStage` guard skips null stages).
+**To close (slice 3):** a new migration making that FK (and `workflow_versions.workflow_id`) `restrictOnDelete`, the draft
+DELETE removing its stages explicitly, and optionally `stageByCode` throwing when `current_stage_id` is set but resolves
+no version.
+
+### Report stage grouping across versions — workflow designer slice 1 — opened 2026-10-10
+`ReportMetricsService::byStage()` groups by `workflow_stages.order_no, code, name_ar, name_en`, so an unchanged clone
+merges into the same bucket. Buckets split only when a version renames or renumbers a stage, and `orderBy(order_no)` can
+then interleave versions. **To close (slice 3):** group by stage code alone and take the label from the published version.
+
+### Per-version WorkflowStageCount — workflow designer slice 1 — opened 2026-10-10
+`RequestResource`'s `stage_progress` divides by `WorkflowStageCount`, which slice 1 pins to the published Standard
+version. A request on a version with a different number of stages shows a wrong ratio. **To close (slice 3):** count
+the stages of the request's own version.
+
+### Publish must retire and publish in one transaction; clone should lock the workflow row — workflow designer slice 1 — opened 2026-10-10
+A moment with no published version makes `Workflow::standard()->publishedVersion` null, and the next read is a PHP
+Error. Separately, two concurrent clones race on `max(number)+1` (the unique key turns that into a 500, not
+corruption). **To close (slice 3):** publish retires the old and publishes the new inside one transaction, and the
+clone endpoint takes `lockForUpdate()` on the workflow row.
+
+### redo-stage-options?request_id= has no visibility check — workflow designer slice 1 — opened 2026-10-10
+The endpoint uses `request_id` only to pick the version, so it is an existence probe for request ids (no data about
+the request is returned). Low risk. **To close:** apply `RequestVisibility` to the id, or ignore ids the caller
+cannot open.
+
 ### A rejected «مستند آخر» file cannot be replaced — per-file document review — opened 2026-10-09
 On both document gates a «غير معتمد» file blocks until a newer upload of the **same document type** replaces it
 (`DocumentReview::attachments()`). A file typed «مستند آخر», or one with no type, has no type to be replaced under,

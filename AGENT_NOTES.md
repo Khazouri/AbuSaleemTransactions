@@ -19,6 +19,33 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-10 16:09 EET — Claude — Workflow designer slice 1: stages belong to versions (complete)
+
+Built on `feat/workflow-versions` (not merged, by the controller's ruling): `93bde1e` (workflows / workflow_versions
+tables, `workflow_stages.workflow_version_id`, seeders write Standard v1 only), `fcf7359` (`down()` drops the FK before
+the composite uniques), `eb5618f` (`cloneAsDraft` and the re-seed proof), `56bedcb` (stage codes resolve inside the
+request's own version: `Request::stageByCode`, `systemRule`, `destinationStageId`, `store()`, suspension, approval return,
+the `RequestVisibility` set, a per-version map in `MeetingOutputsResource`, `WorkflowStageCount` = published Standard),
+`65b20fe` (`reopenAtStage` refuses another version; the redo-stage picker takes `?request_id=`, the Vue forms pass it).
+**Deviations from the spec:** no `requests.workflow_version_id` or `workflow_transitions.workflow_version_id` (both
+derived); `request_types.workflow_id`, stage `kind`/`checklist`/`position`, report grouping and a per-version stage
+count are deferred to slices 3-4. **Real MySQL:** migrated and only the two workflow seeders re-run; 12 stages and 37
+rules before and after, 0 stages without a version, 1 `workflow_versions` row. Verified: full suite 860 / 5555 plus
+Maintenance 14 and Bootstrap 9, Pint clean on the slice's PHP, parity 2084, `aislop ci` exit 0. Four open items are in
+OPEN_ITEMS.md. Final-review fixes: `TestRequestSeeder` is scoped to the published version, two pinning tests were added
+(re-seed keeps a newer published version; the redo picker 404s for an unknown request), the report-grouping open item was
+corrected and a version-delete-cascade item added.
+
+---
+### 2026-10-10 15:20 EET — Claude — Implementation plan: workflow designer slice 1 — every stage belongs to a version
+
+Slice 1 adds `workflows` and `workflow_versions`, and `workflow_stages.workflow_version_id` (backfilled to a published
+Standard v1). Stage code and order_no become unique per version. A transition's version is its from-stage's and a
+request's is its current stage's, so neither gets a column. The seeders are scoped to `WorkflowVersion::seededStandard()`
+so a re-seed never touches a version an admin published. There is no behaviour change: the existing suite must stay
+green with no test edits. Verify: new `WorkflowVersioningTest`, full PHPUnit, Pint.
+
+---
 ### 2026-10-10 15:30 EET — Claude — Request Types keeps each document's folder (`section`) (complete)
 
 Built per the plan below; no migration. `StoreRequestTypeRequest` now validates `required_documents.*.section`

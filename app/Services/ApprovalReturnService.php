@@ -7,7 +7,6 @@ use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
 use App\Models\User;
-use App\Models\WorkflowStage;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -240,9 +239,7 @@ class ApprovalReturnService
             .ApprovalReturn::reasonLabel($return->return_reason_code).'): '.$action;
 
         if ($return->return_kind === ApprovalReturn::KIND_SUBSTANTIVE) {
-            $targetStage = WorkflowStage::query()
-                ->where('code', self::SUBSTANTIVE_TARGET_STAGE)
-                ->firstOrFail();
+            $targetStage = $requestRecord->stageByCode(self::SUBSTANTIVE_TARGET_STAGE);
 
             $moved = $this->workflow->reopenAtStage(
                 $requestRecord,

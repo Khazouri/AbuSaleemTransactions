@@ -16,6 +16,7 @@ use App\Models\Appeal;
 use App\Models\AppealStatus;
 use App\Models\Request as RequestRecord;
 use App\Models\User;
+use App\Models\Workflow;
 use App\Models\WorkflowStage;
 use App\Services\AppealEligibility;
 use App\Services\AppealFileCompiler;
@@ -323,15 +324,22 @@ class AppealController extends Controller
 
     /**
      * Stage 64 — the stages an `appeal_redo` outcome may target, narrower
-     * than the full 12-stage catalogue. A narrow lookup, not the full
-     * resource's own visibility rule — same "picker, not a general list"
-     * precedent MeetingController::appealOptions()/departmentOptions()
-     * already set.
+     * than the full catalogue. A narrow lookup, not the full resource's own
+     * visibility rule — same "picker, not a general list" precedent
+     * MeetingController::appealOptions()/departmentOptions() already set.
+     *
+     * Workflow designer — slice 1: the stages of `request_id`'s own version,
+     * since reopenAtStage() refuses any other; without it, the version new
+     * requests are filed onto.
      */
-    public function redoStageOptions(): JsonResponse
+    public function redoStageOptions(Request $request): JsonResponse
     {
+        $version = $request->filled('request_id')
+            ? RequestRecord::query()->findOrFail($request->integer('request_id'))->stageByCode('receive_from_municipality')->workflowVersion
+            : Workflow::standard()->publishedVersion;
+
         return response()->json([
-            'data' => WorkflowStage::query()
+            'data' => $version->stages()
                 ->whereNotIn('code', self::REDO_EXCLUDED_STAGE_CODES)
                 ->orderBy('order_no')
                 ->get(['id', 'code', 'order_no', 'name_ar', 'name_en']),
