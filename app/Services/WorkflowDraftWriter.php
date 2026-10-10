@@ -60,6 +60,7 @@ class WorkflowDraftWriter
                         'order_no' => $orderNo,
                         'code' => WorkflowTransition::CUSTOM_PREFIX.Str::lower((string) Str::ulid()),
                     ]);
+
                     continue;
                 }
 
