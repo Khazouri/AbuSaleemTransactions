@@ -2,16 +2,18 @@
 /**
  * Workflow designer — slice 3. A custom step: its names, the role shown as
  * its owner, its soft target, and where it sits in the chain («بعد المرحلة»;
- * the save renumbers the version from that order).
+ * the save renumbers the version from that order). Slice 4: and its checklist.
  */
 import { reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import ChecklistEditor from './ChecklistEditor.vue'
 
 const props = defineProps({
   stage: { type: Object, default: null },
   after: { type: String, default: null },
   stages: { type: Array, required: true },
   roles: { type: Array, required: true },
+  documents: { type: Array, default: () => [] },
   error: { type: String, default: '' },
   saving: { type: Boolean, default: false },
 })
@@ -25,6 +27,7 @@ const form = reactive({
   responsible_role_id: props.stage?.responsible_role?.id ?? null,
   target_days_min: props.stage?.target_days_min ?? null,
   target_days_max: props.stage?.target_days_max ?? null,
+  checklist: (props.stage?.checklist ?? []).map((item) => ({ ...item })),
 })
 const after = reactive({ code: props.after })
 // v-model.number leaves an emptied number input as '', which the API reads as a value.
@@ -32,7 +35,7 @@ const days = (value) => (value === '' ? null : value)
 
 function submit() {
   emit('submit', {
-    fields: { ...form, target_days_min: days(form.target_days_min), target_days_max: days(form.target_days_max) },
+    fields: { ...form, target_days_min: days(form.target_days_min), target_days_max: days(form.target_days_max), checklist: form.checklist.length ? form.checklist : null },
     after: after.code,
   })
 }
@@ -74,6 +77,7 @@ function submit() {
         <input v-model.number="form.target_days_max" type="number" min="0" max="365" />
       </label>
     </div>
+    <ChecklistEditor v-model="form.checklist" :documents="documents" />
     <div class="modal-actions">
       <button class="ghost" type="button" @click="emit('cancel')">{{ t('common.cancel') }}</button>
       <button class="primary" type="submit" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>

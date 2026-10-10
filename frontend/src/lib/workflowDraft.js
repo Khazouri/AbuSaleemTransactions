@@ -16,6 +16,7 @@ export function toPayload(version) {
       responsible_role_id: idOf(stage.responsible_role),
       target_days_min: stage.target_days_min,
       target_days_max: stage.target_days_max,
+      checklist: stage.checklist ?? null,
     })),
     transitions: version.transitions.map((rule) => ({
       id: rule.id,
@@ -32,6 +33,7 @@ export function toPayload(version) {
       requires_comment: rule.requires_comment,
       requires_submitter_manager: rule.requires_submitter_manager,
       requires_creator: rule.requires_creator,
+      requires_checks: Boolean(rule.requires_checks),
     })),
   }
 }

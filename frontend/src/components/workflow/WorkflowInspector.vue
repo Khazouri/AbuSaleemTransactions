@@ -100,6 +100,15 @@ function actor(rule) {
           <dd>{{ t('workflows.days', { min: stage.target_days_min ?? stage.target_days_max, max: stage.target_days_max }) }}</dd>
         </template>
       </dl>
+      <template v-if="stage?.checklist?.length">
+        <h4>{{ t('workflows.edit.checklist.title') }}</h4>
+        <ol class="rules">
+          <li v-for="item in stage.checklist" :key="item.key">
+            <strong dir="auto">{{ locale === 'ar' ? item.label_ar : item.label_en || item.label_ar }}</strong>
+            <span>{{ t(`workflows.edit.checklist.types.${item.type}`) }}</span>
+          </li>
+        </ol>
+      </template>
 
       <p v-if="drainOnly" class="hint">{{ t('workflows.drainOnlyHint') }}</p>
       <h4 v-if="stage">{{ t('workflows.rulesOut') }}</h4>
@@ -113,6 +122,7 @@ function actor(rule) {
           <span class="flags">
             <span v-if="rule.is_exception" class="pill warning">{{ t('workflows.flag.exception') }}</span>
             <span v-if="rule.requires_comment" class="pill">{{ t('workflows.flag.comment') }}</span>
+            <span v-if="rule.requires_checks" class="pill">{{ t('workflows.flag.requiresChecks') }}</span>
             <span v-if="rule.required_status" class="pill">{{ t('workflows.flag.requiredStatus', { status: name(rule.required_status) }) }}</span>
             <span v-if="rule.request_type" class="pill">{{ t('workflows.flag.requestType', { type: name(rule.request_type) }) }}</span>
           </span>

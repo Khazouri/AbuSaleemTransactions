@@ -5,10 +5,10 @@ import { placeStage, removeRule, removeStage, toPayload, upsertRule } from './wo
 const version = {
   stages: [
     { id: 2, code: 'b', order_no: 2, name_ar: 'ب', name_en: null, responsible_role: null, target_days_min: null, target_days_max: null },
-    { id: 1, code: 'a', order_no: 1, name_ar: 'أ', name_en: null, responsible_role: { id: 5 }, target_days_min: 1, target_days_max: 2 },
+    { id: 1, code: 'a', order_no: 1, name_ar: 'أ', name_en: null, responsible_role: { id: 5 }, target_days_min: 1, target_days_max: 2, checklist: [{ key: 'cq', type: 'attestation', label_ar: 'أقر' }] },
   ],
   transitions: [
-    { id: 9, from_stage_id: 1, to_stage_id: 2, action: 'forward', label_ar: null, label_en: null, required_role: null, set_status: { id: 3 }, required_status: null, is_exception: false, requires_comment: false, requires_submitter_manager: true, requires_creator: false },
+    { id: 9, from_stage_id: 1, to_stage_id: 2, action: 'forward', label_ar: null, label_en: null, required_role: null, set_status: { id: 3 }, required_status: null, is_exception: false, requires_comment: false, requires_submitter_manager: true, requires_creator: false, requires_checks: true },
   ],
 }
 
@@ -17,6 +17,9 @@ test('toPayload orders stages and names rule ends by code', () => {
   assert.deepEqual(payload.stages.map((stage) => stage.code), ['a', 'b'])
   assert.equal(payload.stages[0].responsible_role_id, 5)
   assert.deepEqual([payload.transitions[0].from, payload.transitions[0].to, payload.transitions[0].set_status_id], ['a', 'b', 3])
+  assert.deepEqual(payload.stages[0].checklist, [{ key: 'cq', type: 'attestation', label_ar: 'أقر' }])
+  assert.equal(payload.stages[1].checklist, null)
+  assert.equal(payload.transitions[0].requires_checks, true)
 })
 
 test('placeStage inserts a new step after the chosen one, and moves an existing one', () => {

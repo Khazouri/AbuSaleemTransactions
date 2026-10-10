@@ -27,7 +27,7 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const workflows = ref([])
-const options = ref({ roles: [], statuses: [] })
+const options = ref({ roles: [], statuses: [], documents: [] })
 const version = ref(null)
 const selection = ref(null)
 const loading = ref(true)
@@ -141,13 +141,19 @@ function editStage(stage) {
   const index = orderedStages.value.findIndex((item) => item.id === stage.id)
   open('stage', { stage, after: orderedStages.value[index - 1]?.code ?? null })
 }
+// Workflow designer — slice 4. An attachment item names a document of the
+// types this workflow files; with no type bound yet, any type's.
+const documentOptions = computed(() => {
+  const bound = new Set(workflows.value.find((item) => item.id === version.value?.workflow.id)?.request_types.map((type) => type.id) ?? [])
+  return bound.size ? options.value.documents.filter((doc) => doc.type_ids.some((id) => bound.has(id))) : options.value.documents
+})
 function addRule(stage) {
   open('rule', {
     builtIn: false,
     rule: {
       id: null, from: stage.code, to: stage.code, label_ar: '', label_en: '',
       required_role_id: null, set_status_id: null, required_status_id: null,
-      is_exception: false, requires_comment: false, requires_submitter_manager: false, requires_creator: false,
+      is_exception: false, requires_comment: false, requires_submitter_manager: false, requires_creator: false, requires_checks: false,
     },
   })
 }
@@ -216,9 +222,9 @@ const selectCode = (code) => { selection.value = { kind: 'stage', id: version.va
       </div>
     </template>
 
-    <AppModal v-if="dialog?.kind === 'stage'" :title="t(dialog.stage ? 'workflows.edit.editStage' : 'workflows.edit.addStage')" @close="close">
+    <AppModal v-if="dialog?.kind === 'stage'" :title="t(dialog.stage ? 'workflows.edit.editStage' : 'workflows.edit.addStage')" wide @close="close">
       <StageForm
-        :stage="dialog.stage" :after="dialog.after" :stages="orderedStages" :roles="options.roles"
+        :stage="dialog.stage" :after="dialog.after" :stages="orderedStages" :roles="options.roles" :documents="documentOptions"
         :error="dialogError" :saving="saving" @submit="submitStage" @cancel="close"
       />
     </AppModal>

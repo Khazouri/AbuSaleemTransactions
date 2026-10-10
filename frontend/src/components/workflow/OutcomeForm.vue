@@ -26,6 +26,8 @@ const form = reactive({
   ...props.rule,
   actor: props.rule.requires_submitter_manager ? 'manager' : props.rule.requires_creator ? 'creator' : 'role',
 })
+// Workflow designer — slice 4. Only a step with a checklist can have an outcome waiting on it.
+const fromChecklist = computed(() => (props.stages.find((stage) => stage.code === form.from)?.checklist ?? []).length > 0)
 const title = computed(() => actionLabel(props.rule, { t, te, locale: locale.value }))
 // Every account holds R01, so the server refuses it as an actor; the filer is «مقدم الطلب».
 const actorRoles = computed(() => props.roles.filter((role) => role.code !== 'R01'))
@@ -37,6 +39,7 @@ function submit() {
     required_role_id: actor === 'role' ? rule.required_role_id : null,
     requires_submitter_manager: actor === 'manager',
     requires_creator: actor === 'creator',
+    requires_checks: fromChecklist.value && actor !== 'creator' && Boolean(rule.requires_checks),
   })
 }
 </script>
@@ -83,6 +86,7 @@ function submit() {
         <label class="check"><input v-model="form.actor" type="radio" value="creator" /> {{ t('workflows.actor.creator') }}</label>
       </fieldset>
       <label class="check"><input v-model="form.requires_comment" type="checkbox" /> {{ t('workflows.edit.requiresComment') }}</label>
+      <label v-if="fromChecklist" class="check"><input v-model="form.requires_checks" type="checkbox" :disabled="form.actor === 'creator'" /> {{ t('workflows.edit.requiresChecks') }}</label>
       <label class="check"><input v-model="form.is_exception" type="checkbox" /> {{ t('workflows.edit.isException') }}</label>
     </template>
     <div class="modal-actions">

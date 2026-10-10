@@ -2647,6 +2647,7 @@
     "unusedHint": "No rule reaches or leaves it; kept for older requests' history.",
     "drainOnly": "Off the path",
     "drainOnlyHint": "No rule reaches it; its rules only let files already here leave.",
+    "checksCount": "{count} checks",
     "responsibleRole": "Usually handled by",
     "targetDays": "Target time",
     "days": "{min}–{max} days",
@@ -2661,6 +2662,7 @@
       "anyone": "Any authorised user"
     },
     "flag": {
+      "requiresChecks": "After the checklist",
       "exception": "Exception",
       "comment": "Note required",
       "requiredStatus": "Only at status: {status}",
@@ -2699,6 +2701,27 @@
       "actorRole": "A specific role",
       "setStatus": "Request status after it",
       "keepStatus": "Unchanged",
+      "requiresChecks": "Taken only once the checklist is complete",
+      "requiresChecksHint": "Offered when the step has a checklist.",
+      "checklist": {
+        "title": "Checklist",
+        "hint": "Completed by whoever takes an outcome that waits on it; never by the filer or the employee concerned.",
+        "empty": "No items yet.",
+        "add": "Add item",
+        "remove": "Remove item",
+        "type": "Item type",
+        "types": {
+          "yes_no": "Yes / no",
+          "attachment": "Document review",
+          "note": "Note",
+          "attestation": "Attestation"
+        },
+        "labelAr": "Item text (Arabic)",
+        "labelEn": "Item text (English)",
+        "blockingAnswer": "Answer that holds the request",
+        "document": "Document",
+        "noDocuments": "The request types bound to this workflow list no documents."
+      },
       "requiresComment": "Requires a note",
       "isException": "Exception path",
       "publish": "Publish version",
