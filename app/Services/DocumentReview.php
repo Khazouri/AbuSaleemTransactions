@@ -30,6 +30,24 @@ class DocumentReview
 
     public const NOT_PREVIEWED = 'يجب معاينة المستند قبل الحكم عليه: ';
 
+    /** @var list<string>|null Null = every file; otherwise only files answering these rows. */
+    private ?array $onlyKeys = null;
+
+    /**
+     * A copy that reviews only the files answering `$keys`. HR judges the
+     * required rows and nothing else (user decision 2026-10-10), while
+     * المقرر's بوابة 1 still judges every file.
+     *
+     * @param  list<string>  $keys
+     */
+    public function only(array $keys): static
+    {
+        $scoped = clone $this;
+        $scoped->onlyKeys = $keys;
+
+        return $scoped;
+    }
+
     /**
      * The files under review, oldest first. Execution evidence is left out:
      * it arrives long after both gates and is Appendix 70's to judge.
@@ -40,6 +58,7 @@ class DocumentReview
     {
         $files = $requestRecord->attachments()
             ->whereNull('execution_evidence_type')
+            ->when($this->onlyKeys !== null, fn ($query) => $query->whereIn('required_document_key', $this->onlyKeys))
             ->orderBy('id')
             ->get(['id', 'request_id', 'original_name', 'required_document_key']);
 

@@ -100,14 +100,14 @@ const coveredDocumentKeys = computed(
   () => new Set(files.value.map((attachment) => attachment.required_document_key).filter(Boolean)),
 )
 
-// Stage 85 — [D] Appendix 57 binds now. A row the appendix states without an
-// inline qualifier must be covered by one of this submission's files; a row
-// that carries one ("بحسب الموضوع"، "عند الحاجة") stays optional. Mirrors the
-// server's own rule (DocumentCompletenessService) so the form refuses what the
-// endpoint would refuse, rather than posting into a 422 — the server stays the
-// enforcement either way.
+// Stage 85 — [D] Appendix 57 binds now. A row marked «مطلوب» on the Request
+// Types screen must be covered by one of this submission's files, except a
+// الملف الوظيفي row, which HR attaches (Stage 98). Mirrors the server's own
+// rule (DocumentCompletenessService::mandatorySubmitterDocuments) so the form
+// refuses what the endpoint would refuse, rather than posting into a 422 — the
+// server stays the enforcement either way.
 function isMandatory(doc) {
-  return !doc.condition
+  return doc.required && doc.section !== 'service_file'
 }
 
 const uncoveredMandatory = computed(() => (selectedType.value?.document_options ?? [])
@@ -854,9 +854,9 @@ onMounted(async () => {
             Stage 72 — [D] Appendix 57's document matrix for the chosen type, grouped
             by the appendix's own أساسية مشتركة / خاصة بالنوع split.
 
-            Stage 85 — no longer merely informational: a row the appendix states
-            without an inline qualifier has to be covered by one of the attached
-            files before the form will submit, and the server refuses it either way.
+            Stage 85 — no longer merely informational: a row marked «مطلوب»
+            (isMandatory) has to be covered by one of the attached files before
+            the form will submit, and the server refuses it either way.
           -->
           <fieldset v-if="documentOptionGroups.length" class="checklist" :disabled="isBusy">
             <legend>{{ t('intake.requiredDocuments.title') }}</legend>
@@ -875,7 +875,7 @@ onMounted(async () => {
                 >
                   <span aria-hidden="true" class="tick">{{ coveredDocumentKeys.has(doc.key) ? '✓' : '•' }}</span>
                   {{ docLabel(doc) }}
-                  <!-- Appendix 57 states this row without a qualifier, so it binds. -->
+                  <!-- Marked «مطلوب» on Request Types and not HR's to attach, so it binds. -->
                   <span v-if="isMandatory(doc)" class="doc-required">({{ t('intake.requiredDocuments.mandatory') }})</span>
                   <span v-if="docCondition(doc)" class="doc-condition">({{ docCondition(doc) }})</span>
                   <span v-if="coveredDocumentKeys.has(doc.key)" class="sr-only">{{ t('intake.requiredDocuments.attached') }}</span>

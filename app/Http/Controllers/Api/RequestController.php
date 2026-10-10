@@ -1128,7 +1128,7 @@ class RequestController extends Controller
             ], 422);
         }
 
-        $this->refuseUnpreviewed($requestRecord, $request->validated('documents'), $actor);
+        $this->refuseUnpreviewed(app(DocumentReview::class), $requestRecord, $request->validated('documents'), $actor);
 
         $requestRecord->update([
             'intake_gate' => $gate->record(
@@ -1177,7 +1177,7 @@ class RequestController extends Controller
             ], 422);
         }
 
-        $this->refuseUnpreviewed($requestRecord, $request->validated('documents'), $actor);
+        $this->refuseUnpreviewed($preparation->review($requestRecord), $requestRecord, $request->validated('documents'), $actor);
 
         $requestRecord->update([
             'employment_file' => $preparation->record(
@@ -1200,9 +1200,9 @@ class RequestController extends Controller
      *
      * @param  array<int|string, string>  $verdicts
      */
-    private function refuseUnpreviewed(Request $requestRecord, array $verdicts, User $actor): void
+    private function refuseUnpreviewed(DocumentReview $review, Request $requestRecord, array $verdicts, User $actor): void
     {
-        $unpreviewed = app(DocumentReview::class)->unpreviewed($requestRecord, $verdicts, $actor);
+        $unpreviewed = $review->unpreviewed($requestRecord, $verdicts, $actor);
 
         if ($unpreviewed !== null) {
             throw ValidationException::withMessages(['documents' => $unpreviewed]);
@@ -1533,7 +1533,10 @@ class RequestController extends Controller
                     'name' => $requestRecord->employmentFilePreparedBy->name,
                 ] : null,
                 'record' => $requestRecord->employment_file,
-                'review_attachments' => $review->forViewer($requestRecord, $viewer),
+                'review_attachments' => $employmentFile->review($requestRecord)->forViewer($requestRecord, $viewer),
+                'missing_required' => collect($employmentFile->missingRequired($requestRecord))
+                    ->map(fn (array $document, string $key): array => ['key' => $key, ...$document])
+                    ->values(),
                 'refusal' => $employmentFile->refusalReason($requestRecord),
             ],
             // بوابة 1 — قبل القيد: هل الملف صالح للدخول إلى مسار اللجنة؟

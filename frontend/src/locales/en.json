@@ -117,7 +117,8 @@
       },
       "conditionAr": "Condition (Arabic)",
       "conditionEn": "Condition (English)",
-      "conditionHint": "Leave blank when the document is always required."
+      "conditionHint": "Shown beside the document name. Whether it must be attached is set by «Required».",
+      "required": "Required"
     }
   },
   "users": {
@@ -1989,7 +1990,9 @@
       "approved": "Approved",
       "not_approved": "Not approved",
       "noFiles": "No files are attached to this request.",
-      "replaced": "A rejected file is cleared by uploading a new file of the same document type."
+      "replaced": "A rejected file is cleared by uploading a new file of the same document type.",
+      "missingRequired": "Required documents not attached yet:",
+      "notAttached": "Not attached"
     },
     "intake": {
       "title": "Gate 1 — before registration",

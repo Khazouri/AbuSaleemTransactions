@@ -34,7 +34,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *                                          committee agenda (DocumentCompletenessService); an entry
  *                                          WITH one stays optional. See RequestTypeSeeder's
  *                                          docblock for the exclusion rules and the four types [D]
- *                                          does not cover.
+ *                                          does not cover. Since 2026-10-10 each entry may also
+ *                                          carry `required` (the «مطلوب» box), which decides
+ *                                          the above instead of the condition; see isRequired().
  * @property string|null $default_administrative_route Stage 56 — a soft,
  *                                                     advisory suggestion (hr|diwan|committee_secretary) for which
  *                                                     of administrative_routing's 3 manual routes fits this type;
@@ -95,7 +97,7 @@ class RequestType extends Model
      * validation, and the folder derivation in store()), so the list a submitter
      * is offered and the list the server accepts cannot come apart.
      *
-     * @return array<string, array{ar: string, en: string, group: string, condition: array{ar: string, en: string}|null, section: string}>
+     * @return array<string, array{ar: string, en: string, group: string, condition: array{ar: string, en: string}|null, required: bool, section: string}>
      */
     public function documentOptions(): array
     {
@@ -109,6 +111,7 @@ class RequestType extends Model
                 'en' => $document['en'] ?? '',
                 'group' => $document['group'] ?? 'specific',
                 'condition' => $document['condition'] ?? null,
+                'required' => self::isRequired($document),
                 // Declared per row by the seeder where it is not المستندات
                 // المؤيدة; see basic()'s docblock for why it is data rather
                 // than something derived from the label afterwards. An
@@ -118,6 +121,21 @@ class RequestType extends Model
         }
 
         return $options;
+    }
+
+    /**
+     * Whether a matrix row must be attached: the «مطلوب» box on the Request
+     * Types screen (user decision 2026-10-10).
+     *
+     * A row saved before that box existed carries no flag and reads as
+     * Appendix 57 states it, required exactly when it has no inline condition,
+     * so no stored type changed meaning when the box arrived.
+     *
+     * @param  array<string, mixed>  $document
+     */
+    public static function isRequired(array $document): bool
+    {
+        return (bool) ($document['required'] ?? (($document['condition'] ?? null) === null));
     }
 
     /**

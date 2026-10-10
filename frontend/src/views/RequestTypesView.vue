@@ -122,6 +122,7 @@ function startEdit(type) {
       group: doc.group || 'basic',
       condition_ar: doc.condition?.ar ?? '',
       condition_en: doc.condition?.en ?? '',
+      required: doc.required ?? true,
     })),
   }
   errors.value = {}
@@ -143,6 +144,7 @@ function addDocument() {
     group: 'specific',
     condition_ar: '',
     condition_en: '',
+    required: true,
   })
 }
 
@@ -189,6 +191,7 @@ async function save() {
           (doc.condition_ar || '').trim() === '' && (doc.condition_en || '').trim() === ''
             ? null
             : { ar: doc.condition_ar || null, en: doc.condition_en || null },
+        required: doc.required,
       })),
     }
 
@@ -357,6 +360,9 @@ onMounted(load)
               {{ t('requestTypes.documents.conditionEn') }}
               <input v-model="doc.condition_en" class="ltr" />
             </label>
+            <label class="checkbox">
+              <input v-model="doc.required" type="checkbox" />{{ t('requestTypes.documents.required') }}
+            </label>
             <button class="ghost danger remove" type="button" @click="removeDocument(index)">
               {{ t('common.delete') }}
             </button>
@@ -453,6 +459,7 @@ onMounted(load)
                   <ul>
                     <li v-for="(doc, i) in section.items" :key="i">
                       {{ docLabel(doc) }}
+                      <span v-if="doc.required" class="pill danger">{{ t('requestTypes.documents.required') }}</span>
                       <span v-if="doc.condition" class="pill">{{ docLabel(doc.condition) }}</span>
                     </li>
                   </ul>

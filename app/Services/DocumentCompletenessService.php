@@ -22,7 +22,9 @@ use App\Models\RequestType;
  * entry's `condition` and Stage 78's gate already reads the same way ("an
  * entry that carries a condition may honestly be answered `not_applicable`;
  * an unconditional one may not"). So this stage moves an existing bar to the
- * moment the employee can act on it; it does not raise one.
+ * moment the employee can act on it; it does not raise one. Since 2026-10-10
+ * an administrator decides it per row with the «مطلوب» box
+ * (RequestType::isRequired()); a row saved before that keeps the reading above.
  *
  * ONE PREDICATE, THREE CALLERS — intake (StoreRequest), the agenda insertion
  * gate (MeetingController::addAgendaItem) and the readiness exception
@@ -44,7 +46,7 @@ use App\Models\RequestType;
 class DocumentCompletenessService
 {
     /**
-     * The rows [D] Appendix 57 states for this type without a qualifier.
+     * The rows this type marks «مطلوب» (RequestType::isRequired()).
      *
      * Reads RequestType::documentOptions() rather than `required_documents`
      * directly, so the keys here are the same slugs the submitter's picker
@@ -58,7 +60,7 @@ class DocumentCompletenessService
         $mandatory = [];
 
         foreach ($type?->documentOptions() ?? [] as $key => $document) {
-            if (($document['condition'] ?? null) === null) {
+            if ($document['required']) {
                 $mandatory[$key] = ['ar' => $document['ar'], 'en' => $document['en']];
             }
         }

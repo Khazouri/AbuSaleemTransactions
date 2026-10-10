@@ -12,6 +12,7 @@ use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Services\DocumentCompletenessService;
 use App\Services\DocumentReview;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -170,14 +171,25 @@ class DocumentReviewTest extends TestCase
     {
         $hr = $this->userWithRole('R12');
         $requestRecord = $this->requestAt('receive_and_register', 'routed_to_hr');
-        $attachment = $this->attach($requestRecord, 'بيان الخدمة.pdf');
+
+        // HR judges only files answering a required row (user decision
+        // 2026-10-10), and every such row must be attached, so the file under
+        // test answers the first required row and the rest are approved.
+        $keys = array_keys(app(DocumentCompletenessService::class)->mandatoryDocuments($requestRecord->requestType));
+        $attachment = $this->attach($requestRecord, 'بيان الخدمة.pdf', array_shift($keys));
         $this->preview($hr, $attachment);
+        $others = [];
+        foreach ($keys as $key) {
+            $other = $this->attach($requestRecord, "{$key}.pdf", $key);
+            $this->preview($hr, $other);
+            $others[$other->id] = 'approved';
+        }
 
         $payload = ['assembled' => true, 'grade_verified' => true];
 
         $this->actingAs($hr, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                ...$payload, 'documents' => [$attachment->id => 'not_approved'],
+                ...$payload, 'documents' => $others + [$attachment->id => 'not_approved'],
             ])
             ->assertOk()
             ->assertJsonPath('data.control_gates.employment_file.refusal', DocumentReview::NOT_APPROVED.'بيان الخدمة.pdf');
@@ -188,7 +200,7 @@ class DocumentReviewTest extends TestCase
 
         $this->actingAs($hr, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/employment-file", [
-                ...$payload, 'documents' => [$attachment->id => 'approved'],
+                ...$payload, 'documents' => $others + [$attachment->id => 'approved'],
             ])
             ->assertOk()
             ->assertJsonPath('data.control_gates.employment_file.refusal', null);

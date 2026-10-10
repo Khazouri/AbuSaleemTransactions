@@ -69,6 +69,27 @@ class DocumentCompletenessTest extends TestCase
         }
     }
 
+    /**
+     * The «مطلوب» box outranks the condition in both directions: an admin can
+     * make an unqualified row optional and a qualified one required.
+     */
+    public function test_an_explicit_required_flag_outranks_the_condition(): void
+    {
+        $type = RequestType::where('code', 'PROM')->firstOrFail();
+        $documents = $type->required_documents;
+
+        $unqualified = array_search('بيان الدرجة الحالية', array_column($documents, 'ar'), true);
+        $qualified = array_search('كشف الخدمة', array_column($documents, 'ar'), true);
+        $documents[$unqualified]['required'] = false;
+        $documents[$qualified]['required'] = true;
+        $type->update(['required_documents' => $documents]);
+
+        $mandatory = array_column(app(DocumentCompletenessService::class)->mandatoryDocuments($type->fresh()), 'ar');
+
+        $this->assertNotContains('بيان الدرجة الحالية', $mandatory);
+        $this->assertContains('كشف الخدمة', $mandatory);
+    }
+
     // --- the submission rule --------------------------------------------
 
     public function test_an_intake_missing_a_mandatory_document_is_refused_with_that_document_named(): void
