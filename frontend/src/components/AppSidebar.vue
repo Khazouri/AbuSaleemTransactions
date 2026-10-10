@@ -65,6 +65,7 @@ const ICON_BY_CODE = {
   meeting_outputs: 'bar-chart',
   users: 'users',
   request_types: 'layers',
+  workflow_designer: 'compass',
   roles_permissions: 'shield',
   settings: 'settings',
   reports: 'bar-chart',
