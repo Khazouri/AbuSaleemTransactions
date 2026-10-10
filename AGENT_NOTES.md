@@ -19,6 +19,26 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-10 19:35 EET — Claude — Implementation plan: workflow designer slice 3 — draft editing and publish
+
+The designer screen gains drafts. Clone a version (`POST workflow-versions/{v}/clone`) or start a new named workflow
+from one (`POST workflows`), then edit the draft:
+- add, edit, move and delete custom steps (`custom_…` codes, minted by the server);
+- add named custom outcomes (`custom_…` actions, an Arabic label, and a role, the manager or the filer as the actor);
+- redirect a built-in rule into a custom step. Built-in steps and rules are otherwise locked until slice 5.
+
+`PUT workflow-versions/{v}` takes the whole graph. `POST …/publish` refuses while `WorkflowVersionValidator` reports
+errors (an unreachable custom step, a stranded step, the committee reached without registration), and otherwise
+retires the old version and publishes in one transaction. `DELETE` removes a draft. Request types gain `workflow_id`
+(nullable, backfilled to Standard), and intake files onto the type's workflow.
+
+Runtime surfaces learn custom actions and stages: rule labels on the wizard and the timeline, party `role` and next
+action `complete_step` at a custom stage, `custom_step` in My Tasks, the step count per version, and report stages
+grouped by code. Verify: new `WorkflowDesignerTest`, `WorkflowValidatorTest` and `WorkflowDraftRuntimeTest`, node
+tests, full PHPUnit, Pint, migrate on MySQL, build (`dist` committed), parity, aislop ci, and a headless walk that
+builds and publishes a draft.
+
+---
 ### 2026-10-10 18:16 EET — Claude — Workflow designer slice 2: read-only canvas (complete)
 
 Built per the plan below. **Deviations:**
