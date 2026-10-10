@@ -19,6 +19,22 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-10 16:09 EET — Claude — Workflow designer slice 1: stages belong to versions (complete)
+
+Built on `feat/workflow-versions` (not merged, by the controller's ruling): `93bde1e` (workflows / workflow_versions
+tables, `workflow_stages.workflow_version_id`, seeders write Standard v1 only), `fcf7359` (`down()` drops the FK before
+the composite uniques), `eb5618f` (`cloneAsDraft` and the re-seed proof), `56bedcb` (stage codes resolve inside the
+request's own version: `Request::stageByCode`, `systemRule`, `destinationStageId`, `store()`, suspension, approval return,
+the `RequestVisibility` set, a per-version map in `MeetingOutputsResource`, `WorkflowStageCount` = published Standard),
+`65b20fe` (`reopenAtStage` refuses another version; the redo-stage picker takes `?request_id=`, the Vue forms pass it).
+**Deviations from the spec:** no `requests.workflow_version_id` or `workflow_transitions.workflow_version_id` (both
+derived); `request_types.workflow_id`, stage `kind`/`checklist`/`position`, report grouping and a per-version stage
+count are deferred to slices 3-4. **Real MySQL:** migrated and only the two workflow seeders re-run; 12 stages and 37
+rules before and after, 0 stages without a version, 1 `workflow_versions` row. Verified: full suite 860 / 5555 plus
+Maintenance 14 and Bootstrap 9, Pint clean on the slice's PHP, parity 2084, `aislop ci` exit 0. Four open items are in
+OPEN_ITEMS.md.
+
+---
 ### 2026-10-10 15:20 EET — Claude — Implementation plan: workflow designer slice 1 — every stage belongs to a version
 
 Slice 1 adds `workflows` and `workflow_versions`, and `workflow_stages.workflow_version_id` (backfilled to a published
@@ -67,23 +83,6 @@ Verified:
 Not checked in a browser.
 
 ---
-### 2026-10-10 EET — Claude — Workflow designer slice 1: stages belong to versions (complete)
-
-Built on `feat/workflow-versions` (not merged, by the controller's ruling): `93bde1e` (workflows / workflow_versions
-tables, `workflow_stages.workflow_version_id`, seeders write Standard v1 only), `fcf7359` (`down()` drops the FK before
-the composite uniques), `eb5618f` (`cloneAsDraft` and the re-seed proof), `56bedcb` (stage codes resolve inside the
-request's own version: `Request::stageByCode`, `systemRule`, `destinationStageId`, `store()`, suspension, approval return,
-the `RequestVisibility` set, a per-version map in `MeetingOutputsResource`, `WorkflowStageCount` = published Standard),
-`65b20fe` (`reopenAtStage` refuses another version; the redo-stage picker takes `?request_id=`, the Vue forms pass it).
-**Deviations from the spec:** no `requests.workflow_version_id` or `workflow_transitions.workflow_version_id` (both
-derived); `request_types.workflow_id`, stage `kind`/`checklist`/`position`, report grouping and a per-version stage
-count are deferred to slices 3-4. **Real MySQL:** migrated and only the two workflow seeders re-run; 12 stages and 37
-rules before and after, 0 stages without a version, 1 `workflow_versions` row. Verified: full suite 860 / 5555 plus
-Maintenance 14 and Bootstrap 9, Pint clean on the slice's PHP, parity 2084, `aislop ci` exit 0. Four open items are in
-OPEN_ITEMS.md.
-
----
-
 ### 2026-10-10 14:24 EET — Claude — Implementation plan: a «مطلوب» checkbox per document row; HR checks every required one
 
 User: «add a check box that define if an attachment is required; all required attachments are checked by hr». Put to
