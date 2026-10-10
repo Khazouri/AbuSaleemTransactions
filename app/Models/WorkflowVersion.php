@@ -28,6 +28,9 @@ class WorkflowVersion extends Model
         'published_by_user_id',
     ];
 
+    /** Workflow designer — slice 3. Every write to a version that is no longer a draft is refused with this. */
+    public const NOT_A_DRAFT = 'لا يُعدَّل إلا إصدار في حالة مسودة؛ أنشئ مسودة من هذا الإصدار.';
+
     /** @var Collection<string, WorkflowStage>|null */
     private ?Collection $stagesByCode = null;
 
@@ -88,14 +91,18 @@ class WorkflowVersion extends Model
      * Workflow designer — slice 1. A draft copy of this version: every stage
      * and rule duplicated onto rows of its own, with each rule's from/to
      * re-pointed at the copied stages, so editing the draft can never touch
-     * a request in flight on this one.
+     * a request in flight on this one. `$into` makes the copy the first draft
+     * of another workflow instead (slice 3's «مسار جديد»), numbered from 1
+     * there.
      */
-    public function cloneAsDraft(): self
+    public function cloneAsDraft(?Workflow $into = null): self
     {
-        return DB::transaction(function () {
+        $workflowId = $into?->id ?? $this->workflow_id;
+
+        return DB::transaction(function () use ($workflowId) {
             $draft = self::create([
-                'workflow_id' => $this->workflow_id,
-                'number' => self::query()->where('workflow_id', $this->workflow_id)->max('number') + 1,
+                'workflow_id' => $workflowId,
+                'number' => (int) self::query()->where('workflow_id', $workflowId)->max('number') + 1,
                 'status' => 'draft',
                 'cloned_from_version_id' => $this->id,
             ]);

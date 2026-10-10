@@ -26,6 +26,7 @@ class RequestTypeResource extends JsonResource
             'code' => $this->code,
             'name_ar' => $this->name_ar,
             'name_en' => $this->name_en,
+            'workflow_id' => $this->workflow_id,
             'default_sla_days' => $this->default_sla_days,
             'decision_grade_threshold' => $this->decision_grade_threshold,
             'is_active' => $this->is_active,

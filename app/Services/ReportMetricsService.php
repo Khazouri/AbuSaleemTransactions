@@ -330,14 +330,16 @@ class ReportMetricsService
         return $this->query($filters)
             ->join('workflow_stages', 'workflow_stages.id', '=', 'requests.current_stage_id')
             ->select([
-                'workflow_stages.order_no',
                 'workflow_stages.code',
-                'workflow_stages.name_ar',
-                'workflow_stages.name_en',
+                DB::raw('MIN(workflow_stages.order_no) as order_no'),
+                DB::raw('MAX(workflow_stages.name_ar) as name_ar'),
+                DB::raw('MAX(workflow_stages.name_en) as name_en'),
                 DB::raw('COUNT(*) as total'),
             ])
-            ->groupBy('workflow_stages.order_no', 'workflow_stages.code', 'workflow_stages.name_ar', 'workflow_stages.name_en')
-            ->orderBy('workflow_stages.order_no')
+            // Workflow designer — slice 3: a code is one stage in every
+            // version, though a custom step inserted before it renumbers it.
+            ->groupBy('workflow_stages.code')
+            ->orderByRaw('MIN(workflow_stages.order_no)')
             ->get()
             ->map(fn ($row) => [
                 'order_no' => (int) $row->order_no,

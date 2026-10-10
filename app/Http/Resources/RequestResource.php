@@ -81,7 +81,7 @@ class RequestResource extends JsonResource
             // ways in two places even if the underlying count ever changes.
             'stage_progress' => $this->currentStage ? [
                 'current' => $this->currentStage->order_no,
-                'total' => app(WorkflowStageCount::class)->total(),
+                'total' => app(WorkflowStageCount::class)->total($this->currentStage->id),
             ] : null,
             // Stage 83 — [D] Appendices 17 and 18, on the *list* payload and
             // not only the detail one: "يجب أن تظهر في كل معاملة خانة إلزامية

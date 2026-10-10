@@ -8,8 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Workflow designer — slice 1. A named workflow, shared by the request types
- * that use it. `standard` is seeded and is what intake uses until request
- * types can pick another (slice 3).
+ * that use it. `standard` is seeded; since slice 3 each request type picks
+ * one (`request_types.workflow_id`), and intake files onto its published
+ * version.
  */
 class Workflow extends Model
 {
@@ -23,6 +24,11 @@ class Workflow extends Model
     public function versions(): HasMany
     {
         return $this->hasMany(WorkflowVersion::class);
+    }
+
+    public function requestTypes(): HasMany
+    {
+        return $this->hasMany(RequestType::class);
     }
 
     /** The version new requests are filed onto. At most one per workflow. */

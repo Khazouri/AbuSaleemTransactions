@@ -89,6 +89,10 @@ class StoreRequestTypeRequest extends FormRequest
             'decision_grade_threshold' => ['nullable', 'integer', 'min:1', 'max:100'],
 
             'is_active' => ['sometimes', 'boolean'],
+
+            // Workflow designer — slice 3. Only a workflow with a published
+            // version: intake files new requests onto that version.
+            'workflow_id' => ['sometimes', 'integer', Rule::exists('workflow_versions', 'workflow_id')->where('status', 'published')],
             'default_has_financial_impact' => ['sometimes', 'boolean'],
 
             // Stage 56 — advisory only; all three routes stay selectable
@@ -127,6 +131,7 @@ class StoreRequestTypeRequest extends FormRequest
             'default_sla_days.min' => 'المدة المحددة يجب ألا تقل عن يوم واحد.',
             'decision_grade_threshold.integer' => 'درجة القرار يجب أن تكون رقماً.',
             'default_administrative_route.in' => 'جهة الإحالة المقترحة غير معروفة.',
+            'workflow_id.exists' => 'مسار العمل المحدد لا يملك إصدارًا منشورًا.',
             'required_documents.*.ar.required' => 'اسم المستند بالعربية مطلوب.',
             'required_documents.*.group.in' => 'تصنيف المستند غير معروف.',
             'required_documents.*.section.in' => 'مجلد المستند غير معروف.',

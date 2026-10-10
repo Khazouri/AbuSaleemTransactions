@@ -28,6 +28,8 @@ class WorkflowTransition extends Model
         'from_stage_id',
         'to_stage_id',
         'action',
+        'label_ar',
+        'label_en',
         'required_role_id',
         'requires_submitter_manager',
         'requires_creator',
@@ -37,6 +39,19 @@ class WorkflowTransition extends Model
         'requires_comment',
         'order_no',
     ];
+
+    /**
+     * Workflow designer — slice 3. Outcomes an admin adds carry this prefix
+     * on their action, and the server mints it, so the prefix alone tells a
+     * built-in rule (locked until slice 5, named by the locale files) from a
+     * custom one (editable, named by label_ar/label_en).
+     */
+    public const CUSTOM_PREFIX = 'custom_';
+
+    public function isCustom(): bool
+    {
+        return str_starts_with((string) $this->action, self::CUSTOM_PREFIX);
+    }
 
     protected function casts(): array
     {

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\IntakeGateService;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -178,6 +179,7 @@ class RequestType extends Model
         'default_administrative_route',
         'legal_basis_ar',
         'legal_basis_note_ar',
+        'workflow_id',
     ];
 
     protected function casts(): array
@@ -187,6 +189,23 @@ class RequestType extends Model
             'default_has_financial_impact' => 'boolean',
             'required_documents' => 'array',
         ];
+    }
+
+    /**
+     * Workflow designer — slice 3. Every type runs on a workflow; one created
+     * anywhere (the Request Types screen, a seeder, a test) without naming
+     * one gets Standard, the workflow every type started on.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $type) {
+            $type->workflow_id ??= Workflow::query()->where('code', 'standard')->value('id');
+        });
+    }
+
+    public function workflow(): BelongsTo
+    {
+        return $this->belongsTo(Workflow::class);
     }
 
     /**

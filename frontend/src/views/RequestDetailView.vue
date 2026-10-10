@@ -37,10 +37,11 @@ import { stageProgressLabel } from '../lib/stageProgress'
 // Stage 75 — [D] Appendix 47's twelve checks, mirrored once for every screen.
 import { AUDIT_CHECKS } from '../lib/requestClosure'
 import { TRACKING_CHECKS } from '../lib/requestExecution'
+import { actionLabel } from '../lib/workflowActions'
 
 const route = useRoute()
 const router = useRouter()
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
 const request = ref(null)
 const loading = ref(false)
 const error = ref('')
@@ -91,7 +92,8 @@ const dateTime = (value) => value
 const date = (value) => value
   ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
   : t('common.none')
-const actionLabel = (action) => t(`workflow.actions.${action}`)
+// Workflow designer — slice 3: a custom outcome is named by its own label.
+const ruleLabel = (item) => actionLabel(item, { t, te, locale: locale.value })
 // The round still awaiting an answer, read off the register itself now that
 // the eligibility fields are gone (decision wizard sub-project 3).
 const openApprovalReferral = computed(() => request.value?.approval_referrals?.find((entry) => !entry.result_outcome) ?? null)
@@ -385,7 +387,7 @@ function onWizardUpdated(updated) {
                 <li v-for="entry in request.timeline" :key="entry.id">
                   <span class="dot" />
                   <div>
-                    <strong>{{ actionLabel(entry.action) }}</strong>
+                    <strong>{{ ruleLabel(entry) }}</strong>
                     <p v-if="entry.to_stage">{{ timelineMovement(entry) }}</p>
                     <p v-if="entry.comment" class="entry-comment">{{ entry.comment }}</p>
                     <small>

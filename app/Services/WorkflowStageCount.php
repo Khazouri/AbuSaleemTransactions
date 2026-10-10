@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Workflow;
+use App\Models\WorkflowStage;
 
 /**
  * Stage 93 — the denominator for the employee-facing "step N of TOTAL"
@@ -19,16 +20,22 @@ use App\Models\Workflow;
  */
 class WorkflowStageCount
 {
-    private ?int $total = null;
+    /** @var array<int, int> stage id (0 = none) => count */
+    private array $totals = [];
 
     /**
      * The published Standard version's stage count, never hard-coded — see
-     * WorkflowStageSeeder. One version only: a cloned draft must not double
-     * the denominator (workflow designer — slice 1; per-version counts are
-     * slice 3's, when a request type can run on another workflow).
+     * WorkflowStageSeeder. Workflow designer — slice 3: given a stage, the
+     * count of that stage's own version, since versions differ in length (a
+     * custom step adds one); without one, the published Standard version,
+     * which is what reports divide by.
      */
-    public function total(): int
+    public function total(?int $stageId = null): int
     {
-        return $this->total ??= Workflow::standard()->publishedVersion->stages()->count();
+        return $this->totals[$stageId ?? 0] ??= $stageId === null
+            ? Workflow::standard()->publishedVersion->stages()->count()
+            : WorkflowStage::query()
+                ->where('workflow_version_id', WorkflowStage::query()->whereKey($stageId)->select('workflow_version_id'))
+                ->count();
     }
 }

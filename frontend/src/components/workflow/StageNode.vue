@@ -16,7 +16,7 @@ const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en :
 </script>
 
 <template>
-  <div class="stage-node" :class="{ current: props.data.current, aside: props.data.aside, selected: props.selected }">
+  <div class="stage-node" :class="{ custom: props.data.stage.custom, current: props.data.current, aside: props.data.aside, selected: props.selected }">
     <Handle id="top" type="target" :position="Position.Top" :connectable="false" />
     <Handle id="bottom" type="source" :position="Position.Bottom" :connectable="false" />
     <Handle id="skip-in" type="target" :position="Position.Left" :connectable="false" />
@@ -27,6 +27,7 @@ const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en :
     <span class="order">{{ props.data.stage.order_no }}</span>
     <div class="body" dir="auto">
       <strong>{{ name(props.data.stage) }}</strong>
+      <span v-if="props.data.stage.custom" class="muted">{{ t('workflows.edit.customStage') }}</span>
       <span v-if="props.data.current" class="pill current-pill">{{ t('workflows.current') }}</span>
       <span v-else-if="props.data.unused" class="muted">{{ t('workflows.unused') }}</span>
       <span v-else-if="props.data.drainOnly" class="muted">{{ t('workflows.drainOnly') }}</span>
@@ -49,6 +50,8 @@ const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en :
   color: var(--color-foreground);
   box-shadow: 0 1px 2px var(--color-overlay);
 }
+/* Workflow designer — slice 3: a step the admin added. Before .current, so the request's own stage still reads as current. */
+.stage-node.custom { border-color: var(--color-info-border); background: var(--color-info-bg); }
 .stage-node.selected { border-color: var(--color-brand-text); }
 .stage-node.current { border: 2px solid var(--color-brand); background: var(--color-success-bg); }
 .stage-node.aside { border-style: dashed; opacity: .7; }

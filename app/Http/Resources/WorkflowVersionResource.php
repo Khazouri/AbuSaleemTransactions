@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\WorkflowVersionValidator;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,17 +25,19 @@ class WorkflowVersionResource extends JsonResource
 
     public function toArray(Request $request): array
     {
-        $label = fn ($model) => $model ? ['code' => $model->code, 'name_ar' => $model->name_ar, 'name_en' => $model->name_en] : null;
+        $label = fn ($model) => $model ? ['id' => $model->id, 'code' => $model->code, 'name_ar' => $model->name_ar, 'name_en' => $model->name_en] : null;
 
         return [
             'id' => $this->id,
             'number' => $this->number,
             'status' => $this->status,
+            'cloned_from_version_id' => $this->cloned_from_version_id,
             'published_at' => $this->published_at?->toIso8601String(),
-            'workflow' => ['id' => $this->workflow->id] + $label($this->workflow),
+            'workflow' => $label($this->workflow),
             'stages' => $this->stages->sortBy('order_no')->values()->map(fn ($stage) => [
                 'id' => $stage->id,
                 'code' => $stage->code,
+                'custom' => $stage->isCustom(),
                 'order_no' => $stage->order_no,
                 'name_ar' => $stage->name_ar,
                 'name_en' => $stage->name_en,
@@ -47,6 +50,9 @@ class WorkflowVersionResource extends JsonResource
                 'from_stage_id' => $rule->from_stage_id,
                 'to_stage_id' => $rule->to_stage_id,
                 'action' => $rule->action,
+                'custom' => $rule->isCustom(),
+                'label_ar' => $rule->label_ar,
+                'label_en' => $rule->label_en,
                 'is_exception' => $rule->is_exception,
                 'requires_comment' => $rule->requires_comment,
                 'requires_submitter_manager' => $rule->requires_submitter_manager,
@@ -56,6 +62,9 @@ class WorkflowVersionResource extends JsonResource
                 'required_status' => $label($rule->requiredStatus),
                 'request_type' => $label($rule->requestType),
             ]),
+            // Workflow designer — slice 3. A published version passed these
+            // checks to be published, so only a draft is checked on read.
+            'report' => $this->when($this->status === 'draft', fn () => app(WorkflowVersionValidator::class)->report($this->resource)),
         ];
     }
 }
