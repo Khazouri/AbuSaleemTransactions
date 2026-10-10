@@ -32,7 +32,9 @@ derived); `request_types.workflow_id`, stage `kind`/`checklist`/`position`, repo
 count are deferred to slices 3-4. **Real MySQL:** migrated and only the two workflow seeders re-run; 12 stages and 37
 rules before and after, 0 stages without a version, 1 `workflow_versions` row. Verified: full suite 860 / 5555 plus
 Maintenance 14 and Bootstrap 9, Pint clean on the slice's PHP, parity 2084, `aislop ci` exit 0. Four open items are in
-OPEN_ITEMS.md.
+OPEN_ITEMS.md. Final-review fixes: `TestRequestSeeder` is scoped to the published version, two pinning tests were added
+(re-seed keeps a newer published version; the redo picker 404s for an unknown request), the report-grouping open item was
+corrected and a version-delete-cascade item added.
 
 ---
 ### 2026-10-10 15:20 EET — Claude — Implementation plan: workflow designer slice 1 — every stage belongs to a version

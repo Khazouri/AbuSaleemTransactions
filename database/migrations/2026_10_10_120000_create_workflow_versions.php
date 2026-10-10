@@ -73,6 +73,7 @@ return new class extends Migration
         });
     }
 
+    /** Only works while a single version exists: restoring unique('code') fails once codes repeat. */
     public function down(): void
     {
         Schema::table('workflow_stages', function (Blueprint $table) {

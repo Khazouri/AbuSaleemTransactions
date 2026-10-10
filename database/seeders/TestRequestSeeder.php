@@ -8,7 +8,7 @@ use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
 use App\Models\RequestType;
 use App\Models\User;
-use App\Models\WorkflowStage;
+use App\Models\Workflow;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\RequestDeadlineService;
 use Illuminate\Database\Seeder;
@@ -80,7 +80,10 @@ class TestRequestSeeder extends Seeder
         }
 
         $types = RequestType::query()->where('is_active', true)->get();
-        $stages = WorkflowStage::query()->whereIn('code', array_keys(self::STAGES))->pluck('id', 'code');
+        // Codes repeat across versions, so an unscoped lookup would park files
+        // on whichever version's row came last (a draft, once one exists).
+        $stages = Workflow::standard()->publishedVersion->stages()
+            ->whereIn('code', array_keys(self::STAGES))->pluck('id', 'code');
         $statuses = RequestStatus::query()->whereIn('code', self::STAGES)->pluck('id', 'code');
 
         // Both number series lock their latest row, so the run is one transaction.

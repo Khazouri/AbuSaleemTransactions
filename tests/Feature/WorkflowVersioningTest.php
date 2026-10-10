@@ -188,6 +188,29 @@ class WorkflowVersioningTest extends TestCase
         $this->assertSame($second->stages()->count(), app(WorkflowStageCount::class)->total());
     }
 
+    public function test_reseeding_with_a_newer_version_published_keeps_it_published(): void
+    {
+        $first = Workflow::standard()->publishedVersion;
+        $second = $this->publishClone($first);
+        $stageCount = $second->stages()->count();
+
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertSame('published', $second->fresh()->status);
+        $this->assertSame('retired', $first->fresh()->status);
+        $this->assertSame(1, WorkflowVersion::where('status', 'published')->count());
+        $this->assertSame($stageCount, $second->stages()->count());
+    }
+
+    public function test_the_redo_stage_picker_404s_for_an_unknown_request(): void
+    {
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/appeals/redo-stage-options?request_id=999999')
+            ->assertNotFound();
+    }
+
     private function userWithRole(string $roleCode): User
     {
         $user = User::factory()->create(['is_active' => true]);

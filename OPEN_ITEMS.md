@@ -13,9 +13,18 @@ What is open, why it was left, and what would close it.
 
 ---
 
-### Report stage grouping must group by code once versions differ — workflow designer slice 1 — opened 2026-10-10
-`ReportMetricsService` groups requests by `current_stage_id`. With one version that equals grouping by stage; once a
-second version exists the same stage splits into two buckets. **To close (slice 3):** group by stage code.
+### Delete of a workflow version orphans its requests' stages — workflow designer slice 1 — opened 2026-10-10
+Deleting a version cascades to its stages (`workflow_stages.workflow_version_id` is `cascadeOnDelete`) and
+`requests.current_stage_id` is `nullOnDelete`, so a deleted version's requests lose their stage and
+`Request::stageByCode()` silently falls back to the published version (the `reopenAtStage` guard skips null stages).
+**To close (slice 3):** a new migration making that FK (and `workflow_versions.workflow_id`) `restrictOnDelete`, the draft
+DELETE removing its stages explicitly, and optionally `stageByCode` throwing when `current_stage_id` is set but resolves
+no version.
+
+### Report stage grouping across versions — workflow designer slice 1 — opened 2026-10-10
+`ReportMetricsService::byStage()` groups by `workflow_stages.order_no, code, name_ar, name_en`, so an unchanged clone
+merges into the same bucket. Buckets split only when a version renames or renumbers a stage, and `orderBy(order_no)` can
+then interleave versions. **To close (slice 3):** group by stage code alone and take the label from the published version.
 
 ### Per-version WorkflowStageCount — workflow designer slice 1 — opened 2026-10-10
 `RequestResource`'s `stage_progress` divides by `WorkflowStageCount`, which slice 1 pins to the published Standard
