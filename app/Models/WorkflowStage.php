@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $responsible_role_id Display only — NOT access control
  * @property int|null $target_days_min Stage 52 — non-binding soft-SLA target
  * @property int|null $target_days_max Stage 52 — non-binding soft-SLA target
+ * @property list<array<string, mixed>>|null $checklist
  */
 class WorkflowStage extends Model
 {
@@ -36,7 +37,16 @@ class WorkflowStage extends Model
         'description',
         'target_days_min',
         'target_days_max',
+        'checklist',
     ];
+
+    /** Workflow designer — slice 4. The kinds of item a step's checklist holds (spec §3). */
+    public const CHECK_TYPES = ['yes_no', 'attachment', 'note', 'attestation'];
+
+    protected function casts(): array
+    {
+        return ['checklist' => 'array'];
+    }
 
     /**
      * The role that typically owns this stage, for showing "currently with:"

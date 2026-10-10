@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $action approve, reject, return_missing_docs...
  * @property bool $is_exception Exception path vs normal progress
  * @property bool $requires_comment Force the actor to give a reason
+ * @property bool $requires_checks Workflow designer — slice 4: waits on the from-stage's checklist
  */
 class WorkflowTransition extends Model
 {
@@ -37,6 +38,7 @@ class WorkflowTransition extends Model
         'set_status_id',
         'is_exception',
         'requires_comment',
+        'requires_checks',
         'order_no',
     ];
 
@@ -58,6 +60,7 @@ class WorkflowTransition extends Model
         return [
             'is_exception' => 'boolean',
             'requires_comment' => 'boolean',
+            'requires_checks' => 'boolean',
             'requires_submitter_manager' => 'boolean',
             'requires_creator' => 'boolean',
         ];

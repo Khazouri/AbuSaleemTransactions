@@ -43,6 +43,7 @@ class WorkflowVersionResource extends JsonResource
                 'name_en' => $stage->name_en,
                 'target_days_min' => $stage->target_days_min,
                 'target_days_max' => $stage->target_days_max,
+                'checklist' => $stage->checklist,
                 'responsible_role' => $label($stage->responsibleRole),
             ]),
             'transitions' => $this->transitions->sortBy([['from_stage_id', 'asc'], ['order_no', 'asc']])->values()->map(fn ($rule) => [
@@ -55,6 +56,7 @@ class WorkflowVersionResource extends JsonResource
                 'label_en' => $rule->label_en,
                 'is_exception' => $rule->is_exception,
                 'requires_comment' => $rule->requires_comment,
+                'requires_checks' => $rule->requires_checks,
                 'requires_submitter_manager' => $rule->requires_submitter_manager,
                 'requires_creator' => $rule->requires_creator,
                 'required_role' => $label($rule->requiredRole),
