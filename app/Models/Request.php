@@ -182,18 +182,23 @@ class Request extends Model
     }
 
     /**
-     * Workflow designer — slice 1. The stage with this code in the version
-     * this request runs on. Read through current_stage_id, never through a
-     * loaded `currentStage`: list endpoints eager-load it with a column subset
-     * that would hide its version and silently fall back to the wrong one.
+     * Workflow designer — slice 1 (extracted in slice 2). The version this
+     * request runs on, read through current_stage_id rather than a loaded
+     * `currentStage`: list endpoints eager-load that relation with a column
+     * subset that would hide its version. A request with no stage falls back
+     * to the version new requests are filed onto.
      */
+    public function resolveWorkflowVersion(): WorkflowVersion
+    {
+        return WorkflowVersion::query()
+            ->whereHas('stages', fn ($stages) => $stages->whereKey($this->current_stage_id))
+            ->first() ?? Workflow::standard()->publishedVersion;
+    }
+
+    /** The stage with this code in the version this request runs on. */
     public function stageByCode(string $code): WorkflowStage
     {
-        $version = WorkflowVersion::query()
-            ->whereHas('stages', fn ($stages) => $stages->whereKey($this->current_stage_id))
-            ->first();
-
-        return ($version ?? Workflow::standard()->publishedVersion)->stage($code);
+        return $this->resolveWorkflowVersion()->stage($code);
     }
 
     public function createdBy(): BelongsTo

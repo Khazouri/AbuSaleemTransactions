@@ -2622,5 +2622,48 @@
       "attach_document": "إرفاق مستند"
     },
     "financialImpactTo": "يصبح الأثر المالي: {value}"
+  },
+  "workflows": {
+    "title": "مسارات العمل",
+    "version": "النسخة {number}",
+    "status": {
+      "published": "منشورة",
+      "draft": "مسودة",
+      "retired": "متقاعدة"
+    },
+    "pickVersion": "النسخة المعروضة",
+    "fitView": "ملاءمة العرض",
+    "canvasLabel": "مخطط مسار العمل",
+    "legend": "الخطوط المتقطعة مسارات استثنائية؛ اضغط على أي سهم أو مرحلة لعرض تفاصيلها.",
+    "selectStage": "اختر مرحلة أو سهمًا في المخطط، أو مرحلة من القائمة:",
+    "back": "كل المراحل",
+    "current": "المرحلة الحالية",
+    "unused": "غير مستخدمة",
+    "unusedHint": "لا تصل إليها قاعدة ولا تغادرها؛ محفوظة لسجل الطلبات القديمة.",
+    "drainOnly": "خارج المسار",
+    "drainOnlyHint": "لا تصل إليها قاعدة؛ قواعدها تُخرج الملفات الموجودة فيها فقط.",
+    "responsibleRole": "المسؤول المعتاد",
+    "targetDays": "المدة المستهدفة",
+    "days": "{min}–{max} يوم",
+    "rulesOut": "الإجراءات من هذه المرحلة",
+    "staysHere": "يبقى في المرحلة",
+    "noRules": "لا إجراءات",
+    "to": "إلى: {stage}",
+    "setsStatus": "الحالة: {status}",
+    "actor": {
+      "manager": "الرئيس المباشر لصاحب العلاقة",
+      "creator": "مقدّم الطلب",
+      "anyone": "أي مستخدم مخوّل"
+    },
+    "flag": {
+      "exception": "استثناء",
+      "comment": "يتطلب ملاحظة",
+      "requiredStatus": "فقط عند الحالة: {status}",
+      "requestType": "لنوع: {type}"
+    },
+    "edgeRules": "{from} ← {to}",
+    "loadFailed": "تعذّر تحميل مسار العمل.",
+    "viewOnRequest": "عرض مسار العمل",
+    "requestTitle": "مسار العمل لهذا الطلب — النسخة {number}"
   }
 }

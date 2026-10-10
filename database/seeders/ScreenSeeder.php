@@ -12,7 +12,8 @@ use Illuminate\Database\Seeder;
  * one, `authority_approval`), plus `departments` (see the note beside it
  * below), Stage 58's `appeals`, Stage 68's `legal_review`, Stage 80's
  * `registers`, the maintenance console, `request_types` and Stage 89's
- * `request_tracking` = 35 total.
+ * `request_tracking` = 35 at that point. Later stages added more, and the
+ * workflow designer (slice 2) brings the array below to 38 rows.
  *
  * Two consumers:
  *   - the sidebar (Stage 5) renders these rows, filtered by can_view
@@ -121,6 +122,10 @@ class ScreenSeeder extends Seeder
             // it needs a screen. Administration, i.e. R08-only, like its
             // neighbours here.
             ['request_types',            'أنواع الطلبات',              'Request Types',                '/request-types',            'layers',       null],
+            // Workflow designer — slice 2. Every workflow and its versions,
+            // drawn as a diagram. Administration, so R08-only like its
+            // neighbours; editing arrives in slice 3 on this same screen.
+            ['workflow_designer',        'مسارات العمل',               'Workflows',                    '/workflows',                'compass',      null],
             ['roles_permissions',        'الأدوار والصلاحيات',         'Roles & Permissions',          '/roles',                    'key',          null],
             ['settings',                 'الإعدادات العامة',           'General Settings',             '/settings',                 'settings',     null],
             // Stage 103 — R08 names the مقرر here, and the مقرر names the

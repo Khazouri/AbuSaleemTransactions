@@ -37,12 +37,14 @@ use App\Http\Controllers\Api\RequestLegalReviewController;
 use App\Http\Controllers\Api\RequestLifecycleController;
 use App\Http\Controllers\Api\RequestTrackingController;
 use App\Http\Controllers\Api\RequestTypeController;
+use App\Http\Controllers\Api\RequestWorkflowController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WorkflowController;
 use App\Models\CommitteeMember;
 use Illuminate\Support\Facades\Route;
 
@@ -184,6 +186,12 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::middleware('screen.permission:request_types,delete')
         ->delete('request-types/{requestType}', [RequestTypeController::class, 'destroy']);
+
+    // Workflow designer — slice 2: read-only workflows and versions (R08).
+    Route::middleware('screen.permission:workflow_designer,view')->group(function () {
+        Route::get('workflows', [WorkflowController::class, 'index']);
+        Route::get('workflow-versions/{workflowVersion}', [WorkflowController::class, 'showVersion']);
+    });
 
     /*
      * Read-only role list (Stage 7) — the Users screen needs it to offer
@@ -360,6 +368,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // transition's configured role under lock (not one broad screen flag).
     Route::middleware('screen.permission:request_details,view')
         ->get('requests/{requestRecord}', [RequestController::class, 'show']);
+    // Workflow designer — slice 2: the version a request runs on.
+    Route::middleware('screen.permission:request_details,view')
+        ->get('requests/{requestRecord}/workflow', [RequestWorkflowController::class, 'show']);
     Route::middleware('screen.permission:request_details,view')
         ->post('requests/{requestRecord}/transition', [RequestController::class, 'transition']);
 

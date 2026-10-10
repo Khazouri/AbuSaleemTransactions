@@ -1021,6 +1021,8 @@ Sign in as `r08.sysadmin@abusaleem.test` (leave `admin@abusaleem.test` untouched
 - [ ] The whole `إدارة الاجتماعات` group (nine screens) **without a seat** — R08 is exempt from
       the seat rule. It no longer builds the roster: forming a committee and picking its seats are
       the مقرر's alone (2026-10-02) → 422.
+- [ ] `/workflows` (مسارات العمل, workflow designer slice 2) shows the published version as a diagram;
+      no other role sees it in the sidebar, and opening the URL as any other role redirects away.
 - [ ] `المهام المعلقة` never lists anything under «بانتظار اعتمادك» — R08 holds no approval role.
       The group it does get is «طلبات متأخرة بانتظار التصعيد».
 
@@ -1588,6 +1590,7 @@ Letters: `v` view · `a` add · `e` edit · `d` delete · `A` approve · `p` pri
 | `users` — المستخدمون | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
 | `departments` — الإدارات والأقسام | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
 | `request_types` — أنواع الطلبات | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
+| `workflow_designer` — مسارات العمل | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
 | `roles_permissions` — الأدوار والصلاحيات | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
 | `settings` — الإعدادات العامة | · | · | · | · | · | · | · | vaedApx | · | · | · | · |
 | `reports` — التقارير والإحصائيات | vp | vp | vp | vp | vp | vpx | vpx | vaedApx | vp | vp | vp | vp |

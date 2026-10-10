@@ -119,6 +119,13 @@ const routes = [
         meta: { screenCode: 'request_types' },
       },
       {
+        // Workflow designer — slice 2: every workflow and its versions, drawn read-only.
+        path: 'workflows',
+        name: 'workflow_designer',
+        component: () => import('../views/WorkflowsView.vue'),
+        meta: { screenCode: 'workflow_designer' },
+      },
+      {
         // Stage 8 — roles & permissions matrix editor.
         path: 'roles',
         name: 'roles_permissions',

@@ -2622,5 +2622,48 @@
       "attach_document": "Attach a document"
     },
     "financialImpactTo": "Financial impact becomes: {value}"
+  },
+  "workflows": {
+    "title": "Workflows",
+    "version": "Version {number}",
+    "status": {
+      "published": "Published",
+      "draft": "Draft",
+      "retired": "Retired"
+    },
+    "pickVersion": "Version shown",
+    "fitView": "Fit to view",
+    "canvasLabel": "Workflow diagram",
+    "legend": "Dashed lines are exception paths; click any arrow or stage for its details.",
+    "selectStage": "Pick a stage or arrow on the diagram, or a stage from the list:",
+    "back": "All stages",
+    "current": "Current stage",
+    "unused": "Not in use",
+    "unusedHint": "No rule reaches or leaves it; kept for older requests' history.",
+    "drainOnly": "Off the path",
+    "drainOnlyHint": "No rule reaches it; its rules only let files already here leave.",
+    "responsibleRole": "Usually handled by",
+    "targetDays": "Target time",
+    "days": "{min}–{max} days",
+    "rulesOut": "Actions from this stage",
+    "staysHere": "Stays at this stage",
+    "noRules": "No actions",
+    "to": "To: {stage}",
+    "setsStatus": "Status: {status}",
+    "actor": {
+      "manager": "The subject's direct manager",
+      "creator": "The filer",
+      "anyone": "Any authorised user"
+    },
+    "flag": {
+      "exception": "Exception",
+      "comment": "Note required",
+      "requiredStatus": "Only at status: {status}",
+      "requestType": "For type: {type}"
+    },
+    "edgeRules": "{from} → {to}",
+    "loadFailed": "Could not load the workflow.",
+    "viewOnRequest": "View workflow",
+    "requestTitle": "This request's workflow — version {number}"
   }
 }

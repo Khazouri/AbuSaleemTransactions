@@ -19,6 +19,49 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-10 18:16 EET — Claude — Workflow designer slice 2: read-only canvas (complete)
+
+Built per the plan below. **Deviations:**
+- The canvas opens at 85% zoom, on the request's stage or the top of the chain. It does not fit-to-view, because
+  fitting 12 rows shrank the text past reading.
+- Exception edges are dashed and unlabelled; the inspector names their actions.
+- The request page loads the canvas async, so Vue Flow (~154 kB) is fetched only when «عرض مسار العمل» opens.
+
+**Gotcha: Homestead serves the main checkout, not this worktree**, so browser-checking a branch needs
+`php artisan serve` from the worktree plus a Vite instance with `VITE_API_BASE_URL` pointed at it.
+
+Verified:
+- full suite 867 + 14 + 9, Pint clean, the 6-case node test, build (`dist` committed), parity 2117, `aislop ci` 97;
+- a headless walk against this branch's API, ar/en × 1280/375 × light/dark: 12 nodes with 3 unused aside, the canvas
+  is `ltr` while node text is `rtl` in Arabic, there is no page overflow, and the inspector works by click and by
+  keyboard. As R01, the request modal marks the current stage and `/workflows` bounces. There were no console errors;
+- `check-layout.mjs` shows only the known `/decisions` 1024px overflow and the R08 `/requests/create` gap (OPEN_ITEMS);
+- both screen seeders ran on the real DB. A cell-by-cell diff against a backup showed only the overdue
+  `request_intake,approve` clear for R02/R05 (OPEN_ITEMS item resolved).
+
+**Final-review fixes**, each proven RED then GREEN by a browser or node check:
+- Backspace no longer deletes stages from the read-only canvas.
+- The canvas adds no tab stops; the inspector's stage list is the keyboard path.
+- A bad `?version=` error clears when a real version is picked.
+- On phones, a tapped stage's details scroll into view.
+- Reopening the request modal re-centres on the file's current stage.
+- A stage that nothing reaches but whose rules let parked files leave (`administrative_routing`) sits aside as «خارج
+  المسار», so the manager's one-click approve reads as the main path.
+
+All 15 tokens this session minted were revoked.
+
+---
+### 2026-10-10 17:43 EET — Claude — Implementation plan: workflow designer slice 2 — read-only canvas
+
+A new `workflow_designer` screen («مسارات العمل», `/workflows`, R08 only) draws any workflow version as a diagram
+(`@vue-flow/core` 1.48.2, exact pin, the only new dependency). A request page gains «عرض مسار العمل», which opens the
+version that request runs on with its current stage marked. API: `GET workflows`, `GET workflow-versions/{v}` and
+`GET requests/{r}/workflow` (the request's own visibility rule, 404 elsewhere), all through one
+`WorkflowVersionResource`. The layout is `lib/workflowGraph.js`, which is free of Vue and covered by `node --test`.
+Nothing is editable yet. Verify: new `WorkflowViewTest`, the node test, full PHPUnit, Pint, build (`dist` committed),
+parity, aislop ci, check-layout plus a headless walk, and both screen seeders on the real DB.
+
+---
 ### 2026-10-10 16:09 EET — Claude — Workflow designer slice 1: stages belong to versions (complete)
 
 Built on `feat/workflow-versions` (not merged, by the controller's ruling): `93bde1e` (workflows / workflow_versions

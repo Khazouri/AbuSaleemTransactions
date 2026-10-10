@@ -8,6 +8,9 @@ import '@fontsource/cairo/400.css'
 import '@fontsource/cairo/600.css'
 import '@fontsource/cairo/700.css'
 
+// Workflow designer — slice 2. Vue Flow's structural CSS must be global and
+// load before ours, so the token rules in the canvas components win.
+import '@vue-flow/core/dist/style.css'
 import './style.css'
 // Imported for its side effect: resolves the saved light/dark preference and
 // stamps <html data-theme> before anything renders.

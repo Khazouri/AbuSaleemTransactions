@@ -421,6 +421,11 @@ instead of cramming it in here. Rules:
   (the gate panel reads `record.items`).
 - `frontend/postcss.config.js` is intentionally empty — don't "fix" it by
   adding Tailwind or removing it; the comment in the file explains why.
+- **Homestead serves the main checkout** (`/home/vagrant/code/AbuSaleemTransactions`), not a
+  git worktree such as `main-wt`. So `abusaleem.test` runs `main`'s code, and a branch's new routes
+  404 there, although the MySQL is shared. To browser-check a branch, run `php artisan serve
+  --port=8010` from the worktree, then `VITE_API_BASE_URL=http://127.0.0.1:8010/api npx vite
+  --port 5174` in its `frontend/`.
 - `frontend/.env` and `frontend/.env.production` are git-ignored, so a new git
   worktree starts without them. Copy both in from the main checkout first.
   Without `.env` the dev SPA calls `/api` on Vite itself and every screen reads
