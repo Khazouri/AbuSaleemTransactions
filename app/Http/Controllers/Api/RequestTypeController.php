@@ -7,6 +7,7 @@ use App\Http\Requests\RequestType\StoreRequestTypeRequest;
 use App\Http\Requests\RequestType\UpdateRequestTypeRequest;
 use App\Http\Resources\RequestTypeResource;
 use App\Models\RequestType;
+use App\Models\Workflow;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -38,7 +39,10 @@ class RequestTypeController extends Controller
             ->orderBy('name_ar')
             ->get();
 
-        return RequestTypeResource::collection($types);
+        return RequestTypeResource::collection($types)->additional([
+            // Workflow designer — slice 3. The workflows a type may be bound to.
+            'workflows' => Workflow::query()->whereHas('publishedVersion')->orderBy('id')->get(['id', 'code', 'name_ar', 'name_en']),
+        ]);
     }
 
     public function store(StoreRequestTypeRequest $request): JsonResponse
