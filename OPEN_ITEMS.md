@@ -13,6 +13,30 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The user guide does not describe «مسارات العمل» — workflow designer slice 2 — opened 2026-10-10
+`USER_GUIDE.ar.md` has no section on the Workflows screen or on «عرض مسار العمل» on a request. It was left out
+because slice 2 is read-only, and the screen is worth documenting once slice 3 makes it editable. **To close:** a
+guide section, plus a PDF rebuild (`scripts/build-guide-pdf.php`), when slice 3 lands.
+
+### Role test plans' Appendix A and screen counts are stale — workflow designer slice 2 — opened 2026-10-10
+`TEST_PLAN.roles.md`/`.ar.md` Appendix A has no `committee_roles` row (that screen was added on 2026-10-04). The
+plans also say 36 screens (29 sidebar entries for R08), while the seeder now has 38. Slice 2 added only the
+`workflow_designer` row and one R08 check; it did not bump counts that were already wrong. **To close:** re-derive
+Appendix A and every count from `ScreenSeeder` + `ScreenRolePermissionSeeder` + the seat gate by script, as was done
+on 2026-10-02.
+
+### check-layout.mjs cannot check /requests/create — noticed in workflow designer slice 2 — opened 2026-10-10
+The check logs in as R08, and R08 has been barred from filing since 2026-10-07. The intake screen therefore
+redirects to `/dashboard` and is reported "not checked" at every width, which makes the run exit 1 even with no
+overflow anywhere. **To close:** let the script use an R01 account for `/requests/create`, or skip that route on
+purpose.
+
+### npm audit: high advisories in vue and axios — noticed in workflow designer slice 2 — opened 2026-10-10
+`npm audit` in `frontend/` reports `@vue/server-renderer` < 3.5.42 (pulled in by vue) and axios ≤ 1.19.0. Both
+predate slice 2; `@vue-flow/core` added none. The SPA does no server rendering, so the vue advisory does not reach
+it, and the axios ones are mostly Node-adapter issues. **To close:** `npm audit fix`, then a build and a browser
+check, on its own branch.
+
 ### Delete of a workflow version orphans its requests' stages — workflow designer slice 1 — opened 2026-10-10
 Deleting a version cascades to its stages (`workflow_stages.workflow_version_id` is `cascadeOnDelete`) and
 `requests.current_stage_id` is `nullOnDelete`, so a deleted version's requests lose their stage and
@@ -69,6 +93,9 @@ forward. The intake block itself is code (`User::screenPermissions()`) and is al
 `php artisan db:seed --class=WorkflowTransitionSeeder` (safe, it does not touch the permission matrix).
 
 ### `request_intake,approve` still granted to R02/R05 on the real database — on-behalf removal — opened 2026-10-07
+**Resolved (2026-10-10, workflow designer slice 2).** The new screen needed `ScreenRolePermissionSeeder` on the real
+DB. A cell-by-cell comparison against a backup taken just before the reseed shows these two cells were the only ones
+changed (1 → 0), so no customised grant was lost.
 `ScreenRolePermissionSeeder` no longer grants that tier, but Homestead's MySQL was unreachable when the change was made,
 so the real database still has it. It is now inert: nothing reads the tier, and the intake endpoint ignores
 `subject_user_id`. Don't reseed the whole matrix to fix it, because that resets grants customised on Roles &

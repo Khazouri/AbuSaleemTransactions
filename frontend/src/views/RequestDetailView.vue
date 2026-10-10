@@ -8,7 +8,7 @@
  * stacked in a row. Every v-if, v-can, prop and endpoint below is unchanged
  * from before this pass — only where each block renders moved.
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import TimelineDocuments from '../components/TimelineDocuments.vue'
@@ -23,6 +23,11 @@ import RequestArchivePanel from '../components/RequestArchivePanel.vue'
 import RequestLifecyclePanel from '../components/RequestLifecyclePanel.vue'
 import RequestNotes from '../components/RequestNotes.vue'
 import RequestStageRail from '../components/RequestStageRail.vue'
+import AppModal from '../components/AppModal.vue'
+import WorkflowInspector from '../components/workflow/WorkflowInspector.vue'
+// Workflow designer — slice 2. Async so Vue Flow (~160 kB) loads only when
+// «عرض مسار العمل» is opened, not with every request page.
+const WorkflowCanvas = defineAsyncComponent(() => import('../components/workflow/WorkflowCanvas.vue'))
 import api from '../lib/api'
 // Stage 72 — [D] Appendix 57's grouped document matrix, shared with the intake
 // screen so both read the same list the same way.
@@ -102,6 +107,22 @@ const timelineMovement = (entry) => entry.from_stage
 // panels that sat above it: one button opens the wizard, and a task from
 // «المهام المعلقة» arrives with `?decide=1` to open it straight away.
 const wizardOpen = ref(false)
+
+// Workflow designer — slice 2: the version this request runs on, with its stage marked.
+const workflowOpen = ref(false)
+const requestWorkflow = ref(null)
+const workflowSelection = ref(null)
+const workflowError = ref('')
+async function openWorkflow() {
+  workflowOpen.value = true
+  workflowError.value = ''
+  workflowSelection.value = null
+  try {
+    requestWorkflow.value = (await api.get(`/requests/${request.value.id}/workflow`)).data.data
+  } catch {
+    workflowError.value = t('workflows.loadFailed')
+  }
+}
 const canDecide = computed(() => Boolean(
   request.value?.available_transitions?.length || request.value?.blocked_transitions?.length
   || request.value?.committee_actions?.length
@@ -215,6 +236,27 @@ function onWizardUpdated(updated) {
         :stage-timeliness="request.stage_timeliness"
         :current-stage-name="currentStageName"
       />
+      <p class="workflow-link">
+        <button class="ghost" type="button" @click="openWorkflow">{{ t('workflows.viewOnRequest') }}</button>
+      </p>
+      <AppModal
+        v-if="workflowOpen"
+        wide
+        :title="requestWorkflow ? t('workflows.requestTitle', { number: requestWorkflow.version.number }) : t('workflows.viewOnRequest')"
+        @close="workflowOpen = false"
+      >
+        <p v-if="workflowError" class="alert" role="alert">{{ workflowError }}</p>
+        <p v-else-if="!requestWorkflow" class="state">{{ t('common.loading') }}</p>
+        <div v-else class="request-workflow">
+          <WorkflowCanvas :version="requestWorkflow.version" :current-stage-id="requestWorkflow.current_stage_id" @select="workflowSelection = $event" />
+          <WorkflowInspector
+            :version="requestWorkflow.version"
+            :selection="workflowSelection"
+            :current-stage-id="requestWorkflow.current_stage_id"
+            @select="workflowSelection = $event"
+          />
+        </div>
+      </AppModal>
 
       <!-- Stage 83 — [D] Appendices 17 and 18's المسؤول الحالي / الإجراء
            التالي, promoted out of the summary grid: the appendix says this
@@ -833,6 +875,11 @@ function onWizardUpdated(updated) {
 /* -- Actions ----------------------------------------------------------------- */
 /* Decision wizard — the one way in; the action card and top gates it replaced
    used to sit here. */
+.workflow-link { margin: 0 0 var(--space-4); display: flex; justify-content: flex-end; }
+.request-workflow { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr) 20rem; }
+@media (max-width: 1023px) {
+  .request-workflow { grid-template-columns: minmax(0, 1fr); }
+}
 .decide { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-brand); }
 .decide p { margin: 0; color: var(--color-black-700); }
 .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
