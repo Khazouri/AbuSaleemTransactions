@@ -12,16 +12,19 @@ class MeetingOutputsResource extends JsonResource
     public function toArray(Request $request): array
     {
         // Looked up by code, not hardcoded, so a stage renumber can't
-        // silently change what "advanced past committee" means here.
-        $committeeStageOrder = WorkflowStage::query()
+        // silently change what "advanced past committee" means here — and
+        // per version, since each version numbers its own stages.
+        $committeeStageOrders = WorkflowStage::query()
             ->where('code', 'receive_from_committee')
-            ->value('order_no') ?? 0;
+            ->pluck('order_no', 'workflow_version_id');
 
         $requestItems = $this->agendaItems->whereNotNull('request_id')->values();
         $decidedItems = $requestItems->filter(fn ($item) => $item->decision !== null);
-        $advancedItems = $decidedItems->filter(
-            fn ($item) => ($item->request?->currentStage?->order_no ?? 0) > $committeeStageOrder,
-        );
+        $advancedItems = $decidedItems->filter(function ($item) use ($committeeStageOrders) {
+            $stage = $item->request?->currentStage;
+
+            return ($stage?->order_no ?? 0) > ($committeeStageOrders[$stage?->workflow_version_id] ?? 0);
+        });
 
         return [
             'meeting' => [

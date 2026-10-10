@@ -327,7 +327,7 @@ class WorkflowService
      */
     private function systemRule(Request $requestRecord, string $fromStageCode, string $action): WorkflowTransition
     {
-        $fromStage = WorkflowStage::query()->where('code', $fromStageCode)->firstOrFail();
+        $fromStage = $requestRecord->stageByCode($fromStageCode);
 
         $candidates = WorkflowTransition::query()
             ->where('from_stage_id', $fromStage->id)
@@ -777,10 +777,7 @@ class WorkflowService
             return $rule->to_stage_id;
         }
 
-        return WorkflowStage::query()
-            ->where('code', 'final_approval_archiving')
-            ->firstOrFail()
-            ->id;
+        return $requestRecord->stageByCode('final_approval_archiving')->id;
     }
 
     /**

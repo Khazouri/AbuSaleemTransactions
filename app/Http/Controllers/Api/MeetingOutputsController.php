@@ -86,7 +86,7 @@ class MeetingOutputsController extends Controller
             'agendaItems.request.createdBy:id,name',
             'agendaItems.request.department:id,code,name_ar,name_en',
             'agendaItems.request.status:id,code,name_ar,name_en,color',
-            'agendaItems.request.currentStage:id,order_no,code,name_ar,name_en,responsible_role_id',
+            'agendaItems.request.currentStage:id,workflow_version_id,order_no,code,name_ar,name_en,responsible_role_id',
             'agendaItems.request.currentStage.responsibleRole:id,code,name_ar,name_en',
             // Stage 76 — the outputs screen's execute panel picks Appendix 70's
             // دليل التنفيذ from the request's own documents, and shows the

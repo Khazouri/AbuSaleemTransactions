@@ -131,11 +131,11 @@ class RequestVisibility
         // «الرئيس المباشر» means the manager of the employee the file is
         // about, and WorkflowService/NotificationDispatcher already resolve
         // the gated rows the same way.
-        $preparationStageId = WorkflowStage::query()
+        $preparationStageIds = WorkflowStage::query()
             ->where('code', EmploymentFilePreparationService::GATED_STAGE)
-            ->value('id');
+            ->pluck('id');
 
-        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser, $isHrStudyCoOwner, $hrStudyStageIds, $preparationStageId) {
+        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser, $isHrStudyCoOwner, $hrStudyStageIds, $preparationStageIds) {
             // Stage 95 — the filer AND صاحب العلاقة. A request raised on an
             // employee's behalf is that employee's own file: Art. 101 tells
             // them about it and «متابعة طلباتي» lists it, so without this
@@ -153,9 +153,9 @@ class RequestVisibility
                 $visible->orWhereIn('requests.current_stage_id', $hrStudyStageIds);
             }
 
-            if ($preparationStageId !== null) {
-                $visible->orWhere(function (Builder $beingPrepared) use ($actor, $preparationStageId) {
-                    $beingPrepared->where('requests.current_stage_id', $preparationStageId)
+            if ($preparationStageIds->isNotEmpty()) {
+                $visible->orWhere(function (Builder $beingPrepared) use ($actor, $preparationStageIds) {
+                    $beingPrepared->whereIn('requests.current_stage_id', $preparationStageIds)
                         ->whereExists(function ($managed) use ($actor) {
                             $managed->selectRaw('1')
                                 ->from('users as subjects')
