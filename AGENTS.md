@@ -205,6 +205,14 @@ Key architectural facts worth knowing before changing things:
   files onto (null = Standard). A custom outcome has no locale key, so every
   screen names a rule through `lib/workflowActions.js`'s `actionLabel()`
   (its `label_ar`/`label_en`).
+  **Slice 4 (checklists):** a custom step's `checklist` (yes_no / attachment /
+  note / attestation; item keys server-minted, `c…`) gates the outcomes marked
+  `requires_checks`. `StepChecklistService` is read first by
+  `RequestController::controlGateRefusal()`, and its card
+  (`request_step_reviews`) belongs to one *arrival*: a self-loop keeps it, a
+  return and re-arrival starts afresh. `PATCH requests/{r}/step-review` records
+  it for whoever is offered a checked outcome; `actorMayUse()` keeps the filer
+  and صاحب العلاقة off those outcomes.
 
 - **Staged build-out**: [STAGE_PLAN.md](STAGE_PLAN.md) is the source of truth
   for what each stage number means (goal, what gets built, done-when) —

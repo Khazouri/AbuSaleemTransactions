@@ -15,6 +15,7 @@ use App\Http\Requests\Request\RecordApprovalReturnRequest;
 use App\Http\Requests\Request\RecordExecutionSoundnessRequest;
 use App\Http\Requests\Request\RecordIntakeGateRequest;
 use App\Http\Requests\Request\RecordJurisdictionTestRequest;
+use App\Http\Requests\Request\RecordStepReviewRequest;
 use App\Http\Requests\Request\ReopenRequest;
 use App\Http\Requests\Request\ResolveApprovalReturnRequest;
 use App\Http\Requests\Request\StoreRequest;
@@ -56,6 +57,7 @@ use App\Services\RequestDeadlineService;
 use App\Services\RequestSuspensionService;
 use App\Services\RequestTimelineCompiler;
 use App\Services\RequestVisibility;
+use App\Services\StepChecklistService;
 use App\Services\Tasks\RequestActs;
 use App\Services\WorkflowService;
 use DomainException;
@@ -103,6 +105,16 @@ class RequestController extends Controller
      */
     public static function controlGateRefusal(Request $requestRecord, string $action): ?string
     {
+        // Workflow designer — slice 4. An outcome an admin marked as waiting
+        // on its step's checklist. First, because it is the only gate a custom
+        // step has; Art. 105 still comes before it, as at every checkpoint.
+        $checklist = app(StepChecklistService::class);
+        if ($checklist->gates($requestRecord, $action)) {
+            return $requestRecord->openSuspension()->exists()
+                ? RequestSuspensionService::BLOCK_MESSAGE
+                : $checklist->refusalReason($requestRecord);
+        }
+
         // Stage 98 — [D] Appendix 6 row 3. The only non-`approve` hop with a
         // gate of its own: HR assembles الملف الوظيفي before registering the
         // file, at the stage R12 already holds. Answered before the `approve`
@@ -1199,6 +1211,31 @@ class RequestController extends Controller
     }
 
     /**
+     * Workflow designer — slice 4. Record a custom step's checklist.
+     *
+     * Only someone this step offers a checked outcome may fill it: the card is
+     * that person's attestation, and availableTransitions() already keeps the
+     * filer and صاحب العلاقة off those outcomes (actorMayUse()), so it keeps
+     * them off the card too.
+     */
+    public function recordStepReview(
+        RecordStepReviewRequest $request,
+        Request $requestRecord,
+        StepChecklistService $checklist,
+        WorkflowService $workflow,
+        RequestVisibility $visibility,
+    ): RequestDetailResource {
+        $actor = $request->user();
+
+        abort_unless($visibility->canView($actor, $requestRecord), 404);
+        abort_unless($workflow->availableTransitions($requestRecord, $actor)->contains('requires_checks', true), 403);
+
+        $checklist->record($requestRecord, $actor, $request->validated('answers'));
+
+        return $this->detailResource($requestRecord, $workflow, $actor);
+    }
+
+    /**
      * Both document gates take a verdict only on a file the reviewer opened in
      * full; the server knows because AttachmentController::previewed()
      * recorded the open, so the client cannot simply claim it.
@@ -1458,6 +1495,8 @@ class RequestController extends Controller
             'action' => $rule->action,
             'is_exception' => $rule->is_exception,
             'requires_comment' => $rule->requires_comment,
+            // Workflow designer — slice 4. The wizard shows the checklist only to someone offered such an outcome.
+            'requires_checks' => $rule->requires_checks,
             // Workflow designer — slice 3. A custom outcome has no locale key.
             'label_ar' => $rule->label_ar,
             'label_en' => $rule->label_en,
@@ -1529,6 +1568,9 @@ class RequestController extends Controller
         $employmentFile = app(EmploymentFilePreparationService::class);
 
         return [
+            // Workflow designer — slice 4. A custom step's checklist; null at a step without one.
+            'step_checklist' => app(StepChecklistService::class)->forViewer($requestRecord, $viewer),
+
             // Stage 98 — [D] Appendix 6 row 3. Not one of Appendix 63's four
             // gates, and reported beside them rather than inside `intake`
             // because it is a different party's card: HR assembles الملف

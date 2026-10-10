@@ -44,6 +44,8 @@ class WorkflowDraftWriter
             $this->checkStages($stages, $sentCodes);
             $this->checkRules($rules, $stages, $data['transitions'], $sentCodes->all());
 
+            $checklists = $this->checklists($stages, $sent);
+
             // Everything checked; nothing below can refuse half-way.
             $removed = $stages->filter(fn (WorkflowStage $stage) => $stage->isCustom() && ! $sentCodes->contains($stage->code))->pluck('id');
             WorkflowTransition::query()->whereIn('from_stage_id', $removed)->orWhereIn('to_stage_id', $removed)->delete();
@@ -56,7 +58,10 @@ class WorkflowDraftWriter
 
             foreach ($sent as $index => $item) {
                 $orderNo = $index + 1;
-                $fields = collect($item)->only(['name_ar', 'name_en', 'responsible_role_id', 'target_days_min', 'target_days_max'])->all();
+                $fields = [
+                    ...collect($item)->only(['name_ar', 'name_en', 'responsible_role_id', 'target_days_min', 'target_days_max'])->all(),
+                    'checklist' => $checklists[$index],
+                ];
 
                 if ($item['code'] === null) {
                     WorkflowStage::create([
@@ -80,6 +85,56 @@ class WorkflowDraftWriter
 
             $this->writeRules($draft, $rules, $data['transitions']);
         });
+    }
+
+    /**
+     * Workflow designer — slice 4. Each sent stage's checklist, normalised to
+     * the fields its item type uses (spec §3) — so switching an item's type
+     * in the editor leaves no stale field behind — with every new item given
+     * a key. Keys are minted here, like stage codes, and a sent key must
+     * already be on that stage: an answer card is keyed by them, so they must
+     * never change under it or be invented by a client. The `c` prefix keeps
+     * a key from being all digits (the JSON re-index gotcha).
+     *
+     * @param  Collection<string, WorkflowStage>  $stages
+     * @param  Collection<int, array<string, mixed>>  $sent
+     * @return array<int, list<array<string, mixed>>|null> by sent index
+     */
+    private function checklists(Collection $stages, Collection $sent): array
+    {
+        $errors = [];
+        $result = [];
+
+        foreach ($sent as $index => $item) {
+            $known = collect($item['code'] === null ? [] : ($stages[$item['code']]->checklist ?? []))->pluck('key');
+            $keys = collect($item['checklist'] ?? [])->pluck('key')->filter();
+
+            if ($keys->diff($known)->isNotEmpty() || $keys->duplicates()->isNotEmpty()) {
+                $errors["stages.{$index}.checklist"][] = 'بند في قائمة التحقق لا ينتمي إلى هذه المرحلة.';
+
+                continue;
+            }
+
+            $items = collect($item['checklist'] ?? [])->map(fn (array $check) => [
+                'key' => $check['key'] ?? 'c'.Str::lower(Str::random(10)),
+                'type' => $check['type'],
+                'label_ar' => $check['label_ar'],
+                'label_en' => $check['label_en'] ?? null,
+                ...match ($check['type']) {
+                    'yes_no' => ['blocking_answer' => $check['blocking_answer']],
+                    'attachment' => ['document_key' => $check['document_key']],
+                    default => [],
+                },
+            ])->values()->all();
+
+            $result[$index] = $items === [] ? null : $items;
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $result;
     }
 
     /**
@@ -184,6 +239,13 @@ class WorkflowDraftWriter
             $errors["transitions.{$index}.required_role_id"][] = 'كل حساب يحمل دور «موظف»، فلا يحدد من يتخذ النتيجة؛ اختر «مقدم الطلب» إن كان المقصود صاحب الطلب.';
         }
 
+        // Workflow designer — slice 4. The filer may never complete a check on
+        // their own file (actorMayUse()), so a checked outcome only the filer
+        // may take could never be taken by anyone.
+        if (! empty($item['requires_checks']) && ! empty($item['requires_creator'])) {
+            $errors["transitions.{$index}.requires_checks"][] = 'لا تُربط قائمة التحقق بنتيجة يتخذها مقدم الطلب، فهو لا يستكمل التحقق على طلبه.';
+        }
+
         return $errors;
     }
 
@@ -212,6 +274,7 @@ class WorkflowDraftWriter
                 'requires_comment' => (bool) ($item['requires_comment'] ?? false),
                 'requires_submitter_manager' => (bool) ($item['requires_submitter_manager'] ?? false),
                 'requires_creator' => (bool) ($item['requires_creator'] ?? false),
+                'requires_checks' => (bool) ($item['requires_checks'] ?? false),
             ];
 
             if ($existing) {

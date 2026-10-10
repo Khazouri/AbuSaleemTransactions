@@ -251,6 +251,85 @@ class WorkflowDesignerTest extends TestCase
             ->assertJsonValidationErrors('code');
     }
 
+    public function test_a_custom_step_saves_its_checklist_and_an_outcome_waits_on_it(): void
+    {
+        $draft = Workflow::standard()->publishedVersion->cloneAsDraft();
+        $payload = $this->withAuditStep($this->payload($draft), $draft);
+        $at = collect($payload['stages'])->search(fn ($stage) => str_starts_with((string) $stage['code'], 'custom_'));
+        $payload['stages'][$at]['checklist'] = [
+            ['key' => null, 'type' => 'yes_no', 'label_ar' => 'هل يوجد اعتماد مالي؟', 'label_en' => null, 'blocking_answer' => 'no', 'document_key' => 'ignored'],
+            ['key' => null, 'type' => 'note', 'label_ar' => 'ملاحظة المدقق', 'label_en' => 'Auditor note', 'blocking_answer' => 'yes'],
+        ];
+        $payload['transitions'][array_key_last($payload['transitions'])]['requires_checks'] = true;
+
+        $response = $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/workflow-versions/{$draft->id}", $payload)
+            ->assertOk();
+
+        $stage = collect($response->json('data.stages'))->firstWhere('name_ar', 'تدقيق مالي');
+        $this->assertSame(['yes_no', 'note'], array_column($stage['checklist'], 'type'));
+        // Only the field its type uses survives, so a type switch leaves no stale field behind.
+        $this->assertSame('no', $stage['checklist'][0]['blocking_answer']);
+        $this->assertArrayNotHasKey('document_key', $stage['checklist'][0]);
+        $this->assertArrayNotHasKey('blocking_answer', $stage['checklist'][1]);
+        $this->assertTrue(collect($response->json('data.transitions'))->firstWhere('label_ar', 'اعتماد التدقيق')['requires_checks']);
+    }
+
+    public function test_item_keys_are_minted_once_and_cannot_be_forged(): void
+    {
+        $draft = Workflow::standard()->publishedVersion->cloneAsDraft();
+        $payload = $this->withAuditStep($this->payload($draft), $draft);
+        $at = collect($payload['stages'])->search(fn ($stage) => str_starts_with((string) $stage['code'], 'custom_'));
+        $payload['stages'][$at]['checklist'] = [['key' => null, 'type' => 'attestation', 'label_ar' => 'أقر بصحة ما سبق']];
+        $admin = $this->actingAs($this->admin(), 'sanctum');
+
+        $key = collect($admin->putJson("/api/workflow-versions/{$draft->id}", $payload)->assertOk()->json('data.stages'))
+            ->firstWhere('name_ar', 'تدقيق مالي')['checklist'][0]['key'];
+        $this->assertMatchesRegularExpression('/^c[a-z0-9]{10}$/', $key);
+
+        $again = $this->payload($draft->fresh());
+        $this->assertSame($key, collect($admin->putJson("/api/workflow-versions/{$draft->id}", $again)->assertOk()->json('data.stages'))
+            ->firstWhere('name_ar', 'تدقيق مالي')['checklist'][0]['key']);
+
+        $forged = $this->payload($draft->fresh());
+        $forged['stages'][$at]['checklist'][0]['key'] = 'cforged0000';
+        $admin->putJson("/api/workflow-versions/{$draft->id}", $forged)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors("stages.{$at}.checklist");
+    }
+
+    public function test_a_malformed_item_or_a_checked_filer_outcome_is_refused(): void
+    {
+        $draft = Workflow::standard()->publishedVersion->cloneAsDraft();
+        $payload = $this->withAuditStep($this->payload($draft), $draft);
+        $at = collect($payload['stages'])->search(fn ($stage) => str_starts_with((string) $stage['code'], 'custom_'));
+        $payload['stages'][$at]['checklist'] = [
+            ['key' => null, 'type' => 'yes_no', 'label_ar' => 'سؤال بلا إجابة مانعة'],
+            ['key' => null, 'type' => 'attachment', 'label_ar' => 'مستند بلا نوع'],
+            ['key' => null, 'type' => 'signature', 'label_ar' => 'نوع غير معروف'],
+        ];
+        $last = array_key_last($payload['transitions']);
+        $payload['transitions'][$last] = [
+            ...$payload['transitions'][$last],
+            'required_role_id' => null, 'requires_creator' => true, 'requires_checks' => true,
+        ];
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/workflow-versions/{$draft->id}", $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                "stages.{$at}.checklist.0.blocking_answer",
+                "stages.{$at}.checklist.1.document_key",
+                "stages.{$at}.checklist.2.type",
+            ]);
+
+        $payload['stages'][$at]['checklist'] = [];
+        $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/workflow-versions/{$draft->id}", $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors("transitions.{$last}.requires_checks");
+    }
+
     /** The PUT body for $version as the SPA would send it, unchanged. */
     private function payload(WorkflowVersion $version): array
     {
@@ -265,6 +344,7 @@ class WorkflowDesignerTest extends TestCase
                 'responsible_role_id' => $stage->responsible_role_id,
                 'target_days_min' => $stage->target_days_min,
                 'target_days_max' => $stage->target_days_max,
+                'checklist' => $stage->checklist,
             ])->all(),
             'transitions' => $version->transitions()->get()->map(fn ($rule) => [
                 'id' => $rule->id,
@@ -279,6 +359,7 @@ class WorkflowDesignerTest extends TestCase
                 'requires_comment' => $rule->requires_comment,
                 'requires_submitter_manager' => $rule->requires_submitter_manager,
                 'requires_creator' => $rule->requires_creator,
+                'requires_checks' => $rule->requires_checks,
             ])->all(),
         ];
     }
@@ -294,7 +375,7 @@ class WorkflowDesignerTest extends TestCase
         array_splice($payload['stages'], $at + 1, 0, [[
             'code' => null, 'name_ar' => 'تدقيق مالي', 'name_en' => 'Financial audit',
             'responsible_role_id' => Role::where('code', 'R05')->value('id'),
-            'target_days_min' => 1, 'target_days_max' => 3,
+            'target_days_min' => 1, 'target_days_max' => 3, 'checklist' => null,
         ]]);
         $code = collect($this->actingAs($this->admin(), 'sanctum')
             ->putJson("/api/workflow-versions/{$draft->id}", $payload)->assertOk()->json('data.stages'))
@@ -313,7 +394,7 @@ class WorkflowDesignerTest extends TestCase
             'required_role_id' => Role::where('code', 'R05')->value('id'),
             'set_status_id' => null, 'required_status_id' => null,
             'is_exception' => false, 'requires_comment' => false,
-            'requires_submitter_manager' => false, 'requires_creator' => false,
+            'requires_submitter_manager' => false, 'requires_creator' => false, 'requires_checks' => false,
         ];
 
         return $payload;

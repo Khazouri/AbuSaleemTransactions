@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Workflow;
 
+use App\Models\WorkflowStage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -34,6 +35,14 @@ class SaveWorkflowDraftRequest extends FormRequest
             'stages.*.responsible_role_id' => $role,
             'stages.*.target_days_min' => ['nullable', 'integer', 'min:0', 'max:365'],
             'stages.*.target_days_max' => ['nullable', 'integer', 'min:0', 'max:365'],
+            // Workflow designer — slice 4 (spec §5 E12, refused at save rather than at publish).
+            'stages.*.checklist' => ['nullable', 'array', 'max:30'],
+            'stages.*.checklist.*.key' => ['nullable', 'string', 'max:20'],
+            'stages.*.checklist.*.type' => ['required', Rule::in(WorkflowStage::CHECK_TYPES)],
+            'stages.*.checklist.*.label_ar' => ['required', 'string', 'max:255'],
+            'stages.*.checklist.*.label_en' => ['nullable', 'string', 'max:255'],
+            'stages.*.checklist.*.blocking_answer' => ['nullable', 'required_if:stages.*.checklist.*.type,yes_no', Rule::in(['yes', 'no'])],
+            'stages.*.checklist.*.document_key' => ['nullable', 'required_if:stages.*.checklist.*.type,attachment', 'string', 'max:100'],
             'transitions' => ['present', 'array'],
             'transitions.*.id' => ['present', 'nullable', 'integer', 'distinct'],
             'transitions.*.from' => ['required', 'string'],
@@ -47,6 +56,7 @@ class SaveWorkflowDraftRequest extends FormRequest
             'transitions.*.requires_comment' => ['boolean'],
             'transitions.*.requires_submitter_manager' => ['boolean'],
             'transitions.*.requires_creator' => ['boolean'],
+            'transitions.*.requires_checks' => ['boolean'],
         ];
     }
 
@@ -57,6 +67,13 @@ class SaveWorkflowDraftRequest extends FormRequest
     {
         return [
             'stages.required' => 'لا يخلو مسار العمل من المراحل.',
+            'stages.*.checklist.max' => 'لا تزيد بنود قائمة التحقق على 30 بندًا.',
+            'stages.*.checklist.*.type.required' => 'نوع البند مطلوب.',
+            'stages.*.checklist.*.type.in' => 'نوع البند غير معروف.',
+            'stages.*.checklist.*.label_ar.required' => 'نص البند بالعربية مطلوب.',
+            'stages.*.checklist.*.blocking_answer.required_if' => 'حدد الإجابة التي توقف الطلب.',
+            'stages.*.checklist.*.blocking_answer.in' => 'الإجابة المانعة إما «نعم» أو «لا».',
+            'stages.*.checklist.*.document_key.required_if' => 'اختر المستند الذي يراجعه هذا البند.',
             'stages.*.code.distinct' => 'رمز المرحلة مكرر.',
             'stages.*.name_ar.required' => 'اسم المرحلة بالعربية مطلوب.',
             'stages.*.responsible_role_id.exists' => 'الدور غير معروف.',

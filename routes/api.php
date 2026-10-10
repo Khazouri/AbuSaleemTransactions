@@ -455,6 +455,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:notes_attachments,add')
         ->patch('requests/{requestRecord}/employment-file', [RequestController::class, 'prepareEmploymentFile']);
 
+    // Workflow designer — slice 4. A custom step's checklist. Rides the view
+    // grant: who may fill it is whoever the step offers a checked outcome,
+    // which the controller asks WorkflowService, not a screen.
+    Route::middleware('screen.permission:request_details,view')
+        ->patch('requests/{requestRecord}/step-review', [RequestController::class, 'recordStepReview']);
+
     // Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path for a
     // concluded request, independent of any Appeal. Rides the same
     // appeals,edit grant (R02 + R08) Track J's other post-decision

@@ -53,6 +53,12 @@ class WorkflowTransitionException extends DomainException
         return new self('لا يجوز للمستخدم اعتماد طلبه الخاص.');
     }
 
+    // Workflow designer — slice 4.
+    public static function cannotCompleteOwnStep(): self
+    {
+        return new self('لا يجوز لمقدّم الطلب أو صاحب العلاقة استكمال قائمة التحقق على طلبه.');
+    }
+
     public static function commentRequired(): self
     {
         return new self('يجب إدخال سبب لتنفيذ هذا الإجراء.');
