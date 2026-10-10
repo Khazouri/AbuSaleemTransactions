@@ -194,6 +194,17 @@ Key architectural facts worth knowing before changing things:
   `WorkflowStage::where('code', …)->first()`, which picks an arbitrary
   version. Comparing `currentStage->code` is fine. The workflow seeders only
   ever write Standard v1 (`WorkflowVersion::seededStandard()`).
+  **Slice 3 (drafts):** a draft is edited only through
+  `PUT workflow-versions/{v}` (`WorkflowDraftWriter`, the whole graph). A
+  stage or rule is *custom* iff its code/action starts with `custom_`
+  (`WorkflowTransition::CUSTOM_PREFIX`), minted by the server; built-in stages
+  and rules are locked except a built-in rule's destination (until slice 5).
+  Publish refuses while `WorkflowVersionValidator::report()` has errors and
+  retires/publishes in one transaction under the workflow's row lock; only a
+  draft can be deleted. `request_types.workflow_id` picks the workflow intake
+  files onto (null = Standard). A custom outcome has no locale key, so every
+  screen names a rule through `lib/workflowActions.js`'s `actionLabel()`
+  (its `label_ar`/`label_en`).
 
 - **Staged build-out**: [STAGE_PLAN.md](STAGE_PLAN.md) is the source of truth
   for what each stage number means (goal, what gets built, done-when) —

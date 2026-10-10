@@ -19,6 +19,41 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-10 20:27 EET — Claude — Workflow designer slice 3: draft editing and publish (complete)
+
+Built per the plan below; one migration (`workflow_transitions.label_ar/label_en`, `request_types.workflow_id`, backfilled
+to Standard), applied to the real MySQL (0 of 12 types without a workflow). **Deviations from the spec:**
+- no `kind` or `position` columns: `custom_` on the code or action marks a custom row, and a step's place is its
+  `order_no`;
+- no Pinia store: each modal submit PUTs the whole draft;
+- PUT upserts by code and id instead of delete-and-reinsert, so ids and type-specific rows survive;
+- a non-draft write is a 422 on `version`, not a 403;
+- validator errors cover only what this slice's locks leave breakable: unreachable custom step, stranded step, committee
+  reached unregistered.
+
+**Gotcha:** the writer renumbers with query updates; after the `+1000` park, `$model->update()` treats an unmoved stage as
+clean and leaves it parked. **Gotcha:** `php -S` with Laravel's `server.php` must be started from `public/`.
+
+Verified:
+- full suite 889 + 14 + 9 (22 new tests), Pint clean, node tests 14/14;
+- build (`dist` committed, production API URL in the bundle), parity 2165, `aislop ci` 97;
+- `check-layout.mjs` (Homestead and main's API) shows only the known `/decisions` 1024px overflow and the R08
+  `/requests/create` gap.
+
+Headless walk against this branch's API on a **scratch SQLite database**, so the shared MySQL was untouched:
+- clone Standard, then add «تدقيق مالي» (R05) after the manager: the report says unreachable;
+- point the manager's «موافقة وإحالة» at it: stranded;
+- add «اعتماد التدقيق» to «الاستلام والتسجيل»: clean, with one no-holder warning;
+- publish: v1 retired;
+- ar/en × 1280/375 × light/dark: the custom node is tinted in both themes, the Arabic label shows in English, there is
+  no overflow and there are no console errors;
+- a second draft was opened on a 375px phone in English dark mode, then discarded;
+- Request Types offers the workflow select.
+
+No tokens were left on the real DB. Open items: interested parties on custom outcomes (slice 4), no layout persistence,
+and built-ins locked until slice 5. Four slice 1 items were resolved.
+
+---
 ### 2026-10-10 19:35 EET — Claude — Implementation plan: workflow designer slice 3 — draft editing and publish
 
 The designer screen gains drafts. Clone a version (`POST workflow-versions/{v}/clone`) or start a new named workflow

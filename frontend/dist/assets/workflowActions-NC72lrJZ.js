@@ -1,0 +1,1 @@
+function e(e,{t,te:n,locale:r}){let i=`workflow.actions.${e.action}`;return n(i)?t(i):r===`en`&&e.label_en||e.label_ar||e.action}export{e as t};

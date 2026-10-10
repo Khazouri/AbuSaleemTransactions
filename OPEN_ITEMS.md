@@ -13,6 +13,22 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### A custom outcome does not refuse interested parties — workflow designer slice 3 — opened 2026-10-10
+`WorkflowService::actorMayUse()` refuses the filer and صاحب العلاقة only on `approve`. A custom step routed to a role the
+filer holds lets them move their own file past it. Spec §6 ties the wider refusal to `requires_checks` rules.
+**To close (slice 4):** apply `actorIsAnInterestedParty` to `requires_checks` rules, as the spec says, and decide whether
+every non-creator custom outcome should refuse too.
+
+### The designer has no layout persistence or dragging — workflow designer slice 3 — opened 2026-10-10
+A custom step's place is its `order_no` (picked with «بعد المرحلة»), and the canvas lays the chain out by that order. Spec
+§3's `workflow_stages.position` and dragging were not built. **To close:** add the column and draggable nodes, if the
+computed layout proves unreadable once drafts carry many custom steps.
+
+### Built-in steps and rules are locked in the designer — workflow designer slice 3 — opened 2026-10-10
+`WorkflowDraftWriter` refuses removing, editing or reordering a built-in stage, and removing or re-homing a built-in
+rule; only a built-in rule's destination may change. Validator errors E8–E11 are therefore unreachable today. **To
+close (slice 5):** unlock the non-anchor built-ins and add those checks.
+
 ### The user guide does not describe «مسارات العمل» — workflow designer slice 2 — opened 2026-10-10
 `USER_GUIDE.ar.md` has no section on the Workflows screen or on «عرض مسار العمل» on a request. It was left out
 because slice 2 is read-only, and the screen is worth documenting once slice 3 makes it editable. **To close:** a
@@ -45,21 +61,36 @@ Deleting a version cascades to its stages (`workflow_stages.workflow_version_id`
 DELETE removing its stages explicitly, and optionally `stageByCode` throwing when `current_stage_id` is set but resolves
 no version.
 
+**Resolved (2026-10-10, workflow designer slice 3).** The only delete path is `DELETE workflow-versions/{v}`, which
+refuses anything but a draft (422) and removes the draft's rules and stages explicitly. No request runs on a draft, so
+nothing is orphaned. The FK was deliberately left `cascadeOnDelete`: changing it needs a SQLite table rebuild and guards
+only a hand-run SQL delete.
+
 ### Report stage grouping across versions — workflow designer slice 1 — opened 2026-10-10
 `ReportMetricsService::byStage()` groups by `workflow_stages.order_no, code, name_ar, name_en`, so an unchanged clone
 merges into the same bucket. Buckets split only when a version renames or renumbers a stage, and `orderBy(order_no)` can
 then interleave versions. **To close (slice 3):** group by stage code alone and take the label from the published version.
+
+**Resolved (2026-10-10, workflow designer slice 3).** `byStage()` groups by `workflow_stages.code` alone, taking
+`MIN(order_no)` for the order and one label (`WorkflowDraftRuntimeTest::test_the_stage_report_groups_one_code_across_versions`).
 
 ### Per-version WorkflowStageCount — workflow designer slice 1 — opened 2026-10-10
 `RequestResource`'s `stage_progress` divides by `WorkflowStageCount`, which slice 1 pins to the published Standard
 version. A request on a version with a different number of stages shows a wrong ratio. **To close (slice 3):** count
 the stages of the request's own version.
 
+**Resolved (2026-10-10, workflow designer slice 3).** `WorkflowStageCount::total($stageId)` counts the stage's own
+version; `RequestResource` passes the current stage. Reports still divide by the published Standard version.
+
 ### Publish must retire and publish in one transaction; clone should lock the workflow row — workflow designer slice 1 — opened 2026-10-10
 A moment with no published version makes `Workflow::standard()->publishedVersion` null, and the next read is a PHP
 Error. Separately, two concurrent clones race on `max(number)+1` (the unique key turns that into a 500, not
 corruption). **To close (slice 3):** publish retires the old and publishes the new inside one transaction, and the
 clone endpoint takes `lockForUpdate()` on the workflow row.
+
+**Resolved (2026-10-10, workflow designer slice 3).** `WorkflowController::publishVersion()` retires and publishes in
+one transaction under `lockForUpdate()` on the workflow row; `cloneVersion()` takes the same lock and refuses a second
+draft.
 
 ### redo-stage-options?request_id= has no visibility check — workflow designer slice 1 — opened 2026-10-10
 The endpoint uses `request_id` only to pick the version, so it is an existence probe for request ids (no data about
