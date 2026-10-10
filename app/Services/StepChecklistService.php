@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Models\Request;
 use App\Models\RequestStageLog;
 use App\Models\RequestStepReview;
+use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Workflow designer — slice 4 (spec §6). A custom step's checklist, as the
@@ -129,5 +131,117 @@ class StepChecklistService
         }
 
         return $review->refusal($requestRecord, $verdicts);
+    }
+
+    // Workflow designer — slice 4.
+    public const INVALID = 'إجابة غير صالحة عن البند: ';
+
+    public const UNKNOWN_ITEM = 'بند لا ينتمي إلى قائمة التحقق في هذه المرحلة.';
+
+    /**
+     * Save the card for this arrival (an upsert: the role may save part of it
+     * and come back). Each answer must fit its item's type; an attachment
+     * verdict must be for a file under that item's document, and one this
+     * reviewer opened in full — the same rule both document gates apply.
+     *
+     * @param  array<string, mixed>  $answers
+     */
+    public function record(Request $requestRecord, User $actor, array $answers): RequestStepReview
+    {
+        $items = collect($this->items($requestRecord))->keyBy('key');
+        $errors = [];
+        $clean = [];
+
+        if (array_diff_key($answers, $items->all()) !== []) {
+            $errors['answers'][] = self::UNKNOWN_ITEM;
+        }
+
+        foreach ($items->only(array_keys($answers)) as $key => $item) {
+            $value = $answers[$key];
+            $message = $item['type'] === 'attachment'
+                ? $this->attachmentAnswerError($requestRecord, $item, $value, $actor)
+                : ($this->fits($item['type'], $value) ? null : self::INVALID.$item['label_ar']);
+
+            if ($message !== null) {
+                $errors["answers.{$key}"][] = $message;
+
+                continue;
+            }
+            $clean[$key] = $value;
+        }
+
+        $arrival = $this->arrival($requestRecord);
+        if ($arrival === null) {
+            $errors['answers'][] = self::NOT_RECORDED;
+        }
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return RequestStepReview::query()->updateOrCreate(
+            ['request_id' => $requestRecord->id, 'arrival_log_id' => $arrival->id],
+            [
+                'workflow_stage_id' => $requestRecord->current_stage_id,
+                'answers' => $clean,
+                'reviewed_by_user_id' => $actor->id,
+                'reviewed_at' => now(),
+            ],
+        );
+    }
+
+    private function fits(string $type, mixed $value): bool
+    {
+        return match ($type) {
+            'yes_no' => in_array($value, ['yes', 'no'], true),
+            'note' => is_string($value) && mb_strlen($value) <= 5000,
+            'attestation' => is_bool($value),
+            default => false,
+        };
+    }
+
+    /** @param  array<string, mixed>  $item */
+    private function attachmentAnswerError(Request $requestRecord, array $item, mixed $value, User $actor): ?string
+    {
+        $review = $this->review->only([$item['document_key']]);
+        $underReview = $review->attachments($requestRecord)->pluck('id')->all();
+
+        if (! is_array($value)
+            || collect($value)->contains(fn ($verdict) => ! in_array($verdict, DocumentReview::ANSWERS, true))
+            || array_diff(array_keys($value), $underReview) !== []) {
+            return self::INVALID.$item['label_ar'];
+        }
+
+        return $review->unpreviewed($requestRecord, $value, $actor);
+    }
+
+    /**
+     * What the wizard's panel needs. Each verdict rides on its file row: a map
+     * keyed by attachment id would reach the SPA re-indexed as a plain list
+     * (AGENTS.md Gotchas).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function forViewer(Request $requestRecord, ?User $viewer): ?array
+    {
+        $items = $this->items($requestRecord);
+        if ($items === []) {
+            return null;
+        }
+
+        $card = $this->current($requestRecord);
+        $answers = $card?->answers ?? [];
+
+        return [
+            'items' => collect($items)->map(fn (array $item) => [
+                ...$item,
+                'answer' => $item['type'] === 'attachment' ? null : ($answers[$item['key']] ?? null),
+                'files' => $item['type'] !== 'attachment' ? [] : collect($this->review->only([$item['document_key']])->forViewer($requestRecord, $viewer))
+                    ->map(fn (array $file) => [...$file, 'verdict' => $answers[$item['key']][$file['id']] ?? null])
+                    ->all(),
+            ])->all(),
+            'reviewed_by' => $card?->reviewedBy?->only(['id', 'name']),
+            'reviewed_at' => $card?->reviewed_at?->toIso8601String(),
+            'refusal' => $this->refusalReason($requestRecord),
+        ];
     }
 }

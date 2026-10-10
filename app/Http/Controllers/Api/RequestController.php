@@ -15,6 +15,7 @@ use App\Http\Requests\Request\RecordApprovalReturnRequest;
 use App\Http\Requests\Request\RecordExecutionSoundnessRequest;
 use App\Http\Requests\Request\RecordIntakeGateRequest;
 use App\Http\Requests\Request\RecordJurisdictionTestRequest;
+use App\Http\Requests\Request\RecordStepReviewRequest;
 use App\Http\Requests\Request\ReopenRequest;
 use App\Http\Requests\Request\ResolveApprovalReturnRequest;
 use App\Http\Requests\Request\StoreRequest;
@@ -1210,6 +1211,31 @@ class RequestController extends Controller
     }
 
     /**
+     * Workflow designer — slice 4. Record a custom step's checklist.
+     *
+     * Only someone this step offers a checked outcome may fill it: the card is
+     * that person's attestation, and availableTransitions() already keeps the
+     * filer and صاحب العلاقة off those outcomes (actorMayUse()), so it keeps
+     * them off the card too.
+     */
+    public function recordStepReview(
+        RecordStepReviewRequest $request,
+        Request $requestRecord,
+        StepChecklistService $checklist,
+        WorkflowService $workflow,
+        RequestVisibility $visibility,
+    ): RequestDetailResource {
+        $actor = $request->user();
+
+        abort_unless($visibility->canView($actor, $requestRecord), 404);
+        abort_unless($workflow->availableTransitions($requestRecord, $actor)->contains('requires_checks', true), 403);
+
+        $checklist->record($requestRecord, $actor, $request->validated('answers'));
+
+        return $this->detailResource($requestRecord, $workflow, $actor);
+    }
+
+    /**
      * Both document gates take a verdict only on a file the reviewer opened in
      * full; the server knows because AttachmentController::previewed()
      * recorded the open, so the client cannot simply claim it.
@@ -1542,6 +1568,9 @@ class RequestController extends Controller
         $employmentFile = app(EmploymentFilePreparationService::class);
 
         return [
+            // Workflow designer — slice 4. A custom step's checklist; null at a step without one.
+            'step_checklist' => app(StepChecklistService::class)->forViewer($requestRecord, $viewer),
+
             // Stage 98 — [D] Appendix 6 row 3. Not one of Appendix 63's four
             // gates, and reported beside them rather than inside `intake`
             // because it is a different party's card: HR assembles الملف

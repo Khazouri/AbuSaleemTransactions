@@ -159,6 +159,80 @@ class StepChecklistGateTest extends TestCase
         $workflow->transition($atAudit, 'custom_audit_done', $filer);
     }
 
+    public function test_the_auditor_records_the_card_through_the_endpoint(): void
+    {
+        $atAudit = $this->fileAtAudit();
+
+        $response = $this->actingAs($this->auditor, 'sanctum')
+            ->patchJson("/api/requests/{$atAudit->id}/step-review", ['answers' => $this->cleanAnswers($atAudit)])
+            ->assertOk()
+            ->assertJsonPath('data.control_gates.step_checklist.refusal', null)
+            ->assertJsonPath('data.control_gates.step_checklist.reviewed_by.id', $this->auditor->id);
+
+        // The answer that cleared the gate moved the outcome from blocked to available in the same payload.
+        $this->assertContains('custom_audit_done', collect($response->json('data.available_transitions'))->pluck('action')->all());
+        $this->assertNull(app(StepChecklistService::class)->refusalReason($atAudit));
+    }
+
+    public function test_only_someone_offered_the_checked_outcome_may_record(): void
+    {
+        $atAudit = $this->fileAtAudit();
+        $filer = User::findOrFail($atAudit->created_by_user_id);
+        $filer->roles()->attach(Role::where('code', 'R05')->value('id'));
+
+        // The filer can see the file but is kept off the checked outcome.
+        $this->actingAs($filer, 'sanctum')
+            ->patchJson("/api/requests/{$atAudit->id}/step-review", ['answers' => ['budget' => 'yes']])
+            ->assertForbidden();
+        // HR holds no rule at this step: 404 if it cannot see the file, 403 if it can.
+        $status = $this->actingAs($this->userWithRole('R12'), 'sanctum')
+            ->patchJson("/api/requests/{$atAudit->id}/step-review", ['answers' => ['budget' => 'yes']])
+            ->status();
+        $this->assertContains($status, [403, 404]);
+        $this->assertSame(0, RequestStepReview::count());
+    }
+
+    public function test_bad_answers_are_refused_in_arabic(): void
+    {
+        $atAudit = $this->fileAtAudit();
+        $file = $atAudit->attachments()->where('required_document_key', $this->documentKey)->latest('id')->firstOrFail();
+        $other = $this->attach($atAudit, 'other', 'مستند آخر.pdf');
+        AttachmentPreview::create(['attachment_id' => $other->id, 'user_id' => $this->auditor->id]);
+        $send = fn (array $answers) => $this->actingAs($this->auditor, 'sanctum')
+            ->patchJson("/api/requests/{$atAudit->id}/step-review", ['answers' => $answers]);
+
+        $send(['nosuchitem' => 'yes'])->assertUnprocessable()->assertJsonValidationErrors('answers');
+        $send(['budget' => 'maybe'])->assertUnprocessable()->assertJsonValidationErrors('answers.budget');
+        $send(['sworn' => 'yes'])->assertUnprocessable()->assertJsonValidationErrors('answers.sworn');
+        $send(['doc' => [$file->id => 'fine']])->assertUnprocessable()->assertJsonValidationErrors('answers.doc');
+        // Never opened by this auditor. (assertJsonPath can't address a key containing a dot.)
+        $this->assertSame(
+            DocumentReview::NOT_PREVIEWED.$file->original_name,
+            $send(['doc' => [$file->id => 'approved']])->assertUnprocessable()->json('errors')['answers.doc'][0],
+        );
+        // A file of another document is not this item's to judge.
+        $send(['doc' => [$other->id => 'approved']])->assertUnprocessable()->assertJsonValidationErrors('answers.doc');
+
+        $this->assertSame(0, RequestStepReview::count());
+    }
+
+    public function test_the_panel_payload_carries_answers_and_verdicts_per_file(): void
+    {
+        $atAudit = $this->fileAtAudit();
+        $answers = $this->cleanAnswers($atAudit);
+        $fileId = array_key_first($answers['doc']);
+        $this->actingAs($this->auditor, 'sanctum')
+            ->patchJson("/api/requests/{$atAudit->id}/step-review", ['answers' => $answers])->assertOk();
+
+        $items = collect($this->actingAs($this->auditor, 'sanctum')->getJson("/api/requests/{$atAudit->id}")
+            ->json('data.control_gates.step_checklist.items'))->keyBy('key');
+
+        $this->assertSame('yes', $items['budget']['answer']);
+        $this->assertTrue($items['sworn']['answer']);
+        $this->assertSame([['id' => $fileId, 'previewed' => true, 'verdict' => 'approved']], $items['doc']['files']);
+        $this->assertSame([], $items['budget']['files']);
+    }
+
     /** A promotion filed under the finance workflow and forwarded by its manager to «تدقيق مالي». */
     private function fileAtAudit(): Request
     {
