@@ -50,6 +50,12 @@ class WorkflowStage extends Model
         return $this->belongsTo(Role::class, 'responsible_role_id');
     }
 
+    /** Workflow designer — slice 3. A step an admin added; see WorkflowTransition::CUSTOM_PREFIX. */
+    public function isCustom(): bool
+    {
+        return str_starts_with((string) $this->code, WorkflowTransition::CUSTOM_PREFIX);
+    }
+
     /** Workflow designer — slice 1. The version this stage belongs to. */
     public function workflowVersion(): BelongsTo
     {

@@ -77,6 +77,31 @@ class WorkflowViewTest extends TestCase
         $this->assertNull($managerForward['required_role']);
     }
 
+    public function test_a_version_payload_carries_ids_and_custom_flags_for_editing(): void
+    {
+        $version = Workflow::standard()->publishedVersion;
+
+        $response = $this->actingAs($this->admin(), 'sanctum')
+            ->getJson("/api/workflow-versions/{$version->id}")
+            ->assertOk()
+            ->assertJsonPath('data.cloned_from_version_id', null)
+            ->assertJsonPath('data.stages.0.custom', false);
+
+        $register = collect($response->json('data.transitions'))->firstWhere('action', 'register');
+        $this->assertFalse($register['custom']);
+        $this->assertNull($register['label_ar']);
+        $this->assertSame(Role::where('code', 'R12')->value('id'), $register['required_role']['id']);
+    }
+
+    public function test_the_workflow_list_names_the_bound_types_and_the_editing_options(): void
+    {
+        $response = $this->actingAs($this->admin(), 'sanctum')->getJson('/api/workflows')->assertOk();
+
+        $this->assertContains('PROM', collect($response->json('data.0.request_types'))->pluck('code')->all());
+        $this->assertContains('R05', collect($response->json('options.roles'))->pluck('code')->all());
+        $this->assertContains('registered', collect($response->json('options.statuses'))->pluck('code')->all());
+    }
+
     public function test_a_request_shows_the_version_it_runs_on(): void
     {
         $first = Workflow::standard()->publishedVersion;

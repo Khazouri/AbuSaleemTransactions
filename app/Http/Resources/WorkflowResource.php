@@ -19,9 +19,11 @@ class WorkflowResource extends JsonResource
                 'id' => $version->id,
                 'number' => $version->number,
                 'status' => $version->status,
+                'cloned_from_version_id' => $version->cloned_from_version_id,
                 'published_at' => $version->published_at?->toIso8601String(),
                 'stages_count' => $version->stages_count,
             ]),
+            'request_types' => $this->requestTypes->map->only(['id', 'code', 'name_ar', 'name_en'])->values(),
         ];
     }
 }
