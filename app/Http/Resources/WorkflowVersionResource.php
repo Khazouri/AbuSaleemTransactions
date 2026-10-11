@@ -38,6 +38,7 @@ class WorkflowVersionResource extends JsonResource
                 'id' => $stage->id,
                 'code' => $stage->code,
                 'custom' => $stage->isCustom(),
+                'anchor' => $stage->isAnchor(),
                 'order_no' => $stage->order_no,
                 'name_ar' => $stage->name_ar,
                 'name_en' => $stage->name_en,
