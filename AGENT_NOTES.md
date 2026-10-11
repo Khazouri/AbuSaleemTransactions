@@ -19,6 +19,33 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-11 07:58 EET — Claude — Implementation plan: workflow designer slice 5 — built-ins editable and removable
+
+On a draft, every built-in step can be edited (names, role, target) and every built-in outcome too (destination,
+actor, stamped status, flags). Any of them can be deleted, except the three anchors (`receive_from_municipality`,
+`receive_from_committee`, `final_approval_archiving`).
+
+What stays locked:
+- built-ins keep their relative order (`order_no` is read by the outputs screen, appeal redo and the progress bar);
+- a built-in stage takes no checklist;
+- a built-in rule keeps its from-stage, action and label;
+- the actor checks now apply to every rule.
+
+The validator gains:
+- anchor reachability;
+- `required_rule_missing` (spec E8/E9/E11: one normal `submit` at intake, `forward` at the manager, `approve` at
+  approval_by_authority);
+- `status_unmet`, a (stage, status) walk that catches a file arriving at HR without `routed_to_hr`.
+
+Request Types refuses a save that re-keys a document a published checklist names. The SPA unlocks the forms and
+confirms every delete.
+
+No migration. Verify:
+- new cases in `WorkflowDesignerTest`, `WorkflowValidatorTest` and `RequestTypeCrudTest`, including the spec's
+  done-when: without `direct_manager_review`, intake and the dean both land on HR;
+- full PHPUnit, Pint, build (`dist` committed), parity, aislop ci, and a headless walk on a scratch SQLite DB.
+
+---
 ### 2026-10-10 22:32 EET — Claude — Workflow designer slice 4: step checklists, gate and wizard (complete)
 
 Built per the plan below, on `feat/workflow-checklists`. One migration (`workflow_stages.checklist`,
