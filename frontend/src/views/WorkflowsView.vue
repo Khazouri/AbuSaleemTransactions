@@ -32,10 +32,7 @@ const version = ref(null)
 const selection = ref(null)
 const loading = ref(true)
 const error = ref('')
-// A refused delete has no modal to show its reason in; it gets its own alert,
-// never the page-level `error`, which would replace the whole designer.
-const actionError = ref('')
-// One open dialog at a time: { kind: 'stage'|'rule'|'workflow'|'clone'|'publish'|'discard', ...its data }.
+// One open dialog at a time: { kind: 'stage'|'rule'|'workflow'|'clone'|'publish'|'discard'|'deleteStage'|'deleteRule', ...its data }.
 const dialog = ref(null)
 const dialogError = ref('')
 const saving = ref(false)
@@ -56,7 +53,6 @@ async function loadWorkflows() {
 
 async function loadVersion(id) {
   error.value = ''
-  actionError.value = ''
   selection.value = null
   version.value = null
   if (!id) return
@@ -88,13 +84,11 @@ const close = () => { dialog.value = null }
 async function save(payload) {
   saving.value = true
   dialogError.value = ''
-  actionError.value = ''
   try {
     version.value = (await api.put(`/workflow-versions/${version.value.id}`, payload)).data.data
     close()
   } catch (e) {
     dialogError.value = firstError(e, t('workflows.edit.saveFailed'))
-    if (!dialog.value) actionError.value = dialogError.value
   } finally {
     saving.value = false
   }
@@ -123,7 +117,19 @@ const actions = {
     const workflowId = version.value.workflow.id
     return post(() => api.delete(`/workflow-versions/${version.value.id}`), () => pick(publishedOf(workflowId)))
   },
+  // Workflow designer — slice 5. A deleted built-in can't be re-made in the
+  // draft, so every delete asks first; a refusal shows in the same dialog.
+  deleteStage: async () => {
+    const { stage } = dialog.value
+    await save(removeStage(toPayload(version.value), stage.code))
+    if (!version.value.stages.some((item) => item.id === stage.id)) selection.value = null
+  },
+  deleteRule: () => save(removeRule(toPayload(version.value), dialog.value.rule.id)),
 }
+const confirmKinds = ['clone', 'publish', 'discard', 'deleteStage', 'deleteRule']
+const confirmText = computed(() => (dialog.value?.kind === 'deleteRule' && !dialog.value.rule.custom
+  ? 'workflows.edit.deleteBuiltinRuleConfirm'
+  : `workflows.edit.${dialog.value?.kind}Confirm`))
 const createWorkflow = () => post(
   () => api.post('/workflows', { ...newWorkflow, from_version_id: version.value.id }),
   (draft) => pick(draft.id),
@@ -164,12 +170,7 @@ function editRule(rule) {
 }
 
 const submitStage = ({ fields, after }) => save(placeStage(toPayload(version.value), dialog.value.stage?.code ?? null, fields, after))
-async function deleteStage(stage) {
-  await save(removeStage(toPayload(version.value), stage.code))
-  if (!version.value.stages.some((item) => item.id === stage.id)) selection.value = null
-}
 const submitRule = (rule) => save(upsertRule(toPayload(version.value), rule))
-const deleteRule = (rule) => save(removeRule(toPayload(version.value), rule.id))
 const selectCode = (code) => { selection.value = { kind: 'stage', id: version.value.stages.find((stage) => stage.code === code)?.id } }
 </script>
 
@@ -190,7 +191,6 @@ const selectCode = (code) => { selection.value = { kind: 'stage', id: version.va
     <p v-if="loading" class="state">{{ t('common.loading') }}</p>
     <p v-else-if="error" class="alert" role="alert">{{ error }}</p>
     <template v-else-if="version">
-      <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
       <div class="toolbar">
         <template v-if="version.status !== 'draft'">
           <button v-if="draftOfThisWorkflow" type="button" class="primary" @click="pick(draftOfThisWorkflow.id)">{{ t('workflows.edit.openDraft') }}</button>
@@ -214,10 +214,10 @@ const selectCode = (code) => { selection.value = { kind: 'stage', id: version.va
           :editable="editable"
           @select="selection = $event"
           @edit-stage="editStage"
-          @delete-stage="deleteStage"
+          @delete-stage="open('deleteStage', { stage: $event })"
           @add-rule="addRule"
           @edit-rule="editRule"
-          @delete-rule="deleteRule"
+          @delete-rule="open('deleteRule', { rule: $event })"
         />
       </div>
     </template>
@@ -257,13 +257,13 @@ const selectCode = (code) => { selection.value = { kind: 'stage', id: version.va
         </div>
       </form>
     </AppModal>
-    <AppModal v-if="['clone', 'publish', 'discard'].includes(dialog?.kind)" :title="t(`workflows.edit.${dialog.kind}Title`)" @close="close">
+    <AppModal v-if="confirmKinds.includes(dialog?.kind)" :title="t(`workflows.edit.${dialog.kind}Title`)" @close="close">
       <div class="dialog-form">
-        <p>{{ t(`workflows.edit.${dialog.kind}Confirm`) }}</p>
+        <p>{{ t(confirmText) }}</p>
         <p v-if="dialogError" class="alert" role="alert">{{ dialogError }}</p>
         <div class="modal-actions">
           <button class="ghost" type="button" @click="close">{{ t('common.cancel') }}</button>
-          <button type="button" :class="dialog.kind === 'discard' ? 'btn danger' : 'primary'" :disabled="saving" @click="actions[dialog.kind]()">
+          <button type="button" :class="['discard', 'deleteStage', 'deleteRule'].includes(dialog.kind) ? 'btn danger' : 'primary'" :disabled="saving" @click="actions[dialog.kind]()">
             {{ t(`workflows.edit.${dialog.kind}Title`) }}
           </button>
         </div>

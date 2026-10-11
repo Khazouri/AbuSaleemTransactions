@@ -4,6 +4,7 @@
  * canvas — and, with nothing selected, every stage as a button: the way in
  * for a keyboard or phone user who can't drive a canvas. Slice 3: on a draft
  * (`editable`) it also offers the edits, which the view turns into modals.
+ * Slice 5: every step but an anchor, and every outcome, can be edited and deleted.
  */
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -83,12 +84,10 @@ function actor(rule) {
       <h3 v-else>{{ edgeTitle }}</h3>
 
       <div v-if="editable && stage" class="edit-actions">
-        <template v-if="stage.custom">
-          <button type="button" class="ghost" @click="emit('edit-stage', stage)">{{ t('workflows.edit.editStage') }}</button>
-          <button type="button" class="ghost danger" @click="emit('delete-stage', stage)">{{ t('workflows.edit.deleteStage') }}</button>
-        </template>
-        <p v-else class="hint">{{ t('workflows.edit.builtinStage') }}</p>
+        <button type="button" class="ghost" @click="emit('edit-stage', stage)">{{ t('workflows.edit.editStage') }}</button>
+        <button v-if="!stage.anchor" type="button" class="ghost danger" @click="emit('delete-stage', stage)">{{ t('workflows.edit.deleteStage') }}</button>
         <button type="button" class="primary" @click="emit('add-rule', stage)">{{ t('workflows.edit.addOutcome') }}</button>
+        <p v-if="stage.anchor" class="hint">{{ t('workflows.edit.anchorStage') }}</p>
       </div>
 
       <dl v-if="stage" class="facts">
@@ -128,7 +127,7 @@ function actor(rule) {
           </span>
           <span v-if="editable" class="edit-actions">
             <button type="button" class="ghost" @click="emit('edit-rule', rule)">{{ t('workflows.edit.editOutcome') }}</button>
-            <button v-if="rule.custom" type="button" class="ghost danger" @click="emit('delete-rule', rule)">{{ t('workflows.edit.deleteOutcome') }}</button>
+            <button type="button" class="ghost danger" @click="emit('delete-rule', rule)">{{ t('workflows.edit.deleteOutcome') }}</button>
           </span>
         </li>
       </ul>
