@@ -330,6 +330,9 @@ already passed that check, so nothing in the UI can reach an endpoint it shouldn
 skips the wizard is not stopped by the endpoint itself. **To close:** add the same visibility check each
 of these already-grant-gated endpoints' sibling reads use, or fold the check into a shared trait/base
 method so the eleven cannot drift from one another.
+**Resolved (2026-10-11, fix/after-decision-visibility).** A `request.visible` route middleware
+(`CheckRequestVisibility`) sits after `screen.permission` on all of them plus `notices/issue`, 13 routes in all;
+`AfterDecisionVisibilityTest` pins the 404 on each.
 
 ### One leftover r08 Sanctum token from `check-layout.mjs`'s own login — decision wizard sub-project 3 task 6 — opened 2026-09-28
 Task 6's walk-through ran `check-layout.mjs` twice (once left running past its budget in an earlier pass,

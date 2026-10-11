@@ -715,12 +715,11 @@ class RequestController extends Controller
      * than a new `request_details` edit tier, since this is the same class
      * of actor handling the same class of action.
      *
-     * Deliberately skips RequestVisibility::canView(): that gate excludes
-     * every terminal-status request from a non-creator's assignment-based
-     * visibility by design (see its own `$terminalStatusIds` comment), which
-     * would 404 the very actor this action exists for. The `appeals,edit`
-     * screen permission is the real authorization here, the same way
-     * Appeal::isVisibleTo()'s third branch already treats it as sufficient.
+     * The route's `request.visible` gate does not lock R02 out of terminal
+     * files: assignment visibility drops them, but RequestVisibility's closer
+     * clause still shows R02 a file that is closed, `not_approved` or carries
+     * a reference number. That is every reopenable file the committee
+     * handled. A file cancelled before the قيد stays its filer's own.
      */
     public function reopen(ReopenRequest $request, Request $requestRecord, WorkflowService $workflow): RequestDetailResource|JsonResponse
     {

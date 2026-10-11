@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckMeetingMembership;
+use App\Http\Middleware\CheckRequestVisibility;
 use App\Http\Middleware\CheckScreenPermission;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -22,6 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
             // Membership gate — per-meeting row authorization, stacked on top
             // of the screen permission for every {meeting}-bound route.
             'meeting.member' => CheckMeetingMembership::class,
+            // The same row gate for the after-decision request writes.
+            'request.visible' => CheckRequestVisibility::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

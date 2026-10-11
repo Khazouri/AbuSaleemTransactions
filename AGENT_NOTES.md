@@ -19,6 +19,29 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-11 12:50 EET — Claude — After-decision writes check RequestVisibility (complete)
+
+Built per the plan below; no migration and no frontend change. `CheckRequestVisibility` (alias `request.visible`)
+reads `{requestRecord}`, or `{agendaItem}`'s request on the meeting-scoped execute route; an appeal item has no
+request and passes. It sits on 13 routes, the 12 named in the plan plus `approval-referrals/{referral}/result`.
+**Behaviour change:** R02 can no longer reopen a file cancelled before the قيد, which it could not open either.
+`GateAuthorshipTest`'s reopen fixture was a `completed_closed` file with no `closed_at`, a state only
+`RequestClosureService::close()` can write and always stamps, so it gained `closed_at`. Verified: new
+`AfterDecisionVisibilityTest` (RED then GREEN), full suite green, Pint clean, `aislop ci` exit 0.
+
+---
+### 2026-10-11 12:23 EET — Claude — Implementation plan: after-decision writes check RequestVisibility
+
+Closes the OPEN_ITEMS entry «Eleven request endpoints skip `RequestVisibility`». A grant holder can reach these endpoints
+by request id on a file they cannot open: close, both archives, execution soundness, approval return record/resolve,
+referral record/result, suspend/lift, reopen, plus `notices/issue` from the same block. Fix: a new `request.visible`
+route middleware shaped like `meeting.member`. It goes after `screen.permission` on each of those routes, so the
+403-then-404 order matches the existing inline checks. `MeetingOutputsController::execute()` has no `{requestRecord}`,
+so it checks the agenda item's request inline. `reopen()`'s docblock is outdated: the closer clause already shows R02
+every reopenable file that has a reference or closure. Verify: new feature test (RED then GREEN), full PHPUnit, Pint,
+aislop ci.
+
+---
 ### 2026-10-11 09:05 EET — Claude — Workflow designer slice 5: final-review fixes
 
 Fixed with tests: C1 (a system hop's rule, `submit` at intake and `forward` at the manager, may not require a comment,
