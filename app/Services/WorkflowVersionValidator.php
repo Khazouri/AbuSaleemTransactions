@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
@@ -16,10 +17,10 @@ use Illuminate\Support\Collection;
  * error: by user decision a flow that departs from the procedures manual is
  * not reported at all.
  *
- * This slice's writer locks every built-in step and rule except where a
- * built-in rule leads, so the checks here are the ones an admin can break
- * with custom steps and redirected rules. Slice 5 adds the rest once
- * built-ins can be removed.
+ * Slice 5 unlocked built-in steps and rules, so the checks also guard what
+ * the code depends on: the anchors stay reachable (E1), the three rules the
+ * code resolves by name exist once (E8, E9, E11 — REQUIRED_RULES), and a
+ * file reaches each stage with a status its exits accept (status_unmet).
  *
  * Slice 4 adds E6 (an outcome waiting on a checklist its step lacks),
  * checklist_no_way_out (a checklist step every exit of which waits on it) and
@@ -34,6 +35,20 @@ class WorkflowVersionValidator
 
     private const COMMITTEE = 'receive_from_committee';
 
+    /**
+     * Workflow designer — slice 5 (spec §5 E11, E8, E9). Rules the code
+     * resolves by stage and action rather than a person choosing them, so
+     * their absence is a PHP exception at runtime, not a refusal: intake's
+     * system hop, the dean's skip past his own manager, and the ministry
+     * bypass. Checked only where the stage is present: a version without the
+     * manager step never lands a dean's file there.
+     */
+    private const REQUIRED_RULES = [
+        'receive_from_municipality' => ['submit', 'تقديم الطلب', 'بها يُحال كل طلب جديد'],
+        'direct_manager_review' => ['forward', 'موافقة وإحالة', 'بها يتجاوز طلب العميد المدير المباشر'],
+        'approval_by_authority' => ['approve', 'اعتماد', 'بها يُحال الطلب إلى الوزارة أو الاعتماد النهائي'],
+    ];
+
     /** @return array{errors: list<array<string, mixed>>, warnings: list<array<string, mixed>>} */
     public function report(WorkflowVersion $version): array
     {
@@ -44,9 +59,11 @@ class WorkflowVersionValidator
         $errors = [];
 
         // Built-in stages nothing reaches are kept for history (6–8,
-        // administrative_routing); only a step the admin added is a mistake.
+        // administrative_routing); a step the admin added, or an anchor the
+        // code sends files to (slice 5: a deleted rule can cut one off), is a
+        // mistake.
         foreach ($stages as $stage) {
-            if ($stage->isCustom() && ! $reachable->contains($stage->id)) {
+            if (($stage->isCustom() || $stage->isAnchor()) && ! $reachable->contains($stage->id)) {
                 $errors[] = $this->entry('unreachable', sprintf('لا يصل أي مسار إلى المرحلة «%s».', $stage->name_ar), $stage);
             }
         }
@@ -85,7 +102,10 @@ class WorkflowVersionValidator
             }
         }
 
-        return ['errors' => [...$errors, ...$this->noWayOut($stages, $rules)], 'warnings' => $this->warnings($version, $stages, $rules)];
+        return [
+            'errors' => [...$errors, ...$this->noWayOut($stages, $rules), ...$this->requiredRules($stages, $rules), ...$this->unmetStatuses($stages, $rules, $entryId)],
+            'warnings' => $this->warnings($version, $stages, $rules),
+        ];
     }
 
     /**
@@ -113,6 +133,84 @@ class WorkflowVersionValidator
         }
 
         return $errors;
+    }
+
+    /**
+     * Workflow designer — slice 5. See REQUIRED_RULES. Generic rows only: a
+     * type-specific override replaces the generic rule for its own type, and
+     * every other type still needs the generic one.
+     *
+     * @param  Collection<int, WorkflowStage>  $stages
+     * @param  Collection<int, WorkflowTransition>  $rules
+     * @return list<array<string, mixed>>
+     */
+    private function requiredRules(Collection $stages, Collection $rules): array
+    {
+        $errors = [];
+
+        foreach (self::REQUIRED_RULES as $code => [$action, $label, $why]) {
+            $stage = $stages->firstWhere('code', $code);
+            $count = $stage === null ? 1 : $rules->filter(fn (WorkflowTransition $rule) => (int) $rule->from_stage_id === (int) $stage->id
+                && $rule->action === $action && ! $rule->is_exception && $rule->request_type_id === null)->count();
+            if ($count !== 1) {
+                $errors[] = $this->entry('required_rule_missing', sprintf('تحتاج المرحلة «%s» نتيجة «%s» واحدة غير استثنائية؛ %s.', $stage->name_ar, $label, $why), $stage);
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Workflow designer — slice 5. A rule that names a required status (HR's
+     * `register` takes only `routed_to_hr`) is usable only by a file that
+     * arrives holding it, and outcomes can now change the status they stamp.
+     * So: walk (stage, status) from intake's `new`, following every rule the
+     * file may take with the status it holds, and report a stage it reaches
+     * holding a status that none of its normal exits accept — there it could
+     * only be cancelled. A closed file (terminal status) is not followed.
+     *
+     * ponytail: only statuses the rules stamp are modelled. The committee's
+     * moves and the decision change a status outside workflow_transitions;
+     * no rule leaving those stages requires one today. If one ever does, feed
+     * those statuses in as extra arrivals at that stage.
+     *
+     * @param  Collection<int, WorkflowStage>  $stages
+     * @param  Collection<int, WorkflowTransition>  $rules
+     * @return list<array<string, mixed>>
+     */
+    private function unmetStatuses(Collection $stages, Collection $rules, ?int $entryId): array
+    {
+        $terminal = RequestStatus::query()->whereIn('code', WorkflowService::TERMINAL_STATUS_CODES)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $out = $rules->groupBy('from_stage_id');
+        $accepts = fn (WorkflowTransition $rule, int $statusId) => $rule->required_status_id === null || (int) $rule->required_status_id === $statusId;
+        $queue = $entryId === null ? [] : [[$entryId, (int) RequestStatus::query()->where('code', 'new')->value('id')]];
+        $seen = [];
+        $errors = [];
+
+        while ($queue !== []) {
+            [$stageId, $statusId] = array_shift($queue);
+            if (isset($seen["{$stageId}:{$statusId}"]) || in_array($statusId, $terminal, true)) {
+                continue;
+            }
+            $seen["{$stageId}:{$statusId}"] = true;
+            $leaving = $out->get($stageId, collect());
+
+            $exits = $leaving->reject(fn (WorkflowTransition $rule) => $rule->is_exception || (int) $rule->to_stage_id === $stageId);
+            if ($exits->isNotEmpty() && ! $exits->contains(fn (WorkflowTransition $rule) => $accepts($rule, $statusId)) && ! isset($errors[$stageId])) {
+                $stage = $stages->get($stageId);
+                $errors[$stageId] = $this->entry('status_unmet', sprintf(
+                    'يصل الطلب إلى المرحلة «%s» بحالة «%s»، ولا تقبلها أي نتيجة تنقله منها؛ غيّر الحالة التي تمنحها النتيجة السابقة.',
+                    $stage?->name_ar,
+                    RequestStatus::query()->whereKey($statusId)->value('name_ar'),
+                ), $stage);
+            }
+
+            foreach ($leaving->filter(fn (WorkflowTransition $rule) => $accepts($rule, $statusId)) as $rule) {
+                $queue[] = [(int) $rule->to_stage_id, (int) ($rule->set_status_id ?? $statusId)];
+            }
+        }
+
+        return array_values($errors);
     }
 
     /**
