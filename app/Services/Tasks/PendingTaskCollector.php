@@ -748,7 +748,7 @@ class PendingTaskCollector
                 $code = $appeal->status->code;
                 $action = self::APPEAL_NEXT_STEP[$code] ?? match (true) {
                     // Once nominated it waits on the committee, not on anyone here.
-                    $code === 'legal_review' && $appeal->committeeAgendaItem === null => 'nominate',
+                    $code === 'legal_review' && $appeal->awaitsNomination() => 'nominate',
                     $code === 'legal_review' => null,
                     $appeal->outcome_executed_at !== null => 'close',
                     $appeal->committeeAgendaItem?->decision !== null => 'execute_outcome',

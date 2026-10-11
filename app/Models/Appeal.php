@@ -175,16 +175,26 @@ class Appeal extends Model
 
     /**
      * Stage 63 — the agenda slot this appeal was presented on, once
-     * nominated. A plain hasOne, not latestOfMany: an appeal is only ever
-     * meant to be nominated once (MeetingController::appealOptions() excludes
-     * an appeal that already has one), so the common case needs nothing more
-     * elaborate — see DecisionController::recordAppealDecision() for the
-     * defensive status re-check that covers the rare double-nomination case
-     * this relation alone doesn't fully prevent.
+     * nominated. The latest one: a reopened appeal is nominated again
+     * (awaitsNomination()), and its new lap's decision is the one execution
+     * reads. The earlier slot and its decision stay on that meeting as history.
      */
     public function committeeAgendaItem(): HasOne
     {
-        return $this->hasOne(MeetingRequest::class, 'appeal_id');
+        return $this->hasOne(MeetingRequest::class, 'appeal_id')->latestOfMany();
+    }
+
+    /**
+     * Not yet on an agenda in this lap: never nominated, or nominated only
+     * before its last reopen. The nominate offer, the nominator's view of
+     * GET appeals/{a}/acts, the inbox and MeetingController::addAgendaItem()
+     * all read it, so they agree.
+     */
+    public function awaitsNomination(): bool
+    {
+        $item = $this->committeeAgendaItem;
+
+        return $item === null || ($this->reopened_at !== null && $item->created_at < $this->reopened_at);
     }
 
     /**

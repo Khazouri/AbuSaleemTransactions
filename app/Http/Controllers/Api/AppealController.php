@@ -305,7 +305,7 @@ class AppealController extends Controller
         $appeal->load(['status:id,code,name_ar,name_en', 'appellant:id,name', 'originalRequest:id,reference_number,title']);
         abort_unless(
             $appeal->status?->code === 'legal_review'
-                && ! $appeal->committeeAgendaItem()->exists()
+                && $appeal->awaitsNomination()
                 && Appeal::mayNominate($actor),
             404,
         );

@@ -19,6 +19,28 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-11 14:50 EET — Claude — A reopened appeal can be nominated again (complete)
+
+Built per the plan below; no migration and no frontend change. `awaitsNomination()` is read in four places; the fourth,
+missed by the plan, is the nominator's branch of `GET appeals/{a}/acts`. **Gotcha:** `latestOfMany()` joins
+`meeting_requests` to itself, so a column-limited eager load must qualify its columns. `AppealsRegister`'s
+`committeeAgendaItem:id,appeal_id` was a 500 («ambiguous column name») until it was qualified. **Behaviour change:**
+`POST meetings/{m}/agenda` now refuses a second nomination of an appeal in one lap. Before, it took one silently.
+Verified: the new `AppealActsTest` case (RED then GREEN), full suite green, Pint clean, `aislop ci` exit 0. The same
+session marked five OPEN_ITEMS entries resolved after finding them already closed on the real DB or in code.
+
+---
+### 2026-10-11 13:59 EET — Claude — Implementation plan: a reopened appeal can be nominated again
+
+Closes the OPEN_ITEMS entry «Appeal `reopen` leaves the old agenda item». A reopened appeal still has its old agenda
+item, so `AppealActs` and the inbox never offer `nominate` again. `POST meetings/{m}/agenda` would accept it, but the
+plain `hasOne` might then hand execution the old decision. Fix: `Appeal::committeeAgendaItem()` becomes
+`latestOfMany()`, and a new `Appeal::awaitsNomination()` (no item, or only items older than `reopened_at`) is read by
+the offer, the inbox and the endpoint. The endpoint then also refuses a second nomination of an appeal that was never
+reopened. The old item and its decision stay as history. Verify: a new `AppealActsTest` case (RED then GREEN), full
+PHPUnit, Pint, aislop ci.
+
+---
 ### 2026-10-11 12:50 EET — Claude — After-decision writes check RequestVisibility (complete)
 
 Built per the plan below; no migration and no frontend change. `CheckRequestVisibility` (alias `request.visible`)

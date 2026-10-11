@@ -65,7 +65,7 @@ class AppealsRegister extends Register
             'appellant:id,name',
             'originalRequest:id,reference_number',
             'status:id,name_ar,name_en',
-            'committeeAgendaItem:id,appeal_id',
+            'committeeAgendaItem:meeting_requests.id,meeting_requests.appeal_id',
             'committeeAgendaItem.decision:id,meeting_request_id,outcome',
         ]);
     }
