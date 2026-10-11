@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Http\Controllers\Api\DecisionController;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\User;
@@ -41,12 +42,15 @@ class WorkflowVersionValidator
      * their absence is a PHP exception at runtime, not a refusal: intake's
      * system hop, the dean's skip past his own manager, and the ministry
      * bypass. Checked only where the stage is present: a version without the
-     * manager step never lands a dean's file there.
+     * manager step never lands a dean's file there. The fourth element marks
+     * a hop the code takes itself with no comment (applyRule() throws when a
+     * rule requires one), so such a rule may not require a note; `approve` is
+     * a person's click and may.
      */
     private const REQUIRED_RULES = [
-        'receive_from_municipality' => ['submit', 'تقديم الطلب', 'بها يُحال كل طلب جديد'],
-        'direct_manager_review' => ['forward', 'موافقة وإحالة', 'بها يتجاوز طلب العميد المدير المباشر'],
-        'approval_by_authority' => ['approve', 'اعتماد', 'بها يُحال الطلب إلى الوزارة أو الاعتماد النهائي'],
+        'receive_from_municipality' => ['submit', 'تقديم الطلب', 'بها يُحال كل طلب جديد', true],
+        'direct_manager_review' => ['forward', 'موافقة وإحالة', 'بها يتجاوز طلب العميد المدير المباشر', true],
+        'approval_by_authority' => ['approve', 'اعتماد', 'بها يُحال الطلب إلى الوزارة أو الاعتماد النهائي', false],
     ];
 
     /** @return array{errors: list<array<string, mixed>>, warnings: list<array<string, mixed>>} */
@@ -140,6 +144,10 @@ class WorkflowVersionValidator
      * type-specific override replaces the generic rule for its own type, and
      * every other type still needs the generic one.
      *
+     * The committee's outcomes are resolved by the vote tally
+     * (DecisionController::ACTIONS), not chosen by a person, so each must
+     * exist as a generic rule from the committee stage, exception or not.
+     *
      * @param  Collection<int, WorkflowStage>  $stages
      * @param  Collection<int, WorkflowTransition>  $rules
      * @return list<array<string, mixed>>
@@ -148,12 +156,23 @@ class WorkflowVersionValidator
     {
         $errors = [];
 
-        foreach (self::REQUIRED_RULES as $code => [$action, $label, $why]) {
+        foreach (self::REQUIRED_RULES as $code => [$action, $label, $why, $system]) {
             $stage = $stages->firstWhere('code', $code);
-            $count = $stage === null ? 1 : $rules->filter(fn (WorkflowTransition $rule) => (int) $rule->from_stage_id === (int) $stage->id
-                && $rule->action === $action && ! $rule->is_exception && $rule->request_type_id === null)->count();
-            if ($count !== 1) {
+            $found = $stage === null ? collect([null]) : $rules->filter(fn (WorkflowTransition $rule) => (int) $rule->from_stage_id === (int) $stage->id
+                && $rule->action === $action && ! $rule->is_exception && $rule->request_type_id === null)->values();
+            if ($found->count() !== 1) {
                 $errors[] = $this->entry('required_rule_missing', sprintf('تحتاج المرحلة «%s» نتيجة «%s» واحدة غير استثنائية؛ %s.', $stage->name_ar, $label, $why), $stage);
+            } elseif ($system && $found->first()?->requires_comment) {
+                $errors[] = $this->entry('required_rule_missing', sprintf('النتيجة «%s» في المرحلة «%s» يتخذها النظام بنفسه دون سبب، فلا تُطلب لها ملاحظة إلزامية.', $label, $stage->name_ar), $stage);
+            }
+        }
+
+        $committee = $stages->firstWhere('code', self::COMMITTEE);
+        foreach ($committee === null ? [] : array_unique(array_values(DecisionController::ACTIONS)) as $action) {
+            $has = $rules->contains(fn (WorkflowTransition $rule) => (int) $rule->from_stage_id === (int) $committee->id
+                && $rule->action === $action && $rule->request_type_id === null);
+            if (! $has) {
+                $errors[] = $this->entry('required_rule_missing', sprintf('تحتاج المرحلة «%s» النتيجة «%s»: يسجّل بها النظام قرار اللجنة حين تنتهي إليه الأصوات.', $committee->name_ar, $action), $committee);
             }
         }
 

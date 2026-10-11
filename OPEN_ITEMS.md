@@ -22,6 +22,13 @@ the committee could be refused, or let through, wrongly. **To close:** give the 
 can set at its stage (a per-stage list next to the code that sets them), or refuse `required_status_id` on rules leaving
 stages the walk cannot model.
 
+- **Validator ceilings found in slice 5's final review (not fixed).** (M1) The `role_without_holder` warning skips
+  built-in rules, so a built-in outcome re-pointed at a role nobody holds is not warned about; close it by dropping the
+  `isCustom()` filter for rules whose role changed from the seeded one. (M4) The committee stage can be reached by a
+  file whose status is not a committee candidate status; close it by feeding `CommitteeStatusService::CANDIDATE_STATUSES`
+  into the status walk as the committee's arrival check. (M5) Deleting the dean's final `approve` self-loop passes
+  validation; close it by requiring that rule as a `REQUIRED_RULES` entry.
+
 ### A Request Types edit can re-key a document a published checklist names — workflow designer slice 4 final review — opened 2026-10-10
 An attachment item names its document by `document_key`, which is the row index plus a hash of the Arabic label
 (`IntakeGateService::documentKey`). Fixing a typo in a label on the Request Types screen, or reordering its rows, changes

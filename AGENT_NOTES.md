@@ -19,6 +19,14 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-11 09:05 EET — Claude — Workflow designer slice 5: final-review fixes
+
+Fixed with tests: C1 (a system hop's rule, `submit` at intake and `forward` at the manager, may not require a comment,
+or intake would 500), I1 (every `DecisionController::ACTIONS` outcome must exist at the committee stage, since the vote
+tally picks it), M2 (the Request Types refusal reads correctly for a new type or a move), M3 (AGENTS.md wording) and T4
+(the re-key test asserts its index instead of skipping). M1, M4 and M5 are ceilings recorded in OPEN_ITEMS.
+
+---
 ### 2026-10-11 08:46 EET — Claude — Workflow designer slice 5: built-ins editable and removable (complete)
 
 Built per the plan below, on `feat/workflow-builtins`. No migration, seeder, route or screen.

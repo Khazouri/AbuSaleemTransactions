@@ -343,10 +343,9 @@ class RequestTypeCrudTest extends TestCase
         $put($promotion, $renamed)->assertUnprocessable()->assertJsonValidationErrors('required_documents');
 
         $above = $promotion->required_documents;
-        if ($index > 0) {
-            array_splice($above, $index - 1, 1);
-            $put($promotion, $above)->assertUnprocessable()->assertJsonValidationErrors('required_documents');
-        }
+        $this->assertGreaterThan(0, $index);
+        array_splice($above, $index - 1, 1);
+        $put($promotion, $above)->assertUnprocessable()->assertJsonValidationErrors('required_documents');
 
         // An unchanged save, and a type that never listed the document, are not blocked.
         $put($promotion, $promotion->required_documents)->assertOk();

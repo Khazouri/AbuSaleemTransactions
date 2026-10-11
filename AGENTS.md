@@ -206,8 +206,9 @@ Key architectural facts worth knowing before changing things:
   its from-stage, action and label. A rule left out of the PUT is deleted. The
   validator refuses a publish that breaks what the code depends on:
   - an unreachable anchor;
-  - a missing `required_rule_missing` rule (normal `submit` at intake,
-    `forward` at the manager, `approve` at approval_by_authority);
+  - a missing required rule (`required_rule_missing`: a normal `submit` at
+    intake and `forward` at the manager, neither requiring a note; `approve`
+    at approval_by_authority; every committee decision outcome);
   - `status_unmet` (a file reaching a stage with a status none of its exits
     accept).
 

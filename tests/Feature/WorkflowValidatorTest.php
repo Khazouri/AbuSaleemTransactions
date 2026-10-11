@@ -156,7 +156,24 @@ class WorkflowValidatorTest extends TestCase
             $rule->update(['is_exception' => false]);
         }
 
+        // The code takes `submit` and `forward` itself with no comment, so a mandatory note would 500 intake.
+        foreach (['receive_from_municipality' => 'submit', 'direct_manager_review' => 'forward'] as $stage => $action) {
+            $rule = WorkflowTransition::query()->where('from_stage_id', $this->draft->stage($stage)->id)->where('action', $action);
+            $rule->update(['requires_comment' => true]);
+            $this->assertContains(['required_rule_missing', $stage], $this->errorCodes(), $stage);
+            $rule->update(['requires_comment' => false]);
+        }
+
         $this->assertSame([], $this->errorCodes());
+    }
+
+    public function test_every_committee_decision_outcome_must_stay(): void
+    {
+        // The vote tally picks the action (DecisionController::ACTIONS); a deleted row makes recording impossible.
+        $committee = $this->draft->stage('receive_from_committee');
+        WorkflowTransition::query()->where('from_stage_id', $committee->id)->where('action', 'request_legal_opinion')->delete();
+
+        $this->assertContains(['required_rule_missing', 'receive_from_committee'], $this->errorCodes());
     }
 
     public function test_without_the_manager_step_a_file_must_reach_hr_with_the_status_hr_takes(): void
