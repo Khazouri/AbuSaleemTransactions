@@ -94,7 +94,7 @@ class AppealActs
             }
         }
 
-        if (Appeal::mayNominate($actor) && $appeal->status?->code === 'legal_review' && $appeal->committeeAgendaItem === null) {
+        if (Appeal::mayNominate($actor) && $appeal->status?->code === 'legal_review' && $appeal->awaitsNomination()) {
             $acts['available'][] = ['action' => 'nominate'];
         }
 

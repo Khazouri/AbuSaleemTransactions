@@ -345,7 +345,8 @@ class MeetingController extends Controller
      * The one business rule the FormRequest can't express: an appeal may
      * only be nominated once it has passed legal review (Stage 62's own
      * "cannot reach Stage 63 without both records present" done-when, read
-     * as a nomination-time gate).
+     * as a nomination-time gate), and only once per lap
+     * (Appeal::awaitsNomination()).
      */
     public function addAgendaItem(
         StoreMeetingAgendaRequest $request,
@@ -379,6 +380,12 @@ class MeetingController extends Controller
             if ($appeal->status?->code !== 'legal_review') {
                 throw ValidationException::withMessages([
                     'appeal_id' => ['لا يمكن عرض التظلم على اللجنة إلا بعد اجتياز المراجعة القانونية.'],
+                ]);
+            }
+
+            if (! $appeal->awaitsNomination()) {
+                throw ValidationException::withMessages([
+                    'appeal_id' => ['هذا التظلم مدرج بالفعل في جدول أعمال اجتماع.'],
                 ]);
             }
         }

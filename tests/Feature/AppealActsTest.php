@@ -126,6 +126,37 @@ class AppealActsTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_a_reopened_appeal_is_nominated_again_and_reads_its_new_decision(): void
+    {
+        $chair = $this->userWithRole('R03');
+        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
+        $this->seatOn($committee, $chair);
+        $meeting = Meeting::create(['committee_id' => $committee->id, 'title' => 'اجتماع', 'scheduled_at' => now()->addWeek()]);
+        $appeal = $this->appealIn('legal_review', $this->userWithRole('R01'));
+        $this->decide($appeal, 'appeal_reject');
+
+        // Never reopened: one nomination is all it gets, on the endpoint too.
+        $this->actingAs($chair->fresh(), 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['item_type' => 'appeal', 'appeal_id' => $appeal->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['appeal_id']);
+
+        // Reopened and brought back through verification to legal review.
+        $this->travel(1)->hours();
+        $appeal->update(['reopened_at' => now()]);
+        $this->travel(1)->hours();
+
+        $this->assertSame([['action' => 'nominate']], $this->acts($chair, $appeal)['available']);
+        $newItemId = $this->actingAs($chair->fresh(), 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['item_type' => 'appeal', 'appeal_id' => $appeal->id])
+            ->assertCreated()
+            ->json('data.id');
+
+        // The new lap's item, not the old decided one, is the appeal's own.
+        $this->assertSame($newItemId, $appeal->fresh()->committeeAgendaItem->id);
+        $this->assertNull($appeal->fresh()->committeeAgendaItem->decision);
+    }
+
     public function test_the_list_marks_the_rows_with_something_to_do(): void
     {
         $verifier = $this->userWithRole('R02');

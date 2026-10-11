@@ -209,12 +209,16 @@ acceptable, or add the matrix check back beside the per-file review at `register
 but Homestead's MySQL was unreachable, so the real database still demands a reason for them. The removed
 document-validity gate is code and is live already. **To close:** the same
 `php artisan db:seed --class=WorkflowTransitionSeeder` as the entry below; one run closes both.
+**Resolved (found applied 2026-10-11).** Queried on the real MySQL: `return_to_employee` and both manager `cancel` rows
+have `requires_comment = 0`.
 
 ### R08's `submit` row still on the real database — admin may not file — opened 2026-10-07
 `WorkflowTransitionSeeder` now deletes R08's `submit` exception at `receive_from_municipality`, but Homestead's MySQL
 was unreachable, so the real database still has it: until then an admin can push an employee's returned file
 forward. The intake block itself is code (`User::screenPermissions()`) and is already live. **To close:**
 `php artisan db:seed --class=WorkflowTransitionSeeder` (safe, it does not touch the permission matrix).
+**Resolved (found applied 2026-10-11).** The real MySQL's only `submit` row at `receive_from_municipality` is the
+normal creator row (no role, not an exception).
 
 ### `request_intake,approve` still granted to R02/R05 on the real database — on-behalf removal — opened 2026-10-07
 **Resolved (2026-10-10, workflow designer slice 2).** The new screen needed `ScreenRolePermissionSeeder` on the real
@@ -387,6 +391,11 @@ null`) and `execute_outcome` would still read the pre-reopen decision if the app
 again. **To close:** `AppealController::reopen()` clears the link (and, if a decision was recorded
 against that agenda item, decides whether the decision itself should also be detached or left as
 history).
+**Resolved (2026-10-11, fix/appeal-reopen-renomination).** The old item is kept, not cleared, so its decision stays on
+that meeting as history. `Appeal::committeeAgendaItem()` is now `latestOfMany()`, so execution reads the new lap's
+decision. `Appeal::awaitsNomination()` (no item, or only items older than `reopened_at`) is read by the nominate offer,
+the nominator's acts view, the inbox and `addAgendaItem()`, which now also refuses a second nomination in one lap.
+`GET meetings/appeal-options` (no caller) still excludes any appeal with an item.
 
 ### The redo-stage picker offers stages the endpoint refuses — decision wizard sub-project 3, slice 3 — opened 2026-09-28
 `GET appeals/redo-stage-options` (used by `AppealExecuteForm`'s stage picker) does not filter out stages
@@ -421,12 +430,16 @@ On the real database committee #16 holds one seated member (chair) and three sea
 cannot schedule a meeting until all five Art. 10 (أ) seats are assigned (each to the role
 `CommitteeMember::SEAT_ROLES` names). Data, not code. **To close:** fill the five seats on the
 Meetings screen (R02/R03), or deactivate the old committee and form a new one.
+**Resolved (2026-10-04, Stage 103).** Seats are no longer filled by hand: `Committee::seatRoleHolders()` fills all five
+from «المناصب الفردية» at scheduling, so the committee schedules once each post has a holder.
 
 ### Nobody is told when a member declines a meeting date — Stage 102 — opened 2026-09-26
 A decline leaves the meeting `pending_confirmation`, and the مقرر sees it only on the meeting page
 (and the unanswered members see it in «مهامي»). There is no "date declined" or "meeting approved"
 notification. Left out as not asked for. **To close:** add a notification event fired from
 `MeetingController::respond()` to the rapporteur on a decline and to all attendees on approval.
+**Resolved (2026-09-26, `meeting_invitation_response`).** Every answer notifies the مقرر, and the last acceptance says
+the meeting is confirmed (`NotificationDispatcher::invitationAnswered()`). Attendees other than the مقرر are not told.
 
 ### R04's role name still reads «عضو اللجنة» — Stage 102 — opened 2026-09-26
 R04 now carries the `ministry_delegate` seat (مندوب الخدمة المدنية بوزارة الحكم المحلي), but its
@@ -438,6 +451,8 @@ Convening requires the meeting to be `scheduled` (every member accepted), but vo
 still check only the adopted agenda and the study sequence, not `convened_at`. Pre-existing; not
 widened here. **To close:** refuse votes/decisions on a meeting with no `convened_at` and update the
 fixtures (`RunsStudySequence`) that vote without convening.
+**Resolved (2026-09-26).** `DecisionEligibility` refuses a vote with `MEETING_NOT_CONVENED` until `convened_at` is set,
+and item-state and study-sequence changes wait for convening too.
 
 ### The decisions register scrolls sideways at 1024px — layout check — opened 2026-09-23
 `scripts/check-layout.mjs` fails `/decisions` (register tab) at 1024px in both locales: the table
