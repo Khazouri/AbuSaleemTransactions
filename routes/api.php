@@ -464,9 +464,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path for a
     // concluded request, independent of any Appeal. Rides the same
     // appeals,edit grant (R02 + R08) Track J's other post-decision
-    // reconsideration actions use on this model (see RequestController::
-    // reopen()'s own docblock for why RequestVisibility isn't checked here).
-    Route::middleware('screen.permission:appeals,edit')
+    // reconsideration actions use on this model. `request.visible` on this and
+    // the after-decision writes below: the wizard offers them only on a page
+    // RequestVisibility already opened, and a call by id must agree.
+    Route::middleware(['screen.permission:appeals,edit', 'request.visible'])
         ->patch('requests/{requestRecord}/reopen', [RequestController::class, 'reopen']);
 
     // Stage 75 — [D] Art. 37's الإقفال. Rode `meeting_outputs,edit`, the grant
@@ -477,20 +478,20 @@ Route::middleware('auth:sanctum')->group(function () {
     // execute() does. Appendix 47 addresses closure to المقرر ("لا يغلق
     // المقرر أي معاملة إلا بعد…"), which is why that grant holds R02 alongside
     // R03; R12 (HR, the body [D] names most often) joins them on `approve`.
-    Route::middleware('screen.permission:meeting_outputs,approve')
+    Route::middleware(['screen.permission:meeting_outputs,approve', 'request.visible'])
         ->patch('requests/{requestRecord}/close', [RequestController::class, 'close']);
 
     // Stage 100 — [D] Appendix 6 row 15: الأرشفة has two مسؤول. ملف اللجنة is
     // المقرر's (the `edit` tier, R02 + R03); ملف الخدمة is الموارد البشرية's,
     // on `add` — a tier that gated no route before this stage, reseeded R12.
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
         ->patch('requests/{requestRecord}/archive/committee-file', [RequestController::class, 'archiveCommitteeFile']);
-    Route::middleware('screen.permission:meeting_outputs,add')
+    Route::middleware(['screen.permission:meeting_outputs,add', 'request.visible'])
         ->patch('requests/{requestRecord}/archive/service-file', [RequestController::class, 'archiveServiceFile']);
 
     // Stage 100 — Appendix 6 row 14: المقرر «مسؤول إجرائيًا» for Art. 101's
     // notices. Issues the notice for the file's current state in المقرر's name.
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
         ->post('requests/{requestRecord}/notices/issue', [RequestController::class, 'issueNotice']);
 
     /*
@@ -506,9 +507,9 @@ Route::middleware('auth:sanctum')->group(function () {
      * here. Art. 30 addresses this register to مقرر اللجنة, R02's own role
      * name.
      */
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
         ->patch('requests/{requestRecord}/approval-return', [RequestController::class, 'recordApprovalReturn']);
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
         ->patch('requests/{requestRecord}/approval-return/resolve', [RequestController::class, 'resolveApprovalReturn']);
 
     /*
@@ -522,9 +523,9 @@ Route::middleware('auth:sanctum')->group(function () {
      * the register to مقرر اللجنة. Deliberately NOT a gate on the approval
      * transition: the article says "ويسجل", not "ولا يحال قبل".
      */
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
         ->post('requests/{requestRecord}/approval-referrals', [RequestController::class, 'recordApprovalReferral']);
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
         ->patch('requests/{requestRecord}/approval-referrals/{referral}/result', [RequestController::class, 'recordApprovalReferralResult']);
 
     /*
@@ -542,11 +543,11 @@ Route::middleware('auth:sanctum')->group(function () {
      * and referred to execution by the authority who approves it, so
      * preparation and decision stay in different hands.
      */
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
         ->patch('requests/{requestRecord}/execution-soundness', [RequestController::class, 'recordExecutionSoundness']);
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
         ->patch('requests/{requestRecord}/suspend', [RequestController::class, 'suspend']);
-    Route::middleware('screen.permission:meeting_outputs,edit')
+    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
         ->patch('requests/{requestRecord}/suspend/lift', [RequestController::class, 'liftSuspension']);
 
     /*
@@ -809,7 +810,7 @@ Route::middleware('auth:sanctum')->group(function () {
      */
     Route::middleware('screen.permission:meeting_outputs,view')
         ->get('meetings/{meeting}/outputs', [MeetingOutputsController::class, 'show']);
-    Route::middleware('screen.permission:meeting_outputs,approve')
+    Route::middleware(['screen.permission:meeting_outputs,approve', 'request.visible'])
         ->post('meetings/{meeting}/outputs/{agendaItem}/execute', [MeetingOutputsController::class, 'execute']);
 
     /*

@@ -84,6 +84,10 @@ Key architectural facts worth knowing before changing things:
   `screen.permission:<screen_code>,<action>` rather than a bare
   `apiResource()`, and new action buttons should carry
   `v-can="'<screen_code>.<action>'"` (`frontend/src/directives/can.js`).
+  A grant says what you may do, not on which file: a `{requestRecord}` write
+  also needs `RequestVisibility`, either the `request.visible` route middleware
+  after the `screen.permission` (the after-decision writes) or an inline
+  `canView()` 404.
   Roles are created and renamed on that same screen (`POST|PUT /roles`). A
   created role gets a server-assigned `C01`, `C02`… code, never `R13`, so
   `RoleSeeder`'s upsert by code can't overwrite it. Codes are immutable, and

@@ -152,6 +152,10 @@ class GateAuthorshipTest extends TestCase
         $requestRecord->forceFill([
             'current_stage_id' => WorkflowStage::where('code', 'final_approval_archiving')->value('id'),
             'status_id' => RequestStatus::where('code', 'completed_closed')->value('id'),
+            // RequestClosureService::close() is the only writer of this status
+            // and always stamps closed_at, which is what lets R02 open the file
+            // (and so reopen it: the route is behind `request.visible`).
+            'closed_at' => now(),
             'jurisdiction_test' => $this->jurisdictionAnswers(),
             'jurisdiction_tested_by_user_id' => $reviewer->id,
             'jurisdiction_tested_at' => now(),
