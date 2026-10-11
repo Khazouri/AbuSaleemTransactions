@@ -53,8 +53,6 @@ class WorkflowDraftWriter
             // Workflow designer — slice 5. Any stage left out goes, built-in
             // or custom; checkStages() has made sure no anchor is among them.
             $removed = $stages->reject(fn (WorkflowStage $stage) => $sentCodes->contains($stage->code))->pluck('id');
-            WorkflowTransition::query()->whereIn('from_stage_id', $removed)->orWhereIn('to_stage_id', $removed)->delete();
-            WorkflowStage::query()->whereKey($removed)->delete();
 
             // Park every survivor clear of unique(version, order_no) before
             // renumbering, so the loop below never collides with a row it
@@ -90,6 +88,10 @@ class WorkflowDraftWriter
             }
 
             $this->writeRules($draft, $rules, $data['transitions']);
+            // Removed only after the rules are written: a rule redirected away from a step this save
+            // removes still points at it until writeRules(), and to_stage_id cascades on delete.
+            WorkflowTransition::query()->whereIn('from_stage_id', $removed)->orWhereIn('to_stage_id', $removed)->delete();
+            WorkflowStage::query()->whereKey($removed)->delete();
         });
     }
 

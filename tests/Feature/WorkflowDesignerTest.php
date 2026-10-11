@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Department;
+use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\Role;
@@ -11,6 +13,7 @@ use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use App\Models\WorkflowVersion;
 use App\Services\WorkflowDraftWriter;
+use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -502,6 +505,64 @@ class WorkflowDesignerTest extends TestCase
         ];
 
         return $payload;
+    }
+
+    public function test_without_the_manager_step_new_files_and_the_deans_go_straight_to_hr(): void
+    {
+        $before = $this->fileAs($this->employee());
+        $draft = Workflow::standard()->publishedVersion->cloneAsDraft();
+        $payload = $this->payload($draft);
+        foreach ($payload['transitions'] as &$rule) {
+            if ($rule['from'] === 'receive_from_municipality' && $rule['to'] === 'direct_manager_review') {
+                $rule['to'] = 'receive_and_register';
+                $rule['set_status_id'] = RequestStatus::where('code', 'routed_to_hr')->value('id');
+            }
+        }
+        unset($rule);
+        $payload['stages'] = array_values(array_filter($payload['stages'], fn ($stage) => $stage['code'] !== 'direct_manager_review'));
+        $payload['transitions'] = array_values(array_filter($payload['transitions'], fn ($rule) => $rule['from'] !== 'direct_manager_review'));
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/workflow-versions/{$draft->id}", $payload)
+            ->assertOk()
+            ->assertJsonPath('data.report.errors', []);
+        $this->actingAs($this->admin(), 'sanctum')->postJson("/api/workflow-versions/{$draft->id}/publish")->assertOk();
+
+        $employees = $this->fileAs($this->employee());
+        $deans = $this->fileAs($this->employee('R07'));
+        foreach ([$employees, $deans] as $filed) {
+            $this->assertSame(['receive_and_register', 'routed_to_hr', $draft->id], [$filed->currentStage->code, $filed->status->code, $filed->currentStage->workflow_version_id]);
+        }
+        $registered = app(WorkflowService::class)->transition($employees, 'register', $this->userWithRole('R12'));
+        $this->assertSame('requirements_check', $registered->currentStage->code);
+
+        // Filed before the publish: still on v1, still waiting for its manager.
+        $this->assertSame('direct_manager_review', $before->fresh()->currentStage->code);
+    }
+
+    /** An ALLW request through intake (ALLW lists no mandatory upload, as DeanRequestTest relies on). */
+    private function fileAs(User $filer): Request
+    {
+        $id = $this->actingAs($filer, 'sanctum')
+            ->postJson('/api/requests', [
+                'title' => 'طلب',
+                'request_type_id' => RequestType::where('code', 'ALLW')->value('id'),
+                'decision_grade' => 9,
+                'entitled_grade' => 9,
+                'grade_date' => '2024-03-01',
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        return Request::findOrFail($id);
+    }
+
+    private function employee(string ...$extraRoles): User
+    {
+        $user = User::factory()->create(['is_active' => true, 'department_id' => Department::where('code', 'ADM')->value('id')]);
+        $user->roles()->attach(Role::whereIn('code', ['R01', ...$extraRoles])->pluck('id'));
+
+        return $user;
     }
 
     private function admin(): User
