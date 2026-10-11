@@ -1,8 +1,9 @@
 <script setup>
 /**
- * Workflow designer — slice 3. A custom step: its names, the role shown as
+ * Workflow designer — slice 3. A step: its names, the role shown as
  * its owner, its soft target, and where it sits in the chain («بعد المرحلة»;
  * the save renumbers the version from that order). Slice 4: and its checklist.
+ * Slice 5: a built-in step too, minus its place and its checklist (the writer keeps both).
  */
 import { reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -18,6 +19,7 @@ const props = defineProps({
   saving: { type: Boolean, default: false },
 })
 const emit = defineEmits(['submit', 'cancel'])
+const builtIn = props.stage !== null && !props.stage.custom
 const { t, locale } = useI18n()
 const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en : item?.name_en || item?.name_ar)
 
@@ -44,6 +46,7 @@ function submit() {
 <template>
   <form class="stage-form" @submit.prevent="submit">
     <p v-if="error" class="alert" role="alert">{{ error }}</p>
+    <p v-if="builtIn" class="hint">{{ t('workflows.edit.builtinStageHint') }}</p>
     <div class="field-grid">
       <label>
         <span>{{ t('workflows.edit.nameAr') }}<span class="required-mark" aria-hidden="true">*</span></span>
@@ -60,7 +63,7 @@ function submit() {
           <option v-for="role in roles" :key="role.id" :value="role.id">{{ name(role) }}</option>
         </select>
       </label>
-      <label>
+      <label v-if="!builtIn">
         {{ t('workflows.edit.after') }}
         <select v-model="after.code">
           <option v-for="item in stages.filter((s) => s.code !== stage?.code)" :key="item.code" :value="item.code">
@@ -77,7 +80,7 @@ function submit() {
         <input v-model.number="form.target_days_max" type="number" min="0" max="365" />
       </label>
     </div>
-    <ChecklistEditor v-model="form.checklist" :documents="documents" />
+    <ChecklistEditor v-if="!builtIn" v-model="form.checklist" :documents="documents" />
     <div class="modal-actions">
       <button class="ghost" type="button" @click="emit('cancel')">{{ t('common.cancel') }}</button>
       <button class="primary" type="submit" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>
@@ -87,4 +90,5 @@ function submit() {
 
 <style scoped>
 .stage-form { display: grid; gap: var(--space-3); }
+.hint { margin: 0; color: var(--color-muted); }
 </style>

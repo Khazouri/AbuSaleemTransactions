@@ -197,8 +197,22 @@ Key architectural facts worth knowing before changing things:
   **Slice 3 (drafts):** a draft is edited only through
   `PUT workflow-versions/{v}` (`WorkflowDraftWriter`, the whole graph). A
   stage or rule is *custom* iff its code/action starts with `custom_`
-  (`WorkflowTransition::CUSTOM_PREFIX`), minted by the server; built-in stages
-  and rules are locked except a built-in rule's destination (until slice 5).
+  (`WorkflowTransition::CUSTOM_PREFIX`), minted by the server.
+  **Slice 5 (built-ins):** every built-in step and rule is editable on a draft
+  and every one is deletable, except the anchors (`WorkflowStage::ANCHORS`:
+  intake, the committee, the final stage). Three things stay fixed: built-ins
+  keep their relative order (`order_no` is read by the outputs screen and
+  appeal redo), a built-in stage takes no checklist, and a built-in rule keeps
+  its from-stage, action and label. A rule left out of the PUT is deleted. The
+  validator refuses a publish that breaks what the code depends on:
+  - an unreachable anchor;
+  - a missing required rule (`required_rule_missing`: a normal `submit` at
+    intake and `forward` at the manager, neither requiring a note; `approve`
+    at approval_by_authority; every committee decision outcome);
+  - `status_unmet` (a file reaching a stage with a status none of its exits
+    accept).
+
+  A Request Types save may not re-key a document a published checklist names.
   Publish refuses while `WorkflowVersionValidator::report()` has errors and
   retires/publishes in one transaction under the workflow's row lock; only a
   draft can be deleted. `request_types.workflow_id` picks the workflow intake

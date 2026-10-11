@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use App\Models\WorkflowVersion;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,12 +17,14 @@ use Illuminate\Validation\ValidationException;
  * workflow-versions/{v}). Upserts rather than replacing, so stage and rule
  * ids — and the type-specific rows the designer does not draw — survive.
  *
- * This slice's locks, all enforced here because they depend on the draft's
- * current rows: every built-in stage stays, unedited and in its relative
- * order; every built-in rule stays, and only its destination may change
- * (that is how a custom step is put in the path). Custom steps and outcomes
- * are free, and the server mints their codes, so the `custom_` prefix is
- * never a client's claim.
+ * What stays fixed (slice 5 unlocked the rest): the three anchor stages
+ * (WorkflowStage::ANCHORS) are never removed; built-in stages keep their
+ * relative order, because order_no is read as "past the committee" and by
+ * appeal redo's backward-only check; a built-in stage keeps its code and
+ * takes no checklist; a built-in rule keeps its from-stage, action and
+ * label, since the code and the locale files name it by them. Custom steps
+ * and outcomes are free, and the server mints their codes, so the
+ * `custom_` prefix is never a client's claim.
  */
 class WorkflowDraftWriter
 {
@@ -47,9 +50,9 @@ class WorkflowDraftWriter
             $checklists = $this->checklists($stages, $sent);
 
             // Everything checked; nothing below can refuse half-way.
-            $removed = $stages->filter(fn (WorkflowStage $stage) => $stage->isCustom() && ! $sentCodes->contains($stage->code))->pluck('id');
-            WorkflowTransition::query()->whereIn('from_stage_id', $removed)->orWhereIn('to_stage_id', $removed)->delete();
-            WorkflowStage::query()->whereKey($removed)->delete();
+            // Workflow designer — slice 5. Any stage left out goes, built-in
+            // or custom; checkStages() has made sure no anchor is among them.
+            $removed = $stages->reject(fn (WorkflowStage $stage) => $sentCodes->contains($stage->code))->pluck('id');
 
             // Park every survivor clear of unique(version, order_no) before
             // renumbering, so the loop below never collides with a row it
@@ -78,12 +81,17 @@ class WorkflowDraftWriter
                 // the pre-park order_no, so an unmoved stage would look clean
                 // and be left parked at +1000.
                 $stage = $stages[$item['code']];
-                WorkflowStage::query()->whereKey($stage->id)->update(
-                    $stage->isCustom() ? [...$fields, 'order_no' => $orderNo] : ['order_no' => $orderNo],
-                );
+                WorkflowStage::query()->whereKey($stage->id)->update([
+                    ...($stage->isCustom() ? $fields : Arr::except($fields, 'checklist')),
+                    'order_no' => $orderNo,
+                ]);
             }
 
             $this->writeRules($draft, $rules, $data['transitions']);
+            // Removed only after the rules are written: a rule redirected away from a step this save
+            // removes still points at it until writeRules(), and to_stage_id cascades on delete.
+            WorkflowTransition::query()->whereIn('from_stage_id', $removed)->orWhereIn('to_stage_id', $removed)->delete();
+            WorkflowStage::query()->whereKey($removed)->delete();
         });
     }
 
@@ -147,10 +155,20 @@ class WorkflowDraftWriter
             throw ValidationException::withMessages(['stages' => ['مرحلة غير موجودة في هذه المسودة.']]);
         }
 
-        $builtIns = $stages->reject(fn (WorkflowStage $stage) => $stage->isCustom())->sortBy('order_no')->keys()->values()->all();
+        // Workflow designer — slice 5. A non-anchor built-in may go; an anchor
+        // never (see WorkflowStage::ANCHORS).
+        $anchor = $stages->first(fn (WorkflowStage $stage) => $stage->isAnchor() && ! $sentCodes->contains($stage->code));
+        if ($anchor) {
+            throw ValidationException::withMessages(['stages' => [sprintf('المرحلة «%s» ثابتة في كل مسار عمل، فلا تُحذف.', $anchor->name_ar)]]);
+        }
+
+        // The built-ins that remain keep their order among themselves; custom
+        // steps may sit anywhere between them.
+        $builtIns = $stages->reject(fn (WorkflowStage $stage) => $stage->isCustom())->sortBy('order_no')->keys()
+            ->intersect($sentCodes)->values()->all();
         $sentBuiltIns = $sentCodes->reject(fn (string $code) => $stages[$code]->isCustom())->values()->all();
         if ($sentBuiltIns !== $builtIns) {
-            throw ValidationException::withMessages(['stages' => ['المراحل الأساسية لا تُحذف ولا يتغير ترتيبها فيما بينها في هذا الإصدار من المصمم.']]);
+            throw ValidationException::withMessages(['stages' => ['لا يتغير ترتيب المراحل الأساسية فيما بينها؛ تُضاف المراحل المخصصة بينها.']]);
         }
     }
 
@@ -169,9 +187,6 @@ class WorkflowDraftWriter
         if ($sentIds->contains(fn (int $id) => ! $rules->has($id))) {
             $errors['transitions'][] = 'نتيجة لا تنتمي إلى هذه المسودة.';
         }
-        if ($rules->reject(fn (WorkflowTransition $rule) => $rule->isCustom())->keys()->diff($sentIds)->isNotEmpty()) {
-            $errors['transitions'][] = 'القواعد الأساسية لا تُحذف في هذا الإصدار من المصمم.';
-        }
 
         foreach ($sent as $index => $item) {
             $existing = $item['id'] !== null ? $rules->get($item['id']) : null;
@@ -181,15 +196,14 @@ class WorkflowDraftWriter
 
                 continue;
             }
-            if ($existing && ! $existing->isCustom()) {
-                if ($stages[$item['from']]->id !== $existing->from_stage_id) {
-                    $errors["transitions.{$index}.from"][] = 'لا يمكن نقل قاعدة أساسية إلى مرحلة أخرى؛ تتغير وجهتها فقط.';
-                }
+            $builtIn = $existing && ! $existing->isCustom();
+            if ($builtIn && $stages[$item['from']]->id !== $existing->from_stage_id) {
+                $errors["transitions.{$index}.from"][] = 'لا تنتقل قاعدة أساسية إلى مرحلة أخرى؛ تتغير وجهتها فقط.';
 
                 continue;
             }
 
-            $errors = array_merge_recursive($errors, $this->customRuleErrors($index, $item, $everyone));
+            $errors = array_merge_recursive($errors, $this->ruleErrors($index, $item, $everyone, custom: ! $builtIn));
         }
 
         if ($errors !== []) {
@@ -198,9 +212,10 @@ class WorkflowDraftWriter
     }
 
     /**
-     * A rule whose end is a step this save removes (or never had). A built-in
-     * rule cannot be deleted in this slice, so the admin is told which one to
-     * point elsewhere first; both are named by stage, never by raw code.
+     * A rule whose end is a step this save removes (or never had). A deleted
+     * built-in rule cannot be re-made in a draft (new outcomes are always
+     * custom_…), so it is never dropped silently: the admin is told which one
+     * to point elsewhere first. Both are named by stage, never by raw code.
      *
      * @param  array<string, mixed>  $item
      * @param  Collection<string, WorkflowStage>  $stages
@@ -217,14 +232,18 @@ class WorkflowDraftWriter
     }
 
     /**
+     * Workflow designer — slice 5: the actor checks hold for an edited
+     * built-in rule too — they are what keeps a rule from opening the file
+     * to every account.
+     *
      * @param  array<string, mixed>  $item
      * @return array<string, list<string>>
      */
-    private function customRuleErrors(int $index, array $item, ?int $everyone): array
+    private function ruleErrors(int $index, array $item, ?int $everyone, bool $custom): array
     {
         $errors = [];
 
-        if (blank($item['label_ar'] ?? null)) {
+        if ($custom && blank($item['label_ar'] ?? null)) {
             $errors["transitions.{$index}.label_ar"][] = 'اسم النتيجة بالعربية مطلوب.';
         }
         // A rule with no actor at all would let — and show the file to —
@@ -259,23 +278,26 @@ class WorkflowDraftWriter
 
         foreach ($sent as $item) {
             $existing = $item['id'] !== null ? $rules->get($item['id']) : null;
-
-            if ($existing && ! $existing->isCustom()) {
-                $existing->update(['to_stage_id' => $ids[$item['to']]]);
-
-                continue;
-            }
-
+            // Workflow designer — slice 5: everything but from, action and
+            // label is now editable on a built-in rule too. request_type_id is
+            // never written, so a type-specific override keeps its type.
             $fields = [
-                'from_stage_id' => $ids[$item['from']],
                 'to_stage_id' => $ids[$item['to']],
-                ...collect($item)->only(['label_ar', 'label_en', 'required_role_id', 'set_status_id', 'required_status_id'])->all(),
+                ...collect($item)->only(['required_role_id', 'set_status_id', 'required_status_id'])->all(),
                 'is_exception' => (bool) ($item['is_exception'] ?? false),
                 'requires_comment' => (bool) ($item['requires_comment'] ?? false),
                 'requires_submitter_manager' => (bool) ($item['requires_submitter_manager'] ?? false),
                 'requires_creator' => (bool) ($item['requires_creator'] ?? false),
                 'requires_checks' => (bool) ($item['requires_checks'] ?? false),
             ];
+
+            if ($existing && ! $existing->isCustom()) {
+                $existing->update($fields);
+
+                continue;
+            }
+
+            $fields = [...$fields, 'from_stage_id' => $ids[$item['from']], ...collect($item)->only(['label_ar', 'label_en'])->all()];
 
             if ($existing) {
                 $existing->update($fields);
@@ -284,9 +306,7 @@ class WorkflowDraftWriter
             }
         }
 
-        $sentIds = collect($sent)->pluck('id')->filter();
-        WorkflowTransition::query()
-            ->whereKey($rules->filter(fn (WorkflowTransition $rule) => $rule->isCustom())->keys()->diff($sentIds))
-            ->delete();
+        // Any rule left out goes, a built-in one too (slice 5).
+        WorkflowTransition::query()->whereKey($rules->keys()->diff(collect($sent)->pluck('id')->filter()))->delete();
     }
 }

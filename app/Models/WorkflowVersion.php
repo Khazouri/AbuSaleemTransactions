@@ -75,6 +75,21 @@ class WorkflowVersion extends Model
     }
 
     /**
+     * Workflow designer — slice 5. Every attachment item on this version's
+     * checklists, with its step's name, for the Request Types save that must
+     * not re-key a document one of them names.
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    public function attachmentItems(): \Illuminate\Support\Collection
+    {
+        return $this->stages()->whereNotNull('checklist')->get()
+            ->flatMap(fn (WorkflowStage $stage) => collect($stage->checklist)->where('type', 'attachment')
+                ->map(fn (array $item) => [...$item, 'stage_name_ar' => $stage->name_ar]))
+            ->values()->toBase();
+    }
+
+    /**
      * The stage with this code in THIS version. Throws rather than returning
      * null: every caller is code that names a stage it depends on, and a
      * missing one is a configuration fault, not a branch to handle.

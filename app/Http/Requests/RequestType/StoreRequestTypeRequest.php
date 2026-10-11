@@ -4,8 +4,10 @@ namespace App\Http\Requests\RequestType;
 
 use App\Models\Attachment;
 use App\Models\RequestType;
+use App\Models\Workflow;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * Validates a new request type (نوع الطلب).
@@ -117,6 +119,54 @@ class StoreRequestTypeRequest extends FormRequest
             'required_documents.*.required' => ['sometimes', 'boolean'],
             'required_documents.*.section' => ['nullable', Rule::in(array_keys(Attachment::FILE_SECTIONS))],
         ];
+    }
+
+    /**
+     * Workflow designer — slice 5. An attachment item names a document by its
+     * key — the row's index plus a hash of its Arabic label — so renaming,
+     * reordering or removing a row re-keys it, and the item then finds no
+     * file on any new request of this type. Refused when the type's workflow
+     * has a published version naming a key this save drops — or, when the
+     * save moves the type onto a workflow, a key the type will not list.
+     * A draft is W2's job at publish time.
+     *
+     * ponytail: retired versions are not read, so a file still running on
+     * one can lose its document this way; reading them would mean a document
+     * any old version named could never be renamed. Guard them too if that
+     * ever bites.
+     *
+     * @return list<callable>
+     */
+    public function after(): array
+    {
+        return [function (Validator $validator) {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $type = $this->route('requestType');
+            $standardId = Workflow::standard()->id;
+            $current = $type ? ($type->workflow_id ?? $standardId) : null;
+            $target = (int) ($this->input('workflow_id') ?? $current ?? $standardId);
+            $keys = fn (?array $documents) => array_keys((new RequestType)->forceFill(['required_documents' => $documents])->documentOptions());
+            $kept = $keys($this->has('required_documents') ? $this->input('required_documents') : $type?->required_documents);
+            // Moving onto a workflow, every key it names must be listed; staying, only the ones the type already had.
+            $had = $current !== null && (int) $current === $target ? $keys($type->required_documents) : null;
+
+            $lost = Workflow::query()->find($target)?->publishedVersion?->attachmentItems()
+                ->first(fn (array $item) => ! in_array($item['document_key'], $kept, true)
+                    && ($had === null || in_array($item['document_key'], $had, true)));
+
+            if ($lost) {
+                $validator->errors()->add('required_documents', sprintf(
+                    $had === null
+                        ? 'البند «%s» في مرحلة «%s» من مسار العمل يراجع مستندًا لا يرد في هذا النوع؛ أضفه إلى مستندات النوع أو اختر مسارًا آخر.'
+                        : 'البند «%s» في مرحلة «%s» من مسار العمل يراجع مستندًا لن يبقى في هذا النوع بعد الحفظ؛ عدّل قائمة التحقق في مسودة جديدة وانشرها أولًا.',
+                    $lost['label_ar'],
+                    $lost['stage_name_ar'],
+                ));
+            }
+        }];
     }
 
     /**

@@ -17,7 +17,10 @@ use Tests\TestCase;
  * Workflow designer — slice 3. What stops a draft being published: a step
  * no path reaches, a step a file can't leave towards an end, and a path to
  * the committee that skips the قيد. Built-in steps nothing reaches (6–8 and
- * administrative_routing) are history, not mistakes, and stay unreported.
+ * administrative_routing) are history, not mistakes, and stay unreported — the
+ * admin may delete them (slice 5). Slice 5 adds what the code itself depends on:
+ * the anchors stay reachable, the three rules the code resolves by stage and
+ * action exist once, and a file reaches each stage with a status its exits take.
  */
 class WorkflowValidatorTest extends TestCase
 {
@@ -67,7 +70,7 @@ class WorkflowValidatorTest extends TestCase
     {
         $this->customStep('custom_audit');
         $this->rule('direct_manager_review', 'custom_audit', 'custom_send', 'R11');
-        $this->rule('custom_audit', 'receive_and_register', 'custom_done', 'R11');
+        $this->rule('custom_audit', 'receive_and_register', 'custom_done', 'R11', status: 'routed_to_hr');
 
         $report = $this->report();
         $this->assertSame([], $report['errors']);
@@ -86,7 +89,7 @@ class WorkflowValidatorTest extends TestCase
     {
         $this->customStep('custom_audit');
         $this->rule('direct_manager_review', 'custom_audit', 'custom_send', 'R05');
-        $this->rule('custom_audit', 'receive_and_register', 'custom_done', 'R05');
+        $this->rule('custom_audit', 'receive_and_register', 'custom_done', 'R05', status: 'routed_to_hr');
         // An unchecked return, so the step keeps a way out once it has a checklist (checklist_no_way_out).
         $this->rule('custom_audit', 'direct_manager_review', 'custom_return', 'R05');
         WorkflowTransition::where('action', 'custom_done')->update(['requires_checks' => true]);
@@ -103,7 +106,7 @@ class WorkflowValidatorTest extends TestCase
     {
         $this->customStep('custom_audit');
         $this->rule('direct_manager_review', 'custom_audit', 'custom_send', 'R05');
-        $this->rule('custom_audit', 'receive_and_register', 'custom_done', 'R05');
+        $this->rule('custom_audit', 'receive_and_register', 'custom_done', 'R05', status: 'routed_to_hr');
         // A hold that never leaves the step is no way out.
         $this->rule('custom_audit', 'custom_audit', 'custom_hold', 'R05');
         WorkflowTransition::where('action', 'custom_done')->update(['requires_checks' => true]);
@@ -121,13 +124,73 @@ class WorkflowValidatorTest extends TestCase
     {
         $this->customStep('custom_audit');
         $this->rule('direct_manager_review', 'custom_audit', 'custom_send', 'R05');
-        $this->rule('custom_audit', 'receive_and_register', 'custom_done', 'R05');
+        $this->rule('custom_audit', 'receive_and_register', 'custom_done', 'R05', status: 'routed_to_hr');
         WorkflowStage::where('code', 'custom_audit')->update(['checklist' => json_encode([
             ['key' => 'cdoc', 'type' => 'attachment', 'label_ar' => 'كشف الراتب', 'document_key' => '99-nosuchdoc'],
         ])]);
 
         $codes = collect($this->report()['warnings'])->pluck('code');
         $this->assertContains('document_missing_for_type', $codes->all());
+    }
+
+    public function test_a_removed_rule_that_cuts_the_committee_off_is_an_error(): void
+    {
+        // Every stage keeps a cancel, so `stranded` alone would not see this.
+        WorkflowTransition::query()
+            ->where('from_stage_id', $this->draft->stage('receive_and_register')->id)
+            ->where('action', 'register')
+            ->delete();
+
+        // final_approval_archiving stays reachable here: every open stage's
+        // `deadline_expired` exception leads to the ministry, which approves into it.
+        $this->assertContains(['unreachable', 'receive_from_committee'], $this->errorCodes());
+    }
+
+    public function test_each_rule_the_code_takes_by_name_must_be_there_once(): void
+    {
+        // Spec §5 E11, E8, E9: intake's system hop, the dean's skip, the ministry bypass.
+        foreach (['receive_from_municipality' => 'submit', 'direct_manager_review' => 'forward', 'approval_by_authority' => 'approve'] as $stage => $action) {
+            $rule = WorkflowTransition::query()->where('from_stage_id', $this->draft->stage($stage)->id)->where('action', $action);
+            $rule->update(['is_exception' => true]);
+            $this->assertContains(['required_rule_missing', $stage], $this->errorCodes(), $stage);
+            $rule->update(['is_exception' => false]);
+        }
+
+        // The code takes `submit` and `forward` itself with no comment, so a mandatory note would 500 intake.
+        foreach (['receive_from_municipality' => 'submit', 'direct_manager_review' => 'forward'] as $stage => $action) {
+            $rule = WorkflowTransition::query()->where('from_stage_id', $this->draft->stage($stage)->id)->where('action', $action);
+            $rule->update(['requires_comment' => true]);
+            $this->assertContains(['required_rule_missing', $stage], $this->errorCodes(), $stage);
+            $rule->update(['requires_comment' => false]);
+        }
+
+        $this->assertSame([], $this->errorCodes());
+    }
+
+    public function test_every_committee_decision_outcome_must_stay(): void
+    {
+        // The vote tally picks the action (DecisionController::ACTIONS); a deleted row makes recording impossible.
+        $committee = $this->draft->stage('receive_from_committee');
+        WorkflowTransition::query()->where('from_stage_id', $committee->id)->where('action', 'request_legal_opinion')->delete();
+
+        $this->assertContains(['required_rule_missing', 'receive_from_committee'], $this->errorCodes());
+    }
+
+    public function test_without_the_manager_step_a_file_must_reach_hr_with_the_status_hr_takes(): void
+    {
+        $manager = $this->draft->stage('direct_manager_review');
+        $submit = WorkflowTransition::query()
+            ->where('from_stage_id', $this->draft->stage('receive_from_municipality')->id)
+            ->where('action', 'submit');
+        $submit->update(['to_stage_id' => $this->draft->stage('receive_and_register')->id]);
+        WorkflowTransition::query()->where('from_stage_id', $manager->id)->delete();
+        $manager->delete();
+
+        // `submit` still stamps «قيد المراجعة»; HR's register takes only «محال إلى الموارد البشرية».
+        $this->assertSame([['status_unmet', 'receive_and_register']], $this->errorCodes());
+
+        $submit->update(['set_status_id' => RequestStatus::where('code', 'routed_to_hr')->value('id')]);
+        $this->assertSame([], $this->errorCodes());
     }
 
     private function report(): array
@@ -151,7 +214,7 @@ class WorkflowValidatorTest extends TestCase
         ]);
     }
 
-    private function rule(string $from, string $to, string $action, string $roleCode = 'R05'): void
+    private function rule(string $from, string $to, string $action, string $roleCode = 'R05', string $status = 'in_review'): void
     {
         $stage = fn (string $code) => WorkflowStage::query()
             ->where('workflow_version_id', $this->draft->id)->where('code', $code)->value('id');
@@ -162,7 +225,7 @@ class WorkflowValidatorTest extends TestCase
             'action' => $action,
             'label_ar' => 'نتيجة',
             'required_role_id' => Role::where('code', $roleCode)->value('id'),
-            'set_status_id' => RequestStatus::where('code', 'in_review')->value('id'),
+            'set_status_id' => RequestStatus::where('code', $status)->value('id'),
         ]);
     }
 }

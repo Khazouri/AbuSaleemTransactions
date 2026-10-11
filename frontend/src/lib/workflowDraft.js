@@ -49,7 +49,8 @@ export function placeStage(payload, code, fields, afterCode) {
 /**
  * The step and every custom outcome touching it go. A built-in rule leading
  * into it stays, still pointing at it, so the server refuses by naming that
- * rule's stage: redirect it first (built-in rules can't be deleted yet).
+ * rule's stage. A deleted built-in rule can't be re-made in a draft, so it is
+ * redirected, never dropped silently.
  */
 export function removeStage(payload, code) {
   return {

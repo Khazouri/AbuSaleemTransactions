@@ -13,6 +13,22 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The status walk doesn't model statuses changed outside the rules — workflow designer slice 5 — opened 2026-10-11
+`WorkflowVersionValidator`'s `status_unmet` check walks the statuses that `workflow_transitions` rows stamp
+(`set_status_id`). The committee's moves (`CommitteeStatusService`) and the recorded decision change a file's status
+outside those rows, so the walk cannot see them (plan Deviation 6, marked with a `ponytail:` comment). No rule leaving
+those stages requires a status, so it produces no false error today. A draft that adds a `required_status_id` rule after
+the committee could be refused, or let through, wrongly. **To close:** give the walk the statuses each out-of-rule writer
+can set at its stage (a per-stage list next to the code that sets them), or refuse `required_status_id` on rules leaving
+stages the walk cannot model.
+
+- **Validator ceilings found in slice 5's final review (not fixed).** (M1) The `role_without_holder` warning skips
+  built-in rules, so a built-in outcome re-pointed at a role nobody holds is not warned about; close it by dropping the
+  `isCustom()` filter for rules whose role changed from the seeded one. (M4) The committee stage can be reached by a
+  file whose status is not a committee candidate status; close it by feeding `CommitteeStatusService::CANDIDATE_STATUSES`
+  into the status walk as the committee's arrival check. (M5) Deleting the dean's final `approve` self-loop passes
+  validation; close it by requiring that rule as a `REQUIRED_RULES` entry.
+
 ### A Request Types edit can re-key a document a published checklist names — workflow designer slice 4 final review — opened 2026-10-10
 An attachment item names its document by `document_key`, which is the row index plus a hash of the Arabic label
 (`IntakeGateService::documentKey`). Fixing a typo in a label on the Request Types screen, or reordering its rows, changes
@@ -21,6 +37,13 @@ them forever (`StepChecklistService::NO_FILE`). Also, W2 (`document_missing_for_
 type to an already published workflow is never warned about. **To close:** in the request-type save, refuse with a 422
 when the save would drop a key named by an attachment item of the type's workflow (published or draft), or when it binds
 the type to a workflow whose items name a key the type does not list.
+**Resolved (2026-10-11, workflow designer slice 5)** for published versions. `StoreRequestTypeRequest::after()` refuses
+(422 on `required_documents`, Arabic, naming the item and its step) a save that drops a key named by an attachment item
+of the type's workflow's published version (`WorkflowVersion::attachmentItems()`), and a save that moves the type onto a
+workflow whose published items name a key the type will not list. A draft stays W2's job at publish time. **Ceiling
+(plan Deviation 7):** retired versions are not read, so a file still running on a retired version can lose its document
+this way; guarding them would mean a document any old version ever named could never be renamed. Marked with a
+`ponytail:` comment.
 
 ### The stage modal scrolls sideways on a phone once a step has an attachment item — workflow designer slice 4 — opened 2026-10-10
 Found in slice 4's headless walk. At 375px, «تعديل المرحلة» on a step with an attachment item is 1342px wide in Arabic and
@@ -59,13 +82,17 @@ These were deferred from the final review:
 - **Two tabs:** a stale second tab's PUT silently drops what another tab added, because there is no `updated_at`/409
   check.
 - **Orphan workflow:** discarding a new workflow's only draft leaves its `workflows` row behind, and the code stays taken.
-- **No confirmation:** deleting a step or an outcome happens without one.
+- **No confirmation:** deleting a step or an outcome happens without one. **Resolved (2026-10-11, workflow designer
+  slice 5):** every delete opens the view's `AppModal` confirmation, with built-in wording for a built-in, and a
+  server refusal shows inside the dialog.
 - **First position:** «بعد المرحلة» has no "first" option.
 - **Stale selection:** the selected edge goes stale after a built-in rule is redirected.
 - **Field name:** report entries use `transition_id` where spec §5 says `transition_ref`.
 - **Unchecked status:** the validator ignores `required_status_id`. A custom outcome that sets a status the next
   built-in rule won't accept (`register` needs `routed_to_hr`) strands the file with no error. The default «لا تتغير» is
-  safe.
+  safe. **Resolved (2026-10-11, workflow designer slice 5):** the validator's `status_unmet` error walks the statuses the
+  rules stamp and refuses publish when a file can reach a stage with a status none of its exits accept (within the
+  ceiling in «The status walk doesn't model statuses changed outside the rules»).
 
 **To close:** each is small. The status check belongs with slice 5's validator work.
 
@@ -89,6 +116,11 @@ computed layout proves unreadable once drafts carry many custom steps.
 `WorkflowDraftWriter` refuses removing, editing or reordering a built-in stage, and removing or re-homing a built-in
 rule; only a built-in rule's destination may change. Validator errors E8–E11 are therefore unreachable today. **To
 close (slice 5):** unlock the non-anchor built-ins and add those checks.
+**Resolved (2026-10-11, workflow designer slice 5).** Every built-in step and rule is editable on a draft and every one
+is deletable except the three anchors (`WorkflowStage::ANCHORS`), and the validator gained anchor reachability,
+`required_rule_missing` and `status_unmet`. Three locks remain by design (plan Deviations 1–2): built-ins keep their
+relative order (`order_no` is read by the outputs screen and appeal redo), a built-in stage takes no checklist, and a
+built-in rule keeps its from-stage, action and label.
 
 ### The user guide does not describe «مسارات العمل» — workflow designer slice 2 — opened 2026-10-10
 `USER_GUIDE.ar.md` has no section on the Workflows screen or on «عرض مسار العمل» on a request. It was left out

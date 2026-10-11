@@ -19,6 +19,98 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-11 09:05 EET — Claude — Workflow designer slice 5: final-review fixes
+
+Fixed with tests: C1 (a system hop's rule, `submit` at intake and `forward` at the manager, may not require a comment,
+or intake would 500), I1 (every `DecisionController::ACTIONS` outcome must exist at the committee stage, since the vote
+tally picks it), M2 (the Request Types refusal reads correctly for a new type or a move), M3 (AGENTS.md wording) and T4
+(the re-key test asserts its index instead of skipping). M1, M4 and M5 are ceilings recorded in OPEN_ITEMS.
+
+---
+### 2026-10-11 08:46 EET — Claude — Workflow designer slice 5: built-ins editable and removable (complete)
+
+Built per the plan below, on `feat/workflow-builtins`. No migration, seeder, route or screen.
+
+What shipped:
+- on a draft, every built-in step and outcome is edited through the slice 3 forms. Every one is deletable except the
+  three anchors (`WorkflowStage::ANCHORS`), which show «مرحلة ثابتة» instead of a delete button;
+- a rule left out of the PUT is deleted, and the actor checks apply to built-in rules too;
+- three new validator errors: an unreachable anchor, `required_rule_missing` (`submit` / `forward` / `approve`) and
+  `status_unmet`, a (stage, status) walk;
+- a Request Types save can't re-key a document named by a published checklist (`StoreRequestTypeRequest::after()`);
+- every delete in the designer opens an `AppModal` confirmation (built-in wording for a built-in rule), and a server
+  refusal shows inside it.
+
+**Deviations from the spec** (the plan's list):
+1. Built-ins keep their relative order.
+2. Built-in stages take no checklist, and built-in rules keep their label and action.
+3. `required_status_id` is carried through the payload but not offered in the outcome form.
+4. E2, E4, E5 and E10 are not new validator entries; each is already covered.
+5. E1 still covers custom stages and anchors only.
+6. The status walk models only statuses the rules stamp (`ponytail:`; see OPEN_ITEMS).
+7. The Request Types guard reads published versions only (`ponytail:`).
+
+**Rulings made during execution:**
+- Task 2 dropped the plan's assertion that `final_approval_archiving` goes unreachable once `register` is deleted:
+  Standard's R08 `deadline_expired` exceptions still reach it, and reachability rightly counts exception routes.
+- **Writer bug, found by Task 3's done-when test.** `WorkflowDraftWriter::save()` deleted rules into a removed stage
+  (its `to_stage_id` FK cascades) *before* `writeRules()` repointed them. So a rule redirected away from a step removed
+  in the same save was lost (`submit` → HR while the manager step goes). The fix (in 4ef5f68) moves the stage-removal
+  deletes after `writeRules()`; removed stages stay parked at `order_no + 1000` while the rest renumber.
+- Task 3's test is a pinning test that could not go red first once Tasks 1–2 existed.
+- Task 5: a built-in rule with no role and no flag would open the outcome form with an empty role select. That does
+  not hold in practice: every seeded rule names a role, the manager or the filer, and the writer refuses such a rule.
+- The deferred minors are in the ledger, waiting for the final review.
+
+Verified:
+- full suite **945 tests / 6142 assertions** in one process (slice 4: 909 + 14 + 9);
+- Pint clean on the 10 touched PHP files; node tests 14/14; parity 2200; `aislop ci` 97 (exit 0);
+- `php artisan migrate` on the real MySQL: nothing to migrate. No seeder was run;
+- build (`dist` committed, production API URL in the bundle);
+- `check-layout.mjs` (450 views, Homestead) shows only the known `/decisions` 1024px overflow and the R08
+  `/requests/create` gap.
+
+Headless walk against this branch's API on a **scratch SQLite database** (`.env` restored byte for byte afterwards; the
+first token minted was id 1, so nothing reached MySQL), as R08 on `/workflows`, ar 1280 light:
+- clone Standard, then delete «مراجعة الطلب من المدير المباشر». The dialog shows the refusal naming intake's rule into it;
+- edit «تقديم الطلب»: the fixed-name hint shows and there are no name inputs. Point it at «الاستلام والتسجيل»: the
+  report gives `status_unmet` there. Set «موجّه إلى الموارد البشرية»: clean;
+- delete the manager step, stages 6–8 and `administrative_routing`, confirming each: the report stays clean;
+- intake has no delete button and shows the anchor hint;
+- deleting the built-in «إلغاء الطلب» at HR uses the built-in wording;
+- publish: v1 retired;
+- r01.employee files an ALLW request (API): it lands on `receive_and_register` / `routed_to_hr`, on v2;
+- on a second draft, with the delete-stage dialog open, ar/en × 1280/375 × light/dark: no page overflow, and the dialog
+  fits (357/357 at 375px). The only console error is the expected 422 behind the refusal. The draft was discarded.
+
+---
+### 2026-10-11 07:58 EET — Claude — Implementation plan: workflow designer slice 5 — built-ins editable and removable
+
+On a draft, every built-in step can be edited (names, role, target) and every built-in outcome too (destination,
+actor, stamped status, flags). Any of them can be deleted, except the three anchors (`receive_from_municipality`,
+`receive_from_committee`, `final_approval_archiving`).
+
+What stays locked:
+- built-ins keep their relative order (`order_no` is read by the outputs screen, appeal redo and the progress bar);
+- a built-in stage takes no checklist;
+- a built-in rule keeps its from-stage, action and label;
+- the actor checks now apply to every rule.
+
+The validator gains:
+- anchor reachability;
+- `required_rule_missing` (spec E8/E9/E11: one normal `submit` at intake, `forward` at the manager, `approve` at
+  approval_by_authority);
+- `status_unmet`, a (stage, status) walk that catches a file arriving at HR without `routed_to_hr`.
+
+Request Types refuses a save that re-keys a document a published checklist names. The SPA unlocks the forms and
+confirms every delete.
+
+No migration. Verify:
+- new cases in `WorkflowDesignerTest`, `WorkflowValidatorTest` and `RequestTypeCrudTest`, including the spec's
+  done-when: without `direct_manager_review`, intake and the dean both land on HR;
+- full PHPUnit, Pint, build (`dist` committed), parity, aislop ci, and a headless walk on a scratch SQLite DB.
+
+---
 ### 2026-10-10 22:32 EET — Claude — Workflow designer slice 4: step checklists, gate and wizard (complete)
 
 Built per the plan below, on `feat/workflow-checklists`. One migration (`workflow_stages.checklist`,
@@ -1808,279 +1900,3 @@ descendant selector after `:global()` in a scoped block.** The dashboard trend a
 block's `.shell { height: auto }` is outranked by AppLayout's scoped `.shell[data-v]`, pre-existing and untouched.
 
 ---
-### 2026-09-21 22:30 EET — Claude — The filer attaches only at stage 1
-
-User follow-up to the entry below: the filer may attach **only while the request is at stage 1**
-(`receive_from_municipality`), i.e. before it reaches the manager. Intake auto-hops past stage 1, so in practice the
-filer attaches with the intake itself and again only after a return (`return_to_employee`, `return_missing_docs`).
-One condition in `Request::attachmentRight()`; the executor and HR carve-outs are unchanged. **Decision put to the
-user and taken: a committee "completion required" gap cannot be filled at the committee stage by anyone** — the
-committee defers or the file goes back through a return. Consequence worth knowing: Appendix 25's voting freeze in
-`AttachmentController::store()` is now unreachable by any permitted uploader (no one allowed to attach can reach a
-file with an open vote); it stays as a backstop and `StudySequenceTest` says so. Five fixtures moved to stage 1 (their
-subjects are folder derivation, file types, classification — not the stage) and Stage 91's loop test was rewritten to
-pin the refusal. Full suite **735 / 4709**, Pint clean, build passes, no migration.
-
----
-### 2026-09-21 22:05 EET — Claude — Filer-only attachments + filer re-submit complete
-
-Built per the plan below. One migration (`workflow_transitions.requires_creator`), applied to the real MySQL, and
-`WorkflowTransitionSeeder` reseeded (confirmed by query: `submit` = `required_role_id null, requires_creator true`;
-the R08 override untouched). Full suite **734 tests / 4709 assertions** (baseline 729/4684: +5 new in
-`FilerAttachmentsAndReturnTest`), Pint clean on every touched file, `npm run build` passes (`dist` reverted), no
-locale change. The rule is `Request::attachmentRight()` (`filer` | `executor` | `hr_service_file` | null), read by
-`AttachmentController::store()` and exposed as `can_attach` on `RequestResource`, which gates both upload widgets.
-
-**Deviation from the plan, deleted rather than kept:** the planned `NotificationDispatcher::actorsForStage()`
-creator branch was dead code — every caller either sends the filer the owner's `stage_changed` notice and excludes
-them from the duplicate prompt, or already unions the owners in. The actual notification fix is the row losing its
-R01 role, so bystanders are no longer prompted; a test pins both halves. **Four pre-existing tests needed
-legitimate updates**, each commented in place: an R08 upload (now the admin is the filer), Stage 91's officer
-completing a gap (now refused, and the filer closes it), R12's `other` إفادة at registration (now refused; a
-service-file row is accepted), and a stranger R01 at intake getting **404, not 422**, which is the privacy leak
-closed. **Open item:** R02's `cancel` row at intake still shows every returned file to every R02 (OPEN_ITEMS.md).
-
----
-### 2026-09-21 21:30 EET — Claude — Implementation plan: only the filer attaches; the manager returns with a note; the filer re-submits
-
-User request: "attaching files can only be done by the request submitter; the submitter's manager reviews the
-request and files and sends it back if it needs modification or documents are missing, adding a note". Scope put to
-the user and answered: submitter-only **everywhere**, with exactly two carve-outs — (1) execution proof
-(Appendix 70) by a `meeting_outputs,approve` holder while the file is `in_execution`, and (2) R12 uploading a
-`service_file`-section document at `receive_and_register` (Stage 98's duty; the agenda gate demands those rows be
-genuinely attached). No R08 override. Stage 91's staff-completion upload path is deliberately closed: completion now
-goes back to the filer through a return.
-
-**The manager half already exists** — `return_to_employee` at `direct_manager_review` requires a reason, lands on
-`returned`, and Art. 101's moment-8 notice quotes it. What was missing is the return leg: `submit` is **R01-gated**,
-so an on-behalf filer (R02/R05, Stage 95) could not re-submit, and — a real privacy leak found while checking — a
-returned request sat at a stage whose outbound row names R01, so `RequestVisibility`'s assignment clause showed it to
-**every** active R01 and `actorsForStage()` prompted every R01. Fix: a new `workflow_transitions.requires_creator`
-flag (one migration), the `submit` row becomes `required_role_id = null, requires_creator = true`, and the three
-readers of rule rows learn it: `WorkflowService::actorMayUse()` (actor must be the filer), `RequestVisibility` (a
-creator-gated row grants no assignment visibility — the filer already sees their own file; without this a null-role
-row would match EVERYONE via its `whereNull(required_role_id)` branch), `NotificationDispatcher::actorsForStage()`
-(prompts the filer) and `RequestResponsibilityService` (Appendix 17 party `employee`). The intake auto-hop is
-role-independent (`applySystemTransition`) and unaffected; the R08 `submit` override stays.
-
-**Upload rule** lives once in `AttachmentController::store()` (403, Arabic); the SPA hides the widgets by the same
-predicate. **Verify:** new feature tests (filer allowed / R02+R08 refused; both carve-outs and their bounds; the full
-return→upload→re-submit loop incl. an on-behalf filer; the returned file no longer visible or notified to other R01s),
-the pre-existing upload fixtures moved to the filer (legitimate updates), full PHPUnit, Pint, `npm run build` (revert
-`dist`), locale parity, migration + `WorkflowTransitionSeeder` reseed against the real MySQL.
-
----
-### 2026-09-21 20:40 EET — Claude — Stage 101 complete (the consultation and information layer) — Track N finished
-
-Built per the plan below. **No migration.** Full suite **729 tests / 4684 assertions** (baseline 719/4653: +10 new
-in `ConsultationLayerTest`, and no pre-existing test needed changing — the check that this was additive), Pint
-clean on every touched PHP file, `npm run build` passes (`frontend/dist` reverted), locale parity **2011 keys each
-side** (+1), `ScreenRolePermissionSeeder` reseeded against the real MySQL and confirmed by query
-(`legal_review.can_view` = R02, R03, R08, R11; `meeting_agenda.can_add` = R02, R03, R08, R11), no pending migration.
-**No live HTTP smoke run** — the behaviour is covered by feature tests only.
-
-**The finding worth keeping: seven of the thirteen cells were already true, and the gap analysis was wrong about
-them.** It was written before Stage 100 and never re-derived. الرئيس المباشر مطلع on row 1 was met by
-`actorsForStage` sending `request_created` to the subject's manager (my first test asserted it and passed before
-any code changed); HR مشارك on rows 6, 7, 9 and «دعم معلومات» holds because R12's `meeting_outputs,approve` puts it
-in `$isCloser`, which shows it every registered file. **That last one is an accident of an unrelated grant** — a
-future change to the execution tier would silently take HR out of four rows — so those cells are pinned by tests
-rather than by a clause of their own. Adding a second, explicit clause would have doubled a rule that already
-holds, which is the more expensive way to get the same protection.
-
-**Built.** (1) `RequestVisibility::$isHrStudyCoOwner` is one clause over three stage ids instead of one:
-`direct_manager_review`, `requirements_check`, `observations` — rows 2 and 4 are pre-قيد, where R12 saw nothing.
-Bounded to exactly those stages: `administrative_routing` stays a 404 (a test pins the bound). (2) R12 joins
-`requestCreated` (row 1). (3) `request_notice_copy` + `RequestNoticeCopyNotification`, sent from
-`NotificationDispatcher::requestNotice()` to the subject's manager and active R12 users (row 14). Hooking the one
-method both the observer and Stage 100's manual `notices/issue` call means neither can skip it. The copy names the
-moment and the tracking number and **never the notice body** (Art. 102), carries no `issued_by`, excludes the actor
-and the subject, and is in-app only. `EmployeeNoticeRegister` is unaffected: it reads `request_notice` rows only,
-and `EmployeeNoticeTest` still passes. (4) `legal_review,view` → R03 (row 6). (5) `meeting_agenda,add` → R11 (row
-7), the whole tier; `edit` stays R02/R03, and a test asserts R11 does not gain it.
-
-**Test plans.** `TEST_PLAN.roles.md`/`.ar.md` gained four checks each (R03 queue read, R11 memo, two for R12) and
-one R12 refusal was **rewritten, not added**: «open a request at any stage other than `observations` → 404» was
-already false after Stage 92 and is now bounded to unregistered files outside stages 2, 5 and 7. Appendix A's two
-cells changed; checkbox parity **359 each side**. **R03's counts were corrected to the live database — 24 screens /
-21 sidebar** (the plan said 23 for both the section and the table, and 20/22 in the multi-role check); the rest of
-that table remains stale in ways this stage did not cause, and its own note says so.
-
-**Two residues, both in OPEN_ITEMS.md.** (1) A manager whose only role is R09/R10/R11 can see the file at
-`receive_and_register` but not attach: الرئيس المباشر is a relationship, and writing rides `notes_attachments,add`.
-No such manager exists in the seeded data; bypassing the screen-permission middleware for one relationship is a
-larger change than one cell justifies. (2) The copy is in-app only. Also fixed while there: AGENTS.md still said
-«Tracks A–L (Stages 1–84) are all built».
-
-**Track N is complete — Stages 94–101, every one of Appendix 6's 41 populated cells has an implementation.**
-Nothing in STAGE_PLAN.md is unbuilt. Whoever picks up next should read OPEN_ITEMS.md; the four open items there
-are the real backlog.
-
----
-### 2026-09-21 19:45 EET — Claude — Implementation plan: Stage 101 (the consultation and information layer — Appendix 6's مشارك/مطلع cells)
-
-The last Track N stage. **No migration, no new screen, no new endpoint** — every mechanism is one Stages 47, 68,
-87 and 100 already established. Cell-by-cell against the live code (not the gap analysis, which predates Stage
-100's widening of R12's reach): note and attachment writes are `notes_attachments,add` + `RequestVisibility::canView`,
-so a party «participates» in a file iff it holds that grant *and* can see the file.
-
-**Already true, by accident — pinned with tests, not rebuilt.** الرئيس المباشر مطلع on row 1 (`requestCreated`
-already goes to the subject's manager through `actorsForStage`); الرئيس المباشر مشارك on row 3 (Stage 98's clause
-plus `notes_attachments,add` for R01–R07); الموارد البشرية مشارك on rows 6, 7 and 9 and «دعم معلومات» — R12 holds
-`meeting_outputs,approve`, so `$isCloser`'s `reference_number` clause shows it every registered file. That last one
-rides an unrelated grant, so the tests are what stop a later change to `meeting_outputs` silently dropping HR.
-
-**Built.** (1) `$isHrStudyCoOwner` in `RequestVisibility` widens from the single `observations` stage to
-`{direct_manager_review, requirements_check, observations}` — rows 2 and 4 are pre-قيد, where R12 sees nothing today.
-One edited clause, not a new one. (2) R12 joins `requestCreated` recipients (row 1). (3) New event
-`request_notice_copy` (in-app only, the `stage_changed` defaults) + `RequestNoticeCopyNotification`, sent from
-`NotificationDispatcher::requestNotice()` — the one method both the automatic observer and Stage 100's manual
-`notices/issue` call — to the subject's manager and to active R12 users (row 14). The copy carries the tracking
-number and the moment's title only, **never the notice body**: Art. 102 limits notice content to what صاحب العلاقة
-needs, and the copy is not addressed to them. (4) `legal_review,view` gains **R03** (row 6 اللجنة مطلع). (5)
-`meeting_agenda,add` gains **R11** (row 7 العضو القانوني مشارك) — full memo edit, not `legal_opinion` alone; still
-bounded by the committee seat via `meeting.member`, which Stage 99 already tied to R11.
-
-**Two calls put to the user and answered yes-with-defaults; do not re-litigate.** اللجنة مطلع is the R03 queue view
-only: R04 would be listed queue rows it cannot open (the Stage 47/68 dead end), members read the opinion at study
-time through the agenda-item context, and the committee has no identity before an agenda to push a notification to.
-R11's memo grant is the whole `add` tier because field-level gating buys nothing for a cell that says only «مشارك».
-
-**Deliberately not built.** A manager whose only role is R09/R10/R11 holds no `notes_attachments,add`, so cannot
-attach at `receive_and_register` — الرئيس المباشر is a relationship, not a role, and bypassing the screen-permission
-middleware for one relationship is a larger change than this cell justifies. Recorded as an open item, not glossed.
-
-**Verify.** New `tests/Feature/ConsultationLayerTest.php` covering all thirteen cells; full PHPUnit (baseline 719
-tests / 4653 assertions); Pint on touched files; `npm run build` (revert `frontend/dist`); locale key parity;
-`ScreenRolePermissionSeeder` reseed against the real MySQL confirmed by query. TEST_PLAN.roles.md/.ar.md Appendix A
-gains the two changed cells (checkbox parity kept). STAGE_PLAN, OPEN_ITEMS and the gap analysis close with it.
-
----
-### 2026-09-21 18:36 EET — Claude — Stage 100 complete (الإشعار ownership, الأرشفة, execution oversight — Appendix 6 rows 13–15)
-
-Built per the plan below. One migration (six `requests` columns) applied to the real MySQL; the
-`ScreenRolePermissionSeeder` reseed confirmed by query (`meeting_outputs,add` = R12 [+R08];
-`notes_attachments,add` now includes R06/R07). Full suite **719 tests / 4653 assertions** (baseline
-711/4625: +8 new in `NoticeArchiveOversightTest`, the rest fixture updates), Pint clean on every touched
-file, `npm run build` passes (`frontend/dist` reverted), locale parity **2010 keys each side**. **No live
-HTTP smoke run** — the three routes were confirmed registered, the behaviour by feature tests only.
-
-**Row 15.** Two archive records, each written by its owner through its own endpoint while the file stands
-on a closable status and is not closed: `archive/committee-file` (`meeting_outputs,edit`, المقرر) and
-`archive/service-file` (`meeting_outputs,add`, which gated no route and is now R12's alone). Closure
-(`RequestClosureService::refusalReason()`) refuses until the committee file is archived and — only when the
-file carries a recorded decision, the same condition Appendix 48 cond. 8 uses — the service file too. The
-closure card's `file_storage_location` is **gone from the request side** (the appeal closure keeps its own,
-untouched); Appendix 47 #12 is derived. `ClosureRegister` prints both locations, falling back to a
-pre-Stage-100 closure's single location under the committee file. `reopen()` clears both records
-**unconditionally**, not inside the `closed_at` guard — `not_approved` is both closable and reopenable, so a
-file can be archived and reopened without ever being closed.
-
-**Row 14.** `POST requests/{r}/notices/issue` (`meeting_outputs,edit`) issues Art. 101's notice for the
-moment the file's **latest status-history row** represents, through the same `momentFor()` the observer
-uses (new `EmployeeNoticeService::currentMoment()`), so a hand-issued notice cannot describe a state the
-automatic one wouldn't. Payload carries `issued_by`; the register shows it. Refused (422) for a state Art. 101
-doesn't name, or an inactive/absent صاحب العلاقة. The automatic send is untouched.
-
-**Row 13.** One `RequestVisibility` clause: a user with an `approvals.approved_by_user_id` row on a file sees
-it while it is `in_execution`/`executed`/`execution_suspended`/`completed_closed`. R06/R07 joined
-`notes_attachments,add` (R05 already held it) so supervision can be written on the file.
-
-**Three pre-existing tests used R06/R07 as "the role with no `notes_attachments,add`"** and now get 404
-(visibility) instead of 403 — switched to R10, a retained login with no duty since Stage 96, commented in
-place. The closure fixtures gained `Tests\ClosesRequests::archiveFiles()`, inserted before each request close.
-
-**Open items.** (1) **The employee_notified checkbox is still an attestation** in the execution and closure
-cards; deriving it from the register was considered and left — the closure moment's own notice fires only
-after closure, and a rule for "notified of the result" is a decision, not a lookup. (2) **`meeting_outputs`
-screen stays invisible to R05–R07** — it is meeting-picked and they hold no seat; supervision lives on the
-request workspace. (3) **Stage 101 is the last Track N stage.** Scripting gotcha re-hit: backslashes in a
-node heredoc collapse (`\` → `\`), so `use App\...` replacements silently matched nothing — imports were
-added with the editor.
-
----
-
-### 2026-09-21 18:10 EET — Claude — Implementation plan: Stage 100 (الإشعار ownership, الأرشفة, execution oversight — Appendix 6 rows 13–15)
-
-Three ownerless duties get a holder. **One migration (six columns on `requests`), one grant reseeded,
-two grants widened, no new screen, no new status.** (Clock note: the machine reads 18:10 while the
-Stage 99 entry below is stamped 18:40 — the stamps drifted ahead again; position is the ordering.)
-
-**Row 15 — الأرشفة split into its two مسؤول halves.** Six columns: `committee_file_location/_archived_by_user_id/_archived_at`
-(المقرر «مسؤول ملف اللجنة») and `service_file_location/...` (الموارد البشرية «مسؤول ملف الخدمة»), each written by
-its own endpoint while the file sits on one of Art. 37's closable statuses and is not yet closed (overwrites —
-the Stage 78 precedent). Committee file rides `meeting_outputs,edit` (R02+R03, the المقرر grant every Art.
-30/103/105 act already rides). Service file rides **`meeting_outputs,add`, which gates no route today**
-(checked) and is reseeded `['R12']` — the same move Stage 99 made with `meeting_minutes,edit`. Closure refuses
-until the committee file is archived, and the service file too **when the file carries a recorded decision** —
-the exact condition Appendix 48 condition 8 already uses for `service_file_updated`, so a Path 3 pre-committee
-عدم اختصاص is not asked to archive a service file nothing touched. The closure card's free-text
-`file_storage_location` goes; Appendix 47 #12 stays derived, now from the two records. **Track K scope
-decision (1) is restated, not crossed:** ملف الخدمة lives outside this app, so HR's record is where the
-service-file copy was filed, attested by the party that owns it — not a model of the file.
-
-**Row 14 — المقرر «مسؤول إجرائيًا» for الإشعار.** Art. 101's notices stay automatic (Stage 79's observer is
-right to make them unforgettable); what was missing is a human who answers for them. New `POST
-requests/{r}/notices/issue` (`meeting_outputs,edit`) issues Art. 101's notice for the file's **current**
-state — the moment the latest status row represents, via the same `EmployeeNoticeService::momentFor()` the
-observer uses — for the cases the automatic send cannot cover (an employee reactivated after the notice fired,
-a notice to be repeated on request). The notice carries `issued_by`, and the register on the request shows it,
-so the file records who stood behind a notice rather than only that the system sent one. Refused when the
-current state is not one of Art. 101's twelve, or صاحب العلاقة has no active account.
-
-**Row 13 — جهة الاعتماد «إشراف حسب الاختصاص».** One bounded `RequestVisibility` clause: a user who signed an
-`approvals` row on a file keeps sight of it through execution (`in_execution`, `executed`,
-`execution_suspended`, `completed_closed`). «حسب الاختصاص» read as *the files they approved*, which is the
-approval ledger itself — no role list. R06/R07 join `notes_attachments,add` (R05 already holds it) so
-supervision can be recorded on the file, bounded by that same visibility. `meeting_outputs,view` is **not**
-widened: that screen is meeting-picked and the approvers hold no committee seat, so it would open onto an
-empty picker.
-
-**Verify:** new `tests/Feature/NoticeArchiveOversightTest.php`, a `archiveFiles()` helper on
-`Tests\ClosesRequests` for the closure fixtures (a legitimate update — closure now requires the archive), the
-full suite (baseline 711/4625), Pint, `npm run build` (revert `frontend/dist`), locale parity, migration +
-`ScreenRolePermissionSeeder` reseed against the real MySQL.
-
----
-
-### 2026-09-21 18:40 EET — Claude — Stage 99 complete (the committee's own acts — Appendix 6 rows 8–11)
-
-Built per the plan below. One migration (`meetings.agenda_adopted_*`, `meeting_minutes.legal_review_*`),
-applied to the real MySQL, and a `ScreenRolePermissionSeeder` reseed confirmed by query. Full suite
-**711 tests / 4625 assertions** (baseline 704/4590: +7 new, and only fixture updates elsewhere), Pint
-clean on every touched file, `npm run build` passes (`frontend/dist` reverted), locale parity **1998 keys
-each side** (+10), `TEST_PLAN.roles.md`/`.ar.md` at **358 checkboxes each**.
-
-**Agenda adoption is a gate, not a timestamp.** `POST meetings/{m}/agenda/adopt` (new `meeting_agenda,
-approve` tier, R03) is one-shot and refused on an empty agenda. Before it, `updateItemState` and
-`updateStudySequence` refuse (`MeetingController::AGENDA_NOT_ADOPTED`, Art. 84) — voting inherits that
-through the study sequence it already requires. After it, add/remove/reorder/apply-order refuse
-(`AGENDA_ALREADY_ADOPTED`) **except adding an `emerging` item**; `updateAgendaItem` (priority/time) stays
-open. Deliberately **not** a readiness exception, so convene means what it meant before. Only two
-fixtures needed `agenda_adopted_at` (`StudySequenceTest`, `MeetingLiveRunnerTest`) — every other suite
-writes the study sequence directly through `RunsStudySequence`, which bypasses the gate by design.
-
-**R11 is now a sitting member.** `meeting_live,add`, `decisions,add` and `meeting_minutes,add` gained R11
-(the last because signing rides it — an attending legal member without it would hold an unsignable
-row and stall the محضر). `meeting_minutes,edit` **gated no route** before this stage (checked); it now
-gates `POST meetings/{m}/minutes/legal-review` and is `['R11']` — R03 lost a grant that did nothing. The
-note is optional («عند الحاجة»), draft-only, overwrites, and never blocks review. `seat=legal` now
-requires the R11 role (`StoreCommitteeMemberRequest`); `CommitteeSeatRosterTest` seated an R04 there and
-was updated.
-
-**The zero-signature hole is closed by refusal, not by trusting Appendix 8.** The quality gate made it
-nearly unreachable, but every attendee marked absent under a count-0 quorum passed all sixteen checks
-— the new test builds exactly that and gets the 422. `review()`'s `isEmpty()` auto-approve branch and
-its notification call are deleted; `minutesApproved` now fires only from `sign()`.
-
-**Not done: no live HTTP smoke run this session** — covered by the new feature tests only.
-
-**Open items.** (1) The **R09 bullet under row 8** in the gap analysis was already stale (Stage 96);
-annotated, not rewritten. (2) **Appendix A in the role test plans is still stale outside the four rows
-re-derived here** — Stage 96's open item stands; derive the whole table from the DB next time.
-(3) Adoption is recorded by the chair on the committee's behalf; there is no per-member vote on the
-agenda, because [D] Art. 12 (أ) 3 gives اعتماد جدول الأعمال to the chair and Appendix 6's «وفق
-النظام» points at the system's own rule. (4) Stages **100** and **101** remain; neither blocks the other.
-
----
-

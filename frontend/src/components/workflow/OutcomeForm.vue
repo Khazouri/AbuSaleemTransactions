@@ -1,9 +1,8 @@
 <script setup>
 /**
- * Workflow designer — slice 3. One outcome. A built-in rule can only be
- * pointed somewhere else in this slice (that is how a custom step is put in
- * the path); an outcome the admin added is fully editable. Exactly one actor
+ * Workflow designer — slice 3. One outcome. Exactly one actor
  * is chosen: a role, صاحب العلاقة's direct manager, or the filer.
+ * Slice 5: a built-in outcome is edited the same way, except its name (the locale files name it).
  */
 import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -38,7 +37,7 @@ const actorRoles = computed(() => props.roles.filter((role) => role.code !== 'R0
 
 function submit() {
   const { actor, ...rule } = form
-  emit('submit', props.builtIn ? rule : {
+  emit('submit', {
     ...rule,
     required_role_id: actor === 'role' ? rule.required_role_id : null,
     requires_submitter_manager: actor === 'manager',
@@ -51,7 +50,7 @@ function submit() {
 <template>
   <form class="outcome-form" @submit.prevent="submit">
     <p v-if="error" class="alert" role="alert">{{ error }}</p>
-    <p v-if="builtIn" class="hint">{{ t('workflows.edit.builtinLocked', { action: title }) }}</p>
+    <p v-if="builtIn" class="hint">{{ t('workflows.edit.builtinName', { action: title }) }}</p>
     <div class="field-grid">
       <template v-if="!builtIn">
         <label>
@@ -69,7 +68,7 @@ function submit() {
           <option v-for="item in stages" :key="item.code" :value="item.code">{{ item.order_no }}. {{ name(item) }}</option>
         </select>
       </label>
-      <label v-if="!builtIn">
+      <label>
         {{ t('workflows.edit.setStatus') }}
         <select v-model="form.set_status_id">
           <option :value="null">{{ t('workflows.edit.keepStatus') }}</option>
@@ -77,22 +76,20 @@ function submit() {
         </select>
       </label>
     </div>
-    <template v-if="!builtIn">
-      <fieldset class="actor">
-        <legend>{{ t('workflows.edit.actor') }}<span class="required-mark" aria-hidden="true">*</span></legend>
-        <label class="check"><input v-model="form.actor" type="radio" value="role" /> {{ t('workflows.edit.actorRole') }}</label>
-        <div v-if="form.actor === 'role'" class="field-grid">
-          <select v-model="form.required_role_id" required :aria-label="t('workflows.edit.actorRole')">
-            <option v-for="role in actorRoles" :key="role.id" :value="role.id">{{ name(role) }}</option>
-          </select>
-        </div>
-        <label class="check"><input v-model="form.actor" type="radio" value="manager" /> {{ t('workflows.actor.manager') }}</label>
-        <label class="check"><input v-model="form.actor" type="radio" value="creator" /> {{ t('workflows.actor.creator') }}</label>
-      </fieldset>
-      <label class="check"><input v-model="form.requires_comment" type="checkbox" /> {{ t('workflows.edit.requiresComment') }}</label>
-      <label v-if="fromChecklist" class="check"><input v-model="form.requires_checks" type="checkbox" :disabled="form.actor === 'creator'" /> {{ t('workflows.edit.requiresChecks') }}</label>
+    <fieldset class="actor">
+      <legend>{{ t('workflows.edit.actor') }}<span class="required-mark" aria-hidden="true">*</span></legend>
+      <label class="check"><input v-model="form.actor" type="radio" value="role" /> {{ t('workflows.edit.actorRole') }}</label>
+      <div v-if="form.actor === 'role'" class="field-grid">
+        <select v-model="form.required_role_id" required :aria-label="t('workflows.edit.actorRole')">
+          <option v-for="role in actorRoles" :key="role.id" :value="role.id">{{ name(role) }}</option>
+        </select>
+      </div>
+      <label class="check"><input v-model="form.actor" type="radio" value="manager" /> {{ t('workflows.actor.manager') }}</label>
+      <label class="check"><input v-model="form.actor" type="radio" value="creator" /> {{ t('workflows.actor.creator') }}</label>
+    </fieldset>
+    <label class="check"><input v-model="form.requires_comment" type="checkbox" /> {{ t('workflows.edit.requiresComment') }}</label>
+    <label v-if="fromChecklist" class="check"><input v-model="form.requires_checks" type="checkbox" :disabled="form.actor === 'creator'" /> {{ t('workflows.edit.requiresChecks') }}</label>
       <label class="check"><input v-model="form.is_exception" type="checkbox" /> {{ t('workflows.edit.isException') }}</label>
-    </template>
     <div class="modal-actions">
       <button class="ghost" type="button" @click="emit('cancel')">{{ t('common.cancel') }}</button>
       <button class="primary" type="submit" :disabled="saving">{{ saving ? t('common.saving') : t('common.save') }}</button>

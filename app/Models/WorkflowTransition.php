@@ -45,7 +45,7 @@ class WorkflowTransition extends Model
     /**
      * Workflow designer — slice 3. Outcomes an admin adds carry this prefix
      * on their action, and the server mints it, so the prefix alone tells a
-     * built-in rule (locked until slice 5, named by the locale files) from a
+     * built-in rule (named by the locale files, its action fixed) from a
      * custom one (editable, named by label_ar/label_en).
      */
     public const CUSTOM_PREFIX = 'custom_';

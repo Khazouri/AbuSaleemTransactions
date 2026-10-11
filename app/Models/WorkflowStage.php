@@ -43,6 +43,14 @@ class WorkflowStage extends Model
     /** Workflow designer — slice 4. The kinds of item a step's checklist holds (spec §3). */
     public const CHECK_TYPES = ['yes_no', 'attachment', 'note', 'attestation'];
 
+    /**
+     * Workflow designer — slice 5. The stages the engine looks up by code —
+     * intake files onto the first, approval returns and suspensions send
+     * files back to the committee, the ministry bypass lands on the last — so
+     * no version may be without them (spec §5).
+     */
+    public const ANCHORS = ['receive_from_municipality', 'receive_from_committee', 'final_approval_archiving'];
+
     protected function casts(): array
     {
         return ['checklist' => 'array'];
@@ -64,6 +72,12 @@ class WorkflowStage extends Model
     public function isCustom(): bool
     {
         return str_starts_with((string) $this->code, WorkflowTransition::CUSTOM_PREFIX);
+    }
+
+    /** Workflow designer — slice 5. See ANCHORS. */
+    public function isAnchor(): bool
+    {
+        return in_array($this->code, self::ANCHORS, true);
     }
 
     /** Workflow designer — slice 1. The version this stage belongs to. */

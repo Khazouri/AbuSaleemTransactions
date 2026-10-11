@@ -6,6 +6,7 @@ use App\Models\Request;
 use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\Workflow;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use Database\Seeders\DatabaseSeeder;
@@ -322,5 +323,67 @@ class RequestTypeCrudTest extends TestCase
         $user->roles()->attach(Role::where('code', $roleCode)->value('id'));
 
         return $user;
+    }
+
+    public function test_a_save_that_re_keys_a_document_a_published_checklist_names_is_refused(): void
+    {
+        // Workflow designer — slice 5. An attachment item names a document by
+        // index + label hash, so a rename, or a removed row above it, re-keys
+        // it and the item would find no file on any new request of the type.
+        $promotion = RequestType::where('code', 'PROM')->firstOrFail();
+        $leave = RequestType::where('code', 'LEAV')->firstOrFail();
+        $key = collect(array_keys($promotion->documentOptions()))->diff(array_keys($leave->documentOptions()))->first();
+        $index = (int) strtok($key, '-');
+        $this->publishChecklistNaming(Workflow::standard(), $key);
+        $put = fn (RequestType $type, array $documents) => $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/request-types/{$type->id}", ['code' => $type->code, 'name_ar' => $type->name_ar, 'required_documents' => $documents]);
+
+        $renamed = $promotion->required_documents;
+        $renamed[$index]['ar'] .= ' (معدل)';
+        $put($promotion, $renamed)->assertUnprocessable()->assertJsonValidationErrors('required_documents');
+
+        $above = $promotion->required_documents;
+        $this->assertGreaterThan(0, $index);
+        array_splice($above, $index - 1, 1);
+        $put($promotion, $above)->assertUnprocessable()->assertJsonValidationErrors('required_documents');
+
+        // An unchanged save, and a type that never listed the document, are not blocked.
+        $put($promotion, $promotion->required_documents)->assertOk();
+        $put($leave, $leave->required_documents)->assertOk();
+    }
+
+    public function test_binding_a_type_to_a_workflow_whose_checklist_names_a_document_it_lacks_is_refused(): void
+    {
+        $promotion = RequestType::where('code', 'PROM')->firstOrFail();
+        $leave = RequestType::where('code', 'LEAV')->firstOrFail();
+        $key = collect(array_keys($promotion->documentOptions()))->diff(array_keys($leave->documentOptions()))->first();
+        $finance = Workflow::create(['code' => 'finance', 'name_ar' => 'مسار مالي']);
+        $this->publishChecklistNaming($finance, $key);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/request-types/{$leave->id}", ['workflow_id' => $finance->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('required_documents');
+        $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/request-types/{$promotion->id}", ['workflow_id' => $finance->id])
+            ->assertOk();
+    }
+
+    /** A published version of $workflow with one custom step whose attachment item names $key. */
+    private function publishChecklistNaming(Workflow $workflow, string $key): void
+    {
+        $standard = Workflow::standard()->publishedVersion;
+        $version = $standard->cloneAsDraft($workflow->is(Workflow::standard()) ? null : $workflow);
+        WorkflowStage::create([
+            'workflow_version_id' => $version->id,
+            'code' => 'custom_audit',
+            'order_no' => 99,
+            'name_ar' => 'تدقيق مالي',
+            'checklist' => [['key' => 'cdoc', 'type' => 'attachment', 'label_ar' => 'راجع المستند', 'document_key' => $key]],
+        ]);
+        if ($workflow->is(Workflow::standard())) {
+            $standard->update(['status' => 'retired']);
+        }
+        $version->update(['status' => 'published']);
     }
 }
