@@ -92,6 +92,8 @@ class RequestDetailResource extends RequestResource
             'committee_actions' => $this->committee_actions ?? [],
             // Decision wizard — sub-project 3.
             'acts' => $this->acts ?? ['available' => [], 'blocked' => []],
+            // Whether «عرض مسار العمل» is offered: only while the designer is on.
+            'workflow_view' => (bool) config('app.workflow_designer'),
             // Stage 75 — [D] Art. 37's closure record, and Appendix 47's
             // twelve-point audit answered when it was written. Both null until
             // the request is actually closed.

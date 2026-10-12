@@ -19,6 +19,28 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-12 11:35 EET — Claude — The workflow designer is off by default (complete)
+
+Built per the plan below; no migration, seeder or locale change. **Turning it on:** `WORKFLOW_DESIGNER_ENABLED=true` in
+`.env`, then clear the config cache (on cPanel, from the maintenance console). `phpunit.xml` sets it true, so every
+designer test runs unchanged; `WorkflowDesignerDisabledTest` turns it off. **Ceiling:** turning it off does not move a
+type already bound to a custom workflow back to Standard. The real DB has none (Standard v1 only, checked by query).
+Verified: new test RED then GREEN, full suite 951 / 6176, Pint clean, build passes (`dist` committed, production API URL
+in the bundle), parity 2200, `aislop ci` exit 0 (97). Not checked in a browser.
+
+---
+### 2026-10-12 11:00 EET — Claude — Implementation plan: the workflow designer is off by default
+
+User: keep the visual designer, but as an option that is disabled by default, so the system runs as it did before it
+(the real DB is on Standard v1 only, so no live file changes). Put to the user and answered: an `.env` flag
+(`WORKFLOW_DESIGNER_ENABLED`, read as `config('app.workflow_designer')`, default false), and «off» hides everything.
+`User::screenPermissions()` clears `workflow_designer` (screen, sidebar, router guard, API 403), `GET
+requests/{r}/workflow` 404s and the request payload's flag hides «عرض مسار العمل», and Request Types gets an empty
+`workflows` list while `StoreRequestTypeRequest` drops `workflow_id`. Tables and code stay. `phpunit.xml` turns the
+flag on so the designer tests run unchanged. Verify: new `WorkflowDesignerDisabledTest` (RED then GREEN), full PHPUnit,
+Pint, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-11 14:50 EET — Claude — A reopened appeal can be nominated again (complete)
 
 Built per the plan below; no migration and no frontend change. `awaitsNomination()` is read in four places; the fourth,

@@ -19,7 +19,7 @@ class RequestWorkflowController extends Controller
 {
     public function show(HttpRequest $request, Request $requestRecord, RequestVisibility $visibility): JsonResponse
     {
-        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
+        abort_unless(config('app.workflow_designer') && $visibility->canView($request->user(), $requestRecord), 404);
 
         return response()->json(['data' => [
             'current_stage_id' => $requestRecord->current_stage_id,

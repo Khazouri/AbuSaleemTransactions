@@ -252,6 +252,12 @@ class User extends Authenticatable
             $map['request_intake'] = array_fill_keys(ScreenRolePermission::ACTIONS, false);
         }
 
+        // The designer is off unless the deployment turns it on; cleared here so
+        // no grant on the Roles & Permissions grid can reopen it.
+        if (! config('app.workflow_designer') && isset($map['workflow_designer'])) {
+            $map['workflow_designer'] = array_fill_keys(ScreenRolePermission::ACTIONS, false);
+        }
+
         return $this->screenPermissionsCache = $this->hideMeetingsSectionIfUnseated($map);
     }
 
