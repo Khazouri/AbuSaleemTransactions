@@ -241,7 +241,7 @@ function onWizardUpdated(updated) {
         :stage-timeliness="request.stage_timeliness"
         :current-stage-name="currentStageName"
       />
-      <p class="workflow-link">
+      <p v-if="request.workflow_view" class="workflow-link">
         <button class="ghost" type="button" @click="openWorkflow">{{ t('workflows.viewOnRequest') }}</button>
       </p>
       <AppModal

@@ -40,8 +40,9 @@ class RequestTypeController extends Controller
             ->get();
 
         return RequestTypeResource::collection($types)->additional([
-            // Workflow designer — slice 3. The workflows a type may be bound to.
-            'workflows' => Workflow::query()->whereHas('publishedVersion')->orderBy('id')->get(['id', 'code', 'name_ar', 'name_en']),
+            // Workflow designer — slice 3. The workflows a type may be bound to;
+            // none while the designer is off, which hides the picker.
+            'workflows' => ! config('app.workflow_designer') ? [] : Workflow::query()->whereHas('publishedVersion')->orderBy('id')->get(['id', 'code', 'name_ar', 'name_en']),
         ]);
     }
 

@@ -38,6 +38,12 @@ class StoreRequestTypeRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        // While the designer is off a type stays on the workflow it has (Standard
+        // for a new one); a stale client cannot bind it to another.
+        if (! config('app.workflow_designer')) {
+            $this->getInputSource()->remove('workflow_id');
+        }
+
         $documents = $this->input('required_documents');
 
         if (! is_array($documents)) {

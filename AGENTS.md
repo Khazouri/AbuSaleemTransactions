@@ -188,6 +188,12 @@ Key architectural facts worth knowing before changing things:
   screen *definitions* only on an existing database; running the full
   `DatabaseSeeder` there would reset the whole permission matrix and discard
   anything customised through Roles & Permissions.
+- **The workflow designer is off by default** (user decision 2026-10-12):
+  `WORKFLOW_DESIGNER_ENABLED=true` in `.env` (`config('app.workflow_designer')`)
+  turns it on. Off, `User::screenPermissions()` clears `workflow_designer`, `GET
+  requests/{r}/workflow` 404s (the payload's `workflow_view` hides the button),
+  and Request Types neither lists nor accepts a `workflow_id`. The version
+  tables below still run underneath: Standard is the one published workflow.
 - **Workflow versions (workflow designer, slice 1).** Every `workflow_stages`
   row belongs to a `workflow_versions` row of a named `workflows` row
   (`standard` is seeded). A transition's version is its from-stage's and a

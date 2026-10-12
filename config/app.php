@@ -123,4 +123,10 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    // The workflow designer is an option, off by default (user decision
+    // 2026-10-12): off, the system reads as it did before the designer.
+    // ponytail: off does not move a type bound to a custom workflow back to
+    // Standard; add a reroute if a custom workflow is ever published, then disabled.
+    'workflow_designer' => (bool) env('WORKFLOW_DESIGNER_ENABLED', false),
+
 ];
