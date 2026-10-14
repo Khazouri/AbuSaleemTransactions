@@ -19,6 +19,28 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-14 12:35 EET — Claude — المقرر adds a request to the agenda without the legal member's approval (complete)
+
+Built per the plan below; no migration and no seeder. `addAgendaItem()` now refuses only when the latest legal review
+exists and blocks (`permitsAgenda() === false`). The readiness exception `missing_legal_review` became
+`legal_review_blocks`, which catches a blocking verdict recorded after the item was scheduled. Its locale text changed
+in both files. `USER_GUIDE.ar.md` (§4.9, §5.3, §5.4) calls the review optional, and the PDF was rebuilt. Verified: the
+two rewritten `RequestLegalReviewTest` cases went RED then GREEN, full suite 951 / 6177, Pint clean, build passes
+(`dist` committed, production API URL in the bundle), parity 2200, `aislop ci` exit 0 (97). Not checked in a browser.
+
+---
+### 2026-10-14 12:09 EET — Claude — Implementation plan: المقرر adds a request to the agenda without the legal member's approval
+
+User: «المقرر should be able to add the request without the approval of العضو القانوني». Today
+`MeetingController::addAgendaItem()` refuses a pending-list request whose latest legal review does not permit
+presentation, including one never reviewed. Plan: a request with **no** review is admitted; a recorded blocking verdict
+(the latest review is not `sound_ready`/`present_with_note`) still refuses, since that is an objection rather than a
+missing approval. `MeetingReadinessService`'s `missing_legal_review` exception becomes `legal_review_blocks`, flagging
+only items whose latest review blocks. Sending a file to the legal member stays available, just optional. Verify:
+`RequestLegalReviewTest` cases updated (RED then GREEN), full PHPUnit, Pint, build (`dist` committed, locale text
+changed), parity, aislop ci.
+
+---
 ### 2026-10-12 11:35 EET — Claude — The workflow designer is off by default (complete)
 
 Built per the plan below; no migration, seeder or locale change. **Turning it on:** `WORKFLOW_DESIGNER_ENABLED=true` in
