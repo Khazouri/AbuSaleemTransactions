@@ -168,10 +168,11 @@ class RequestLegalReviewTest extends TestCase
     }
 
     /**
-     * The stage's own done-when, half one: an unreviewed or blocked file
-     * cannot reach the agenda; the two permitting verdicts can.
+     * User decision 2026-10-14: the legal review is optional — a file never
+     * sent to the legal member reaches the agenda, but a recorded verdict
+     * that does not permit presentation still keeps it off.
      */
-    public function test_the_agenda_gate_admits_only_the_two_permitting_verdicts(): void
+    public function test_the_agenda_gate_refuses_only_a_blocking_verdict(): void
     {
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
@@ -179,11 +180,10 @@ class RequestLegalReviewTest extends TestCase
         $meeting = $this->meetingFor($head);
 
         // No review at all.
-        $unreviewed = $this->committeeRequest('ready');
+        $unreviewed = $this->committeeRequest('registered');
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $unreviewed->id])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('request_id');
+            ->assertCreated();
 
         foreach (RequestLegalReview::VERDICTS as $verdict) {
             $requestRecord = $this->committeeRequest('under_legal_review');
@@ -292,27 +292,34 @@ class RequestLegalReviewTest extends TestCase
             ->assertJsonPath('data.0.id', $withLegal->id);
     }
 
-    /** Appendix 7's "هل تمت المراجعة القانونية المطلوبة؟", for rows predating the gate. */
-    public function test_readiness_flags_a_legacy_agenda_item_with_no_permitting_review(): void
+    /** A blocking verdict recorded after the item was scheduled is flagged at the sitting; no review is not. */
+    public function test_readiness_flags_only_an_item_whose_latest_review_blocks(): void
     {
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
+        $legalOfficer = $this->userWithRole('R11');
         $meeting = $this->meetingFor($head);
-        $requestRecord = $this->committeeRequest('ready');
+        $requestRecord = $this->committeeRequest('under_legal_review');
 
-        // Written directly, the way a row inserted before Stage 68 existed
-        // would look — the HTTP endpoint would refuse this today.
         $meeting->agendaItems()->create([
             'request_id' => $requestRecord->id,
             'agenda_order' => 1,
         ]);
 
-        $exceptionCodes = $this->actingAs($head, 'sanctum')
+        $exceptionCodes = fn () => $this->actingAs($head, 'sanctum')
             ->getJson("/api/meetings/{$meeting->id}/readiness")
             ->assertOk()
             ->json('data.exceptions.*.code');
 
-        $this->assertContains('missing_legal_review', $exceptionCodes);
+        $this->assertNotContains('legal_review_blocks', $exceptionCodes());
+
+        $this->actingAs($legalOfficer, 'sanctum')
+            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
+                'verdict' => 'needs_document',
+                'legal_note' => 'ملاحظة.',
+            ])->assertCreated();
+
+        $this->assertContains('legal_review_blocks', $exceptionCodes());
     }
 
     public function test_the_request_detail_screen_shows_the_latest_review_only(): void
