@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Setting;
 
+use App\Models\Setting;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,7 +19,7 @@ class UpdateSettingRequest extends FormRequest
 
         return [
             'key' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('settings', 'key')->ignore($setting)],
-            'value' => ['nullable', 'string'],
+            'value' => Setting::valueRules($this->input('key', $setting?->key)),
         ];
     }
 
@@ -27,6 +28,9 @@ class UpdateSettingRequest extends FormRequest
         return [
             'key.required' => 'مفتاح الإعداد مطلوب.',
             'key.unique' => 'مفتاح الإعداد مستخدم بالفعل.',
+            'value.required' => 'هذا الإعداد يحتاج إلى قيمة.',
+            'value.integer' => 'القيمة يجب أن تكون عددًا صحيحًا.',
+            'value.between' => 'عدد الأعضاء المطلوب قبولهم يجب أن يكون بين :min و:max.',
         ];
     }
 }

@@ -205,6 +205,8 @@
     "empty": "No settings yet.",
     "keyHint": "Use a stable key such as system.name",
     "legalReviewBypass": "Let the rapporteur skip the legal review",
+    "meetingAcceptances": "Members who must accept a meeting date",
+    "meetingAcceptancesHint": "A meeting is confirmed once this many invitees accept its date. The rapporteur proposes the date, so they count. From 2 to 5.",
     "legalReviewBypassHint": "While ticked, the rapporteur can put any pending request on a meeting agenda without the legal member's approval, and a legal verdict no longer takes the file off the pending list."
   },
   "templates": {
@@ -1076,7 +1078,7 @@
     "statusPendingConfirmation": "Awaiting date confirmation",
     "changeStatus": "Change status…",
     "rsvp": {
-      "awaiting": "The meeting is awaiting every member's acceptance of its date.",
+      "awaiting": "The meeting is awaiting acceptance of its date by the required number of members.",
       "newDate": "New proposed date",
       "proposeDate": "Propose date",
       "proposeHint": "Changing the date puts the meeting back to awaiting confirmation, and every member is asked to accept it again."
@@ -2560,8 +2562,8 @@
       "require_completion": "Asks for what the file is missing before it is presented; name what is needed.",
       "send_to_legal_review": "Hands the file to the legal member for an opinion before it goes on an agenda.",
       "record_decision": "Records the committee’s decision from the vote and moves the file accordingly.",
-      "respond_accept": "Confirms you can attend on the proposed date; the meeting is confirmed once every member accepts.",
-      "respond_decline": "You can’t make the date; the meeting waits for the rapporteur to propose another.",
+      "respond_accept": "Confirms you can attend on the proposed date; the meeting is confirmed once the required number of members accept.",
+      "respond_decline": "You can’t make the date; the meeting is confirmed only if enough other members accept, or the rapporteur proposes another date.",
       "adopt_agenda": "Adopts the agenda: it is fixed against additions, removals and reordering, and deliberation can begin.",
       "convene": "Opens the sitting and freezes the voting rules as they stand now.",
       "generate_minutes": "Compiles the draft minutes from the sitting as it stands now.",

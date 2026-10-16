@@ -19,6 +19,29 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-16 20:55 EET — Claude — A Settings number sets how many members must accept a meeting's date (complete)
+
+Built per the plan below; no migration. `Setting::valueRules()` gives `meeting_acceptances_required` its 2–5 rule in
+both Settings Form Requests, while every other key stays free text. `SettingsView` keeps both typed settings out of the
+generic table and saves them through one `saveOwn()`. The «every member» wording in `meetings.rsvp` and the respond
+hints now reads «the required number». `CommitteeSinglePathTest`'s first test was rewritten for the new rule, and its
+decline and notification tests set the threshold to 5. `SettingSeeder` was run on the real DB (`3`). Verified: the new
+tests went RED, then GREEN; full suite 953 green; Pint clean; build passes (`dist` committed, production API URL in the
+bundle); parity 2204; `aislop ci` exit 0. Not checked in a browser. The guide is not updated (OPEN_ITEMS).
+
+---
+### 2026-10-16 20:30 EET — Claude — Implementation plan: a Settings number sets how many members must accept a meeting's date
+
+User: «a new input field that sets how many members need to accept the meeting in order for the date to be set (default
+3)». Today a meeting turns `scheduled` only when all five attendees accept. Plan: a seeded setting
+`meeting_acceptances_required` (`'3'`, `firstOrCreate`) and `Setting::meetingAcceptancesRequired()`.
+`MeetingController::respond()` schedules the meeting once that many attendees are `confirmed`, and the مقرر's automatic
+yes counts. The Settings Form Requests accept only 2–5 for that key, since 1 would mean the مقرر alone. `SettingsView`
+gets a number card above the table. Unchanged: a date change resets every answer, and answers close once the meeting is
+scheduled. Verify: `CommitteeSinglePathTest` (RED then GREEN), full PHPUnit, Pint, build (`dist` committed), parity,
+aislop ci, seed the setting on the real DB.
+
+---
 ### 2026-10-16 19:55 EET — Claude — A Settings checkbox lets the مقرر skip the legal review (complete)
 
 Built per the plan below, with one addition the user chose mid-build: a blocking verdict used to move the file to

@@ -14,6 +14,13 @@ class Setting extends Model
      */
     public const LEGAL_REVIEW_BYPASS = 'legal_review_bypass';
 
+    /**
+     * R08's Settings number (user decision 2026-10-16): how many attendees must
+     * accept a proposed date before the meeting is `scheduled`. The مقرر's own
+     * automatic yes counts, so the floor is 2.
+     */
+    public const MEETING_ACCEPTANCES_REQUIRED = 'meeting_acceptances_required';
+
     protected $fillable = [
         'key',
         'value',
@@ -23,5 +30,18 @@ class Setting extends Model
     public static function enabled(string $key): bool
     {
         return static::where('key', $key)->value('value') === '1';
+    }
+
+    public static function meetingAcceptancesRequired(): int
+    {
+        return (int) (static::where('key', self::MEETING_ACCEPTANCES_REQUIRED)->value('value') ?? 3);
+    }
+
+    /** The `value` rules for a setting the code reads as a typed value; any other key stays free text. */
+    public static function valueRules(?string $key): array
+    {
+        return $key === self::MEETING_ACCEPTANCES_REQUIRED
+            ? ['required', 'integer', 'between:2,'.count(CommitteeMember::SEAT_ROLES)]
+            : ['nullable', 'string'];
     }
 }

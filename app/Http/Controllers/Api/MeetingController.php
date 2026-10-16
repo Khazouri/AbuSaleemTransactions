@@ -146,8 +146,8 @@ class MeetingController extends Controller
                 'meeting_type' => 'regular',
                 'chairman_user_id' => $seats['chair']->user_id,
                 'rapporteur_user_id' => $rapporteurId,
-                // Stage 102 — a proposed date, approved only once every
-                // invited member accepts it (respond()).
+                // Stage 102 — a proposed date, approved only once enough
+                // invited members accept it (respond()).
                 'status' => Meeting::STATUS_PENDING_CONFIRMATION,
                 // Stage 70 — [D] Appendix 15 numbers the meeting itself
                 // (PM-MTG/YEAR/NN), and Appendix 8 refuses to send a محضر for
@@ -208,7 +208,7 @@ class MeetingController extends Controller
         $data = $request->validated();
 
         // Stage 102 — a new date is a new proposal: every member answers it
-        // again, and the meeting is not approved until they all accept.
+        // again, and the meeting is not approved until enough accept.
         $dateChanged = isset($data['scheduled_at'])
             && ! Carbon::parse($data['scheduled_at'])->equalTo($meeting->scheduled_at);
         if ($dateChanged) {
@@ -257,8 +257,9 @@ class MeetingController extends Controller
     /**
      * Stage 102 — each invited member answers the proposed date themselves;
      * nobody records it for them. The meeting is approved (`scheduled`) the
-     * moment the last member accepts. A decline leaves it awaiting
-     * confirmation until the مقرر proposes another date (update()).
+     * moment Settings' number of members have accepted (2026-10-16; the
+     * مقرر's own yes counts), and answers close then. Until that, a decline
+     * leaves it awaiting confirmation, or the مقرر proposes another date (update()).
      */
     public function respond(RespondToMeetingInvitationRequest $request, Meeting $meeting, NotificationDispatcher $notifications): MeetingResource|JsonResponse
     {
@@ -279,7 +280,7 @@ class MeetingController extends Controller
                 'responded_at' => now(),
             ]);
 
-            if (! $locked->attendees()->where('invitation_status', '!=', 'confirmed')->exists()) {
+            if ($locked->attendees()->where('invitation_status', 'confirmed')->count() >= Setting::meetingAcceptancesRequired()) {
                 $locked->update(['status' => 'scheduled']);
             }
 

@@ -132,8 +132,10 @@ Key architectural facts worth knowing before changing things:
   (`CommitteeController::refuseUnlessRapporteur()`). It meets **at least** once
   a month, with no cap, and a committee with no live meeting dated this month
   is a `meeting_due` task in the مقرر's «المهام المعلقة». A new meeting is `pending_confirmation` and becomes
-  `scheduled` only when every attendee accepts through their own
-  `POST meetings/{m}/respond`; a date change resets every answer. Convening
+  `scheduled` once Settings' `meeting_acceptances_required` attendees (2–5,
+  default 3, the مقرر's automatic yes included) accept through their own
+  `POST meetings/{m}/respond`; answers close then, and a date change resets
+  every answer. Convening
   already requires `scheduled`, so that is the whole gate. Don't reintroduce
   ad-hoc attendees, free-text agenda items, or staff-recorded RSVPs.
 - **Every write on the request page and the appeals screen is a wizard act

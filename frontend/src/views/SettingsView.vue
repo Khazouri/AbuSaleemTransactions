@@ -20,26 +20,42 @@ const errors = ref({})
 const editingId = ref(null)
 const showForm = ref(false)
 
-// Legal review bypass (user decision 2026-10-16) — a checkbox, not a text row,
-// so it is kept out of the generic table. Read server-side as Setting::enabled().
+// Typed settings (user decisions 2026-10-16) get their own controls above the
+// table, so they are kept out of the generic one. The server reads them as
+// Setting::enabled() and Setting::meetingAcceptancesRequired().
 const BYPASS_KEY = 'legal_review_bypass'
+const ACCEPTANCES_KEY = 'meeting_acceptances_required'
 const bypass = computed(() => settings.value.find((s) => s.key === BYPASS_KEY))
-const rows = computed(() => settings.value.filter((s) => s.key !== BYPASS_KEY))
-const bypassSaving = ref(false)
+const acceptances = computed(() => settings.value.find((s) => s.key === ACCEPTANCES_KEY))
+const rows = computed(() => settings.value.filter((s) => ![BYPASS_KEY, ACCEPTANCES_KEY].includes(s.key)))
+const ownSaving = ref(false)
 
-async function toggleBypass(event) {
-  const payload = { key: BYPASS_KEY, value: event.target.checked ? '1' : '0' }
-  bypassSaving.value = true
+/** Saves one typed setting; false (with the server's reason shown) when refused. */
+async function saveOwn(setting, key, value) {
+  ownSaving.value = true
   formError.value = null
   try {
-    if (bypass.value) await api.put(`/settings/${bypass.value.id}`, payload)
-    else await api.post('/settings', payload)
+    if (setting) await api.put(`/settings/${setting.id}`, { key, value })
+    else await api.post('/settings', { key, value })
     await load()
+    return true
   } catch (e) {
-    event.target.checked = !event.target.checked
-    formError.value = e?.response?.data?.message ?? 'تعذّر الحفظ. حاول مرة أخرى.'
+    formError.value = e?.response?.data?.errors?.value?.[0] ?? e?.response?.data?.message ?? 'تعذّر الحفظ. حاول مرة أخرى.'
+    return false
   } finally {
-    bypassSaving.value = false
+    ownSaving.value = false
+  }
+}
+
+async function toggleBypass(event) {
+  if (!(await saveOwn(bypass.value, BYPASS_KEY, event.target.checked ? '1' : '0'))) {
+    event.target.checked = !event.target.checked
+  }
+}
+
+async function saveAcceptances(event) {
+  if (!(await saveOwn(acceptances.value, ACCEPTANCES_KEY, event.target.value))) {
+    event.target.value = acceptances.value?.value ?? '3'
   }
 }
 
@@ -156,10 +172,29 @@ onMounted(load)
     <!-- Legal review bypass (user decision 2026-10-16). -->
     <div v-if="!loading && !loadError" v-can="'settings.edit'" class="card card-flat card-pad toggle">
       <label class="checkbox">
-        <input type="checkbox" :checked="bypass?.value === '1'" :disabled="bypassSaving" @change="toggleBypass" />
+        <input type="checkbox" :checked="bypass?.value === '1'" :disabled="ownSaving" @change="toggleBypass" />
         <strong>{{ t('settings.legalReviewBypass') }}</strong>
       </label>
       <small class="hint">{{ t('settings.legalReviewBypassHint') }}</small>
+    </div>
+
+    <!-- Meeting date acceptances (user decision 2026-10-16). -->
+    <div v-if="!loading && !loadError" v-can="'settings.edit'" class="card card-flat card-pad toggle">
+      <label>
+        <strong>{{ t('settings.meetingAcceptances') }}<span class="required-mark" aria-hidden="true">*</span></strong>
+        <input
+          class="count"
+          type="number"
+          min="2"
+          max="5"
+          step="1"
+          required
+          :value="acceptances?.value ?? '3'"
+          :disabled="ownSaving"
+          @change="saveAcceptances"
+        />
+      </label>
+      <small class="hint">{{ t('settings.meetingAcceptancesHint') }}</small>
     </div>
 
     <div class="card card-flat card-pad list">
@@ -193,6 +228,7 @@ textarea { resize: vertical; }
 .toggle { display: flex; flex-direction: column; gap: var(--space-2); margin-block-end: var(--space-4); }
 .checkbox { flex-direction: row; align-items: center; gap: var(--space-2); color: var(--color-foreground); }
 .checkbox input { padding: 0; }
+.count { inline-size: 6rem; }
 .value { white-space: pre-wrap; }
 .row-actions { display: flex; justify-content: flex-end; gap: var(--space-2); white-space: nowrap; }
 </style>
