@@ -19,6 +19,36 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-16 19:55 EET — Claude — A Settings checkbox lets the مقرر skip the legal review (complete)
+
+Built per the plan below, with one addition the user chose mid-build: a blocking verdict used to move the file to
+`completion_required`, off the pending list, so ignoring the verdict at the agenda alone was not enough. While the box
+is ticked, `RequestLegalReviewController::store()` sends every verdict through `pass_legal_review`, back to `ready`. The
+verdict and note are still recorded. `SettingsView` shows the checkbox in its own card and keeps that key out of the
+generic table. No migration. `SettingSeeder` was run on the real MySQL (`legal_review_bypass` = `0`).
+
+Verified:
+- the new `RequestLegalReviewTest` case went RED, then GREEN;
+- full suite 952 green, Pint clean, build passes (`dist` committed, production API URL in the bundle);
+- parity 2202, `aislop ci` exit 0.
+
+Not checked in a browser. The guide is not updated (OPEN_ITEMS).
+
+---
+### 2026-10-16 19:30 EET — Claude — Implementation plan: a Settings checkbox lets the مقرر skip the legal review
+
+User: a checkbox in Settings lets the مقرر bypass the legal member's check, so a pending request goes straight onto the
+agenda. Put to the user and answered: R08 ticks it on the Settings screen, and while it is ticked even a blocking
+verdict (e.g. «غير سليم») does not stop the agenda. Plan:
+- a seeded setting `legal_review_bypass` (off; `firstOrCreate`) and `Setting::enabled()`;
+- `MeetingController::addAgendaItem()` skips the legal gate while it is on;
+- `MeetingReadinessService` drops the `missing_legal_review` exception while it is on;
+- `SettingsView` gets a checkbox card above the table.
+
+Unchanged: the document-conflict gate, appeals, and sending a file to legal review. Verify: new `RequestLegalReviewTest`
+cases (RED then GREEN), full PHPUnit, Pint, build (`dist` committed), parity, aislop ci, seed the setting on the real DB.
+
+---
 ### 2026-10-16 18:52 EET — Claude — Rolled back: المقرر adds a request to the agenda without the legal member's approval
 
 The user asked to roll back the change in the two entries below, so `4fbec9b` is reverted. The agenda again refuses a

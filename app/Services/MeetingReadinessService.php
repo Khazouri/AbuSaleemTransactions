@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Meeting;
+use App\Models\Setting;
 
 /**
  * Stage 33 — the pre-meeting readiness gate. Computes the four percentages,
@@ -159,7 +160,9 @@ class MeetingReadinessService
         // presentation. It exists for agenda rows created before that gate
         // did, which Appendix 7's own instruction says to withhold rather
         // than force through ("إذا كان النقص جوهريًا... يوقف إدراجه").
-        if ($itemsMissingLegalReview->isNotEmpty()) {
+        // R08's Settings checkbox (user decision 2026-10-16) makes the review
+        // optional, so a missing one is no longer an exception.
+        if ($itemsMissingLegalReview->isNotEmpty() && ! Setting::enabled(Setting::LEGAL_REVIEW_BYPASS)) {
             $exceptions[] = [
                 'code' => 'missing_legal_review',
                 'item_ids' => $itemsMissingLegalReview->pluck('id')->values(),

@@ -13,6 +13,11 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The user guide doesn't mention the legal-review bypass — legal review bypass — opened 2026-10-16
+`USER_GUIDE.ar.md` (§4.9, §5.3, §5.4) still calls the legal review a condition for the agenda. That holds only while
+R08's «السماح للمقرر بتجاوز المراجعة القانونية» checkbox (`legal_review_bypass`) is unticked. Not updated, because the
+user did not ask for it. **To close:** add one sentence on the switch to those sections and rebuild the PDF.
+
 ### The status walk doesn't model statuses changed outside the rules — workflow designer slice 5 — opened 2026-10-11
 `WorkflowVersionValidator`'s `status_unmet` check walks the statuses that `workflow_transitions` rows stamp
 (`set_status_id`). The committee's moves (`CommitteeStatusService`) and the recorded decision change a file's status

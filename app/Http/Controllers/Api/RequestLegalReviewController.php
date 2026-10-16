@@ -9,6 +9,7 @@ use App\Http\Resources\RequestLegalReviewResource;
 use App\Http\Resources\RequestResource;
 use App\Models\Request;
 use App\Models\RequestLegalReview;
+use App\Models\Setting;
 use App\Services\CommitteeStatusService;
 use App\Services\RequestSuspensionService;
 use Illuminate\Http\Request as HttpRequest;
@@ -127,7 +128,11 @@ class RequestLegalReviewController extends Controller
         $validated = $request->validated();
         $actor = $request->user();
 
-        $permits = in_array($validated['verdict'], RequestLegalReview::PERMITTING_VERDICTS, strict: true);
+        // R08's Settings checkbox (user decision 2026-10-16): the verdict is
+        // still recorded, but every one returns the file to the pending list
+        // so the مقرر may present it anyway.
+        $permits = Setting::enabled(Setting::LEGAL_REVIEW_BYPASS)
+            || in_array($validated['verdict'], RequestLegalReview::PERMITTING_VERDICTS, strict: true);
 
         // Stage 78 — Art. 105's referral is the other reason a file can be in
         // front of the legal member, and it is not Art. 21's. A suspended
