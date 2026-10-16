@@ -281,7 +281,8 @@ class User extends Authenticatable
      */
     private function hideMeetingsSectionIfUnseated(array $map): array
     {
-        if (app(MeetingVisibility::class)->sitsOnAnyCommittee($this)) {
+        $visibility = app(MeetingVisibility::class);
+        if ($visibility->sitsOnAnyCommittee($this)) {
             return $map;
         }
 
@@ -289,8 +290,9 @@ class User extends Authenticatable
             // المقرر (`meetings,add`, R02 alone since Stage 102) forms the
             // committee that seats them, so the screen that does it cannot
             // wait for the seat. CommitteeController::store() seats the creator,
-            // which then opens the rest of the section.
-            if ($code === 'meetings' && ($map[$code]['can_add'] ?? false)) {
+            // which then opens the rest of the section. An extra member the
+            // مقرر invited keeps it to open that meeting and answer its date.
+            if ($code === 'meetings' && (($map[$code]['can_add'] ?? false) || $visibility->isLiveGuest($this))) {
                 continue;
             }
             if (isset($map[$code])) {

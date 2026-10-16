@@ -90,10 +90,16 @@ class MeetingVisibility
     /**
      * Limit a meeting query to sittings of committees the actor sits on.
      *
+     * $withGuests also admits a sitting the actor is an extra member of (the
+     * مقرر's guests, user decision 2026-10-16). Opt-in per caller, because a
+     * guest answers the date and nothing else: the callers that pass it are
+     * the list, the meeting itself, its duties and the answer. Every
+     * agenda-item read, `decisions,view` ones included, stays seat-only.
+     *
      * @param  Builder<Meeting>  $query
      * @return Builder<Meeting>
      */
-    public function apply(Builder $query, User $actor): Builder
+    public function apply(Builder $query, User $actor, bool $withGuests = false): Builder
     {
         if (! $actor->is_active) {
             return $query->whereRaw('1 = 0');
@@ -103,9 +109,14 @@ class MeetingVisibility
             return $query;
         }
 
-        return $query->whereHas('committee', fn (Builder $committee) => $committee
-            ->where('is_active', true)
-            ->whereHas('members', fn (Builder $member) => $member->where('user_id', $actor->id)));
+        return $query->where(fn (Builder $meeting) => $meeting
+            ->whereHas('committee', fn (Builder $committee) => $committee
+                ->where('is_active', true)
+                ->whereHas('members', fn (Builder $member) => $member->where('user_id', $actor->id)))
+            ->when($withGuests, fn (Builder $meeting) => $meeting->orWhereHas(
+                'attendees',
+                fn (Builder $attendee) => $attendee->where('user_id', $actor->id)->whereNotNull('guest_title'),
+            )));
     }
 
     /**
@@ -116,9 +127,21 @@ class MeetingVisibility
      * have listed — the property that stops a screen offering a row its own
      * detail endpoint then 404s on.
      */
-    public function canView(User $actor, Meeting $meeting): bool
+    public function canView(User $actor, Meeting $meeting, bool $withGuests = false): bool
     {
-        return $this->apply(Meeting::query()->whereKey($meeting->getKey()), $actor)->exists();
+        return $this->apply(Meeting::query()->whereKey($meeting->getKey()), $actor, $withGuests)->exists();
+    }
+
+    /**
+     * An unseated guest keeps the meetings screen while an invitation is still
+     * live, which is all of the section they get (User::hideMeetingsSectionIfUnseated()).
+     */
+    public function isLiveGuest(User $actor): bool
+    {
+        return $actor->is_active && Meeting::query()
+            ->whereIn('status', [Meeting::STATUS_PENDING_CONFIRMATION, 'scheduled'])
+            ->whereHas('attendees', fn (Builder $attendee) => $attendee->where('user_id', $actor->id)->whereNotNull('guest_title'))
+            ->exists();
     }
 
     /**

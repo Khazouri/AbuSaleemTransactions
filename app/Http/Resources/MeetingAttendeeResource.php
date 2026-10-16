@@ -11,6 +11,7 @@ class MeetingAttendeeResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'guest_title' => $this->guest_title,
             'attended' => $this->attended,
             'invitation_status' => $this->invitation_status,
             'responded_at' => $this->responded_at?->toIso8601String(),

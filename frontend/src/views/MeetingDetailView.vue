@@ -12,6 +12,7 @@ import { useRoute } from 'vue-router'
 import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
 import AgendaItemWizard from '../components/AgendaItemWizard.vue'
 import AppModal from '../components/AppModal.vue'
+import GuestInviteForm from '../components/GuestInviteForm.vue'
 import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
@@ -232,10 +233,36 @@ async function moveAgendaItem(index, direction) {
 }
 
 // --- Attendance --------------------------------------------------------------
-// Stage 102 — the five seats are invited automatically and nobody else, so
-// there is no add/remove here; only the roll call at the sitting.
+// Stage 102 — the five seats are invited automatically; the roll call at the
+// sitting is theirs alone. The مقرر's extra invitees (2026-10-16) answer the
+// date and are listed apart, added or removed while the date is still open.
 
 const attendanceError = ref('')
+const seatAttendees = computed(() => (meeting.value?.attendees ?? []).filter((a) => !a.guest_title))
+const guestAttendees = computed(() => (meeting.value?.attendees ?? []).filter((a) => a.guest_title))
+const canEditGuests = computed(() => meeting.value?.status === 'pending_confirmation' && auth.hasRole('R02'))
+const showGuestForm = ref(false)
+const savingGuest = ref(false)
+
+async function changeGuests(request) {
+  savingGuest.value = true
+  attendanceError.value = ''
+  try {
+    const { data } = await request()
+    meeting.value = data.data
+    showGuestForm.value = false
+  } catch (requestError) {
+    const errors = requestError.response?.data?.errors
+    attendanceError.value = errors?.user_id?.[0] ?? errors?.guests?.[0] ?? requestError.response?.data?.message ?? t('common.none')
+  } finally {
+    savingGuest.value = false
+  }
+}
+
+const addGuest = ({ user_id, guest_title }) =>
+  changeGuests(() => api.post(`/meetings/${meeting.value.id}/guests`, { user_id, guest_title }))
+const removeGuest = (attendee) =>
+  changeGuests(() => api.delete(`/meetings/${meeting.value.id}/guests/${attendee.id}`))
 
 async function markAttendance(attendee, attended) {
   attendanceError.value = ''
@@ -395,7 +422,8 @@ onMounted(async () => {
       </section>
 
       <div class="columns">
-        <section class="card card-flat card-pad agenda">
+        <!-- A guest gets the meeting without its agenda (MeetingController::show()). -->
+        <section v-if="meeting.agenda_items" class="card card-flat card-pad agenda">
           <div class="agenda-heading">
             <h3>{{ t('meetings.agenda.title') }}</h3>
             <div class="agenda-heading-links">
@@ -504,9 +532,9 @@ onMounted(async () => {
         <aside class="card card-flat card-pad attendance">
           <h3>{{ t('meetings.attendance.title') }}</h3>
           <p v-if="attendanceError" class="alert">{{ attendanceError }}</p>
-          <p v-if="!meeting.attendees?.length" class="state">{{ t('meetings.attendance.empty') }}</p>
+          <p v-if="!seatAttendees.length" class="state">{{ t('meetings.attendance.empty') }}</p>
           <ul v-else>
-            <li v-for="attendee in meeting.attendees" :key="attendee.id">
+            <li v-for="attendee in seatAttendees" :key="attendee.id">
               <div class="attendee-row">
                 <label class="checkbox">
                   <input
@@ -522,6 +550,30 @@ onMounted(async () => {
               </div>
             </li>
           </ul>
+
+          <h3>{{ t('meetings.guests.title') }}</h3>
+          <p v-if="!guestAttendees.length" class="state">{{ t('meetings.guests.empty') }}</p>
+          <ul v-else>
+            <li v-for="attendee in guestAttendees" :key="attendee.id">
+              <div class="attendee-row">
+                <span>{{ attendee.user.name }}</span>
+                <span class="pill">{{ attendee.guest_title }}</span>
+                <span class="pill invitation-status">
+                  {{ t(`meetings.attendance.invitation.${attendee.invitation_status}`) }}
+                </span>
+              </div>
+              <button v-if="canEditGuests" class="ghost danger" type="button" :disabled="savingGuest" @click="removeGuest(attendee)">
+                {{ t('meetings.guests.remove') }}
+              </button>
+            </li>
+          </ul>
+          <button v-if="canEditGuests" class="ghost" type="button" @click="showGuestForm = true">{{ t('meetings.guests.add') }}</button>
+
+          <AppModal v-if="showGuestForm" :title="t('meetings.guests.add')" @close="showGuestForm = false">
+            <p class="guest-hint">{{ t('meetings.guests.hint') }}</p>
+            <GuestInviteForm :exclude-ids="meeting.attendees.map((a) => a.user.id)" :busy="savingGuest" @add="addGuest" />
+            <p v-if="attendanceError" class="alert" role="alert">{{ attendanceError }}</p>
+          </AppModal>
         </aside>
       </div>
     </template>
@@ -562,6 +614,7 @@ select { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); bor
 .invitation-status { padding: .2rem .4rem; font-size: var(--text-xs); }
 label.checkbox { display: flex; align-items: center; gap: .4rem; }
 .propose-date-open { margin-block-end: var(--space-4); }
+.guest-hint { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }
 .propose-date label { display: grid; gap: .25rem; font-size: var(--text-sm); }
 .propose-date input { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: inherit; font: inherit; }
 .propose-date .hint { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }

@@ -1082,6 +1082,17 @@
       "newDate": "New proposed date",
       "proposeDate": "Propose date",
       "proposeHint": "Changing the date puts the meeting back to awaiting confirmation, and every member is asked to accept it again."
+    },
+    "guests": {
+      "title": "Extra invitees",
+      "hint": "People the rapporteur invites beyond the five seats. They answer the date, but only the seats’ acceptances set it, and they do not vote or sign the minutes.",
+      "user": "Invitee",
+      "chooseUser": "Choose a person…",
+      "jobTitle": "Capacity",
+      "jobTitlePlaceholder": "e.g. Finance Director",
+      "add": "Add invitee",
+      "remove": "Remove",
+      "empty": "No extra invitees."
     }
   },
   "decisions": {
@@ -1483,7 +1494,8 @@
         "present": "Present",
         "absent": "Absent",
         "agendaItems": "Agenda items",
-        "requiredSignatories": "Required signatories"
+        "requiredSignatories": "Required signatories",
+        "guests": "Extra invitees (non-voting)"
       },
       "item": {
         "factsSummary": "Facts summary",

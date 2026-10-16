@@ -198,6 +198,15 @@ onMounted(loadMeetings)
                 </li>
               </ul>
             </div>
+            <!-- The مقرر's extra invitees (2026-10-16); minutes compiled before then have no key. -->
+            <div v-if="minutes.content.attendance.guests?.length">
+              <strong>{{ t('meetingsUnit.minutes.sections.guests') }} ({{ minutes.content.attendance.guests.length }})</strong>
+              <ul>
+                <li v-for="u in minutes.content.attendance.guests" :key="u.id">
+                  {{ u.name }}<span class="role"> — {{ u.guest_title }}</span>
+                </li>
+              </ul>
+            </div>
           </div>
           <!-- Stage 73 — Appendix 8 requires إثبات صحة الانعقاد in the محضر,
                which means naming the rule the sitting was measured against.

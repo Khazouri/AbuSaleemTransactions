@@ -13,6 +13,11 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The user guide still says a meeting invites only the five seats — meeting extra invitees — opened 2026-10-16
+Since 2026-10-16 the مقرر may invite extra members, each with a صفة, who answer the date only (no vote, signature or
+quorum). `USER_GUIDE.ar.md` doesn't describe this. Not updated, because the user did not ask for it. **To close:**
+add it to the scheduling and meeting-page sections and rebuild the PDF.
+
 ### The user guide still says every member must accept a meeting's date — meeting acceptance threshold — opened 2026-10-16
 `USER_GUIDE.ar.md` (around lines 559, 1708 and 1798) says the meeting is confirmed once all five members accept. Since
 2026-10-16 it is confirmed once Settings' `meeting_acceptances_required` attendees accept (default 3, the مقرر
