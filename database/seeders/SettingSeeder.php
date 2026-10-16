@@ -32,5 +32,11 @@ class SettingSeeder extends Seeder
             ['key' => Setting::LEGAL_REVIEW_BYPASS],
             ['value' => '0'],
         );
+
+        // User decision 2026-10-16 — the مقرر plus two members accept the date.
+        Setting::firstOrCreate(
+            ['key' => Setting::MEETING_ACCEPTANCES_REQUIRED],
+            ['value' => '3'],
+        );
     }
 }

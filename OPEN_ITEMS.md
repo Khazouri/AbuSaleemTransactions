@@ -13,6 +13,11 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The user guide still says every member must accept a meeting's date — meeting acceptance threshold — opened 2026-10-16
+`USER_GUIDE.ar.md` (around lines 559, 1708 and 1798) says the meeting is confirmed once all five members accept. Since
+2026-10-16 it is confirmed once Settings' `meeting_acceptances_required` attendees accept (default 3, the مقرر
+included). Not updated, because the user did not ask for it. **To close:** reword those three places and rebuild the PDF.
+
 ### The user guide doesn't mention the legal-review bypass — legal review bypass — opened 2026-10-16
 `USER_GUIDE.ar.md` (§4.9, §5.3, §5.4) still calls the legal review a condition for the agenda. That holds only while
 R08's «السماح للمقرر بتجاوز المراجعة القانونية» checkbox (`legal_review_bypass`) is unticked. Not updated, because the

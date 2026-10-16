@@ -9,6 +9,7 @@ use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\Role;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Notifications\MeetingInvitationResponseNotification;
@@ -22,8 +23,9 @@ use Tests\TestCase;
 
 /**
  * Stage 102 — the user's committee process as the only path: the مقرر
- * schedules a monthly meeting for the five seats, each member accepts the date
- * themselves, and only then is the meeting approved and can be held.
+ * schedules a monthly meeting for the five seats, each member answers the date
+ * themselves, and once enough accept (Settings, default 3) the meeting is
+ * approved and can be held.
  *
  * The pending list, the agenda gate, the monthly rule and the seat/role
  * binding each have their own coverage (CommitteeCandidatesDashboardTest,
@@ -43,7 +45,8 @@ class CommitteeSinglePathTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
-    public function test_the_meeting_is_approved_only_when_every_member_accepts_the_date(): void
+    /** The number comes from Settings (default 3), and the مقرر's own yes counts. */
+    public function test_the_meeting_is_approved_once_the_required_number_of_members_accept(): void
     {
         [$seats, $meeting] = $this->proposedMeeting();
 
@@ -53,26 +56,51 @@ class CommitteeSinglePathTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('status');
 
-        foreach (['chair', 'legal', 'hr_director'] as $seat) {
-            $this->respond($seats[$seat], $meeting, 'accept')
-                ->assertOk()
-                ->assertJsonPath('data.status', 'pending_confirmation');
-        }
+        $this->respond($seats['hr_director'], $meeting, 'decline')->assertOk();
+        $this->respond($seats['chair'], $meeting, 'accept')
+            ->assertOk()
+            ->assertJsonPath('data.status', 'pending_confirmation');
 
-        $this->respond($seats['ministry_delegate'], $meeting, 'accept')
+        $this->respond($seats['legal'], $meeting, 'accept')
             ->assertOk()
             ->assertJsonPath('data.status', 'scheduled');
 
         // Approved: answers are closed, and the chair may now convene.
-        $this->respond($seats['chair'], $meeting, 'decline')->assertStatus(422);
+        $this->respond($seats['ministry_delegate'], $meeting, 'accept')->assertStatus(422);
         $this->actingAs($seats['chair'], 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/convene", ['reason' => 'اختبار'])
             ->assertOk();
     }
 
+    public function test_the_required_number_is_set_on_settings_within_the_five_seats(): void
+    {
+        $admin = $this->userWithRole('R08');
+        $setting = Setting::where('key', Setting::MEETING_ACCEPTANCES_REQUIRED)->firstOrFail();
+        $this->assertSame('3', $setting->value);
+
+        foreach (['1', '6', 'ثلاثة', null] as $value) {
+            $this->actingAs($admin, 'sanctum')
+                ->putJson("/api/settings/{$setting->id}", ['value' => $value])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('value');
+        }
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson("/api/settings/{$setting->id}", ['value' => '5'])
+            ->assertOk();
+        $this->assertSame(5, Setting::meetingAcceptancesRequired());
+
+        [$seats, $meeting] = $this->proposedMeeting();
+        foreach (['chair', 'legal', 'hr_director'] as $seat) {
+            $this->respond($seats[$seat], $meeting, 'accept')->assertJsonPath('data.status', 'pending_confirmation');
+        }
+        $this->respond($seats['ministry_delegate'], $meeting, 'accept')->assertJsonPath('data.status', 'scheduled');
+    }
+
     public function test_a_decline_keeps_the_meeting_pending_until_the_rapporteur_proposes_a_new_date(): void
     {
         Notification::fake();
+        $this->requireEveryMember();
         [$seats, $meeting] = $this->proposedMeeting();
 
         foreach (['chair', 'legal', 'hr_director'] as $seat) {
@@ -101,6 +129,7 @@ class CommitteeSinglePathTest extends TestCase
     public function test_the_rapporteur_is_told_of_every_answer(): void
     {
         Notification::fake();
+        $this->requireEveryMember();
         [$seats, $meeting] = $this->proposedMeeting();
 
         $this->respond($seats['legal'], $meeting, 'decline')->assertOk();
@@ -198,6 +227,12 @@ class CommitteeSinglePathTest extends TestCase
                 'scheduled_at' => now()->addMonths(3)->toDateTimeString(),
             ])
             ->assertForbidden();
+    }
+
+    /** These cases need every member's answer before the date is set. */
+    private function requireEveryMember(): void
+    {
+        Setting::where('key', Setting::MEETING_ACCEPTANCES_REQUIRED)->update(['value' => '5']);
     }
 
     /** @return array{0: array<string, User>, 1: Meeting} */

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Setting;
 
+use App\Models\Setting;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreSettingRequest extends FormRequest
@@ -15,7 +16,7 @@ class StoreSettingRequest extends FormRequest
     {
         return [
             'key' => ['required', 'string', 'max:255', 'unique:settings,key'],
-            'value' => ['nullable', 'string'],
+            'value' => Setting::valueRules($this->input('key')),
         ];
     }
 
@@ -24,6 +25,9 @@ class StoreSettingRequest extends FormRequest
         return [
             'key.required' => 'مفتاح الإعداد مطلوب.',
             'key.unique' => 'مفتاح الإعداد مستخدم بالفعل.',
+            'value.required' => 'هذا الإعداد يحتاج إلى قيمة.',
+            'value.integer' => 'القيمة يجب أن تكون عددًا صحيحًا.',
+            'value.between' => 'عدد الأعضاء المطلوب قبولهم يجب أن يكون بين :min و:max.',
         ];
     }
 }
