@@ -393,7 +393,8 @@ class MeetingController extends Controller
         // Stage 68 — [D] Art. 21 / Appendix 2's file-readiness rule ("مراجعًا
         // قانونيًا") and Appendix 7's own checklist question ("هل تمت المراجعة
         // القانونية المطلوبة؟"). Art. 24 lists المراجعة أو الرأي القانوني as
-        // component 7 of the ملف العرض.
+        // component 7 of the ملف العرض, so a file with no completed review is
+        // simply not presentable.
         //
         // The gate lives here rather than in CommitteeStatusService's
         // place_on_agenda because Stage 44 established that an item can be
@@ -404,11 +405,6 @@ class MeetingController extends Controller
         // مسألة قانونية تستوجب العرض مع بيانها (whose whole point is that the
         // matter IS presented, with the issue stated). See
         // RequestLegalReview::PERMITTING_VERDICTS.
-        //
-        // User decision 2026-10-14: the review itself is optional — the مقرر
-        // may schedule a file the legal member never saw. Only a recorded
-        // verdict that does not permit presentation keeps it off, because
-        // that is an objection on the file, not a missing approval.
         if ($itemType === 'employee_request') {
             // Reused below for the Art. 101 notice, so the gate and the
             // notice speak about the same loaded row.
@@ -416,9 +412,9 @@ class MeetingController extends Controller
                 ->with('latestLegalReview')
                 ->findOrFail($validated['request_id']);
 
-            if ($subject->latestLegalReview?->permitsAgenda() === false) {
+            if (! $subject->latestLegalReview?->permitsAgenda()) {
                 throw ValidationException::withMessages([
-                    'request_id' => ['لا يمكن إدراج الطلب في جدول الأعمال وآخر رأي قانوني عليه لا يجيز العرض.'],
+                    'request_id' => ['لا يمكن إدراج الطلب في جدول الأعمال قبل استكمال المراجعة القانونية بنتيجة تجيز العرض.'],
                 ]);
             }
 

@@ -55,12 +55,12 @@ class MeetingReadinessService
         $missingFileItemIds = $itemsMissingFiles->pluck('id')->values();
 
         // --- Stage 68: Appendix 7's "هل تمت المراجعة القانونية المطلوبة؟" ---
-        // The review is optional since 2026-10-14, so an unreviewed item is
-        // not flagged; one whose latest verdict blocks presentation is — the
-        // agenda gate refuses it, but a verdict recorded after scheduling
-        // slips past that gate. Reported as an exception, not a percentage.
-        $itemsBlockedByLegalReview = $requestItems->filter(
-            fn ($item) => $item->request?->latestLegalReview?->permitsAgenda() === false,
+        // Deliberately NOT folded into a percentage of its own: the agenda
+        // gate makes this vacuous for every item inserted after Stage 68, so a
+        // permanent "100%" bar would be noise. It is reported only as an
+        // exception, and only when a legacy row actually breaches it.
+        $itemsMissingLegalReview = $requestItems->reject(
+            fn ($item) => $item->request?->latestLegalReview?->permitsAgenda() === true,
         );
 
         // --- Stage 83: Appendix 30's "فلا تعرض المعاملة قبل معالجة التعارض" --
@@ -152,14 +152,17 @@ class MeetingReadinessService
         if ($invitationPercentage < 100) {
             $exceptions[] = ['code' => 'pending_invitations'];
         }
-        // Stage 68 — Appendix 7's own readiness question, narrowed on
-        // 2026-10-14 to a verdict that blocks presentation, which Appendix
-        // 7's own instruction says to withhold rather than force through
-        // ("إذا كان النقص جوهريًا... يوقف إدراجه").
-        if ($itemsBlockedByLegalReview->isNotEmpty()) {
+        // Stage 68 — Appendix 7's own readiness question, "هل تمت المراجعة
+        // القانونية المطلوبة؟", asked literally. For anything inserted after
+        // Stage 68 this can never fire: MeetingController::addAgendaItem()
+        // refuses a request whose latest legal review does not permit
+        // presentation. It exists for agenda rows created before that gate
+        // did, which Appendix 7's own instruction says to withhold rather
+        // than force through ("إذا كان النقص جوهريًا... يوقف إدراجه").
+        if ($itemsMissingLegalReview->isNotEmpty()) {
             $exceptions[] = [
-                'code' => 'legal_review_blocks',
-                'item_ids' => $itemsBlockedByLegalReview->pluck('id')->values(),
+                'code' => 'missing_legal_review',
+                'item_ids' => $itemsMissingLegalReview->pluck('id')->values(),
             ];
         }
         // Stage 83 — Appendix 30's own prohibition, asked at the sitting.
