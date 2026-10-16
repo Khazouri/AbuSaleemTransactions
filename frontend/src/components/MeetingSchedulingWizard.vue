@@ -6,13 +6,15 @@
 // of this screen already uses.
 //
 // Stage 102 — the مقرر's monthly meeting: requests come only from the
-// committee's pending list, the invitees are exactly the five seats (no
-// extras), and the type, chair and rapporteur are the server's to derive.
+// committee's pending list, the five seats are invited automatically, and the
+// type, chair and rapporteur are the server's to derive. The مقرر may add
+// extra invitees, each with a صفة (2026-10-16); they answer the date only.
 // Creating the meeting already notifies the seats, so there is no separate
 // send-invitations call.
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import GuestInviteForm from './GuestInviteForm.vue'
 
 const SEAT_CODES = ['chair', 'legal', 'hr_director', 'ministry_delegate', 'rapporteur']
 
@@ -99,6 +101,16 @@ const seats = computed(() => selectedCommittee.value?.seats ?? {})
 // An empty rapporteur seat does not block: scheduling seats the system's مقرر.
 const allSeatsFilled = computed(() => SEAT_CODES.every((seat) => seat === 'rapporteur' || seats.value[seat]))
 
+const guests = ref([]) // [{user_id, name, guest_title}]
+const invitedIds = computed(() => [
+  ...SEAT_CODES.map((seat) => seats.value[seat]?.user?.id).filter(Boolean),
+  ...guests.value.map((guest) => guest.user_id),
+])
+
+function removeGuest(guest) {
+  guests.value = guests.value.filter((g) => g.user_id !== guest.user_id)
+}
+
 // --- Step 4: review & agenda order -------------------------------------------
 
 function moveRequest(index, direction) {
@@ -129,6 +141,7 @@ async function submit() {
       expected_duration_minutes: details.value.expected_duration_minutes || null,
       agenda_deadline: details.value.agenda_deadline || null,
       description: details.value.description || null,
+      guests: guests.value.map(({ user_id, guest_title }) => ({ user_id, guest_title })),
     }
     const { data: created } = await api.post('/meetings', payload)
     const meetingId = created.data.id
@@ -280,6 +293,17 @@ function goBack() {
         </ul>
         <p class="hint">{{ t('meetings.wizard.acceptanceHint') }}</p>
         <p v-if="!allSeatsFilled" class="alert warning">{{ t('meetings.wizard.seatsIncomplete') }}</p>
+
+        <h4>{{ t('meetings.guests.title') }}</h4>
+        <p class="hint">{{ t('meetings.guests.hint') }}</p>
+        <ul v-if="guests.length" class="selected">
+          <li v-for="guest in guests" :key="guest.user_id">
+            <span>{{ guest.name }}</span>
+            <span class="pill">{{ guest.guest_title }}</span>
+            <button class="ghost danger" type="button" @click="removeGuest(guest)">{{ t('meetings.guests.remove') }}</button>
+          </li>
+        </ul>
+        <GuestInviteForm :exclude-ids="invitedIds" @add="guests.push($event)" />
       </template>
     </section>
 
@@ -317,6 +341,9 @@ function goBack() {
       </div>
       <p class="counts">
         {{ t('meetings.wizard.selectedRequests') }}: {{ selectedRequests.length }}
+      </p>
+      <p v-if="guests.length" class="counts">
+        {{ t('meetings.guests.title') }}: {{ guests.length }}
       </p>
       <p v-if="submitError" class="alert warning">{{ submitError }}</p>
       <p v-if="submitting" class="state">{{ submitPhase }}</p>

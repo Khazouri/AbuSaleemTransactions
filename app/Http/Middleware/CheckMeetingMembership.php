@@ -29,7 +29,11 @@ class CheckMeetingMembership
 {
     public function __construct(private readonly MeetingVisibility $visibility) {}
 
-    public function handle(Request $request, Closure $next): Response
+    /**
+     * `meeting.member:guests` also admits the مقرر's extra members, on the few
+     * routes a guest needs to answer the date (MeetingVisibility::apply()).
+     */
+    public function handle(Request $request, Closure $next, ?string $guests = null): Response
     {
         $meeting = $request->route('meeting');
 
@@ -42,7 +46,7 @@ class CheckMeetingMembership
         }
 
         abort_unless(
-            $meeting !== null && $this->visibility->canView($request->user(), $meeting),
+            $meeting !== null && $this->visibility->canView($request->user(), $meeting, $guests === 'guests'),
             404,
         );
 

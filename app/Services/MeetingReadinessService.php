@@ -109,10 +109,12 @@ class MeetingReadinessService
             : (int) round(($briefedItems->count() / $agendaItems->count()) * 100);
 
         // --- invitations % (an actual answer, not just "invited") ----------
-        $responded = $meeting->attendees->whereIn('invitation_status', ['confirmed', 'declined']);
-        $invitationPercentage = $meeting->attendees->isEmpty()
+        // The seats' answers only: a guest's never sets the date (2026-10-16).
+        $seatAttendees = $meeting->attendees->whereNull('guest_title');
+        $responded = $seatAttendees->whereIn('invitation_status', ['confirmed', 'declined']);
+        $invitationPercentage = $seatAttendees->isEmpty()
             ? 100
-            : (int) round(($responded->count() / $meeting->attendees->count()) * 100);
+            : (int) round(($responded->count() / $seatAttendees->count()) * 100);
 
         // --- quorum: the committee's own transcribed rule, never an invented
         // one. Stage 73 — [D] Appendix 64: "ولا يجوز للدليل إنشاء نسبة نصاب

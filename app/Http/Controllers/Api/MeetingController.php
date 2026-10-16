@@ -12,6 +12,7 @@ use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemRequest;
 use App\Http\Requests\MeetingAgenda\UpdateMeetingAgendaItemStateRequest;
 use App\Http\Requests\MeetingAgenda\UpdateStudySequenceRequest;
 use App\Http\Requests\MeetingAttendee\RespondToMeetingInvitationRequest;
+use App\Http\Requests\MeetingAttendee\StoreMeetingGuestRequest;
 use App\Http\Requests\MeetingAttendee\UpdateMeetingAttendeeRequest;
 use App\Http\Resources\MeetingAttendeeResource;
 use App\Http\Resources\MeetingRequestResource;
@@ -80,7 +81,7 @@ class MeetingController extends Controller
     {
         $filters = $request->validated();
 
-        $meetings = $visibility->apply(Meeting::query(), $request->user())
+        $meetings = $visibility->apply(Meeting::query(), $request->user(), withGuests: true)
             ->with('committee:id,name_ar,name_en')
             ->withCount(['attendees', 'agendaItems'])
             ->when($filters['committee_id'] ?? null, fn ($query, int $committeeId) => $query->where('committee_id', $committeeId))
@@ -138,7 +139,13 @@ class MeetingController extends Controller
             ]);
         }
 
-        [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request, $numbers, $seats) {
+        $guests = collect($data['guests'] ?? []);
+        unset($data['guests']);
+        if ($guests->pluck('user_id')->intersect($seats->pluck('user_id'))->isNotEmpty()) {
+            throw ValidationException::withMessages(['guests' => ['المدعو الإضافي لا يكون من شاغلي مقاعد اللجنة الخمسة.']]);
+        }
+
+        [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request, $numbers, $seats, $guests) {
             $rapporteurId = $seats['rapporteur']->user_id;
 
             $meeting = Meeting::create([
@@ -168,8 +175,11 @@ class MeetingController extends Controller
                     ...($userId === $rapporteurId ? ['invitation_status' => 'confirmed', 'responded_at' => now()] : []),
                 ]);
             }
+            foreach ($guests as $guest) {
+                $meeting->attendees()->create($guest);
+            }
 
-            return [$meeting, $memberUserIds];
+            return [$meeting, $memberUserIds->merge($guests->pluck('user_id'))];
         });
 
         // Stage 23 — the invitation follows the attendee rows just written,
@@ -181,9 +191,16 @@ class MeetingController extends Controller
             ->setStatusCode(201);
     }
 
-    public function show(Meeting $meeting): MeetingResource
+    public function show(HttpRequest $request, Meeting $meeting, MeetingVisibility $visibility): MeetingResource
     {
-        return new MeetingResource($this->loadDetail($meeting));
+        $meeting = $this->loadDetail($meeting);
+
+        // A guest answers the date; the files on the agenda are the committee's.
+        if (! $visibility->canView($request->user(), $meeting)) {
+            $meeting->unsetRelation('agendaItems');
+        }
+
+        return new MeetingResource($meeting);
     }
 
     /**
@@ -280,7 +297,8 @@ class MeetingController extends Controller
                 'responded_at' => now(),
             ]);
 
-            if ($locked->attendees()->where('invitation_status', 'confirmed')->count() >= Setting::meetingAcceptancesRequired()) {
+            // A guest's yes is for the مقرر's information; only the seats set the date.
+            if ($locked->attendees()->whereNull('guest_title')->where('invitation_status', 'confirmed')->count() >= Setting::meetingAcceptancesRequired()) {
                 $locked->update(['status' => 'scheduled']);
             }
 
@@ -993,16 +1011,59 @@ class MeetingController extends Controller
 
     /**
      * Roll call: whether an invited member attended. Stage 102 removed the
-     * RSVP from here (members answer through respond()) and removed ad-hoc
-     * attendees altogether — a meeting invites exactly the five seats.
+     * RSVP from here (members answer through respond()). A guest is never on
+     * it: attendance is what votes, signs the minutes and makes the quorum.
      */
     public function markAttendance(UpdateMeetingAttendeeRequest $request, Meeting $meeting, MeetingAttendee $attendee): MeetingAttendeeResource
     {
         abort_unless($attendee->meeting_id === $meeting->id, 404);
+        if ($attendee->guest_title !== null) {
+            throw ValidationException::withMessages(['attended' => ['لا يُسجَّل حضور المدعوين الإضافيين؛ دعوتهم للعلم بالموعد فقط.']]);
+        }
 
         $attendee->update($request->validated());
 
         return new MeetingAttendeeResource($attendee->load('user:id,name'));
+    }
+
+    /**
+     * An extra member the مقرر invites beyond the five seats (user decision
+     * 2026-10-16). Only while the date is still open: once enough seats have
+     * accepted, answers close, and a late guest could never answer.
+     */
+    public function addGuest(StoreMeetingGuestRequest $request, Meeting $meeting, NotificationDispatcher $notifications): MeetingResource
+    {
+        $this->refuseGuestChange($meeting, $request->user());
+
+        $userId = $request->validated('user_id');
+        if ($meeting->attendees()->where('user_id', $userId)->exists()) {
+            throw ValidationException::withMessages(['user_id' => ['هذا الشخص مدعو إلى الاجتماع بالفعل.']]);
+        }
+
+        $meeting->attendees()->create($request->validated());
+        $notifications->meetingScheduled($meeting, collect([$userId]), $request->user());
+
+        return new MeetingResource($this->loadDetail($meeting));
+    }
+
+    public function removeGuest(HttpRequest $request, Meeting $meeting, MeetingAttendee $attendee): MeetingResource
+    {
+        abort_unless($attendee->meeting_id === $meeting->id && $attendee->guest_title !== null, 404);
+        $this->refuseGuestChange($meeting, $request->user());
+
+        $attendee->delete();
+
+        return new MeetingResource($this->loadDetail($meeting));
+    }
+
+    private function refuseGuestChange(Meeting $meeting, User $actor): void
+    {
+        if ($meeting->committee->seatRapporteur()?->id !== $actor->id) {
+            throw ValidationException::withMessages(['guests' => ['دعوة الأعضاء الإضافيين من صلاحية المقرر وحده.']]);
+        }
+        if ($meeting->status !== Meeting::STATUS_PENDING_CONFIRMATION) {
+            throw ValidationException::withMessages(['guests' => ['لا تُعدَّل قائمة المدعوين الإضافيين إلا والاجتماع بانتظار تأكيد موعده.']]);
+        }
     }
 
     /**

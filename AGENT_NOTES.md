@@ -19,6 +19,35 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-16 21:40 EET — Claude — The مقرر invites extra members, each with a صفة (complete)
+
+Built per the plan below. Migration `meeting_attendees.guest_title` is applied to the real MySQL. **Deviation:**
+`MeetingVisibility::apply()` admits guests only when a caller opts in (`withGuests`, routes `meeting.member:guests`:
+index, show, duties, respond). `decisions,view` is `'*'` and rides plain `meeting.member`, so widening the scope for
+everyone would have let a guest read decision drafts. A new `GuestInviteForm.vue` serves the wizard (step 3) and the
+meeting page (modal). The agenda card is hidden when the payload has no agenda. Verified: new `MeetingGuestTest` (4,
+RED then GREEN), full suite 957 green, Pint clean, build passes (`dist` committed, production API URL in the bundle),
+parity 2214, `aislop ci` exit 0 (97). Not checked in a browser.
+
+---
+### 2026-10-16 21:00 EET — Claude — Implementation plan: the مقرر invites extra members, each with a صفة
+
+User: «the مقرر can add additional unrequired members to the meeting but he needs to add their صفة». Put to the user
+and answered: an extra member only answers the date, and only the five seats count toward Settings' acceptances.
+This deliberately reverses Stage 102's «no ad-hoc attendees» for the مقرر. Plan:
+- migration `meeting_attendees.guest_title` (nullable); a non-null value marks an extra member;
+- `POST meetings` takes `guests[]` (`user_id`, `guest_title`), and `POST|DELETE meetings/{m}/guests` add or remove one
+  while the meeting is `pending_confirmation`, for the مقرر only. An added guest gets the invitation;
+- `respond()` and readiness's `pending_invitations` count seat rows only. Roll call refuses a guest, so a guest never
+  signs, votes or counts toward the quorum. The minutes list guests apart from present/absent;
+- `MeetingVisibility` lets a guest open the meetings they are invited to, the seat gate keeps `meetings,view` while a
+  guest invitation is live, and `show()` withholds the agenda from a non-member;
+- SPA: a guest step in the scheduling wizard, and a guest list with add/remove on the meeting page.
+
+Verify: new `MeetingGuestTest` (RED then GREEN), full PHPUnit, Pint, migrate on MySQL, build (`dist` committed),
+parity, aislop ci.
+
+---
 ### 2026-10-16 20:55 EET — Claude — A Settings number sets how many members must accept a meeting's date (complete)
 
 Built per the plan below; no migration. `Setting::valueRules()` gives `meeting_acceptances_required` its 2–5 rule in
@@ -131,7 +160,7 @@ missed by the plan, is the nominator's branch of `GET appeals/{a}/acts`. **Gotch
 `meeting_requests` to itself, so a column-limited eager load must qualify its columns. `AppealsRegister`'s
 `committeeAgendaItem:id,appeal_id` was a 500 («ambiguous column name») until it was qualified. **Behaviour change:**
 `POST meetings/{m}/agenda` now refuses a second nomination of an appeal in one lap. Before, it took one silently.
-Verified: the new `AppealActsTest` case (RED then GREEN), full suite green, Pint clean, `aislop ci` exit 0. The same
+Verified: the new `AppealActsTest` case (RED then GREEN), full suite 957 green, Pint clean, `aislop ci` exit 0. The same
 session marked five OPEN_ITEMS entries resolved after finding them already closed on the real DB or in code.
 
 ---
@@ -154,7 +183,7 @@ request and passes. It sits on 13 routes, the 12 named in the plan plus `approva
 **Behaviour change:** R02 can no longer reopen a file cancelled before the قيد, which it could not open either.
 `GateAuthorshipTest`'s reopen fixture was a `completed_closed` file with no `closed_at`, a state only
 `RequestClosureService::close()` can write and always stamps, so it gained `closed_at`. Verified: new
-`AfterDecisionVisibilityTest` (RED then GREEN), full suite green, Pint clean, `aislop ci` exit 0.
+`AfterDecisionVisibilityTest` (RED then GREEN), full suite 957 green, Pint clean, `aislop ci` exit 0.
 
 ---
 ### 2026-10-11 12:23 EET — Claude — Implementation plan: after-decision writes check RequestVisibility
@@ -1024,7 +1053,7 @@ Built per the plan below; no migration. Login and `/auth/me` load `manager:id,na
 request page, the requests list and «متابعة طلباتي». R12 → `hr_department` fixed `receive_and_register`. **One addition
 beyond the plan:** the manager check now also reads exception rows, so the two real files parked at the retired
 `administrative_routing` stage (whose only exit is the manager-gated `route_to_hr`) read الرئيس المباشر instead of
-«قسم شؤون الموظفين». Verified: 4 new `RequestResponsibilityTest` cases (RED then GREEN), full suite green, Pint clean,
+«قسم شؤون الموظفين». Verified: 4 new `RequestResponsibilityTest` cases (RED then GREEN), full suite 957 green, Pint clean,
 build passes (`dist` committed), parity 2088, `aislop ci` exit 0. A live GET as r01.employee@ confirmed the payloads. Not
 checked in a browser.
 

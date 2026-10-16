@@ -662,22 +662,24 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('meetings', [MeetingController::class, 'index']);
     Route::middleware('screen.permission:meetings,add')
         ->post('meetings', [MeetingController::class, 'store']);
-    Route::middleware(['screen.permission:meetings,view', 'meeting.member'])
+    Route::middleware(['screen.permission:meetings,view', 'meeting.member:guests'])
         ->get('meetings/{meeting}', [MeetingController::class, 'show']);
     Route::middleware(['screen.permission:meetings,edit', 'meeting.member'])->group(function () {
         Route::put('meetings/{meeting}', [MeetingController::class, 'update']);
         Route::post('meetings/{meeting}/send-invitations', [MeetingController::class, 'sendInvitations']);
-        // Stage 102 — no ad-hoc attendees: a meeting invites exactly the five
-        // seats, so only the roll call is left to record here.
         Route::patch('meetings/{meeting}/attendees/{attendee}', [MeetingController::class, 'markAttendance']);
+        // Extra members the مقرر invites beyond the five seats (2026-10-16);
+        // the controller refuses anyone but the مقرر.
+        Route::post('meetings/{meeting}/guests', [MeetingController::class, 'addGuest']);
+        Route::delete('meetings/{meeting}/guests/{attendee}', [MeetingController::class, 'removeGuest']);
     });
     // Stage 102 — each invited member accepts or declines the proposed date
     // themselves; `meetings,view` is '*', and respond() refuses anyone who is
     // not on the meeting's own attendee list.
-    Route::middleware(['screen.permission:meetings,view', 'meeting.member'])
+    Route::middleware(['screen.permission:meetings,view', 'meeting.member:guests'])
         ->post('meetings/{meeting}/respond', [MeetingController::class, 'respond']);
     // Decision wizard — sub-project 2. What the member may do on this meeting.
-    Route::middleware(['screen.permission:meetings,view', 'meeting.member'])
+    Route::middleware(['screen.permission:meetings,view', 'meeting.member:guests'])
         ->get('meetings/{meeting}/duties', [MeetingDutiesController::class, 'meeting']);
     Route::middleware(['screen.permission:meetings,delete', 'meeting.member'])
         ->delete('meetings/{meeting}', [MeetingController::class, 'destroy']);

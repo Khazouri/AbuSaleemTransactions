@@ -30,6 +30,11 @@ class StoreMeetingRequest extends FormRequest
             'expected_duration_minutes' => ['nullable', 'integer', 'min:1'],
             'agenda_deadline' => ['nullable', 'date'],
             'description' => ['nullable', 'string'],
+            // Extra members beyond the five seats, each with the صفة they
+            // attend in (user decision 2026-10-16).
+            'guests' => ['nullable', 'array'],
+            'guests.*.user_id' => ['required', 'integer', 'distinct', Rule::exists('users', 'id')->where('is_active', true)],
+            'guests.*.guest_title' => ['required', 'string', 'max:255'],
         ];
     }
 
@@ -42,6 +47,11 @@ class StoreMeetingRequest extends FormRequest
             'scheduled_at.required' => 'موعد الاجتماع مطلوب.',
             'expected_duration_minutes.integer' => 'المدة المتوقعة يجب أن تكون رقماً.',
             'agenda_deadline.date' => 'الموعد النهائي لجدول الأعمال غير صالح.',
+            'guests.*.user_id.required' => 'يجب اختيار المدعو.',
+            'guests.*.user_id.distinct' => 'المدعو مكرر.',
+            'guests.*.user_id.exists' => 'المدعو المحدد غير موجود أو غير نشط.',
+            'guests.*.guest_title.required' => 'صفة المدعو مطلوبة.',
+            'guests.*.guest_title.max' => 'صفة المدعو يجب ألا تتجاوز 255 حرفاً.',
         ];
     }
 }

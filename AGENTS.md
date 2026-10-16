@@ -124,20 +124,25 @@ Key architectural facts worth knowing before changing things:
   still before an approving body (`SeatDutyGrant`, computed live — no table,
   no expiry job). Don't widen the lent screens to the whole role. Only the مقرر sets
   a meeting's date — scheduling it or proposing a new one; R08 and the chair
-  are refused (`MeetingController::refuseUnlessRapporteur()`), a meeting needs all five seats filled, invites exactly
-  them, and is `regular`. The committee is **a group the مقرر picks, not a
+  are refused (`MeetingController::refuseUnlessRapporteur()`), a meeting needs all five seats filled, invites
+  them, and is `regular`. The مقرر may also invite **extra members, each with a
+  صفة** (`meeting_attendees.guest_title`, user decision 2026-10-16), at
+  scheduling or via `POST|DELETE meetings/{m}/guests` while the date is open.
+  A guest answers the date and nothing else: off the roll call, so no vote,
+  signature or quorum; only `meeting.member:guests` routes (the meeting, its
+  duties, the answer) admit them, and `show()` withholds the agenda. The committee is **a group the مقرر picks, not a
   department** (user decision 2026-10-02): there is no committee row in
   `departments`, and its members belong to their own units. Only the active
   R02 holder forms a committee
   (`CommitteeController::refuseUnlessRapporteur()`). It meets **at least** once
   a month, with no cap, and a committee with no live meeting dated this month
   is a `meeting_due` task in the مقرر's «المهام المعلقة». A new meeting is `pending_confirmation` and becomes
-  `scheduled` once Settings' `meeting_acceptances_required` attendees (2–5,
-  default 3, the مقرر's automatic yes included) accept through their own
+  `scheduled` once Settings' `meeting_acceptances_required` seat holders (2–5,
+  default 3, the مقرر's automatic yes included; a guest's yes never counts) accept through their own
   `POST meetings/{m}/respond`; answers close then, and a date change resets
   every answer. Convening
   already requires `scheduled`, so that is the whole gate. Don't reintroduce
-  ad-hoc attendees, free-text agenda items, or staff-recorded RSVPs.
+  voting ad-hoc attendees, free-text agenda items, or staff-recorded RSVPs.
 - **Every write on the request page and the appeals screen is a wizard act
   (decision wizard sub-projects 1–3).** The request's workflow transitions,
   committee moves and `acts` (`App\Services\Tasks\RequestActs`), and an

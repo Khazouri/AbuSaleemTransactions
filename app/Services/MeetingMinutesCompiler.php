@@ -116,8 +116,11 @@ class MeetingMinutesCompiler
     {
         $activeMemberUserIds = $meeting->committee?->activeMembers->pluck('user_id') ?? collect();
 
-        $present = $meeting->attendees->where('attended', true);
-        $absent = $meeting->attendees->where('attended', false);
+        // A guest is never on the roll call, so they are neither present nor
+        // absent; the minutes name them apart, in the صفة they were invited in.
+        $seatAttendees = $meeting->attendees->whereNull('guest_title');
+        $present = $seatAttendees->where('attended', true);
+        $absent = $seatAttendees->where('attended', false);
 
         $rules = CommitteeVotingRules::forMeeting($meeting);
         $quorumRequired = $rules->quorumRequired($activeMemberUserIds->count());
@@ -126,6 +129,12 @@ class MeetingMinutesCompiler
         return [
             'present' => $present->map(fn (MeetingAttendee $attendee) => $this->attendeeInfo($attendee, $membersByUserId))->values()->all(),
             'absent' => $absent->map(fn (MeetingAttendee $attendee) => $this->attendeeInfo($attendee, $membersByUserId))->values()->all(),
+            'guests' => $meeting->attendees->whereNotNull('guest_title')
+                ->map(fn (MeetingAttendee $attendee) => [
+                    'id' => $attendee->user->id,
+                    'name' => $attendee->user->name,
+                    'guest_title' => $attendee->guest_title,
+                ])->values()->all(),
             'quorum_required' => $quorumRequired,
             'quorum_present' => $quorumPresent,
             'quorum_met' => $quorumRequired === null ? null : $quorumPresent >= $quorumRequired,
