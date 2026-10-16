@@ -10,6 +10,7 @@ use App\Models\RequestLegalReview;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\Role;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -313,6 +314,40 @@ class RequestLegalReviewTest extends TestCase
             ->json('data.exceptions.*.code');
 
         $this->assertContains('missing_legal_review', $exceptionCodes);
+    }
+
+    /** R08's Settings switch: unreviewed and blocked files both reach the agenda, and readiness stays quiet. */
+    public function test_the_bypass_setting_admits_any_pending_request_to_the_agenda(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        Setting::where('key', Setting::LEGAL_REVIEW_BYPASS)->update(['value' => '1']);
+        $head = $this->userWithRole('R03');
+        $legalOfficer = $this->userWithRole('R11');
+        $meeting = $this->meetingFor($head);
+
+        $unreviewed = $this->committeeRequest('ready');
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $unreviewed->id])
+            ->assertCreated();
+
+        $blocked = $this->committeeRequest('under_legal_review');
+        $this->actingAs($legalOfficer, 'sanctum')
+            ->postJson("/api/requests/{$blocked->id}/legal-reviews", [
+                'verdict' => 'needs_document',
+                'legal_note' => 'ملاحظة.',
+            ])->assertCreated();
+        // The verdict is recorded, but it no longer pulls the file off the pending list.
+        $this->assertSame('ready', $blocked->refresh()->status->code);
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $blocked->id])
+            ->assertCreated();
+
+        $exceptionCodes = $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/readiness")
+            ->assertOk()
+            ->json('data.exceptions.*.code');
+
+        $this->assertNotContains('missing_legal_review', $exceptionCodes);
     }
 
     public function test_the_request_detail_screen_shows_the_latest_review_only(): void

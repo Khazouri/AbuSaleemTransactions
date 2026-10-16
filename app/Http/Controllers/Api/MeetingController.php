@@ -26,6 +26,7 @@ use App\Models\MeetingAttendee;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStageLog;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\AgendaOrderingService;
 use App\Services\ArtifactNumberGenerator;
@@ -412,7 +413,9 @@ class MeetingController extends Controller
                 ->with('latestLegalReview')
                 ->findOrFail($validated['request_id']);
 
-            if (! $subject->latestLegalReview?->permitsAgenda()) {
+            // R08's Settings checkbox (user decision 2026-10-16) lets the
+            // مقرر present a file the legal member has not cleared.
+            if (! Setting::enabled(Setting::LEGAL_REVIEW_BYPASS) && ! $subject->latestLegalReview?->permitsAgenda()) {
                 throw ValidationException::withMessages([
                     'request_id' => ['لا يمكن إدراج الطلب في جدول الأعمال قبل استكمال المراجعة القانونية بنتيجة تجيز العرض.'],
                 ]);

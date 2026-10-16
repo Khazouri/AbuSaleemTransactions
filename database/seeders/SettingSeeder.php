@@ -26,5 +26,11 @@ class SettingSeeder extends Seeder
             ['key' => 'appeal_filing_deadline_days'],
             ['value' => null],
         );
+
+        // User decision 2026-10-16 — off until R08 ticks it on the Settings screen.
+        Setting::firstOrCreate(
+            ['key' => Setting::LEGAL_REVIEW_BYPASS],
+            ['value' => '0'],
+        );
     }
 }

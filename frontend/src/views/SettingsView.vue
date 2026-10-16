@@ -5,7 +5,7 @@
  * Keeps values as plain text on purpose. Type-specific interpretation belongs
  * to the later feature that owns a particular key, not to this generic editor.
  */
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 import AppModal from '../components/AppModal.vue'
@@ -19,6 +19,29 @@ const formError = ref(null)
 const errors = ref({})
 const editingId = ref(null)
 const showForm = ref(false)
+
+// Legal review bypass (user decision 2026-10-16) — a checkbox, not a text row,
+// so it is kept out of the generic table. Read server-side as Setting::enabled().
+const BYPASS_KEY = 'legal_review_bypass'
+const bypass = computed(() => settings.value.find((s) => s.key === BYPASS_KEY))
+const rows = computed(() => settings.value.filter((s) => s.key !== BYPASS_KEY))
+const bypassSaving = ref(false)
+
+async function toggleBypass(event) {
+  const payload = { key: BYPASS_KEY, value: event.target.checked ? '1' : '0' }
+  bypassSaving.value = true
+  formError.value = null
+  try {
+    if (bypass.value) await api.put(`/settings/${bypass.value.id}`, payload)
+    else await api.post('/settings', payload)
+    await load()
+  } catch (e) {
+    event.target.checked = !event.target.checked
+    formError.value = e?.response?.data?.message ?? 'تعذّر الحفظ. حاول مرة أخرى.'
+  } finally {
+    bypassSaving.value = false
+  }
+}
 
 const blankForm = () => ({ key: '', value: '' })
 const form = ref(blankForm())
@@ -100,7 +123,7 @@ onMounted(load)
     <div class="heading">
       <div>
         <h2>{{ t('settings.title') }}</h2>
-        <p v-if="!loading && !loadError" class="subtitle">{{ settings.length }}</p>
+        <p v-if="!loading && !loadError" class="subtitle">{{ rows.length }}</p>
       </div>
       <button v-can="'settings.add'" class="primary" type="button" @click="startCreate">{{ t('settings.add') }}</button>
     </div>
@@ -130,14 +153,23 @@ onMounted(load)
       </form>
     </AppModal>
 
+    <!-- Legal review bypass (user decision 2026-10-16). -->
+    <div v-if="!loading && !loadError" v-can="'settings.edit'" class="card card-flat card-pad toggle">
+      <label class="checkbox">
+        <input type="checkbox" :checked="bypass?.value === '1'" :disabled="bypassSaving" @change="toggleBypass" />
+        <strong>{{ t('settings.legalReviewBypass') }}</strong>
+      </label>
+      <small class="hint">{{ t('settings.legalReviewBypassHint') }}</small>
+    </div>
+
     <div class="card card-flat card-pad list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="loadError" class="alert">{{ t('nav.error') }} <button class="ghost" @click="load">{{ t('common.retry') }}</button></p>
-      <p v-else-if="settings.length === 0" class="state">{{ t('settings.empty') }}</p>
+      <p v-else-if="rows.length === 0" class="state">{{ t('settings.empty') }}</p>
       <table v-else class="data-table">
         <thead><tr><th>{{ t('settings.key') }}</th><th>{{ t('settings.value') }}</th><th></th></tr></thead>
         <tbody>
-          <tr v-for="setting in settings" :key="setting.id">
+          <tr v-for="setting in rows" :key="setting.id">
             <td><code class="ltr">{{ setting.key }}</code></td>
             <td class="value">{{ setting.value || t('common.none') }}</td>
             <td class="row-actions">
@@ -158,6 +190,9 @@ input, textarea { padding: .5rem .6rem; border: 1px solid var(--color-border-hov
 textarea { resize: vertical; }
 .field-error { color: var(--color-danger-fg); }
 .list { overflow-x: auto; }
+.toggle { display: flex; flex-direction: column; gap: var(--space-2); margin-block-end: var(--space-4); }
+.checkbox { flex-direction: row; align-items: center; gap: var(--space-2); color: var(--color-foreground); }
+.checkbox input { padding: 0; }
 .value { white-space: pre-wrap; }
 .row-actions { display: flex; justify-content: flex-end; gap: var(--space-2); white-space: nowrap; }
 </style>

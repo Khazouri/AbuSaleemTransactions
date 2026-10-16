@@ -203,7 +203,9 @@
     "key": "Key",
     "value": "Value",
     "empty": "No settings yet.",
-    "keyHint": "Use a stable key such as system.name"
+    "keyHint": "Use a stable key such as system.name",
+    "legalReviewBypass": "Let the rapporteur skip the legal review",
+    "legalReviewBypassHint": "While ticked, the rapporteur can put any pending request on a meeting agenda without the legal member's approval, and a legal verdict no longer takes the file off the pending list."
   },
   "templates": {
     "title": "Templates & Forms",
