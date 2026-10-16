@@ -19,6 +19,14 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-16 18:52 EET — Claude — Rolled back: المقرر adds a request to the agenda without the legal member's approval
+
+The user asked to roll back the change in the two entries below, so `4fbec9b` is reverted. The agenda again refuses a
+request with no legal review that permits presentation. The readiness exception is `missing_legal_review` again, and
+the guide, its PDF and `dist` are back to their `e0dd803` state. The code tree matches `e0dd803` exactly; only this
+file differs. The two entries below are kept as history and no longer describe the system.
+
+---
 ### 2026-10-14 12:35 EET — Claude — المقرر adds a request to the agenda without the legal member's approval (complete)
 
 Built per the plan below; no migration and no seeder. `addAgendaItem()` now refuses only when the latest legal review

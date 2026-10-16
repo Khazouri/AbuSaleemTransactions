@@ -1353,7 +1353,7 @@
         "incomplete_agenda_items": "Some agenda items are missing a priority or estimated time.",
         "pending_invitations": "Some attendees have not responded to their invitation.",
         "committee_rules_not_recorded": "The committee card records no quorum rule, and the system may not assume one.",
-        "legal_review_blocks": "The latest legal opinion on some request items does not allow presenting them.",
+        "missing_legal_review": "Some request items have not completed the required legal review.",
         "agenda_order_departs_from_rule": "The agenda departs from the order Art. 83 mandates, with no documented administrative justification.",
         "unresolved_document_conflict": "A document conflict on one of the agenda items has not been resolved.",
         "incomplete_required_documents": "Required documents are incomplete on {count} request item(s)."
