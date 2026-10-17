@@ -49,6 +49,10 @@ class StoreDecisionRequest extends FormRequest
             // restricted to refer_other_body/no_jurisdiction — the committee
             // head fills it in when relevant.
             'referral_authority' => ['nullable', 'string', 'max:255'],
+            // 2026-10-17 — جهة الاعتماد. Required of an approving outcome, but
+            // the outcome comes from the tally, so DecisionController checks
+            // that; here only the vocabulary.
+            'approving_authority' => ['nullable', Rule::in(['dean', 'minister'])],
             // Stage 35 — which reusable text the comment was drafted from, if
             // any; must be an active template, but not necessarily a
             // `category=decision` one — the recording UI narrows the picker,
@@ -66,6 +70,7 @@ class StoreDecisionRequest extends FormRequest
         return [
             'comment.max' => 'لا يمكن أن يتجاوز التعليق 5000 حرف.',
             'referral_authority.max' => 'لا يمكن أن يتجاوز اسم الجهة المحال إليها 255 حرفاً.',
+            'approving_authority.in' => 'جهة الاعتماد يجب أن تكون العميد أو الوزير.',
             'instrument.in' => 'نوع ما أصدرته اللجنة غير صالح.',
             'decision_subject.max' => 'لا يمكن أن يتجاوز موضوع القرار 2000 حرف.',
             'decision_facts.max' => 'لا يمكن أن تتجاوز الوقائع 5000 حرف.',

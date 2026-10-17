@@ -66,7 +66,8 @@ class MeetingOutputsTest extends TestCase
             ->assertJsonPath('data.outputs.0.request.employee.name', $employee->name)
             ->assertJsonPath('data.outputs.0.decision.outcome', 'approve')
             ->assertJsonPath('data.outputs.0.next_action.code', 'approval_by_authority')
-            ->assertJsonPath('data.outputs.0.responsible_body.code', 'R05')
+            // 2026-10-17 — approval_by_authority is العميد's checkpoint.
+            ->assertJsonPath('data.outputs.0.responsible_body.code', 'R07')
             ->assertJsonPath('data.outputs.0.execution_status.code', 'decided')
             ->assertJsonPath('data.outputs.0.can_mark_executed', false);
 

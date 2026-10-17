@@ -31,7 +31,9 @@ class RoleSeeder extends Seeder
             ['code' => 'R03', 'name_ar' => 'رئيس اللجنة (وكيل ديوان البلدية)', 'name_en' => 'Committee Chair (Diwan Deputy)', 'description' => 'يعتمد دخول الطلب إلى اللجنة ويصدر القرارات'],
             ['code' => 'R04', 'name_ar' => 'عضو اللجنة', 'name_en' => 'Committee Member', 'description' => 'يشارك في الاجتماع ويصوت على القرارات'],
             ['code' => 'R05', 'name_ar' => 'مدير إدارة الشؤون الإدارية', 'name_en' => 'Admin Manager', 'description' => 'يدقق ويعتمد الطلبات حسب الصلاحيات'],
-            ['code' => 'R06', 'name_ar' => 'وزارة الحكم المحلي', 'name_en' => 'Ministry', 'description' => 'تراجع وتدقق الطلبات قبل الاعتماد النهائي'],
+            // 2026-10-17 — one of the two جهات الاعتماد, a single account
+            // that مدير مكتب العميد operates (named on «المناصب الفردية»).
+            ['code' => 'R06', 'name_ar' => 'الوزير', 'name_en' => 'Minister', 'description' => 'جهة اعتماد للطلبات التي تحيلها إليه اللجنة، ويدير حسابه مدير مكتب العميد'],
             ['code' => 'R07', 'name_ar' => 'المدير العام / العميد', 'name_en' => 'Director / Dean', 'description' => 'يعتمد الطلبات اعتماداً نهائياً على مستوى البلدية'],
             ['code' => 'R08', 'name_ar' => 'مدير النظام', 'name_en' => 'System Admin', 'description' => 'إدارة النظام والمستخدمين والصلاحيات والإعدادات'],
             // Diagram-alignment roles — see AGENT_NOTES.md for the source

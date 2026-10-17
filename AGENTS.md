@@ -169,8 +169,19 @@ Key architectural facts worth knowing before changing things:
   skips the manager** (user decision 2026-10-07): when صاحب العلاقة holds R07,
   `WorkflowService::skipManagerReviewForDean()` takes the `forward` row out of
   `direct_manager_review` in the same beat, at intake and on re-submit. **Approvals stay
-  role-segregated** (R02/R03/R05/R06/R07); R08 holds none of them, so an admin
+  role-segregated** (R02/R03/R06/R07); R08 holds none of them, so an admin
   who must approve needs that role on the Users screen.
+- **جهة الاعتماد is العميد or الوزير, one step, picked per request by the
+  chair** (user decision 2026-10-17). `DecisionController::record()` requires
+  `approving_authority` (`dean`|`minister`, stored on `requests`) on an
+  approve/conditional outcome. `WorkflowService::routesToMinister()` sends a
+  minister file from the committee to `local_governance_ministry` (R06), and a
+  dean file goes to `approval_by_authority`, whose approve row is now R07 →
+  `final_approval_archiving` + `final_approved`. R05 approves nothing. The
+  request type's grade threshold only suggests (`suggested_authority` in the
+  agenda item's duties). الوزير is one sole post (`SOLE_ROLES['minister']`,
+  named by R08), an account مدير مكتب العميد operates. العميد still gives the
+  execution step at `final_approval_archiving` on every file.
 - **RTL/i18n**: layout CSS uses logical properties (`margin-inline-start`,
   `text-align: start`, etc.), not `left`/`right`, so the UI mirrors
   automatically when `vue-i18n` flips `dir` on `<html>`. Don't introduce

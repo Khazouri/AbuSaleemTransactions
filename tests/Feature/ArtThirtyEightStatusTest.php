@@ -42,19 +42,17 @@ class ArtThirtyEightStatusTest extends TestCase
      * Art. 38: 15 (بانتظار اعتماد البلدية) → 16 (بانتظار الاعتماد المركزي) →
      * 17 (معتمدة نهائيًا). Art. 31 gives 16 in so many words: "وفي هذه الحالة
      * تصبح حالة المعاملة: (بانتظار الاعتماد المركزي)".
+     *
+     * 2026-10-17 — 15 and 16 are now the two جهات الاعتماد, not two steps:
+     * a file the chair gives to الوزير arrives on 16 directly.
      */
-    public function test_the_approval_tail_walks_art_38_codes_15_then_16_then_17(): void
+    public function test_the_approval_tail_walks_art_38_codes_16_then_17_for_the_minister(): void
     {
         $workflow = app(WorkflowService::class);
-        // decision_grade 10 is at the seeded PROM threshold, so this request
-        // takes the ministry path rather than Stage 57's bypass.
         $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting', decisionGrade: 10);
+        $requestRecord->update(['approving_authority' => 'minister']);
 
         $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R03'));
-        $this->assertSame('approval_by_authority', $requestRecord->currentStage->code);
-        $this->assertSame('awaiting_municipal_approval', $requestRecord->status->code);
-
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R05'));
         $this->assertSame('local_governance_ministry', $requestRecord->currentStage->code);
         $this->assertSame('awaiting_central_approval', $requestRecord->status->code);
 
@@ -65,10 +63,10 @@ class ArtThirtyEightStatusTest extends TestCase
 
     /**
      * Appendix 5's status-12 rule — "لا تنتقل مباشرة إلى التنفيذ" — holds on
-     * Stage 57's low-grade bypass too: it skips the *central* approval, never
-     * the final one, so execution is still reached only through code 17.
+     * the dean's path too (2026-10-17, which replaced Stage 57's low-grade
+     * bypass): execution is still reached only through code 17.
      */
-    public function test_the_ministry_bypass_still_reaches_execution_only_through_code_17(): void
+    public function test_the_dean_path_still_reaches_execution_only_through_code_17(): void
     {
         $workflow = app(WorkflowService::class);
         $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting', decisionGrade: 1);
@@ -76,7 +74,7 @@ class ArtThirtyEightStatusTest extends TestCase
         $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R03'));
         $this->assertSame('awaiting_municipal_approval', $requestRecord->status->code);
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R05'));
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R07'));
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
 
@@ -128,8 +126,9 @@ class ArtThirtyEightStatusTest extends TestCase
 
         $this->assertSame([], $workflow->availableTransitions($requestRecord->fresh(), $head)->all());
 
-        // ApprovalController's own copy of the list, reached over HTTP.
-        $this->actingAs($this->userWithRole('R05'), 'sanctum')
+        // ApprovalController's own copy of the list, reached over HTTP. The
+        // dean's checkpoint keeps the admin-manager slug (2026-10-17).
+        $this->actingAs($this->userWithRole('R07'), 'sanctum')
             ->getJson('/api/approvals/admin-manager')
             ->assertOk()
             ->assertJsonMissing(['id' => $requestRecord->id]);

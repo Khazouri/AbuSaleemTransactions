@@ -71,6 +71,7 @@ class Request extends Model
         'submitted_at',
         'due_date',
         'decision_grade',
+        'approving_authority',
         'entitled_grade',
         'grade_date',
         'has_financial_impact',
@@ -449,6 +450,10 @@ class Request extends Model
     /**
      * Missing legacy grades take the conservative route through ministry.
      * A null threshold explicitly means that this type never needs ministry.
+     *
+     * Since 2026-10-17 this only SUGGESTS الوزير to the chair (MeetingDuties'
+     * `suggested_authority`); the chair's own pick, `approving_authority`,
+     * is what WorkflowService routes on.
      */
     public function requiresMinistryApproval(): bool
     {

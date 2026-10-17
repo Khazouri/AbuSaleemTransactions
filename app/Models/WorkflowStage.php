@@ -46,10 +46,12 @@ class WorkflowStage extends Model
     /**
      * Workflow designer — slice 5. The stages the engine looks up by code —
      * intake files onto the first, approval returns and suspensions send
-     * files back to the committee, the ministry bypass lands on the last — so
-     * no version may be without them (spec §5).
+     * files back to the committee, both approving authorities land on the
+     * last — so no version may be without them (spec §5). 2026-10-17 — the
+     * minister's stage joins them: a file the chair gives to الوزير is sent
+     * there by code.
      */
-    public const ANCHORS = ['receive_from_municipality', 'receive_from_committee', 'final_approval_archiving'];
+    public const ANCHORS = ['receive_from_municipality', 'receive_from_committee', 'local_governance_ministry', 'final_approval_archiving'];
 
     protected function casts(): array
     {

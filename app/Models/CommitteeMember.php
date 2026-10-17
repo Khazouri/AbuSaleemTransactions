@@ -37,9 +37,11 @@ class CommitteeMember extends Model
      * The posts one person holds at a time (user decision 2026-10-04): the
      * five seats plus العميد. The dean is named on the same page but is not a
      * seat — he approves the committee's decisions — so SEAT_ROLES, not this,
-     * decides who sits on a committee.
+     * decides who sits on a committee. الوزير joined on 2026-10-17 on the
+     * same terms: the other جهة الاعتماد, one account that مدير مكتب العميد
+     * operates.
      */
-    public const SOLE_ROLES = self::SEAT_ROLES + ['dean' => 'R07'];
+    public const SOLE_ROLES = self::SEAT_ROLES + ['dean' => 'R07', 'minister' => 'R06'];
 
     /**
      * Stage 103 — the ids of the sole-holder roles, which only «المناصب

@@ -39,7 +39,8 @@ class ApprovalController extends Controller
     public const LEVELS = [
         'reviewer' => ['stage' => 'requirements_check', 'role' => 'R02', 'screen' => 'reviewer_approval'],
         'committee-head' => ['stage' => 'receive_from_committee', 'role' => 'R03', 'screen' => 'committee_head_approval'],
-        'admin-manager' => ['stage' => 'approval_by_authority', 'role' => 'R05', 'screen' => 'admin_manager_approval'],
+        // 2026-10-17 — the dean's checkpoint, under its old slug and screen.
+        'admin-manager' => ['stage' => 'approval_by_authority', 'role' => 'R07', 'screen' => 'admin_manager_approval'],
         'ministry' => ['stage' => 'local_governance_ministry', 'role' => 'R06', 'screen' => 'ministry_approval'],
         'final' => ['stage' => 'final_approval_archiving', 'role' => 'R07', 'screen' => 'final_approval'],
     ];

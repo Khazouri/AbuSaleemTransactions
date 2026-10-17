@@ -69,11 +69,11 @@ class CommitteeSeatRosterTest extends TestCase
      * The load-bearing guarantee this stage adds: seating (and voting as)
      * مندوب الخدمة المدنية is display/voting membership only (Art. 14) — it
      * must never itself decide whether a request also needs the separate
-     * central ministry approval that `Request::requiresMinistryApproval()`
-     * governs. Both scenarios below share the exact same committee and the
-     * same ministry-delegate seat holder voting the exact same way; the only
-     * thing that differs is the request's own decision_grade, and that is
-     * the only thing allowed to change the outcome.
+     * central ministry approval. Both scenarios below share the exact same
+     * committee and the same ministry-delegate seat holder voting the exact
+     * same way. 2026-10-17 — the only thing that differs is the chair's pick
+     * of جهة الاعتماد, which replaced the grade as what decides it; the
+     * grade now only suggests, so it is held the same in both.
      */
     public function test_the_ministry_delegate_seats_vote_never_substitutes_for_the_separate_ministry_approval(): void
     {
@@ -84,26 +84,23 @@ class CommitteeSeatRosterTest extends TestCase
         // bypass now lands directly at final_approval_archiving.
         $finalApprovalArchiving = WorkflowStage::where('code', 'final_approval_archiving')->firstOrFail();
 
-        // Grade at the threshold: ministry approval is still required.
-        $requiresMinistry = $this->decideAndAdvanceToAuthorityCheckpoint(decisionGrade: 10);
+        $requiresMinistry = $this->decideAndAdvanceToAuthorityCheckpoint(authority: 'minister');
         $this->assertSame($localGovernanceMinistry->id, $requiresMinistry->fresh()->current_stage_id);
-        $this->assertTrue($requiresMinistry->fresh()->requiresMinistryApproval());
 
-        // Grade below the threshold, same committee, same ministry-delegate
-        // vote: the request bypasses ministry on its own grade, not because
-        // of who sat on or voted with the committee.
-        $bypassesMinistry = $this->decideAndAdvanceToAuthorityCheckpoint(decisionGrade: 5);
+        // Same committee, same ministry-delegate vote, same grade: the dean's
+        // file never sees the ministry, whoever sat on or voted with the
+        // committee.
+        $bypassesMinistry = $this->decideAndAdvanceToAuthorityCheckpoint(authority: 'dean');
         $this->assertSame($finalApprovalArchiving->id, $bypassesMinistry->fresh()->current_stage_id);
         $this->assertSame('final_approved', $bypassesMinistry->fresh()->status->code);
-        $this->assertFalse($bypassesMinistry->fresh()->requiresMinistryApproval());
     }
 
-    private function decideAndAdvanceToAuthorityCheckpoint(int $decisionGrade): Request
+    private function decideAndAdvanceToAuthorityCheckpoint(string $authority): Request
     {
         $chair = $this->userWithRole('R03');
         $delegate = $this->userWithRole('R04');
 
-        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين '.$decisionGrade]);
+        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين '.$authority]);
         $committee->members()->create(['user_id' => $chair->id, 'seat' => 'chair', 'is_head' => true]);
         $committee->members()->create(['user_id' => $delegate->id, 'seat' => 'ministry_delegate']);
 
@@ -124,7 +121,7 @@ class CommitteeSeatRosterTest extends TestCase
             'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
-            'decision_grade' => $decisionGrade,
+            'decision_grade' => 10,
         ]);
         $agendaItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
         // Stage 82 — [D] Art. 85's study sequence now gates voting; see
@@ -139,14 +136,15 @@ class CommitteeSeatRosterTest extends TestCase
             ->assertCreated();
 
         $this->actingAs($chair, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve'))
+            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', ['approving_authority' => $authority]))
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'approve');
 
-        $admin = $this->userWithRole('R05');
-        $this->actingAs($admin, 'sanctum')
-            ->post("/api/approvals/admin-manager/{$requestRecord->id}", [])
-            ->assertOk();
+        if ($authority === 'dean') {
+            $this->actingAs($this->userWithRole('R07'), 'sanctum')
+                ->post("/api/approvals/admin-manager/{$requestRecord->id}", [])
+                ->assertOk();
+        }
 
         return $requestRecord;
     }

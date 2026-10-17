@@ -148,8 +148,9 @@ class WorkflowValidatorTest extends TestCase
 
     public function test_each_rule_the_code_takes_by_name_must_be_there_once(): void
     {
-        // Spec §5 E11, E8, E9: intake's system hop, the dean's skip, the ministry bypass.
-        foreach (['receive_from_municipality' => 'submit', 'direct_manager_review' => 'forward', 'approval_by_authority' => 'approve'] as $stage => $action) {
+        // Spec §5 E11, E8: intake's system hop, the dean's skip. E9 (the
+        // ministry bypass's approve) left on 2026-10-17 with the bypass.
+        foreach (['receive_from_municipality' => 'submit', 'direct_manager_review' => 'forward'] as $stage => $action) {
             $rule = WorkflowTransition::query()->where('from_stage_id', $this->draft->stage($stage)->id)->where('action', $action);
             $rule->update(['is_exception' => true]);
             $this->assertContains(['required_rule_missing', $stage], $this->errorCodes(), $stage);

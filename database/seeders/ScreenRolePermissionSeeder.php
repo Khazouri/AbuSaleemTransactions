@@ -272,7 +272,10 @@ class ScreenRolePermissionSeeder extends Seeder
         // can approve at a level that isn't theirs.
         'reviewer_approval' => ['view' => ['R02'], 'approve' => ['R02']],
         'committee_head_approval' => ['view' => ['R03'], 'approve' => ['R03']],
-        'admin_manager_approval' => ['view' => ['R05'], 'approve' => ['R05']],
+        // 2026-10-17 — the code stays (routes and ApprovalController::LEVELS
+        // name it), but approval_by_authority is now العميد's checkpoint, so
+        // R05 holds no approval screen.
+        'admin_manager_approval' => ['view' => ['R07'], 'approve' => ['R07']],
         'ministry_approval' => ['view' => ['R06'], 'approve' => ['R06']],
         // Stage 57 — 'authority_approval' (competent_authority) removed; R07
         // keeps this one checkpoint only. ScreenSeeder deletes the row, so

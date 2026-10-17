@@ -115,6 +115,7 @@ function emptyDraft() {
     ...Object.fromEntries(DEFERRAL_FIELDS.map((field) => [field, ''])),
     comment: '',
     referral_authority: '',
+    approving_authority: '',
   }
 }
 
@@ -307,6 +308,7 @@ async function submit() {
           :item="item"
           :templates="templates"
           :outcome="recordDuty?.outcome"
+          :suggested-authority="recordDuty?.suggested_authority"
         />
         <WizardSlip kind="decision" :reference="reference">
           <p class="slip-action">{{ t(`decisions.outcome.${recordDuty?.outcome}`) }}</p>
@@ -316,6 +318,9 @@ async function submit() {
               <p>{{ clause.text }}</p>
             </li>
           </ol>
+          <p v-if="draft.approving_authority" class="slip-destination">
+            {{ t('decisions.approvingAuthority.slip', { authority: t(`decisions.approvingAuthority.${draft.approving_authority}`) }) }}
+          </p>
           <p v-if="tallySummary" class="slip-destination">{{ t('decisionWizard.decision.tally', { summary: tallySummary }) }}</p>
         </WizardSlip>
       </template>

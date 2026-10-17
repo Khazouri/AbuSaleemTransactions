@@ -13,6 +13,26 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The user guide and test plans still describe the R05 → ministry → dean chain — approving authority — opened 2026-10-17
+Since 2026-10-17 each approved file goes to one جهة الاعتماد, العميد or الوزير, chosen by the chair, and R05 approves
+nothing. `USER_GUIDE.ar.md` and the four `TEST_PLAN*.md` files still describe the three-step chain and the grade-driven
+ministry referral. Not updated, because the user did not ask for it. **To close:** reword the approval sections, the
+R05/R06 role sections and Appendix A's `admin_manager_approval` row, then rebuild the PDF.
+
+### The decision form scrolls sideways inside the wizard on a phone — found 2026-10-17
+At 375px, the agenda-item wizard's decision form (`DecisionRecordForm.vue`) is 491px wide inside a 325px pane, so the
+modal (`section.modal.modal-wide`, 507 > 357) scrolls sideways. Hiding the children one at a time showed the cause is
+`div.template-picker` (the template select plus its «استخدام» button); every other child fits. The page itself does not
+overflow. Not fixed, because it predates and is unrelated to the approving-authority change that found it. **To close:**
+let the picker wrap (`flex-wrap`) or give the select `min-inline-size: 0` inside a shrinkable track, then re-measure at
+375px.
+
+### Overdue files still escalate to the minister's stage — approving authority — opened 2026-10-17
+R08's `deadline_expired` exception moves an overdue file from any open stage to `local_governance_ministry` with
+`in_review`. That stage now belongs to الوزير, so an escalated file lands on the minister's desk although the committee
+never sent it there. Left as it was, because escalation was out of scope. **To close:** ask the user where an overdue
+file should go, then re-point those seeded rows.
+
 ### The user guide still says a meeting invites only the five seats — meeting extra invitees — opened 2026-10-16
 Since 2026-10-16 the مقرر may invite extra members, each with a صفة, who answer the date only (no vote, signature or
 quorum). `USER_GUIDE.ar.md` doesn't describe this. Not updated, because the user did not ask for it. **To close:**

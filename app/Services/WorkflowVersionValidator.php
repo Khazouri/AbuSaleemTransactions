@@ -40,8 +40,10 @@ class WorkflowVersionValidator
      * Workflow designer — slice 5 (spec §5 E11, E8, E9). Rules the code
      * resolves by stage and action rather than a person choosing them, so
      * their absence is a PHP exception at runtime, not a refusal: intake's
-     * system hop, the dean's skip past his own manager, and the ministry
-     * bypass. Checked only where the stage is present: a version without the
+     * system hop and the dean's skip past his own manager. (The ministry
+     * bypass's `approve` left the list on 2026-10-17: the committee now
+     * names جهة الاعتماد, and the code looks up the ministry STAGE, an
+     * anchor.) Checked only where the stage is present: a version without the
      * manager step never lands a dean's file there. The fourth element marks
      * a hop the code takes itself with no comment (applyRule() throws when a
      * rule requires one), so such a rule may not require a note; `approve` is
@@ -50,7 +52,6 @@ class WorkflowVersionValidator
     private const REQUIRED_RULES = [
         'receive_from_municipality' => ['submit', 'تقديم الطلب', 'بها يُحال كل طلب جديد', true],
         'direct_manager_review' => ['forward', 'موافقة وإحالة', 'بها يتجاوز طلب العميد المدير المباشر', true],
-        'approval_by_authority' => ['approve', 'اعتماد', 'بها يُحال الطلب إلى الوزارة أو الاعتماد النهائي', false],
     ];
 
     /** @return array{errors: list<array<string, mixed>>, warnings: list<array<string, mixed>>} */
@@ -60,6 +61,13 @@ class WorkflowVersionValidator
         $rules = $version->transitions()->with(['setStatus:id,code', 'requiredRole:id,name_ar'])->get();
         $entryId = $stages->firstWhere('code', self::ENTRY)?->id;
         $reachable = $this->reach([$entryId], $rules);
+        // 2026-10-17 — WorkflowService sends the committee's approve for
+        // الوزير to the ministry stage by code, an edge no rule row draws.
+        $committeeId = $stages->firstWhere('code', self::COMMITTEE)?->id;
+        $ministryId = $stages->firstWhere('code', 'local_governance_ministry')?->id;
+        if ($ministryId && $reachable->contains($committeeId) && ! $reachable->contains($ministryId)) {
+            $reachable = $reachable->merge($this->reach([$ministryId], $rules))->unique()->values();
+        }
         $errors = [];
 
         // Built-in stages nothing reaches are kept for history (6–8,

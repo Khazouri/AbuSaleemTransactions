@@ -121,6 +121,9 @@ class MeetingDuties
             // (DecisionController::recordAppealDecision()).
             $this->offer($duties, 'record_decision', $resolved['refusal'], $item->item_type === 'appeal', [
                 'outcome' => $resolved['outcome'],
+                // 2026-10-17 — the grade threshold's pick of جهة الاعتماد; the
+                // chair's choice on the decision form is what binds.
+                'suggested_authority' => $item->request?->requiresMinistryApproval() ? 'minister' : 'dean',
             ]);
         }
 

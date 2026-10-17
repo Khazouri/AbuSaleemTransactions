@@ -102,8 +102,10 @@ class ScreenSeeder extends Seeder
             // Roles & Permissions grid.
             ['reviewer_approval',        'اعتماد المقرر',              'Reviewer Approval',           null,       'user-check',   null],
             ['committee_head_approval',  'اعتماد رئيس اللجنة',         'Committee Head Approval',     null, 'award',        null],
-            ['admin_manager_approval',   'اعتماد مدير الإدارة',        'Admin Manager Approval',      null,  'briefcase',    null],
-            ['ministry_approval',        'اعتماد وزارة الحكم المحلي',   'Ministry Approval',           null,       'landmark',     null],
+            // 2026-10-17 — the two جهات الاعتماد; `admin_manager_approval`
+            // keeps its code, but its checkpoint is now العميد's.
+            ['admin_manager_approval',   'اعتماد العميد',               'Dean Approval',               null,  'briefcase',    null],
+            ['ministry_approval',        'اعتماد الوزير',               'Minister Approval',           null,       'landmark',     null],
             // Stage 57 removed `authority_approval` (competent_authority) —
             // no standard document names a fourth post-committee approving
             // party; see the explicit delete() call below.

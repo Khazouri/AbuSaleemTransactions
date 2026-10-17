@@ -20,7 +20,7 @@ const saving = ref(false)
 const formError = ref(null)
 
 // العميد is a post, not a committee seat, so its label lives on this page.
-const postName = (seat) => (seat === 'dean' ? t('committeeRoles.dean') : t(`committees.seats.${seat}`))
+const postName = (seat) => (['dean', 'minister'].includes(seat) ? t(`committeeRoles.${seat}`) : t(`committees.seats.${seat}`))
 const roleName = (role) => (locale.value === 'ar' ? role.name_ar : role.name_en || role.name_ar)
 
 function apply(data) {

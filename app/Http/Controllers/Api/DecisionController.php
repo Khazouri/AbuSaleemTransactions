@@ -202,6 +202,9 @@ class DecisionController extends Controller
         'no_jurisdiction' => 'declare_no_jurisdiction',
     ];
 
+    /** The outcomes that send the file on to جهة الاعتماد (2026-10-17). */
+    public const APPROVING_OUTCOMES = ['approve', 'conditional_approval'];
+
     /**
      * Stage 63, Track J — Art. 75 point 5's five-outcome appeal vocabulary.
      * Deliberately a flat list, not a map onto a workflow action like ACTIONS
@@ -301,6 +304,16 @@ class DecisionController extends Controller
             return response()->json(['message' => $problem], 422);
         }
 
+        // 2026-10-17 — an approving decision names its one جهة الاعتماد, which
+        // the chair picks on the members' recommendation; WorkflowService
+        // routes the file to it in the transition below.
+        $approvingAuthority = in_array($outcome, self::APPROVING_OUTCOMES, true)
+            ? $request->validated('approving_authority')
+            : null;
+        if (in_array($outcome, self::APPROVING_OUTCOMES, true) && $approvingAuthority === null) {
+            return response()->json(['message' => 'يجب تحديد جهة الاعتماد: العميد أو الوزير.'], 422);
+        }
+
         $action = self::ACTIONS[$outcome];
         $comment = $request->validated('comment');
         $templateId = $request->validated('template_id');
@@ -309,8 +322,9 @@ class DecisionController extends Controller
 
         try {
             $decision = DB::transaction(function () use (
-                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $outcome, $tally, $abstainCount, $referralAuthority, $numbers, $structured,
+                $workflow, $agendaItem, $action, $actor, $comment, $templateId, $outcome, $tally, $abstainCount, $referralAuthority, $numbers, $structured, $approvingAuthority,
             ) {
+                $agendaItem->request->update(['approving_authority' => $approvingAuthority]);
                 $workflow->transition($agendaItem->request, $action, $actor, $comment);
 
                 // Stage 34 — the live runner's own progress state follows a
