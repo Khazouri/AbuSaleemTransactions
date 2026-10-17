@@ -54,6 +54,12 @@ trait RecordsStructuredDecisions
             $payload['referral_authority'] = 'ديوان الخدمة المدنية';
         }
 
+        // 2026-10-17 — an approving decision names its جهة الاعتماد; the
+        // dean's stage is where these fixtures always sent an approval.
+        if (in_array($outcome, ['approve', 'conditional_approval'], true)) {
+            $payload['approving_authority'] = 'dean';
+        }
+
         if ($outcome === 'defer') {
             $payload['deferral_reason'] = 'نقص مستند مؤثر في تحديد المركز الوظيفي.';
             $payload['deferral_required_completion'] = 'كشف الخدمة معتمداً من إدارة الموارد البشرية.';

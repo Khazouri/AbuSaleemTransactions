@@ -13,7 +13,9 @@ import {
   DECISION_INSTRUMENTS,
   DEFERRAL_FIELDS,
   REFUSAL_REASON_CODES,
+  APPROVING_AUTHORITIES,
   isSubstantiveOutcome,
+  needsApprovingAuthority,
   needsReferralAuthority,
   needsRefusalReason,
 } from '../lib/decisionStructure'
@@ -24,6 +26,7 @@ const props = defineProps({
   item: { type: Object, required: true },
   templates: { type: Array, default: () => [] },
   outcome: { type: String, default: null },
+  suggestedAuthority: { type: String, default: null },
 })
 const draft = defineModel({ type: Object, required: true })
 const { t, locale } = useI18n()
@@ -33,6 +36,13 @@ const needsFactsAndBasis = computed(() => isSubstantiveOutcome(props.outcome))
 const needsRefusal = computed(() => needsRefusalReason(props.outcome))
 const needsDeferral = computed(() => props.outcome === 'defer')
 const needsReferral = computed(() => needsReferralAuthority(props.outcome))
+const needsAuthority = computed(() => needsApprovingAuthority(props.outcome))
+
+// The grade threshold's suggestion pre-selects جهة الاعتماد; the chair's own
+// pick, following the members' recommendation, is what the server routes on.
+watch(() => props.suggestedAuthority, (suggested) => {
+  if (suggested && !draft.value.approving_authority) draft.value.approving_authority = suggested
+}, { immediate: true })
 
 // Appendix 22's answer from the legal card pre-selects Art. 90's instrument;
 // `study_only` is not one of the three, so it pre-fills nothing.
@@ -132,6 +142,16 @@ async function useTemplate() {
       <span>{{ t('decisions.notesLabel') }}</span>
       <textarea v-model="draft.comment" :placeholder="t('decisions.commentPlaceholder')" rows="2" maxlength="2000" />
     </label>
+    <fieldset v-if="needsAuthority" class="authority">
+      <legend>{{ t('decisions.approvingAuthority.label') }}<span class="required-mark" aria-hidden="true">*</span></legend>
+      <label v-for="authority in APPROVING_AUTHORITIES" :key="authority" class="choice">
+        <input v-model="draft.approving_authority" type="radio" name="approving-authority" :value="authority" required />
+        {{ t(`decisions.approvingAuthority.${authority}`) }}
+      </label>
+      <small v-if="suggestedAuthority" class="hint">
+        {{ t('decisions.approvingAuthority.suggested', { authority: t(`decisions.approvingAuthority.${suggestedAuthority}`) }) }}
+      </small>
+    </fieldset>
     <label v-if="needsReferral" class="field">
       <span>{{ t('decisions.referralAuthorityLabel') }}<span class="required-mark" aria-hidden="true">*</span></span>
       <input v-model="draft.referral_authority" type="text" required :placeholder="t('decisions.referralAuthorityPlaceholder')" />
@@ -148,5 +168,9 @@ async function useTemplate() {
 .field textarea, .field input, .field select { inline-size: 100%; resize: vertical; }
 .hint { color: var(--color-muted); font-size: var(--text-xs); }
 .deferral { display: grid; gap: 0.45rem; margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-warning-border); background: var(--color-warning-bg); border-radius: var(--radius-lg); }
+.authority { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: center; margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-lg); min-inline-size: 0; }
+.authority legend { padding: 0 0.3rem; color: var(--color-muted); font-size: var(--text-xs); font-weight: 600; }
+.authority .choice { display: inline-flex; gap: 0.4rem; align-items: center; }
+.authority .hint { flex-basis: 100%; }
 .deferral legend { padding: 0 0.3rem; color: var(--color-warning-fg); font-size: var(--text-xs); font-weight: 600; }
 </style>

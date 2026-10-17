@@ -92,7 +92,15 @@ class WorkflowTransitionSeeder extends Seeder
             // تصبح حالة المعاملة: (بانتظار الاعتماد المركزي)". The old
             // `approved` said only that *an* approval had happened, not which
             // authority the file was now waiting on.
-            ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'awaiting_central_approval'],
+            //
+            // 2026-10-17 — جهة الاعتماد is العميد or الوزير, one step each,
+            // chosen by the chair (`requests.approving_authority`). This stage
+            // is the dean's: his approve completes every approval, so it
+            // lands on final_approved, and R05 (which approved here before)
+            // holds no approval at all. A minister file never comes here —
+            // WorkflowService sends the committee's approve straight to the
+            // ministry stage, whose own row below is unchanged.
+            ['approval_by_authority', 'final_approval_archiving', 'approve', 'R07', 'final_approved'],
             // Stage 57 — ministry approval is now the literal last gate
             // before final_approval_archiving (competent_authority, a fourth
             // approval tier the standard never describes, is gone); arrival
@@ -349,7 +357,7 @@ class WorkflowTransitionSeeder extends Seeder
             'receive_from_municipality' => 'R02',
             'requirements_check' => 'R02',
             'receive_from_committee' => 'R03',
-            'approval_by_authority' => 'R05',
+            'approval_by_authority' => 'R07',
             'local_governance_ministry' => 'R06',
             'final_approval_archiving' => 'R07',
         ];
@@ -364,6 +372,17 @@ class WorkflowTransitionSeeder extends Seeder
                 99,
             );
         }
+
+        // 2026-10-17 — the dean's cancel at approval_by_authority replaces
+        // R05's. An exception row survives the generic delete, so the old one
+        // goes by name.
+        WorkflowTransition::query()
+            ->whereNull('request_type_id')
+            ->where('is_exception', true)
+            ->where('from_stage_id', $stages['approval_by_authority']->id)
+            ->where('action', 'cancel')
+            ->where('required_role_id', $roles['R05']->id)
+            ->delete();
 
         // Diagram-alignment redesign: cancel at the two manager-gated new
         // stages follows the same manager-only actor rule as advancing them,

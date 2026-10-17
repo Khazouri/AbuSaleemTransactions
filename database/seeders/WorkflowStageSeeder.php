@@ -134,8 +134,10 @@ class WorkflowStageSeeder extends Seeder
             // at all — so redefining it would give one question two answers
             // free to disagree.
             [9,  'receive_from_committee',    'استلام الطلب من اللجنة',        'Receive from committee',       'R03', 3, 3],
-            [10, 'approval_by_authority',     'اعتماد (حسب الصلاحيات)',          'Approval (per permissions)',   'R05', 2, 2],
-            [11, 'local_governance_ministry', 'وزارة الحكم المحلي',              'Local Governance Ministry',    'R06', null, null],
+            // 2026-10-17 — the two جهات الاعتماد, one of which each file goes
+            // to (`requests.approving_authority`).
+            [10, 'approval_by_authority',     'اعتماد العميد',                   'Dean approval',                'R07', 2, 2],
+            [11, 'local_governance_ministry', 'اعتماد الوزير',                   'Minister approval',            'R06', null, null],
             [12, 'final_approval_archiving',  'الاعتماد النهائي والأرشفة',        'Final approval & archiving',   'R07', 1, 2],
         ];
 

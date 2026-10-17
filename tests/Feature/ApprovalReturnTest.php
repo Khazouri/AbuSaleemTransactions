@@ -234,7 +234,8 @@ class ApprovalReturnTest extends TestCase
     public function test_an_open_return_blocks_approval_through_both_entry_points(): void
     {
         $recorder = $this->userWithRole('R02');
-        $approver = $this->userWithRole('R05');
+        // 2026-10-17 — approval_by_authority is العميد's checkpoint.
+        $approver = $this->userWithRole('R07');
         $requestRecord = $this->requestAt('approval_by_authority', 'awaiting_municipal_approval');
 
         $this->actingAs($recorder, 'sanctum')

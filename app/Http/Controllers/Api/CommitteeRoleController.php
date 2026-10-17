@@ -71,8 +71,8 @@ class CommitteeRoleController extends Controller
 
     private function assignRefusal(User $actor, string $seat): ?string
     {
-        if (in_array($seat, ['rapporteur', 'dean'], true)) {
-            return $actor->hasRole('R08') ? null : 'تعيين المقرر والعميد من صلاحية مدير النظام وحده.';
+        if (in_array($seat, ['rapporteur', 'dean', 'minister'], true)) {
+            return $actor->hasRole('R08') ? null : 'تعيين المقرر والعميد والوزير من صلاحية مدير النظام وحده.';
         }
 
         return User::activeRapporteur()?->id === $actor->id ? null : 'تعيين أعضاء اللجنة من صلاحية المقرر وحده.';

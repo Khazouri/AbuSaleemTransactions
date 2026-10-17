@@ -796,40 +796,39 @@ class WorkflowService
     }
 
     /**
-     * Stage 18 conditional branch, restructured by Stage 57: after the admin
-     * manager approves, low-grade work skips the ministry checkpoint
-     * entirely and lands directly at final approval — the standard's
-     * mayor-only path, with no third approving authority in between.
+     * جهة الاعتماد (user decision 2026-10-17): the committee's approving rows
+     * lead to العميد's stage, and a file the chair gave to الوزير goes to the
+     * ministry stage instead. Each authority is one step; both then land on
+     * final_approval_archiving through their own seeded row. A null authority
+     * (a file decided before this existed) keeps the dean's row.
      */
     private function destinationStageId(Request $requestRecord, WorkflowTransition $rule): int
     {
-        if (! $this->bypassesMinistryApproval($requestRecord, $rule)) {
+        if (! $this->routesToMinister($requestRecord, $rule)) {
             return $rule->to_stage_id;
         }
 
-        return $requestRecord->stageByCode('final_approval_archiving')->id;
+        return $requestRecord->stageByCode('local_governance_ministry')->id;
     }
 
     /**
-     * Stage 57 — the bypass above also has to override the status, not just
-     * the stage: the row's own `set_status_id` (`approved`, still meaning
-     * "one more approval pending" on the normal ministry-bound path) would
-     * misrepresent the bypass arrival, where nothing is left pending.
+     * A plain approve arrives as بانتظار الاعتماد المركزي (Art. 31) at the
+     * ministry; a conditional one keeps its own `approved_with_conditions`.
      */
     private function destinationStatusId(Request $requestRecord, WorkflowTransition $rule): ?int
     {
-        if (! $this->bypassesMinistryApproval($requestRecord, $rule)) {
+        if (! $this->routesToMinister($requestRecord, $rule) || $rule->action !== 'approve') {
             return $rule->set_status_id;
         }
 
-        return RequestStatus::query()->where('code', 'final_approved')->value('id');
+        return RequestStatus::query()->where('code', 'awaiting_central_approval')->value('id');
     }
 
-    private function bypassesMinistryApproval(Request $requestRecord, WorkflowTransition $rule): bool
+    private function routesToMinister(Request $requestRecord, WorkflowTransition $rule): bool
     {
-        return $rule->action === 'approve'
-            && $rule->fromStage()->value('code') === 'approval_by_authority'
-            && ! $requestRecord->requiresMinistryApproval();
+        return $requestRecord->approving_authority === 'minister'
+            && in_array($rule->action, ['approve', 'conditional_approve'], true)
+            && $rule->fromStage()->value('code') === 'receive_from_committee';
     }
 
     /** Only normal `approve` moves belong in the approval-specific ledger. */

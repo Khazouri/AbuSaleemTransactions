@@ -66,10 +66,9 @@ class WorkflowServiceTest extends TestCase
             // pending list; the three R02 forward hops through stages 6–8 are gone.
             ['requirements_check', 'receive_from_committee', 'approve', 'R02', 'registered'],
             ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'awaiting_municipal_approval'],
-            ['approval_by_authority', 'local_governance_ministry', 'approve', 'R05', 'awaiting_central_approval'],
-            // Stage 57 removed competent_authority: ministry approval is now
-            // the literal last gate before final_approval_archiving.
-            ['local_governance_ministry', 'final_approval_archiving', 'approve', 'R06', 'final_approved'],
+            // 2026-10-17 — جهة الاعتماد is one step: with no authority picked
+            // (or `dean`), العميد approves here and the file is fully approved.
+            ['approval_by_authority', 'final_approval_archiving', 'approve', 'R07', 'final_approved'],
             ['final_approval_archiving', 'final_approval_archiving', 'approve', 'R07', 'in_execution'],
         ];
 
@@ -93,14 +92,13 @@ class WorkflowServiceTest extends TestCase
 
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('in_execution', $requestRecord->status->code);
-        $this->assertCount(8, $requestRecord->stageLogs);
-        $this->assertCount(8, $requestRecord->statusHistory);
+        $this->assertCount(7, $requestRecord->stageLogs);
+        $this->assertCount(7, $requestRecord->statusHistory);
         $this->assertSame(
             [
                 'direct_manager_review', 'receive_and_register',
                 'requirements_check', 'receive_from_committee', 'approval_by_authority',
-                'local_governance_ministry', 'final_approval_archiving',
-                'final_approval_archiving',
+                'final_approval_archiving', 'final_approval_archiving',
             ],
             $requestRecord->stageLogs()
                 ->with('toStage')
@@ -113,10 +111,11 @@ class WorkflowServiceTest extends TestCase
         // are none of them action `approve`, so they write no Approval ledger
         // row. Stage 57 removed the competent_authority checkpoint, so the
         // chain is 5 approvals now, not 6 — R07 only clicks once (the final
-        // self-loop), not twice (authority then final).
-        $this->assertSame(range(1, 5), $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
+        // self-loop), not twice (authority then final). 2026-10-17 — the dean's
+        // file never reaches the ministry, so level 4 is absent.
+        $this->assertSame([1, 2, 3, 5], $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
         $this->assertSame(
-            ['R02', 'R03', 'R05', 'R06', 'R07'],
+            ['R02', 'R03', 'R07', 'R07'],
             $requestRecord->approvals()->with('role')->orderBy('id')->get()->pluck('role.code')->all(),
         );
     }
@@ -342,67 +341,38 @@ class WorkflowServiceTest extends TestCase
         ));
     }
 
-    public function test_low_grade_request_skips_ministry_but_preserves_the_other_approval_levels(): void
+    /**
+     * 2026-10-17 — the minister's file is the mirror of the dean's: the
+     * committee's approve goes straight to the ministry stage, whatever the
+     * grade (the threshold only suggests), and the dean's stage is skipped.
+     * Replaces Stage 57's grade-driven ministry bypass.
+     */
+    public function test_a_minister_file_skips_the_dean_stage_but_keeps_the_execution_step(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $actors = collect(['R02', 'R03', 'R05', 'R07'])
+        $actors = collect(['R02', 'R03', 'R06', 'R07'])
             ->mapWithKeys(fn (string $roleCode) => [
                 $roleCode => $this->userWithRole($roleCode),
             ]);
         $service = app(WorkflowService::class);
-        // Diagram-alignment redesign: this test's subject is the decision-grade
-        // ministry-skip branch deep in the unchanged back half, not the new
-        // front-half hops — start it past those (at requirements_check,
-        // matching what used to be the effective starting point after the
-        // very first `forward` step below, which is why that step is gone).
-        // Stage 57 collapsed observations -> ministry_endorsement ->
-        // forward_to_committee into one hop, so only one `forward` step into
-        // the committee remains (forward_to_committee ->
-        // receive_from_committee) — not two. Stage 86 made both hops into the
-        // committee R09's (أمين سر اللجنة); Stage 96 returned them to R02,
-        // which therefore walks the whole pre-committee chain again.
-        $requestRecord = $this->newRequest(stageCode: 'requirements_check', statusCode: 'in_review', decisionGrade: 9);
+        $requestRecord = $this->newRequest(stageCode: 'requirements_check', statusCode: 'in_review', decisionGrade: 1);
 
-        // Stage 102 — the three R02 forwards are gone: approve lands on the
-        // committee stage directly.
-        foreach ([
-            ['approve', 'R02'],
-            ['approve', 'R03'],
-        ] as [$action, $role]) {
-            $requestRecord = $service->transition(
-                $requestRecord,
-                $action,
-                $actors[$role],
-            );
-        }
+        $requestRecord = $service->transition($requestRecord, 'approve', $actors['R02']);
+        $requestRecord->update(['approving_authority' => 'minister']);
+        $requestRecord = $service->transition($requestRecord, 'approve', $actors['R03']);
+        $this->assertSame('local_governance_ministry', $requestRecord->currentStage->code);
+        $this->assertSame('awaiting_central_approval', $requestRecord->status->code);
 
-        // Stage 57 — the admin-manager's own approve is what bypasses
-        // ministry now: it lands directly at final_approval_archiving (not
-        // competent_authority, which no longer exists) with status
-        // final_approved, since nothing else is left pending.
-        $requestRecord = $service->transition(
-            $requestRecord,
-            'approve',
-            $actors['R05'],
-        );
+        $requestRecord = $service->transition($requestRecord, 'approve', $actors['R06']);
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
 
-        // One R07 self-loop click closes it out — not two (authority, then
-        // final), since there is no longer an intermediate authority stage.
-        $requestRecord = $service->transition(
-            $requestRecord,
-            'approve',
-            $actors['R07'],
-        );
+        // العميد still gives the execution step on the minister's files.
+        $requestRecord = $service->transition($requestRecord, 'approve', $actors['R07']);
 
         $this->assertSame('in_execution', $requestRecord->status->code);
-        $this->assertSame([1, 2, 3, 5], $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
-        $this->assertDatabaseMissing('approvals', [
-            'request_id' => $requestRecord->id,
-            'level' => 4,
-        ]);
+        $this->assertSame([1, 2, 4, 5], $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
     }
 
     /**

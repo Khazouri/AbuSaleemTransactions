@@ -118,7 +118,8 @@ class GatedScreenSideEffectsTest extends TestCase
         foreach ([
             'reviewer_approval' => 'R02',
             'committee_head_approval' => 'R03',
-            'admin_manager_approval' => 'R05',
+            // 2026-10-17 — the dean's checkpoint, under its old code.
+            'admin_manager_approval' => 'R07',
             'ministry_approval' => 'R06',
             'final_approval' => 'R07',
         ] as $screen => $role) {

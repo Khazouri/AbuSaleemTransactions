@@ -98,7 +98,8 @@ class CommitteeRolesTest extends TestCase
 
         $seats = $this->actingAs($rapporteur, 'sanctum')->getJson('/api/committee-roles')
             ->assertOk()->json('data.seats');
-        $this->assertSame([true, true, true, true, false, false], array_column($seats, 'can_assign'));
+        // The last three are the مقرر, العميد and (2026-10-17) الوزير: R08's.
+        $this->assertSame([true, true, true, true, false, false, false], array_column($seats, 'can_assign'));
     }
 
     public function test_the_admin_names_the_one_dean_who_never_sits_on_the_committee(): void

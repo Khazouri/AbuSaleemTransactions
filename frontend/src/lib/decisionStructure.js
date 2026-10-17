@@ -81,3 +81,11 @@ export function needsRefusalReason(outcome) {
 export function needsReferralAuthority(outcome) {
   return REFERRING_OUTCOMES.includes(outcome)
 }
+
+// 2026-10-17 — the outcomes that send the file to جهة الاعتماد, which the chair
+// names (DecisionController::APPROVING_OUTCOMES).
+export const APPROVING_AUTHORITIES = ['dean', 'minister']
+
+export function needsApprovingAuthority(outcome) {
+  return ['approve', 'conditional_approval'].includes(outcome)
+}

@@ -92,7 +92,7 @@ class TestUserSeeder extends Seeder
         ['r04.member2@abusaleem.test',    'عضو اللجنة الثاني',       'Committee member 2',           ['R04'],        'FIN', '+218910000005', true],
         ['r04.member3@abusaleem.test',    'عضو اللجنة الثالث',       'Committee member 3',           ['R04'],        'ADM', '+218910000006', true],
         ['r05.manager@abusaleem.test',    'مدير الشؤون الإدارية',    'Admin affairs manager',        ['R05'],        'ADM', '+218910000007', true],
-        ['r06.ministry@abusaleem.test',   'مندوب وزارة الحكم المحلي', 'Ministry delegate',            ['R06'],        'ABS', '+218910000008', true],
+        ['r06.ministry@abusaleem.test',   'الوزير (مدير مكتب العميد)', 'Minister (Dean office)',      ['R06'],        'ABS', '+218910000008', true],
         ['r07.director@abusaleem.test',   'المدير العام التجريبي',   'Director general',             ['R07'],        'ABS', '+218910000009', true],
         ['r08.sysadmin@abusaleem.test',   'مدير نظام تجريبي',        'System admin',                 ['R08'],        'ADM', '+218910000010', true],
         ['multi.role@abusaleem.test',     'رئيس وعضو لجنة',          'Head + member (union check)',  ['R03', 'R04'], 'ABS', '+218910000011', true],

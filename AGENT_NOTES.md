@@ -19,6 +19,60 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-17 15:40 EET — Claude — جهة الاعتماد is العميد or الوزير, picked per request by the chair (complete)
+
+Built per the plan below. Migration `requests.approving_authority` is applied to the real MySQL.
+
+On the real DB, RoleSeeder, WorkflowStageSeeder, WorkflowTransitionSeeder and ScreenSeeder were reseeded and checked by
+query:
+- stage 10's approve and cancel rows are R07, and R05's are gone;
+- R06 is «الوزير», with one holder (`r06.ministry@`).
+
+**ScreenRolePermissionSeeder was NOT re-run**, because it resets every customised grant. Instead,
+`admin_manager_approval` was patched cell by cell (R05 off, R07 view and approve). No live file sat at stages 10–11.
+
+**Deviations:**
+- The validator's `approval_by_authority` required rule is gone, since nothing resolves it by name now.
+  `local_governance_ministry` joined `WorkflowStage::ANCHORS`, and reachability counts the committee → ministry edge the
+  code takes.
+- A request with no authority, decided before this change, keeps the dean's row.
+
+Verified:
+- the new `ApprovingAuthorityTest` (6) went RED, then GREEN; ten older tests were updated in place;
+- full suite 963 / 6278 green, Pint clean, parity 2220, `aislop ci` exit 0 (97);
+- build passes (`dist` committed, production API URL in the bundle).
+
+Headless check against this branch's API, ar/en at 1280/375:
+- on a grade-12 file the picker pre-selects الوزير, and the slip names the authority. There was no page overflow and no
+  console error;
+- a real submit with العميد picked moved the file to `approval_by_authority`;
+- the fixtures, notifications and token were removed, and every count matched its baseline.
+
+Found while there, not fixed: the template picker makes the decision form scroll sideways at 375px (OPEN_ITEMS).
+
+---
+### 2026-10-17 13:57 EET — Claude — Implementation plan: جهة الاعتماد is العميد or الوزير, picked per request by the chair
+
+User: «جهات الاعتماد هو العميد و الوزير». The minister has one account, which مدير مكتب العميد operates. Put to the
+user and answered:
+- each request goes to one authority, in a single step;
+- the chair picks the authority when recording the item's result, following the members' recommendation;
+- the grade threshold only pre-selects the minister;
+- the minister is a sole post (R06, named by R08);
+- العميد still gives the execution step after the Art. 103 checklist.
+
+R05 leaves the chain. The plan:
+- a migration adds `requests.approving_authority` (`dean`|`minister`), required by `DecisionController::record()` on
+  approve and conditional outcomes;
+- `WorkflowService` sends the committee's approve to `local_governance_ministry` for a minister file. A dean file
+  goes to `approval_by_authority`, whose approve row becomes R07 → `final_approval_archiving` + `final_approved`;
+- `bypassesMinistryApproval()` is deleted;
+- `SOLE_ROLES` gains `minister`, and the decision form gets an authority picker.
+
+Verify: a new `ApprovingAuthorityTest` (RED then GREEN), full PHPUnit, Pint, migrate, the reseeds, build (`dist`
+committed), parity and aislop ci.
+
+---
 ### 2026-10-16 21:40 EET — Claude — The مقرر invites extra members, each with a صفة (complete)
 
 Built per the plan below. Migration `meeting_attendees.guest_title` is applied to the real MySQL. **Deviation:**
