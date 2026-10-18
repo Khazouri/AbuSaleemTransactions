@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\MeetingDutiesController;
 use App\Http\Controllers\Api\MeetingMinutesController;
 use App\Http\Controllers\Api\MeetingOutputsController;
 use App\Http\Controllers\Api\MeetingReadinessController;
+use App\Http\Controllers\Api\MeetingResultsController;
 use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\MyTaskController;
 use App\Http\Controllers\Api\NoteController;
@@ -681,6 +682,19 @@ Route::middleware('auth:sanctum')->group(function () {
     // Decision wizard — sub-project 2. What the member may do on this meeting.
     Route::middleware(['screen.permission:meetings,view', 'meeting.member:guests'])
         ->get('meetings/{meeting}/duties', [MeetingDutiesController::class, 'meeting']);
+    // 2026-10-18 — the paper sitting: the مقرر enters every item's توصية and
+    // the محضر once (MeetingDuties::recordResultsRefusal() names the مقرر).
+    Route::middleware(['screen.permission:meetings,edit', 'meeting.member'])
+        ->post('meetings/{meeting}/results', [MeetingResultsController::class, 'store']);
+    Route::middleware(['screen.permission:meetings,view', 'meeting.member:guests'])
+        ->get('meetings/{meeting}/minutes-file', [MeetingResultsController::class, 'minutesFile']);
+    // 2026-10-18 — جهة الاعتماد decides each recommended file from the meeting.
+    // Outside `meeting.member`, which refuses every write on the concluded
+    // meeting; the controller checks MeetingVisibility itself.
+    Route::middleware(['screen.permission:meetings,view', 'meeting.member:guests'])
+        ->get('meetings/{meeting}/agenda/{agendaItem}/authority-duties', [MeetingResultsController::class, 'authorityDuties']);
+    Route::middleware(['screen.permission:meetings,view', 'request.visible'])
+        ->post('meetings/{meeting}/agenda/{agendaItem}/authority-decision', [MeetingResultsController::class, 'authorityDecision']);
     Route::middleware(['screen.permission:meetings,delete', 'meeting.member'])
         ->delete('meetings/{meeting}', [MeetingController::class, 'destroy']);
 

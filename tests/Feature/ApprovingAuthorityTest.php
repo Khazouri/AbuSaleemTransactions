@@ -12,6 +12,7 @@ use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\RecordsStructuredDecisions;
@@ -97,7 +98,8 @@ class ApprovingAuthorityTest extends TestCase
         $this->assertSame('approved_with_conditions', $requestRecord->status->code);
     }
 
-    public function test_an_approval_must_name_its_authority_and_a_refusal_names_none(): void
+    /** 2026-10-18 — a refusal is a recommendation to the authority too, so it names one. */
+    public function test_an_approval_and_a_refusal_must_both_name_their_authority(): void
     {
         [$head, $meeting, $item] = $this->decidedByVote('approve');
 
@@ -110,8 +112,12 @@ class ApprovingAuthorityTest extends TestCase
 
         $this->actingAs($head, 'sanctum')
             ->postJson($this->decisionUrl($meeting, $item), $this->decisionPayload('reject', ['comment' => 'سبب']))
+            ->assertStatus(422);
+        $this->actingAs($head, 'sanctum')
+            ->postJson($this->decisionUrl($meeting, $item), $this->decisionPayload('reject', ['comment' => 'سبب', 'approving_authority' => 'minister']))
             ->assertCreated();
-        $this->assertNull($item->request->fresh()->approving_authority);
+        $this->assertSame('minister', $item->request->fresh()->approving_authority);
+        $this->assertSame('local_governance_ministry', $item->request->fresh()->currentStage->code);
     }
 
     public function test_the_grade_threshold_only_suggests_the_authority(): void
@@ -193,11 +199,13 @@ class ApprovingAuthorityTest extends TestCase
         return [$head, $meeting, $item];
     }
 
+    /**
+     * 2026-10-18 — the authority decides from the meeting page
+     * (AuthorityDecisionTest); the workflow move itself is what this suite pins.
+     */
     private function approveAs(string $roleCode, Request $requestRecord): void
     {
-        $this->actingAs($this->userWith($roleCode), 'sanctum')
-            ->postJson("/api/requests/{$requestRecord->id}/transition", ['action' => 'approve'])
-            ->assertOk();
+        app(WorkflowService::class)->transition($requestRecord->fresh(), 'approve', $this->userWith($roleCode));
     }
 
     private function decisionUrl(Meeting $meeting, MeetingRequest $item): string

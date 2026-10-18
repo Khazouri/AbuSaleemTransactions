@@ -8,7 +8,6 @@ use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Models\Role;
 use App\Models\User;
-use App\Services\MeetingReadinessService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\PassesControlGates;
@@ -46,42 +45,22 @@ class MeetingDutiesTest extends TestCase
         $this->assertNotContains('adopt_agenda', $this->availableActions($seats['legal'], $meeting));
     }
 
-    public function test_convening_waits_for_every_member_to_accept_the_date(): void
+    /**
+     * 2026-10-18 — the committee meets on paper, and the مقرر's entered
+     * results conclude the meeting (PaperMeetingResultsTest), so convening
+     * and closing are offered to nobody, whatever state the sitting is in.
+     */
+    public function test_the_paper_sitting_offers_neither_convening_nor_closing(): void
     {
-        [$meeting, $seats] = $this->meeting(['status' => Meeting::STATUS_PENDING_CONFIRMATION]);
-
-        $reason = $this->blockedReason($seats['chair'], $meeting, 'convene');
-        $this->actingAs($seats['chair'], 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/convene", ['reason' => 'تجاوز'])
-            ->assertStatus(422)
-            ->assertJsonPath('errors.status.0', $reason);
-
-        $meeting->update(['status' => 'scheduled']);
-        // Not ready (the agenda is empty), so overriding readiness owes a reason.
-        $convene = collect($this->duties($seats['chair'], $meeting)['available'])->firstWhere('action', 'convene');
-        $this->assertTrue($convene['requires_comment']);
-    }
-
-    public function test_a_ready_meeting_convenes_without_a_reason(): void
-    {
-        $this->mock(MeetingReadinessService::class)
-            ->shouldReceive('compute')->andReturn(['ready' => true]);
         [$meeting, $seats] = $this->meeting(['status' => 'scheduled']);
-
-        $convene = collect($this->duties($seats['chair'], $meeting)['available'])->firstWhere('action', 'convene');
-        $this->assertFalse($convene['requires_comment']);
-    }
-
-    public function test_closing_is_blocked_while_an_item_is_unresolved(): void
-    {
-        [$meeting, $seats] = $this->meeting(['status' => 'scheduled', 'convened_at' => now()]);
         MeetingRequest::create(['meeting_id' => $meeting->id, 'agenda_order' => 1, 'item_type' => 'employee_request']);
+        $this->assertNotContains('convene', $this->availableActions($seats['chair'], $meeting));
 
-        $reason = $this->blockedReason($seats['chair'], $meeting, 'close');
-        $this->actingAs($seats['chair'], 'sanctum')
-            ->putJson("/api/meetings/{$meeting->id}", ['status' => 'completed'])
-            ->assertStatus(422)
-            ->assertJsonPath('message', $reason);
+        $meeting->update(['convened_at' => now()]);
+        $duties = $this->duties($seats['chair'], $meeting);
+        $offered = collect([...$duties['available'], ...$duties['blocked']])->pluck('action');
+        $this->assertNotContains('convene', $offered);
+        $this->assertNotContains('close', $offered);
     }
 
     public function test_approving_minutes_nobody_attended_is_blocked_with_the_review_refusal(): void

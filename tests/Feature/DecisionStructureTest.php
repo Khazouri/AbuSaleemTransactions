@@ -265,6 +265,8 @@ class DecisionStructureTest extends TestCase
             'decision_facts' => 'لعدم الاستحقاق',
             'decision_basis' => 'لمصلحة العمل',
             'comment' => 'رفض مسبب',
+            // 2026-10-18 — a refusal is a recommendation to جهة الاعتماد too.
+            'approving_authority' => 'dean',
         ];
 
         $this->recordWith($head, $meeting, $agendaItem, $base)

@@ -221,25 +221,21 @@ class ControlGateTest extends TestCase
 
     // --- Art. 103 — قائمة فحص سلامة القرار ----------------------------
 
-    public function test_execution_is_refused_until_the_soundness_checklist_is_recorded(): void
+    /**
+     * 2026-10-18 — no execution leg (user decision): the dean's
+     * final_approved -> in_execution step is gone, certified or not, and an
+     * approved file goes straight to its archives.
+     */
+    public function test_a_final_approved_file_has_no_step_into_execution(): void
     {
         [, $requestRecord] = $this->requestReadyForExecution();
-        $approver = $this->userWithRole('R07');
-
-        $this->actingAs($approver, 'sanctum')
-            ->post("/api/approvals/final/{$requestRecord->id}", [], ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonPath(
-                'errors.request.0',
-                'لا تحال النتيجة للتنفيذ قبل استيفاء قائمة فحص سلامة القرار (المادة 103).',
-            );
-
         $this->certifySoundness($requestRecord);
 
-        $this->actingAs($approver, 'sanctum')
+        $this->actingAs($this->userWithRole('R07'), 'sanctum')
             ->post("/api/approvals/final/{$requestRecord->id}", [], ['Accept' => 'application/json'])
-            ->assertOk()
-            ->assertJsonPath('data.status.code', 'in_execution');
+            ->assertStatus(422);
+
+        $this->assertSame('final_approved', $requestRecord->fresh()->status->code);
     }
 
     public function test_a_single_no_on_an_attested_check_refuses_and_quotes_it_back(): void

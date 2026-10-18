@@ -74,36 +74,14 @@ class MeetingOutputsTest extends TestCase
         $this->assertSame($head->id, $response->json('data.outputs.0.decision.decided_by.id'));
     }
 
-    public function test_final_approval_enters_execution_then_the_head_closes_it_without_moving_stage(): void
+    /**
+     * 2026-10-18 — no new file enters execution any more (the dean's
+     * final_approved -> in_execution step is gone); a file already in
+     * execution before then is still executed and closed through this loop.
+     */
+    public function test_a_file_already_in_execution_is_executed_then_closed_without_moving_stage(): void
     {
-        [$head, $member, , $meeting, $agendaItem, $requestRecord] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
-        $finalApprover = $this->userWithRole('R07');
-
-        // Stage 78 — Art. 103's قائمة فحص سلامة القرار is verified before the
-        // result may be referred to execution. Recorded by the مقرر, not the
-        // approving authority, so preparation and decision stay in different
-        // hands; ControlGateTest exercises the endpoint and the refusals.
-        $this->certifySoundness($requestRecord);
-
-        $this->actingAs($finalApprover, 'sanctum')
-            ->post("/api/approvals/final/{$requestRecord->id}", [])
-            ->assertOk()
-            ->assertJsonPath('data.status.code', 'in_execution');
-
-        $this->assertSame('final_approval_archiving', $requestRecord->fresh()->currentStage->code);
-        // Stage 57 removed the competent_authority checkpoint, so
-        // final_approval_archiving's self-loop is level 5 now, not 6.
-        $this->assertDatabaseHas('approvals', [
-            'request_id' => $requestRecord->id,
-            'level' => 5,
-            'approved_by_user_id' => $finalApprover->id,
-        ]);
-
-        // The self-loop is no longer pending once it has handed work to execution.
-        $this->actingAs($finalApprover, 'sanctum')
-            ->getJson('/api/approvals/final')
-            ->assertOk()
-            ->assertJsonMissing(['id' => $requestRecord->id]);
+        [$head, $member, , $meeting, $agendaItem, $requestRecord] = $this->decidedMeetingOutput('final_approval_archiving', 'in_execution');
 
         $this->actingAs($head, 'sanctum')
             ->getJson("/api/meetings/{$meeting->id}/outputs")
@@ -241,7 +219,12 @@ class MeetingOutputsTest extends TestCase
         $this->assertSame('in_execution', $agendaItem->request->fresh()->status->code);
     }
 
-    public function test_completion_rejects_a_request_that_has_not_entered_execution(): void
+    /**
+     * Execution is refused to a file that never entered it. Since 2026-10-18
+     * final_approved is itself a final path, so such a file closes once both
+     * archives are in, with nothing executed.
+     */
+    public function test_execution_is_refused_to_a_file_that_never_entered_it(): void
     {
         [$head, , , $meeting, $agendaItem, $requestRecord] = $this->decidedMeetingOutput('final_approval_archiving', 'final_approved');
 
@@ -250,14 +233,8 @@ class MeetingOutputsTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('action');
 
-        $this->archiveFiles($requestRecord);
-
-        $this->actingAs($head, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
-            ->assertStatus(422);
-
         $this->assertSame('final_approved', $requestRecord->fresh()->status->code);
-        $this->assertDatabaseCount('request_status_history', 0);
+        $this->assertNull($requestRecord->fresh()->executed_at);
     }
 
     /** @return array{0: User, 1: User, 2: User, 3: Meeting, 4: MeetingRequest, 5: Request} */

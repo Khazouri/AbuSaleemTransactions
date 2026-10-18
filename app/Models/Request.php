@@ -442,6 +442,12 @@ class Request extends Model
         return $this->hasMany(MeetingRequest::class);
     }
 
+    /** 2026-10-18 — the agenda slot whose توصية جهة الاعتماد is deciding on. */
+    public function latestDecidedItem(): HasOne
+    {
+        return $this->hasOne(MeetingRequest::class)->ofMany(['id' => 'max'], fn ($item) => $item->whereHas('decision'));
+    }
+
     public function approvals(): HasMany
     {
         return $this->hasMany(Approval::class);

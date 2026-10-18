@@ -162,7 +162,7 @@ class RequestClosureTest extends TestCase
         $this->actingAs($closer, 'sanctum')
             ->patchJson("/api/requests/{$inReview->id}/close", $this->closurePayload())
             ->assertStatus(422)
-            ->assertJsonFragment(['message' => 'لا تعتبر المعاملة مقفلة إلا بعد تحقق أحد المسارات النهائية: تنفيذ النتيجة، أو عدم الموافقة، أو عدم الاختصاص.']);
+            ->assertJsonFragment(['message' => 'لا تعتبر المعاملة مقفلة إلا بعد تحقق أحد المسارات النهائية: اعتماد النتيجة، أو عدم الموافقة، أو عدم الاختصاص.']);
     }
 
     /** Appendix 48 condition 6 / Art. 37's fourth path. */

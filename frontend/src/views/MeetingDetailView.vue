@@ -12,6 +12,7 @@ import { useRoute } from 'vue-router'
 import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
 import AgendaItemWizard from '../components/AgendaItemWizard.vue'
 import AppModal from '../components/AppModal.vue'
+import AuthorityDecisionForm from '../components/AuthorityDecisionForm.vue'
 import GuestInviteForm from '../components/GuestInviteForm.vue'
 import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import api from '../lib/api'
@@ -291,14 +292,49 @@ async function loadDecisionTemplates() {
   }
 }
 
+// --- The paper sitting (2026-10-18) -------------------------------------------
+// The مقرر prints the agenda for the sitting and enters its results after it
+// (MeetingWizard's record_results); جهة الاعتماد then decides each موافقة or
+// عدم موافقة here, beside the توصية and the محضر.
+
+const RECOMMENDATION = { approve: 'approve', reject: 'decline', defer: 'defer' }
+// The stage where each authority decides, by the role that decides there.
+const MY_STAGE = { R07: 'approval_by_authority', R06: 'local_governance_ministry' }
+const myStages = computed(() => Object.entries(MY_STAGE).filter(([role]) => auth.hasRole(role)).map(([, stage]) => stage))
+const awaitingMe = computed(() => (meeting.value?.agenda_items ?? [])
+  .filter((item) => myStages.value.includes(item.request?.stage_code)))
+const authorityItemId = ref(null)
+const authorityItem = computed(() => awaitingMe.value.find((item) => item.id === authorityItemId.value) ?? null)
+
+function printAgenda() {
+  window.print()
+}
+
+const minutesError = ref('')
+async function openMinutes() {
+  minutesError.value = ''
+  // Opened before the await, so the browser does not block it as a popup.
+  const tab = window.open('', '_blank')
+  try {
+    const { data } = await api.get(`/meetings/${meeting.value.id}/minutes-file`, { responseType: 'blob' })
+    tab.location = URL.createObjectURL(data)
+  } catch {
+    tab?.close()
+    minutesError.value = t('requestDetail.loadFailed')
+  }
+}
+
 onMounted(async () => {
   await Promise.all([load(), loadDecisionTemplates()])
+  // «المهام المعلقة» opens the authority's decision straight away.
+  const requested = Number(route.query.item)
+  if (route.query.decide && awaitingMe.value.some((item) => item.id === requested)) authorityItemId.value = requested
 })
 </script>
 
 <template>
   <section class="page detail">
-    <RouterLink class="back" :to="{ name: 'meetings' }">{{ t('meetings.back') }}</RouterLink>
+    <RouterLink class="back no-print" :to="{ name: 'meetings' }">{{ t('meetings.back') }}</RouterLink>
 
     <p v-if="loading" class="state">{{ t('common.loading') }}</p>
     <div v-else-if="error" class="alert" role="alert">
@@ -311,7 +347,10 @@ onMounted(async () => {
           <p class="committee">{{ name(meeting.committee) }}</p>
           <h2>{{ meeting.title }}</h2>
         </div>
-        <div class="header-actions">
+        <div class="header-actions no-print">
+          <button v-if="meeting.agenda_items?.length" class="ghost" type="button" @click="printAgenda">
+            {{ t('paperMeeting.printAgenda') }}
+          </button>
           <button
             v-can="'meetings.edit'"
             class="ghost"
@@ -331,6 +370,34 @@ onMounted(async () => {
 
       <!-- Decision wizard — sub-project 2: the date answer and every other meeting act. -->
       <MeetingDutiesCard :meeting-id="meeting.id" :refresh-key="dutiesRefreshKey" @updated="load" />
+
+      <!-- 2026-10-18 — what جهة الاعتماد is to decide from this meeting. -->
+      <section v-if="awaitingMe.length" class="card card-flat card-pad awaiting no-print">
+        <h3>{{ t('paperMeeting.awaitingYou') }}</h3>
+        <ul>
+          <li v-for="item in awaitingMe" :key="item.id">
+            <span><span class="ref ltr">{{ item.request.reference_number }}</span> {{ item.request.title }}</span>
+            <button class="primary" type="button" @click="authorityItemId = item.id">{{ t('decisionWizard.act') }}</button>
+          </li>
+        </ul>
+      </section>
+      <AuthorityDecisionForm
+        v-if="authorityItem"
+        :meeting-id="meeting.id"
+        :item="authorityItem"
+        @decided="load"
+        @close="authorityItemId = null"
+      />
+
+      <!-- 2026-10-18 — the scanned محضر of the paper sitting. -->
+      <section v-if="meeting.has_minutes_file" class="card card-flat card-pad minutes-link no-print">
+        <h3>{{ t('paperMeeting.minutes') }}</h3>
+        <p class="minutes-status">
+          {{ t('paperMeeting.resultsRecorded', { date: dateTime(meeting.results_recorded_at), name: meeting.results_recorded_by?.name ?? '' }) }}
+        </p>
+        <button class="ghost" type="button" @click="openMinutes">{{ t('paperMeeting.openMinutes') }}</button>
+        <p v-if="minutesError" class="alert" role="alert">{{ minutesError }}</p>
+      </section>
       <p v-if="meeting.status === 'pending_confirmation'" class="state">{{ t('meetings.rsvp.awaiting') }}</p>
 
       <section class="card card-flat card-pad summary">
@@ -368,6 +435,7 @@ onMounted(async () => {
           <select
             v-model="statusValue"
             v-can="'meetings.edit'"
+            class="no-print"
             :disabled="savingMeeting || ['completed', 'cancelled'].includes(meeting.status)"
             :aria-label="t('meetings.changeStatus')"
             @change="saveMeetingFields"
@@ -378,7 +446,7 @@ onMounted(async () => {
         </div>
       </section>
 
-      <div v-if="canProposeDate" class="propose-date-open">
+      <div v-if="canProposeDate" class="propose-date-open no-print">
         <button class="ghost" type="button" @click="showProposeDate = true">{{ t('meetings.rsvp.proposeDate') }}</button>
       </div>
 
@@ -402,7 +470,7 @@ onMounted(async () => {
         <p class="description">{{ meeting.description }}</p>
       </section>
 
-      <section v-can="'meeting_minutes.view'" class="card card-flat card-pad minutes-link">
+      <section v-if="!meeting.results_recorded_at" v-can="'meeting_minutes.view'" class="card card-flat card-pad minutes-link no-print">
         <h3>{{ t('meetings.minutes') }}</h3>
         <p v-if="meeting.minutes_status" class="minutes-status">
           {{ t(`meetingsUnit.minutes.status.${meeting.minutes_status}`) }}
@@ -413,7 +481,7 @@ onMounted(async () => {
       </section>
 
       <!-- Stage 37 — meeting-scoped outputs follow-up. -->
-      <section v-can="'meeting_outputs.view'" class="card card-flat card-pad minutes-link">
+      <section v-can="'meeting_outputs.view'" class="card card-flat card-pad minutes-link no-print">
         <h3>{{ t('meetingsUnit.outputs.title') }}</h3>
         <p class="minutes-status">{{ t('meetingsUnit.outputs.detailHint') }}</p>
         <RouterLink class="ghost" :to="{ name: 'meeting_outputs', query: { meeting: meeting.id } }">
@@ -426,7 +494,7 @@ onMounted(async () => {
         <section v-if="meeting.agenda_items" class="card card-flat card-pad agenda">
           <div class="agenda-heading">
             <h3>{{ t('meetings.agenda.title') }}</h3>
-            <div class="agenda-heading-links">
+            <div class="agenda-heading-links no-print">
               <button v-can="'meeting_agenda.edit'" class="ghost" type="button" @click="showAgendaSearch = true">
                 {{ t('meetingsUnit.agenda.addItem') }}
               </button>
@@ -469,16 +537,41 @@ onMounted(async () => {
                   </template>
                   <span v-if="item.priority" class="pill">{{ t(`meetings.agenda.priority.${item.priority}`) }}</span>
                   <span v-if="item.estimated_minutes" class="pill">{{ item.estimated_minutes }} {{ t('meetings.agenda.minutesShort') }}</span>
+                  <p v-if="item.request?.subject_name" class="item-meta">
+                    {{ item.request.subject_name }}<template v-if="item.request.request_type"> · {{ name(item.request.request_type) }}</template>
+                  </p>
                 </div>
-                <div v-can="'meeting_agenda.edit'" class="item-actions">
+                <div v-if="!meeting.results_recorded_at" v-can="'meeting_agenda.edit'" class="item-actions no-print">
                   <button class="ghost" type="button" :disabled="index === 0" @click="moveAgendaItem(index, -1)">↑</button>
                   <button class="ghost" type="button" :disabled="index === meeting.agenda_items.length - 1" @click="moveAgendaItem(index, 1)">↓</button>
                   <button class="ghost danger" type="button" @click="removeFromAgenda(item)">{{ t('meetings.agenda.remove') }}</button>
                 </div>
               </div>
 
+              <!-- 2026-10-18 — the committee's توصية, as the مقرر entered it. -->
+              <dl v-if="meeting.results_recorded_at && item.decision" class="recommendation">
+                <div>
+                  <dt>{{ t('paperMeeting.recommendation') }}</dt>
+                  <dd>{{ t(`paperMeeting.recommendations.${RECOMMENDATION[item.decision.outcome] ?? 'approve'}`) }}</dd>
+                </div>
+                <div v-if="item.request?.approving_authority">
+                  <dt>{{ t('paperMeeting.authority') }}</dt>
+                  <dd>{{ t(`decisions.approvingAuthority.${item.request.approving_authority}`) }}</dd>
+                </div>
+                <div v-if="item.decision.comment" class="wide">
+                  <dt>{{ t('paperMeeting.committeeNote') }}</dt>
+                  <dd>{{ item.decision.comment }}</dd>
+                </div>
+              </dl>
+              <!-- Printed for the paper sitting: room for what the committee writes. -->
+              <p v-if="!meeting.results_recorded_at" class="print-only print-blank">
+                {{ t('paperMeeting.recommendation') }}: ............................
+                {{ t('paperMeeting.authority') }}: ............................
+              </p>
+
+              <!-- The in-system sitting's panel, for a meeting convened before the paper path. -->
               <AgendaItemDecisionPanel
-                v-if="['employee_request', 'appeal'].includes(item.item_type)"
+                v-if="meeting.convened_at && ['employee_request', 'appeal'].includes(item.item_type)"
                 :item="item"
                 :meeting="meeting"
                 @decide="wizardItemId = item.id"
@@ -529,7 +622,7 @@ onMounted(async () => {
           </AppModal>
         </section>
 
-        <aside class="card card-flat card-pad attendance">
+        <aside class="card card-flat card-pad attendance no-print">
           <h3>{{ t('meetings.attendance.title') }}</h3>
           <p v-if="attendanceError" class="alert">{{ attendanceError }}</p>
           <p v-if="!seatAttendees.length" class="state">{{ t('meetings.attendance.empty') }}</p>
@@ -614,6 +707,18 @@ select { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); bor
 .invitation-status { padding: .2rem .4rem; font-size: var(--text-xs); }
 label.checkbox { display: flex; align-items: center; gap: .4rem; }
 .propose-date-open { margin-block-end: var(--space-4); }
+.awaiting ul { display: grid; gap: var(--space-2); padding: 0; margin: 0; list-style: none; }
+.awaiting li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.item-meta { margin: var(--space-1) 0 0; color: var(--color-muted); font-size: var(--text-sm); }
+.recommendation { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr)); gap: var(--space-2); margin: 0; padding: var(--space-2) var(--space-3); border-inline-start: 3px solid var(--color-brand); background: var(--color-surface-hover); }
+.recommendation dt { color: var(--color-muted); font-size: var(--text-xs); }
+.recommendation dd { margin: 0; }
+.recommendation .wide { grid-column: 1 / -1; }
+.print-blank { margin: var(--space-2) 0 0; }
+@media print {
+  .columns { display: block; }
+  .agenda li { break-inside: avoid; }
+}
 .guest-hint { margin: 0 0 var(--space-3); color: var(--color-muted); font-size: var(--text-sm); }
 .propose-date label { display: grid; gap: .25rem; font-size: var(--text-sm); }
 .propose-date input { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: inherit; font: inherit; }

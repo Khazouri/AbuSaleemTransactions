@@ -77,7 +77,8 @@ async function onUpdated() {
 </script>
 
 <template>
-  <section v-if="hasDuties" class="card card-flat card-pad meeting-duties">
+  <!-- no-print: the printed agenda carries the sitting, not anyone's duties. -->
+  <section v-if="hasDuties" class="card card-flat card-pad meeting-duties no-print">
     <p>{{ t('decisionWizard.meetingPrompt') }}</p>
     <button class="primary" type="button" @click="act">{{ t('decisionWizard.act') }}</button>
   </section>

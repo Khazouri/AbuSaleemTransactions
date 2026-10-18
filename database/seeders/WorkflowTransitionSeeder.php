@@ -108,9 +108,16 @@ class WorkflowTransitionSeeder extends Seeder
             // sets final_approved directly rather than the tail's usual
             // still-pending `approved`.
             ['local_governance_ministry', 'final_approval_archiving', 'approve', 'R06', 'final_approved'],
-            // Stage 37 — final approval hands the request to execution. The
-            // meeting outputs tracker performs the later status-only close.
-            ['final_approval_archiving', 'final_approval_archiving', 'approve', 'R07', 'in_execution'],
+            // 2026-10-18 — the committee only recommends, so the authority's
+            // own "no" is the file's final result (Art. 38 code 13), whichever
+            // way the committee leaned. Recorded from the meeting page
+            // (MeetingResultsController::authorityDecision()).
+            ['approval_by_authority', 'final_approval_archiving', 'reject', 'R07', 'not_approved'],
+            ['local_governance_ministry', 'final_approval_archiving', 'reject', 'R06', 'not_approved'],
+            // 2026-10-18 — no execution leg: the old R07 self-loop
+            // (final_approved -> in_execution) is gone, and an approved file
+            // goes straight to its two archives. The generic delete above
+            // clears it from an existing database.
         ];
 
         foreach ($transitions as $order => [$from, $to, $action, $role, $status]) {
@@ -551,12 +558,17 @@ class WorkflowTransitionSeeder extends Seeder
         // gap-analysis §4 explicitly left open for "whoever next touches the
         // committee-decision outcome set". Comment-required per Art. 91, which
         // rejects unreasoned refusals outright.
+        //
+        // 2026-10-18 — the committee only recommends: its «عدم موافقة» goes to
+        // جهة الاعتماد like an approval does (WorkflowService sends a minister
+        // file on to the ministry), and the authority's own reject row
+        // settles `not_approved`.
         $this->seedException(
             $stages['receive_from_committee']->id,
-            $stages['receive_from_committee']->id,
+            $stages['approval_by_authority']->id,
             'reject_by_committee',
             $roles['R03']->id,
-            $statuses['not_approved']->id,
+            $statuses['awaiting_municipal_approval']->id,
             56,
         );
 

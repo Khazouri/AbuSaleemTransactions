@@ -19,6 +19,65 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-18 20:00 EET — Claude — The paper meeting, slice 1 (complete)
+
+Built per the plan below. A CLI session wrote the results controller, Form Requests and duty/visibility code mid-way;
+it was reviewed and kept. Two corrections:
+- the authority-stage refusal lives in `blockReason()` + `ApprovalController`, not `controlGateRefusal()`, because the
+  meeting-page decision reuses that gate;
+- the inbox drops only the `committee-head` and `final` queues (the قيد queue stays).
+
+**Deviations:**
+- no `meetings,view` seeder change, because it is already `*`; the seat gate keeps it for R06/R07;
+- a committee `reject` via the old `record()` now names an authority too;
+- the minister's قرار is named «قرار الوزير - <reference>».
+
+**The real MySQL had been wiped** before this work (every Homestead database empty, MySQL up since about 16:10 on
+10-17, so likely a VM rebuild). The user ran `migrate --seed`. The migration is applied and the transitions are checked
+by query: reject rows at both authority stages, no execution self-loop.
+
+Verified:
+- `PaperMeetingResultsTest` (5) and `AuthorityDecisionTest` (8) went RED, then GREEN;
+- 21 older tests were updated in place with comments;
+- full suite 974 / 6343, Pint clean, build (`dist` committed, production API URL in the bundle), parity 2246,
+  `aislop ci` 97.
+
+Headless walk on a scratch SQLite DB (env override, `.env` untouched; `FRONTEND_URL` override for CORS), 39 checks, no
+console errors:
+- print shows the agenda with blanks and hides the duty card. The walk found the card printing (two-root component),
+  which is fixed;
+- the results form at ar/en × 1280/375 × light/dark, with the authority pre-selected by grade;
+- the dean decides via the inbox link;
+- مكتب العميد declines with the قرار at 375;
+- both archives close the file.
+
+---
+### 2026-10-18 13:55 EET — Claude — Implementation plan: the paper meeting, slice 1 (results entry, authority on the meeting page)
+
+User: the committee meets on paper, and this replaces the in-system sitting. Put to the user and answered:
+- the مقرر prints the agenda;
+- after the meeting, the مقرر enters each item's توصية (موافقة / عدم موافقة / تأجيل), note and جهة الاعتماد, attaches
+  the محضر, and submits once;
+- the committee only recommends, and العميد or مكتب العميد (R06) decides every non-deferred file from the meeting's
+  page. A minister file needs the ministry's قرار attached;
+- the employee, their manager, HR and the مقرر hear the result;
+- straight to archiving, with no execution leg, and the file closes itself once both archives are recorded;
+- appeals leave agendas.
+
+Slice 1 plan:
+- migration: `meetings.minutes_file_*` and `results_recorded_*`;
+- `POST meetings/{m}/results` (duty `record_results`);
+- `POST meetings/{m}/agenda/{item}/authority-decision` (duty `authority_decision`), outside `meeting.member`;
+- `reject_by_committee` → the authority stages, new R07/R06 `reject` rows, and the R07 execution self-loop deleted;
+- `final_approved` is archivable, and `archive()` auto-closes;
+- R02 is copied on the final notice;
+- `convene`/`close` are no longer offered;
+- SPA: print agenda, results form, authority form, and the decided list on the meeting page.
+
+Slice 2 (next session) deletes the old sitting. Verify: new `PaperMeetingResultsTest`/`AuthorityDecisionTest` (RED
+then GREEN), full PHPUnit, Pint, migrate, reseed transitions, build (`dist` committed), parity, aislop ci, headless walk.
+
+---
 ### 2026-10-17 15:40 EET — Claude — جهة الاعتماد is العميد or الوزير, picked per request by the chair (complete)
 
 Built per the plan below. Migration `requests.approving_authority` is applied to the real MySQL.
@@ -1861,275 +1920,5 @@ locale parity, `check-layout.mjs`, migrate the real DB.
 ### 2026-09-26 18:50 EET — Claude — Timeline documents redesigned (complete)
 
 Built per the plan below. `TimelineDocuments.vue` now renders the documents of every «سجل سير العمل» entry in both views; each view's own list and its CSS are gone. **Gotcha:** the global `.ltr` helper also sets `text-align: left`, which in Arabic throws a filename to the far side of its row, so the component uses `direction: ltr; justify-self: start` instead. Build passes (`dist` reverted). `check-layout.mjs` fails only on the pre-existing `/decisions` 1024px overflow; it skips `/requests/:id`, so that page was checked by screenshot (ar light and en dark at 1280px, ar at 375px). Not seen rendered: a decision row, since no seeded timeline entry carries one.
-
----
-### 2026-09-26 18:25 EET — Claude — Implementation plan: redesign the documents under each timeline entry
-
-User ran /frontend-design on the «سجل سير العمل» attachment rows fixed just below. Plan: one new `components/TimelineDocuments.vue` used by RequestDetailView and RequestTrackingView (they had drifted — the tracking copy dropped kind and reference). A tinted tray per entry; each row = kind icon (file-text / scale, kind named for screen readers) + label over its LTR reference + folder name at the inline end. A committee decision is the one row in `--color-brand-text`. Tokens only, no new locale keys. Verify: build (revert `dist`), `check-layout.mjs`.
-
----
-### 2026-09-26 18:10 EET — Claude — Timeline attachment rows no longer draw the connector line
-
-Bug fix, CSS only. In «سجل سير العمل» (RequestTrackingView and RequestDetailView) the rail rules were `.timeline li`, which also matched each entry's nested `.entry-documents li`, so every attachment row got the timeline grid, padding and vertical connector line. Both now target direct children only; the workspace also gained the `.entry-documents` styles it never had (it rendered as a bulleted list). Build passes (`dist` reverted).
-
----
-### 2026-09-26 17:55 EET — Claude — Forms beside tables are now modals (complete)
-
-Built per the plan below; frontend only, no PHP touched (so no PHPUnit/Pint run). New `AppModal.vue` wraps the create/edit
-forms of Departments, Users, Request Types, Settings, Templates, Meetings (committee form, scheduling wizard, and the
-whole «manage members» panel, which was an expanded table row), Appeals (create + upload step, and six action
-panels), Agenda Builder's add-item box and Meeting Detail's propose-date and add-to-agenda boxes. Form logic is
-unchanged: each view's own open flag drives the modal, and 422s now render inside it. Escape closes and a backdrop
-click deliberately does not. New `common.close`; `committees.hideMembers` removed (parity 2007). The convention is in AGENTS.md.
-Verified: build passes (`dist` reverted); a headless click-through of all 12 triggers × {en, ar} × {1280, 375} found
-every dialog opening, focused and fitting, closing on Escape and returning focus, with no console errors.
-`check-layout.mjs` fails only on the pre-existing `/decisions` 1024px overflow. Not exercised: propose-date, because
-no seeded meeting is in a proposable state.
-
----
-### 2026-09-26 17:19 EET — Claude — Implementation plan: forms beside tables become modals
-
-User: "all the pages that have a form and something else (table), the form should be a modal". Scope, confirmed with
-the user: Departments, Users, Request Types, Settings, Templates, Meetings (committee form, scheduling wizard,
-add-member), Appeals (create + six action panels), and the add boxes in Agenda Builder and Meeting Detail. Plan: one
-new `components/AppModal.vue` (Teleport, Escape closes, backdrop click does not, focus in/restore) and a
-`.modal-wide` plus desktop scrolling in `style.css`; each form is wrapped in it with its state logic unchanged.
-Frontend only. Verify: build (revert `dist`), locale parity, `check-layout.mjs`.
-
----
-### 2026-09-26 17:10 EET — Claude — Deliberation requires a convened meeting too (complete)
-
-Built per the plan below; this closes the "Not gated" point in the 16:55 entry. Item state and study-sequence
-changes now return `MeetingController::MEETING_NOT_CONVENED` before convening. That check comes before the adoption
-check, so `CommitteeOwnActsTest`'s adoption test now convenes its meeting first. A new test there covers the rule.
-Full suite **746 / 4798**; Pint is clean on the touched files. No frontend change: the live runner shows the Arabic 422.
-
----
-### 2026-09-26 17:04 EET — Claude — Implementation plan: deliberation requires a convened meeting too
-
-User confirmed the open point from the entry below. Plan: `updateItemState` and `updateStudySequence` in
-`MeetingController` refuse (422, new `MEETING_NOT_CONVENED`) until `convened_at` is set, next to their
-`AGENDA_NOT_ADOPTED` check. Agenda adoption itself stays allowed before convening, because Art. 12 (أ) 3 puts it
-«قبل الاجتماع». Verify: refusal test, fixture updates found by the full suite, and Pint.
-
----
-### 2026-09-26 16:55 EET — Claude — A vote requires a convened meeting (complete)
-
-Built per the plan below. `DecisionEligibility` now refuses a vote with `MEETING_NOT_CONVENED` (422) until
-`convened_at` is set, and `pendingVotesQuery()` filters on the same column. New
-`StudySequenceTest` case reproduced the bug first (201 before the fix). Full suite **745 / 4793**; Pint is clean on
-the touched files. Frontend and locales unchanged. **Not gated:** the study-sequence and item-state endpoints still
-check agenda adoption only, so a chair can tick Art. 85 steps before convening; the vote itself still waits for convening.
-
----
-### 2026-09-26 16:48 EET — Claude — Implementation plan: a vote requires a convened meeting
-
-User: "Voting doesn't check that the meeting was convened." Confirmed: nothing on the vote path reads
-`meetings.convened_at` (set only by `MeetingReadinessController::convene()`). Plan: one condition in
-`DecisionEligibility` — both `reasonBlockingVote()` and its SQL twin `pendingVotesQuery()`, so the endpoint and
-the worklist still agree. `record()` needs no check: zero votes are already refused. Fixtures: `RunsStudySequence`
-also stamps `convened_at`, and `StudySequenceTest`'s fixture convenes. Verify: a new refusal test, full PHPUnit,
-Pint. (Clock note: the machine reads 16:48 while the entry below is stamped 17:25; position gives the order.)
-
----
-### 2026-09-26 17:25 EET — Claude — The مقرر is told of every answer to a proposed date (complete)
-
-Built per the plan below, no migration. Each `respond` sends `meeting_invitation_response` to the committee's
-`rapporteur` seat holder (the responder excluded), carrying `response` and `meeting_confirmed`; the last
-acceptance says the meeting is confirmed. It links to the meeting through the existing `meeting_id` handling.
-Full suite **744 / 4783**, Pint clean on touched files, build passes (`dist` reverted), locale parity 2007.
-
----
-### 2026-09-26 17:10 EET — Claude — Implementation plan: tell the مقرر when a member accepts or declines the date
-
-User: "a notification tells the مقرر when someone declines and approves". Plan: new event
-`meeting_invitation_response` (in-app + email, the `meeting_scheduled` defaults) and
-`MeetingInvitationResponseNotification`, sent from `MeetingController::respond()` through a new
-`NotificationDispatcher::invitationAnswered()` to the committee's `rapporteur` seat holder (never the
-responder). The body names the member and the answer, and says so when that answer confirmed the
-meeting. Locale label in both files. Verify: extend `CommitteeSinglePathTest`, full PHPUnit, Pint,
-build, parity. No migration.
-
----
-### 2026-09-26 16:45 EET — Claude — Stage 102 complete (the single committee path)
-
-Built per the plan below; **no migration**. R02's approve now lands on `receive_from_committee` + `registered`;
-the rows out of stages 6–8 are removed by a targeted delete, so a re-seed cleans old databases too. The pending
-list is now the agenda's only source. It also takes `reopened_by_appeal` and `reopened_for_representation`:
-without them, a file that reopenAtStage() sent back to the committee could never be scheduled again. Seats are
-now role-bound and required, only R02 schedules, and there is one meeting per month. New status
-`pending_confirmation`, plus the `POST meetings/{m}/respond` endpoint and a «مهامي» inbox source. Ad-hoc
-attendees, staff-set RSVPs, admin/emerging items and `nominate` are gone.
-
-Checks: full suite **743 / 4772** (the pre-existing tests were updated in place, each with a comment, and the new
-`CommitteeSinglePathTest` was added). Pint is clean, the build passes (`dist` reverted), locale parity is 2006,
-and checkbox parity is 362. The real MySQL was reseeded and confirmed by query: 38 rules, 0 touching stages 6–8.
-A live HTTP smoke run on Homestead also passed, and its fixtures, tokens, jobs and audit rows were removed.
-`check-layout.mjs` fails only on the pre-existing `/decisions` overflow at 1024px.
-
-**Watch:** the live committee #16 cannot schedule until its five seats are filled. Four open items are in
-OPEN_ITEMS.md.
-
----
-### 2026-09-26 15:35 EET — Claude — Implementation plan: Stage 102 (the single committee path)
-
-User: after the مقرر approves a request it joins a pending list; the مقرر schedules one meeting a month,
-invites the five Art. 10 (أ) seats, picks requests from that list and proposes a date; every member must
-accept the date; the sitting discusses and votes — «this path is the only path». **Decisions put to the user
-and answered:** drop the extras (one meeting type, only the five seats invited, no administrative/emerging
-items) but keep appeal items; R02's approve goes straight to `receive_from_committee` (stages 6–8 unreachable,
-rows kept); a decline keeps the meeting `pending_confirmation` and a date change resets every answer; seats
-bound to roles chair→R03, legal→R11, hr_director→R12, ministry_delegate→R04, rapporteur→R02 (R10 stays
-duty-less). Plan: seeder rewiring + targeted deletes, candidate list widened and made the agenda's only
-source, `POST meetings/{m}/respond`, a monthly and all-seats-filled check on `store()`, R12 gains the voting
-grants, `meetings,add` → R02 only, SPA pickers switched to `/committee-candidates`. Verify: new
-`CommitteeSinglePathTest`, full PHPUnit (baseline 742/4743), Pint, build, parity, reseed on the real MySQL.
-
----
-### 2026-09-26 EET — Claude — R08 unsticks manager-less files; admin re-submit fixed (complete)
-
-Built per the plan below, logic only (no migration, seeder rows, frontend or locale change). `actorMayUse()` gains
-`adminMayUnstick()`, and a new `pickRule()` replaces the "exactly one match" check in both `availableTransitions()`
-and `transition()`, so the preview and the endpoint cannot disagree. AGENTS.md's manager-gate bullet is rewritten; it also
-listed "three `route_to_*`", stale since Stage 96. Full suite **742 / 4743** green, Pint clean on touched files.
-**On the real DB nothing changes for the four open files:** their subject (`r01.employee@`) has a live manager
-(`r02.reviewer@`), so they are that manager's to move, not the admin's. Not done: stalled files don't notify R08,
-and the task inbox doesn't list them; an admin finds them on the requests list.
-
----
-### 2026-09-26 EET — Claude — Implementation plan: R08 may unstick a manager-less request; admin re-submit un-ambiguated
-
-User: "admins can not submit or approve requests". Probed the real DB: both R08 accounts hold every screen grant
-but `availableTransitions()` offers them nothing, by design (manager-gated rows have no override; approve rows
-are R02/R03/R05/R06/R07). **User decision, put to them and answered "unstick only"** — this narrows AGENTS.md's
-"no admin override" rule rather than removing it: `actorMayUse()` lets R08 use a manager-gated row ONLY when
-صاحب العلاقة has no live manager (none, inactive, or deleted) and R08 is not an interested party itself. A live
-manager still owns the step exclusively; approvals stay role-segregated. **Bug fixed alongside:** an R08 filer
-re-submitting its own returned request matched both `submit` rows (creator row + R08 exception) → "ambiguous";
-now the normal-path row wins when exactly one non-exception row is allowed. Verify: DirectManagerRoutingTest's
-two no-override tests inverted to the new rule, a re-submit test, full PHPUnit, Pint, AGENTS.md bullet updated.
-
----
-### 2026-09-23 EET — Claude — scripts/check-layout.mjs added (the frontend's one automated check)
-
-Built per the plan below; AGENTS.md's build section now points at it. Full run: 29 routes × {375, 768, 1024, 1280,
-1440} × {ar, en}, 430 views incl. every tab, ~12 min. **It fails today, for a real reason:** `/decisions` register
-at 1024px overflows its card in both locales (logged in OPEN_ITEMS.md, not fixed here). Proven both ways: a bogus
-token makes every page fail "landed on /login" instead of passing. **Worth knowing:** with the Chrome now in
-`~/.cache/puppeteer`, dropping the proxy no longer reproduces the 09-22 block, so the proxy stays as insurance, and
-the URL guard is what actually protects the check. Also: this session's Bash/PowerShell sandbox blocks all network
-(even example.com), so the check and `curl abusaleem.test` need the sandbox off; Homestead itself was fine.
-
----
-### 2026-09-23 EET — Claude — Implementation plan: save the headless-Chrome layout check as scripts/check-layout.mjs
-
-Two sessions (2026-09-22) each wrote a throwaway Puppeteer sweep for sideways overflow; one found the SPA
-silently bounces to /login when Chrome blocks `localhost:5173 → abusaleem.test`, so a naive sweep "passes" on
-the login page. Plan: one `scripts/check-layout.mjs`, **no new dependency** — Puppeteer is resolved from the
-npx cache (mermaid-cli already put it there) or `PUPPETEER_PATH`. It logs in as R08 via Node `fetch`, serves
-every API call from Node through `setRequestInterception`, reads the static routes from `router/index.js`
-(so it cannot drift from the route table), and fails any page whose final URL is not the one requested.
-Desktop widths check page- and element-level overflow; 375/768 check the page only (in-card table scroll is
-accepted there). Verify: run it against Homestead + `npm run dev`, and prove it fails on an injected overflow.
-
----
-### 2026-09-23 EET — Claude — Vulnerable dependencies patched; now on Laravel 12.61.1
-
-Built per the plan below: laravel/framework 11.55.0 → **12.61.1**, guzzle 7.15.1 → 7.15.5, commonmark
-2.8.3 → 2.10.3 (both came in through the same `-W` resolve), and nanoid/postcss via `npm audit fix` (lockfile
-only). `composer audit` and `npm audit` both report zero. **No application code changed**: none of the Laravel 12
-breaking-change surfaces apply here (no `HasUuids`, no `image` rule, and the `local` disk root is already explicit).
-Full suite **741 / 4738**, the same as the Laravel 11 baseline taken first. `npm run build` passes (`dist` reverted).
-Pint only flags the pre-existing `scripts/build-guide-pdf.php`. **Gotcha:** 12.61 moved
-`ReflectsClosures` to `Illuminate\Reflection`, and the first `composer require` left a stale optimized classmap
-(fatal "trait not found"); a plain `composer install` re-dumped it. **The next cPanel release must ship the new `vendor/`.**
-The host still needs only PHP ≥ 8.2. Homestead was down, so there was no live HTTP smoke run. Machine-level:
-global Composer TLS re-enabled, and Composer itself was self-updated 2.7.6 → 2.10.3; the old version was also flagged by `diagnose`.
-
----
-### 2026-09-23 EET — Claude — Implementation plan: patch vulnerable dependencies (Laravel 11 → 12)
-
-`composer audit`: 15 advisories in laravel/framework, guzzlehttp/guzzle, league/commonmark; `npm audit`
-(frontend): nanoid (high), postcss (moderate). **laravel/framework has no fixed 11.x release** — every
-advisory is fixed only in ≥12.60/12.61.1 or 13.x, and 13 needs PHP 8.3 (this machine: 8.2.12), so the
-fix is `laravel/framework ^12.61.1` plus whatever 12 needs of its companions, then `composer update`
-for guzzle/commonmark and `npm audit fix` in `frontend/`. Machine-level: the global Composer config had
-`disable-tls=true`/`secure-http=false`; both were unset *before* downloading anything. Verify: both
-audits clean, full PHPUnit, Pint, `npm run build` (revert `dist`).
-
----
-### 2026-09-23 EET — Claude — Agent-tooling cleanup complete
-
-Built per the plan below. This file went 1.37 MB → 148 KB: 31 entries kept, 197 moved unedited into
-`agent-notes-archive/2026-07|08|09.md` (the script refuses to write unless kept + moved reproduces the original body
-byte for byte; entry counts 228 = 31 + 197; a rerun is a no-op). **Search the archive before concluding history is
-missing** — AGENTS.md now says so. `graphify-out/20*/` snapshots are untracked (15 files) and ignored;
-`.git-ftp-ignore` now skips graphify-out, tests, scripts, `.claude`, the archive and the root planning docs.
-`scripts/check-locale-parity.mjs` reports 2011 keys each side; in `--hook` mode it was proven to exit 2 on a probe
-key and 0 on non-locale files. Hooks: parity after `Edit|Write`, `graphify update .` on Stop (confirmed it runs).
-No PHP/Vue touched, so no PHPUnit/Pint/build run was warranted.
-
----
-### 2026-09-23 EET — Claude — Implementation plan: agent-tooling cleanup (notes archive, ignores, skills, hooks)
-
-User approved: this file was 1.37 MB (~340K tokens) and `CLAUDE.md` imports it every session. Plan: new
-`scripts/archive-agent-notes.mjs` keeps it under 150 KB by moving the oldest entries **unedited** into tracked
-`agent-notes-archive/YYYY-MM.md` (not `docs/` — that folder is git-ignored, so Codex would never see it); AGENTS.md's
-"never prune" rule becomes "never edit or delete; archive past 150 KB". Also: stop tracking dated
-`graphify-out/20*/` snapshots, widen `.git-ftp-ignore`, add `scripts/check-locale-parity.mjs`, four project skills
-(`plan-stage`, `verify-and-commit`, `new-screen`, `cpanel-release`) and two hooks (parity after locale edits,
-`graphify update .` on Stop). Verify: the script's own byte-identity check, parity script exit codes, settings JSON.
-
----
-### 2026-09-22 EET — Claude — A concluded meeting is read-only (complete)
-
-Built per the plan below: one guard in `CheckMeetingMembership` (any non-safe method on a `completed` meeting → 422
-`meeting`). New `ConcludedMeetingTest`; `MeetingReadinessTest`'s "convene refused once not scheduled" case now uses a
-`cancelled` meeting, since a completed one is refused by the new guard first. Full suite 741/4738 green, Pint clean.
-No frontend change: edit buttons on a completed meeting still render and now surface the Arabic 422.
-
----
-### 2026-09-22 EET — Claude — Implementation plan: a concluded meeting is read-only
-
-User: "a meeting that has concluded should not be modified in any way". Plan: every meeting-bound route already
-passes through `CheckMeetingMembership` (`meeting.member`), so one guard there refuses any non-read request on a
-meeting whose `status` is `completed` (422, Arabic) — covers update/delete, attendees, agenda, readiness, live
-runner, votes/decisions, conflict declarations, memo and minutes in one place. **Deliberately exempt:**
-`outputs/{item}/execute` (not behind `meeting.member`; execution happens after the sitting by design). `cancelled`
-is not treated as concluded. Verify: new feature test, full suite, Pint.
-
----
-### 2026-09-22 EET — Claude — No sideways scrolling on desktop (≥1024px)
-
-User: side-scrolling pages are not acceptable on desktop. Plan and result, CSS only: the eight views that forced
-`.data-table { min-width: 720–1150px }` now apply it only under `@media (max-width: 1023px)` (phones keep the
-in-card scroll the entry below accepted), `style.css` lets `th` wrap, breaks long cell text anywhere and wraps `.tabs`
-from 1024px up, and DecisionsView's 13-number vote tally lost its `nowrap` (it alone held the register at 893px in a
-670px card). Verified in headless Chrome: 29 screens × {1024, 1280, 1440} × {AR, EN}, plus every tab of registers
-(12), reports, decisions — zero page- or element-level horizontal overflow. **Gotcha:** current Chrome blocks
-`localhost:5173 → abusaleem.test` in Puppeteer (`ERR_NETWORK_ACCESS_DENIED`, the disable-features flags didn't help)
-and the SPA silently bounces to /login, so a naive sweep "passes" on the login page — proxy the API through
-`page.setRequestInterception` + Node `fetch` instead, and assert the URL isn't /login.
-
----
-### 2026-09-22 EET — Claude — SPA made responsive / mobile-friendly (CSS only)
-
-User request: "turn this system responsive and mobile friendly". Plan: the shell already had an off-canvas
-sidebar below 1024px and the viewport meta, so this is a CSS pass on what breaks at 375px, not a rebuild.
-Done: one `@media (max-width: 640px)` block in `style.css` (tighter `.card-pad`/`.page`/table cells,
-stacked `.heading`, single-column `.field-grid`, scrollable modals with wrapping actions, 2.75rem `.btn`,
-and a 16px floor on form fields — `!important` because scoped `font: inherit` rules outrank it, and iOS
-zooms any field under 16px); `.shell` gets `100dvh`; the topbar tightens and truncates a long title; the
-four tables with no horizontal scroll (Users, Departments, both in MeetingsView) now scroll sideways; and
-every `auto-fit` grid minimum of 220–300px became `min(Npx, 100%)` so it can't exceed the phone width.
-**Deliberately not done:** wide registers stay tables that scroll sideways (card layouts would be a rewrite
-of 16 views). `npm run build` passes (`dist` reverted); Verified afterwards in headless Chrome (Puppeteer from
-the npx cache): 29 screens × {375, 768}px × {AR, EN} = 116 page views with no page-level sideways overflow, and
-the drawer opens/closes on the correct side in both languages. That pass found **a real pre-existing bug, fixed**:
-AppSidebar's `:global(html[dir='rtl']) .sidebar.mobile` compiled to a bare `html[dir='rtl']` (Vue drops
-everything after `:global()`), so below 1024px in Arabic the whole document was translated off-screen — every
-page blank since the 2026-07-30 shell restyle. Now `:root[dir='rtl'] .sidebar.mobile:not(.open)`. **Never put a
-descendant selector after `:global()` in a scoped block.** The dashboard trend also scrolls in its own card now. Note found in passing: the print
-block's `.shell { height: auto }` is outranked by AppLayout's scoped `.shell[data-v]`, pre-existing and untouched.
 
 ---

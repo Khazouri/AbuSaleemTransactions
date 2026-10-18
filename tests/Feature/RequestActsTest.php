@@ -76,11 +76,12 @@ class RequestActsTest extends TestCase
         $this->assertSame('توجد إحالة للاعتماد لم تثبت نتيجتها بعد.', $referrals->refusalReason($file->fresh()));
     }
 
-    public function test_the_soundness_certification_is_the_rapporteurs_and_not_hrs(): void
+    /** 2026-10-18 — no execution leg, so Art. 103's checklist is nobody's act. */
+    public function test_the_soundness_certification_is_no_longer_offered(): void
     {
         $file = $this->fileAt('final_approval_archiving', 'final_approved', decided: true);
 
-        $this->assertContains('execution_soundness', $this->available($this->userWithRole('R02'), $file));
+        $this->assertNotContains('execution_soundness', $this->available($this->userWithRole('R02'), $file));
         $this->assertNotContains('execution_soundness', $this->available($this->userWithRole('R12'), $file));
     }
 

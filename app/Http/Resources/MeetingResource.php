@@ -37,6 +37,14 @@ class MeetingResource extends JsonResource
             ] : null),
             // Stage 99 — Art. 84's «اعتماد جدول الأعمال» (Appendix 6 row 8).
             'agenda_adopted_at' => $this->agenda_adopted_at?->toIso8601String(),
+            // 2026-10-18 — the paper sitting: when the مقرر entered its results,
+            // and whether its scanned محضر is there to download.
+            'results_recorded_at' => $this->results_recorded_at?->toIso8601String(),
+            'results_recorded_by' => $this->whenLoaded('resultsRecordedBy', fn () => $this->resultsRecordedBy ? [
+                'id' => $this->resultsRecordedBy->id,
+                'name' => $this->resultsRecordedBy->name,
+            ] : null),
+            'has_minutes_file' => $this->minutes_file_path !== null,
             'agenda_adopted_by' => $this->whenLoaded('agendaAdoptedBy', fn () => $this->agendaAdoptedBy ? [
                 'id' => $this->agendaAdoptedBy->id,
                 'name' => $this->agendaAdoptedBy->name,

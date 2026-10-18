@@ -58,6 +58,7 @@ use App\Services\RequestSuspensionService;
 use App\Services\RequestTimelineCompiler;
 use App\Services\RequestVisibility;
 use App\Services\StepChecklistService;
+use App\Services\Tasks\MeetingDuties;
 use App\Services\Tasks\RequestActs;
 use App\Services\WorkflowService;
 use DomainException;
@@ -88,6 +89,21 @@ class RequestController extends Controller
      * endpoint behind it can never disagree about an open return.
      */
     public const APPROVAL_RETURN_BLOCK_MESSAGE = 'لا يعتمد المحضر المعاد من جهة الاعتماد قبل إثبات إجراء إعادة المعالجة.';
+
+    /**
+     * The paper sitting (user decision 2026-10-18): جهة الاعتماد decides a
+     * recommended file from its meeting's page, next to the committee's توصية
+     * and the محضر, where the minister's paper قرار is attached too. The
+     * request page and the approval queue therefore refuse the decision, and
+     * MeetingResultsController::authorityDecision() takes it instead.
+     */
+    public static function authorityStageRefusal(Request $requestRecord, string $action): ?string
+    {
+        return in_array($action, ['approve', 'reject'], true)
+            && array_key_exists((string) $requestRecord->currentStage()->value('code'), MeetingDuties::AUTHORITY_STAGES)
+            ? 'يُسجَّل قرار جهة الاعتماد من صفحة الاجتماع.'
+            : null;
+    }
 
     /**
      * Stage 78 — [D] Appendix 63's own sentence, enforced: "وتمنع المنظومة
@@ -173,6 +189,10 @@ class RequestController extends Controller
      */
     private function blockReason(Request $requestRecord, string $action, bool $hasOpenApprovalReturn): ?string
     {
+        if (($meetingPage = self::authorityStageRefusal($requestRecord, $action)) !== null) {
+            return $meetingPage;
+        }
+
         // Stage 54 — [D] Art. 45's jurisdiction test must be answered before
         // requirements_check's classifying outcomes (approve / declare no
         // jurisdiction / formal rejection) can be taken; return_missing_docs
@@ -916,7 +936,8 @@ class RequestController extends Controller
         $requestRecord->loadMissing('status:id,code');
 
         try {
-            $closure->archive($requestRecord, $request->user(), $file, $request->validated('location'));
+            // archive() works on its own locked copy, and may close the file.
+            $requestRecord = $closure->archive($requestRecord, $request->user(), $file, $request->validated('location'));
         } catch (DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }

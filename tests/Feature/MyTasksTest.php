@@ -266,15 +266,19 @@ class MyTasksTest extends TestCase
         $this->assertContains('close_meeting', $actions($seats['rapporteur']));
     }
 
-    public function test_the_execution_soundness_certification_goes_to_the_rapporteur_and_execution_to_hr(): void
+    /**
+     * 2026-10-18 — no execution leg: an approved file is archived, not
+     * certified for execution. A file already in execution is still HR's.
+     */
+    public function test_no_soundness_certification_is_owed_and_a_legacy_execution_goes_to_hr(): void
     {
         $rapporteur = $this->userWithRole('R02');
         $hr = $this->userWithRole('R12');
         $this->requestAt('final_approval_archiving', 'final_approved', $this->userWithRole('R01'));
         $executing = $this->decidedRequestAt('final_approval_archiving', 'in_execution');
 
-        $this->assertContains('execution_soundness', $this->postDecisionActions($rapporteur));
-        $this->assertNotContains('execution_soundness', $this->postDecisionActions($hr), 'HR holds no certification grant');
+        $this->assertNotContains('execution_soundness', $this->postDecisionActions($rapporteur));
+        $this->assertNotContains('execution_soundness', $this->postDecisionActions($hr));
 
         $sources = $this->inbox($hr);
         $task = collect($sources['post_decision']['tasks'])->firstWhere('action', 'execute');

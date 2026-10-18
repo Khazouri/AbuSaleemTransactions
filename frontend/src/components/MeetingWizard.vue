@@ -1,8 +1,8 @@
 <script setup>
 /**
  * Decision wizard — sub-project 2: the meeting's own acts — answering the
- * proposed date, adopting the agenda, convening, preparing / approving /
- * returning / signing the minutes, and closing. Review the sitting and its
+ * proposed date, adopting the agenda, entering the paper sitting's results
+ * (2026-10-18), and the in-system minutes still open on older meetings. Review the sitting and its
  * five seats, check what the act rests on (readiness before convening, the
  * reviewer's own control before approving), choose, then confirm as a line in
  * the session register.
@@ -12,6 +12,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import MeetingResultsForm from './MeetingResultsForm.vue'
 import SeatStrip from './SeatStrip.vue'
 import WizardShell from './WizardShell.vue'
 import WizardSlip from './WizardSlip.vue'
@@ -40,6 +41,8 @@ const REQUESTS = {
   return_minutes: (id, note) => api.post(`/meetings/${id}/minutes/review`, { decision: 'changes_requested', comment: note }),
   sign_minutes: (id) => api.post(`/meetings/${id}/minutes/sign`),
   close: (id) => api.put(`/meetings/${id}`, { status: 'completed' }),
+  // 2026-10-18 — the paper sitting's results and its محضر, in one submit.
+  record_results: (id, note, checked, results) => api.post(`/meetings/${id}/results`, results),
 }
 // The acts whose slip carries a written reason or note.
 const TAKES_NOTE = ['convene', 'return_minutes']
@@ -59,6 +62,11 @@ onMounted(async () => {
     ])
     meeting.value = meetingData.data
     readiness.value = readinessResponse?.data?.data ?? null
+    resultRows.value = Object.fromEntries((meeting.value.agenda_items ?? []).map((item) => [item.id, {
+      recommendation: '',
+      approving_authority: item.request?.suggested_authority ?? 'dean',
+      note: '',
+    }]))
   } catch (requestError) {
     loadError.value = firstError(requestError, t('requestDetail.loadFailed'))
   }
@@ -88,11 +96,31 @@ watch(choices, (list) => {
 
 const note = ref('')
 const reviewerChecked = ref(false)
+// 2026-10-18 — MeetingResultsForm's state: agenda item id => its row.
+const resultRows = ref({})
+const minutesFile = ref(null)
+const resultsComplete = computed(() => Boolean(minutesFile.value)
+  && Object.values(resultRows.value).length > 0
+  && Object.values(resultRows.value).every((row) => row.recommendation
+    && (row.recommendation === 'defer' || row.approving_authority)
+    && (row.recommendation === 'approve' || row.note.trim())))
+
+function resultsPayload() {
+  const form = new FormData()
+  form.append('minutes_file', minutesFile.value)
+  for (const [id, row] of Object.entries(resultRows.value)) {
+    form.append(`items[${id}][recommendation]`, row.recommendation)
+    if (row.recommendation !== 'defer') form.append(`items[${id}][approving_authority]`, row.approving_authority)
+    if (row.note.trim()) form.append(`items[${id}][note]`, row.note.trim())
+  }
+  return form
+}
 const submitting = ref(false)
 const error = ref('')
 const submitDisabled = computed(() => !choice.value
   || (choice.value.requiresComment && !note.value.trim())
-  || (choice.value.action === 'approve_minutes' && !reviewerChecked.value))
+  || (choice.value.action === 'approve_minutes' && !reviewerChecked.value)
+  || (choice.value.action === 'record_results' && !resultsComplete.value))
 
 // pending_confirmation → meetings.statusPendingConfirmation
 const statusLabel = (status) => t(`meetings.status${status.replace(/(^|_)(\w)/g, (_, __, c) => c.toUpperCase())}`)
@@ -105,7 +133,12 @@ async function submit() {
   submitting.value = true
   error.value = ''
   try {
-    await REQUESTS[choice.value.action](props.meetingId, note.value.trim(), reviewerChecked.value)
+    await REQUESTS[choice.value.action](
+      props.meetingId,
+      note.value.trim(),
+      reviewerChecked.value,
+      choice.value.action === 'record_results' ? resultsPayload() : null,
+    )
     emit('updated')
     emit('close')
   } catch (requestError) {
@@ -213,6 +246,13 @@ async function submit() {
           <textarea v-model="note" rows="3" maxlength="5000" :required="choice.requiresComment" :disabled="submitting" />
         </label>
       </WizardSlip>
+      <MeetingResultsForm
+        v-if="choice?.action === 'record_results' && meeting"
+        v-model:rows="resultRows"
+        v-model:minutes="minutesFile"
+        :items="meeting.agenda_items ?? []"
+        :disabled="submitting"
+      />
       <!-- F8 — otherwise Submit is silently disabled with no explanation. -->
       <p v-if="choice?.action === 'approve_minutes' && !reviewerChecked" class="hint">
         {{ t('decisionWizard.checks.reviewerRequired') }}

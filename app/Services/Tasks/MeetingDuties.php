@@ -2,6 +2,7 @@
 
 namespace App\Services\Tasks;
 
+use App\Http\Controllers\Api\RequestController;
 use App\Models\CommitteeMember;
 use App\Models\Meeting;
 use App\Models\MeetingMinutes;
@@ -9,7 +10,7 @@ use App\Models\MeetingRequest;
 use App\Models\User;
 use App\Services\DecisionEligibility;
 use App\Services\DecisionTally;
-use App\Services\MeetingReadinessService;
+use App\Services\MeetingVisibility;
 use App\Services\MinutesQualityRules;
 
 /**
@@ -30,8 +31,11 @@ class MeetingDuties
         private readonly DecisionEligibility $eligibility,
         private readonly DecisionTally $tally,
         private readonly MinutesQualityRules $quality,
-        private readonly MeetingReadinessService $readiness,
+        private readonly MeetingVisibility $visibility,
     ) {}
+
+    /** The two stages where جهة الاعتماد decides, and the role that decides at each. */
+    public const AUTHORITY_STAGES = ['approval_by_authority' => 'R07', 'local_governance_ministry' => 'R06'];
 
     // --- Refusals the endpoints call ------------------------------------------
 
@@ -95,6 +99,95 @@ class MeetingDuties
         }
 
         return null;
+    }
+
+    /**
+     * MeetingResultsController::store() — the paper sitting (user decision
+     * 2026-10-18). The مقرر seated on this committee enters what the committee
+     * recommended, once the meeting's confirmed date has come.
+     */
+    public function recordResultsRefusal(Meeting $meeting, User $actor): ?string
+    {
+        if ($meeting->results_recorded_at !== null) {
+            return 'تم إدخال نتائج هذا الاجتماع بالفعل.';
+        }
+
+        if ($meeting->status !== 'scheduled') {
+            return 'لا تدخل نتائج اجتماع لم يتأكد موعده.';
+        }
+
+        if ($meeting->scheduled_at->isFuture()) {
+            return 'لا تدخل نتائج الاجتماع قبل موعده.';
+        }
+
+        // The seated row, not Committee::seatRapporteur(), which re-seats as a
+        // side effect and has no place in a refusal.
+        if ($meeting->committee?->members()->where('seat', 'rapporteur')->value('user_id') !== $actor->id) {
+            return 'يدخل مقرر اللجنة نتائج الاجتماع.';
+        }
+
+        if (! $meeting->agendaItems()->exists()) {
+            return 'لا توجد بنود في جدول أعمال هذا الاجتماع.';
+        }
+
+        if ($meeting->agendaItems()->where('item_type', 'appeal')->exists()) {
+            return 'لا تعرض التظلمات في الاجتماع الورقي؛ احذف التظلم من جدول الأعمال أولاً.';
+        }
+
+        // A sitting begun in the system before the paper path keeps what it
+        // already decided; it is not entered a second time.
+        if ($meeting->agendaItems()->whereHas('decision')->exists()) {
+            return 'في جدول الأعمال بند سجل قراره بالفعل.';
+        }
+
+        return null;
+    }
+
+    /**
+     * MeetingResultsController::authorityDecision(). The committee only
+     * recommends: العميد decides a dean file, and مكتب العميد (R06) records
+     * the minister's paper قرار on a minister file, each on the file this
+     * meeting recommended on.
+     */
+    public function authorityDecisionRefusal(MeetingRequest $item, User $actor): ?string
+    {
+        $file = $item->request;
+        if ($file === null || $item->meeting->results_recorded_at === null
+            || ! in_array($item->decision?->outcome, ['approve', 'reject'], true)) {
+            return 'لا توجد توصية من هذا الاجتماع بانتظار قرار جهة الاعتماد.';
+        }
+
+        $role = self::AUTHORITY_STAGES[$file->currentStage()->value('code')] ?? null;
+        if ($role === null) {
+            return 'ليس هذا الطلب بانتظار قرار جهة الاعتماد.';
+        }
+
+        if (! $actor->hasRole($role)) {
+            return $role === 'R07' ? 'يتخذ العميد قرار هذا الطلب.' : 'يثبت مكتب العميد قرار الوزير على هذا الطلب.';
+        }
+
+        // Art. 94 — a محضر the authority sent back is re-processed first.
+        if ($file->openApprovalReturn()->exists()) {
+            return RequestController::APPROVAL_RETURN_BLOCK_MESSAGE;
+        }
+
+        // Art. 105 and Appendix 60, as at every approve.
+        return RequestController::controlGateRefusal($file, 'approve');
+    }
+
+    /**
+     * @return array{available: list<array<string, mixed>>, blocked: list<array{action: string, reason: string}>}
+     */
+    public function forAuthority(MeetingRequest $item, User $actor): array
+    {
+        $duties = ['available' => [], 'blocked' => []];
+        if ($this->visibility->isAuthority($actor)) {
+            $this->offer($duties, 'authority_decision', $this->authorityDecisionRefusal($item, $actor), false, [
+                'authority' => $item->request?->approving_authority ?? 'dean',
+            ]);
+        }
+
+        return $duties;
     }
 
     /**
@@ -180,11 +273,12 @@ class MeetingDuties
             $this->offer($duties, 'adopt_agenda', $this->adoptRefusal($meeting));
         }
 
-        if ($open && $meeting->convened_at === null
-            && $actor->hasScreenPermission('meeting_readiness', 'can_edit')) {
-            $refusal = $this->conveneRefusal($meeting);
-            // A reason is owed only for overriding readiness.
-            $this->offer($duties, 'convene', $refusal, $refusal === null && ! $this->readiness->compute($meeting)['ready']);
+        // The paper sitting (2026-10-18) replaces convening, the in-system
+        // votes and closing: the مقرر enters the results once, which concludes
+        // the meeting. Offered to the seated مقرر alone.
+        if ($meeting->status === 'scheduled' && $meeting->results_recorded_at === null
+            && $meeting->committee?->members->contains(fn ($member) => $member->seat === 'rapporteur' && $member->user_id === $actor->id)) {
+            $this->offer($duties, 'record_results', $this->recordResultsRefusal($meeting, $actor));
         }
 
         // The minutes' moment, as the inbox reads it: the sitting was opened and
@@ -212,11 +306,6 @@ class MeetingDuties
             && $minutes->signatures->contains(fn ($signature) => $signature->user_id === $actor->id && $signature->signed_at === null)
             && $actor->hasScreenPermission('meeting_minutes', 'can_add')) {
             $this->offer($duties, 'sign_minutes', null);
-        }
-
-        if ($meeting->status === 'scheduled' && $meeting->convened_at !== null
-            && $actor->hasScreenPermission('meetings', 'can_edit')) {
-            $this->offer($duties, 'close', $this->closeRefusal($meeting));
         }
 
         return [...$duties, 'seats' => $this->seats($meeting, $this->meetingSeatState($meeting))];

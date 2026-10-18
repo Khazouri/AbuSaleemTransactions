@@ -309,6 +309,37 @@ class WorkflowService
     }
 
     /**
+     * The paper sitting (user decision 2026-10-18): the مقرر enters, after the
+     * fact, the توصية the committee reached on paper, and the file takes the
+     * committee stage's own seeded row for it (`approve`, `reject_by_committee`
+     * or `defer`). Those rows name the chair, who no longer records anything,
+     * so the caller vouches for the actor — MeetingDuties::recordResultsRefusal()
+     * has already checked they are this meeting's مقرر. The row and the file's
+     * position are still checked, under the caller's lock.
+     *
+     * Must run inside the caller's transaction, on a row it locked.
+     *
+     * @throws WorkflowTransitionException
+     */
+    public function applyCommitteeRecommendation(Request $lockedRequest, string $action, User $actor, ?string $comment): Request
+    {
+        if ($lockedRequest->currentStage()->value('code') !== 'receive_from_committee' || $this->hasTerminalStatus($lockedRequest)) {
+            throw WorkflowTransitionException::transitionNotConfigured();
+        }
+
+        $rule = $this->pickRule($this->transitionCandidates($lockedRequest, $action));
+        if ($rule === null) {
+            throw WorkflowTransitionException::ambiguousConfiguration();
+        }
+
+        [$movedRequest, $fromStage, $toStage] = $this->applyRule($lockedRequest, $rule, $action, $actor, filled($comment) ? trim($comment) : null);
+
+        $this->notifications->stageChanged($movedRequest, $actor, $action, $fromStage, $toStage);
+
+        return $movedRequest;
+    }
+
+    /**
      * العميد has no direct manager to approve his own file (user decision
      * 2026-10-07): when it lands on `direct_manager_review` — at intake or
      * on re-submit after a return — it takes that stage's own seeded
@@ -812,12 +843,14 @@ class WorkflowService
     }
 
     /**
-     * A plain approve arrives as بانتظار الاعتماد المركزي (Art. 31) at the
-     * ministry; a conditional one keeps its own `approved_with_conditions`.
+     * A plain approve, or a decline the minister is to decide (2026-10-18:
+     * the committee only recommends), arrives as بانتظار الاعتماد المركزي
+     * (Art. 31) at the ministry; a conditional one keeps its own
+     * `approved_with_conditions`.
      */
     private function destinationStatusId(Request $requestRecord, WorkflowTransition $rule): ?int
     {
-        if (! $this->routesToMinister($requestRecord, $rule) || $rule->action !== 'approve') {
+        if (! $this->routesToMinister($requestRecord, $rule) || $rule->action === 'conditional_approve') {
             return $rule->set_status_id;
         }
 
@@ -827,7 +860,7 @@ class WorkflowService
     private function routesToMinister(Request $requestRecord, WorkflowTransition $rule): bool
     {
         return $requestRecord->approving_authority === 'minister'
-            && in_array($rule->action, ['approve', 'conditional_approve'], true)
+            && in_array($rule->action, ['approve', 'conditional_approve', 'reject_by_committee'], true)
             && $rule->fromStage()->value('code') === 'receive_from_committee';
     }
 

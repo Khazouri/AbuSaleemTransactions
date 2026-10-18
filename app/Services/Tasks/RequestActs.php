@@ -10,7 +10,6 @@ use App\Models\User;
 use App\Services\ApprovalReferralService;
 use App\Services\ApprovalReturnService;
 use App\Services\EmployeeNoticeService;
-use App\Services\ExecutionSoundnessService;
 use App\Services\Lifecycle\CorrectionRules;
 use App\Services\Lifecycle\WithdrawalService;
 use App\Services\RequestClosureService;
@@ -69,10 +68,8 @@ class RequestActs
         $open = $r->closed_at === null;
         $closable = $open && in_array($status, RequestClosureService::CLOSABLE_STATUSES, true);
 
-        // Art. 103 — "قبل إحالة النتيجة للتنفيذ", so only while final_approved.
-        if ($edit && $stage === ExecutionSoundnessService::GATED_STAGE && $status === 'final_approved') {
-            $this->offer($acts, 'after_decision', 'execution_soundness', null);
-        }
+        // 2026-10-18 — no execution leg: an approved file goes straight to its
+        // archives, so Art. 103's soundness checklist is no longer offered.
 
         // markExecuted() refuses anything short of in_execution with its own
         // message, so outside that state execute is "not now", never blocked.
