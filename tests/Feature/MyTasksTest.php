@@ -111,7 +111,7 @@ class MyTasksTest extends TestCase
 
         $sources = array_keys($this->inbox($this->userWithRole('R01')));
 
-        foreach (['approval', 'candidate', 'legal_review', 'vote', 'minutes_signature'] as $code) {
+        foreach (['approval', 'candidate', 'legal_review'] as $code) {
             $this->assertNotContains($code, $sources);
         }
     }
@@ -194,98 +194,64 @@ class MyTasksTest extends TestCase
         $this->assertArrayNotHasKey('overdue', $this->inbox($this->userWithRole('R02')));
     }
 
-    public function test_the_chair_is_offered_adopting_the_agenda_and_convening_but_a_non_member_is_not(): void
+    public function test_the_chair_is_offered_adopting_the_agenda_but_a_non_member_is_not(): void
     {
         [$meeting, $seats] = $this->meetingWithSeats(['status' => 'scheduled', 'scheduled_at' => now()]);
         MeetingRequest::create(['meeting_id' => $meeting->id, 'agenda_order' => 1, 'item_type' => 'employee_request']);
 
         $sources = $this->inbox($seats['chair']);
-        $actions = collect($sources['meeting_duty']['tasks'])->pluck('action');
-        $this->assertContains('adopt_agenda', $actions);
-        $this->assertContains('convene', $actions);
         $this->assertLinksAreOpenable($seats['chair'], $sources);
 
         // Decision wizard, sub-project 2 — a meeting's duties are taken on its detail page.
-        $task = collect($sources['meeting_duty']['tasks'])->firstWhere('action', 'convene');
+        $task = collect($sources['meeting_duty']['tasks'])->firstWhere('action', 'adopt_agenda');
         $this->assertSame('meeting_details', $task['route']['name']);
         $this->assertSame(['id' => $meeting->id], $task['route']['params']);
         $this->assertSame(['decide' => 1], $task['route']['query']);
 
         $this->assertArrayNotHasKey('meeting_duty', $this->inbox($this->userWithRole('R03')));
-
-        // A sitting weeks away is not today's work.
-        $meeting->update(['scheduled_at' => now()->addWeeks(3)]);
-        $this->assertNotContains('convene', collect($this->inbox($seats['chair'])['meeting_duty']['tasks'])->pluck('action'));
     }
 
-    public function test_the_chair_is_offered_recording_a_voted_decision_and_the_rapporteur_is_not(): void
+    /** The paper sitting (2026-10-18): once the day has come, the seated مقرر owes the results. */
+    public function test_the_seated_rapporteur_is_offered_recording_the_results_once_the_day_has_come(): void
     {
         [$meeting, $seats] = $this->meetingWithSeats([
-            'status' => 'scheduled', 'scheduled_at' => now(), 'convened_at' => now(), 'agenda_adopted_at' => now(),
+            'status' => 'scheduled', 'scheduled_at' => now()->addWeek(), 'agenda_adopted_at' => now(),
         ]);
-        $file = $this->requestAt('receive_from_committee', 'ready', $this->userWithRole('R01'));
-        $item = MeetingRequest::create([
-            'meeting_id' => $meeting->id, 'request_id' => $file->id, 'agenda_order' => 1, 'item_type' => 'employee_request',
-        ]);
-        $item->forceFill(['study_sequence_completed_at' => now()])->save();
-        DB::table('votes')->insert([
-            'meeting_request_id' => $item->id, 'user_id' => $seats['legal']->id, 'vote' => 'approve', 'voted_at' => now(),
-        ]);
-
-        $task = collect($this->inbox($seats['chair'])['meeting_duty']['tasks'])->firstWhere('action', 'record_decision');
-        $this->assertNotNull($task);
-        $this->assertSame(['meeting' => $meeting->id, 'item' => $item->id, 'decide' => 1], $task['route']['query']);
-
-        $rapporteurActions = collect($this->inbox($seats['rapporteur'])['meeting_duty']['tasks'] ?? [])->pluck('action');
-        $this->assertNotContains('record_decision', $rapporteurActions);
-    }
-
-    /** Generate → review → close the sitting, each offered only while it is the next step. */
-    public function test_the_minutes_duties_follow_one_another(): void
-    {
-        [$meeting, $seats] = $this->meetingWithSeats([
-            'status' => 'scheduled', 'scheduled_at' => now()->subHour(), 'convened_at' => now()->subHour(), 'agenda_adopted_at' => now(),
-        ]);
-        MeetingRequest::create(['meeting_id' => $meeting->id, 'agenda_order' => 1, 'item_type' => 'employee_request', 'item_state' => 'complete']);
+        $file = $this->requestAt('receive_from_committee', 'on_agenda', $this->userWithRole('R01'));
+        MeetingRequest::create(['meeting_id' => $meeting->id, 'request_id' => $file->id, 'agenda_order' => 1, 'item_type' => 'employee_request']);
         $actions = fn (User $user) => collect($this->inbox($user)['meeting_duty']['tasks'] ?? [])->pluck('action')->all();
 
-        $this->assertContains('generate_minutes', $actions($seats['rapporteur']));
-        $this->assertNotContains('review_minutes', $actions($seats['chair']));
+        $this->assertNotContains('record_results', $actions($seats['rapporteur']), 'the meeting has not been held yet');
 
-        $minutesId = DB::table('meeting_minutes')->insertGetId(['meeting_id' => $meeting->id, 'status' => 'draft']);
-        $this->assertNotContains('generate_minutes', $actions($seats['rapporteur']));
-        $this->assertContains('review_minutes', $actions($seats['chair']));
-        $this->assertNotContains('review_minutes', $actions($seats['rapporteur']), 'R02 holds no review grant');
+        $meeting->update(['scheduled_at' => now()->subHour()]);
+        $sources = $this->inbox($seats['rapporteur']);
+        $task = collect($sources['meeting_duty']['tasks'])->firstWhere('action', 'record_results');
+        $this->assertSame('meeting_details', $task['route']['name']);
+        $this->assertSame(['id' => $meeting->id], $task['route']['params']);
+        $this->assertSame(['decide' => 1], $task['route']['query']);
+        $this->assertLinksAreOpenable($seats['rapporteur'], $sources);
+        $this->assertNotContains('record_results', $actions($seats['chair']), 'the مقرر alone enters the results');
 
-        // Sent back: regenerating is the rapporteur's move again.
-        DB::table('meeting_minutes')->where('id', $minutesId)->update(['review_comment' => 'صحح البند الأول']);
-        $this->assertContains('generate_minutes', $actions($seats['rapporteur']));
-        $this->assertNotContains('review_minutes', $actions($seats['chair']));
-
-        DB::table('meeting_minutes')->where('id', $minutesId)->update(['status' => 'approved', 'review_comment' => null]);
-        $this->assertContains('close_meeting', $actions($seats['rapporteur']));
+        $meeting->update(['results_recorded_at' => now()]);
+        $this->assertNotContains('record_results', $actions($seats['rapporteur']));
     }
 
     /**
      * 2026-10-18 — no execution leg: an approved file is archived, not
-     * certified for execution. A file already in execution is still HR's.
+     * certified for execution, and even a file left in execution is nobody's
+     * execution task.
      */
-    public function test_no_soundness_certification_is_owed_and_a_legacy_execution_goes_to_hr(): void
+    public function test_no_soundness_certification_or_execution_is_owed(): void
     {
         $rapporteur = $this->userWithRole('R02');
         $hr = $this->userWithRole('R12');
         $this->requestAt('final_approval_archiving', 'final_approved', $this->userWithRole('R01'));
-        $executing = $this->decidedRequestAt('final_approval_archiving', 'in_execution');
+        $this->decidedRequestAt('final_approval_archiving', 'in_execution');
 
-        $this->assertNotContains('execution_soundness', $this->postDecisionActions($rapporteur));
-        $this->assertNotContains('execution_soundness', $this->postDecisionActions($hr));
-
-        $sources = $this->inbox($hr);
-        $task = collect($sources['post_decision']['tasks'])->firstWhere('action', 'execute');
-        $this->assertSame('request_details', $task['route']['name']);
-        $this->assertSame(['id' => $executing->id], $task['route']['params']);
-        $this->assertSame(['decide' => 'execute'], $task['route']['query']);
-        $this->assertLinksAreOpenable($hr, $sources);
+        foreach ([$rapporteur, $hr] as $actor) {
+            $this->assertNotContains('execution_soundness', $this->postDecisionActions($actor));
+            $this->assertNotContains('execute', $this->postDecisionActions($actor));
+        }
     }
 
     /** Archive first (each file by its owner), then close — never both at once. */

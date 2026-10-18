@@ -20,9 +20,8 @@ use Illuminate\Support\Facades\DB;
  * bucket, so this service *offers* the computed order rather than imposing it:
  * a departure stays legal, and Appendix 24 is what makes it accountable —
  * "ولا يجوز استخدام الأولوية لتجاوز ترتيب المعاملات دون مبرر إداري موثق". The
- * meeting's own `agenda_order_justification` is that record, and
- * MeetingReadinessService refuses to convene without one when the order
- * departs.
+ * meeting's own `agenda_order_justification` is that record; since the
+ * paper sitting (2026-10-18) it is recorded and reported, not enforced.
  *
  * Rank 5 here is therefore not Art. 83's rule 5 but its complement: the items
  * the article does not categorise at all (an administrative or emerging item,

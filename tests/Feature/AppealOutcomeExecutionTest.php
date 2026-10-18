@@ -4,10 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Appeal;
 use App\Models\AppealStatus;
-use App\Models\Committee;
+use App\Models\Decision;
 use App\Models\Department;
-use App\Models\Meeting;
-use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
@@ -16,8 +14,8 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\RecordsStructuredDecisions;
-use Tests\RunsStudySequence;
+use Illuminate\Support\Facades\Storage;
+use Tests\HoldsPaperMeetings;
 use Tests\TestCase;
 
 /**
@@ -27,26 +25,26 @@ use Tests\TestCase;
  * App\Services\AppealOutcomeExecutor). See AGENT_NOTES.md's Stage 64 plan
  * entry for the full per-outcome design and the judgment calls behind it.
  *
- * Recording the committee's vote (R03/R04, `decisions.approve`) and
- * executing its outcome (R02, `appeals.edit`) are two different grants,
- * matching every other Track J action on this screen — so the fixture
- * carries a separate $verifier (R02) alongside the committee's $head/$member.
+ * The committee decides on paper since 2026-10-18 (the مقرر enters the
+ * results); executing the outcome is a separate `appeals.edit` act, so the
+ * fixture returns its own R02 $verifier.
  */
 class AppealOutcomeExecutionTest extends TestCase
 {
-    use RecordsStructuredDecisions;
+    use HoldsPaperMeetings;
     use RefreshDatabase;
-    use RunsStudySequence;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+        Storage::fake('local');
     }
 
     public function test_execution_is_refused_before_the_committee_has_decided(): void
     {
-        [, , , , , $appeal, , $verifier] = $this->appealFixture();
+        $appeal = $this->appealAt($this->userWithRole('R01'), 'legal_review');
+        $verifier = $this->userWithRole('R02');
 
         $this->actingAs($verifier, 'sanctum')
             ->patchJson("/api/appeals/{$appeal->id}/execute-outcome")
@@ -63,7 +61,7 @@ class AppealOutcomeExecutionTest extends TestCase
         $dualRoleAppellant = $this->userWithRole('R01');
         $dualRoleAppellant->roles()->attach(Role::where('code', 'R02')->value('id'));
 
-        [, , , , , $appeal] = $this->decidedAppealFixture('appeal_reject', $dualRoleAppellant);
+        [$appeal] = $this->decidedAppealFixture('appeal_reject', $dualRoleAppellant);
 
         $this->actingAs($dualRoleAppellant, 'sanctum')
             ->patchJson("/api/appeals/{$appeal->id}/execute-outcome")
@@ -72,7 +70,7 @@ class AppealOutcomeExecutionTest extends TestCase
 
     public function test_execution_is_a_one_shot_action(): void
     {
-        [, , , , , $appeal, , $verifier] = $this->decidedAppealFixture('appeal_reject');
+        [$appeal, $verifier] = $this->decidedAppealFixture('appeal_reject');
 
         $this->actingAs($verifier, 'sanctum')
             ->patchJson("/api/appeals/{$appeal->id}/execute-outcome")
@@ -85,7 +83,7 @@ class AppealOutcomeExecutionTest extends TestCase
 
     public function test_a_role_without_appeals_edit_is_refused(): void
     {
-        [, , , , , $appeal] = $this->decidedAppealFixture('appeal_reject');
+        [$appeal] = $this->decidedAppealFixture('appeal_reject');
         $stranger = $this->userWithRole('R01');
 
         $this->actingAs($stranger, 'sanctum')
@@ -95,7 +93,7 @@ class AppealOutcomeExecutionTest extends TestCase
 
     public function test_appeal_accept_withdraws_the_original_decision_and_becomes_terminal(): void
     {
-        [, , , , , $appeal, , $verifier] = $this->decidedAppealFixture('appeal_accept');
+        [$appeal, $verifier] = $this->decidedAppealFixture('appeal_accept');
         $originalRequest = $appeal->originalRequest;
 
         $this->actingAs($verifier, 'sanctum')
@@ -115,7 +113,7 @@ class AppealOutcomeExecutionTest extends TestCase
 
     public function test_appeal_partial_accept_amends_the_original_decision(): void
     {
-        [, , , , , $appeal, , $verifier] = $this->decidedAppealFixture('appeal_partial_accept');
+        [$appeal, $verifier] = $this->decidedAppealFixture('appeal_partial_accept');
         $originalRequest = $appeal->originalRequest;
 
         $this->actingAs($verifier, 'sanctum')
@@ -128,7 +126,7 @@ class AppealOutcomeExecutionTest extends TestCase
 
     public function test_appeal_reject_leaves_the_original_request_completely_untouched(): void
     {
-        [, , , , , $appeal, , $verifier] = $this->decidedAppealFixture('appeal_reject');
+        [$appeal, $verifier] = $this->decidedAppealFixture('appeal_reject');
         $originalRequest = $appeal->originalRequest->fresh();
         $statusId = $originalRequest->status_id;
         $stageId = $originalRequest->current_stage_id;
@@ -144,7 +142,7 @@ class AppealOutcomeExecutionTest extends TestCase
 
     public function test_appeal_refer_sets_referred_to_other_body_without_moving_the_stage_and_stays_non_terminal(): void
     {
-        [, , , , , $appeal, , $verifier] = $this->decidedAppealFixture('appeal_refer');
+        [$appeal, $verifier] = $this->decidedAppealFixture('appeal_refer');
         $originalRequest = $appeal->originalRequest;
         $stageId = $originalRequest->current_stage_id;
 
@@ -160,7 +158,7 @@ class AppealOutcomeExecutionTest extends TestCase
 
     public function test_appeal_redo_requires_a_stage_and_is_refused_for_an_excluded_stage(): void
     {
-        [, , , , , $appeal, , $verifier] = $this->decidedAppealFixture('appeal_redo');
+        [$appeal, $verifier] = $this->decidedAppealFixture('appeal_redo');
 
         $this->actingAs($verifier, 'sanctum')
             ->patchJson("/api/appeals/{$appeal->id}/execute-outcome")
@@ -181,7 +179,7 @@ class AppealOutcomeExecutionTest extends TestCase
 
     public function test_appeal_redo_reopens_the_original_request_at_the_named_stage_with_a_full_audit_trail(): void
     {
-        [, , , , , $appeal, , $verifier] = $this->decidedAppealFixture('appeal_redo');
+        [$appeal, $verifier] = $this->decidedAppealFixture('appeal_redo');
         $originalRequest = $appeal->originalRequest;
         // Stage 102 — reviewer_review is off the path; the مقرر's own check is
         // the earliest stage a redo can name.
@@ -219,61 +217,30 @@ class AppealOutcomeExecutionTest extends TestCase
         $this->assertContains('return_missing_docs', $response->json('data.available_actions'));
     }
 
-    /** @return array{0: User, 1: User, 2: Committee, 3: Meeting, 4: MeetingRequest, 5: Appeal, 6: User, 7: User} */
-    private function appealFixture(?User $appellant = null): array
-    {
-        $head = $this->userWithRole('R03');
-        $member = $this->userWithRole('R04');
-        $verifier = $this->userWithRole('R02');
-
-        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
-        $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
-        $committee->members()->create(['user_id' => $member->id]);
-
-        $meeting = Meeting::create([
-            'committee_id' => $committee->id,
-            'title' => 'اجتماع عرض التظلمات',
-            'scheduled_at' => now()->addDay(),
-            'created_by_user_id' => $head->id,
-        ]);
-        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
-        $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
-
-        $appellant ??= $this->userWithRole('R01');
-        $appeal = $this->appealAt($appellant, 'legal_review');
-
-        $agendaItem = $meeting->agendaItems()->create([
-            'appeal_id' => $appeal->id,
-            'item_type' => 'appeal',
-            'agenda_order' => 1,
-        ]);
-        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
-        // Tests\RunsStudySequence for why it is written directly here.
-        $this->completeStudySequence($agendaItem);
-
-        return [$head, $member, $committee, $meeting, $agendaItem, $appeal, $appellant, $verifier];
-    }
-
-    /** @return array{0: User, 1: User, 2: Committee, 3: Meeting, 4: MeetingRequest, 5: Appeal, 6: User, 7: User} */
+    /** @return array{0: Appeal, 1: User} the committee_presentation appeal and its R02 verifier. */
     private function decidedAppealFixture(string $outcome, ?User $appellant = null): array
     {
-        [$head, $member, $committee, $meeting, $agendaItem, $appeal, $appellant, $verifier] = $this->appealFixture($appellant);
+        $appeal = $this->appealAt($appellant ?? $this->userWithRole('R01'), 'legal_review');
 
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => $outcome])
-            ->assertCreated();
-        $this->actingAs($member, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => $outcome])
-            ->assertCreated();
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload($outcome, ['comment' => 'سبب القرار']))
-            ->assertCreated()
-            ->assertJsonPath('data.outcome', $outcome);
+        $paper = ['appeal_accept' => 'approve', 'appeal_reject' => 'decline'];
+        if (isset($paper[$outcome])) {
+            $this->decideAppealOnPaper($appeal, $paper[$outcome]);
+        } else {
+            // The paper sitting records only accept, reject or defer, but the
+            // executor still carries these outcomes for earlier decisions.
+            [, $meeting] = $this->paperMeeting(0, 'completed');
+            Decision::create([
+                'meeting_request_id' => $this->appealOnAgenda($meeting, $appeal)->id,
+                'outcome' => $outcome,
+                'comment' => 'سبب القرار',
+                'decided_at' => now(),
+            ]);
+            $appeal->update(['appeal_status_id' => AppealStatus::where('code', 'committee_presentation')->value('id')]);
+        }
 
         $this->assertSame('committee_presentation', $appeal->fresh()->status->code);
 
-        return [$head, $member, $committee, $meeting, $agendaItem, $appeal->fresh(), $appellant, $verifier];
+        return [$appeal->fresh(), $this->userWithRole('R02')];
     }
 
     private function requestFixture(User $creator): Request

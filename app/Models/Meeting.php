@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -23,11 +22,6 @@ use Illuminate\Support\Carbon;
  * @property string $meeting_type regular (Stage 102 — the monthly sitting is the only kind;
  *                                extraordinary|emergency survive on older rows)
  * @property Carbon|null $agenda_deadline
- * @property Carbon|null $convened_at
- * @property string|null $readiness_override_reason
- * @property array|null $voting_rules_snapshot Stage 73 — the committee's quorum/majority rules
- *                                             frozen at convene time, so editing the committee
- *                                             card later cannot rewrite a sitting already held.
  */
 class Meeting extends Model
 {
@@ -52,10 +46,6 @@ class Meeting extends Model
         'agenda_order_justification',
         'status',
         'created_by_user_id',
-        'convened_at',
-        'convened_by_user_id',
-        'readiness_override_reason',
-        'voting_rules_snapshot',
         // Stage 99 — Art. 84's «اعتماد جدول الأعمال» (Appendix 6 row 8).
         'agenda_adopted_at',
         'agenda_adopted_by_user_id',
@@ -73,10 +63,8 @@ class Meeting extends Model
             'scheduled_at' => 'datetime',
             'agenda_deadline' => 'datetime',
             'expected_duration_minutes' => 'integer',
-            'convened_at' => 'datetime',
             'agenda_adopted_at' => 'datetime',
             'results_recorded_at' => 'datetime',
-            'voting_rules_snapshot' => 'array',
         ];
     }
 
@@ -100,11 +88,6 @@ class Meeting extends Model
         return $this->belongsTo(User::class, 'rapporteur_user_id');
     }
 
-    public function convenedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'convened_by_user_id');
-    }
-
     public function agendaAdoptedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'agenda_adopted_by_user_id');
@@ -120,15 +103,9 @@ class Meeting extends Model
         return $this->hasMany(MeetingAttendee::class);
     }
 
-    /** The agenda, in display/vote order. */
+    /** The agenda, in display order. */
     public function agendaItems(): HasMany
     {
         return $this->hasMany(MeetingRequest::class)->orderBy('agenda_order');
-    }
-
-    /** Stage 36 — the compiled/reviewed/signed minutes document, one per meeting. */
-    public function meetingMinutes(): HasOne
-    {
-        return $this->hasOne(MeetingMinutes::class);
     }
 }

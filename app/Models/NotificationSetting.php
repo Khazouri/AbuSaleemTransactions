@@ -36,13 +36,10 @@ class NotificationSetting extends Model
         'action_required' => ['in_app' => true, 'email' => true, 'sms' => false],
         'request_overdue' => ['in_app' => true, 'email' => true, 'sms' => false],
         'meeting_scheduled' => ['in_app' => true, 'email' => true, 'sms' => false],
-        'decision_recorded' => ['in_app' => true, 'email' => true, 'sms' => false],
-        'minutes_approved' => ['in_app' => true, 'email' => true, 'sms' => false],
         // Stage 47 — asks Salaries & Benefits to form an opinion, not just FYI.
         'financial_impact_review' => ['in_app' => true, 'email' => true, 'sms' => false],
         // Stage 65, Track J — Art. 75 point 6: the appellant's written notice
-        // of the appeal's final result. A final outcome, same defaults as
-        // `decision_recorded`.
+        // of the appeal's final result. A final outcome, so email is on.
         'appeal_decided' => ['in_app' => true, 'email' => true, 'sms' => false],
         // Stage 71 — [D] Appendix 38's delay ladder. One event for all three
         // rungs (see RequestDelayEscalationNotification for why), same
@@ -53,8 +50,8 @@ class NotificationSetting extends Model
         // الإشعار") addressed to one audience about one file, so twelve mute
         // switches for a person's own request would be a preferences screen
         // nobody uses — the same call Stage 71 made for the three delay rungs.
-        // Same defaults as `decision_recorded`: this is news about the
-        // reader's own request, which is what email is for.
+        // Email on: this is news about the reader's own request, which is
+        // what email is for.
         'request_notice' => ['in_app' => true, 'email' => true, 'sms' => false],
         // The قيد changed the submitter's own reference number out from under
         // them (PM-RCV receipt -> PM-COM رقم إشاري), and every later notice

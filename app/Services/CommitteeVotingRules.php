@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Committee;
-use App\Models\Meeting;
 
 /**
  * Stage 73 — the committee's own quorum/majority/tie rules, as transcribed
@@ -47,25 +46,6 @@ class CommitteeVotingRules
         }
 
         return new self(self::extract($committee));
-    }
-
-    /**
-     * A meeting is judged by the rules that were in force when it was
-     * convened — Stage 33's convene action freezes them onto the meeting, so
-     * editing the committee card afterwards cannot rewrite the history of a
-     * sitting that already happened. A meeting convened before Stage 73 (or
-     * not convened at all) falls back to the committee's current card, which
-     * for an untranscribed committee is honestly empty.
-     */
-    public static function forMeeting(Meeting $meeting): self
-    {
-        $snapshot = $meeting->voting_rules_snapshot;
-
-        if (is_array($snapshot) && $snapshot !== []) {
-            return new self($snapshot);
-        }
-
-        return self::fromCommittee($meeting->committee);
     }
 
     /** @return array<string, mixed> */

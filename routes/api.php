@@ -10,7 +10,6 @@ use App\Http\Controllers\Api\BackupController;
 use App\Http\Controllers\Api\CommitteeCandidateController;
 use App\Http\Controllers\Api\CommitteeController;
 use App\Http\Controllers\Api\CommitteeRoleController;
-use App\Http\Controllers\Api\ConflictOfInterestController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\DepartmentController;
@@ -18,18 +17,13 @@ use App\Http\Controllers\Api\DevTestUserController;
 use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MaintenanceController;
 use App\Http\Controllers\Api\MeetingController;
-use App\Http\Controllers\Api\MeetingDiscussionNoteController;
 use App\Http\Controllers\Api\MeetingDutiesController;
-use App\Http\Controllers\Api\MeetingMinutesController;
-use App\Http\Controllers\Api\MeetingOutputsController;
-use App\Http\Controllers\Api\MeetingReadinessController;
 use App\Http\Controllers\Api\MeetingResultsController;
 use App\Http\Controllers\Api\MeetingsDashboardController;
 use App\Http\Controllers\Api\MyTaskController;
 use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PerformanceController;
-use App\Http\Controllers\Api\PresentationMemoController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RequestController;
@@ -530,22 +524,13 @@ Route::middleware('auth:sanctum')->group(function () {
         ->patch('requests/{requestRecord}/approval-referrals/{referral}/result', [RequestController::class, 'recordApprovalReferralResult']);
 
     /*
-     * Stage 78 — [D] Art. 103's قائمة فحص سلامة القرار, verified "قبل إحالة
-     * النتيجة للتنفيذ", and Art. 105's إيقاف إجرائي.
+     * Stage 78 — Art. 105's إيقاف إجرائي.
      *
-     * All three ride the same `meeting_outputs,edit` grant (R02 + R03) the
-     * closure, execution and approval-return registers already use — that
-     * screen's declared domain is following a decision through approval,
-     * execution and close, which is exactly the stretch of a file's life
-     * Arts. 103 and 105 govern.
-     *
-     * The soundness checklist is deliberately NOT on R07's own
-     * `final_approval` grant: the file is prepared by the مقرر who holds it
-     * and referred to execution by the authority who approves it, so
-     * preparation and decision stay in different hands.
+     * Both ride the same `meeting_outputs,edit` grant (R02 + R03) the closure
+     * and approval-return registers already use — that screen's declared
+     * domain is following a decision through approval and close, which is the
+     * stretch of a file's life Art. 105 governs.
      */
-    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
-        ->patch('requests/{requestRecord}/execution-soundness', [RequestController::class, 'recordExecutionSoundness']);
     Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
         ->patch('requests/{requestRecord}/suspend', [RequestController::class, 'suspend']);
     Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
@@ -654,11 +639,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('screen.permission:meeting_agenda,view')
         ->get('meetings/department-options', [MeetingController::class, 'departmentOptions']);
-    // Stage 63 — the appeal picker for the agenda builder's `appeal` item
-    // form; a literal path declared before the `meetings/{meeting}`
-    // wildcard, same reason department-options is.
-    Route::middleware('screen.permission:meeting_agenda,view')
-        ->get('meetings/appeal-options', [MeetingController::class, 'appealOptions']);
     Route::middleware('screen.permission:meetings,view')
         ->get('meetings', [MeetingController::class, 'index']);
     Route::middleware('screen.permission:meetings,add')
@@ -668,7 +648,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware(['screen.permission:meetings,edit', 'meeting.member'])->group(function () {
         Route::put('meetings/{meeting}', [MeetingController::class, 'update']);
         Route::post('meetings/{meeting}/send-invitations', [MeetingController::class, 'sendInvitations']);
-        Route::patch('meetings/{meeting}/attendees/{attendee}', [MeetingController::class, 'markAttendance']);
         // Extra members the مقرر invites beyond the five seats (2026-10-16);
         // the controller refuses anyone but the مقرر.
         Route::post('meetings/{meeting}/guests', [MeetingController::class, 'addGuest']);
@@ -727,158 +706,18 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     /*
-     * Stage 46 — [D] Art. 22's compiled pre-meeting memo, one per agenda
-     * item. `view` is the broad `meeting_agenda` grant (readable before/
-     * during the meeting by anyone); `add` is this screen's first real use
-     * of its own `add` tier rather than `edit` (they differ per screen) —
-     * see PresentationMemoController's docblock for why the رئيس/مقرر split
-     * matters here.
-     */
-    Route::middleware(['screen.permission:meeting_agenda,view', 'meeting.member'])
-        ->get('meetings/{meeting}/agenda/{agendaItem}/presentation-memo', [PresentationMemoController::class, 'show']);
-    Route::middleware(['screen.permission:meeting_agenda,add', 'meeting.member'])->group(function () {
-        Route::post('meetings/{meeting}/agenda/{agendaItem}/presentation-memo/generate', [PresentationMemoController::class, 'generate']);
-        Route::patch('meetings/{meeting}/agenda/{agendaItem}/presentation-memo', [PresentationMemoController::class, 'update']);
-    });
-
-    /*
-     * Stage 33 — the pre-meeting readiness gate. Rides the `meeting_readiness`
-     * screen's own grants (view=* for the read side, edit=[R03] for convene —
-     * which doubles as the "R03 exceptional override" requirement, see
-     * MeetingReadinessController's docblock).
-     */
-    Route::middleware(['screen.permission:meeting_readiness,view', 'meeting.member'])
-        ->get('meetings/{meeting}/readiness', [MeetingReadinessController::class, 'show']);
-    Route::middleware(['screen.permission:meeting_readiness,edit', 'meeting.member'])
-        ->post('meetings/{meeting}/convene', [MeetingReadinessController::class, 'convene']);
-
-    /*
-     * Stage 34 — the live meeting runner. Rides the `meeting_live` screen's
-     * own grants: `edit` (R03, the chair) advances an item's state; `view`/
-     * `add` (everyone/R03+R04) read and post to the discussion feed. Closing
-     * a meeting stays on the generic `meetings,edit` update() above — see
-     * that method's docblock for why it isn't a separate endpoint here.
-     */
-    Route::middleware(['screen.permission:meeting_live,edit', 'meeting.member'])
-        ->patch('meetings/{meeting}/agenda/{agendaItem}/state', [MeetingController::class, 'updateItemState']);
-    // Stage 82 — النموذج 11's card, i.e. [D] Art. 85's per-item sequence.
-    // Read by everyone who can watch the sitting; ticked by the chair, the
-    // same split the runner's own state controls already use.
-    Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
-        ->get('meetings/{meeting}/agenda/{agendaItem}/study-sequence', [MeetingController::class, 'studySequence']);
-    Route::middleware(['screen.permission:meeting_live,edit', 'meeting.member'])
-        ->patch('meetings/{meeting}/agenda/{agendaItem}/study-sequence', [MeetingController::class, 'updateStudySequence']);
-    Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
-        ->get('meetings/{meeting}/agenda/{agendaItem}/notes', [MeetingDiscussionNoteController::class, 'index']);
-    Route::middleware(['screen.permission:meeting_live,add', 'meeting.member'])
-        ->post('meetings/{meeting}/agenda/{agendaItem}/notes', [MeetingDiscussionNoteController::class, 'store']);
-
-    /*
-     * Stage 44 — the runner's quick-info panel ([C] §6's five non-notes
-     * tabs) plus the private attachment stream it needs. Both ride
-     * `meeting_live,view`, deliberately not the request-detail visibility
-     * gate — see MeetingController::agendaItemContext()'s docblock.
-     */
-    Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
-        ->get('meetings/{meeting}/agenda/{agendaItem}/context', [MeetingController::class, 'agendaItemContext']);
-
-    // Decision wizard — sub-project 2. What the member may do on this item.
-    Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
-        ->get('meetings/{meeting}/agenda/{agendaItem}/duties', [MeetingDutiesController::class, 'item']);
-    Route::middleware(['screen.permission:meeting_live,view', 'meeting.member'])
-        ->get(
-            'meetings/{meeting}/agenda/{agendaItem}/attachments/{attachment}',
-            [MeetingController::class, 'agendaItemAttachment'],
-        )
-        ->name('meetings.agenda-item.attachment');
-
-    /*
-     * Stage 36 — minutes: generate/regenerate a draft, the head's review
-     * decision, and each attendee's own signature. `add` covers both
-     * generating and signing (mirrors `decisions,add` covering vote-casting);
-     * `approve` is the head-only review, same split as `decisions`.
-     */
-    Route::middleware(['screen.permission:meeting_minutes,view', 'meeting.member'])
-        ->get('meetings/{meeting}/minutes', [MeetingMinutesController::class, 'show']);
-    Route::middleware(['screen.permission:meeting_minutes,add', 'meeting.member'])->group(function () {
-        Route::post('meetings/{meeting}/minutes/generate', [MeetingMinutesController::class, 'generate']);
-        Route::post('meetings/{meeting}/minutes/sign', [MeetingMinutesController::class, 'sign']);
-    });
-    Route::middleware(['screen.permission:meeting_minutes,approve', 'meeting.member'])
-        ->post('meetings/{meeting}/minutes/review', [MeetingMinutesController::class, 'review']);
-    // Stage 99 — Appendix 6 row 11, العضو القانوني «مراجعة عند الحاجة».
-    Route::middleware(['screen.permission:meeting_minutes,edit', 'meeting.member'])
-        ->post('meetings/{meeting}/minutes/legal-review', [MeetingMinutesController::class, 'legalReview']);
-
-    /*
-     * Stage 37 — the live, meeting-scoped decision/output tracker. Reading is
-     * broad like the screen; recording that an in-execution request's effect
-     * has been carried out rides `approve`, not `edit` (Stage 92).
-     *
-     * Stage 75 — Art. 38's code 20 is no longer reachable here: closure moved
-     * to PATCH requests/{requestRecord}/close, since two of Art. 37's four
-     * final paths close requests that never reached an agenda.
-     *
-     * Stage 92 — [F] step 10's "who executed" is a separate question from
-     * this screen's other `edit`-gated rapporteur/chair certifications, so it
-     * has its own tier: R02/R03/R12 all hold `approve`, R12 being the
-     * executing body [D] names most often.
-     */
-    Route::middleware('screen.permission:meeting_outputs,view')
-        ->get('meetings/{meeting}/outputs', [MeetingOutputsController::class, 'show']);
-    Route::middleware(['screen.permission:meeting_outputs,approve', 'request.visible'])
-        ->post('meetings/{meeting}/outputs/{agendaItem}/execute', [MeetingOutputsController::class, 'execute']);
-
-    /*
-     * Stage 21 — committee voting and decision recording. These ride the
-     * `decisions` screen's own permissions (view=*, add=[R03,R04],
-     * approve=[R03]) rather than `meetings`: casting a vote is open to any
-     * committee member, while only the head can record the binding outcome
-     * that drives WorkflowService::transition().
-     */
-    Route::middleware(['screen.permission:decisions,add', 'meeting.member'])
-        ->post('meetings/{meeting}/agenda/{agendaItem}/votes', [DecisionController::class, 'vote']);
-    Route::middleware(['screen.permission:decisions,approve', 'meeting.member'])
-        ->post('meetings/{meeting}/agenda/{agendaItem}/decision', [DecisionController::class, 'record']);
-    // Stage 42 — a read-only preview of a template merged with this agenda
-    // item's own data, sitting behind `view` like the rest of the register
-    // reads below (it discloses nothing not already visible on the screen).
-    Route::middleware(['screen.permission:decisions,view', 'meeting.member'])
-        ->get('meetings/{meeting}/agenda/{agendaItem}/decision-draft', [DecisionController::class, 'draft']);
-
-    /*
-     * Stage 48 — [D] Art. 11/15/18: a member with a stake in an item formally
-     * discloses it before deliberation. Rides `decisions` the same way voting
-     * does — `add` to declare (the declaration IS the recusal, checked by
-     * DecisionEligibility::isRecused against both the vote and the
-     * discussion-feed endpoints), `view` to read who has declared.
-     */
-    Route::middleware(['screen.permission:decisions,add', 'meeting.member'])
-        ->post('meetings/{meeting}/agenda/{agendaItem}/conflict-of-interest', [ConflictOfInterestController::class, 'store']);
-    Route::middleware(['screen.permission:decisions,view', 'meeting.member'])
-        ->get('meetings/{meeting}/agenda/{agendaItem}/conflict-of-interest', [ConflictOfInterestController::class, 'index']);
-
-    /*
-     * Stage 25 — the `decisions` screen itself, which Stage 21 left a
-     * placeholder because the voting UI belonged in the meeting. These are the
-     * read side: the register of recorded decisions, and the worklist of items
-     * the caller still owes a vote on.
-     *
-     * `pending` sits behind `view`, not `add` — reading your own worklist is
-     * reading. Its vote buttons post back to the endpoint above, which
-     * re-checks `add` and the eligibility rules, so nothing is decided here.
-     * Stage 84 — `export` is the R06/R07 tier every other export in the app
+     * Stage 25 — the `decisions` screen itself: the register of recorded
+     * decisions. Stage 84 — `export` is the R06/R07 tier every other export in the app
      * uses (registers, reports, audit_log), all of which share this
      * controller's own ReportDocument/ReportExporter path. It was R08-only
      * purely because the grant key was absent, which is not a policy: `view`
-     * is already '*', so both roles read these rows — vote tallies included —
+     * is already '*', so both roles read these rows
      * on screen today, and register 6 already exports the same population to
      * them. Reading on screen and carrying a file out remain different
      * privileges; everyone else still cannot export.
      */
     Route::middleware('screen.permission:decisions,view')->group(function () {
         Route::get('decisions/filters', [DecisionController::class, 'filters']);
-        Route::get('decisions/pending', [DecisionController::class, 'pending']);
         Route::get('decisions', [DecisionController::class, 'index']);
     });
     Route::middleware('screen.permission:decisions,export')

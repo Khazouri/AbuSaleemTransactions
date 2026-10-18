@@ -269,59 +269,7 @@ class DocumentCompletenessTest extends TestCase
             ->assertJsonValidationErrors('item_type');
     }
 
-    /**
-     * The insertion gate cannot catch completeness that regressed *after* an
-     * item was scheduled — a type's matrix can gain a mandatory row through
-     * the Request Types screen — so readiness asks the same question again at
-     * the sitting, the way Stage 68's and Stage 83's gates are each paired
-     * with an exception.
-     */
-    public function test_coverage_lost_after_scheduling_becomes_a_readiness_exception(): void
-    {
-        [$head, $meeting] = $this->committeeMeeting();
-        $requestRecord = $this->presentableRequest();
-        $this->supplyRequiredDocuments($requestRecord);
-
-        $item = $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestRecord->id])
-            ->assertCreated()
-            ->json('data.id');
-
-        $this->assertNotContains(
-            'incomplete_required_documents',
-            $this->readinessCodes($head, $meeting),
-        );
-
-        // The matrix gains a row nothing in the file answers.
-        $type = $requestRecord->requestType;
-        $type->update(['required_documents' => [
-            ...$type->required_documents,
-            ['ar' => 'مستند استُحدث بعد الجدولة', 'en' => 'A document added after scheduling', 'group' => 'specific', 'condition' => null],
-        ]]);
-
-        $codes = $this->readinessCodes($head, $meeting);
-        $this->assertContains('incomplete_required_documents', $codes);
-
-        $exception = collect($this->readiness($head, $meeting)->json('data.exceptions'))
-            ->firstWhere('code', 'incomplete_required_documents');
-        $this->assertSame([$item], $exception['item_ids']);
-    }
-
     // --- fixtures --------------------------------------------------------
-
-    private function readiness(User $actor, Meeting $meeting)
-    {
-        return $this->actingAs($actor, 'sanctum')
-            ->getJson("/api/meetings/{$meeting->id}/readiness")
-            ->assertOk();
-    }
-
-    private function readinessCodes(User $actor, Meeting $meeting): array
-    {
-        return collect($this->readiness($actor, $meeting)->json('data.exceptions'))
-            ->pluck('code')
-            ->all();
-    }
 
     /** @return array{0: User, 1: Meeting} */
     private function committeeMeeting(): array

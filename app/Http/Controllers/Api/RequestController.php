@@ -12,7 +12,6 @@ use App\Http\Requests\Request\PrepareEmploymentFileRequest;
 use App\Http\Requests\Request\RecordApprovalReferralRequest;
 use App\Http\Requests\Request\RecordApprovalReferralResultRequest;
 use App\Http\Requests\Request\RecordApprovalReturnRequest;
-use App\Http\Requests\Request\RecordExecutionSoundnessRequest;
 use App\Http\Requests\Request\RecordIntakeGateRequest;
 use App\Http\Requests\Request\RecordJurisdictionTestRequest;
 use App\Http\Requests\Request\RecordStepReviewRequest;
@@ -45,7 +44,6 @@ use App\Services\DocumentReview;
 use App\Services\EmployeeNoticeRegister;
 use App\Services\EmployeeNoticeService;
 use App\Services\EmploymentFilePreparationService;
-use App\Services\ExecutionSoundnessService;
 use App\Services\IntakeGateService;
 use App\Services\Lifecycle\DuplicatePolicy;
 use App\Services\Lifecycle\SpecialCaseRules;
@@ -172,11 +170,6 @@ class RequestController extends Controller
         // not move with the قيد.
         if ($stageCode === IntakeGateService::GATED_STAGE) {
             return app(IntakeGateService::class)->refusalReason($requestRecord);
-        }
-
-        // Art. 103 — "قبل إحالة النتيجة للتنفيذ يتم التحقق من" twelve things.
-        if ($stageCode === ExecutionSoundnessService::GATED_STAGE) {
-            return app(ExecutionSoundnessService::class)->refusalReason($requestRecord);
         }
 
         return null;
@@ -793,33 +786,12 @@ class RequestController extends Controller
             'service_file_archived_at' => null,
         ]);
 
-        // Stage 76 — the same rule one step earlier, for the same reason: a
-        // reopened request that carries the previous lap's execution record
-        // would be refused a second, genuine execution by that stage's one-shot
-        // gate. The Appendix 70 marks are cleared with it, deliberately: a
-        // fresh lap needs fresh دليل التنفيذ, and leaving the marks would let a
-        // document produced for a superseded execution satisfy the evidence
-        // requirement for one it was never produced for. The documents
-        // themselves stay in the file; only their evidence designation goes.
-        if ($requestRecord->executed_at !== null) {
-            $requestRecord->attachments()
-                ->whereNotNull('execution_evidence_type')
-                ->update(['execution_evidence_type' => null]);
-
-            $requestRecord->update([
-                'execution' => null,
-                'execution_checklist' => null,
-                'executed_by_user_id' => null,
-                'executed_at' => null,
-            ]);
-        }
-
         // Stage 78 — a reopened file re-walks whichever gates lie ahead of the
         // stage it lands on, and the previous lap's answers say nothing about
         // this one: `new_document` and `material_error_correction` are two of
         // ReopenReasonCatalog's own six reasons, and each is precisely a claim
-        // that a gate 1 or Art. 103 answer has changed. Cleared for the same
-        // reason the closure and execution cards above are.
+        // that a gate 1 answer has changed. Cleared for the same reason the
+        // closure card above is.
         //
         // The Art. 105 suspensions are deliberately NOT cleared: like Stage
         // 77's returns they are a register whose whole value is that earlier
@@ -839,7 +811,6 @@ class RequestController extends Controller
         // lap's card would let it register on an assembly nobody re-checked
         // against whatever the reopen reason changed.
         if ($requestRecord->intake_gate !== null
-            || $requestRecord->execution_soundness !== null
             || $requestRecord->employment_file !== null
             || $requestRecord->jurisdiction_test !== null) {
             $requestRecord->update([
@@ -852,9 +823,6 @@ class RequestController extends Controller
                 'intake_gate' => null,
                 'intake_gate_checked_by_user_id' => null,
                 'intake_gate_checked_at' => null,
-                'execution_soundness' => null,
-                'execution_soundness_checked_by_user_id' => null,
-                'execution_soundness_checked_at' => null,
             ]);
         }
 
@@ -1272,39 +1240,6 @@ class RequestController extends Controller
     }
 
     /**
-     * Stage 78 — record [D] Art. 103's قائمة فحص سلامة القرار, the twelve
-     * things verified "قبل إحالة النتيجة للتنفيذ".
-     *
-     * Only the four attested checks are accepted from the caller; the other
-     * eight are read from real state by the service, so a spoofed answer to
-     * one of them never reaches the record — Art. 104's "صحة المستند
-     * والاختصاص ليستا إجراءات شكلية" is the reason.
-     *
-     * Rides `meeting_outputs,edit` (R02 + R03) rather than R07's own
-     * `final_approval` grant, deliberately: the file is prepared by the مقرر
-     * who holds it and referred to execution by the authority who approves it,
-     * which keeps preparation and decision in different hands — Appendix 9's
-     * third and ninth prohibited practices are the same principle.
-     */
-    public function recordExecutionSoundness(
-        RecordExecutionSoundnessRequest $request,
-        Request $requestRecord,
-        ExecutionSoundnessService $soundness,
-        WorkflowService $workflow,
-    ): RequestDetailResource {
-        $actor = $request->user();
-        $requestRecord->loadMissing('status:id,code');
-
-        $requestRecord->update([
-            'execution_soundness' => $soundness->record($requestRecord, $request->validated('checks')),
-            'execution_soundness_checked_by_user_id' => $actor->id,
-            'execution_soundness_checked_at' => now(),
-        ]);
-
-        return $this->detailResource($requestRecord->refresh(), $workflow, $actor);
-    }
-
-    /**
      * Stage 78 — [D] Art. 105: "يوقف التنفيذ فورًا من الناحية الإجرائية ويحال
      * الموضوع للمراجعة القانونية والجهة المختصة قبل ترتيب أثر جديد عليه".
      *
@@ -1388,10 +1323,6 @@ class RequestController extends Controller
             'latestStageLog',
             'createdBy:id,name',
             'subject:id,name',
-            // Stage 76 — execution_evidence_type flags which documents are
-            // Appendix 70's دليل التنفيذ; omitting it from this restricted
-            // list would make AttachmentResource report every document as
-            // unmarked on the one screen that shows the execution record.
             // `required_document_key` and `file_section` are listed because
             // AttachmentResource exposes both and a restricted eager load
             // omitting a column makes it read back as null rather than as
@@ -1401,7 +1332,7 @@ class RequestController extends Controller
             // reported every document as unclassified; Stage 88's review step
             // shows the employee exactly these two answers before they file,
             // and the workspace contradicting it a moment later is the bug.
-            'attachments:id,request_id,original_name,mime_type,size_bytes,label,required_document_key,file_section,execution_evidence_type,uploaded_by_user_id,created_at',
+            'attachments:id,request_id,original_name,mime_type,size_bytes,label,required_document_key,file_section,uploaded_by_user_id,created_at',
             'stageLogs' => fn ($query) => $query->orderBy('acted_at')->orderBy('id'),
             // `responsible_role_id` is in these column lists because the
             // nested responsibleRole eager-load below cannot resolve without
@@ -1443,8 +1374,6 @@ class RequestController extends Controller
             // Stage 100 — Appendix 6 row 15's two archive owners.
             'committeeFileArchivedBy:id,name',
             'serviceFileArchivedBy:id,name',
-            // Stage 76 — النموذج 17's executing officer.
-            'executedBy:id,name',
             // Stage 77 — every round of Art. 94's إجراء إعادة معالجة, oldest
             // first, since Art. 98's own register is a register of returns.
             'approvalReturns' => fn ($query) => $query->orderBy('id'),
@@ -1467,7 +1396,6 @@ class RequestController extends Controller
             'jurisdictionTestedBy:id,name',
             'intakeGateCheckedBy:id,name',
             'employmentFilePreparedBy:id,name',
-            'executionSoundnessCheckedBy:id,name',
         ]);
         $requestRecord->loadCount('legalReviews');
         // Stage 77 — an open return still holds `approve` back (blockReason()).
@@ -1570,13 +1498,10 @@ class RequestController extends Controller
     /**
      * Stage 78 — [D] Appendix 63's مصفوفة الرقابة الداخلية, per request.
      *
-     * The four gates are answered from four different owners because they
-     * genuinely live in four different places, and two of them predate this
-     * stage: gate 2 is Stage 33's MeetingReadinessService (meeting-scoped, so
-     * it is reported here only as the agenda placement that reached it) and
-     * gate 4 is Stage 75's RequestClosureService in full. Building a second
-     * copy of either would be the dual-path trap the rest of this stage is
-     * careful to avoid.
+     * Since the paper sitting (2026-10-18) the readiness, محضر and Art. 103
+     * gates are gone with the in-system sitting, so what is left is gate 1,
+     * HR's employment file and gate 4, which is Stage 75's
+     * RequestClosureService in full.
      *
      * @return array<string, mixed>
      */
@@ -1584,7 +1509,6 @@ class RequestController extends Controller
     {
         $intake = app(IntakeGateService::class);
         $review = app(DocumentReview::class);
-        $soundness = app(ExecutionSoundnessService::class);
         $employmentFile = app(EmploymentFilePreparationService::class);
 
         return [
@@ -1631,24 +1555,6 @@ class RequestController extends Controller
                         'name' => $requestRecord->jurisdictionTestedBy->name,
                     ] : null,
                 ],
-            ],
-            // بوابة 3 — قبل الاعتماد lives on the محضر, not on the request:
-            // Appendix 8's checks are meeting-wide. Reported as the decision's
-            // own meeting so the screen can link to it.
-            'minutes' => [
-                'checked' => $requestRecord->meetingRequests
-                    ->contains(fn ($item) => $item->meeting?->meetingMinutes?->status === 'approved'),
-            ],
-            // Art. 103 — قبل إحالة النتيجة للتنفيذ.
-            'execution_soundness' => [
-                'recorded_at' => $requestRecord->execution_soundness_checked_at?->toIso8601String(),
-                'recorded_by' => $requestRecord->executionSoundnessCheckedBy ? [
-                    'id' => $requestRecord->executionSoundnessCheckedBy->id,
-                    'name' => $requestRecord->executionSoundnessCheckedBy->name,
-                ] : null,
-                'record' => $requestRecord->execution_soundness,
-                'derived' => $soundness->derive($requestRecord),
-                'refusal' => $soundness->refusalReason($requestRecord),
             ],
             // بوابة 4 — قبل الإقفال, already Stage 75's in full.
             'closure' => ['closed_at' => $requestRecord->closed_at?->toIso8601String()],

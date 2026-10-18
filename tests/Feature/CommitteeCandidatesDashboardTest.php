@@ -154,31 +154,28 @@ class CommitteeCandidatesDashboardTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status.code', 'completion_required');
 
-        // But NOT the deferral: that is the committee's own substantive
-        // decision, which Art. 16 (أ) 1 forbids المقرر from taking. The screen
-        // permission lets R02 through, and WorkflowService's own R03 role on
-        // the `defer` transition is what refuses — two independent layers, and
-        // this assertion is what stops a later pass "tidying" them into one.
+        // The deferral is R02's too since 2026-10-18: the committee decides
+        // on paper and المقرر enters what it decided.
         $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/committee-candidates/{$toDefer->id}/defer", ['comment' => 'سبب'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('action');
+            ->assertOk()
+            ->assertJsonPath('data.status.code', 'deferred');
     }
 
     public function test_defer_requires_a_comment_and_keeps_the_request_at_the_committee_stage(): void
     {
         $this->seed(DatabaseSeeder::class);
 
-        $head = $this->userWithRole('R03');
+        $rapporteur = $this->userWithRole('R02');
         $requestRecord = $this->committeeRequest('in_meeting');
         $committeeStageId = $requestRecord->current_stage_id;
 
-        $this->actingAs($head, 'sanctum')
+        $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/committee-candidates/{$requestRecord->id}/defer")
             ->assertStatus(422)
             ->assertJsonValidationErrors('action');
 
-        $this->actingAs($head, 'sanctum')
+        $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/committee-candidates/{$requestRecord->id}/defer", ['comment' => 'تعارض في المواعيد'])
             ->assertOk()
             ->assertJsonPath('data.status.code', 'deferred');
@@ -333,7 +330,8 @@ class CommitteeCandidatesDashboardTest extends TestCase
 
         // Stage 81 — Appendix 10's warning tally rides the same screen,
         // because the appendix addresses those alerts to مقرر اللجنة.
-        $this->assertCount(10, $response->json('data.early_warnings.summary'));
+        // Eight since 2026-10-18: the two execution warnings went with the execution leg.
+        $this->assertCount(8, $response->json('data.early_warnings.summary'));
 
         $this->assertSame($meeting->id, $response->json('data.next_meeting.id'));
         $this->assertSame(2, $response->json('data.next_meeting.agenda_items_count'));

@@ -62,9 +62,6 @@ class MeetingVisibility
         'committee_candidates',
         'meetings',
         'meeting_agenda',
-        'meeting_readiness',
-        'meeting_live',
-        'meeting_minutes',
     ];
 
     /**

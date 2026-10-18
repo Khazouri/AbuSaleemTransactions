@@ -9,8 +9,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import AgendaItemDecisionPanel from '../components/AgendaItemDecisionPanel.vue'
-import AgendaItemWizard from '../components/AgendaItemWizard.vue'
 import AppModal from '../components/AppModal.vue'
 import AuthorityDecisionForm from '../components/AuthorityDecisionForm.vue'
 import GuestInviteForm from '../components/GuestInviteForm.vue'
@@ -27,18 +25,12 @@ const loading = ref(false)
 const error = ref('')
 const actionError = ref('')
 
-// Decision wizard — sub-project 2.
-const wizardItemId = ref(null)
-const wizardItem = computed(() => (meeting.value?.agenda_items ?? []).find((item) => item.id === wizardItemId.value) ?? null)
-
-// F3 — an act taken elsewhere (e.g. the item wizard recording the meeting's
-// last decision) must still be able to unblock a card act without a reload.
+// F3 — an act taken on this page (an agenda edit, a guest, a cancellation)
+// can change what the duties card offers without a reload.
 const dutiesRefreshKey = computed(() => {
   if (!meeting.value) return ''
-  const items = (meeting.value.agenda_items ?? [])
-    .map((item) => `${item.id}:${item.is_resolved ? 1 : 0}:${item.decision ? 1 : 0}`)
-    .join(',')
-  return [items, meeting.value.status, meeting.value.convened_at, meeting.value.agenda_adopted_at, meeting.value.minutes_status].join('|')
+  const items = (meeting.value.agenda_items ?? []).map((item) => item.id).join(',')
+  return [items, meeting.value.status, meeting.value.agenda_adopted_at, meeting.value.results_recorded_at].join('|')
 })
 
 const name = (item) => {
@@ -86,7 +78,6 @@ async function saveMeetingFields() {
     })
     meeting.value = data.data
   } catch (requestError) {
-    // Stage 34 — closing a meeting can genuinely 422 (unresolved agenda items).
     actionError.value = requestError.response?.data?.message ?? t('common.none')
   } finally {
     statusValue.value = ''
@@ -101,7 +92,7 @@ const showProposeDate = ref(false)
 // Only the system's one مقرر (the R02 holder) sets a meeting's date.
 const canProposeDate = computed(() => meeting.value
   && auth.hasRole('R02')
-  && !meeting.value.convened_at
+  && !meeting.value.results_recorded_at
   && ['pending_confirmation', 'scheduled'].includes(meeting.value.status))
 
 watch(meeting, (value) => {
@@ -234,9 +225,9 @@ async function moveAgendaItem(index, direction) {
 }
 
 // --- Attendance --------------------------------------------------------------
-// Stage 102 — the five seats are invited automatically; the roll call at the
-// sitting is theirs alone. The مقرر's extra invitees (2026-10-16) answer the
-// date and are listed apart, added or removed while the date is still open.
+// Stage 102 — the five seats are invited automatically. The مقرر's extra
+// invitees (2026-10-16) answer the date and are listed apart, added or removed
+// while the date is still open.
 
 const attendanceError = ref('')
 const seatAttendees = computed(() => (meeting.value?.attendees ?? []).filter((a) => !a.guest_title))
@@ -265,39 +256,14 @@ const addGuest = ({ user_id, guest_title }) =>
 const removeGuest = (attendee) =>
   changeGuests(() => api.delete(`/meetings/${meeting.value.id}/guests/${attendee.id}`))
 
-async function markAttendance(attendee, attended) {
-  attendanceError.value = ''
-  try {
-    await api.patch(`/meetings/${meeting.value.id}/attendees/${attendee.id}`, { attended })
-    attendee.attended = attended
-  } catch (requestError) {
-    attendanceError.value = requestError.response?.data?.message ?? t('common.none')
-  }
-}
-
-
-// --- Decision templates (Stage 35) -------------------------------------------
-// Fed to AgendaItemDecisionPanel, which owns the vote/tally/record-decision
-// block itself — see that component's docblock for why this used to be
-// duplicated inline here and in MeetingLiveView.vue.
-
-const decisionTemplates = ref([])
-
-async function loadDecisionTemplates() {
-  try {
-    const { data } = await api.get('/decisions/filters')
-    decisionTemplates.value = data.data?.templates ?? []
-  } catch {
-    decisionTemplates.value = []
-  }
-}
-
 // --- The paper sitting (2026-10-18) -------------------------------------------
 // The مقرر prints the agenda for the sitting and enters its results after it
 // (MeetingWizard's record_results); جهة الاعتماد then decides each موافقة or
 // عدم موافقة here, beside the توصية and the محضر.
 
-const RECOMMENDATION = { approve: 'approve', reject: 'decline', defer: 'defer' }
+// The Decision outcome each recorded توصية became, back to the مقرر's choice.
+const RECOMMENDATION = { approve: 'approve', reject: 'decline', defer: 'defer', appeal_accept: 'approve', appeal_reject: 'decline' }
+const recommendationLabel = (item) => t(`paperMeeting.${item.item_type === 'appeal' ? 'appealRecommendations' : 'recommendations'}.${RECOMMENDATION[item.decision.outcome] ?? 'approve'}`)
 // The stage where each authority decides, by the role that decides there.
 const MY_STAGE = { R07: 'approval_by_authority', R06: 'local_governance_ministry' }
 const myStages = computed(() => Object.entries(MY_STAGE).filter(([role]) => auth.hasRole(role)).map(([, stage]) => stage))
@@ -325,7 +291,7 @@ async function openMinutes() {
 }
 
 onMounted(async () => {
-  await Promise.all([load(), loadDecisionTemplates()])
+  await load()
   // «المهام المعلقة» opens the authority's decision straight away.
   const requested = Number(route.query.item)
   if (route.query.decide && awaitingMe.value.some((item) => item.id === requested)) authorityItemId.value = requested
@@ -470,25 +436,6 @@ onMounted(async () => {
         <p class="description">{{ meeting.description }}</p>
       </section>
 
-      <section v-if="!meeting.results_recorded_at" v-can="'meeting_minutes.view'" class="card card-flat card-pad minutes-link no-print">
-        <h3>{{ t('meetings.minutes') }}</h3>
-        <p v-if="meeting.minutes_status" class="minutes-status">
-          {{ t(`meetingsUnit.minutes.status.${meeting.minutes_status}`) }}
-        </p>
-        <RouterLink class="ghost" :to="{ name: 'meeting_minutes', query: { meeting: meeting.id } }">
-          {{ t('meetings.openMinutes') }}
-        </RouterLink>
-      </section>
-
-      <!-- Stage 37 — meeting-scoped outputs follow-up. -->
-      <section v-can="'meeting_outputs.view'" class="card card-flat card-pad minutes-link no-print">
-        <h3>{{ t('meetingsUnit.outputs.title') }}</h3>
-        <p class="minutes-status">{{ t('meetingsUnit.outputs.detailHint') }}</p>
-        <RouterLink class="ghost" :to="{ name: 'meeting_outputs', query: { meeting: meeting.id } }">
-          {{ t('meetingsUnit.outputs.open') }}
-        </RouterLink>
-      </section>
-
       <div class="columns">
         <!-- A guest gets the meeting without its agenda (MeetingController::show()). -->
         <section v-if="meeting.agenda_items" class="card card-flat card-pad agenda">
@@ -504,10 +451,6 @@ onMounted(async () => {
                 :to="{ name: 'meeting_agenda', query: { meeting: meeting.id } }"
               >
                 {{ t('meetings.agenda.openBuilder') }}
-              </RouterLink>
-              <!-- Stage 34 — live meeting runner. -->
-              <RouterLink class="ghost" :to="{ name: 'meeting_live', query: { meeting: meeting.id } }">
-                {{ t('meetingsUnit.live.title') }}
               </RouterLink>
             </div>
           </div>
@@ -529,6 +472,7 @@ onMounted(async () => {
                     <span v-if="item.appeal.original_request" class="pill">
                       {{ item.appeal.original_request.reference_number || `#${item.appeal.original_request.id}` }}
                     </span>
+                    <p v-if="item.appeal.original_request?.title" class="item-meta">{{ item.appeal.original_request.title }}</p>
                   </template>
                   <template v-else>
                     <strong>{{ item.subject }}</strong>
@@ -552,7 +496,7 @@ onMounted(async () => {
               <dl v-if="meeting.results_recorded_at && item.decision" class="recommendation">
                 <div>
                   <dt>{{ t('paperMeeting.recommendation') }}</dt>
-                  <dd>{{ t(`paperMeeting.recommendations.${RECOMMENDATION[item.decision.outcome] ?? 'approve'}`) }}</dd>
+                  <dd>{{ recommendationLabel(item) }}</dd>
                 </div>
                 <div v-if="item.request?.approving_authority">
                   <dt>{{ t('paperMeeting.authority') }}</dt>
@@ -566,27 +510,11 @@ onMounted(async () => {
               <!-- Printed for the paper sitting: room for what the committee writes. -->
               <p v-if="!meeting.results_recorded_at" class="print-only print-blank">
                 {{ t('paperMeeting.recommendation') }}: ............................
-                {{ t('paperMeeting.authority') }}: ............................
+                <!-- An appeal names no جهة الاعتماد: the committee decides it. -->
+                <template v-if="item.item_type !== 'appeal'">{{ t('paperMeeting.authority') }}: ............................</template>
               </p>
-
-              <!-- The in-system sitting's panel, for a meeting convened before the paper path. -->
-              <AgendaItemDecisionPanel
-                v-if="meeting.convened_at && ['employee_request', 'appeal'].includes(item.item_type)"
-                :item="item"
-                :meeting="meeting"
-                @decide="wizardItemId = item.id"
-              />
             </li>
           </ol>
-
-          <AgendaItemWizard
-            v-if="wizardItem"
-            :meeting="meeting"
-            :item="wizardItem"
-            :templates="decisionTemplates"
-            @updated="load"
-            @close="wizardItemId = null"
-          />
 
           <AppModal v-if="showAgendaSearch" :title="t('meetingsUnit.agenda.addItem')" wide @close="closeAgendaSearch">
             <div class="agenda-search">
@@ -629,14 +557,7 @@ onMounted(async () => {
           <ul v-else>
             <li v-for="attendee in seatAttendees" :key="attendee.id">
               <div class="attendee-row">
-                <label class="checkbox">
-                  <input
-                    type="checkbox"
-                    :checked="attendee.attended"
-                    @change="markAttendance(attendee, $event.target.checked)"
-                  />
-                  {{ attendee.user.name }}
-                </label>
+                <span>{{ attendee.user.name }}</span>
                 <span class="pill invitation-status">
                   {{ t(`meetings.attendance.invitation.${attendee.invitation_status}`) }}
                 </span>
@@ -705,7 +626,6 @@ select { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); bor
 .attendance li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); font-size: var(--text-base); }
 .attendee-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .invitation-status { padding: .2rem .4rem; font-size: var(--text-xs); }
-label.checkbox { display: flex; align-items: center; gap: .4rem; }
 .propose-date-open { margin-block-end: var(--space-4); }
 .awaiting ul { display: grid; gap: var(--space-2); padding: 0; margin: 0; list-style: none; }
 .awaiting li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }

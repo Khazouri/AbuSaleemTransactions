@@ -144,18 +144,10 @@ onMounted(load)
             <span v-if="nextMeeting.location" class="muted">{{ nextMeeting.location }}</span>
             <div class="counts">
               <span>{{ nextMeeting.agenda_items_count }} {{ t('meetingsUnit.dashboard.nextMeeting.items') }}</span>
-              <span class="pill" :class="nextMeeting.readiness.ready ? 'good' : 'bad'">
-                {{ nextMeeting.readiness.ready
-                  ? t('meetingsUnit.dashboard.nextMeeting.ready')
-                  : t('meetingsUnit.dashboard.nextMeeting.notReady', { count: nextMeeting.readiness.exceptions_count }) }}
-              </span>
             </div>
             <div class="next-meeting-links">
               <RouterLink class="ghost" :to="{ name: 'meeting_details', params: { id: nextMeeting.id } }">
                 {{ t('meetingsUnit.dashboard.nextMeeting.open') }}
-              </RouterLink>
-              <RouterLink class="ghost" :to="{ name: 'meeting_readiness', query: { meeting: nextMeeting.id } }">
-                {{ t('meetingsUnit.dashboard.nextMeeting.checkReadiness') }}
               </RouterLink>
             </div>
           </div>

@@ -36,7 +36,6 @@ class ConcludedMeetingTest extends TestCase
             'scheduled_at' => now()->subDay(),
             'status' => 'completed',
         ]);
-        $attendee = $meeting->attendees()->create(['user_id' => $head->id]);
 
         $this->actingAs($head, 'sanctum');
 
@@ -45,11 +44,8 @@ class ConcludedMeetingTest extends TestCase
         $this->putJson("/api/meetings/{$meeting->id}", ['status' => 'scheduled'])
             ->assertUnprocessable()->assertJsonValidationErrors('meeting');
         $this->deleteJson("/api/meetings/{$meeting->id}")->assertUnprocessable();
-        $this->patchJson("/api/meetings/{$meeting->id}/attendees/{$attendee->id}", ['attended' => false])
-            ->assertUnprocessable();
         $this->postJson("/api/meetings/{$meeting->id}/agenda", ['item_type' => 'administrative', 'subject' => 'بند'])
             ->assertUnprocessable();
-        $this->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertUnprocessable();
 
         $this->assertSame('completed', $meeting->fresh()->status);
         $this->assertDatabaseHas('meetings', ['id' => $meeting->id]);

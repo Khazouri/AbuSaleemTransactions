@@ -35,10 +35,6 @@ class SeatDutyGrant
         'meetings_dashboard',
         'meetings',
         'meeting_agenda',
-        'meeting_readiness',
-        'meeting_live',
-        'decisions',
-        'meeting_minutes',
     ];
 
     /** A meeting still awaiting its date's acceptance, or still to sit. */
@@ -46,14 +42,14 @@ class SeatDutyGrant
 
     /**
      * Statuses of a decided file still before an approving body: the approval
-     * cycle itself, a conditional approval, and `final_approved`, which still
-     * waits on R07 before it reaches in_execution.
+     * cycle itself and a conditional approval. `final_approved` is not one:
+     * since 2026-10-18 the authority's approve is the file's last decision.
      *
      * @return list<string>
      */
     public static function pendingApprovalStatuses(): array
     {
-        return [...ApprovalReturnService::APPROVAL_CYCLE_STATUSES, 'approved_with_conditions', 'final_approved'];
+        return [...ApprovalReturnService::APPROVAL_CYCLE_STATUSES, 'approved_with_conditions'];
     }
 
     /** @return Collection<int, int> role ids lent to $user across every live meeting */

@@ -6,11 +6,8 @@ use App\Models\Appeal;
 use App\Models\AppealAttachment;
 use App\Models\AppealStatus;
 use App\Models\Attachment;
-use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
-use App\Models\Meeting;
-use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
@@ -23,37 +20,33 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Storage;
-use Tests\RecordsStructuredDecisions;
-use Tests\RunsStudySequence;
+use Tests\HoldsPaperMeetings;
 use Tests\TestCase;
 
 /**
  * Stage 61, Track J — AppealFileCompiler: the assembled original-matter
- * dossier (original request, presentation memo, meeting minutes excerpt,
- * decision, notification evidence, and the appeal's own documents) reached
- * through GET /appeals/{appeal}/file. See AGENT_NOTES.md for why the memo's
- * derived half is always recomputed live while the minutes are read from
- * whatever was persisted (never live-recompiled), and for the
- * AppealAttachmentController visibility gap this stage closes.
+ * dossier (original request, decision, notification evidence, and the
+ * appeal's own documents) reached through GET /appeals/{appeal}/file. See
+ * AGENT_NOTES.md for the AppealAttachmentController visibility gap this
+ * stage closes.
  */
 class AppealFileTest extends TestCase
 {
-    use RecordsStructuredDecisions;
+    use HoldsPaperMeetings;
     use RefreshDatabase;
-    use RunsStudySequence;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+        Storage::fake('local');
     }
 
     public function test_shows_the_full_dossier_for_a_committee_decided_appeal(): void
     {
         $appellant = $this->userWithRole('R01');
-        [$appeal, $head, , , $agendaItem, $target] = $this->decidedAppealFixture($appellant, withMemo: true, withMinutes: true);
+        [$appeal, $rapporteur, $target] = $this->decidedAppealFixture($appellant);
 
-        Storage::fake('local');
         $this->actingAs($appellant, 'sanctum')
             ->post("/api/appeals/{$appeal->id}/attachments", [
                 'file' => UploadedFile::fake()->create('evidence.pdf', 10, 'application/pdf'),
@@ -69,16 +62,8 @@ class AppealFileTest extends TestCase
         $response->assertJsonPath('data.original_request.created_by.id', $appellant->id);
         $this->assertCount(0, $response->json('data.original_request.attachments'));
 
-        $response->assertJsonPath('data.presentation_memo.derived.reference_number', $target->reference_number);
-        $response->assertJsonPath('data.presentation_memo.authored.facts_summary', 'ملخص وقائع التظلم الأصلي.');
-        $response->assertJsonPath('data.presentation_memo.authored.legal_opinion', 'الأساس القانوني للقرار الأصلي.');
-
-        $response->assertJsonPath('data.meeting_minutes.status', 'draft');
-        $response->assertJsonPath('data.meeting_minutes.agenda_item.id', $agendaItem->id);
-        $response->assertJsonPath('data.meeting_minutes.agenda_item.facts_summary', 'ملخص وقائع التظلم الأصلي.');
-
         $response->assertJsonPath('data.decision.outcome', 'approve');
-        $response->assertJsonPath('data.decision.decided_by.id', $head->id);
+        $response->assertJsonPath('data.decision.decided_by.id', $rapporteur->id);
         $this->assertNull($response->json('data.decision_reference_fallback'));
 
         $this->assertCount(1, $response->json('data.appeal_documents'));
@@ -86,32 +71,6 @@ class AppealFileTest extends TestCase
 
         $response->assertJsonPath('data.notification_evidence.email.evidence_available', false);
         $response->assertJsonPath('data.notification_evidence.sms.evidence_available', false);
-    }
-
-    public function test_presentation_memo_shows_derived_fields_without_a_persisted_memo_row(): void
-    {
-        $appellant = $this->userWithRole('R01');
-        [$appeal, , , , , $target] = $this->decidedAppealFixture($appellant, withMemo: false, withMinutes: true);
-
-        $response = $this->actingAs($appellant, 'sanctum')
-            ->getJson("/api/appeals/{$appeal->id}/file")
-            ->assertOk();
-
-        $response->assertJsonPath('data.presentation_memo.derived.reference_number', $target->reference_number);
-        $this->assertNull($response->json('data.presentation_memo.authored'));
-        // Minutes were still generated independently of the memo.
-        $response->assertJsonPath('data.meeting_minutes.status', 'draft');
-    }
-
-    public function test_meeting_minutes_are_null_when_never_generated(): void
-    {
-        $appellant = $this->userWithRole('R01');
-        [$appeal] = $this->decidedAppealFixture($appellant, withMemo: true, withMinutes: false);
-
-        $this->actingAs($appellant, 'sanctum')
-            ->getJson("/api/appeals/{$appeal->id}/file")
-            ->assertOk()
-            ->assertJsonPath('data.meeting_minutes', null);
     }
 
     public function test_returns_the_free_text_fallback_when_there_is_no_recorded_decision(): void
@@ -143,8 +102,6 @@ class AppealFileTest extends TestCase
             ->getJson("/api/appeals/{$appeal->id}/file")
             ->assertOk();
 
-        $this->assertNull($response->json('data.presentation_memo'));
-        $this->assertNull($response->json('data.meeting_minutes'));
         $this->assertNull($response->json('data.decision'));
         $response->assertJsonPath('data.decision_reference_fallback.reference', 'قرار رفض شكلي رقم 9');
     }
@@ -153,10 +110,9 @@ class AppealFileTest extends TestCase
     {
         $appellant = $this->userWithRole('R01');
         $stranger = $this->userWithRole('R01');
-        [$appeal, , , , , $target] = $this->decidedAppealFixture($appellant, withMemo: false, withMinutes: false);
+        [$appeal, , $target] = $this->decidedAppealFixture($appellant);
 
-        // The fixture's own vote/decision recording already dispatches real
-        // stage_changed + decision_recorded notifications to the appellant
+        // The fixture's recorded results may already notify the appellant
         // about $target (they're its creator) — count those first so the
         // assertions below prove scoping, not a hardcoded total that system
         // notifications would throw off.
@@ -201,9 +157,8 @@ class AppealFileTest extends TestCase
     {
         $appellant = $this->userWithRole('R01');
         $stranger = $this->userWithRole('R01');
-        [$appeal] = $this->decidedAppealFixture($appellant, withMemo: false, withMinutes: false);
+        [$appeal] = $this->decidedAppealFixture($appellant);
 
-        Storage::fake('local');
         $attachment = AppealAttachment::create([
             'appeal_id' => $appeal->id,
             'disk' => 'local',
@@ -229,9 +184,8 @@ class AppealFileTest extends TestCase
         $appellant = $this->userWithRole('R01');
         $reviewer = $this->userWithRole('R02'); // holds appeals,edit per ScreenRolePermissionSeeder
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
-        [$appeal] = $this->decidedAppealFixture($appellant, withMemo: false, withMinutes: false);
+        [$appeal] = $this->decidedAppealFixture($appellant);
 
-        Storage::fake('local');
         $attachment = AppealAttachment::create([
             'appeal_id' => $appeal->id,
             'disk' => 'local',
@@ -263,9 +217,8 @@ class AppealFileTest extends TestCase
         $appellant = $this->userWithRole('R01');
         $reviewer = $this->userWithRole('R02');
         $stranger = $this->userWithRole('R01');
-        [$appeal, , , , , $target] = $this->decidedAppealFixture($appellant, withMemo: false, withMinutes: false);
+        [$appeal, , $target] = $this->decidedAppealFixture($appellant);
 
-        Storage::fake('local');
         $document = $this->storedAttachment($target, 'service.pdf');
         $foreign = $this->storedAttachment(
             Request::where('id', '!=', $target->id)->firstOrFail(),
@@ -278,7 +231,6 @@ class AppealFileTest extends TestCase
             ->getJson("/api/appeals/{$appeal->id}/file")
             ->assertOk();
         $response->assertJsonPath('data.original_request.attachments.0.preview_url', $url);
-        $response->assertJsonPath('data.presentation_memo.derived.key_documents.0.preview_url', $url);
 
         foreach ([$appellant, $reviewer] as $actor) {
             $this->actingAs($actor, 'sanctum')->get($url)->assertOk();
@@ -309,102 +261,34 @@ class AppealFileTest extends TestCase
     }
 
     /**
-     * A request decided by a real committee vote, with an optional generated+
-     * authored presentation memo and/or generated (draft) meeting minutes. A
-     * second, unrelated agenda item rides the same meeting so tests can prove
-     * the compiler matches the right one, not just "an" item.
+     * A request the committee approved on paper. A second, unrelated agenda
+     * item rides the same meeting so tests can prove the dossier picks the
+     * right decision, not just "an" item's.
      *
-     * @return array{0: Appeal, 1: User, 2: User, 3: Meeting, 4: MeetingRequest, 5: Request, 6: Decision}
+     * @return array{0: Appeal, 1: User, 2: Request}
      */
-    private function decidedAppealFixture(User $appellant, bool $withMemo, bool $withMinutes): array
+    private function decidedAppealFixture(User $appellant): array
     {
-        $head = $this->userWithRole('R03');
-        $member = $this->userWithRole('R04');
+        [$rapporteur, $meeting, [$unrelated, $agendaItem]] = $this->paperMeeting(2);
+        $target = $agendaItem->request;
+        $target->update(['created_by_user_id' => $appellant->id, 'subject_user_id' => $appellant->id]);
 
-        $committee = Committee::create(['name_ar' => 'لجنة اختبار ملف التظلم']);
-        $committee->members()->create(['user_id' => $head->id, 'is_head' => true, 'seat' => 'chair']);
-        $committee->members()->create(['user_id' => $member->id]);
-
-        $meeting = Meeting::create([
-            'committee_id' => $committee->id,
-            'title' => 'اجتماع اختبار ملف التظلم',
-            'scheduled_at' => now()->subWeek(),
-            'created_by_user_id' => $head->id,
-        ]);
-        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
-        $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
-
-        $unrelatedRequest = Request::create([
-            'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
-            'title' => 'بند آخر بنفس الاجتماع',
-            'department_id' => Department::where('code', 'ADM')->value('id'),
-            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
-            'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
-            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
-            'created_by_user_id' => $this->userWithRole('R01')->id,
-            'submitted_at' => now()->subMonth(),
-        ]);
-        $meeting->agendaItems()->create(['request_id' => $unrelatedRequest->id, 'agenda_order' => 1]);
-
-        $target = Request::create([
-            'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(100000, 999999),
-            'title' => 'طلب صدر بشأنه قرار لجنة',
-            'department_id' => Department::where('code', 'ADM')->value('id'),
-            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
-            'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
-            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
-            'created_by_user_id' => $appellant->id,
-            'submitted_at' => now()->subMonth(),
-        ]);
-        $agendaItem = $meeting->agendaItems()->create(['request_id' => $target->id, 'agenda_order' => 2]);
-        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
-        // Tests\RunsStudySequence for why it is written directly here.
-        $this->completeStudySequence($agendaItem);
-
-        if ($withMemo) {
-            $this->actingAs($head, 'sanctum')
-                ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/presentation-memo/generate")
-                ->assertOk();
-            $this->actingAs($head, 'sanctum')
-                ->patchJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/presentation-memo", [
-                    'facts_summary' => 'ملخص وقائع التظلم الأصلي.',
-                    'legal_opinion' => 'الأساس القانوني للقرار الأصلي.',
-                ])
-                ->assertOk();
-        }
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
-            ->assertCreated();
-        $this->actingAs($member, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
-            ->assertCreated();
-
-        $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve', [
-                'referral_authority' => 'ديوان البلدية',
-            ]))
-            ->assertCreated();
-
-        if ($withMinutes) {
-            $this->actingAs($head, 'sanctum')
-                ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
-                ->assertOk();
-        }
-
-        $decision = Decision::where('meeting_request_id', $agendaItem->id)->firstOrFail();
+        $this->recordResults($rapporteur, $meeting, [
+            $unrelated->id => ['recommendation' => 'approve', 'approving_authority' => 'dean'],
+            $agendaItem->id => ['recommendation' => 'approve', 'approving_authority' => 'dean'],
+        ])->assertOk();
 
         $appeal = Appeal::create([
             'appellant_user_id' => $appellant->id,
             'original_request_id' => $target->id,
-            'original_decision_id' => $decision->id,
+            'original_decision_id' => Decision::where('meeting_request_id', $agendaItem->id)->value('id'),
             'known_at' => now()->subDay(),
             'appeal_reasons' => 'القرار خالف الإجراءات المتبعة.',
             'final_request' => 'إعادة النظر في القرار.',
             'appeal_status_id' => AppealStatus::where('code', 'submitted')->value('id'),
         ]);
 
-        return [$appeal, $head, $member, $meeting, $agendaItem, $target, $decision];
+        return [$appeal, $rapporteur, $target->fresh()];
     }
 
     private function userWithRole(string $roleCode): User

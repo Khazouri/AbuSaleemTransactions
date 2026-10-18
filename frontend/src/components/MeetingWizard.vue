@@ -1,11 +1,9 @@
 <script setup>
 /**
  * Decision wizard — sub-project 2: the meeting's own acts — answering the
- * proposed date, adopting the agenda, entering the paper sitting's results
- * (2026-10-18), and the in-system minutes still open on older meetings. Review the sitting and its
- * five seats, check what the act rests on (readiness before convening, the
- * reviewer's own control before approving), choose, then confirm as a line in
- * the session register.
+ * proposed date, adopting the agenda and entering the paper sitting's results
+ * (2026-10-18). Review the sitting and its five seats, choose, then confirm as
+ * a line in the session register.
  *
  * `duties` is GET meetings/{m}/duties, fetched by MeetingDutiesCard; its
  * "blocked" reasons are the endpoints' own refusals (MeetingDuties).
@@ -17,8 +15,6 @@ import SeatStrip from './SeatStrip.vue'
 import WizardShell from './WizardShell.vue'
 import WizardSlip from './WizardSlip.vue'
 import api, { firstError } from '../lib/api'
-import { MINUTES_REVIEWER_CHECK } from '../lib/controlGates'
-import { readinessExceptionMessage } from '../lib/readiness'
 
 const props = defineProps({
   meetingId: { type: [Number, String], required: true },
@@ -32,39 +28,23 @@ const REQUESTS = {
   respond_accept: (id) => api.post(`/meetings/${id}/respond`, { response: 'accept' }),
   respond_decline: (id) => api.post(`/meetings/${id}/respond`, { response: 'decline' }),
   adopt_agenda: (id) => api.post(`/meetings/${id}/agenda/adopt`),
-  convene: (id, note) => api.post(`/meetings/${id}/convene`, note ? { reason: note } : {}),
-  generate_minutes: (id) => api.post(`/meetings/${id}/minutes/generate`),
-  approve_minutes: (id, note, checked) => api.post(`/meetings/${id}/minutes/review`, {
-    decision: 'approve',
-    quality_checks: { [MINUTES_REVIEWER_CHECK]: checked },
-  }),
-  return_minutes: (id, note) => api.post(`/meetings/${id}/minutes/review`, { decision: 'changes_requested', comment: note }),
-  sign_minutes: (id) => api.post(`/meetings/${id}/minutes/sign`),
-  close: (id) => api.put(`/meetings/${id}`, { status: 'completed' }),
   // 2026-10-18 — the paper sitting's results and its محضر, in one submit.
-  record_results: (id, note, checked, results) => api.post(`/meetings/${id}/results`, results),
+  record_results: (id, results) => api.post(`/meetings/${id}/results`, results),
 }
-// The acts whose slip carries a written reason or note.
-const TAKES_NOTE = ['convene', 'return_minutes']
 
 const meeting = ref(null)
-const readiness = ref(null)
 const loadError = ref('')
 const available = computed(() => props.duties.available ?? [])
 const blocked = computed(() => props.duties.blocked ?? [])
-const offered = computed(() => new Set([...available.value, ...blocked.value].map((duty) => duty.action)))
 
 onMounted(async () => {
   try {
-    const [{ data: meetingData }, readinessResponse] = await Promise.all([
-      api.get(`/meetings/${props.meetingId}`),
-      offered.value.has('convene') ? api.get(`/meetings/${props.meetingId}/readiness`) : Promise.resolve(null),
-    ])
-    meeting.value = meetingData.data
-    readiness.value = readinessResponse?.data?.data ?? null
+    const { data } = await api.get(`/meetings/${props.meetingId}`)
+    meeting.value = data.data
     resultRows.value = Object.fromEntries((meeting.value.agenda_items ?? []).map((item) => [item.id, {
       recommendation: '',
-      approving_authority: item.request?.suggested_authority ?? 'dean',
+      // An appeal row names no جهة الاعتماد, so it never carries one.
+      approving_authority: item.item_type === 'appeal' ? null : item.request?.suggested_authority ?? 'dean',
       note: '',
     }]))
   } catch (requestError) {
@@ -72,21 +52,16 @@ onMounted(async () => {
   }
 })
 
-const checks = computed(() => [
-  ...(offered.value.has('convene') ? ['readiness'] : []),
-  ...(available.value.some((duty) => duty.action === 'approve_minutes') ? ['minutes_quality'] : []),
-])
-const steps = computed(() => ['review', ...(checks.value.length ? ['checks'] : []), 'choose', 'confirm'])
+const steps = ['review', 'choose', 'confirm']
 const step = ref('review')
 
-const label = (action) => t(`decisionWizard.actions.${action === 'generate_minutes' && meeting.value?.minutes_status ? 'regenerate_minutes' : action}`)
+const label = (action) => t(`decisionWizard.actions.${action}`)
 const meaning = (action) => (te(`decisionWizard.meaning.${action}`) ? t(`decisionWizard.meaning.${action}`) : '')
 const choices = computed(() => available.value.map((duty) => ({
   key: duty.action,
   action: duty.action,
   label: label(duty.action),
   meaning: meaning(duty.action),
-  requiresComment: duty.requires_comment,
 })))
 const selected = ref('')
 const choice = computed(() => choices.value.find((option) => option.key === selected.value) ?? null)
@@ -94,23 +69,26 @@ watch(choices, (list) => {
   if (selected.value && !list.some((option) => option.key === selected.value)) selected.value = ''
 })
 
-const note = ref('')
-const reviewerChecked = ref(false)
 // 2026-10-18 — MeetingResultsForm's state: agenda item id => its row.
 const resultRows = ref({})
 const minutesFile = ref(null)
 const resultsComplete = computed(() => Boolean(minutesFile.value)
   && Object.values(resultRows.value).length > 0
-  && Object.values(resultRows.value).every((row) => row.recommendation
-    && (row.recommendation === 'defer' || row.approving_authority)
-    && (row.recommendation === 'approve' || row.note.trim())))
+  && (meeting.value?.agenda_items ?? []).every((item) => {
+    const row = resultRows.value[item.id]
+    // An appeal always states its reason and names no authority.
+    if (item.item_type === 'appeal') return row.recommendation && row.note.trim()
+    return row.recommendation
+      && (row.recommendation === 'defer' || row.approving_authority)
+      && (row.recommendation === 'approve' || row.note.trim())
+  }))
 
 function resultsPayload() {
   const form = new FormData()
   form.append('minutes_file', minutesFile.value)
   for (const [id, row] of Object.entries(resultRows.value)) {
     form.append(`items[${id}][recommendation]`, row.recommendation)
-    if (row.recommendation !== 'defer') form.append(`items[${id}][approving_authority]`, row.approving_authority)
+    if (row.recommendation !== 'defer' && row.approving_authority) form.append(`items[${id}][approving_authority]`, row.approving_authority)
     if (row.note.trim()) form.append(`items[${id}][note]`, row.note.trim())
   }
   return form
@@ -118,8 +96,6 @@ function resultsPayload() {
 const submitting = ref(false)
 const error = ref('')
 const submitDisabled = computed(() => !choice.value
-  || (choice.value.requiresComment && !note.value.trim())
-  || (choice.value.action === 'approve_minutes' && !reviewerChecked.value)
   || (choice.value.action === 'record_results' && !resultsComplete.value))
 
 // pending_confirmation → meetings.statusPendingConfirmation
@@ -135,8 +111,6 @@ async function submit() {
   try {
     await REQUESTS[choice.value.action](
       props.meetingId,
-      note.value.trim(),
-      reviewerChecked.value,
       choice.value.action === 'record_results' ? resultsPayload() : null,
     )
     emit('updated')
@@ -178,39 +152,8 @@ async function submit() {
             {{ meeting.agenda_adopted_at ? t('decisionWizard.review.agendaAdopted') : t('decisionWizard.review.agendaNotAdopted') }}
           </dd>
         </div>
-        <div>
-          <dt>{{ t('decisionWizard.review.minutes') }}</dt>
-          <dd>{{ meeting.minutes_status ? t(`meetingsUnit.minutes.status.${meeting.minutes_status}`) : t('decisionWizard.review.noMinutes') }}</dd>
-        </div>
       </dl>
       <SeatStrip :seats="duties.seats" />
-    </template>
-
-    <template #checks>
-      <p class="lede">{{ t('decisionWizard.checks.meetingLede') }}</p>
-      <div v-for="check in checks" :key="check" class="check">
-        <h4>{{ t(`decisionWizard.checks.${check}`) }}</h4>
-        <template v-if="check === 'readiness'">
-          <p v-if="!readiness" class="state">{{ t('common.loading') }}</p>
-          <template v-else>
-            <p class="lede">
-              {{ readiness.ready ? t('meetingsUnit.readiness.verdict.ready') : t('meetingsUnit.readiness.verdict.notReady') }}
-            </p>
-            <p v-if="!readiness.exceptions?.length" class="state">{{ t('meetingsUnit.readiness.exceptions.none') }}</p>
-            <ul v-else class="plain-list">
-              <li v-for="(exception, index) in readiness.exceptions" :key="index">{{ readinessExceptionMessage(t, exception) }}</li>
-            </ul>
-            <p v-if="!readiness.ready" class="hint">{{ t('meetingsUnit.readiness.convene.reasonRequiredHint') }}</p>
-          </template>
-        </template>
-        <template v-else>
-          <p class="hint">{{ t('controlGates.minutesQuality.note') }}</p>
-          <label class="quality-check">
-            <input v-model="reviewerChecked" type="checkbox" />
-            <span>{{ t('controlGates.minutesQuality.reviewerCheck') }}</span>
-          </label>
-        </template>
-      </div>
     </template>
 
     <template #choose>
@@ -241,10 +184,6 @@ async function submit() {
       <WizardSlip kind="ledger" :reference="meeting?.meeting_number ?? ''">
         <p class="slip-action">{{ choice ? t(`decisionWizard.ledger.${choice.action}`) : '' }}</p>
         <p class="slip-destination">{{ meeting?.title }}</p>
-        <label v-if="choice && TAKES_NOTE.includes(choice.action)" class="slip-note">
-          <span>{{ choice.requiresComment ? t('decisionWizard.slip.reasonRequired') : t('decisionWizard.slip.noteOptional') }}<span v-if="choice.requiresComment" class="required-mark" aria-hidden="true">*</span></span>
-          <textarea v-model="note" rows="3" maxlength="5000" :required="choice.requiresComment" :disabled="submitting" />
-        </label>
       </WizardSlip>
       <MeetingResultsForm
         v-if="choice?.action === 'record_results' && meeting"
@@ -253,19 +192,8 @@ async function submit() {
         :items="meeting.agenda_items ?? []"
         :disabled="submitting"
       />
-      <!-- F8 — otherwise Submit is silently disabled with no explanation. -->
-      <p v-if="choice?.action === 'approve_minutes' && !reviewerChecked" class="hint">
-        {{ t('decisionWizard.checks.reviewerRequired') }}
-        <button v-if="steps.includes('checks')" class="link" type="button" @click="step = 'checks'">
-          {{ t('decisionWizard.choose.toChecks') }}
-        </button>
-      </p>
       <p v-if="error" class="alert" role="alert">{{ error }}</p>
     </template>
   </WizardShell>
 </template>
 
-<style scoped>
-.quality-check { display: flex; align-items: flex-start; gap: var(--space-2); color: var(--color-black-700); }
-.quality-check input { margin-block-start: 0.3rem; accent-color: var(--color-brand); }
-</style>

@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Models\Appeal;
 use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
@@ -50,6 +51,33 @@ trait HoldsPaperMeetings
         }
 
         return [$rapporteur, $meeting, $agenda];
+    }
+
+    /** An appeal at legal review, nominated onto this meeting's agenda. */
+    protected function appealOnAgenda(Meeting $meeting, Appeal $appeal): MeetingRequest
+    {
+        return $meeting->agendaItems()->create([
+            'item_type' => 'appeal',
+            'appeal_id' => $appeal->id,
+            'agenda_order' => (int) $meeting->agendaItems()->max('agenda_order') + 1,
+        ]);
+    }
+
+    /**
+     * The committee decides an appeal on paper: a meeting with the appeal as
+     * its one item, and the مقرر's results for it. approve = قبول التظلم,
+     * decline = رفض التظلم. Returns the decided agenda item.
+     */
+    protected function decideAppealOnPaper(Appeal $appeal, string $recommendation = 'decline', string $note = 'سبب قرار اللجنة'): MeetingRequest
+    {
+        [$rapporteur, $meeting] = $this->paperMeeting(0);
+        $item = $this->appealOnAgenda($meeting, $appeal);
+
+        $this->recordResults($rapporteur, $meeting, [
+            $item->id => ['recommendation' => $recommendation, 'note' => $note],
+        ])->assertOk();
+
+        return $item->refresh();
     }
 
     protected function committeeFile(): Request

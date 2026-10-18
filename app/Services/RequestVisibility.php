@@ -195,7 +195,7 @@ class RequestVisibility
                         RequestStatus::query()
                             ->whereIn('code', [
                                 ...RequestClosureService::CLOSABLE_STATUSES,
-                                RequestExecutionService::EXECUTABLE_STATUS,
+                                'in_execution',
                                 ...ApprovalReturnService::APPROVAL_CYCLE_STATUSES,
                                 // Stage 78 — the Art. 103 certifier and
                                 // the Art. 105 suspender need the same
@@ -246,7 +246,7 @@ class RequestVisibility
                     'requests.status_id',
                     RequestStatus::query()
                         ->whereIn('code', [
-                            RequestExecutionService::EXECUTABLE_STATUS,
+                            'in_execution',
                             'executed',
                             RequestSuspensionService::SUSPENDED_STATUS,
                             'completed_closed',

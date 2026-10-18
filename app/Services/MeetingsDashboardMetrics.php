@@ -21,7 +21,6 @@ class MeetingsDashboardMetrics
 {
     public function __construct(
         private readonly CommitteeStatusService $committeeStatus,
-        private readonly MeetingReadinessService $readiness,
         private readonly CommitteeBoardService $committeeBoard,
         private readonly EarlyWarningService $warnings,
         private readonly MeetingVisibility $visibility,
@@ -104,12 +103,7 @@ class MeetingsDashboardMetrics
         ];
     }
 
-    /**
-     * Stage 33 — reads MeetingReadinessService rather than re-deriving its
-     * own confirmed/total counts, so the dashboard tile can never disagree
-     * with the dedicated readiness screen (per the Stage 32 note's own
-     * open item).
-     */
+    /** The next confirmed sitting the actor can see. */
     public function nextMeeting(User $actor): ?array
     {
         $meeting = $this->visibility->apply(Meeting::query(), $actor)
@@ -124,8 +118,6 @@ class MeetingsDashboardMetrics
             return null;
         }
 
-        $readiness = $this->readiness->compute($meeting);
-
         return [
             'id' => $meeting->id,
             'title' => $meeting->title,
@@ -137,10 +129,6 @@ class MeetingsDashboardMetrics
             'scheduled_at' => $meeting->scheduled_at?->toIso8601String(),
             'location' => $meeting->location,
             'agenda_items_count' => $meeting->agenda_items_count,
-            'readiness' => [
-                'ready' => $readiness['ready'],
-                'exceptions_count' => count($readiness['exceptions']),
-            ],
         ];
     }
 }

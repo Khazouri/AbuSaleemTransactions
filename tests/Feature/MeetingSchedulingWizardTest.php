@@ -124,41 +124,6 @@ class MeetingSchedulingWizardTest extends TestCase
         Notification::assertNotSentTo($head, MeetingScheduledNotification::class);
     }
 
-    /**
-     * Stage 102 — the RSVP is each member's own answer (MeetingController::
-     * respond(), covered by CommitteeSinglePathTest); the roll-call endpoint
-     * no longer lets staff record it for them.
-     */
-    public function test_staff_can_no_longer_record_a_members_rsvp(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        $head = $this->userWithRole('R03');
-        $committee = Committee::create(['name_ar' => 'لجنة المشتريات']);
-        $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
-
-        $meeting = Meeting::create([
-            'committee_id' => $committee->id,
-            'title' => 'اجتماع',
-            'scheduled_at' => now()->addDay(),
-            'created_by_user_id' => $head->id,
-        ]);
-        $attendee = $meeting->attendees()->create(['user_id' => $head->id]);
-
-        $this->assertNull($attendee->responded_at);
-
-        $this->actingAs($head, 'sanctum')
-            ->patchJson("/api/meetings/{$meeting->id}/attendees/{$attendee->id}", ['invitation_status' => 'confirmed'])
-            ->assertOk()
-            ->assertJsonPath('data.invitation_status', 'pending');
-
-        $this->assertDatabaseHas('meeting_attendees', [
-            'id' => $attendee->id,
-            'invitation_status' => 'pending',
-            'responded_at' => null,
-        ]);
-    }
-
     private function userWithRole(string $roleCode): User
     {
         $user = User::factory()->create(['is_active' => true]);

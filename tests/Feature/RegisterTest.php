@@ -10,7 +10,6 @@ use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
 use App\Models\Meeting;
-use App\Models\MeetingMinutes;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStatus;
@@ -24,10 +23,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Stage 80 — [D] Art. 98's twelve official registers.
+ * Stage 80 — [D] Art. 98's official registers. Eleven since the paper meeting
+ * (2026-10-18) deleted the execution leg and with it register 9.
  *
  * One fixture walks a single file through intake, a نواقص loop, a meeting, a
- * decision, a deferral, a referral, an execution and a closure, so every
+ * decision, a deferral, a referral and a closure, so every
  * register can be asserted against a population whose expected contents are
  * readable from the fixture rather than from the register's own query.
  */
@@ -41,8 +41,8 @@ class RegisterTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
-    /** Art. 98 names twelve, in order, and the catalogue is that list. */
-    public function test_the_catalogue_lists_art_98s_twelve_registers_in_order(): void
+    /** Art. 98's list, in order, less the execution register. */
+    public function test_the_catalogue_lists_art_98s_registers_in_order(): void
     {
         $response = $this->actingAs($this->userWithRole('R06'), 'sanctum')
             ->getJson('/api/registers')
@@ -52,12 +52,13 @@ class RegisterTest extends TestCase
 
         $this->assertSame([
             'incoming', 'incomplete', 'meetings', 'agenda', 'minutes', 'decisions',
-            'approval_referrals', 'approval_returns', 'execution', 'appeals',
+            'approval_referrals', 'approval_returns', 'appeals',
             'deferred', 'closure',
         ], $codes);
-        $this->assertSame(range(1, 12), array_column($response->json('data'), 'number'));
+        // Art. 98's own numbers: register 9 (execution) is a gap, not a shift.
+        $this->assertSame([1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12], array_column($response->json('data'), 'number'));
         // Every register declares its own columns, so one generic table on the
-        // SPA can render all twelve.
+        // SPA can render all of them.
         foreach ($response->json('data') as $register) {
             $this->assertNotEmpty($register['columns']);
         }
@@ -111,10 +112,12 @@ class RegisterTest extends TestCase
     }
 
     /**
-     * Register 6 is Appendix 12's thirteen columns, and its approval /
-     * execution / closure trio is read from real state rather than attested.
+     * Register 6 is Appendix 12's columns, less the two execution ones the
+     * paper meeting removed (the file's own status stands in for them), and
+     * its approval / status / closure trio is read from real state rather
+     * than attested.
      */
-    public function test_the_decisions_register_carries_appendix_12s_thirteen_columns(): void
+    public function test_the_decisions_register_carries_appendix_12s_columns(): void
     {
         $requestRecord = $this->fixtureRequest();
         [$meeting, $agendaItem] = $this->fixtureMeeting($requestRecord);
@@ -131,7 +134,7 @@ class RegisterTest extends TestCase
             'decided_at' => now()->subDays(5),
         ]);
 
-        // The approving body answered, and the file was executed and closed.
+        // The approving body answered, and the file was closed.
         ApprovalReferral::create([
             'request_id' => $requestRecord->id,
             'referred_at' => now()->subDays(4),
@@ -143,7 +146,6 @@ class RegisterTest extends TestCase
             'recorded_by_user_id' => $recorder->id,
         ]);
         $requestRecord->update([
-            'executed_at' => now()->subDay(),
             'closed_at' => now(),
             'closure' => ['final_result_code' => 'executed', 'approving_body' => 'عميد البلدية'],
         ]);
@@ -157,11 +159,10 @@ class RegisterTest extends TestCase
             ->assertJsonPath('data.0.operative', 'قررت اللجنة الموافقة على الترقية.')
             ->assertJsonPath('data.0.approving_body', 'عميد البلدية')
             ->assertJsonPath('data.0.final_decision_number', 'ق/2026/77')
-            ->assertJsonPath('data.0.execution_status', 'منفذة')
+            ->assertJsonPath('data.0.request_status', 'تم التسجيل')
             ->assertJsonPath('data.0.closure_status', 'مقفلة');
 
-        // Appendix 12 names thirteen columns and this register has exactly them.
-        $this->assertCount(13, $response->json('columns'));
+        $this->assertCount(12, $response->json('columns'));
     }
 
     /** Register 11 reads the decision, not the status — Appendix 29's own point. */
@@ -206,14 +207,13 @@ class RegisterTest extends TestCase
         [$meeting, $agendaItem] = $this->fixtureMeeting($requestRecord);
         $actor = $this->userWithRole('R02');
 
-        MeetingMinutes::create([
-            'meeting_id' => $meeting->id,
-            'minutes_number' => 'PM-MIN/2026/01',
-            'content' => [],
-            'status' => MeetingMinutes::STATUS_APPROVED,
-            'generated_by_user_id' => $actor->id,
-            'generated_at' => now()->subDays(4),
-            'approved_at' => now()->subDays(3),
+        // The scanned محضر the مقرر attached with the results.
+        $meeting->update([
+            'minutes_file_path' => 'meeting-minutes/1/محضر.pdf',
+            'minutes_file_name' => 'محضر.pdf',
+            'minutes_file_mime' => 'application/pdf',
+            'results_recorded_at' => now()->subDays(4),
+            'results_recorded_by_user_id' => $actor->id,
         ]);
         ApprovalReturn::create([
             'request_id' => $requestRecord->id,
@@ -242,6 +242,10 @@ class RegisterTest extends TestCase
                 ->assertOk()
                 ->assertJsonPath('meta.total', $expected);
         }
+        $this->actingAs($reader, 'sanctum')
+            ->getJson('/api/registers/minutes')
+            ->assertJsonPath('data.0.meeting_number', $meeting->meeting_number)
+            ->assertJsonPath('data.0.recorded_by', $actor->name);
 
         // Register 7 names the file it belongs to — asserted explicitly
         // because a belongsTo whose foreign key is derived from the method
@@ -262,7 +266,7 @@ class RegisterTest extends TestCase
             ->assertJsonPath('data.0.title', $requestRecord->title);
 
         // Genuinely empty, because nothing in the fixture reaches them.
-        foreach (['incomplete', 'decisions', 'execution', 'deferred', 'closure'] as $code) {
+        foreach (['incomplete', 'decisions', 'deferred', 'closure'] as $code) {
             $this->actingAs($reader, 'sanctum')
                 ->getJson("/api/registers/{$code}")
                 ->assertOk()
@@ -272,7 +276,7 @@ class RegisterTest extends TestCase
         $this->assertSame($agendaItem->meeting_id, $meeting->id);
     }
 
-    /** The date and search filters narrow a register the same way for all twelve. */
+    /** The date and search filters narrow a register the same way for all of them. */
     public function test_the_shared_filters_narrow_a_register(): void
     {
         $first = $this->fixtureRequest();

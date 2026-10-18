@@ -119,7 +119,7 @@ class CommitteeMeetingTest extends TestCase
             ->assertCreated();
     }
 
-    public function test_agenda_add_remove_and_reorder_and_attendance_marking(): void
+    public function test_agenda_add_remove_and_reorder(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -133,7 +133,6 @@ class CommitteeMeetingTest extends TestCase
             'scheduled_at' => now()->addDay(),
             'created_by_user_id' => $head->id,
         ]);
-        $attendee = $meeting->attendees()->create(['user_id' => $head->id]);
 
         $requestOne = $this->request('AAA');
         $requestTwo = $this->request('BBB');
@@ -170,12 +169,6 @@ class CommitteeMeetingTest extends TestCase
 
         $this->assertDatabaseMissing('meeting_requests', ['id' => $remainingItemId]);
         $this->assertDatabaseHas('meeting_requests', ['id' => $itemTwo]);
-
-        // Mark attendance.
-        $this->actingAs($head, 'sanctum')
-            ->patchJson("/api/meetings/{$meeting->id}/attendees/{$attendee->id}", ['attended' => true])
-            ->assertOk()
-            ->assertJsonPath('data.attended', true);
     }
 
     public function test_committee_cannot_be_deleted_once_it_has_held_a_meeting(): void
@@ -212,8 +205,8 @@ class CommitteeMeetingTest extends TestCase
         ]);
 
         // Stage 68 — [D] Art. 21's legal review now gates agenda insertion.
-        // Seeded here so these tests stay about the agenda/attendance
-        // mechanics they were written for rather than becoming confounded by
+        // Seeded here so these tests stay about the agenda mechanics
+        // they were written for rather than becoming confounded by
         // a gate that has its own coverage in RequestLegalReviewTest.
         $requestRecord->legalReviews()->create([
             'verdict' => 'sound_ready',

@@ -40,7 +40,7 @@ class WorkflowServiceTest extends TestCase
         // (مدير إدارة الموارد البشرية): the receive_and_register hop is theirs,
         // not R05's — R05 keeps only its later approval_by_authority duty,
         // unaffected by any of it.
-        $actors = collect(['R02', 'R03', 'R05', 'R06', 'R07', 'R12'])
+        $actors = collect(['R02', 'R05', 'R06', 'R07', 'R12'])
             ->mapWithKeys(fn (string $roleCode) => [
                 $roleCode => $this->userWithRole($roleCode),
             ]);
@@ -65,7 +65,9 @@ class WorkflowServiceTest extends TestCase
             // Stage 102 — the مقرر's approve lands straight on the committee's
             // pending list; the three R02 forward hops through stages 6–8 are gone.
             ['requirements_check', 'receive_from_committee', 'approve', 'R02', 'registered'],
-            ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'awaiting_municipal_approval'],
+            // 2026-10-18 — the committee meets on paper and the مقرر enters
+            // its recommendation, so the committee's approve is R02's.
+            ['receive_from_committee', 'approval_by_authority', 'approve', 'R02', 'awaiting_municipal_approval'],
             // 2026-10-17 — جهة الاعتماد is one step: with no authority picked
             // (or `dean`), العميد approves here and the file is fully approved.
             ['approval_by_authority', 'final_approval_archiving', 'approve', 'R07', 'final_approved'],
@@ -117,7 +119,7 @@ class WorkflowServiceTest extends TestCase
         // 2026-10-18 — and the execution self-loop (level 5) is gone.
         $this->assertSame([1, 2, 3], $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
         $this->assertSame(
-            ['R02', 'R03', 'R07'],
+            ['R02', 'R02', 'R07'],
             $requestRecord->approvals()->with('role')->orderBy('id')->get()->pluck('role.code')->all(),
         );
     }
@@ -354,7 +356,7 @@ class WorkflowServiceTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $actors = collect(['R02', 'R03', 'R06', 'R07'])
+        $actors = collect(['R02', 'R06', 'R07'])
             ->mapWithKeys(fn (string $roleCode) => [
                 $roleCode => $this->userWithRole($roleCode),
             ]);
@@ -363,7 +365,7 @@ class WorkflowServiceTest extends TestCase
 
         $requestRecord = $service->transition($requestRecord, 'approve', $actors['R02']);
         $requestRecord->update(['approving_authority' => 'minister']);
-        $requestRecord = $service->transition($requestRecord, 'approve', $actors['R03']);
+        $requestRecord = $service->transition($requestRecord, 'approve', $actors['R02']);
         $this->assertSame('local_governance_ministry', $requestRecord->currentStage->code);
         $this->assertSame('awaiting_central_approval', $requestRecord->status->code);
 

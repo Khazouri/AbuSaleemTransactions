@@ -185,8 +185,8 @@ class Appeal extends Model
     }
 
     /**
-     * Not yet on an agenda in this lap: never nominated, or nominated only
-     * before its last reopen. The nominate offer, the nominator's view of
+     * Not yet on an agenda in this lap: never nominated, deferred by the
+     * committee, or nominated only before its last reopen. The nominate offer, the nominator's view of
      * GET appeals/{a}/acts, the inbox and MeetingController::addAgendaItem()
      * all read it, so they agree.
      */
@@ -194,7 +194,9 @@ class Appeal extends Model
     {
         $item = $this->committeeAgendaItem;
 
-        return $item === null || ($this->reopened_at !== null && $item->created_at < $this->reopened_at);
+        return $item === null
+            || $item->decision?->outcome === 'defer'
+            || ($this->reopened_at !== null && $item->created_at < $this->reopened_at);
     }
 
     /**

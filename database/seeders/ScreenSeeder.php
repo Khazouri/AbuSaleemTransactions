@@ -35,6 +35,9 @@ class ScreenSeeder extends Seeder
         // below leaves it orphaned, since updateOrCreate() never deletes.
         // Its screen_role_permissions rows cascade-delete with it.
         Screen::query()->where('code', 'authority_approval')->delete();
+        // 2026-10-18 — the in-system sitting's three screens went with it: the
+        // committee meets on paper and the مقرر enters the results.
+        Screen::query()->whereIn('code', ['meeting_readiness', 'meeting_live', 'meeting_minutes'])->delete();
 
         // [code, Arabic name, English name, Vue route, icon, group]
         // `group` is null for every ungrouped (flat, top-level) screen —
@@ -80,12 +83,14 @@ class ScreenSeeder extends Seeder
             ['legal_review',             'المراجعة القانونية',          'Legal Review',                 '/meetings/legal-review',    'scale',        'meetings_management'],
             ['meetings',                 'الاجتماعات',                'Meetings',                     '/meetings',                 'users',        'meetings_management'],
             ['meeting_agenda',           'جدول الأعمال',               'Meeting Agenda',               '/meetings/agenda',          'file-text',    'meetings_management'],
-            ['meeting_readiness',        'جاهزية الاجتماع',            'Meeting Readiness',            '/meetings/readiness',       'check-square', 'meetings_management'],
-            ['meeting_live',             'مباشرة الاجتماع',            'Live Meeting',                 '/meetings/live',            'video',        'meetings_management'],
             // Stage 43 — decisions is shared, not part of meetings_management.
             ['decisions',                'القرارات والتوصيات',         'Decisions & Recommendations',  '/decisions',                'check-square', null],
-            ['meeting_minutes',          'المحاضر',                    'Minutes',                      '/meetings/minutes',         'book',         'meetings_management'],
-            ['meeting_outputs',          'المخرجات',                   'Outputs',                      '/meetings/outputs',         'bar-chart',    'meetings_management'],
+            // 2026-10-18 — no page of its own any more (the outputs tracker
+            // went with the execution leg), but its grants still gate the
+            // archives, closure, returns, referrals and suspensions, and
+            // RequestVisibility reads them, so the row stays — route NULL,
+            // the approval queues' precedent below.
+            ['meeting_outputs',          'المخرجات',                   'Outputs',                      null,                        'bar-chart',    'meetings_management'],
 
             // --- The approval chain, one screen per authority ------------------
             //

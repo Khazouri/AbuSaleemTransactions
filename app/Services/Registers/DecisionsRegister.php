@@ -63,8 +63,7 @@ class DecisionsRegister extends Register
             'approving_body' => ['ar' => 'جهة الاعتماد', 'en' => 'Approving body'],
             'approved_at' => ['ar' => 'تاريخ الاعتماد', 'en' => 'Approved on'],
             'final_decision_number' => ['ar' => 'رقم القرار النهائي', 'en' => 'Final decision no.'],
-            'execution_status' => ['ar' => 'حالة التنفيذ', 'en' => 'Execution'],
-            'execution_date' => ['ar' => 'تاريخ التنفيذ', 'en' => 'Executed on'],
+            'request_status' => ['ar' => 'حالة المعاملة', 'en' => 'Request status'],
             'closure_status' => ['ar' => 'حالة الإقفال', 'en' => 'Closure'],
         ];
     }
@@ -84,7 +83,7 @@ class DecisionsRegister extends Register
         return Decision::query()->with([
             'meetingRequest:id,meeting_id,request_id',
             'meetingRequest.meeting:id,meeting_number,scheduled_at',
-            'meetingRequest.request:id,reference_number,request_type_id,created_by_user_id,subject_user_id,status_id,executed_at,closed_at,closure',
+            'meetingRequest.request:id,reference_number,request_type_id,created_by_user_id,subject_user_id,status_id,closed_at,closure',
             'meetingRequest.request.requestType:id,name_ar,name_en',
             'meetingRequest.request.subject:id,name',
             'meetingRequest.request.status:id,code,name_ar,name_en',
@@ -116,10 +115,7 @@ class DecisionsRegister extends Register
             'approved_at' => $this->date($approved?->result_received_at),
             'final_decision_number' => $approved?->approval_decision_number
                 ?? ($closure['final_decision_number'] ?? null),
-            'execution_status' => $requestRecord?->executed_at !== null
-                ? ($locale === 'ar' ? 'منفذة' : 'Executed')
-                : $this->localName($requestRecord?->status, $locale),
-            'execution_date' => $this->date($requestRecord?->executed_at),
+            'request_status' => $this->localName($requestRecord?->status, $locale),
             'closure_status' => $requestRecord?->closed_at !== null
                 ? ($locale === 'ar' ? 'مقفلة' : 'Closed')
                 : ($locale === 'ar' ? 'مفتوحة' : 'Open'),

@@ -1,6 +1,6 @@
 // Stage 77 — [D] Art. 94's return reasons merged with Appendix 34's own
 // شكلية/موضوعية examples, mirrored once for every screen that renders them
-// (the requestClosure.js / requestExecution.js precedent).
+// (the requestClosure.js precedent).
 //
 // The kind attached to each code is the source's own classification: Appendix
 // 34 puts توقيع ناقص · خطأ رقمي · نقص مرفق under شكلية and طلب إعادة دراسة ·

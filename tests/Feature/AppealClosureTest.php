@@ -4,9 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Appeal;
 use App\Models\AppealStatus;
-use App\Models\Committee;
 use App\Models\Department;
-use App\Models\Meeting;
 use App\Models\NotificationSetting;
 use App\Models\Request;
 use App\Models\RequestStatus;
@@ -18,8 +16,8 @@ use App\Notifications\AppealDecidedNotification;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
-use Tests\RecordsStructuredDecisions;
-use Tests\RunsStudySequence;
+use Illuminate\Support\Facades\Storage;
+use Tests\HoldsPaperMeetings;
 use Tests\TestCase;
 
 /**
@@ -34,14 +32,14 @@ use Tests\TestCase;
  */
 class AppealClosureTest extends TestCase
 {
-    use RecordsStructuredDecisions;
+    use HoldsPaperMeetings;
     use RefreshDatabase;
-    use RunsStudySequence;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+        Storage::fake('local');
     }
 
     public function test_closing_from_the_rejected_branch_notifies_the_appellant_and_records_the_closure(): void
@@ -91,7 +89,7 @@ class AppealClosureTest extends TestCase
 
     public function test_closing_is_refused_from_committee_presentation_before_the_outcome_is_executed(): void
     {
-        [$appeal, $verifier] = $this->decidedAppealFixture('appeal_reject');
+        [$appeal, $verifier] = $this->decidedAppealFixture('decline');
 
         $this->actingAs($verifier, 'sanctum')
             ->patchJson("/api/appeals/{$appeal->id}/close", $this->closurePayload())
@@ -100,7 +98,7 @@ class AppealClosureTest extends TestCase
 
     public function test_closing_succeeds_once_the_committee_outcome_has_been_executed_and_echoes_it(): void
     {
-        [$appeal, $verifier] = $this->decidedAppealFixture('appeal_accept');
+        [$appeal, $verifier] = $this->decidedAppealFixture('approve');
 
         $this->actingAs($verifier, 'sanctum')
             ->patchJson("/api/appeals/{$appeal->id}/execute-outcome")
@@ -252,49 +250,12 @@ class AppealClosureTest extends TestCase
     }
 
     /** @return array{0: Appeal, 1: User} the fresh, committee_presentation appeal and its R02 verifier. */
-    private function decidedAppealFixture(string $outcome): array
+    private function decidedAppealFixture(string $recommendation): array
     {
-        $head = $this->userWithRole('R03');
-        $member = $this->userWithRole('R04');
-        $verifier = $this->userWithRole('R02');
+        $appeal = $this->appealAt($this->userWithRole('R01'), 'legal_review');
+        $this->decideAppealOnPaper($appeal, $recommendation);
 
-        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
-        $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
-        $committee->members()->create(['user_id' => $member->id]);
-
-        $meeting = Meeting::create([
-            'committee_id' => $committee->id,
-            'title' => 'اجتماع عرض التظلمات',
-            'scheduled_at' => now()->addDay(),
-            'created_by_user_id' => $head->id,
-        ]);
-        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
-        $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
-
-        $employee = $this->userWithRole('R01');
-        $appeal = $this->appealAt($employee, 'legal_review');
-
-        $agendaItem = $meeting->agendaItems()->create([
-            'appeal_id' => $appeal->id,
-            'item_type' => 'appeal',
-            'agenda_order' => 1,
-        ]);
-        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
-        // Tests\RunsStudySequence for why it is written directly here.
-        $this->completeStudySequence($agendaItem);
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => $outcome])
-            ->assertCreated();
-        $this->actingAs($member, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => $outcome])
-            ->assertCreated();
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload($outcome, ['comment' => 'سبب القرار']))
-            ->assertCreated();
-
-        return [$appeal->fresh(), $verifier];
+        return [$appeal->fresh(), $this->userWithRole('R02')];
     }
 
     private function requestFixture(User $creator): Request

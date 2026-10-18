@@ -474,32 +474,6 @@
         "createdBy": "Submitted by",
         "attachments": "Original request documents"
       },
-      "memo": {
-        "heading": "Original presentation memo",
-        "none": "No presentation memo was ever generated for this item.",
-        "workUnit": "Employee's work unit",
-        "referringBody": "Referring body",
-        "keyDocuments": "Key documents",
-        "factsSummary": "Facts summary",
-        "legalOpinion": "Legal opinion",
-        "committeeQuestion": "Question put to the committee",
-        "notAuthoredYet": "This memo's content has not been authored yet."
-      },
-      "minutes": {
-        "heading": "Original meeting minutes",
-        "none": "No minutes have been generated for this meeting.",
-        "status": {
-          "draft": "Draft",
-          "pending_signatures": "Pending signatures",
-          "approved": "Approved"
-        },
-        "quorum": "Quorum (present / required)",
-        "factsSummary": "Facts summary",
-        "legalBasis": "Legal basis",
-        "votes": "Votes",
-        "dissentingOpinions": "Dissenting opinions",
-        "requiredSignatories": "Required signatories"
-      },
       "decision": {
         "heading": "Decision",
         "none": "No decision is recorded for this request.",
@@ -954,8 +928,6 @@
     "attendees": "attendees",
     "agendaItems": "agenda items",
     "back": "Back to meetings",
-    "minutes": "Minutes",
-    "openMinutes": "Open minutes",
     "delete": "Delete meeting",
     "sendInvitations": "Send invitations",
     "sendingInvitations": "Sending invitations…",
@@ -1112,21 +1084,6 @@
       "appeal_redo": "Redo procedures",
       "abstain": "Abstain"
     },
-    "vote": {
-      "approve": "Approve",
-      "reject": "Reject",
-      "defer": "Defer",
-      "conditional_approval": "Conditional approval",
-      "legal_opinion": "Request legal opinion",
-      "refer_other_body": "Refer to another body",
-      "no_jurisdiction": "Outside jurisdiction",
-      "appeal_accept": "Accept the appeal",
-      "appeal_partial_accept": "Partially accept the appeal",
-      "appeal_reject": "Reject the appeal",
-      "appeal_refer": "Refer to another body",
-      "appeal_redo": "Redo procedures from the defect stage",
-      "abstain": "Abstain"
-    },
     "outcome": {
       "approve": "Approved",
       "reject": "Rejected",
@@ -1141,41 +1098,13 @@
       "appeal_refer": "Appeal referred to another body",
       "appeal_redo": "Procedures redone from the defect stage"
     },
-    "conflict": {
-      "listTitle": "Declared conflicts of interest",
-      "declare": "Declare a conflict of interest",
-      "declaring": "Declaring…",
-      "reasonPlaceholder": "Nature of the conflict (optional)",
-      "declared": "You have declared a conflict of interest on this item and may not vote or take part in its deliberation.",
-      "rapporteurNoVote": "You are this meeting's rapporteur and do not vote unless the committee's formation decision grants it."
-    },
-    "template": {
-      "usedLabel": "Template used",
-      "choose": "Choose a decision template",
-      "use": "Use template",
-      "drafting": "Drafting…",
-      "draftError": "Couldn't draft the decision text from this template."
-    },
-    "notesLabel": "Notes",
     "instrument": {
       "label": "What the committee issued",
-      "choose": "Choose: decision, recommendation or opinion",
-      "expected": "The legal-basis card expects: {value}",
       "decision": "Decision",
       "recommendation": "Recommendation",
       "opinion": "Opinion"
     },
-    "parts": {
-      "subject": "Subject of the decision",
-      "facts": "Facts",
-      "basis": "Legal basis",
-      "operative": "Operative clause",
-      "operativeHint": "Must be clear and executable — unmeasurable wording such as \"take the necessary action\", \"consider the matter\" or \"as per procedure\" is not accepted unless tied to a specific action."
-    },
     "refusal": {
-      "label": "Reason for refusal",
-      "choose": "Choose the professional reason",
-      "hint": "\"The committee did not approve\" is not sufficient on its own — the reason must be evidenced in the file.",
       "reasons": {
         "period_condition_unmet": "Service-period condition not met",
         "position_unavailable": "Required position unavailable",
@@ -1187,36 +1116,15 @@
         "other": "Other reason stated in the file"
       }
     },
-    "deferral": {
-      "legend": "Deferral details",
-      "hint": "A deferral \"for review\" with nothing stated as required is not accepted — the request stays deferred pending completion and does not close when the meeting ends.",
-      "deferral_reason": "Reason for deferral",
-      "deferral_required_completion": "What must be completed",
-      "deferral_responsible_body": "Body responsible for completing it",
-      "deferral_required_document": "Document or statement required",
-      "deferral_legal_period": "Statutory period (if any)"
-    },
-    "commentPlaceholder": "Reason for the decision (optional for approve, required for the other outcomes)",
     "appealLabel": "Appeal",
     "appealSubject": "Appeal by {appellant} — {title}",
-    "referralAuthorityLabel": "Referred to",
-    "referralAuthorityPlaceholder": "Authority the matter was referred to (optional)",
     "approvingAuthority": {
-      "label": "Approving authority",
       "dean": "Dean",
-      "minister": "Minister",
-      "suggested": "Suggested by the employee's grade: {authority}. The chair picks it on the members' recommendation.",
-      "slip": "Sent for approval to: {authority}"
+      "minister": "Minister"
     },
-    "record": "Record decision",
-    "decidedBy": "Decided by",
     "decisionNumber": "Decision no.",
     "title": "Decisions & Recommendations",
     "subtitle": "Every binding committee decision, and the items still awaiting your vote.",
-    "tabs": {
-      "register": "Register",
-      "pending": "Awaiting my vote"
-    },
     "filters": "Filters",
     "outcomeLabel": "Outcome",
     "allOutcomes": "All outcomes",
@@ -1229,8 +1137,6 @@
     "apply": "Apply",
     "clear": "Clear",
     "empty": "No decisions match these filters.",
-    "noPending": "Nothing is waiting on your vote.",
-    "yourVote": "Your vote is recorded — choose again to change it.",
     "print": "Print",
     "exportExcel": "Export Excel",
     "exportPdf": "Export PDF",
@@ -1264,10 +1170,7 @@
         "title": "Next meeting",
         "none": "No upcoming meeting is scheduled.",
         "items": "agenda item(s)",
-        "ready": "Ready to convene",
-        "notReady": "Not ready ({count})",
-        "open": "Open meeting",
-        "checkReadiness": "Check readiness"
+        "open": "Open meeting"
       },
       "error": "Could not load the dashboard data.",
       "board": {
@@ -1337,232 +1240,7 @@
         "noDepartment": "No department",
         "noRequestType": "No request type"
       },
-      "dragToReorder": "Drag to reorder",
-      "openMemo": "Open presentation memo"
-    },
-    "readiness": {
-      "title": "Meeting Readiness",
-      "subtitle": "Check a meeting's readiness before convening it.",
-      "chooseMeeting": "Meeting",
-      "chooseMeetingPlaceholder": "— Choose a meeting —",
-      "noMeetingSelected": "Choose a meeting to check its readiness.",
-      "error": "Could not load readiness data.",
-      "verdict": {
-        "ready": "Ready to convene",
-        "notReady": "Not ready"
-      },
-      "percentages": {
-        "file": "Case files",
-        "member": "Member roster",
-        "agenda": "Agenda completeness",
-        "invitation": "Invitation responses"
-      },
-      "quorum": {
-        "title": "Quorum",
-        "required": "Required",
-        "confirmed": "Confirmed",
-        "met": "Quorum met",
-        "notMet": "Quorum not met",
-        "notRecorded": "Not recorded on the committee card",
-        "perText": "Per the text"
-      },
-      "exceptions": {
-        "title": "Exceptions",
-        "none": "No exceptions — the meeting is fully ready.",
-        "empty_agenda": "The agenda has no items yet.",
-        "quorum_not_met": "Confirmed members ({confirmed}/{required}) do not meet quorum.",
-        "missing_files": "{count} request item(s) are missing attachments.",
-        "unconfirmed_members": "{count} committee member(s) were not invited to this meeting.",
-        "incomplete_agenda_items": "Some agenda items are missing a priority or estimated time.",
-        "pending_invitations": "Some attendees have not responded to their invitation.",
-        "committee_rules_not_recorded": "The committee card records no quorum rule, and the system may not assume one.",
-        "missing_legal_review": "Some request items have not completed the required legal review.",
-        "agenda_order_departs_from_rule": "The agenda departs from the order Art. 83 mandates, with no documented administrative justification.",
-        "unresolved_document_conflict": "A document conflict on one of the agenda items has not been resolved.",
-        "incomplete_required_documents": "Required documents are incomplete on {count} request item(s)."
-      },
-      "convene": {
-        "alreadyConvened": "Convened at {date}",
-        "reasonRequiredHint": "Required — the meeting is not fully ready"
-      }
-    },
-    "live": {
-      "title": "Live Meeting",
-      "subtitle": "Run the meeting item by item: discussion, voting, and decision for each.",
-      "chooseMeeting": "Choose a meeting",
-      "chooseMeetingPlaceholder": "— Choose a meeting —",
-      "noMeetingSelected": "Choose a meeting to start the runner.",
-      "error": "Could not load the meeting.",
-      "notConvened": "This meeting has not been convened yet. Convene it from the readiness screen before running it.",
-      "goToReadiness": "Go to readiness",
-      "presentAttendees": "Present attendees",
-      "noAttendees": "No attendees marked present yet.",
-      "noItems": "The agenda has no items.",
-      "progress": {
-        "resolved": "items resolved"
-      },
-      "states": {
-        "presented": "Presented",
-        "discussion": "Discussion",
-        "voting": "Voting",
-        "deciding": "Deciding",
-        "complete": "Complete"
-      },
-      "studySequence": {
-        "title": "Item study sequence (Art. 85)",
-        "incomplete": "Voting does not open until the study steps are done and the discussion is closed.",
-        "frozen": "Voting has begun: the facts and documents may not be changed before the result is recorded (Appendix 25).",
-        "derived": "Recorded automatically",
-        "optional": "Optional",
-        "notApplicable": "Not applicable"
-      },
-      "timer": "Elapsed",
-      "discussion": {
-        "title": "Discussion log",
-        "empty": "No notes yet.",
-        "placeholder": "Add a discussion note…",
-        "post": "Post"
-      },
-      "tabs": {
-        "summary": "Request Summary",
-        "employee": "Employee Data",
-        "study": "Study",
-        "attachments": "Attachments",
-        "previous": "Previous Requests",
-        "memo": "Presentation Memo",
-        "notes": "Committee Notes"
-      },
-      "memo": {
-        "loadError": "Could not load the presentation memo.",
-        "notGenerated": "No presentation memo has been generated for this item yet.",
-        "generate": "Generate memo",
-        "regenerate": "Regenerate memo",
-        "workUnit": "Work unit",
-        "referringBody": "Referring body",
-        "keyDocuments": "Key documents",
-        "priorDecisions": "Prior decisions on this matter",
-        "noPriorDecisions": "No prior committee decisions on this matter.",
-        "factsSummary": "Summary of facts",
-        "employmentStatus": "Relevant employment status",
-        "legalOpinion": "Legal opinion (if any)",
-        "committeeQuestion": "The specific question for the committee"
-      },
-      "context": {
-        "loadError": "Could not load request data.",
-        "summary": {
-          "reference": "Reference number",
-          "department": "Department",
-          "requestType": "Request type",
-          "status": "Status",
-          "submitted": "Submitted",
-          "dueDate": "Due date",
-          "decisionGrade": "Job grade",
-          "description": "Details",
-          "noDescription": "No additional details."
-        },
-        "employee": {
-          "name": "Name",
-          "email": "Email",
-          "phone": "Phone",
-          "department": "Department",
-          "manager": "Direct manager",
-          "unavailable": "Employee data is not available."
-        },
-        "study": {
-          "empty": "No study notes recorded for this request."
-        },
-        "attachments": {
-          "empty": "No attachments on this request."
-        },
-        "previous": {
-          "empty": "No previous requests for this employee."
-        }
-      },
-      "agendaNotAdopted": "The agenda has not been adopted yet; no item may be discussed before it is.",
-      "goToAgenda": "Go to the agenda"
-    },
-    "minutes": {
-      "title": "Minutes",
-      "minutesNumber": "Minutes no.",
-      "subtitle": "Generate, review, and sign the meeting's minutes.",
-      "chooseMeeting": "Meeting",
-      "chooseMeetingPlaceholder": "— Choose a meeting —",
-      "noMeetingSelected": "Choose a meeting to view its minutes.",
-      "error": "Failed to load the meeting's minutes.",
-      "notGenerated": "Minutes have not been generated for this meeting yet.",
-      "changesRequestedNote": "Changes were requested on this draft",
-      "status": {
-        "draft": "Draft",
-        "pending_signatures": "Pending signatures",
-        "approved": "Approved"
-      },
-      "sections": {
-        "meetingInfo": "Meeting details",
-        "attendance": "Attendance",
-        "present": "Present",
-        "absent": "Absent",
-        "agendaItems": "Agenda items",
-        "requiredSignatories": "Required signatories",
-        "guests": "Extra invitees (non-voting)"
-      },
-      "item": {
-        "factsSummary": "Facts summary",
-        "legalBasis": "Legal basis",
-        "documentsReviewed": "Documents reviewed",
-        "dissentingOpinions": "Dissenting opinions",
-        "referralAuthority": "Referred to"
-      },
-      "review": {
-        "title": "Review minutes"
-      },
-      "signatures": {
-        "title": "Signatures",
-        "none": "No signatures required.",
-        "signed": "Signed",
-        "pending": "Pending"
-      },
-      "legalReview": {
-        "title": "Legal member note",
-        "none": "No legal note on these minutes.",
-        "placeholder": "Legal note on the draft minutes (when needed)",
-        "save": "Save note"
-      }
-    },
-    "outputs": {
-      "title": "Meeting outputs",
-      "subtitle": "Follow every committee decision through approval, execution, and closure.",
-      "detailHint": "Open the meeting's decisions and their downstream execution status.",
-      "open": "Open outputs tracker",
-      "refresh": "Refresh status",
-      "chooseMeeting": "Meeting",
-      "chooseMeetingPlaceholder": "Choose a meeting",
-      "noMeetingSelected": "Choose a meeting to view its outputs.",
-      "meeting": "Meeting",
-      "error": "The meeting outputs could not be loaded.",
-      "tableTitle": "Request follow-up",
-      "liveHint": "Statuses follow the live request workflow and refresh automatically.",
-      "empty": "This meeting has no request items to follow.",
-      "awaitingDecision": "Awaiting committee decision",
-      "summary": {
-        "title": "Meeting output summary",
-        "total_items": "Agenda items",
-        "decisions": "Decisions",
-        "advanced": "Advanced downstream",
-        "awaiting_action": "Awaiting action",
-        "in_execution": "In execution",
-        "executed": "Executed",
-        "completed_closed": "Completed and closed"
-      },
-      "columns": {
-        "request": "Request",
-        "employee": "Employee",
-        "decision": "Committee decision",
-        "decisionDate": "Decision date",
-        "nextAction": "Next action",
-        "responsibleBody": "Responsible body",
-        "status": "Status",
-        "action": "Action"
-      }
+      "dragToReorder": "Drag to reorder"
     },
     "legalReview": {
       "title": "Pre-meeting legal review",
@@ -1723,64 +1401,6 @@
       "letter_number": "Return letter number",
       "received_at": "Date the result arrived",
       "resolution_action": "Action taken about the return"
-    }
-  },
-  "requestExecution": {
-    "title": "Execution proof",
-    "action": "Record execution proof",
-    "formNote": "Job decision execution order — the executing body saying \"done\" is not enough; the execution document must be attached.",
-    "evidenceTitle": "Execution evidence",
-    "evidenceNote": "Select the document or documents proving the required effect was achieved, and the kind of each.",
-    "evidenceBadge": "Execution evidence",
-    "noAttachments": "This request has no attached documents; upload the execution evidence from the request page first.",
-    "notEvidence": "Not execution evidence",
-    "checklistTitle": "Execution follow-up",
-    "checklistNote": "Every item must be answered; the execution-document check is derived from the evidence selected above.",
-    "financialBinds": "This request carries a financial effect, so execution cannot be proven before it is referred.",
-    "executedAt": "Execution recorded at",
-    "executedBy": "Executing officer",
-    "fields": {
-      "executing_body": "Executing body",
-      "action_taken": "Action carried out",
-      "effective_date": "Effective date",
-      "approving_body": "Approving body",
-      "approval_number": "Approval number",
-      "approval_date": "Approval date",
-      "financial_effect_note": "Financial effect note"
-    },
-    "checks": {
-      "administrative_decision_issued": "Was the administrative decision issued?",
-      "employee_file_updated": "Was the employee file updated?",
-      "system_updated": "Was the system updated?",
-      "financial_effect_referred": "Was the financial effect referred?",
-      "organizational_unit_notified": "Was the organizational unit notified?",
-      "employee_notified": "Was the employee notified?",
-      "execution_document_attached": "Was the execution document attached?"
-    },
-    "answers": {
-      "yes": "Yes",
-      "no": "No",
-      "not_applicable": "Not applicable"
-    },
-    "evidenceTypes": {
-      "administrative_decision": "Administrative decision",
-      "employee_record_update": "Employee record update",
-      "transfer_decision": "Transfer decision",
-      "secondment_decision": "Secondment decision",
-      "grade_amendment": "Grade amendment",
-      "financial_statement": "Financial statement",
-      "commencement_document": "Commencement document",
-      "other": "Another document proving the effect"
-    },
-    "serviceFile": {
-      "final_decision": "Final decision",
-      "effective_date": "Effective date",
-      "decision_effect": "Decision effect",
-      "grade_change": "Grade change",
-      "position_change": "Position change",
-      "body_change": "Body change",
-      "financial_change": "Financial status change",
-      "seniority_date": "Seniority date"
     }
   },
   "workflow": {
@@ -2025,7 +1645,6 @@
       "title": "Gate 1 — before registration",
       "question": "Are the facts and documents correct and complete?",
       "formNote": "Review every file attached to the request.",
-      "choose": "Choose…",
       "attestation": "I certify the facts and data submitted are correct.",
       "passed": "The file has cleared gate 1.",
       "recordedBy": "Recorded by {name} — {at}",
@@ -2053,33 +1672,6 @@
       "gradeConfirmed": "Matches the organisation's records",
       "gradeUnconfirmed": "Not confirmed yet"
     },
-    "soundness": {
-      "title": "Decision soundness checklist (Art. 103)",
-      "question": "Has the decision’s soundness been verified before referring it to execution?",
-      "action": "Record the soundness check",
-      "formNote": "Eight of the twelve points are read from the request’s own data and are not asked; answer the remaining four.",
-      "passed": "The file has cleared the soundness checklist.",
-      "checks": {
-        "employee_name_correct": "Employee name is correct",
-        "employee_number_correct": "Employee number",
-        "decision_subject_present": "Subject of the decision",
-        "committee_jurisdiction": "Committee jurisdiction",
-        "convening_valid": "The sitting was validly convened",
-        "voting_complete": "Voting is complete",
-        "documents_present": "Documents are present",
-        "legal_basis_sound": "The legal basis is sound",
-        "minutes_signed": "The minutes are signed",
-        "competent_authority_approved": "The competent authority has approved",
-        "effective_date_correct": "The effective date is correct",
-        "no_conflict_with_attachments": "No conflict between the operative clause and the attachments"
-      },
-      "answers": {
-        "yes": "Yes",
-        "no": "No",
-        "not_applicable": "Not applicable",
-        "pending": "Not answered yet"
-      }
-    },
     "suspension": {
       "title": "Procedural suspension (Art. 105)",
       "question": "Has a material fact been found incorrect, or an essential document put in doubt?",
@@ -2102,34 +1694,6 @@
       "resolutions": {
         "fact_confirmed": "The fact or document was confirmed; the request resumes",
         "referred_to_committee": "The matter goes back to the committee for re-presentation"
-      }
-    },
-    "minutesQuality": {
-      "title": "Minutes quality controls (Appendix 8)",
-      "note": "Minutes are not referred for approval until sixteen controls are verified; fourteen are read from the meeting’s own data.",
-      "reviewerCheck": "I certify the minutes contain no internal contradictions.",
-      "checks": {
-        "meeting_number_matches": "The meeting number matches",
-        "date_correct": "The date is correct",
-        "member_names_match": "Member names match",
-        "attendance_recorded": "Attendance is recorded",
-        "convening_validity_recorded": "Valid convening is evidenced",
-        "items_match_agenda": "Items match the agenda",
-        "every_item_has_a_result": "Every discussed item has a result",
-        "decisions_separated_from_recommendations": "Decisions are separated from recommendations",
-        "deferrals_clear": "Deferrals are clear",
-        "required_completions_named": "Required completions are named",
-        "refusals_clear": "Non-approvals are clear",
-        "sensitive_results_reasoned": "Sensitive results are reasoned",
-        "next_approving_body_named": "The next approving body is named",
-        "request_numbers_match": "Request numbers match",
-        "no_internal_contradictions": "No internal contradictions",
-        "signatures_complete": "Signatures are complete"
-      },
-      "answers": {
-        "yes": "Met",
-        "no": "Not met",
-        "enforced_by_signature_lifecycle": "Enforced by the signature lifecycle"
       }
     }
   },
@@ -2435,10 +1999,8 @@
     "truncated": "Only part of your tasks is shown — there are a lot of them.",
     "sources": {
       "approval": "Awaiting your approval",
-      "vote": "Awaiting your vote",
       "candidate": "Committee candidates",
       "legal_review": "Awaiting legal review",
-      "minutes_signature": "Minutes awaiting your signature",
       "completion": "My requests needing completion",
       "meeting_invitation": "Meeting dates awaiting your answer",
       "meeting_due": "Committees with no meeting this month",
@@ -2454,13 +2016,7 @@
       "register": "Prepare employment file & register",
       "deadline_expired": "Escalate — deadline expired",
       "adopt_agenda": "Adopt the agenda",
-      "convene": "Convene the meeting",
-      "record_decision": "Record the decision",
-      "generate_minutes": "Prepare the minutes",
-      "review_minutes": "Review the minutes",
-      "close_meeting": "Close the meeting",
-      "execution_soundness": "Certify execution soundness",
-      "execute": "Record execution",
+      "record_results": "Enter the meeting's results",
       "archive_committee_file": "Archive the committee file",
       "archive_service_file": "Archive the service file",
       "close": "Close",
@@ -2512,21 +2068,14 @@
       "type": "Request type",
       "recent": "Latest actions",
       "more": "The full attachments and workflow record are in the File tab behind this window.",
-      "itemLede": "Read the item and see who has voted before you act.",
-      "item": "Item",
-      "reference": "Reference",
       "meeting": "Meeting",
-      "votes": "Votes",
-      "noVotes": "No votes yet",
       "meetingLede": "Look at where the meeting and its seats stand before you act.",
       "date": "Date",
       "status": "Meeting status",
       "agenda": "Agenda",
       "items": "{count} item(s)",
       "agendaAdopted": "adopted",
-      "agendaNotAdopted": "not adopted",
-      "minutes": "Minutes",
-      "noMinutes": "Not prepared yet"
+      "agendaNotAdopted": "not adopted"
     },
     "checks": {
       "lede": "These checks are yours to complete before some actions open up. Each one saves with its own button.",
@@ -2534,13 +2083,6 @@
       "intake": "Gate 1: file completeness",
       "jurisdiction_test": "Jurisdiction test (Art. 45)",
       "legal_card": "Legal basis card",
-      "conflict": "Conflict of interest",
-      "conflictLede": "If you have a stake in this item, declare it before voting; once declared, you cannot vote on it.",
-      "study_sequence": "Item study sequence (Art. 85)",
-      "meetingLede": "What the act rests on, before you take it.",
-      "readiness": "Meeting readiness",
-      "minutes_quality": "Minutes quality controls",
-      "reviewerRequired": "Tick the reviewer's statement on the Checks step before approving the minutes.",
       "step_checklist": "This step's checklist"
     },
     "choose": {
@@ -2551,8 +2093,6 @@
       "toChecks": "Go to checks",
       "none": "No action is open to you yet. Complete the checks first.",
       "verdicts": "Your legal opinion",
-      "itemLede": "Cast your vote, or record the result if you chair the sitting.",
-      "nothing": "There is nothing for you to do on this item.",
       "meetingLede": "Choose the act to take on this meeting."
     },
     "slip": {
@@ -2581,63 +2121,28 @@
       "return_to_study": "Sends the file back to the rapporteur to finish studying it, with your reason.",
       "require_completion": "Asks for what the file is missing before it is presented; name what is needed.",
       "send_to_legal_review": "Hands the file to the legal member for an opinion before it goes on an agenda.",
-      "record_decision": "Records the committee’s decision from the vote and moves the file accordingly.",
       "respond_accept": "Confirms you can attend on the proposed date; the meeting is confirmed once the required number of members accept.",
       "respond_decline": "You can’t make the date; the meeting is confirmed only if enough other members accept, or the rapporteur proposes another date.",
       "adopt_agenda": "Adopts the agenda: it is fixed against additions, removals and reordering, and deliberation can begin.",
-      "convene": "Opens the sitting and freezes the voting rules as they stand now.",
-      "generate_minutes": "Compiles the draft minutes from the sitting as it stands now.",
-      "approve_minutes": "Approves the minutes and sends them to the attendees to sign.",
-      "return_minutes": "Sends the minutes back to the rapporteur to amend, with your reason.",
-      "sign_minutes": "Confirms the minutes with your signature; the last signature makes them final.",
-      "close": "Closes the meeting; it cannot be changed afterwards.",
       "record_results": "Enter each item's recommendation and approving authority as recorded at the meeting, and attach the signed minutes. The meeting closes and the requests go to their approving authorities."
     },
     "act": "Take action",
     "actions": {
       "require_completion": "Request completion",
       "send_to_legal_review": "Send for legal review",
-      "vote": "Vote",
-      "record_decision": "Record the result",
       "respond_accept": "Accept the date",
       "respond_decline": "Decline the date",
       "adopt_agenda": "Adopt the agenda",
-      "convene": "Convene the meeting",
-      "generate_minutes": "Prepare the minutes",
-      "regenerate_minutes": "Prepare the minutes again",
-      "approve_minutes": "Approve the minutes",
-      "return_minutes": "Send the minutes back",
-      "sign_minutes": "Sign the minutes",
-      "close": "Close the meeting",
       "record_results": "Enter meeting results"
     },
-    "itemTitle": "Vote and decision",
     "seats": {
       "title": "Committee seats",
       "states": {
         "vacant": "Vacant",
         "pending": "No answer yet",
         "accepted": "Accepted the date",
-        "declined": "Declined the date",
-        "present": "Present",
-        "absent": "Absent",
-        "voted": "Voted",
-        "not_voted": "Not voted yet",
-        "recused": "Declared a conflict",
-        "signed": "Signed",
-        "unsigned": "Not signed yet"
+        "declined": "Declined the date"
       }
-    },
-    "ballot": {
-      "cast": "Cast vote",
-      "current": "Your current vote",
-      "yourChoice": "your choice"
-    },
-    "decision": {
-      "form": "Drafting the decision",
-      "predicted": "Result by the votes: {outcome}",
-      "tally": "Votes: {summary}",
-      "outcomeChanged": "The vote result changed since you opened this window; check the new result, then record it."
     },
     "meetingTitle": "Meeting actions",
     "meetingPrompt": "This meeting is waiting on an action from you.",
@@ -2645,12 +2150,6 @@
       "respond_accept": "The member accepted the meeting date.",
       "respond_decline": "The member declined the meeting date.",
       "adopt_agenda": "The agenda was adopted.",
-      "convene": "The meeting was convened.",
-      "generate_minutes": "The draft minutes were prepared.",
-      "approve_minutes": "The minutes were approved for signature.",
-      "return_minutes": "The minutes were sent back for changes.",
-      "sign_minutes": "The minutes were signed.",
-      "close": "The meeting was closed.",
       "record_results": "The committee's recommendations were entered and the minutes attached."
     },
     "families": {
@@ -2790,6 +2289,12 @@
       "decline": "Decline",
       "defer": "Defer"
     },
+    "appealRecommendations": {
+      "approve": "Accept the appeal",
+      "decline": "Reject the appeal",
+      "defer": "Defer"
+    },
+    "appealOn": "Appeal on: {title}",
     "authority": "Approving authority",
     "noteOptional": "Note (optional)",
     "noteRequired": "Reason or note",

@@ -65,7 +65,6 @@ class TimeCardCompiler
                 marks: [
                     'submitted_at' => $this->moment($requestRecord->submitted_at ?? $requestRecord->created_at),
                     'closed_at' => $this->moment($requestRecord->closed_at),
-                    'executed_at' => $this->moment($requestRecord->executed_at),
                 ],
                 meetingMarks: $meetingMarks[$id] ?? [],
                 referralMarks: $referralMarks[$id] ?? [],
@@ -84,7 +83,7 @@ class TimeCardCompiler
     public function forQuery(Builder $query): array
     {
         return $this->forRequests(
-            $query->get(['requests.id', 'requests.submitted_at', 'requests.created_at', 'requests.closed_at', 'requests.executed_at']),
+            $query->get(['requests.id', 'requests.submitted_at', 'requests.created_at', 'requests.closed_at']),
         );
     }
 
@@ -143,7 +142,8 @@ class TimeCardCompiler
 
     /**
      * T6/T7's endpoints: the first sitting a request was placed on, and when
-     * that sitting's minutes were compiled.
+     * the مقرر entered that sitting's results and محضر (the paper sitting,
+     * 2026-10-18).
      *
      * The FIRST sitting, not the latest: T6 measures how long a ready file
      * waited for a hearing, and a file deferred to a later meeting waited for
@@ -156,14 +156,13 @@ class TimeCardCompiler
     {
         $rows = DB::table('meeting_requests')
             ->join('meetings', 'meetings.id', '=', 'meeting_requests.meeting_id')
-            ->leftJoin('meeting_minutes', 'meeting_minutes.meeting_id', '=', 'meetings.id')
             ->whereIn('meeting_requests.request_id', $ids)
             ->orderBy('meetings.scheduled_at')
             ->orderBy('meeting_requests.id')
             ->get([
                 'meeting_requests.request_id',
                 'meetings.scheduled_at',
-                'meeting_minutes.generated_at',
+                'meetings.results_recorded_at',
             ]);
 
         $marks = [];
@@ -179,7 +178,7 @@ class TimeCardCompiler
 
             $marks[$id] = [
                 'held_at' => $this->moment($row->scheduled_at),
-                'minutes_generated_at' => $this->moment($row->generated_at),
+                'minutes_generated_at' => $this->moment($row->results_recorded_at),
             ];
         }
 

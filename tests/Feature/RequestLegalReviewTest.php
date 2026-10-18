@@ -293,30 +293,7 @@ class RequestLegalReviewTest extends TestCase
             ->assertJsonPath('data.0.id', $withLegal->id);
     }
 
-    /** Appendix 7's "هل تمت المراجعة القانونية المطلوبة؟", for rows predating the gate. */
-    public function test_readiness_flags_a_legacy_agenda_item_with_no_permitting_review(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        $head = $this->userWithRole('R03');
-        $meeting = $this->meetingFor($head);
-        $requestRecord = $this->committeeRequest('ready');
-
-        // Written directly, the way a row inserted before Stage 68 existed
-        // would look — the HTTP endpoint would refuse this today.
-        $meeting->agendaItems()->create([
-            'request_id' => $requestRecord->id,
-            'agenda_order' => 1,
-        ]);
-
-        $exceptionCodes = $this->actingAs($head, 'sanctum')
-            ->getJson("/api/meetings/{$meeting->id}/readiness")
-            ->assertOk()
-            ->json('data.exceptions.*.code');
-
-        $this->assertContains('missing_legal_review', $exceptionCodes);
-    }
-
-    /** R08's Settings switch: unreviewed and blocked files both reach the agenda, and readiness stays quiet. */
+    /** R08's Settings switch: unreviewed and blocked files both reach the agenda. */
     public function test_the_bypass_setting_admits_any_pending_request_to_the_agenda(): void
     {
         $this->seed(DatabaseSeeder::class);
@@ -341,13 +318,6 @@ class RequestLegalReviewTest extends TestCase
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $blocked->id])
             ->assertCreated();
-
-        $exceptionCodes = $this->actingAs($head, 'sanctum')
-            ->getJson("/api/meetings/{$meeting->id}/readiness")
-            ->assertOk()
-            ->json('data.exceptions.*.code');
-
-        $this->assertNotContains('missing_legal_review', $exceptionCodes);
     }
 
     public function test_the_request_detail_screen_shows_the_latest_review_only(): void

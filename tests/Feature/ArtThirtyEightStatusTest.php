@@ -52,7 +52,7 @@ class ArtThirtyEightStatusTest extends TestCase
         $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting', decisionGrade: 10);
         $requestRecord->update(['approving_authority' => 'minister']);
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R03'));
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R02'));
         $this->assertSame('local_governance_ministry', $requestRecord->currentStage->code);
         $this->assertSame('awaiting_central_approval', $requestRecord->status->code);
 
@@ -71,7 +71,7 @@ class ArtThirtyEightStatusTest extends TestCase
         $workflow = app(WorkflowService::class);
         $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting', decisionGrade: 1);
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R03'));
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R02'));
         $this->assertSame('awaiting_municipal_approval', $requestRecord->status->code);
 
         $dean = $this->userWithRole('R07');
@@ -90,17 +90,17 @@ class ArtThirtyEightStatusTest extends TestCase
     public function test_a_committee_non_approval_goes_to_the_authority_who_settles_code_13(): void
     {
         $workflow = app(WorkflowService::class);
-        $head = $this->userWithRole('R03');
+        $rapporteur = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting');
 
         try {
-            $workflow->transition($requestRecord, 'reject_by_committee', $head);
+            $workflow->transition($requestRecord, 'reject_by_committee', $rapporteur);
             $this->fail('A non-approval with no stated reason should be refused.');
         } catch (WorkflowTransitionException) {
             // Art. 91 — expected.
         }
 
-        $requestRecord = $workflow->transition($requestRecord, 'reject_by_committee', $head, 'لا يستوفي شروط الترقية.');
+        $requestRecord = $workflow->transition($requestRecord, 'reject_by_committee', $rapporteur, 'لا يستوفي شروط الترقية.');
         $this->assertSame('approval_by_authority', $requestRecord->currentStage->code);
         $this->assertSame('awaiting_municipal_approval', $requestRecord->status->code);
         $this->assertDatabaseHas('request_status_history', [

@@ -16,8 +16,6 @@ use App\Models\WorkflowStage;
 use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\RecordsStructuredDecisions;
-use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -29,9 +27,7 @@ use Tests\TestCase;
  */
 class SeatDutyGrantTest extends TestCase
 {
-    use RecordsStructuredDecisions;
     use RefreshDatabase;
-    use RunsStudySequence;
 
     protected function setUp(): void
     {
@@ -45,38 +41,37 @@ class SeatDutyGrantTest extends TestCase
         [$standIn, $committee] = $this->standInChair();
 
         // Seated, not yet invited: nothing of R03's.
-        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_live', 'can_edit'));
-        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('decisions', 'can_approve'));
+        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_approve'));
+        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meetings_dashboard', 'can_edit'));
 
         $this->meetingFor($committee, $standIn);
 
         $user = $this->fresh($standIn);
-        $this->assertTrue($user->hasScreenPermission('meeting_live', 'can_edit'));
-        $this->assertTrue($user->hasScreenPermission('meeting_readiness', 'can_edit'));
-        $this->assertTrue($user->hasScreenPermission('meeting_minutes', 'can_approve'));
-        $this->assertTrue($user->hasScreenPermission('decisions', 'can_approve'));
+        $this->assertTrue($user->hasScreenPermission('meeting_agenda', 'can_approve'));
+        $this->assertTrue($user->hasScreenPermission('meetings_dashboard', 'can_edit'));
+        $this->assertTrue($user->hasScreenPermission('meetings', 'can_edit'));
         // R03 grants outside the meeting duties are never lent.
         $this->assertFalse($user->hasScreenPermission('committee_head_approval', 'can_view'));
         $this->assertFalse($user->hasScreenPermission('meeting_outputs', 'can_edit'));
     }
 
-    public function test_the_stand_in_chair_records_their_own_items_decision_and_nothing_else(): void
+    /**
+     * The committee's outcome rows are R02's since 2026-10-18, so what a
+     * stand-in chair still borrows at the committee stage is R03's own pair:
+     * return_to_study and cancel — on their meeting's file only.
+     */
+    public function test_the_stand_in_chair_gets_r03s_rows_on_their_own_meetings_file_and_nothing_else(): void
     {
         [$standIn, $committee] = $this->standInChair();
         $meeting = $this->meetingFor($committee, $standIn);
-        [$item, $requestRecord] = $this->itemOn($meeting);
+        [, $requestRecord] = $this->itemOn($meeting);
         $outsider = $this->committeeRequest();
 
-        $this->actingAs($standIn, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/votes", ['vote' => 'approve'])
-            ->assertCreated();
-        $this->actingAs($standIn, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$item->id}/decision", $this->decisionPayload('approve'))
-            ->assertCreated();
-
-        $this->assertSame('awaiting_municipal_approval', $requestRecord->fresh()->status->code);
-        // A file on no meeting of theirs offers them none of R03's rows.
-        $this->assertSame([], app(WorkflowService::class)->availableTransitions($outsider, $standIn)->all());
+        $workflow = app(WorkflowService::class);
+        $offered = $workflow->availableTransitions($requestRecord, $standIn)->pluck('action')->all();
+        $this->assertContains('return_to_study', $offered);
+        $this->assertNotContains('approve', $offered);
+        $this->assertSame([], $workflow->availableTransitions($outsider, $standIn)->all());
     }
 
     public function test_the_grant_outlives_the_meeting_until_its_results_are_approved(): void
@@ -87,10 +82,10 @@ class SeatDutyGrantTest extends TestCase
 
         $requestRecord->update(['status_id' => $this->statusId('awaiting_municipal_approval')]);
         $meeting->update(['status' => 'completed']);
-        $this->assertTrue($this->fresh($standIn)->hasScreenPermission('decisions', 'can_approve'));
+        $this->assertTrue($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_approve'));
 
         $requestRecord->update(['status_id' => $this->statusId('in_execution')]);
-        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('decisions', 'can_approve'));
+        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_approve'));
     }
 
     public function test_a_cancelled_meeting_or_one_that_sent_nothing_for_approval_ends_the_grant(): void
@@ -100,11 +95,11 @@ class SeatDutyGrantTest extends TestCase
         [, $requestRecord] = $this->itemOn($meeting);
 
         $meeting->update(['status' => 'cancelled']);
-        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_live', 'can_edit'));
+        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_approve'));
 
         $requestRecord->update(['status_id' => $this->statusId('not_approved')]);
         $meeting->update(['status' => 'completed']);
-        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_live', 'can_edit'));
+        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_approve'));
     }
 
     public function test_a_holder_of_the_role_is_unaffected_when_the_grant_ends(): void
@@ -114,7 +109,7 @@ class SeatDutyGrantTest extends TestCase
         $committee->members()->create(['user_id' => $chair->id, 'seat' => 'chair', 'is_head' => true]);
         $this->meetingFor($committee, $chair)->update(['status' => 'cancelled']);
 
-        $this->assertTrue($this->fresh($chair)->hasScreenPermission('decisions', 'can_approve'));
+        $this->assertTrue($this->fresh($chair)->hasScreenPermission('meeting_agenda', 'can_approve'));
         $this->assertTrue($this->fresh($chair)->hasScreenPermission('committee_head_approval', 'can_view'));
     }
 
@@ -138,7 +133,7 @@ class SeatDutyGrantTest extends TestCase
             'created_by_user_id' => $seatHolder->id,
             'chairman_user_id' => $seatHolder->id,
         ]);
-        $meeting->attendees()->create(['user_id' => $seatHolder->id, 'attended' => true]);
+        $meeting->attendees()->create(['user_id' => $seatHolder->id]);
 
         return $meeting;
     }
@@ -149,7 +144,7 @@ class SeatDutyGrantTest extends TestCase
         $requestRecord = $this->committeeRequest();
         $item = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
 
-        return [$this->completeStudySequence($item), $requestRecord];
+        return [$item, $requestRecord];
     }
 
     private function committeeRequest(): Request

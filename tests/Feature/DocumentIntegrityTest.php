@@ -131,37 +131,6 @@ class DocumentIntegrityTest extends TestCase
     }
 
     /**
-     * A conflict can also surface *after* an item is already on the agenda,
-     * which the insertion gate by definition cannot catch — so readiness asks
-     * the same question at the sitting.
-     */
-    public function test_a_conflict_raised_after_insertion_becomes_a_readiness_exception(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [$rapporteur, $head, $meeting] = $this->committeeAndMeeting();
-        $requestRecord = $this->presentableRequest();
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestRecord->id])
-            ->assertCreated();
-
-        $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/requests/{$requestRecord->id}/document-conflicts", [
-                'conflict_kind' => 'service_period',
-                'detail' => 'اختلاف مدة الخدمة بين كشف الخدمة وإفادة الجهة السابقة.',
-            ])->assertCreated();
-
-        $codes = collect(
-            $this->actingAs($head, 'sanctum')
-                ->getJson("/api/meetings/{$meeting->id}/readiness")
-                ->assertOk()
-                ->json('data.exceptions'),
-        )->pluck('code');
-
-        $this->assertContains('unresolved_document_conflict', $codes->all());
-    }
-
-    /**
      * 2026-10-07 (user decision): the direct manager acts with an optional
      * note only. No document-validity check holds the forward back, and none
      * of the manager's rows demands a reason.

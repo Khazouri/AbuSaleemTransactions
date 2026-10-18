@@ -50,8 +50,8 @@ const notReady = computed(() => Boolean(spec.value) && !spec.value.ready(form.va
 
 const submitting = ref(false)
 const error = ref('')
-// A nominator who may not read the appeal gets only appeal-options' fields
-// from /acts (AppealController::acts), so the reading rows stay hidden.
+// A nominator who may not read the appeal gets only the few fields a
+// nomination needs from /acts (AppealController::acts), so the reading rows stay hidden.
 const full = computed(() => Boolean(appeal.value && 'appeal_reasons' in appeal.value))
 const reference = computed(() => appeal.value?.original_request?.reference_number || `#${props.appealId}`)
 const date = (value) => (value ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value)) : '—')

@@ -38,10 +38,8 @@ class MeetingsRegister extends Register
             'chairman' => ['ar' => 'رئيس الجلسة', 'en' => 'Chair'],
             'rapporteur' => ['ar' => 'المقرر', 'en' => 'Rapporteur'],
             'status' => ['ar' => 'الحالة', 'en' => 'Status'],
-            'convened_at' => ['ar' => 'تاريخ الانعقاد', 'en' => 'Convened'],
+            'results_recorded_at' => ['ar' => 'تاريخ إدخال النتائج', 'en' => 'Results entered'],
             'agenda_items' => ['ar' => 'عدد البنود', 'en' => 'Agenda items'],
-            'attendees' => ['ar' => 'عدد الحضور', 'en' => 'Attended'],
-            'minutes_status' => ['ar' => 'حالة المحضر', 'en' => 'Minutes'],
         ];
     }
 
@@ -62,15 +60,8 @@ class MeetingsRegister extends Register
                 'committee:id,name_ar,name_en',
                 'chairman:id,name',
                 'rapporteur:id,name',
-                'meetingMinutes:id,meeting_id,minutes_number,status',
             ])
-            ->withCount([
-                'agendaItems',
-                // Actual attendance, not the invitation list: Appendix 8 keeps
-                // إثبات الحضور and إثبات صحة الانعقاد apart, and this column is
-                // the first of the two.
-                'attendees as attendees_count' => fn (Builder $query) => $query->where('attended', true),
-            ]);
+            ->withCount('agendaItems');
     }
 
     protected function row(Model $model, string $locale): array
@@ -85,10 +76,8 @@ class MeetingsRegister extends Register
             'chairman' => $model->chairman?->name,
             'rapporteur' => $model->rapporteur?->name,
             'status' => $model->status,
-            'convened_at' => $this->date($model->convened_at),
+            'results_recorded_at' => $this->date($model->results_recorded_at),
             'agenda_items' => $model->agenda_items_count,
-            'attendees' => $model->attendees_count,
-            'minutes_status' => $model->meetingMinutes?->status,
         ];
     }
 

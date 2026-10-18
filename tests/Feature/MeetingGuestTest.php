@@ -7,8 +7,6 @@ use App\Models\Meeting;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\MeetingScheduledNotification;
-use App\Services\MeetingMinutesCompiler;
-use App\Services\MeetingReadinessService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -18,8 +16,7 @@ use Tests\TestCase;
 /**
  * The مقرر may invite people beyond the five seats (user decision 2026-10-16),
  * each with the صفة they attend in. An extra member answers the date and
- * nothing more: their yes never counts toward Settings' acceptances, they are
- * not on the roll call, and so never vote, sign or make the quorum.
+ * nothing more: their yes never counts toward Settings' acceptances.
  */
 class MeetingGuestTest extends TestCase
 {
@@ -122,26 +119,6 @@ class MeetingGuestTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/guests", ['user_id' => $guest->id, 'guest_title' => 'خبير'])
             ->assertStatus(422)
             ->assertJsonValidationErrors('guests');
-    }
-
-    public function test_a_guest_is_off_the_roll_call_readiness_and_quorum_and_listed_apart_in_the_minutes(): void
-    {
-        [$seats, $meeting, $guest] = $this->meetingWithGuest();
-        $meeting->update(['status' => 'scheduled']);
-        $meeting->attendees()->whereNull('guest_title')->update(['invitation_status' => 'confirmed']);
-        $guestRow = $meeting->attendees()->where('user_id', $guest->id)->first();
-
-        $this->actingAs($seats['chair'], 'sanctum')
-            ->patchJson("/api/meetings/{$meeting->id}/attendees/{$guestRow->id}", ['attended' => true])
-            ->assertStatus(422);
-        $this->assertFalse($guestRow->fresh()->attended);
-
-        $readiness = app(MeetingReadinessService::class)->compute($meeting->fresh());
-        $this->assertNotContains('pending_invitations', array_column($readiness['exceptions'], 'code'));
-
-        $attendance = app(MeetingMinutesCompiler::class)->compile($meeting->fresh())['attendance'];
-        $this->assertNotContains($guest->id, array_column($attendance['absent'], 'id'));
-        $this->assertSame([['id' => $guest->id, 'name' => $guest->name, 'guest_title' => 'مدير الإدارة المالية']], $attendance['guests']);
     }
 
     /** @return array{0: array<string, User>, 1: Meeting, 2: User} */

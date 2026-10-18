@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Committee;
 use App\Models\Department;
-use App\Models\Meeting;
 use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
@@ -56,7 +54,6 @@ class AfterDecisionVisibilityTest extends TestCase
             ['patch', "requests/{$id}/approval-return"],
             ['patch', "requests/{$id}/approval-return/resolve"],
             ['post', "requests/{$id}/approval-referrals"],
-            ['patch', "requests/{$id}/execution-soundness"],
             ['patch', "requests/{$id}/suspend"],
             ['patch', "requests/{$id}/suspend/lift"],
         ];
@@ -68,15 +65,6 @@ class AfterDecisionVisibilityTest extends TestCase
             'recorded_by_user_id' => $rapporteur->id,
         ]);
         $writes[] = ['patch', "requests/{$id}/approval-referrals/{$referral->id}/result"];
-
-        $meeting = Meeting::create([
-            'committee_id' => Committee::create(['name_ar' => 'لجنة'])->id,
-            'title' => 'اجتماع',
-            'scheduled_at' => now(),
-            'created_by_user_id' => $rapporteur->id,
-        ]);
-        $agendaItem = $meeting->agendaItems()->create(['request_id' => $id, 'agenda_order' => 1]);
-        $writes[] = ['post', "meetings/{$meeting->id}/outputs/{$agendaItem->id}/execute"];
 
         foreach ($writes as [$method, $uri]) {
             $status = $this->actingAs($rapporteur, 'sanctum')->json($method, "/api/{$uri}")->status();

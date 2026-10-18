@@ -188,20 +188,9 @@ const routes = [
         component: () => import('../views/MeetingAgendaBuilderView.vue'),
         meta: { screenCode: 'meeting_agenda' },
       },
-      {
-        // Stage 28 — meetings-unit navigation shell: readiness gate.
-        path: 'meetings/readiness',
-        name: 'meeting_readiness',
-        component: () => import('../views/MeetingReadinessView.vue'),
-        meta: { screenCode: 'meeting_readiness' },
-      },
-      {
-        // Stage 28 — meetings-unit navigation shell: live runner.
-        path: 'meetings/live',
-        name: 'meeting_live',
-        component: () => import('../views/MeetingLiveView.vue'),
-        meta: { screenCode: 'meeting_live' },
-      },
+      // The readiness gate, live runner, minutes and outputs screens are gone:
+      // the committee meets on paper (2026-10-18), and the مقرر enters its
+      // results from the meeting's own page.
       {
         // Stage 20 — single meeting workspace: agenda builder + attendance.
         // Needs a specific meeting id, so (like request_details) it has no
@@ -246,27 +235,12 @@ const routes = [
       // detail screen, which has always offered the same transition. Their
       // `screens` rows and grants deliberately survive — see ScreenSeeder.
       {
-        // Stage 25 — the decisions register and the pending-votes worklist.
-        // Recording a decision stays on the meeting screen, where the agenda
-        // context already is.
+        // Stage 25 — the decisions register. The committee's recommendations
+        // are entered on the meeting screen, where the agenda already is.
         path: 'decisions',
         name: 'decisions',
         component: () => import('../views/DecisionsView.vue'),
         meta: { screenCode: 'decisions' },
-      },
-      {
-        // Stage 28 — meetings-unit navigation shell: minutes.
-        path: 'meetings/minutes',
-        name: 'meeting_minutes',
-        component: () => import('../views/MeetingMinutesView.vue'),
-        meta: { screenCode: 'meeting_minutes' },
-      },
-      {
-        // Stage 37 — meeting decisions followed through execution and close.
-        path: 'meetings/outputs',
-        name: 'meeting_outputs',
-        component: () => import('../views/MeetingOutputsView.vue'),
-        meta: { screenCode: 'meeting_outputs' },
       },
       {
         // Stage 26 — snapshots of the database and its stored files.

@@ -7,25 +7,18 @@ use App\Http\Resources\DecisionResource;
 use App\Http\Resources\NotificationResource;
 use App\Models\Appeal;
 use App\Models\Attachment;
-use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\User;
 use Illuminate\Notifications\DatabaseNotification;
 
 /**
  * Stage 61, Track J — a read-only dossier for one appeal: the original
- * request, its presentation memo, its meeting-minutes excerpt, its decision,
- * whatever notification evidence genuinely exists, and the appeal's own
- * documents, all in one place. Reuses PresentationMemoCompiler (Stage 46) and
- * the persisted output of MeetingMinutesCompiler (Stage 36/50) rather than
- * re-deriving their data — see AGENT_NOTES.md for why the memo's derived
- * half is recomputed live while the minutes are read from the persisted,
- * possibly-still-draft document instead of live-recompiled.
+ * request, its decision, whatever notification evidence genuinely exists, and
+ * the appeal's own documents, all in one place. The presentation memo and the
+ * minutes excerpt went with the in-system sitting (2026-10-18).
  */
 class AppealFileCompiler
 {
-    public function __construct(private readonly PresentationMemoCompiler $presentationMemoCompiler) {}
-
     /** @return array<string, mixed> */
     public function compile(Appeal $appeal): array
     {
@@ -38,17 +31,12 @@ class AppealFileCompiler
             'originalRequest.attachments',
             'originalDecision.decidedBy:id,name',
             'originalDecision.template:id,code,name_ar,name_en',
-            'originalDecision.meetingRequest.presentationMemo',
-            'originalDecision.meetingRequest.meeting.meetingMinutes',
         ]);
 
         $originalRequest = $appeal->originalRequest;
-        $agendaItem = $appeal->originalDecision?->meetingRequest;
 
         return [
             'original_request' => $this->originalRequest($appeal, $originalRequest),
-            'presentation_memo' => $this->presentationMemo($appeal, $agendaItem),
-            'meeting_minutes' => $this->meetingMinutes($agendaItem),
             'decision' => $appeal->originalDecision
                 ? (new DecisionResource($appeal->originalDecision))->resolve()
                 : null,
@@ -122,66 +110,6 @@ class AppealFileCompiler
     private function documentUrl(Appeal $appeal, int $attachmentId): string
     {
         return route('appeals.original-documents.preview', ['appeal' => $appeal->id, 'attachment' => $attachmentId]);
-    }
-
-    /**
-     * The derived half is always honestly computable and is recomputed live
-     * regardless of whether a PresentationMemo row was ever persisted; the
-     * authored half only exists once a human actually wrote one.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function presentationMemo(Appeal $appeal, ?MeetingRequest $agendaItem): ?array
-    {
-        if ($agendaItem === null) {
-            return null;
-        }
-
-        $memo = $agendaItem->presentationMemo;
-        $derived = $this->presentationMemoCompiler->compile($agendaItem);
-        // The compiler stays URL-free because its output is also stored on the
-        // memo row; a link is added only here, where it is read.
-        $derived['key_documents'] = array_map(
-            fn (array $document) => [...$document, 'preview_url' => $this->documentUrl($appeal, $document['id'])],
-            $derived['key_documents'],
-        );
-
-        return [
-            'derived' => $derived,
-            'authored' => $memo?->content['authored'] ?? null,
-            'generated_at' => $memo?->generated_at?->toIso8601String(),
-        ];
-    }
-
-    /**
-     * Read from the meeting's persisted, possibly-still-draft MeetingMinutes
-     * document — never live-recompiled, since minutes carry their own
-     * approval lifecycle and a fresh recompile would misrepresent something
-     * that may never have been generated/reviewed/signed as though it had.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function meetingMinutes(?MeetingRequest $agendaItem): ?array
-    {
-        $meeting = $agendaItem?->meeting;
-        $minutes = $meeting?->meetingMinutes;
-
-        if ($minutes === null) {
-            return null;
-        }
-
-        $content = $minutes->content ?? [];
-        $agendaItemContent = collect($content['agenda_items'] ?? [])
-            ->firstWhere('id', $agendaItem->id);
-
-        return [
-            'status' => $minutes->status,
-            'meeting' => $content['meeting'] ?? null,
-            'attendance' => $content['attendance'] ?? null,
-            'required_signatories' => $content['required_signatories'] ?? null,
-            'agenda_item' => $agendaItemContent,
-            'approved_at' => $minutes->approved_at?->toIso8601String(),
-        ];
     }
 
     /**

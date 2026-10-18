@@ -60,8 +60,8 @@ const showCommitteeForm = ref(false)
 const savingCommittee = ref(false)
 
 // Stage 73 — [D] Appendix 65's بطاقة تعريف اللجنة. Blank means "not
-// transcribed yet", which the readiness screen reports as a missing quorum
-// rather than filling in a figure of its own (Appendix 64).
+// transcribed yet", which the list flags rather than filling in a figure of
+// its own (Appendix 64).
 const CARD_FIELDS = [
   'formation_decision_number', 'formation_decision_date', 'term_note', 'legal_basis',
   'minutes_approval_body', 'voting_rights_note', 'minutes_signature_rule', 'recusal_rules',
@@ -424,8 +424,7 @@ onMounted(async () => {
               <td>
                 <strong>{{ name(committee) }}</strong>
                 <span v-if="!committee.is_active" class="pill">{{ t('common.inactive') }}</span>
-                <!-- Stage 73 — a committee with no transcribed quorum cannot have a
-                     meeting convened without an override, so the list flags it. -->
+                <!-- Stage 73 — a committee whose card is not transcribed yet. -->
                 <span v-if="committee.rules_recorded === false" class="pill warn">{{ t('committees.card.missing') }}</span>
               </td>
               <td class="meta">

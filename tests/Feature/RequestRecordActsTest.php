@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\Api\RequestController;
-use App\Models\Attachment;
 use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
@@ -22,7 +21,6 @@ use App\Services\Lifecycle\CorrectionRules;
 use App\Services\Lifecycle\WithdrawalService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -73,8 +71,6 @@ class RequestRecordActsTest extends TestCase
             'لا يجوز لمقدّم الطلب أو صاحب العلاقة إعادة فتح الطلب بنفسه.',
             RequestController::reopenRefusal($file, $file->createdBy),
         );
-
-        $this->assertNull($file->attachmentRefusal());
     }
 
     public function test_each_open_record_is_its_own_act_with_its_own_target(): void
@@ -197,32 +193,6 @@ class RequestRecordActsTest extends TestCase
         $impact = collect($this->acts($rapporteur, $atCommittee)['available'])->firstWhere('action', 'set_financial_impact');
         $this->assertSame((bool) $atCommittee->has_financial_impact, $impact['has_financial_impact']);
         $this->assertNotContains('set_financial_impact', $this->available($filer, $atCommittee));
-    }
-
-    public function test_an_open_vote_blocks_attaching_as_the_upload_endpoint_refuses_it(): void
-    {
-        $filer = $this->userWithRole('R01');
-        $file = $this->fileAt('receive_from_municipality', 'returned', creator: $filer);
-        $meeting = Meeting::create([
-            'committee_id' => Committee::create(['name_ar' => 'لجنة'])->id,
-            'title' => 'اجتماع', 'scheduled_at' => now(),
-        ]);
-        $item = MeetingRequest::create(['meeting_id' => $meeting->id, 'request_id' => $file->id, 'agenda_order' => 1]);
-        DB::table('votes')->insert([
-            'meeting_request_id' => $item->id, 'user_id' => $this->userWithRole('R04')->id,
-            'vote' => 'approve', 'voted_at' => now(),
-        ]);
-        $reason = 'بدأ التصويت على هذا الموضوع في اللجنة، ولا يجوز إضافة مستندات قبل إثبات النتيجة.';
-
-        $this->assertSame($reason, $this->blockedReason($filer, $file, 'attach_document'));
-        $this->actingAs($filer->fresh(), 'sanctum')
-            ->post("/api/requests/{$file->id}/attachments", [
-                'file' => UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf'),
-                'required_document_key' => RequestType::OTHER_DOCUMENT,
-                'file_section' => Attachment::DEFAULT_SUBMITTER_SECTION,
-            ], ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonPath('message', $reason);
     }
 
     public function test_a_notice_is_blocked_when_the_subject_has_no_active_account(): void

@@ -122,19 +122,6 @@ class RequestDetailResource extends RequestResource
                 ),
                 'service_file_required' => app(RequestClosureService::class)->requiresServiceFileArchive($this->resource),
             ],
-            // Stage 76 — النموذج 17's execution card and its seven متابعة
-            // التنفيذ answers, read-only here. Recording execution stays on the
-            // outputs screen, which is agenda-item-scoped: unlike closure, code
-            // 19 is only ever reachable through a decided agenda item.
-            'execution' => $this->execution === null ? null : [
-                ...$this->execution,
-                'executed_at' => $this->executed_at?->toIso8601String(),
-                'executed_by' => $this->executedBy ? [
-                    'id' => $this->executedBy->id,
-                    'name' => $this->executedBy->name,
-                ] : null,
-            ],
-            'execution_checklist' => $this->execution_checklist,
             // Stage 77 — [D] Art. 94's إجراء إعادة معالجة, every round of it.
             // History rather than a latest-only block (unlike `legal_review`
             // above): Art. 98's own سجل القرارات المعادة من جهة الاعتماد is a

@@ -85,21 +85,6 @@ class RequestActsTest extends TestCase
         $this->assertNotContains('execution_soundness', $this->available($this->userWithRole('R12'), $file));
     }
 
-    public function test_execute_is_offered_only_in_execution_and_names_the_decided_item(): void
-    {
-        $hr = $this->userWithRole('R12');
-        $file = $this->fileAt('final_approval_archiving', 'final_approved', decided: true);
-
-        $this->assertNotContains('execute', $this->available($hr, $file));
-
-        $file->update(['status_id' => RequestStatus::where('code', 'in_execution')->value('id')]);
-        $act = collect($this->acts($hr, $file)['available'])->firstWhere('action', 'execute');
-        $item = $file->meetingRequests()->first();
-
-        $this->assertSame(['id' => $item->id, 'meeting_id' => $item->meeting_id, 'label' => null], $act['target']);
-        $this->assertSame('after_decision', $act['family']);
-    }
-
     public function test_each_file_is_archived_by_its_owner(): void
     {
         $rapporteur = $this->userWithRole('R02');

@@ -19,6 +19,93 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-18 23:30 EET — Claude — The paper meeting, slice 2: the in-system sitting deleted, appeals back on the paper agenda (complete)
+
+Built per the plan below. Migration `drop_the_in_system_sitting` is applied to the real MySQL; every dropped table and
+column was checked empty first. `ScreenSeeder` and `WorkflowTransitionSeeder` were reseeded and checked by query:
+- `receive_from_committee` holds R02 approve/defer/`reject_by_committee`, plus R03 cancel/`return_to_study` and R08
+  `deadline_expired`;
+- the three screens are gone, and `meeting_outputs` has route NULL.
+
+`ScreenRolePermissionSeeder` was **not** re-run. Instead, `decisions` add/approve and `meeting_agenda` add were cleared
+cell by cell.
+
+Deviations and additions:
+- roll call (`meeting_attendees.attended`, `PATCH …/attendees/{a}`) and `meetings.voting_rules_snapshot` went too:
+  only the sitting wrote them;
+- the inbox's `convene` task became **`record_results`** for the seated مقرر once the day has come;
+- `SeatDutyGrant` lends only meetings_dashboard/meetings/meeting_agenda, and `final_approved` no longer prolongs a
+  stand-in's grant;
+- سجل المحاضر was kept, rewritten over meetings with a scanned محضر; سجل التنفيذ was removed (OPEN_ITEMS);
+- **registers and Appendix 10's warnings keep their official numbers** (10–12 and 7–10), with gaps where items were
+  removed. Both were numbered by position, so removing items shifted the rest. A test pins each;
+- the closure checklist keeps Appendix 47's twelve questions, and #9 is always `not_applicable`;
+- the time card's t7 ends at `results_recorded_at`, and t9 is null;
+- the appeal dossier lost its memo and minutes sections, and `GET decisions/filters` lost `templates`.
+
+Bug caught by a test agent, fixed here: my route cut ate a `*/`, which commented out both suspension routes. Route
+URIs were diffed against HEAD afterwards, and only the intended ones are gone.
+
+Verified:
+- new appeal case in `PaperMeetingResultsTest` went RED, then GREEN;
+- full suite **788 / 5038 + 14 + 9** (811 / 5203, was 974 / 6343). The −163 tests are the deleted sitting's test
+  files and cases;
+- Pint clean on every touched PHP file; build passes (`dist` committed, production API URL in the bundle);
+- parity 1853; `aislop ci` exit 0 (98);
+- headless walk on a scratch SQLite DB (`.env` untouched; API :8010, Vite :5175), en/ar × 375/1280 × dark/light:
+  the appeal row shows «تظلم على: …» with قبول/رفض/تأجيل, has no authority select and requires its note, with no page
+  overflow and no console errors. A real submit concluded the meeting, decided the appeal `appeal_reject`
+  (`committee_presentation`), and sent the request to `approval_by_authority`.
+
+Test rewiring was split across six agents, all briefed the same way; their reports were checked against the full run.
+
+---
+### 2026-10-18 19:55 EET — Claude — Implementation plan: the paper meeting, slice 2 (delete the in-system sitting; appeals back on the paper agenda)
+
+Two questions were put to the user and answered. **Appeals go back on the paper agenda**: the مقرر's results form gets
+appeal rows (قبول / رفض / تأجيل, with a required note and no جهة الاعتماد). Accept or reject records the appeal's
+decision and moves it to `committee_presentation`, as the old `recordAppealDecision()` did. Defer leaves it at
+`legal_review`, ready to be nominated again. **The old tables are dropped** in one migration:
+- tables: `votes`, `meeting_discussion_notes`, `meeting_minutes`, `meeting_minute_signatures`, `presentation_memos`,
+  `conflict_of_interest_declarations`;
+- columns: `meetings.convened_*` and `readiness_override_reason`, `meeting_requests.study_sequence*`, the `requests`
+  execution and soundness columns, and `attachments.execution_evidence_type`.
+
+`decisions` keeps every column, because the register, the deferred register and the indicators read them.
+
+What gets deleted:
+- **Backend:**
+  - routes and controllers: readiness/convene, item state, study sequence, discussion notes, item context and
+    attachment, item duties, minutes, outputs page and execute, votes, `record()`, decision draft, conflicts, the
+    pending-votes list and execution soundness, plus the close branch of `PUT meetings/{m}`;
+  - services: the old services (DecisionEligibility, DecisionTally, structure/reasoning rules, draft composer, study
+    sequence, readiness, minutes compiler/quality, memo compiler, output service, `RequestExecutionService`,
+    `ExecutionSoundnessService`);
+  - models, resources and Form Requests;
+  - the two notifications and their events;
+  - `MinutesRegister` and `ExecutionRegister`.
+- **Seeders:**
+  - `meeting_readiness`, `meeting_live` and `meeting_minutes` leave `ScreenSeeder`;
+  - `meeting_outputs` keeps its grants but loses its page (route null, like the approval queues);
+  - at `receive_from_committee`, the conditional / legal opinion / refer / no-jurisdiction rows are deleted, and
+    approve, defer and `reject_by_committee` move to R02;
+  - `DecisionController::ACTIONS` shrinks to those three.
+- **SPA:** the four old views, the agenda-item wizard and panels, the study sequence, the soundness and execution forms,
+  readiness/execution/decision-structure libs, the old wizard acts, the decisions «pending» tab and their locale keys.
+
+Kept on purpose: agenda adoption, the manual close (its checklist loses the minutes and execution checks), the
+candidate list's `return_to_study`, the decision templates and the old request statuses (history).
+
+Verify:
+- new appeal cases in `PaperMeetingResultsTest` (RED then GREEN);
+- old-only test files deleted, and mixed ones trimmed or moved onto `HoldsPaperMeetings`;
+- full PHPUnit, Pint, migrate on the real MySQL, reseed `ScreenSeeder`/`WorkflowTransitionSeeder` with targeted
+  deletes;
+- build (`dist` committed), parity, aislop ci, headless check of the results form with an appeal row.
+
+The guide and test plans stay in OPEN_ITEMS. (Clock note: the machine reads 19:55, behind the entry below.)
+
+---
 ### 2026-10-18 20:00 EET — Claude — The paper meeting, slice 1 (complete)
 
 Built per the plan below. A CLI session wrote the results controller, Form Requests and duty/visibility code mid-way;
@@ -1848,77 +1935,5 @@ waits for the meeting day. `workflow_step`/`overdue` call `availableTransitions(
 Verified: 12 new tests fail on the old collector and pass on the new one. Pint is clean, the build passes (`dist`
 reverted), and parity is 2056. On the real MySQL, `r02.reviewer@` now gets its 2 files at `direct_manager_review`,
 both over HTTP and via the service.
-
----
-### 2026-09-26 20:02 EET — Claude — Implementation plan: «المهام المعلقة» lists every pending duty
-
-User: the inbox must hold every action waiting on the user (e.g. a manager approving an employee's request, which is
-missing today). All 125 write endpoints were sorted into *pending duties* (state says someone must act next) and
-*on-demand* actions; the user chose to cover every duty group. `PendingTaskCollector` gains six sources, each task
-carrying an `action` code: `workflow_step` (non-exception rules other than approve/submit, read through
-`WorkflowService::availableTransitions` so the inbox and the buttons agree), `overdue` (R08's `deadline_expired`,
-minus the ministry self-loop), `meeting_duty` (adopt agenda, convene, record decision, generate/review minutes,
-close the sitting), `post_decision` (soundness, execute, both archives, close, approval return/referral, lift
-suspension), `open_record` (corrections — never to their recorder — conflicts, special cases, withdrawals) and
-`appeal` (each next step + nomination). Each condition is the endpoint's own refusal list as SQL, scoped by
-`RequestVisibility`/`MeetingVisibility`. No migration. Verify: MyTasksTest per source, full PHPUnit, Pint, build
-(revert `dist`), locale parity, live smoke.
-
----
-### 2026-09-26 19:44 EET — Claude — Dashboard distribution labels show the full name
-
-User (/frontend-design): the status, stage and department bars cut names off. The label was a fixed `minmax(90px, 34%)`
-column with an ellipsis. In DashboardView each panel now sizes one shared label column (subgrid) to its longest name,
-capped at 60%, and a longer name wraps instead of truncating. CSS only. Screenshots at ar/en 1280 and ar 375 show no
-clipped label and no page overflow; build passes (`dist` reverted). (Clock: the machine reads 19:44, earlier than the
-entry below; this entry's position shows the order.)
-
----
-### 2026-09-26 20:35 EET — Claude — The manager approves in one click (complete)
-
-Built per the plan below; no migration. The manager's `forward` at `direct_manager_review` now lands on
-`receive_and_register` + `routed_to_hr`, and the button reads «موافقة وإحالة» / «Approve & forward». Reseeded on the
-real MySQL and confirmed by query. It still holds 2 files at `administrative_routing`; they leave through the kept
-`route_to_hr` row. `RequestTimeCard` T1/T2 split at HR arrival when a file never passed routing (new test). Full suite
-**754 / 4816**, Pint clean on touched files, build passes (`dist` reverted), parity 2024.
-
----
-### 2026-09-26 20:15 EET — Claude — Implementation plan: the manager approves in one click
-
-User: the employee's manager should approve with one button that moves the request on. Today it is two clicks —
-`forward` (to `administrative_routing`) then `route_to_hr` — and since Stage 96 the second has only one option. Plan:
-the manager-gated `forward` row lands straight on `receive_and_register` with `routed_to_hr` (the status R12's
-`register` row requires). `administrative_routing`'s rows stay, so a file already parked there can still leave
-(Stage 102 precedent). `RequestTimeCard` T1/T2 fall back to arrival at `receive_and_register`; the button label
-becomes «موافقة وإحالة». Verify: tests updated, full PHPUnit, Pint, build (revert `dist`), parity, reseed.
-
----
-### 2026-09-26 19:55 EET — Claude — Department hierarchy view on the Users screen (complete)
-
-Built per the plan below. One migration (`departments.manager_user_id`), applied to the real MySQL. The Users screen has
-a «Table / By department» tab switch; `DepartmentHierarchy.vue` shows the tree, the head card and the staff, with
-make-head, a «move to» select, and HTML5 drag onto a tree node (the grip is hidden on touch, where the select is the
-path). The tree flattening moved to `lib/departmentTree.js`, shared with DepartmentsView, whose form gained a head picker.
-Full suite **753 / 4817** (+7 `DepartmentHeadTest`), Pint clean, build passes (`dist` reverted), parity 2024. A
-headless click-through ran make-head, the select and a real drop, then restored the data. That left only audit rows.
-`check-layout.mjs`: 440 views, failing only on the pre-existing `/decisions` 1024px overflow. The head is a label only (AGENTS.md).
-
----
-### 2026-09-26 19:10 EET — Claude — Implementation plan: department hierarchy view on the Users screen
-
-User: a department-first view of staff where add/edit/delete is easier; decisions put to the user and answered:
-an **explicit department head** (not derived from `manager_id`), plus a «make head» button and drag-and-drop moves
-inside the view. Plan: migration `departments.manager_user_id` (nullable FK); `UpdateDepartmentRequest` requires the
-head to be an active member of that department; `UserController::update`/`destroy` clear a head slot the user leaves.
-The head is a **label only** — approvals still follow each employee's own `manager_id`. SPA: a Table/Hierarchy
-switch on UsersView; the new `components/DepartmentHierarchy.vue` reuses the existing modal and the partial
-`PUT users/{id}` / `PUT departments/{id}` (no new endpoint); native HTML5 drag-and-drop with a keyboard «move to»
-fallback; head picker in the Departments form. Verify: new feature test, full PHPUnit, Pint, build (revert `dist`),
-locale parity, `check-layout.mjs`, migrate the real DB.
-
----
-### 2026-09-26 18:50 EET — Claude — Timeline documents redesigned (complete)
-
-Built per the plan below. `TimelineDocuments.vue` now renders the documents of every «سجل سير العمل» entry in both views; each view's own list and its CSS are gone. **Gotcha:** the global `.ltr` helper also sets `text-align: left`, which in Arabic throws a filename to the far side of its row, so the component uses `direction: ltr; justify-self: start` instead. Build passes (`dist` reverted). `check-layout.mjs` fails only on the pre-existing `/decisions` 1024px overflow; it skips `/requests/:id`, so that page was checked by screenshot (ar light and en dark at 1280px, ar at 375px). Not seen rendered: a decision row, since no seeded timeline entry carries one.
 
 ---

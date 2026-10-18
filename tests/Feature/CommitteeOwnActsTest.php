@@ -6,7 +6,6 @@ use App\Http\Controllers\Api\MeetingController;
 use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
-use App\Models\MeetingMinutes;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStatus;
@@ -16,20 +15,18 @@ use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\PassesControlGates;
-use Tests\RunsStudySequence;
 use Tests\SitsOnCommittee;
 use Tests\TestCase;
 
 /**
  * Stage 99 — [D] Appendix 6 rows 8–11: what the matrix gives اللجنة
  * collectively and العضو القانوني as a member, rather than the chair alone.
+ * Since the paper sitting (2026-10-18) only the agenda's adoption is left of
+ * them in the system.
  */
 class CommitteeOwnActsTest extends TestCase
 {
-    use PassesControlGates;
     use RefreshDatabase;
-    use RunsStudySequence;
     use SitsOnCommittee;
 
     public function test_the_chair_adopts_a_non_empty_agenda_once_and_nobody_else_may(): void
@@ -58,55 +55,6 @@ class CommitteeOwnActsTest extends TestCase
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda/adopt")
             ->assertStatus(422);
-    }
-
-    public function test_deliberation_waits_for_the_agendas_adoption(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [$head, , $meeting] = $this->sitting();
-        $item = $this->agendaItem($meeting);
-        // Convened, so the adoption check is the one that answers.
-        $meeting->update(['convened_at' => now()]);
-
-        $this->actingAs($head, 'sanctum')
-            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/state", ['item_state' => 'discussion'])
-            ->assertStatus(422)
-            ->assertJsonPath('message', MeetingController::AGENDA_NOT_ADOPTED);
-
-        $this->actingAs($head, 'sanctum')
-            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/study-sequence", ['step' => 'subject_presented', 'done' => true])
-            ->assertStatus(422)
-            ->assertJsonPath('message', MeetingController::AGENDA_NOT_ADOPTED);
-
-        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/agenda/adopt")->assertOk();
-
-        $this->actingAs($head, 'sanctum')
-            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/state", ['item_state' => 'discussion'])
-            ->assertOk();
-    }
-
-    public function test_deliberation_waits_for_the_meeting_to_be_convened(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [$head, , $meeting] = $this->sitting();
-        $item = $this->agendaItem($meeting);
-        $meeting->update(['agenda_adopted_at' => now()]);
-
-        $this->actingAs($head, 'sanctum')
-            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/state", ['item_state' => 'discussion'])
-            ->assertStatus(422)
-            ->assertJsonPath('message', MeetingController::MEETING_NOT_CONVENED);
-
-        $this->actingAs($head, 'sanctum')
-            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/study-sequence", ['step' => 'subject_presented', 'done' => true])
-            ->assertStatus(422)
-            ->assertJsonPath('message', MeetingController::MEETING_NOT_CONVENED);
-
-        $meeting->update(['convened_at' => now()]);
-
-        $this->actingAs($head, 'sanctum')
-            ->patchJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/state", ['item_state' => 'discussion'])
-            ->assertOk();
     }
 
     /**
@@ -143,76 +91,8 @@ class CommitteeOwnActsTest extends TestCase
         $this->assertDatabaseHas('meeting_requests', ['id' => $item->id]);
     }
 
-    public function test_a_seated_attending_legal_member_deliberates_and_votes(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [, , $meeting] = $this->sitting();
-        $legal = $this->userWithRole('R11');
-        $this->seatOnMeeting($meeting, $legal, ['seat' => 'legal']);
-        $meeting->attendees()->create(['user_id' => $legal->id, 'attended' => true]);
-        $meeting->update(['agenda_adopted_at' => now()]);
-        $item = $this->completeStudySequence($this->agendaItem($meeting));
-
-        $this->actingAs($legal, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/notes", ['note' => 'ملاحظة قانونية على البند'])
-            ->assertCreated();
-
-        $this->actingAs($legal, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/votes", ['vote' => 'approve'])
-            ->assertCreated();
-
-        $this->assertDatabaseHas('votes', ['meeting_request_id' => $item->id, 'user_id' => $legal->id, 'vote' => 'approve']);
-    }
-
-    public function test_the_legal_member_records_a_note_on_the_draft_minutes_only(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [$head, , $meeting] = $this->sitting();
-        $legal = $this->userWithRole('R11');
-        $this->seatOnMeeting($meeting, $legal, ['seat' => 'legal']);
-
-        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/legal-review", ['note' => 'لا ملاحظة'])
-            ->assertForbidden();
-
-        $this->actingAs($legal, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/legal-review", ['note' => 'السند المذكور في البند الأول صحيح.'])
-            ->assertOk()
-            ->assertJsonPath('data.legal_review_note', 'السند المذكور في البند الأول صحيح.')
-            ->assertJsonPath('data.legal_reviewed_by.id', $legal->id);
-
-        $meeting->meetingMinutes()->update(['status' => MeetingMinutes::STATUS_PENDING_SIGNATURES]);
-
-        $this->actingAs($legal, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/legal-review", ['note' => 'متأخرة'])
-            ->assertStatus(422);
-    }
-
-    /**
-     * The one path Appendix 8's gate did not already close: every attendee
-     * recorded absent under a count-0 quorum passes all sixteen checks, and
-     * Stage 36 then approved the محضر with nobody's signature on it.
-     */
-    public function test_minutes_nobody_attended_are_never_approved_without_a_signature(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        [$head, $member, $meeting] = $this->sitting(attended: false);
-        $meeting->committee->update(['quorum_type' => 'count', 'quorum_count' => 0]);
-
-        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'لا يعتمد المحضر دون حضور مسجل من أعضاء اللجنة يوقعون عليه.');
-
-        $this->assertSame('draft', $meeting->meetingMinutes()->value('status'));
-    }
-
     /** @return array{0: User, 1: User, 2: Meeting} */
-    private function sitting(bool $attended = true): array
+    private function sitting(): array
     {
         $head = $this->userWithRole('R03');
         $member = $this->userWithRole('R04');
@@ -226,8 +106,8 @@ class CommitteeOwnActsTest extends TestCase
             'scheduled_at' => now()->addDay(),
             'created_by_user_id' => $head->id,
         ]);
-        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => $attended]);
-        $meeting->attendees()->create(['user_id' => $member->id, 'attended' => $attended]);
+        $meeting->attendees()->create(['user_id' => $head->id]);
+        $meeting->attendees()->create(['user_id' => $member->id]);
 
         return [$head, $member, $meeting];
     }

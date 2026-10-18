@@ -26,14 +26,6 @@ class AttachmentController extends Controller
     {
         abort_unless($visibility->canView($request->user(), $requestRecord), 404);
 
-        // Stage 82 — [D] Appendix 25's fifth stage: "ولا يجوز استمرار تعديل
-        // الوقائع أو المستندات بعد بدء التصويت". Only while a vote on this
-        // request is actually open — see MeetingRequest::openVoteExistsFor(),
-        // which is deliberately not a permanent freeze.
-        if (($reason = $requestRecord->attachmentRefusal()) !== null) {
-            return response()->json(['message' => $reason], 422);
-        }
-
         $documentKey = $request->validated('required_document_key');
 
         // Stage 91 — a named matrix row's folder is DERIVED, and a submitted

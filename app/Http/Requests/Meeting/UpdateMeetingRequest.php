@@ -28,9 +28,11 @@ class UpdateMeetingRequest extends FormRequest
             // Stage 82 — Appendix 24's documented justification for an agenda
             // that departs from Art. 83's ordering; see AgendaOrderingService.
             'agenda_order_justification' => ['nullable', 'string'],
-            // Stage 102 — `scheduled` is reached only by every invited member
-            // accepting the date (MeetingController::respond()), never set by hand.
-            'status' => ['sometimes', 'required', Rule::in(['completed', 'cancelled'])],
+            // Stage 102 — `scheduled` is reached only by the members accepting
+            // the date (MeetingController::respond()), and `completed` only by
+            // the مقرر entering the results (MeetingResultsController), so a
+            // person sets nothing here but a cancellation.
+            'status' => ['sometimes', 'required', Rule::in(['cancelled'])],
         ];
     }
 

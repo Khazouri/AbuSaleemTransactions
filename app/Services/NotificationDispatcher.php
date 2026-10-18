@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Appeal;
-use App\Models\Decision;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\Request;
@@ -12,10 +11,8 @@ use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use App\Notifications\ActionRequiredNotification;
 use App\Notifications\AppealDecidedNotification;
-use App\Notifications\DecisionRecordedNotification;
 use App\Notifications\FinancialImpactReviewNotification;
 use App\Notifications\MeetingInvitationResponseNotification;
-use App\Notifications\MeetingMinutesApprovedNotification;
 use App\Notifications\MeetingScheduledNotification;
 use App\Notifications\RequestCreatedNotification;
 use App\Notifications\RequestDelayEscalationNotification;
@@ -194,54 +191,6 @@ class NotificationDispatcher
             ->get();
 
         $this->send($recipients, new MeetingInvitationResponseNotification($meeting, $member->name, $response));
-    }
-
-    /**
-     * Stage 21 — the committee's own record of what it decided.
-     *
-     * Stage 79 narrowed the audience to the committee, and that is [D] Art.
-     * 102 rather than tidying: this message carries the vote tally, and the
-     * article's exclusion list for a notice to صاحب العلاقة names "مداولات
-     * اللجنة" and "كيفية تصويت كل عضو" among the things it must not contain.
-     * النموذج 16's own approved wording for the employee has no tally in it
-     * either — it says "للأسباب المثبتة في القرار المعتمد" and stops. The
-     * employee now hears the result through Art. 101's own notice, in [D]'s
-     * words, fired by the status the decision lands the file on; sending both
-     * would also have been the same news twice.
-     */
-    public function decisionRecorded(Request $requestRecord, Decision $decision, Meeting $meeting, User $actor): void
-    {
-        $memberIds = $meeting->committee?->members()->pluck('user_id') ?? collect();
-
-        $recipients = User::query()
-            ->whereIn('id', $memberIds->all())
-            ->where('is_active', true)
-            ->whereKeyNot($actor->id)
-            // Art. 102 keeps the tally away from صاحب العلاقة — the
-            // employee the matter concerns (Stage 95), not the filer.
-            ->whereKeyNot($requestRecord->subject_user_id ?? 0)
-            ->get();
-
-        $this->send($recipients, new DecisionRecordedNotification($requestRecord, $decision));
-    }
-
-    /**
-     * Stage 36 — the minutes finished their lifecycle. Fired only on the
-     * transition into `approved` (see MeetingMinutesController::sign), not
-     * on generate/review — those are same-session feedback between two
-     * people already looking at the screen together.
-     */
-    public function minutesApproved(Meeting $meeting, User $actor): void
-    {
-        $memberIds = $meeting->committee?->members()->pluck('user_id') ?? collect();
-
-        $recipients = User::query()
-            ->whereIn('id', $memberIds->all())
-            ->where('is_active', true)
-            ->whereKeyNot($actor->id)
-            ->get();
-
-        $this->send($recipients, new MeetingMinutesApprovedNotification($meeting));
     }
 
     /**
@@ -553,7 +502,7 @@ class NotificationDispatcher
      *
      * The sync connection delivers in this request: the cPanel host runs no
      * queue worker, so a notification left on the `database` queue would never
-     * arrive. afterCommit() still matters on sync: DecisionController runs
+     * arrive. afterCommit() still matters on sync: MeetingResultsController runs
      * WorkflowService::transition() inside its own database transaction, so
      * without it a decision that ends up rolling back would still be announced.
      * Both are set here rather than on the notifications because "only announce

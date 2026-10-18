@@ -211,7 +211,6 @@ class PeriodicReportService
                 $this->item($locale, 'عرضت', 'Presented', $outcomes['presented']),
                 $this->item($locale, 'مؤجلة', 'Deferred', $outcomes['deferred']),
                 $this->item($locale, 'اعتمدت', 'Approved', $outcomes['final_approved']),
-                $this->item($locale, 'نفذت', 'Executed', $movement['executed']),
                 $this->item($locale, 'أغلقت', 'Closed', $movement['closed']),
                 $this->item($locale, 'رصيد آخر المدة', 'Closing balance', $movement['closing_balance']),
             ]),
@@ -281,7 +280,6 @@ class PeriodicReportService
             'completed' => $population()->whereHas('status', fn ($q) => $q->whereIn('code', ReportMetricsService::COMPLETED_STATUSES))->count(),
             'incomplete' => $population()->whereHas('status', fn ($q) => $q->whereIn('code', ['incomplete', 'completion_required']))->count(),
             'closed' => $population()->whereNotNull('closed_at')->count(),
-            'executed' => $population()->whereNotNull('executed_at')->count(),
             'opening_balance' => $this->openAt($filters['date_from'] ?? null),
             'closing_balance' => $this->openAt($filters['date_to'] ?? null, inclusive: true),
         ];

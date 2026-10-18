@@ -71,7 +71,6 @@ class AgendaRegister extends Register
             'previous_meeting' => ['ar' => 'رقم الاجتماع السابق', 'en' => 'Previous meeting'],
             'estimated_minutes' => ['ar' => 'الزمن المقدر', 'en' => 'Est. minutes'],
             'item_state' => ['ar' => 'حالة البند', 'en' => 'Item state'],
-            'study_sequence' => ['ar' => 'تسلسل الدراسة', 'en' => 'Study sequence'],
             'outcome' => ['ar' => 'النتيجة', 'en' => 'Outcome'],
         ];
     }
@@ -188,7 +187,6 @@ class AgendaRegister extends Register
             'previous_meeting' => $previous['meeting_number'] ?? null,
             'estimated_minutes' => $model->estimated_minutes,
             'item_state' => $this->label(self::ITEM_STATES, $model->item_state, $locale),
-            'study_sequence' => $this->yesNo($model->study_sequence_completed_at !== null, $locale),
             'outcome' => $model->decision?->outcome,
         ];
     }

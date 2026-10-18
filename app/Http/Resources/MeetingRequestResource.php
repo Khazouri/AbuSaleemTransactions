@@ -32,18 +32,11 @@ class MeetingRequestResource extends JsonResource
             'priority_reason' => $this->priority_reason,
             'estimated_minutes' => $this->estimated_minutes,
             'subject' => $this->subject,
-            // Stage 34 — the runner's own progress tracker; is_resolved is the
-            // same predicate MeetingController::update()'s close gate uses, so
-            // the progress bar and the gate can never disagree.
+            // Stage 34 — is_resolved is MeetingRequest::isResolved(), the one
+            // place "is this item done?" is decided.
             'item_state' => $this->item_state,
             'state_changed_at' => $this->state_changed_at?->toIso8601String(),
             'is_resolved' => $this->isResolved(),
-            // Stage 82 — whether Art. 85's study sequence is complete, which
-            // is what opens voting on this item. The card itself (النموذج 11)
-            // comes from its own endpoint, since two of its nine steps are
-            // derived from votes/decision and a resource should not query.
-            'study_sequence_complete' => $this->study_sequence_completed_at !== null,
-            'notes' => $this->whenLoaded('notes', fn () => MeetingDiscussionNoteResource::collection($this->notes)),
             'department' => $this->whenLoaded('department', fn () => $this->department ? [
                 'id' => $this->department->id,
                 'name_ar' => $this->department->name_ar,
@@ -59,18 +52,6 @@ class MeetingRequestResource extends JsonResource
                     'name_en' => $this->request->status->name_en,
                     'color' => $this->request->status->color,
                 ] : null,
-                // Stage 74 — Appendix 22's "اختصاص اللجنة في هذا الموضوع",
-                // recorded by the legal officer before the sitting (Stage
-                // 68). Art. 90 forbids قرار/توصية/رأي being used
-                // interchangeably, so the recording screen pre-selects the
-                // instrument the legal card expected instead of asking the
-                // same question twice with no link between the answers. A
-                // hint only: the committee is not bound by the legal
-                // member's opinion (Art. 14 (ب)), so the recorder can change
-                // it and nothing server-side compares the two.
-                'expected_instrument' => $this->request->relationLoaded('latestLegalReview')
-                    ? $this->request->latestLegalReview?->committee_mandate
-                    : null,
                 // 2026-10-18 — what the printed agenda and the paper results
                 // need: whose file it is, its type, the grade that suggests
                 // الوزير, and where جهة الاعتماد stands on it.
@@ -105,17 +86,9 @@ class MeetingRequestResource extends JsonResource
                     'color' => $this->appeal->status->color,
                 ] : null,
             ] : null),
-            'votes' => $this->whenLoaded('votes', fn () => VoteResource::collection($this->votes)),
             'decision' => $this->whenLoaded('decision', fn () => $this->decision ? new DecisionResource($this->decision) : null),
-            // Stage 48 — who has disclosed a conflict of interest on this item;
-            // each entry's presence is itself the recusal (DecisionEligibility).
-            'conflict_declarations' => $this->whenLoaded(
-                'conflictDeclarations',
-                fn () => ConflictOfInterestDeclarationResource::collection($this->conflictDeclarations),
-            ),
-            // Stage 25 — the pending-votes worklist shows items from several
-            // meetings at once, so each one has to name its own. Omitted inside
-            // the meeting screen, which already knows.
+            // An item read away from its meeting names it; omitted inside the
+            // meeting screen, which already knows.
             'meeting' => $this->whenLoaded('meeting', fn () => $this->meetingContext()),
         ];
     }

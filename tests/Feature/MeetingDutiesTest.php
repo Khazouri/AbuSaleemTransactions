@@ -10,7 +10,6 @@ use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\PassesControlGates;
 use Tests\SitsOnCommittee;
 use Tests\TestCase;
 
@@ -20,7 +19,6 @@ use Tests\TestCase;
  */
 class MeetingDutiesTest extends TestCase
 {
-    use PassesControlGates;
     use RefreshDatabase;
     use SitsOnCommittee;
 
@@ -45,61 +43,6 @@ class MeetingDutiesTest extends TestCase
         $this->assertNotContains('adopt_agenda', $this->availableActions($seats['legal'], $meeting));
     }
 
-    /**
-     * 2026-10-18 — the committee meets on paper, and the مقرر's entered
-     * results conclude the meeting (PaperMeetingResultsTest), so convening
-     * and closing are offered to nobody, whatever state the sitting is in.
-     */
-    public function test_the_paper_sitting_offers_neither_convening_nor_closing(): void
-    {
-        [$meeting, $seats] = $this->meeting(['status' => 'scheduled']);
-        MeetingRequest::create(['meeting_id' => $meeting->id, 'agenda_order' => 1, 'item_type' => 'employee_request']);
-        $this->assertNotContains('convene', $this->availableActions($seats['chair'], $meeting));
-
-        $meeting->update(['convened_at' => now()]);
-        $duties = $this->duties($seats['chair'], $meeting);
-        $offered = collect([...$duties['available'], ...$duties['blocked']])->pluck('action');
-        $this->assertNotContains('convene', $offered);
-        $this->assertNotContains('close', $offered);
-    }
-
-    public function test_approving_minutes_nobody_attended_is_blocked_with_the_review_refusal(): void
-    {
-        [$meeting, $seats] = $this->meeting(['status' => 'scheduled'], attended: false);
-        $this->actingAs($seats['chair'], 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
-
-        $reason = $this->blockedReason($seats['chair'], $meeting, 'approve_minutes');
-        $this->actingAs($seats['chair'], 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
-            ->assertStatus(422)
-            ->assertJsonPath('message', $reason);
-
-        $this->assertContains('return_minutes', $this->availableActions($seats['chair'], $meeting));
-    }
-
-    /** F4 (final-review) — generate_minutes is the rapporteur's until a draft
-     *  exists, then the chair's to review; it returns only once the chair
-     *  sends the draft back with a comment. */
-    public function test_generate_minutes_is_withheld_once_a_fresh_draft_exists_and_offered_again_after_a_return(): void
-    {
-        [$meeting, $seats] = $this->meeting(['status' => 'scheduled', 'convened_at' => now()]);
-
-        $this->assertContains('generate_minutes', $this->availableActions($seats['chair'], $meeting));
-
-        $this->actingAs($seats['chair'], 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
-            ->assertOk();
-        $this->assertNotContains('generate_minutes', $this->availableActions($seats['chair'], $meeting));
-
-        $this->actingAs($seats['chair'], 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", [
-                'decision' => 'changes_requested',
-                'comment' => 'أضف بيانات الحضور.',
-            ])
-            ->assertOk();
-        $this->assertContains('generate_minutes', $this->availableActions($seats['chair'], $meeting));
-    }
-
     /** F13 (final-review) — the membership gate, not just the screen grant. */
     public function test_a_member_of_a_different_committee_is_refused_the_meetings_duties(): void
     {
@@ -112,34 +55,6 @@ class MeetingDutiesTest extends TestCase
         $this->actingAs($outsider, 'sanctum')
             ->getJson("/api/meetings/{$meeting->id}/duties")
             ->assertStatus(404);
-    }
-
-    /** F13 (final-review) — only an attendee with a still-unsigned row. */
-    public function test_signing_minutes_is_offered_only_to_an_attendee_with_an_unsigned_row(): void
-    {
-        [$meeting, $seats] = $this->meeting(['status' => 'scheduled', 'convened_at' => now()]);
-        $this->actingAs($seats['chair'], 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
-        $this->actingAs($seats['chair'], 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
-            ->assertOk();
-
-        $this->assertContains('sign_minutes', $this->availableActions($seats['chair'], $meeting));
-
-        $this->actingAs($seats['chair'], 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/sign")->assertOk();
-
-        $this->assertNotContains('sign_minutes', $this->availableActions($seats['chair'], $meeting));
-        $this->assertContains('sign_minutes', $this->availableActions($seats['legal'], $meeting));
-    }
-
-    /** F13 (final-review) — sending the minutes back always owes a reason. */
-    public function test_returning_minutes_requires_a_comment(): void
-    {
-        [$meeting, $seats] = $this->meeting(['status' => 'scheduled', 'convened_at' => now()]);
-        $this->actingAs($seats['chair'], 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
-
-        $duty = collect($this->duties($seats['chair'], $meeting)['available'])->firstWhere('action', 'return_minutes');
-        $this->assertNotNull($duty);
-        $this->assertTrue($duty['requires_comment']);
     }
 
     public function test_an_invited_member_answers_the_date_and_their_seat_says_so(): void
@@ -170,24 +85,14 @@ class MeetingDutiesTest extends TestCase
     }
 
     /** @return array{0: Meeting, 1: array<string, User>} */
-    private function meeting(array $attributes, bool $attended = true): array
+    private function meeting(array $attributes): array
     {
-        // Stage 78/73 — a fixture that reaches minutes approval needs its
-        // قرار التشكيل transcribed, or Appendix 8's "إثبات صحة الانعقاد"
-        // refuses it; same fixture Stage 73 added to MeetingReadinessTest.
-        $committee = Committee::create([
-            'name_ar' => 'لجنة شؤون الموظفين',
-            'quorum_type' => 'fraction',
-            'quorum_numerator' => 1,
-            'quorum_denominator' => 2,
-            'quorum_comparator' => 'more_than',
-            'quorum_text' => 'أكثر من نصف الأعضاء',
-        ]);
+        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
         $seats = $this->fillFiveSeats($committee);
         $meeting = new Meeting(['committee_id' => $committee->id, 'title' => 'اجتماع اللجنة', 'scheduled_at' => now()]);
         $meeting->forceFill($attributes)->save();
         foreach ($seats as $user) {
-            $meeting->attendees()->create(['user_id' => $user->id, 'attended' => $attended, 'invitation_status' => 'pending']);
+            $meeting->attendees()->create(['user_id' => $user->id, 'invitation_status' => 'pending']);
         }
 
         return [$meeting, $seats];

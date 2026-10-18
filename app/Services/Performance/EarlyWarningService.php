@@ -28,19 +28,31 @@ use Illuminate\Support\Facades\DB;
  * a different thing and stays Stage 83's; this reads the live rule rather than
  * introducing a second, unreconciled record of the same fact.
  *
- * All ten conditions are derived from state prior stages already write. None is
+ * The two execution conditions (approved but not executed, executed but the
+ * employee file not updated) went with the execution leg on 2026-10-18. The
+ * other eight are derived from state prior stages already write. None is
  * attested, and none is proxied off something that merely correlates.
  */
 class EarlyWarningService
 {
-    /** Appendix 10's ten, in the appendix's own order. */
+    /** Each condition's number in Appendix 10, which keeps 5 and 6 (execution) as gaps. */
+    private const NUMBERS = [
+        'unusual_dwell' => 1,
+        'repeated_completion_returns' => 2,
+        'repeated_deferrals' => 3,
+        'approval_not_received' => 4,
+        'returned_by_approving_body' => 7,
+        'employee_not_notified' => 8,
+        'approaching_legal_deadline' => 9,
+        'open_appeal' => 10,
+    ];
+
+    /** Appendix 10's conditions, in the appendix's own order (less the two execution ones). */
     public const WARNINGS = [
         'unusual_dwell' => ['ar' => 'بقيت لدى جهة واحدة مدة غير معتادة', 'en' => 'Held by one party for an unusual period'],
         'repeated_completion_returns' => ['ar' => 'أعيدت لاستكمال النواقص أكثر من مرة', 'en' => 'Returned for completion more than once'],
         'repeated_deferrals' => ['ar' => 'تأجلت من اللجنة أكثر من مرة', 'en' => 'Deferred by the committee more than once'],
         'approval_not_received' => ['ar' => 'لم يرد بشأنها اعتماد', 'en' => 'No approval has come back'],
-        'approved_not_executed' => ['ar' => 'ورد اعتمادها ولم تنفذ', 'en' => 'Approved but not executed'],
-        'executed_file_not_updated' => ['ar' => 'نفذت ولم تحدث في ملف الموظف', 'en' => 'Executed but the employee file was not updated'],
         'returned_by_approving_body' => ['ar' => 'أعيدت من جهة الاعتماد', 'en' => 'Returned by the approving body'],
         'employee_not_notified' => ['ar' => 'لم يتم إشعار صاحبها', 'en' => 'The employee has not been notified'],
         'approaching_legal_deadline' => ['ar' => 'اقتربت من مدة قانونية مؤثرة', 'en' => 'Approaching a binding legal deadline'],
@@ -115,18 +127,6 @@ class EarlyWarningService
                 $fired[] = 'approval_not_received';
             }
 
-            if ($statusCode === 'final_approved' && $requestRecord->executed_at === null) {
-                $fired[] = 'approved_not_executed';
-            }
-
-            // Stage 76's own executor checklist is the record here: the
-            // question was asked and answered, so an answer that is not "yes"
-            // is a fact, not an absence.
-            if ($requestRecord->executed_at !== null
-                && ($requestRecord->execution_checklist['employee_file_updated'] ?? null) !== 'yes') {
-                $fired[] = 'executed_file_not_updated';
-            }
-
             if (in_array($id, $openReturns, true)) {
                 $fired[] = 'returned_by_approving_body';
             }
@@ -189,13 +189,11 @@ class EarlyWarningService
         }
 
         $summary = [];
-        $number = 0;
 
         foreach (self::WARNINGS as $key => $label) {
-            $number++;
             $summary[] = [
                 'key' => $key,
-                'number' => $number,
+                'number' => self::NUMBERS[$key],
                 'label' => $label[$locale] ?? $label['ar'],
                 'total' => $counts[$key] ?? 0,
             ];

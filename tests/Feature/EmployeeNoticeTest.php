@@ -14,10 +14,8 @@ use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
-use App\Notifications\DecisionRecordedNotification;
 use App\Notifications\RequestNoticeNotification;
 use App\Services\EmployeeNoticeService;
-use App\Services\NotificationDispatcher;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -232,35 +230,19 @@ class EmployeeNoticeTest extends TestCase
     /**
      * Art. 102: "لا يتضمن الإشعار … مداولات اللجنة … كيفية تصويت كل عضو".
      *
-     * The employee's notice carries no tally, and — the behaviour change this
-     * stage makes — the committee's own tally message no longer goes to them
-     * at all. النموذج 16's approved wording for عدم الموافقة says only
-     * "للأسباب المثبتة في القرار المعتمد", which is exactly what is asserted.
+     * The employee's notice carries no tally. النموذج 16's approved wording
+     * for عدم الموافقة says only "للأسباب المثبتة في القرار المعتمد", which is
+     * exactly what is asserted. (The committee's own tally message went with
+     * the in-system vote on 2026-10-18.)
      */
-    public function test_the_committees_vote_tally_reaches_the_committee_but_never_the_employee(): void
+    public function test_the_non_approval_notice_never_carries_the_committees_tally(): void
     {
         Notification::fake();
 
         $employee = $this->employee();
         $requestRecord = $this->requestFor($employee);
-        $member = $this->userWithRole('R04');
-        $chair = $this->userWithRole('R03');
 
-        $committee = Committee::create(['name_ar' => 'لجنة', 'name_en' => 'Committee', 'is_active' => true]);
-        $committee->members()->create(['user_id' => $member->id, 'is_head' => false]);
-        $meeting = $this->meeting($chair, $committee);
-
-        $decision = $this->decisionFor($requestRecord, $meeting, 'reject');
-
-        app(NotificationDispatcher::class)
-            ->decisionRecorded($requestRecord, $decision, $meeting, $chair);
-
-        Notification::assertSentTo($member, DecisionRecordedNotification::class);
-        Notification::assertNotSentTo($employee, DecisionRecordedNotification::class);
-
-        // What the employee does hear, when the decision lands the file on
-        // Art. 38's code 13.
-        $this->moveStatus($requestRecord, 'not_approved', $chair);
+        $this->moveStatus($requestRecord, 'not_approved', $this->userWithRole('R07'));
 
         Notification::assertSentTo(
             $employee,

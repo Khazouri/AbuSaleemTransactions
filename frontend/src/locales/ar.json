@@ -474,32 +474,6 @@
         "createdBy": "مقدّم الطلب",
         "attachments": "مستندات الطلب الأصلي"
       },
-      "memo": {
-        "heading": "مذكرة العرض الأصلية",
-        "none": "لم يتم توليد مذكرة عرض لهذا البند.",
-        "workUnit": "جهة عمل الموظف",
-        "referringBody": "الجهة المحيلة",
-        "keyDocuments": "المستندات الأساسية",
-        "factsSummary": "ملخص الوقائع",
-        "legalOpinion": "الرأي القانوني",
-        "committeeQuestion": "السؤال المطروح على اللجنة",
-        "notAuthoredYet": "لم يتم تحرير محتوى المذكرة بعد."
-      },
-      "minutes": {
-        "heading": "محضر الاجتماع الأصلي",
-        "none": "لم يتم إنشاء محضر لهذا الاجتماع.",
-        "status": {
-          "draft": "مسودة",
-          "pending_signatures": "بانتظار التوقيع",
-          "approved": "معتمد"
-        },
-        "quorum": "النصاب (حاضر / مطلوب)",
-        "factsSummary": "ملخص الوقائع",
-        "legalBasis": "الأساس القانوني",
-        "votes": "التصويت",
-        "dissentingOpinions": "الآراء المخالفة",
-        "requiredSignatories": "الموقّعون المطلوبون"
-      },
       "decision": {
         "heading": "القرار",
         "none": "لا يوجد قرار مسجَّل بشأن هذا الطلب.",
@@ -954,8 +928,6 @@
     "attendees": "حاضر",
     "agendaItems": "بند",
     "back": "العودة إلى الاجتماعات",
-    "minutes": "محضر الاجتماع",
-    "openMinutes": "فتح المحضر",
     "delete": "حذف الاجتماع",
     "sendInvitations": "إرسال الدعوات",
     "sendingInvitations": "جارٍ إرسال الدعوات…",
@@ -1112,21 +1084,6 @@
       "appeal_redo": "إعادة الإجراءات",
       "abstain": "ممتنع"
     },
-    "vote": {
-      "approve": "موافقة",
-      "reject": "رفض",
-      "defer": "تأجيل",
-      "conditional_approval": "اعتماد مشروط",
-      "legal_opinion": "طلب رأي قانوني",
-      "refer_other_body": "إحالة لجهة أخرى",
-      "no_jurisdiction": "عدم اختصاص",
-      "appeal_accept": "قبول التظلم",
-      "appeal_partial_accept": "قبول التظلم جزئياً",
-      "appeal_reject": "رفض التظلم",
-      "appeal_refer": "إحالة التظلم لجهة أخرى",
-      "appeal_redo": "إعادة الإجراءات من مرحلة العيب",
-      "abstain": "امتناع"
-    },
     "outcome": {
       "approve": "تمت الموافقة",
       "reject": "تم الرفض",
@@ -1141,41 +1098,13 @@
       "appeal_refer": "تمت إحالة التظلم لجهة أخرى",
       "appeal_redo": "تمت إعادة الإجراءات من مرحلة العيب"
     },
-    "conflict": {
-      "listTitle": "تعارض المصالح المعلن",
-      "declare": "إعلان تعارض مصالح",
-      "declaring": "جارٍ الإعلان…",
-      "reasonPlaceholder": "بيان طبيعة تعارض المصالح (اختياري)",
-      "declared": "لقد أعلنت تعارض مصالح على هذا البند، ولا يجوز لك التصويت عليه أو المشاركة في مداولته.",
-      "rapporteurNoVote": "أنت مقرر هذا الاجتماع، ولا تشارك في التصويت ما لم ينص قرار تشكيل اللجنة على خلاف ذلك."
-    },
-    "template": {
-      "usedLabel": "القالب المستخدم",
-      "choose": "اختر قالباً للقرار",
-      "use": "استخدام القالب",
-      "drafting": "جارٍ صياغة المسودة…",
-      "draftError": "تعذّرت صياغة المسودة من القالب."
-    },
-    "notesLabel": "الملاحظات اللازمة",
     "instrument": {
       "label": "نوع ما أصدرته اللجنة",
-      "choose": "اختر: قرار أو توصية أو رأي",
-      "expected": "بطاقة السند القانوني تتوقع: {value}",
       "decision": "قرار",
       "recommendation": "توصية",
       "opinion": "رأي"
     },
-    "parts": {
-      "subject": "موضوع القرار",
-      "facts": "الوقائع",
-      "basis": "السند",
-      "operative": "المنطوق",
-      "operativeHint": "يجب أن يكون واضحاً وقابلاً للتنفيذ — ولا تقبل عبارات غير قابلة للقياس مثل (اتخاذ اللازم) أو (النظر في الموضوع) أو (حسب الإجراءات) دون ربطها بإجراء محدد."
-    },
     "refusal": {
-      "label": "سبب عدم الموافقة",
-      "choose": "اختر السبب المهني",
-      "hint": "لا يكتفى بعبارة (لم توافق اللجنة) — ويجب أن يكون السبب مثبتاً في الملف.",
       "reasons": {
         "period_condition_unmet": "عدم استيفاء شرط المدة",
         "position_unavailable": "عدم توفر الوظيفة المطلوبة",
@@ -1187,36 +1116,15 @@
         "other": "سبب آخر مبين في الملف"
       }
     },
-    "deferral": {
-      "legend": "بيانات التأجيل",
-      "hint": "يمنع التأجيل للمراجعة دون بيان المطلوب — تبقى المعاملة (مؤجلة — تحت الاستكمال) ولا تقفل بانتهاء الاجتماع.",
-      "deferral_reason": "سبب التأجيل",
-      "deferral_required_completion": "المطلوب استكماله",
-      "deferral_responsible_body": "الجهة المسؤولة عن الاستكمال",
-      "deferral_required_document": "المستند أو الإفادة المطلوبة",
-      "deferral_legal_period": "المدة المقررة قانوناً (إن وجدت)"
-    },
-    "commentPlaceholder": "سبب القرار (اختياري للموافقة، مطلوب لبقية النتائج)",
     "appealLabel": "تظلم",
     "appealSubject": "تظلم من {appellant} — {title}",
-    "referralAuthorityLabel": "الجهة المحال إليها",
-    "referralAuthorityPlaceholder": "الجهة المحال إليها الموضوع (اختياري)",
     "approvingAuthority": {
-      "label": "جهة الاعتماد",
       "dean": "العميد",
-      "minister": "الوزير",
-      "suggested": "المقترح وفق درجة الموظف: {authority}. يحدد الرئيس الجهة بحسب توصية الأعضاء.",
-      "slip": "يُحال للاعتماد إلى: {authority}"
+      "minister": "الوزير"
     },
-    "record": "تسجيل القرار",
-    "decidedBy": "قرار من",
     "decisionNumber": "رقم القرار",
     "title": "القرارات والتوصيات",
     "subtitle": "كل قرارات اللجان المعتمدة، والبنود التي ما زالت تنتظر تصويتك.",
-    "tabs": {
-      "register": "سجل القرارات",
-      "pending": "بانتظار تصويتي"
-    },
     "filters": "عوامل التصفية",
     "outcomeLabel": "النتيجة",
     "allOutcomes": "كل النتائج",
@@ -1229,8 +1137,6 @@
     "apply": "تطبيق",
     "clear": "مسح",
     "empty": "لا توجد قرارات مطابقة لعوامل التصفية.",
-    "noPending": "لا توجد بنود بانتظار تصويتك.",
-    "yourVote": "تم تسجيل صوتك — اختر مرة أخرى لتغييره.",
     "print": "طباعة",
     "exportExcel": "تصدير Excel",
     "exportPdf": "تصدير PDF",
@@ -1264,10 +1170,7 @@
         "title": "الاجتماع القادم",
         "none": "لا يوجد اجتماع قادم مجدول.",
         "items": "بند بجدول الأعمال",
-        "ready": "جاهز للمباشرة",
-        "notReady": "غير جاهز ({count})",
-        "open": "فتح الاجتماع",
-        "checkReadiness": "التحقق من الجاهزية"
+        "open": "فتح الاجتماع"
       },
       "error": "تعذر تحميل بيانات اللوحة.",
       "board": {
@@ -1337,232 +1240,7 @@
         "noDepartment": "بدون إدارة",
         "noRequestType": "بدون نوع طلب"
       },
-      "dragToReorder": "اسحب لإعادة الترتيب",
-      "openMemo": "فتح مذكرة العرض"
-    },
-    "readiness": {
-      "title": "جاهزية الاجتماع",
-      "subtitle": "تحقق من جاهزية الاجتماع قبل مباشرته.",
-      "chooseMeeting": "الاجتماع",
-      "chooseMeetingPlaceholder": "— اختر اجتماعاً —",
-      "noMeetingSelected": "اختر اجتماعاً للتحقق من جاهزيته.",
-      "error": "تعذر تحميل بيانات الجاهزية.",
-      "verdict": {
-        "ready": "جاهز للمباشرة",
-        "notReady": "غير جاهز"
-      },
-      "percentages": {
-        "file": "الملفات",
-        "member": "تغطية الأعضاء",
-        "agenda": "اكتمال جدول الأعمال",
-        "invitation": "الردود على الدعوات"
-      },
-      "quorum": {
-        "title": "النصاب",
-        "required": "المطلوب",
-        "confirmed": "المؤكَّد",
-        "met": "النصاب مكتمل",
-        "notMet": "النصاب غير مكتمل",
-        "notRecorded": "غير مثبت في بطاقة تعريف اللجنة",
-        "perText": "وفق النص"
-      },
-      "exceptions": {
-        "title": "الاستثناءات",
-        "none": "لا توجد استثناءات — الاجتماع جاهز بالكامل.",
-        "empty_agenda": "لا يحتوي جدول الأعمال على أي بنود بعد.",
-        "quorum_not_met": "الأعضاء المؤكَّدون ({confirmed}/{required}) لا يحققون النصاب.",
-        "missing_files": "{count} بند/بنود طلبات بلا مرفقات.",
-        "unconfirmed_members": "{count} عضو/أعضاء لم تتم دعوتهم لهذا الاجتماع.",
-        "incomplete_agenda_items": "بعض بنود جدول الأعمال بلا أولوية أو وقت متوقع.",
-        "pending_invitations": "بعض المدعوين لم يردوا على الدعوة بعد.",
-        "committee_rules_not_recorded": "لم تُثبت قواعد النصاب في بطاقة تعريف اللجنة، ولا يجوز للنظام افتراضها.",
-        "missing_legal_review": "بعض بنود الطلبات لم تستكمل المراجعة القانونية المطلوبة.",
-        "agenda_order_departs_from_rule": "ترتيب جدول الأعمال يخالف الترتيب المقرر في المادة 83 دون مبرر إداري موثق.",
-        "unresolved_document_conflict": "يوجد تعارض بين مستندات إحدى المعاملات لم يعالج بعد.",
-        "incomplete_required_documents": "استكمال المستندات المطلوبة غير مكتمل في {count} بند/بنود طلبات."
-      },
-      "convene": {
-        "alreadyConvened": "تمت المباشرة في {date}",
-        "reasonRequiredHint": "مطلوب — الاجتماع غير جاهز بالكامل"
-      }
-    },
-    "live": {
-      "title": "مباشرة الاجتماع",
-      "subtitle": "إدارة الاجتماع بندًا بندًا: النقاش والتصويت والقرار لكل بند.",
-      "chooseMeeting": "اختر اجتماعاً",
-      "chooseMeetingPlaceholder": "— اختر اجتماعاً —",
-      "noMeetingSelected": "اختر اجتماعاً لبدء المباشرة.",
-      "error": "تعذر تحميل بيانات الاجتماع.",
-      "notConvened": "لم يُفتتح هذا الاجتماع بعد. يجب افتتاحه من شاشة الجاهزية قبل المباشرة.",
-      "goToReadiness": "الذهاب لشاشة الجاهزية",
-      "presentAttendees": "الحاضرون",
-      "noAttendees": "لا يوجد حاضرون مسجَّلون بعد.",
-      "noItems": "لا توجد بنود في جدول الأعمال.",
-      "progress": {
-        "resolved": "بنود منتهية"
-      },
-      "states": {
-        "presented": "معروض",
-        "discussion": "قيد النقاش",
-        "voting": "التصويت",
-        "deciding": "اتخاذ القرار",
-        "complete": "منتهٍ"
-      },
-      "studySequence": {
-        "title": "تسلسل دراسة البند (المادة 85)",
-        "incomplete": "لا يفتح التصويت قبل استكمال خطوات الدراسة وإقفال المناقشة.",
-        "frozen": "بدأ التصويت: لا يجوز تعديل الوقائع أو المستندات قبل إثبات النتيجة (الملحق 25).",
-        "derived": "يثبت تلقائياً",
-        "optional": "اختياري",
-        "notApplicable": "لا ينطبق"
-      },
-      "timer": "الوقت المنقضي",
-      "discussion": {
-        "title": "سجل النقاش",
-        "empty": "لا توجد ملاحظات بعد.",
-        "placeholder": "أضف ملاحظة على النقاش…",
-        "post": "إضافة"
-      },
-      "tabs": {
-        "summary": "ملخص الطلب",
-        "employee": "بيانات الموظف",
-        "study": "الدراسة",
-        "attachments": "المرفقات",
-        "previous": "الطلبات السابقة",
-        "memo": "مذكرة العرض",
-        "notes": "ملاحظات اللجنة"
-      },
-      "memo": {
-        "loadError": "تعذر تحميل مذكرة العرض.",
-        "notGenerated": "لم يتم إنشاء مذكرة عرض لهذا البند بعد.",
-        "generate": "إنشاء المذكرة",
-        "regenerate": "إعادة إنشاء المذكرة",
-        "workUnit": "جهة العمل",
-        "referringBody": "الجهة المحيلة",
-        "keyDocuments": "المستندات الأساسية",
-        "priorDecisions": "القرارات السابقة المتعلقة بالموضوع",
-        "noPriorDecisions": "لا توجد قرارات سابقة للجنة بشأن هذا الموضوع.",
-        "factsSummary": "ملخص الوقائع",
-        "employmentStatus": "الوضع الوظيفي ذو العلاقة",
-        "legalOpinion": "الرأي أو الملاحظة القانونية (عند وجودها)",
-        "committeeQuestion": "النقطة المطلوب من اللجنة البت فيها"
-      },
-      "context": {
-        "loadError": "تعذر تحميل بيانات الطلب.",
-        "summary": {
-          "reference": "الرقم المرجعي",
-          "department": "الإدارة",
-          "requestType": "نوع الطلب",
-          "status": "الحالة",
-          "submitted": "تاريخ التقديم",
-          "dueDate": "الموعد النهائي",
-          "decisionGrade": "الدرجة الوظيفية",
-          "description": "التفاصيل",
-          "noDescription": "لا توجد تفاصيل إضافية."
-        },
-        "employee": {
-          "name": "الاسم",
-          "email": "البريد الإلكتروني",
-          "phone": "الهاتف",
-          "department": "الإدارة",
-          "manager": "المدير المباشر",
-          "unavailable": "لا تتوفر بيانات الموظف."
-        },
-        "study": {
-          "empty": "لا توجد ملاحظات دراسة مسجَّلة على هذا الطلب."
-        },
-        "attachments": {
-          "empty": "لا توجد مرفقات على هذا الطلب."
-        },
-        "previous": {
-          "empty": "لا توجد طلبات سابقة لهذا الموظف."
-        }
-      },
-      "agendaNotAdopted": "لم يعتمد جدول الأعمال بعد، ولا تبدأ مناقشة البنود قبل اعتماده.",
-      "goToAgenda": "الانتقال إلى جدول الأعمال"
-    },
-    "minutes": {
-      "title": "المحاضر",
-      "minutesNumber": "رقم المحضر",
-      "subtitle": "إنشاء محضر الاجتماع ومراجعته وتوقيعه.",
-      "chooseMeeting": "الاجتماع",
-      "chooseMeetingPlaceholder": "— اختر اجتماعاً —",
-      "noMeetingSelected": "اختر اجتماعاً لعرض محضره.",
-      "error": "تعذر تحميل محضر الاجتماع.",
-      "notGenerated": "لم يتم إنشاء محضر لهذا الاجتماع بعد.",
-      "changesRequestedNote": "طُلب تعديل المحضر",
-      "status": {
-        "draft": "مسودة",
-        "pending_signatures": "بانتظار التوقيعات",
-        "approved": "معتمد"
-      },
-      "sections": {
-        "meetingInfo": "بيانات الاجتماع",
-        "attendance": "الحضور",
-        "present": "الحاضرون",
-        "absent": "الغائبون",
-        "agendaItems": "بنود جدول الأعمال",
-        "requiredSignatories": "الموقّعون المطلوبون",
-        "guests": "مدعوون إضافيون (بلا تصويت)"
-      },
-      "item": {
-        "factsSummary": "ملخص الموضوع",
-        "legalBasis": "الأساس القانوني",
-        "documentsReviewed": "المستندات التي تمت مراجعتها",
-        "dissentingOpinions": "التحفظات",
-        "referralAuthority": "الجهة المحال إليها"
-      },
-      "review": {
-        "title": "مراجعة المحضر"
-      },
-      "signatures": {
-        "title": "التوقيعات",
-        "none": "لا يوجد موقّعون مطلوبون.",
-        "signed": "تم التوقيع",
-        "pending": "بانتظار التوقيع"
-      },
-      "legalReview": {
-        "title": "ملاحظة العضو القانوني",
-        "none": "لا توجد ملاحظة قانونية على المحضر.",
-        "placeholder": "ملاحظة قانونية على مسودة المحضر (عند الحاجة)",
-        "save": "حفظ الملاحظة"
-      }
-    },
-    "outputs": {
-      "title": "مخرجات الاجتماعات",
-      "subtitle": "متابعة كل قرار لجنة خلال الاعتماد والتنفيذ والإغلاق.",
-      "detailHint": "فتح قرارات الاجتماع وحالة تنفيذها في مسار الطلبات.",
-      "open": "فتح متابعة المخرجات",
-      "refresh": "تحديث الحالة",
-      "chooseMeeting": "الاجتماع",
-      "chooseMeetingPlaceholder": "اختر اجتماعاً",
-      "noMeetingSelected": "اختر اجتماعاً لعرض مخرجاته.",
-      "meeting": "اجتماع",
-      "error": "تعذر تحميل مخرجات الاجتماع.",
-      "tableTitle": "متابعة الطلبات",
-      "liveHint": "تعكس الحالات مسار الطلب الفعلي وتتحدث تلقائياً.",
-      "empty": "لا توجد في هذا الاجتماع طلبات قابلة للمتابعة.",
-      "awaitingDecision": "بانتظار قرار اللجنة",
-      "summary": {
-        "title": "ملخص مخرجات الاجتماع",
-        "total_items": "بنود جدول الأعمال",
-        "decisions": "القرارات",
-        "advanced": "انتقلت للمرحلة التالية",
-        "awaiting_action": "بانتظار إجراء",
-        "in_execution": "قيد التنفيذ",
-        "executed": "منفذة",
-        "completed_closed": "مكتمل ومغلق"
-      },
-      "columns": {
-        "request": "رقم الطلب",
-        "employee": "الموظف",
-        "decision": "قرار اللجنة",
-        "decisionDate": "تاريخ القرار",
-        "nextAction": "الإجراء التالي",
-        "responsibleBody": "الجهة المسؤولة",
-        "status": "الحالة",
-        "action": "الإجراء"
-      }
+      "dragToReorder": "اسحب لإعادة الترتيب"
     },
     "legalReview": {
       "title": "المراجعة القانونية السابقة للاجتماع",
@@ -1723,64 +1401,6 @@
       "letter_number": "رقم كتاب الإعادة",
       "received_at": "تاريخ ورود النتيجة",
       "resolution_action": "الإجراء الذي اتخذ بشأن الإعادة"
-    }
-  },
-  "requestExecution": {
-    "title": "إثبات التنفيذ",
-    "action": "إثبات التنفيذ",
-    "formNote": "أمر تنفيذ قرار وظيفي — لا يكفي أن تقول الجهة المنفذة (تم التنفيذ) بل يجب إرفاق دليل التنفيذ.",
-    "evidenceTitle": "دليل التنفيذ",
-    "evidenceNote": "حدد المستند أو المستندات التي تثبت تحقق الأثر المطلوب، ونوع كل منها.",
-    "evidenceBadge": "دليل التنفيذ",
-    "noAttachments": "لا توجد مستندات مرفقة بهذه المعاملة؛ أرفق دليل التنفيذ من صفحة المعاملة أولاً.",
-    "notEvidence": "ليس دليل تنفيذ",
-    "checklistTitle": "متابعة التنفيذ",
-    "checklistNote": "يجاب على كل بند؛ ويعد إرفاق مستند التنفيذ محققاً تلقائياً من المستندات المحددة أعلاه.",
-    "financialBinds": "هذه المعاملة ذات أثر مالي، فلا يثبت التنفيذ قبل إحالته.",
-    "executedAt": "تاريخ إثبات التنفيذ",
-    "executedBy": "مسؤول التنفيذ",
-    "fields": {
-      "executing_body": "الجهة المنفذة",
-      "action_taken": "الإجراء المنفذ",
-      "effective_date": "تاريخ سريان الأثر",
-      "approving_body": "جهة الاعتماد",
-      "approval_number": "رقم الاعتماد",
-      "approval_date": "تاريخ الاعتماد",
-      "financial_effect_note": "بيان الأثر المالي"
-    },
-    "checks": {
-      "administrative_decision_issued": "هل تم إصدار القرار الإداري؟",
-      "employee_file_updated": "هل تم تحديث ملف الموظف؟",
-      "system_updated": "هل تم تحديث النظام؟",
-      "financial_effect_referred": "هل تمت إحالة الأثر المالي؟",
-      "organizational_unit_notified": "هل تم إخطار التقسيم التنظيمي؟",
-      "employee_notified": "هل تم إخطار الموظف؟",
-      "execution_document_attached": "هل تم إرفاق مستند التنفيذ؟"
-    },
-    "answers": {
-      "yes": "نعم",
-      "no": "لا",
-      "not_applicable": "لا ينطبق"
-    },
-    "evidenceTypes": {
-      "administrative_decision": "قرار إداري",
-      "employee_record_update": "تحديث في سجل الموظف",
-      "transfer_decision": "قرار نقل",
-      "secondment_decision": "قرار ندب",
-      "grade_amendment": "تعديل درجة",
-      "financial_statement": "إفادة مالية",
-      "commencement_document": "مستند مباشرة",
-      "other": "وثيقة أخرى تثبت تحقق الأثر"
-    },
-    "serviceFile": {
-      "final_decision": "القرار النهائي",
-      "effective_date": "تاريخ النفاذ",
-      "decision_effect": "أثر القرار",
-      "grade_change": "تعديل الدرجة",
-      "position_change": "تعديل الوظيفة",
-      "body_change": "تعديل الجهة",
-      "financial_change": "تعديل الوضع المالي",
-      "seniority_date": "تاريخ الأقدمية"
     }
   },
   "workflow": {
@@ -2025,7 +1645,6 @@
       "title": "البوابة الأولى — قبل القيد",
       "question": "هل الوقائع والوثائق صحيحة ومكتملة؟",
       "formNote": "راجع كل ملف مرفق بالطلب.",
-      "choose": "اختر…",
       "attestation": "أقر بصحة الوقائع والبيانات المقدمة.",
       "passed": "استوفت المعاملة متطلبات البوابة الأولى.",
       "recordedBy": "أثبتها: {name} — {at}",
@@ -2053,33 +1672,6 @@
       "gradeConfirmed": "مطابقة لسجلات الجهة",
       "gradeUnconfirmed": "لم تُؤكَّد بعد"
     },
-    "soundness": {
-      "title": "قائمة فحص سلامة القرار (المادة 103)",
-      "question": "هل تم التحقق من سلامة القرار قبل إحالته للتنفيذ؟",
-      "action": "تسجيل فحص سلامة القرار",
-      "formNote": "ثمانية من البنود الاثني عشر تُستخرج من بيانات المعاملة نفسها ولا تُسأل؛ أجب عن الأربعة المتبقية.",
-      "passed": "استوفت المعاملة قائمة فحص سلامة القرار.",
-      "checks": {
-        "employee_name_correct": "صحة اسم الموظف",
-        "employee_number_correct": "الرقم الوظيفي",
-        "decision_subject_present": "موضوع القرار",
-        "committee_jurisdiction": "اختصاص اللجنة",
-        "convening_valid": "صحة انعقاد الاجتماع",
-        "voting_complete": "استكمال التصويت",
-        "documents_present": "وجود المستندات",
-        "legal_basis_sound": "صحة السند القانوني",
-        "minutes_signed": "توقيع المحضر",
-        "competent_authority_approved": "اعتماد السلطة المختصة",
-        "effective_date_correct": "صحة تاريخ النفاذ",
-        "no_conflict_with_attachments": "عدم وجود تعارض بين منطوق القرار والمرفقات"
-      },
-      "answers": {
-        "yes": "نعم",
-        "no": "لا",
-        "not_applicable": "لا ينطبق",
-        "pending": "لم يُجب بعد"
-      }
-    },
     "suspension": {
       "title": "الإيقاف الإجرائي (المادة 105)",
       "question": "هل ظهر أن معلومة جوهرية غير صحيحة أو أن مستنداً أساسياً محل شك؟",
@@ -2102,34 +1694,6 @@
       "resolutions": {
         "fact_confirmed": "ثبتت صحة المعلومة أو المستند، وتستأنف المعاملة مسارها",
         "referred_to_committee": "أعيد الموضوع إلى اللجنة لإعادة العرض"
-      }
-    },
-    "minutesQuality": {
-      "title": "ضوابط جودة المحضر (الملحق 8)",
-      "note": "لا يحال المحضر للاعتماد قبل التحقق من ستة عشر ضابطاً؛ أربعة عشر منها تُستخرج من بيانات الاجتماع.",
-      "reviewerCheck": "أقر بخلو المحضر من تعارضات داخلية.",
-      "checks": {
-        "meeting_number_matches": "تطابق رقم الاجتماع",
-        "date_correct": "صحة التاريخ",
-        "member_names_match": "تطابق أسماء الأعضاء",
-        "attendance_recorded": "إثبات الحضور",
-        "convening_validity_recorded": "إثبات صحة الانعقاد",
-        "items_match_agenda": "تطابق البنود مع جدول الأعمال",
-        "every_item_has_a_result": "وجود نتيجة لكل بند نوقش",
-        "decisions_separated_from_recommendations": "فصل القرارات عن التوصيات",
-        "deferrals_clear": "وضوح حالات التأجيل",
-        "required_completions_named": "تحديد النواقص المطلوبة",
-        "refusals_clear": "وضوح حالات عدم الموافقة",
-        "sensitive_results_reasoned": "تسبيب النتائج الحساسة",
-        "next_approving_body_named": "تحديد جهة الاعتماد التالية",
-        "request_numbers_match": "تطابق أرقام المعاملات",
-        "no_internal_contradictions": "خلو المحضر من تعارضات داخلية",
-        "signatures_complete": "استكمال التوقيعات"
-      },
-      "answers": {
-        "yes": "مستوفٍ",
-        "no": "غير مستوفٍ",
-        "enforced_by_signature_lifecycle": "يُستوفى بدورة التوقيع"
       }
     }
   },
@@ -2435,10 +1999,8 @@
     "truncated": "عُرض جزء من المهام فقط لكثرة عددها.",
     "sources": {
       "approval": "بانتظار اعتمادك",
-      "vote": "بانتظار تصويتك",
       "candidate": "طلبات مرشحة للعرض",
       "legal_review": "بانتظار المراجعة القانونية",
-      "minutes_signature": "محاضر بانتظار توقيعك",
       "completion": "طلباتي المطلوب استكمالها",
       "meeting_invitation": "مواعيد اجتماعات بانتظار ردك",
       "meeting_due": "لجان لم يُحدَّد لها اجتماع هذا الشهر",
@@ -2454,13 +2016,7 @@
       "register": "تجهيز الملف الوظيفي والتسجيل",
       "deadline_expired": "تصعيد لانتهاء المهلة",
       "adopt_agenda": "اعتماد جدول الأعمال",
-      "convene": "افتتاح الاجتماع",
-      "record_decision": "تسجيل القرار",
-      "generate_minutes": "إعداد المحضر",
-      "review_minutes": "مراجعة المحضر",
-      "close_meeting": "إنهاء الاجتماع",
-      "execution_soundness": "التحقق من سلامة التنفيذ",
-      "execute": "إثبات التنفيذ",
+      "record_results": "إدخال نتائج الاجتماع",
       "archive_committee_file": "أرشفة ملف اللجنة",
       "archive_service_file": "أرشفة ملف الخدمة",
       "close": "الإقفال",
@@ -2512,21 +2068,14 @@
       "type": "نوع الطلب",
       "recent": "آخر الإجراءات",
       "more": "المرفقات كاملة وسجل سير العمل في تبويب «الملف» خلف هذه النافذة.",
-      "itemLede": "اطّلع على البند وعلى من صوّت قبل أن تتخذ إجراءك.",
-      "item": "البند",
-      "reference": "رقم القيد",
       "meeting": "الاجتماع",
-      "votes": "الأصوات",
-      "noVotes": "لم يُدلَ بأي صوت بعد",
       "meetingLede": "اطّلع على حال الاجتماع ومقاعده قبل أن تتخذ إجراءك.",
       "date": "الموعد",
       "status": "حالة الاجتماع",
       "agenda": "جدول الأعمال",
       "items": "{count} بند",
       "agendaAdopted": "معتمد",
-      "agendaNotAdopted": "غير معتمد",
-      "minutes": "المحضر",
-      "noMinutes": "لم يُعَدّ بعد"
+      "agendaNotAdopted": "غير معتمد"
     },
     "checks": {
       "lede": "هذه التحققات مطلوبة منك قبل أن تُتاح بعض الإجراءات، ويُحفظ كل منها بزر الحفظ الخاص به.",
@@ -2534,13 +2083,6 @@
       "intake": "البوابة الأولى: اكتمال الملف",
       "jurisdiction_test": "اختبار الاختصاص (المادة 45)",
       "legal_card": "بطاقة السند القانوني",
-      "conflict": "الإفصاح عن تعارض المصالح",
-      "conflictLede": "إن كانت لك مصلحة في هذا البند فأفصح عنها قبل التصويت؛ لا يُتاح لك التصويت بعد الإفصاح.",
-      "study_sequence": "تسلسل دراسة البند (المادة 85)",
-      "meetingLede": "ما يستند إليه الإجراء قبل اتخاذه.",
-      "readiness": "جاهزية الاجتماع",
-      "minutes_quality": "ضوابط جودة المحضر",
-      "reviewerRequired": "ضع علامة على إقرار المراجِع في خطوة التحققات قبل اعتماد المحضر.",
       "step_checklist": "قائمة التحقق في هذه المرحلة"
     },
     "choose": {
@@ -2551,8 +2093,6 @@
       "toChecks": "الانتقال إلى التحققات",
       "none": "لا يوجد إجراء متاح لك الآن. أكمل التحققات أولاً.",
       "verdicts": "رأيك القانوني",
-      "itemLede": "اختر صوتك، أو سجّل النتيجة إن كنت رئيس الجلسة.",
-      "nothing": "لا يوجد ما تتخذه على هذا البند.",
       "meetingLede": "اختر الإجراء الذي تتخذه على الاجتماع."
     },
     "slip": {
@@ -2581,63 +2121,28 @@
       "return_to_study": "يعود الملف إلى المقرر لاستكمال دراسته، مع ذكر السبب.",
       "require_completion": "يُطلب استكمال ما ينقص الملف قبل عرضه، مع ذكر المطلوب.",
       "send_to_legal_review": "يُحال الملف إلى العضو القانوني ليبدي رأيه قبل إدراجه في جدول الأعمال.",
-      "record_decision": "يُسجَّل قرار اللجنة وفق نتيجة التصويت ويُنقل الملف تبعاً لها.",
       "respond_accept": "تؤكد حضورك في الموعد المقترح، ويُعتمد الاجتماع حين يقبله العدد المطلوب من الأعضاء.",
       "respond_decline": "تعتذر عن الموعد، فلا يُعتمد الاجتماع إلا إذا قبله العدد المطلوب من غيرك أو اقترح المقرر موعدًا جديدًا.",
       "adopt_agenda": "يُعتمد جدول الأعمال فيُقفل على الإضافة والحذف والترتيب، وتبدأ المداولة بعده.",
-      "convene": "تُعلَن صحة انعقاد الجلسة وتُثبَّت قواعد التصويت كما هي الآن.",
-      "generate_minutes": "تُعَدّ مسودة المحضر من بيانات الجلسة كما هي الآن.",
-      "approve_minutes": "يُعتمد المحضر ويُرسَل إلى الحضور للتوقيع عليه.",
-      "return_minutes": "يعود المحضر إلى المقرر لتعديله، مع ذكر السبب.",
-      "sign_minutes": "تؤكد المحضر بتوقيعك، ويُعتمد نهائياً بآخر توقيع.",
-      "close": "يُغلَق الاجتماع، ولا يُعدَّل بعد ذلك.",
       "record_results": "تُدخل توصية اللجنة وجهة الاعتماد لكل بند كما دُوّنت في الاجتماع، وتُرفق المحضر الموقّع؛ فيُغلق الاجتماع وتُحال الطلبات إلى جهات اعتمادها."
     },
     "act": "اتخاذ الإجراء",
     "actions": {
       "require_completion": "طلب استكمال",
       "send_to_legal_review": "الإحالة للمراجعة القانونية",
-      "vote": "التصويت",
-      "record_decision": "تسجيل النتيجة",
       "respond_accept": "قبول الموعد",
       "respond_decline": "الاعتذار عن الموعد",
       "adopt_agenda": "اعتماد جدول الأعمال",
-      "convene": "مباشرة الاجتماع",
-      "generate_minutes": "إعداد المحضر",
-      "regenerate_minutes": "إعادة إعداد المحضر",
-      "approve_minutes": "اعتماد المحضر",
-      "return_minutes": "إعادة المحضر للتعديل",
-      "sign_minutes": "التوقيع على المحضر",
-      "close": "إغلاق الاجتماع",
       "record_results": "إدخال نتائج الاجتماع"
     },
-    "itemTitle": "التصويت والقرار",
     "seats": {
       "title": "مقاعد اللجنة",
       "states": {
         "vacant": "شاغر",
         "pending": "لم يرد بعد",
         "accepted": "قبِل الموعد",
-        "declined": "اعتذر عن الموعد",
-        "present": "حاضر",
-        "absent": "غائب",
-        "voted": "صوّت",
-        "not_voted": "لم يصوّت بعد",
-        "recused": "أفصح عن تعارض",
-        "signed": "وقّع",
-        "unsigned": "لم يوقّع بعد"
+        "declined": "اعتذر عن الموعد"
       }
-    },
-    "ballot": {
-      "cast": "الإدلاء بالصوت",
-      "current": "صوتك الحالي",
-      "yourChoice": "اختيارك"
-    },
-    "decision": {
-      "form": "صياغة القرار",
-      "predicted": "النتيجة وفق الأصوات: {outcome}",
-      "tally": "الأصوات: {summary}",
-      "outcomeChanged": "تغيّرت نتيجة التصويت منذ فتحت هذه النافذة؛ راجع النتيجة الجديدة ثم سجّلها."
     },
     "meetingTitle": "إجراءات الاجتماع",
     "meetingPrompt": "هذا الاجتماع ينتظر إجراءً منك.",
@@ -2645,12 +2150,6 @@
       "respond_accept": "قَبِل العضو موعد الاجتماع.",
       "respond_decline": "اعتذر العضو عن موعد الاجتماع.",
       "adopt_agenda": "اعتُمد جدول الأعمال.",
-      "convene": "بوشر الاجتماع.",
-      "generate_minutes": "أُعدّت مسودة المحضر.",
-      "approve_minutes": "اعتُمد المحضر وأُحيل للتوقيع.",
-      "return_minutes": "أُعيد المحضر للتعديل.",
-      "sign_minutes": "وُقِّع المحضر.",
-      "close": "أُغلق الاجتماع.",
       "record_results": "أُدخلت توصيات اللجنة وأُرفق محضر الاجتماع."
     },
     "families": {
@@ -2790,6 +2289,12 @@
       "decline": "عدم موافقة",
       "defer": "تأجيل"
     },
+    "appealRecommendations": {
+      "approve": "قبول التظلم",
+      "decline": "رفض التظلم",
+      "defer": "تأجيل"
+    },
+    "appealOn": "تظلم على: {title}",
     "authority": "جهة الاعتماد",
     "noteOptional": "ملاحظة (اختيارية)",
     "noteRequired": "السبب أو الملاحظة",

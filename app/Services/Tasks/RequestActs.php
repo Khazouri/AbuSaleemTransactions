@@ -3,7 +3,6 @@
 namespace App\Services\Tasks;
 
 use App\Http\Controllers\Api\RequestController;
-use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestWithdrawal;
 use App\Models\User;
@@ -13,7 +12,6 @@ use App\Services\EmployeeNoticeService;
 use App\Services\Lifecycle\CorrectionRules;
 use App\Services\Lifecycle\WithdrawalService;
 use App\Services\RequestClosureService;
-use App\Services\RequestExecutionService;
 use App\Services\RequestSuspensionService;
 use Illuminate\Support\Str;
 
@@ -21,7 +19,7 @@ use Illuminate\Support\Str;
  * Decision wizard — sub-project 3. Every act the signed-in user may take on a
  * request besides its workflow transitions, for the wizard's Choose step: the
  * ones open now, and the ones held back with the endpoint's own reason. Three
- * families: after_decision (post-decision execution/closure/return work),
+ * families: after_decision (post-decision archive/closure/return work),
  * records (the file's own open records — conflicts, corrections, withdrawals)
  * and file (the notice, financial flag, reopen, notes and attachments).
  *
@@ -36,7 +34,6 @@ class RequestActs
         private readonly ApprovalReferralService $referrals,
         private readonly ApprovalReturnService $returns,
         private readonly RequestClosureService $closure,
-        private readonly RequestExecutionService $execution,
         private readonly RequestSuspensionService $suspensions,
         private readonly CorrectionRules $corrections,
         private readonly EmployeeNoticeService $notices,
@@ -67,19 +64,6 @@ class RequestActs
         $approve = $actor->hasScreenPermission('meeting_outputs', 'can_approve');
         $open = $r->closed_at === null;
         $closable = $open && in_array($status, RequestClosureService::CLOSABLE_STATUSES, true);
-
-        // 2026-10-18 — no execution leg: an approved file goes straight to its
-        // archives, so Art. 103's soundness checklist is no longer offered.
-
-        // markExecuted() refuses anything short of in_execution with its own
-        // message, so outside that state execute is "not now", never blocked.
-        if ($approve && $stage === 'final_approval_archiving' && $status === RequestExecutionService::EXECUTABLE_STATUS
-            && $r->executed_at === null && ($item = $this->decidedItem($r)) !== null) {
-            $this->offer($acts, 'after_decision', 'execute', $this->execution->refusalReason($r), [
-                'target' => ['id' => $item->id, 'meeting_id' => $item->meeting_id, 'label' => null],
-                'has_financial_impact' => (bool) $r->has_financial_impact,
-            ]);
-        }
 
         if ($edit && $closable) {
             $this->offer($acts, 'after_decision', 'archive_committee_file', $this->closure->archiveRefusal($r));
@@ -123,12 +107,6 @@ class RequestActs
         if ($edit && ($suspension = $this->suspensions->openSuspension($r)) !== null) {
             $this->offer($acts, 'after_decision', 'lift_suspension', $this->suspensions->liftRefusalReason($r, $suspension));
         }
-    }
-
-    /** The agenda item whose decision is executed — the latest one decided, as the inbox picks it. */
-    private function decidedItem(Request $r): ?MeetingRequest
-    {
-        return $r->meetingRequests()->whereHas('decision')->latest('id')->first(['id', 'meeting_id']);
     }
 
     /**
@@ -216,7 +194,7 @@ class RequestActs
             $this->offer($acts, 'file', 'add_note', null);
 
             if ($r->attachmentRight($actor) !== null) {
-                $this->offer($acts, 'file', 'attach_document', $r->attachmentRefusal());
+                $this->offer($acts, 'file', 'attach_document', null);
             }
         }
     }

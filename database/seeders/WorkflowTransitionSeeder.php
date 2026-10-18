@@ -82,12 +82,15 @@ class WorkflowTransitionSeeder extends Seeder
             // below.
             ['requirements_check', 'receive_from_committee', 'approve', 'R02', 'registered'],
             // Stage 69 — Art. 38's code 15 (بانتظار اعتماد البلدية), not the
-            // old `decided` (code 12). [D] separates the two because it treats
-            // الإحالة إلى السلطة المحلية as its own act; here recording the
-            // committee's approve decision and referring the file to the
-            // البلدية are one atomic act (DecisionController::record), so the
-            // arrival status is the more specific and more current of the two.
-            ['receive_from_committee', 'approval_by_authority', 'approve', 'R03', 'awaiting_municipal_approval'],
+            // old `decided` (code 12): entering the committee's موافقة and
+            // referring the file to جهة الاعتماد are one atomic act, so the
+            // arrival status is the more specific of the two.
+            //
+            // 2026-10-18 — R02's, not the chair's: the مقرر enters every
+            // توصية from the paper محضر (MeetingResultsController), so the
+            // committee's three rows here (this one, `defer` and
+            // `reject_by_committee`) belong to the role that records them.
+            ['receive_from_committee', 'approval_by_authority', 'approve', 'R02', 'awaiting_municipal_approval'],
             // Stage 69 — Art. 31 names this status verbatim: "وفي هذه الحالة
             // تصبح حالة المعاملة: (بانتظار الاعتماد المركزي)". The old
             // `approved` said only that *an* approval had happened, not which
@@ -442,67 +445,34 @@ class WorkflowTransitionSeeder extends Seeder
             99,
         );
 
-        // Stage 21 — a committee vote to defer keeps the request at the
-        // committee stage, status `deferred`, ready to be placed on a future
-        // meeting's agenda instead of advancing to stage 8. See
-        // DecisionController::record for the vote tally that triggers this.
+        // Stage 21 — a committee تأجيل keeps the request at the committee
+        // stage, status `deferred`, ready to be placed on a future meeting's
+        // agenda. R02's since 2026-10-18, like the approve row above.
         $this->seedException(
             $stages['receive_from_committee']->id,
             $stages['receive_from_committee']->id,
             'defer',
-            $roles['R03']->id,
+            $roles['R02']->id,
             $statuses['deferred']->id,
             50,
         );
 
-        // Stage 35 — three more committee-decision outcomes alongside
-        // approve/reject(cancel)/defer. `conditional_approve` moves forward
-        // like `approve` (same destination stage) but stays an exception row
-        // — see DecisionController::ACTIONS and this stage's AGENT_NOTES entry
-        // for why none of the three write an Approval ledger row, unlike the
-        // plain `approve` action at this same stage.
-        $this->seedException(
-            $stages['receive_from_committee']->id,
-            $stages['approval_by_authority']->id,
-            'conditional_approve',
-            $roles['R03']->id,
-            $statuses['approved_with_conditions']->id,
-            51,
-        );
-        $this->seedException(
-            $stages['receive_from_committee']->id,
-            $stages['receive_from_committee']->id,
-            'request_legal_opinion',
-            $roles['R03']->id,
-            $statuses['legal_opinion_requested']->id,
-            52,
-        );
-        $this->seedException(
-            $stages['receive_from_committee']->id,
-            $stages['receive_from_committee']->id,
-            'refer_to_another_body',
-            $roles['R03']->id,
-            $statuses['referred_to_other_body']->id,
-            53,
-        );
-
-        // Stage 49 — a fourth self-loop outcome distinct from the three
-        // above: the committee declares the matter outside its jurisdiction
-        // entirely ([D] status 14 "عدم اختصاص"), rather than asking another
-        // body for input (`refer_to_another_body`) or requesting a legal
-        // opinion. Self-loop, not an automated destination stage: [D]'s own
-        // detailed flow (path 13D) describes identifying the correct body
-        // and referring/returning as a manual follow-up this system has no
-        // "correct body" registry to drive — the required comment is where
-        // that correct body, if determinable, gets recorded.
-        $this->seedException(
-            $stages['receive_from_committee']->id,
-            $stages['receive_from_committee']->id,
-            'declare_no_jurisdiction',
-            $roles['R03']->id,
-            $statuses['outside_jurisdiction']->id,
-            54,
-        );
+        // 2026-10-18 — the paper sitting's توصية is موافقة, عدم موافقة or
+        // تأجيل (DecisionController::ACTIONS), so the committee's other four
+        // outcomes (Stage 35's conditional approval, legal opinion and
+        // referral, Stage 49's عدم اختصاص) are gone, and the chair's old
+        // defer and reject rows give way to R02's. Exception rows survive the
+        // generic delete, so they go by name.
+        WorkflowTransition::query()
+            ->whereNull('request_type_id')
+            ->where('is_exception', true)
+            ->where('from_stage_id', $stages['receive_from_committee']->id)
+            ->where(fn ($rows) => $rows
+                ->whereIn('action', ['conditional_approve', 'request_legal_opinion', 'refer_to_another_body', 'declare_no_jurisdiction'])
+                ->orWhere(fn ($chair) => $chair
+                    ->whereIn('action', ['defer', 'reject_by_committee'])
+                    ->where('required_role_id', $roles['R03']->id)))
+            ->delete();
 
         // Stage 54 — [D] Art. 45's 6-question jurisdiction test, gated by
         // RequestController::transition()/detailResource() on
@@ -551,7 +521,7 @@ class WorkflowTransitionSeeder extends Seeder
         );
 
         // Stage 69 — [D] Art. 38's code 13 (غير موافق عليها) finally has an
-        // action of its own. Until now DecisionController::ACTIONS routed the
+        // action of its own. Until then DecisionController::ACTIONS routed the
         // committee's `reject` outcome through the generic `cancel` self-loop,
         // so a reasoned committee non-approval was indistinguishable in the
         // data from a plain administrative withdrawal — the one finding
@@ -567,7 +537,7 @@ class WorkflowTransitionSeeder extends Seeder
             $stages['receive_from_committee']->id,
             $stages['approval_by_authority']->id,
             'reject_by_committee',
-            $roles['R03']->id,
+            $roles['R02']->id,
             $statuses['awaiting_municipal_approval']->id,
             56,
         );

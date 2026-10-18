@@ -16,7 +16,6 @@ import AttachmentLink from '../components/AttachmentLink.vue'
 import DecisionWizard from '../components/DecisionWizard.vue'
 import IntakeGatePanel from '../components/IntakeGatePanel.vue'
 import JurisdictionTestForm from '../components/JurisdictionTestForm.vue'
-import RequestSoundnessPanel from '../components/RequestSoundnessPanel.vue'
 import RequestSuspensionPanel from '../components/RequestSuspensionPanel.vue'
 import ApprovalTrail from '../components/ApprovalTrail.vue'
 import RequestArchivePanel from '../components/RequestArchivePanel.vue'
@@ -36,7 +35,6 @@ import { fileSectionLabel } from '../lib/fileSections'
 import { stageProgressLabel } from '../lib/stageProgress'
 // Stage 75 — [D] Appendix 47's twelve checks, mirrored once for every screen.
 import { AUDIT_CHECKS } from '../lib/requestClosure'
-import { TRACKING_CHECKS } from '../lib/requestExecution'
 import { actionLabel } from '../lib/workflowActions'
 
 const route = useRoute()
@@ -411,9 +409,6 @@ function onWizardUpdated(updated) {
                   <AttachmentLink :attachment="attachment" />
                   <small>{{ attachment.label || attachment.mime_type }} · {{ fileSize(attachment.size_bytes) }}</small>
                   <small class="doc-section">{{ fileSectionName(attachment.file_section) }}</small>
-                  <small v-if="attachment.execution_evidence_type" class="evidence-tag">
-                    {{ t('requestExecution.evidenceBadge') }} — {{ t(`requestExecution.evidenceTypes.${attachment.execution_evidence_type}`) }}
-                  </small>
                 </li>
               </ul>
             </section>
@@ -492,19 +487,6 @@ function onWizardUpdated(updated) {
               :recorded-by="request.control_gates.intake.recorded_by"
               :recorded-at="request.control_gates.intake.recorded_at"
               readonly
-            />
-          </div>
-
-          <div
-            v-if="request.current_stage?.code === 'final_approval_archiving' || request.control_gates.execution_soundness.record"
-            class="gate-block"
-          >
-            <h4>{{ t('controlGates.soundness.title') }}</h4>
-            <p class="hint">{{ t('controlGates.soundness.question') }}</p>
-            <RequestSoundnessPanel
-              :record="request.control_gates.execution_soundness.record"
-              :derived="request.control_gates.execution_soundness.derived"
-              :refusal="request.control_gates.execution_soundness.refusal"
             />
           </div>
 
@@ -724,56 +706,6 @@ function onWizardUpdated(updated) {
           </ul>
         </section>
 
-        <!-- Stage 76 — [D] النموذج 17's recorded execution card, read-only here. -->
-        <section v-if="request.execution" class="card card-flat card-pad summary closure">
-          <h3>{{ t('requestExecution.title') }}</h3>
-          <dl>
-            <div>
-              <span>{{ t('requestExecution.executedAt') }}</span>
-              <strong>{{ dateTime(request.execution.executed_at) }}</strong>
-            </div>
-            <div>
-              <span>{{ t('requestExecution.executedBy') }}</span>
-              <strong>{{ request.execution.executed_by?.name ?? '—' }}</strong>
-            </div>
-            <div>
-              <span>{{ t('requestExecution.fields.executing_body') }}</span>
-              <strong>{{ request.execution.executing_body ?? '—' }}</strong>
-            </div>
-            <div>
-              <span>{{ t('requestExecution.fields.effective_date') }}</span>
-              <strong>{{ request.execution.effective_date ? date(request.execution.effective_date) : '—' }}</strong>
-            </div>
-            <div>
-              <span>{{ t('requestExecution.fields.approving_body') }}</span>
-              <strong>{{ request.execution.approving_body ?? '—' }}</strong>
-            </div>
-            <div>
-              <span>{{ t('requestExecution.fields.approval_number') }}</span>
-              <strong>{{ request.execution.approval_number ?? '—' }}</strong>
-            </div>
-            <div>
-              <span>{{ t('requestExecution.fields.approval_date') }}</span>
-              <strong>{{ request.execution.approval_date ? date(request.execution.approval_date) : '—' }}</strong>
-            </div>
-            <div class="wide">
-              <span>{{ t('requestExecution.fields.action_taken') }}</span>
-              <strong>{{ request.execution.action_taken ?? '—' }}</strong>
-            </div>
-            <div v-if="request.execution.financial_effect_note" class="wide">
-              <span>{{ t('requestExecution.fields.financial_effect_note') }}</span>
-              <strong>{{ request.execution.financial_effect_note }}</strong>
-            </div>
-          </dl>
-          <h4>{{ t('requestExecution.checklistTitle') }}</h4>
-          <ul class="audit-record">
-            <li v-for="check in TRACKING_CHECKS" :key="check">
-              <span>{{ t(`requestExecution.checks.${check}`) }}</span>
-              <strong>{{ t(`requestExecution.answers.${request.execution_checklist?.[check] ?? 'no'}`) }}</strong>
-            </li>
-          </ul>
-        </section>
-
         <!-- Stage 75 — [D] Art. 37's الإقفال. -->
         <!-- Stage 100 — [D] Appendix 6 row 15's two archive records. -->
         <section
@@ -925,7 +857,6 @@ function onWizardUpdated(updated) {
 .doc-condition { color: var(--color-black-500); font-size: var(--text-xs); }
 .audit-record { display: grid; gap: 0.3rem; padding: 0; margin: var(--space-2) 0 0; list-style: none; font-size: var(--text-sm); }
 .audit-record li { display: flex; justify-content: space-between; gap: var(--space-3); }
-.evidence-tag { color: var(--color-success-fg); font-weight: 600; }
 .return-list { display: grid; gap: var(--space-4); padding: 0; margin: 0 0 var(--space-4); list-style: none; grid-column: 1 / -1; }
 .return-list > li { padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
 .return-list dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-3); margin: var(--space-2) 0 0; }
