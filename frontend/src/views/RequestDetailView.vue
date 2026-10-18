@@ -820,8 +820,9 @@ function onWizardUpdated(updated) {
               <strong>{{ t(`requestClosure.notice.${request.closure.notice_status}`) }}</strong>
             </div>
           </dl>
-          <h4>{{ t('requestClosure.auditTitle') }}</h4>
-          <ul class="audit-record">
+          <!-- 2026-10-18 — a file its second archive closed answered no audit. -->
+          <h4 v-if="request.closure_audit">{{ t('requestClosure.auditTitle') }}</h4>
+          <ul v-if="request.closure_audit" class="audit-record">
             <li v-for="check in AUDIT_CHECKS" :key="check">
               <span>{{ t(`requestClosure.checks.${check}`) }}</span>
               <strong>{{ t(`requestClosure.answers.${request.closure_audit?.[check] ?? 'no'}`) }}</strong>

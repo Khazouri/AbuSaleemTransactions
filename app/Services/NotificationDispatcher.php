@@ -284,10 +284,14 @@ class NotificationDispatcher
         // also their own manager or an HR user.
         $exclude = array_filter([$actorId, $requestRecord->subject_user_id]);
         $manager = $this->subjectsActiveManager($requestRecord);
+        // 2026-10-18 — the مقرر, who entered the committee's توصية, hears what
+        // جهة الاعتماد made of it, and archives the committee file next.
+        $rapporteur = in_array($moment, ['final_approval', 'not_approved'], true) ? User::activeRapporteur() : null;
 
         $this->send(
             $this->hrManagers($exclude)
                 ->when($manager !== null && ! in_array($manager->id, $exclude, true), fn (Collection $all) => $all->push($manager))
+                ->when($rapporteur !== null && ! in_array($rapporteur->id, $exclude, true), fn (Collection $all) => $all->push($rapporteur))
                 ->unique('id'),
             new RequestNoticeCopyNotification($requestRecord, $moment),
         );

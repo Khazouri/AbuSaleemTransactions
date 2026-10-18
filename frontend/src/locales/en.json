@@ -2590,7 +2590,8 @@
       "approve_minutes": "Approves the minutes and sends them to the attendees to sign.",
       "return_minutes": "Sends the minutes back to the rapporteur to amend, with your reason.",
       "sign_minutes": "Confirms the minutes with your signature; the last signature makes them final.",
-      "close": "Closes the meeting; it cannot be changed afterwards."
+      "close": "Closes the meeting; it cannot be changed afterwards.",
+      "record_results": "Enter each item's recommendation and approving authority as recorded at the meeting, and attach the signed minutes. The meeting closes and the requests go to their approving authorities."
     },
     "act": "Take action",
     "actions": {
@@ -2607,7 +2608,8 @@
       "approve_minutes": "Approve the minutes",
       "return_minutes": "Send the minutes back",
       "sign_minutes": "Sign the minutes",
-      "close": "Close the meeting"
+      "close": "Close the meeting",
+      "record_results": "Enter meeting results"
     },
     "itemTitle": "Vote and decision",
     "seats": {
@@ -2648,7 +2650,8 @@
       "approve_minutes": "The minutes were approved for signature.",
       "return_minutes": "The minutes were sent back for changes.",
       "sign_minutes": "The minutes were signed.",
-      "close": "The meeting was closed."
+      "close": "The meeting was closed.",
+      "record_results": "The committee's recommendations were entered and the minutes attached."
     },
     "families": {
       "stage": "This stage's decision",
@@ -2778,5 +2781,34 @@
       "warnings": "Warning",
       "saveFailed": "The change could not be saved."
     }
+  },
+  "paperMeeting": {
+    "printAgenda": "Print agenda",
+    "recommendation": "Committee recommendation",
+    "recommendations": {
+      "approve": "Approve",
+      "decline": "Decline",
+      "defer": "Defer"
+    },
+    "authority": "Approving authority",
+    "noteOptional": "Note (optional)",
+    "noteRequired": "Reason or note",
+    "minutes": "Meeting minutes",
+    "removeFile": "Remove file",
+    "awaitingYou": "Awaiting your decision",
+    "deanTitle": "Dean's decision",
+    "ministerTitle": "Minister's decision",
+    "file": "Request",
+    "committeeNote": "Committee note",
+    "authorityDecision": "Decision",
+    "authorityDecisions": {
+      "approve": "Approve",
+      "reject": "Do not approve"
+    },
+    "ministerDecisionFile": "Signed minister's decision",
+    "recordDecision": "Record decision",
+    "authorityNotYours": "This request is not yours to decide.",
+    "resultsRecorded": "Results entered on {date} by {name}.",
+    "openMinutes": "View minutes"
   }
 }

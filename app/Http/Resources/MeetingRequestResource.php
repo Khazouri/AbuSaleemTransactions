@@ -71,6 +71,19 @@ class MeetingRequestResource extends JsonResource
                 'expected_instrument' => $this->request->relationLoaded('latestLegalReview')
                     ? $this->request->latestLegalReview?->committee_mandate
                     : null,
+                // 2026-10-18 — what the printed agenda and the paper results
+                // need: whose file it is, its type, the grade that suggests
+                // الوزير, and where جهة الاعتماد stands on it.
+                'approving_authority' => $this->request->approving_authority,
+                'suggested_authority' => $this->request->relationLoaded('requestType')
+                    ? ($this->request->requiresMinistryApproval() ? 'minister' : 'dean')
+                    : null,
+                'stage_code' => $this->request->relationLoaded('currentStage') ? $this->request->currentStage?->code : null,
+                'subject_name' => $this->request->relationLoaded('subject') ? $this->request->subject?->name : null,
+                'request_type' => $this->request->relationLoaded('requestType') && $this->request->requestType ? [
+                    'name_ar' => $this->request->requestType->name_ar,
+                    'name_en' => $this->request->requestType->name_en,
+                ] : null,
             ] : null),
             // Stage 63 — the appeal riding an `appeal` item, mirroring the
             // `request` block above.

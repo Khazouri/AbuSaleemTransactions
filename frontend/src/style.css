@@ -1227,6 +1227,11 @@ textarea {
    100vh with `overflow: hidden` and scrolls `.content` internally, which on
    paper clips everything to the first page. Releasing both is what lets a long
    register or article paginate. */
+/* Shown on paper only; see the print block below. */
+.print-only {
+  display: none;
+}
+
 @media print {
   /* Paper is white whatever the screen was, so the dark palette is forced back
      to ink-on-white here. Without this, printing from dark mode gives light
@@ -1256,6 +1261,11 @@ textarea {
   .overlay,
   .no-print {
     display: none !important;
+  }
+  /* 2026-10-18 — what only the paper copy needs, e.g. the printed agenda's
+     blanks for the committee's handwritten recommendation. */
+  .print-only {
+    display: block !important;
   }
   .shell {
     display: block;

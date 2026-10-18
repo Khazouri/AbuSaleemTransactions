@@ -180,8 +180,22 @@ Key architectural facts worth knowing before changing things:
   `final_approval_archiving` + `final_approved`. R05 approves nothing. The
   request type's grade threshold only suggests (`suggested_authority` in the
   agenda item's duties). الوزير is one sole post (`SOLE_ROLES['minister']`,
-  named by R08), an account مدير مكتب العميد operates. العميد still gives the
-  execution step at `final_approval_archiving` on every file.
+  named by R08), an account مدير مكتب العميد operates.
+- **The committee meets on paper and only recommends** (user decision
+  2026-10-18, slice 1). The مقرر prints the agenda, then enters every item's
+  توصية (موافقة / عدم موافقة / تأجيل), note and جهة الاعتماد plus the scanned محضر
+  in one submit (`POST meetings/{m}/results`, duty `record_results`,
+  `WorkflowService::applyCommitteeRecommendation()`), which concludes the
+  meeting. Approve and `reject_by_committee` both go to the authority; defer
+  returns to the pending list. The authority decides each file **from the
+  meeting page** (`POST meetings/{m}/agenda/{item}/authority-decision`, outside
+  `meeting.member`; a minister file needs the قرار attached), and the request
+  page and approval queue refuse that decision
+  (`RequestController::authorityStageRefusal()`). There is **no execution
+  leg**: `final_approved` is a final path, and the second archive closes the
+  file (`RequestClosureService::archive()`, `closure_audit` null). Convening,
+  votes, the live runner and generated minutes are no longer offered; slice 2
+  deletes them.
 - **RTL/i18n**: layout CSS uses logical properties (`margin-inline-start`,
   `text-align: start`, etc.), not `left`/`right`, so the UI mirrors
   automatically when `vue-i18n` flips `dir` on `<html>`. Don't introduce

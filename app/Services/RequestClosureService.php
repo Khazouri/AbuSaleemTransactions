@@ -37,6 +37,11 @@ class RequestClosureService
      * الإحالة أو الإشعار. Paths 2 and 3 had no closure at all before this
      * stage, which is the gap Stage 69's own note left open here.
      *
+     * `final_approved` joined Path 1 on 2026-10-18: with no execution leg (user
+     * decision), the authority's approval is the file's final result and the
+     * two archives follow it directly. `executed` stays for files executed
+     * before then.
+     *
      * `referred_to_other_body` is deliberately absent even though النموذج 18
      * lists "أحيلت نهائيًا لجهة أخرى" among its final states: in this system
      * that status is Stage 35's self-loop asking another body for input, which
@@ -44,7 +49,7 @@ class RequestClosureService
      * one. The genuinely final referral is `outside_jurisdiction` carrying
      * Stage 50's `referral_authority`.
      */
-    public const CLOSABLE_STATUSES = ['executed', 'not_approved', 'outside_jurisdiction'];
+    public const CLOSABLE_STATUSES = ['executed', 'final_approved', 'not_approved', 'outside_jurisdiction'];
 
     /**
      * Appendix 47's قائمة التدقيق النهائية قبل الإقفال, verbatim and in the
@@ -177,7 +182,7 @@ class RequestClosureService
         }
 
         if (! in_array($statusCode, self::CLOSABLE_STATUSES, true)) {
-            return 'لا تعتبر المعاملة مقفلة إلا بعد تحقق أحد المسارات النهائية: تنفيذ النتيجة، أو عدم الموافقة، أو عدم الاختصاص.';
+            return 'لا تعتبر المعاملة مقفلة إلا بعد تحقق أحد المسارات النهائية: اعتماد النتيجة، أو عدم الموافقة، أو عدم الاختصاص.';
         }
 
         // Appendix 48 condition 6 / Art. 37's fourth path — the file stays open
@@ -271,17 +276,30 @@ class RequestClosureService
      */
     public function archive(Request $requestRecord, User $actor, string $file, string $location): Request
     {
-        if (($reason = $this->archiveRefusal($requestRecord)) !== null) {
-            throw new \DomainException($reason);
-        }
+        return DB::transaction(function () use ($requestRecord, $actor, $file, $location) {
+            $locked = $this->lockForClosure($requestRecord);
 
-        $requestRecord->update([
-            "{$file}_file_location" => $location,
-            "{$file}_file_archived_by_user_id" => $actor->id,
-            "{$file}_file_archived_at" => now(),
-        ]);
+            if (($reason = $this->archiveRefusal($locked)) !== null) {
+                throw new \DomainException($reason);
+            }
 
-        return $requestRecord;
+            $locked->update([
+                "{$file}_file_location" => $location,
+                "{$file}_file_archived_by_user_id" => $actor->id,
+                "{$file}_file_archived_at" => now(),
+            ]);
+
+            // 2026-10-18 — the second archive closes the file (user decision):
+            // the authority's decision is the final result, and archiving is
+            // the last thing Art. 38's code 20 waits for. A hold Appendix 48
+            // names (an open appeal, a special case) still stops it, and the
+            // manual close() then remains for once it lifts.
+            if ($this->refusalReason($locked) !== null) {
+                return $locked;
+            }
+
+            return $this->writeClosure($locked, $actor, $this->derivedCard($locked), null, 'اكتملت أرشفة ملف اللجنة وملف الخدمة فأقفلت المعاملة.');
+        });
     }
 
     /** Whether the service-file half of the archive is owed at all. */
@@ -298,11 +316,8 @@ class RequestClosureService
     }
 
     /**
-     * Write Art. 37's closure record and move the request to code 20.
-     *
-     * Status-only, like every other post-decision act since Stage 37:
-     * WorkflowService stays the sole owner of stage movement, and closure
-     * records that the life cycle has ended rather than inventing a stage.
+     * Write Art. 37's closure record and move the request to code 20, for a
+     * file a hold kept open past its second archive.
      *
      * @param  array<string, mixed>  $card  Art. 37's human-supplied fields
      * @param  array<string, string>  $audit  Appendix 47's closer answers
@@ -310,10 +325,7 @@ class RequestClosureService
     public function close(Request $requestRecord, User $actor, array $card, array $audit): Request
     {
         return DB::transaction(function () use ($requestRecord, $actor, $card, $audit) {
-            $locked = Request::query()
-                ->with(['status:id,code', 'subject:id,is_active'])
-                ->lockForUpdate()
-                ->findOrFail($requestRecord->id);
+            $locked = $this->lockForClosure($requestRecord);
 
             // Re-checked inside the lock: the controller's own check ran before
             // it, and an appeal could have been filed in between.
@@ -321,47 +333,89 @@ class RequestClosureService
                 throw new \DomainException($reason);
             }
 
-            $target = RequestStatus::query()->where('code', 'completed_closed')->firstOrFail();
-            $fromStatusId = $locked->status_id;
-            $finalResultCode = $locked->status?->code;
-
-            $locked->update([
-                'status_id' => $target->id,
-                // Art. 37's eight fields, less the closure date and the closer,
-                // which are columns of their own. `final_result_code` and
-                // `notice_status` are computed, never client-supplied — Stage
-                // 65's own reasoning: the first is already known from the
-                // request's state, and asking the closer to retype it risks the
-                // record disagreeing with what actually happened; the second is
-                // a plain fact about the requester's account, not an attestation.
-                'closure' => [
-                    'final_result_code' => $finalResultCode,
-                    'final_decision_number' => $card['final_decision_number'] ?? null,
-                    'approving_body' => $card['approving_body'],
-                    'execution_date' => $card['execution_date'] ?? null,
-                    'executing_body' => $card['executing_body'] ?? null,
-                    // Stage 95 — reachability of صاحب العلاقة, the person
-                    // Art. 101's notices are actually addressed to.
-                    'notice_status' => $locked->subject?->is_active
-                        ? 'notified'
-                        : 'requester_unreachable',
-                ],
-                'closure_audit' => $this->auditRecord($locked, $audit),
-                'closed_by_user_id' => $actor->id,
-                'closed_at' => now(),
-            ]);
-
-            RequestStatusHistory::create([
-                'request_id' => $locked->id,
-                'from_status_id' => $fromStatusId,
-                'to_status_id' => $target->id,
-                'reason' => 'تم استيفاء قائمة التدقيق النهائية وإقفال المعاملة وأرشفتها.',
-                'changed_by_user_id' => $actor->id,
-                'changed_at' => now(),
-            ]);
-
-            return $locked->refresh();
+            return $this->writeClosure($locked, $actor, $card, $this->auditRecord($locked, $audit), 'تم استيفاء قائمة التدقيق النهائية وإقفال المعاملة وأرشفتها.');
         });
+    }
+
+    private function lockForClosure(Request $requestRecord): Request
+    {
+        return Request::query()
+            ->with(['status:id,code', 'subject:id,is_active'])
+            ->lockForUpdate()
+            ->findOrFail($requestRecord->id);
+    }
+
+    /**
+     * Art. 37's card for a file the second archive closes: everything it asks
+     * is already on the file, so nobody is asked to retype it.
+     *
+     * @return array<string, string|null>
+     */
+    private function derivedCard(Request $requestRecord): array
+    {
+        return [
+            'final_decision_number' => $requestRecord->meetingRequests()
+                ->join('decisions', 'decisions.meeting_request_id', '=', 'meeting_requests.id')
+                ->latest('decisions.id')
+                ->value('decisions.decision_number'),
+            'approving_body' => match ($requestRecord->approving_authority) {
+                'minister' => 'الوزير',
+                'dean' => 'العميد',
+                default => null,
+            },
+        ];
+    }
+
+    /**
+     * Status-only, like every other post-decision act since Stage 37:
+     * WorkflowService stays the sole owner of stage movement, and closure
+     * records that the life cycle has ended rather than inventing a stage.
+     *
+     * @param  array<string, mixed>  $card  Art. 37's human-supplied (or derived) fields
+     * @param  array<string, string>|null  $auditRecord  null when no closer answered Appendix 47
+     */
+    private function writeClosure(Request $locked, User $actor, array $card, ?array $auditRecord, string $reason): Request
+    {
+        $target = RequestStatus::query()->where('code', 'completed_closed')->firstOrFail();
+        $fromStatusId = $locked->status_id;
+        $finalResultCode = $locked->status?->code;
+
+        $locked->update([
+            'status_id' => $target->id,
+            // Art. 37's eight fields, less the closure date and the closer,
+            // which are columns of their own. `final_result_code` and
+            // `notice_status` are computed, never client-supplied — Stage
+            // 65's own reasoning: the first is already known from the
+            // request's state, and asking the closer to retype it risks the
+            // record disagreeing with what actually happened; the second is
+            // a plain fact about the requester's account, not an attestation.
+            'closure' => [
+                'final_result_code' => $finalResultCode,
+                'final_decision_number' => $card['final_decision_number'] ?? null,
+                'approving_body' => $card['approving_body'] ?? null,
+                'execution_date' => $card['execution_date'] ?? null,
+                'executing_body' => $card['executing_body'] ?? null,
+                // Stage 95 — reachability of صاحب العلاقة, the person
+                // Art. 101's notices are actually addressed to.
+                'notice_status' => $locked->subject?->is_active
+                    ? 'notified'
+                    : 'requester_unreachable',
+            ],
+            'closure_audit' => $auditRecord,
+            'closed_by_user_id' => $actor->id,
+            'closed_at' => now(),
+        ]);
+
+        RequestStatusHistory::create([
+            'request_id' => $locked->id,
+            'from_status_id' => $fromStatusId,
+            'to_status_id' => $target->id,
+            'reason' => $reason,
+            'changed_by_user_id' => $actor->id,
+            'changed_at' => now(),
+        ]);
+
+        return $locked->refresh();
     }
 
     /**

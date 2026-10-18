@@ -83,9 +83,10 @@ export function needsReferralAuthority(outcome) {
 }
 
 // 2026-10-17 — the outcomes that send the file to جهة الاعتماد, which the chair
-// names (DecisionController::APPROVING_OUTCOMES).
+// names (DecisionController::APPROVING_OUTCOMES). A refusal joined them on
+// 2026-10-18: the committee only recommends, so the authority decides it too.
 export const APPROVING_AUTHORITIES = ['dean', 'minister']
 
 export function needsApprovingAuthority(outcome) {
-  return ['approve', 'conditional_approval'].includes(outcome)
+  return ['approve', 'conditional_approval', 'reject'].includes(outcome)
 }

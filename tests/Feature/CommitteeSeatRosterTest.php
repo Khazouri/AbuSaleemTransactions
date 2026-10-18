@@ -11,6 +11,7 @@ use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\RecordsStructuredDecisions;
@@ -140,10 +141,10 @@ class CommitteeSeatRosterTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.outcome', 'approve');
 
+        // 2026-10-18 — the dean decides from the meeting page now, and the
+        // approval queue refuses it; the workflow move is what is tested here.
         if ($authority === 'dean') {
-            $this->actingAs($this->userWithRole('R07'), 'sanctum')
-                ->post("/api/approvals/admin-manager/{$requestRecord->id}", [])
-                ->assertOk();
+            app(WorkflowService::class)->transition($requestRecord->fresh(), 'approve', $this->userWithRole('R07'));
         }
 
         return $requestRecord;

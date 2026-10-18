@@ -292,7 +292,9 @@ class User extends Authenticatable
             // wait for the seat. CommitteeController::store() seats the creator,
             // which then opens the rest of the section. An extra member the
             // مقرر invited keeps it to open that meeting and answer its date.
-            if ($code === 'meetings' && (($map[$code]['can_add'] ?? false) || $visibility->isLiveGuest($this))) {
+            // جهة الاعتماد keeps it too, to decide files from the meetings whose
+            // results are recorded (MeetingVisibility::apply()).
+            if ($code === 'meetings' && (($map[$code]['can_add'] ?? false) || $visibility->isLiveGuest($this) || $visibility->isAuthority($this))) {
                 continue;
             }
             if (isset($map[$code])) {

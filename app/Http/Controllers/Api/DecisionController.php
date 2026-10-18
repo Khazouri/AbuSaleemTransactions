@@ -202,8 +202,12 @@ class DecisionController extends Controller
         'no_jurisdiction' => 'declare_no_jurisdiction',
     ];
 
-    /** The outcomes that send the file on to جهة الاعتماد (2026-10-17). */
-    public const APPROVING_OUTCOMES = ['approve', 'conditional_approval'];
+    /**
+     * The outcomes that send the file on to جهة الاعتماد (2026-10-17). A
+     * refusal joined them on 2026-10-18: the committee only recommends, so
+     * the authority decides a «عدم موافقة» too.
+     */
+    public const APPROVING_OUTCOMES = ['approve', 'conditional_approval', 'reject'];
 
     /**
      * Stage 63, Track J — Art. 75 point 5's five-outcome appeal vocabulary.

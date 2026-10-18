@@ -244,14 +244,15 @@ class ApprovalReturnTest extends TestCase
 
         $message = 'لا يعتمد المحضر المعاد من جهة الاعتماد قبل إثبات إجراء إعادة المعالجة.';
 
-        // The generic workspace endpoint.
+        // The generic workspace endpoint. Since 2026-10-18 it refuses the
+        // authority's decision outright (taken on the meeting page, where
+        // AuthorityDecisionTest pins this same return refusal).
         $this->actingAs($approver, 'sanctum')
             ->post("/api/requests/{$requestRecord->id}/transition", [
                 'action' => 'approve',
             ], ['Accept' => 'application/json'])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('action')
-            ->assertJsonPath('errors.action.0', $message);
+            ->assertJsonValidationErrors('action');
 
         // The dedicated approval queue — the dual path Stage 54's own note
         // warns about; gating one alone would leave the other open.

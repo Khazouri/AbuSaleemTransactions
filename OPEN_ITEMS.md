@@ -13,6 +13,25 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### How is an appeal decided once appeals leave agendas? — paper meeting — opened 2026-10-18
+The user decided that appeals leave meeting agendas (2026-10-18). An appeal at `legal_review` is still decided only as
+an agenda item (`DecisionController::recordAppealDecision()`), so once slice 2 stops nominating appeals no appeal can be
+decided at all. Slice 1 only refuses a paper-results submit whose agenda still holds an appeal. **To close:** ask the
+user who records an appeal's outcome, and where, before slice 2 removes `nominate`.
+
+### The in-system sitting is still in the code — paper meeting slice 2 — opened 2026-10-18
+Slice 1 stops offering convening and closing, and paper meetings never convene, so votes, the live runner, generated and
+signed minutes, readiness and the study sequence are unreachable from the UI. Their routes, controllers, screens
+(`meeting_readiness`, `meeting_live`, `meeting_minutes`), the R03 committee rows other than approve/reject/defer, and
+the execution leg's services remain. **To close:** slice 2 deletes them, moves the committee's three rows to R02, and
+takes appeals off agendas.
+
+### The user guide and test plans describe the in-system sitting and the execution step — paper meeting — opened 2026-10-18
+Since 2026-10-18 the committee meets on paper, the مقرر enters the results, جهة الاعتماد decides from the meeting page,
+and a file closes on its second archive with no execution step. `USER_GUIDE.ar.md` and the four `TEST_PLAN*.md` still
+describe convening, voting, signed minutes, Art. 103's checklist and the manual closure. **To close:** rewrite those
+sections after slice 2 and rebuild the PDF.
+
 ### The user guide and test plans still describe the R05 → ministry → dean chain — approving authority — opened 2026-10-17
 Since 2026-10-17 each approved file goes to one جهة الاعتماد, العميد or الوزير, chosen by the chair, and R05 approves
 nothing. `USER_GUIDE.ar.md` and the four `TEST_PLAN*.md` files still describe the three-step chain and the grade-driven

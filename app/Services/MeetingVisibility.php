@@ -116,7 +116,18 @@ class MeetingVisibility
             ->when($withGuests, fn (Builder $meeting) => $meeting->orWhereHas(
                 'attendees',
                 fn (Builder $attendee) => $attendee->where('user_id', $actor->id)->whereNotNull('guest_title'),
-            )));
+            ))
+            // The committee only recommends (user decision 2026-10-18): جهة
+            // الاعتماد decides each file from the meeting's own page, once the
+            // مقرر has entered its results. Read-only for them, since a
+            // concluded sitting refuses every write behind `meeting.member`.
+            ->when($this->isAuthority($actor), fn (Builder $meeting) => $meeting->orWhereNotNull('results_recorded_at')));
+    }
+
+    /** العميد (R07) or مكتب العميد, who records the minister's قرار (R06). */
+    public function isAuthority(User $actor): bool
+    {
+        return $actor->roles()->whereIn('code', ['R06', 'R07'])->exists();
     }
 
     /**

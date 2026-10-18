@@ -69,7 +69,8 @@ class WorkflowServiceTest extends TestCase
             // 2026-10-17 — جهة الاعتماد is one step: with no authority picked
             // (or `dean`), العميد approves here and the file is fully approved.
             ['approval_by_authority', 'final_approval_archiving', 'approve', 'R07', 'final_approved'],
-            ['final_approval_archiving', 'final_approval_archiving', 'approve', 'R07', 'in_execution'],
+            // 2026-10-18 — no execution step: final_approved waits for the
+            // two archives, which close the file (RequestClosureService).
         ];
 
         foreach ($steps as [$from, $to, $action, $roleCode, $statusCode]) {
@@ -91,14 +92,14 @@ class WorkflowServiceTest extends TestCase
         }
 
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
-        $this->assertSame('in_execution', $requestRecord->status->code);
-        $this->assertCount(7, $requestRecord->stageLogs);
-        $this->assertCount(7, $requestRecord->statusHistory);
+        $this->assertSame('final_approved', $requestRecord->status->code);
+        $this->assertCount(6, $requestRecord->stageLogs);
+        $this->assertCount(6, $requestRecord->statusHistory);
         $this->assertSame(
             [
                 'direct_manager_review', 'receive_and_register',
                 'requirements_check', 'receive_from_committee', 'approval_by_authority',
-                'final_approval_archiving', 'final_approval_archiving',
+                'final_approval_archiving',
             ],
             $requestRecord->stageLogs()
                 ->with('toStage')
@@ -113,9 +114,10 @@ class WorkflowServiceTest extends TestCase
         // chain is 5 approvals now, not 6 — R07 only clicks once (the final
         // self-loop), not twice (authority then final). 2026-10-17 — the dean's
         // file never reaches the ministry, so level 4 is absent.
-        $this->assertSame([1, 2, 3, 5], $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
+        // 2026-10-18 — and the execution self-loop (level 5) is gone.
+        $this->assertSame([1, 2, 3], $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
         $this->assertSame(
-            ['R02', 'R03', 'R07', 'R07'],
+            ['R02', 'R03', 'R07'],
             $requestRecord->approvals()->with('role')->orderBy('id')->get()->pluck('role.code')->all(),
         );
     }
@@ -168,8 +170,9 @@ class WorkflowServiceTest extends TestCase
         // and Stage 96 left receive_and_register with a single `register` row
         // (it had three, one per receiving role): 10 + 1 = 11. Stage 102 took
         // reviewer_review, observations and forward_to_committee off the path,
-        // one row each: 11 - 3 = 8.
-        $this->assertCount(8, $rules);
+        // one row each: 11 - 3 = 8. 2026-10-18 dropped the execution
+        // self-loop and gave each authority a `reject`: 8 - 1 + 2 = 9.
+        $this->assertCount(9, $rules);
         $this->assertFalse($rules->contains('is_exception', true));
         $this->assertFalse($rules->contains('requires_comment', true));
 
@@ -180,9 +183,9 @@ class WorkflowServiceTest extends TestCase
             'receive_and_register' => 1,
             'requirements_check' => 1,
             'receive_from_committee' => 1,
-            'approval_by_authority' => 1,
-            'local_governance_ministry' => 1,
-            'final_approval_archiving' => 1,
+            'approval_by_authority' => 2,
+            'local_governance_ministry' => 2,
+            'final_approval_archiving' => 0,
         ] as $stageCode => $expectedCount) {
             $this->assertSame($expectedCount, $countsByFromStageCode->get($stageCode, 0), "stage {$stageCode}");
         }
@@ -347,7 +350,7 @@ class WorkflowServiceTest extends TestCase
      * grade (the threshold only suggests), and the dean's stage is skipped.
      * Replaces Stage 57's grade-driven ministry bypass.
      */
-    public function test_a_minister_file_skips_the_dean_stage_but_keeps_the_execution_step(): void
+    public function test_a_minister_file_skips_the_dean_stage(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -368,11 +371,8 @@ class WorkflowServiceTest extends TestCase
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
 
-        // العميد still gives the execution step on the minister's files.
-        $requestRecord = $service->transition($requestRecord, 'approve', $actors['R07']);
-
-        $this->assertSame('in_execution', $requestRecord->status->code);
-        $this->assertSame([1, 2, 4, 5], $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
+        // 2026-10-18 — no execution step after it, on either authority's files.
+        $this->assertSame([1, 2, 4], $requestRecord->approvals()->orderBy('id')->pluck('level')->all());
     }
 
     /**

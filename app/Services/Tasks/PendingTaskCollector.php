@@ -141,8 +141,12 @@ class PendingTaskCollector
     private function approvals(User $actor): ?array
     {
         $stages = [];
-        foreach (ApprovalController::LEVELS as $level) {
-            if ($actor->hasScreenPermission($level['screen'], 'can_approve')) {
+        foreach (ApprovalController::LEVELS as $slug => $level) {
+            // 2026-10-18 — the paper sitting: the committee's result is entered
+            // by the مقرر from the meeting, not approved by the chair here, and
+            // the dean's execution step at the final stage is gone.
+            if (! in_array($slug, ['committee-head', 'final'], true)
+                && $actor->hasScreenPermission($level['screen'], 'can_approve')) {
                 $stages[] = $level['stage'];
             }
         }
@@ -152,7 +156,7 @@ class PendingTaskCollector
         }
 
         $rows = $this->approvalsQuery($actor, $stages)
-            ->with(['currentStage:id,code,name_ar,name_en', 'requestType:id,name_ar,name_en'])
+            ->with(['currentStage:id,code,name_ar,name_en', 'requestType:id,name_ar,name_en', 'latestDecidedItem'])
             ->orderBy('submitted_at')
             ->limit(self::PER_SOURCE_LIMIT + 1)
             ->get();
@@ -164,7 +168,10 @@ class PendingTaskCollector
             'waiting_since' => $r->submitted_at?->toIso8601String(),
             'due_at' => $r->due_date?->toIso8601String(),
             'is_overdue' => $r->overdue_at !== null,
-            'route' => ['name' => 'request_details', 'params' => ['id' => $r->id], 'query' => ['decide' => 1]],
+            // جهة الاعتماد decides on the meeting's page, beside the توصية.
+            'route' => array_key_exists((string) $r->currentStage?->code, MeetingDuties::AUTHORITY_STAGES) && $r->latestDecidedItem !== null
+                ? ['name' => 'meeting_details', 'params' => ['id' => $r->latestDecidedItem->meeting_id], 'query' => ['item' => $r->latestDecidedItem->id, 'decide' => 1]]
+                : ['name' => 'request_details', 'params' => ['id' => $r->id], 'query' => ['decide' => 1]],
         ]);
     }
 
@@ -604,10 +611,6 @@ class PendingTaskCollector
         };
 
         if ($edit) {
-            $push('execution_soundness', $this->visibleRequests($actor)
-                ->whereHas('currentStage', fn (Builder $s) => $s->where('code', 'final_approval_archiving'))
-                ->whereHas('status', $atStatus(['final_approved']))
-                ->whereNull('execution_soundness'));
             $push('archive_committee_file', $closable()->whereNull('committee_file_archived_at'));
             $push('resolve_approval_return', $this->visibleRequests($actor)
                 ->whereHas('approvalReturns', fn (Builder $r) => $r->whereNull('resolved_at'))

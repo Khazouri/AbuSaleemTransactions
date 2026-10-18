@@ -63,10 +63,10 @@ class ArtThirtyEightStatusTest extends TestCase
 
     /**
      * Appendix 5's status-12 rule — "لا تنتقل مباشرة إلى التنفيذ" — holds on
-     * the dean's path too (2026-10-17, which replaced Stage 57's low-grade
-     * bypass): execution is still reached only through code 17.
+     * the dean's path too (2026-10-17). Since 2026-10-18 there is no
+     * execution leg at all: code 17 is where the file waits for its archives.
      */
-    public function test_the_dean_path_still_reaches_execution_only_through_code_17(): void
+    public function test_the_dean_path_ends_on_code_17_with_no_execution_step(): void
     {
         $workflow = app(WorkflowService::class);
         $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting', decisionGrade: 1);
@@ -74,19 +74,20 @@ class ArtThirtyEightStatusTest extends TestCase
         $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R03'));
         $this->assertSame('awaiting_municipal_approval', $requestRecord->status->code);
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R07'));
+        $dean = $this->userWithRole('R07');
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $dean);
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
-
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R07'));
-        $this->assertSame('in_execution', $requestRecord->status->code);
+        $this->assertNotContains('approve', $workflow->availableActions($requestRecord->fresh(), $dean)->all());
     }
 
     /**
-     * Art. 38 code 13 (غير موافق عليها) is the committee's own non-approval.
-     * Art. 91 refuses an unreasoned refusal, hence the required comment.
+     * Art. 38 code 13 (غير موافق عليها). Since 2026-10-18 the committee only
+     * recommends: its refusal goes to جهة الاعتماد (code 15), and the
+     * authority's own refusal settles code 13. Art. 91 still refuses an
+     * unreasoned committee refusal, hence the required comment.
      */
-    public function test_a_committee_non_approval_lands_on_code_13_and_requires_a_reason(): void
+    public function test_a_committee_non_approval_goes_to_the_authority_who_settles_code_13(): void
     {
         $workflow = app(WorkflowService::class);
         $head = $this->userWithRole('R03');
@@ -100,35 +101,34 @@ class ArtThirtyEightStatusTest extends TestCase
         }
 
         $requestRecord = $workflow->transition($requestRecord, 'reject_by_committee', $head, 'لا يستوفي شروط الترقية.');
-
-        // Self-loop: the committee is where the matter ended, so the stage
-        // stays put and only the status records the outcome.
-        $this->assertSame('receive_from_committee', $requestRecord->currentStage->code);
-        $this->assertSame('not_approved', $requestRecord->status->code);
+        $this->assertSame('approval_by_authority', $requestRecord->currentStage->code);
+        $this->assertSame('awaiting_municipal_approval', $requestRecord->status->code);
         $this->assertDatabaseHas('request_status_history', [
             'request_id' => $requestRecord->id,
-            'to_status_id' => RequestStatus::where('code', 'not_approved')->value('id'),
             'reason' => 'لا يستوفي شروط الترقية.',
         ]);
-
         // No Approval ledger row: an exception row is not an approval.
         $this->assertDatabaseCount('approvals', 0);
+
+        $requestRecord = $workflow->transition($requestRecord, 'reject', $this->userWithRole('R07'));
+        $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
+        $this->assertSame('not_approved', $requestRecord->status->code);
     }
 
     /** Code 13 concludes the matter, exactly as `cancelled` already did. */
     public function test_code_13_is_terminal_for_every_copy_of_the_terminal_list(): void
     {
         $workflow = app(WorkflowService::class);
-        $head = $this->userWithRole('R03');
-        $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting');
+        $dean = $this->userWithRole('R07');
+        $requestRecord = $this->requestAt('approval_by_authority', 'awaiting_municipal_approval');
 
-        $requestRecord = $workflow->transition($requestRecord, 'reject_by_committee', $head, 'قرار مسبب.');
+        $requestRecord = $workflow->transition($requestRecord, 'reject', $dean, 'قرار مسبب.');
 
-        $this->assertSame([], $workflow->availableTransitions($requestRecord->fresh(), $head)->all());
+        $this->assertSame([], $workflow->availableTransitions($requestRecord->fresh(), $dean)->all());
 
         // ApprovalController's own copy of the list, reached over HTTP. The
         // dean's checkpoint keeps the admin-manager slug (2026-10-17).
-        $this->actingAs($this->userWithRole('R07'), 'sanctum')
+        $this->actingAs($dean, 'sanctum')
             ->getJson('/api/approvals/admin-manager')
             ->assertOk()
             ->assertJsonMissing(['id' => $requestRecord->id]);

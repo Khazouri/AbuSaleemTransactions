@@ -1092,9 +1092,13 @@ class MeetingController extends Controller
             'rapporteur:id,name',
             'convenedBy:id,name',
             'agendaAdoptedBy:id,name',
+            'resultsRecordedBy:id,name',
             'meetingMinutes',
             'attendees.user:id,name',
-            'agendaItems.request:id,reference_number,title,status_id',
+            'agendaItems.request:id,reference_number,title,status_id,approving_authority,current_stage_id,subject_user_id,request_type_id,decision_grade',
+            'agendaItems.request.currentStage:id,code',
+            'agendaItems.request.subject:id,name',
+            'agendaItems.request.requestType:id,name_ar,name_en,decision_grade_threshold',
             'agendaItems.request.status:id,code,name_ar,name_en,color',
             // Stage 74 — see AGENDA_ITEM_WITH (including why there is
             // no column list).
