@@ -14,7 +14,6 @@ use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\PassesControlGates;
-use Tests\RunsStudySequence;
 use Tests\TestCase;
 
 /**
@@ -26,7 +25,6 @@ class MeetingAgendaBuilderTest extends TestCase
 {
     use PassesControlGates;
     use RefreshDatabase;
-    use RunsStudySequence;
 
     /**
      * Stage 102 — the agenda is the pending list's requests plus appeals; the
@@ -194,53 +192,6 @@ class MeetingAgendaBuilderTest extends TestCase
         ]);
     }
 
-    public function test_voting_and_deciding_are_rejected_on_a_non_request_item(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        [$head, $member, $meeting] = $this->committeeAndMeeting();
-        $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
-
-        $item = $meeting->agendaItems()->create([
-            'item_type' => 'administrative',
-            'subject' => 'بند إداري',
-            'agenda_order' => 1,
-        ]);
-
-        $this->actingAs($member, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/votes", ['vote' => 'approve'])
-            ->assertStatus(422);
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/decision", [])
-            ->assertStatus(422);
-
-        $this->assertDatabaseCount('votes', 0);
-        $this->assertDatabaseCount('decisions', 0);
-    }
-
-    public function test_pending_votes_worklist_excludes_administrative_items(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        [$head, , $meeting] = $this->committeeAndMeeting();
-        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
-
-        $requestRecord = $this->requestAtCommitteeStage();
-        $requestItem = $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]);
-        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
-        // Tests\RunsStudySequence for why it is written directly here.
-        $this->completeStudySequence($requestItem);
-        $meeting->agendaItems()->create(['item_type' => 'administrative', 'subject' => 'بند إداري', 'agenda_order' => 2]);
-
-        $response = $this->actingAs($head, 'sanctum')
-            ->getJson('/api/decisions/pending')
-            ->assertOk();
-
-        $ids = collect($response->json('data'))->pluck('id')->all();
-        $this->assertSame([$requestItem->id], $ids);
-    }
-
     /** @return array{0: User, 1: User, 2: Meeting} */
     private function committeeAndMeeting(): array
     {
@@ -270,19 +221,6 @@ class MeetingAgendaBuilderTest extends TestCase
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
             // Stage 102 — on the committee's pending list.
             'status_id' => RequestStatus::where('code', 'registered')->value('id'),
-            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
-            'submitted_at' => now(),
-        ]));
-    }
-
-    private function requestAtCommitteeStage(): Request
-    {
-        return $this->withPassingLegalReview(Request::create([
-            'reference_number' => now()->format('Y').'-ADM-'.fake()->unique()->numberBetween(1000, 9999),
-            'title' => 'طلب معروض على اللجنة',
-            'department_id' => Department::where('code', 'ADM')->value('id'),
-            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
-            'status_id' => RequestStatus::where('code', 'in_meeting')->value('id'),
             'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
             'submitted_at' => now(),
         ]));

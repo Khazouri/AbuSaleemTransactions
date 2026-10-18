@@ -6,6 +6,7 @@ use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Meeting\AuthorityDecisionRequest;
 use App\Http\Requests\Meeting\RecordMeetingResultsRequest;
+use App\Models\AppealStatus;
 use App\Models\Attachment;
 use App\Models\Decision;
 use App\Models\Meeting;
@@ -30,8 +31,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class MeetingResultsController extends Controller
 {
-    /** The مقرر's three choices, as the Decision outcome each one records. */
-    private const OUTCOMES = ['approve' => 'approve', 'decline' => 'reject', 'defer' => 'defer'];
+    /** The مقرر's three choices, as the Decision outcome each one records on a request and on an appeal. */
+    private const OUTCOMES = [
+        'employee_request' => ['approve' => 'approve', 'decline' => 'reject', 'defer' => 'defer'],
+        'appeal' => ['approve' => 'appeal_accept', 'decline' => 'appeal_reject', 'defer' => 'defer'],
+    ];
 
     // 2026-10-18 — the مقرر enters the paper sitting's results.
     public function store(
@@ -51,6 +55,11 @@ class MeetingResultsController extends Controller
         if ($items->pluck('id')->sort()->values()->all() !== collect(array_keys($rows))->map(fn ($id) => (int) $id)->sort()->values()->all()) {
             return response()->json(['message' => 'يجب إدخال نتيجة كل بند في جدول الأعمال، دون غيره.'], 422);
         }
+        foreach ($items as $item) {
+            if ($problem = $this->rowProblem($item, $rows[$item->id])) {
+                return response()->json(['message' => $problem], 422);
+            }
+        }
 
         $upload = $request->file('minutes_file');
         $path = $upload->store("meeting-minutes/{$meeting->id}", 'local');
@@ -65,13 +74,21 @@ class MeetingResultsController extends Controller
 
                 foreach ($items as $item) {
                     $row = $rows[$item->id];
-                    $outcome = self::OUTCOMES[$row['recommendation']];
+                    $outcome = self::OUTCOMES[$item->item_type][$row['recommendation']];
                     $note = filled($row['note'] ?? null) ? trim($row['note']) : null;
 
-                    $file = Request::query()->lockForUpdate()->findOrFail($item->request_id);
-                    // Read by WorkflowService to send a minister file to the ministry.
-                    $file->update(['approving_authority' => $outcome === 'defer' ? null : $row['approving_authority']]);
-                    $workflow->applyCommitteeRecommendation($file, DecisionController::ACTIONS[$outcome], $actor, $note);
+                    if ($item->item_type === 'appeal') {
+                        // The committee decides an appeal itself; a deferred
+                        // one stays at legal review for a later agenda.
+                        if ($outcome !== 'defer') {
+                            $item->appeal->update(['appeal_status_id' => AppealStatus::where('code', 'committee_presentation')->value('id')]);
+                        }
+                    } else {
+                        $file = Request::query()->lockForUpdate()->findOrFail($item->request_id);
+                        // Read by WorkflowService to send a minister file to the ministry.
+                        $file->update(['approving_authority' => $outcome === 'defer' ? null : $row['approving_authority']]);
+                        $workflow->applyCommitteeRecommendation($file, DecisionController::ACTIONS[$outcome], $actor, $note);
+                    }
 
                     $item->update(['item_state' => 'complete', 'state_changed_at' => now()]);
                     Decision::create([
@@ -103,6 +120,28 @@ class MeetingResultsController extends Controller
         }
 
         return response()->json(['message' => 'تم إدخال نتائج الاجتماع.']);
+    }
+
+    /**
+     * A deferred file goes back to the pending list, so it has no جهة الاعتماد
+     * yet, and an appeal never has one. Art. 91 refuses an unreasoned
+     * «عدم موافقة», a تأجيل states what it waits for (Art. 34), and every
+     * appeal outcome states the committee's reason.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function rowProblem(MeetingRequest $item, array $row): ?string
+    {
+        $needsReason = $item->item_type === 'appeal' || $row['recommendation'] !== 'approve';
+        if ($needsReason && blank($row['note'] ?? null)) {
+            return $item->item_type === 'appeal' ? 'يجب بيان سبب قرار اللجنة على التظلم.' : 'يجب بيان سبب عدم الموافقة أو التأجيل.';
+        }
+
+        if ($item->item_type !== 'appeal' && $row['recommendation'] !== 'defer' && blank($row['approving_authority'] ?? null)) {
+            return 'يجب تحديد جهة الاعتماد: العميد أو الوزير.';
+        }
+
+        return null;
     }
 
     /** The scanned محضر the مقرر attached with the results. */

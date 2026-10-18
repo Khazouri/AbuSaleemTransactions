@@ -180,7 +180,7 @@ class WorkflowVersionValidator
             $has = $rules->contains(fn (WorkflowTransition $rule) => (int) $rule->from_stage_id === (int) $committee->id
                 && $rule->action === $action && $rule->request_type_id === null);
             if (! $has) {
-                $errors[] = $this->entry('required_rule_missing', sprintf('تحتاج المرحلة «%s» النتيجة «%s»: يسجّل بها النظام قرار اللجنة حين تنتهي إليه الأصوات.', $committee->name_ar, $action), $committee);
+                $errors[] = $this->entry('required_rule_missing', sprintf('تحتاج المرحلة «%s» النتيجة «%s»: يسجّل بها النظام توصية اللجنة حين يدخلها المقرر.', $committee->name_ar, $action), $committee);
             }
         }
 

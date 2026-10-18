@@ -3,21 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\Committee;
-use App\Models\Department;
 use App\Models\Meeting;
-use App\Models\Request;
-use App\Models\RequestStatus;
-use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
-use App\Models\WorkflowStage;
 use App\Notifications\MeetingInvitationResponseNotification;
 use App\Notifications\MeetingScheduledNotification;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
-use Tests\RunsStudySequence;
 use Tests\SitsOnCommittee;
 use Tests\TestCase;
 
@@ -35,7 +29,6 @@ use Tests\TestCase;
 class CommitteeSinglePathTest extends TestCase
 {
     use RefreshDatabase;
-    use RunsStudySequence;
     use SitsOnCommittee;
 
     protected function setUp(): void
@@ -50,12 +43,6 @@ class CommitteeSinglePathTest extends TestCase
     {
         [$seats, $meeting] = $this->proposedMeeting();
 
-        // Not approved yet, so it cannot be held.
-        $this->actingAs($seats['chair'], 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/convene")
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('status');
-
         $this->respond($seats['hr_director'], $meeting, 'decline')->assertOk();
         $this->respond($seats['chair'], $meeting, 'accept')
             ->assertOk()
@@ -65,11 +52,8 @@ class CommitteeSinglePathTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'scheduled');
 
-        // Approved: answers are closed, and the chair may now convene.
+        // Approved: answers are closed.
         $this->respond($seats['ministry_delegate'], $meeting, 'accept')->assertStatus(422);
-        $this->actingAs($seats['chair'], 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/convene", ['reason' => 'اختبار'])
-            ->assertOk();
     }
 
     public function test_the_required_number_is_set_on_settings_within_the_five_seats(): void
@@ -193,31 +177,9 @@ class CommitteeSinglePathTest extends TestCase
             ->json('data.sources'))->firstWhere('code', 'meeting_invitation'));
     }
 
-    /** مدير إدارة الموارد البشرية sits as a voting member (Art. 10 (أ) 3). */
-    public function test_the_hr_director_seat_votes_and_only_the_rapporteur_schedules(): void
+    public function test_only_the_rapporteur_schedules(): void
     {
         [$seats, $meeting] = $this->proposedMeeting();
-        $meeting->update(['status' => 'scheduled', 'agenda_adopted_at' => now()]);
-        $meeting->attendees()->update(['attended' => true]);
-
-        $requestRecord = Request::create([
-            'title' => 'طلب ترقية',
-            'department_id' => Department::where('code', 'ADM')->value('id'),
-            'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
-            'status_id' => RequestStatus::where('code', 'registered')->value('id'),
-            'current_stage_id' => WorkflowStage::where('code', 'receive_from_committee')->value('id'),
-            'created_by_user_id' => $this->userWithRole('R01')->id,
-            'submitted_at' => now(),
-        ]);
-        $item = $this->completeStudySequence(
-            $meeting->agendaItems()->create(['request_id' => $requestRecord->id, 'agenda_order' => 1]),
-        );
-
-        $this->actingAs($seats['hr_director'], 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/{$item->id}/votes", ['vote' => 'approve'])
-            ->assertCreated();
-
-        $this->assertTrue($seats['hr_director']->hasScreenPermission('meeting_minutes', 'can_add'));
 
         // The chair accepts the date like everyone else; scheduling is the مقرر's.
         $this->actingAs($seats['chair'], 'sanctum')

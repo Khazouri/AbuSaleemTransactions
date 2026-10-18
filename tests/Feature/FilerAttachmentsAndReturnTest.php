@@ -63,19 +63,6 @@ class FilerAttachmentsAndReturnTest extends TestCase
             ->assertJsonPath('data.can_attach', false);
     }
 
-    public function test_the_executing_body_attaches_proof_only_while_the_file_is_in_execution(): void
-    {
-        $filer = $this->userWithRole('R01');
-        $executor = $this->userWithRole('R02');
-
-        $executing = $this->requestAt('final_approval_archiving', 'in_execution', $filer);
-        $this->upload($executor, $executing)->assertCreated();
-
-        // Once executed, the window has closed.
-        $executed = $this->requestAt('final_approval_archiving', 'executed', $filer);
-        $this->upload($executor, $executed)->assertForbidden();
-    }
-
     public function test_hr_attaches_service_file_rows_only_at_registration(): void
     {
         $filer = $this->userWithRole('R01');

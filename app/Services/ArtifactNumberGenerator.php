@@ -36,8 +36,6 @@ class ArtifactNumberGenerator
 
     private const MEETING_PREFIX = 'PM-MTG';
 
-    private const MINUTES_PREFIX = 'PM-MIN';
-
     private const DECISION_PREFIX = 'PM-DEC';
 
     /**
@@ -63,11 +61,6 @@ class ArtifactNumberGenerator
     public function nextMeetingNumber(): string
     {
         return $this->next(self::MEETING_PREFIX, 2, 'meetings', 'meeting_number');
-    }
-
-    public function nextMinutesNumber(): string
-    {
-        return $this->next(self::MINUTES_PREFIX, 2, 'meeting_minutes', 'minutes_number');
     }
 
     /** Art. 89 — every decision inside the محضر carries its own رقم القرار. */

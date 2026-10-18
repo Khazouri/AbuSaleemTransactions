@@ -5,10 +5,7 @@ namespace Tests\Feature;
 use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
-use App\Models\Meeting;
-use App\Models\MeetingRequest;
 use App\Models\Request;
-use App\Models\RequestLegalReview;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\Role;
@@ -18,9 +15,8 @@ use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Tests\HoldsPaperMeetings;
 use Tests\PassesControlGates;
-use Tests\RecordsStructuredDecisions;
-use Tests\RunsStudySequence;
 use Tests\SitsOnCommittee;
 use Tests\TestCase;
 
@@ -36,10 +32,9 @@ use Tests\TestCase;
  */
 class UnifiedNumberingTest extends TestCase
 {
+    use HoldsPaperMeetings;
     use PassesControlGates;
-    use RecordsStructuredDecisions;
     use RefreshDatabase;
-    use RunsStudySequence;
     use SitsOnCommittee;
 
     /**
@@ -201,62 +196,23 @@ class UnifiedNumberingTest extends TestCase
     }
 
     /**
-     * Appendix 15's PM-MIN series. The number identifies the document, not one
-     * compilation of it, so regenerating a draft must not consume a new one.
+     * Art. 89 — every file the committee rules on gets its own رقم القرار.
+     * Since 2026-10-18 the paper sitting's results mint it, and Appendix 12's
+     * register shows the same number.
      */
-    public function test_minutes_are_numbered_once_and_keep_that_number_across_regenerates(): void
+    public function test_a_decision_is_numbered_and_that_number_reaches_the_register(): void
     {
-        $this->seed(DatabaseSeeder::class);
-        $head = $this->userWithRole('R03');
-        $meeting = $this->meetingFor($head);
-
-        $first = $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
-            ->assertOk()
-            ->assertJsonPath('data.minutes_number', 'PM-MIN/'.now()->format('Y').'/01')
-            ->json('data.minutes_number');
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
-            ->assertOk()
-            ->assertJsonPath('data.minutes_number', $first);
-    }
-
-    /**
-     * Art. 89 — "يخصص داخل المحضر لكل معاملة قرار أو نتيجة مستقلة" whose first
-     * element is رقم القرار, so the number has to be inside the compiled
-     * محضر, not only on the live decisions row. Appendix 12's register wants
-     * the same number, which is why it also reaches the export.
-     */
-    public function test_a_decision_is_numbered_and_that_number_reaches_the_minutes_and_the_register(): void
-    {
+        Storage::fake('local');
         $this->seed(DatabaseSeeder::class);
 
-        $head = $this->userWithRole('R03');
-        $member = $this->userWithRole('R04');
-        $meeting = $this->meetingFor($head, $member);
-        $agendaItem = $this->agendaItemOn($meeting);
+        [$rapporteur, $meeting, [$agendaItem]] = $this->paperMeeting();
 
-        foreach ([$head, $member] as $voter) {
-            $this->actingAs($voter, 'sanctum')
-                ->postJson("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/votes", ['vote' => 'approve'])
-                ->assertCreated();
-        }
+        $this->recordResults($rapporteur, $meeting, [
+            $agendaItem->id => ['recommendation' => 'approve', 'approving_authority' => 'dean'],
+        ])->assertOk();
 
         $expected = 'PM-DEC/'.now()->format('Y').'/001';
-
-        $this->actingAs($head, 'sanctum')
-            ->post("/api/meetings/{$meeting->id}/agenda/{$agendaItem->id}/decision", $this->decisionPayload('approve'), ['Accept' => 'application/json'])
-            ->assertCreated()
-            ->assertJsonPath('data.decision_number', $expected);
-
         $this->assertSame($expected, Decision::firstOrFail()->decision_number);
-
-        $minutes = $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
-            ->assertOk()
-            ->json('data.content.agenda_items.0.decision.decision_number');
-        $this->assertSame($expected, $minutes);
 
         $register = $this->actingAs($this->userWithRole('R08'), 'sanctum')
             ->getJson('/api/decisions')
@@ -290,57 +246,6 @@ class UnifiedNumberingTest extends TestCase
             'grade_date' => '2024-03-01',
             'jurisdiction_test' => $this->jurisdictionAnswers(),
         ]);
-    }
-
-    private function meetingFor(User $head, ?User $member = null): Meeting
-    {
-        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
-        $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
-        if ($member !== null) {
-            $committee->members()->create(['user_id' => $member->id]);
-        }
-
-        $meeting = Meeting::create([
-            'committee_id' => $committee->id,
-            'title' => 'اجتماع اختبار الترقيم',
-            'scheduled_at' => now()->addDay(),
-            'created_by_user_id' => $head->id,
-        ]);
-
-        foreach ([$head, $member] as $attendee) {
-            if ($attendee !== null) {
-                $meeting->attendees()->create(['user_id' => $attendee->id, 'attended' => true]);
-            }
-        }
-
-        return $meeting;
-    }
-
-    private function agendaItemOn(Meeting $meeting): MeetingRequest
-    {
-        $requestRecord = $this->requestAt('receive_from_committee', 'ready');
-        $requestRecord->reference_number = 'PM-COM/'.now()->format('Y').'/9999';
-        $requestRecord->save();
-
-        // Stage 68's agenda gate needs a passing legal review on file.
-        RequestLegalReview::create([
-            'request_id' => $requestRecord->id,
-            'verdict' => 'sound_ready',
-            'reviewed_by_user_id' => $this->userWithRole('R11')->id,
-            'reviewed_at' => now(),
-        ]);
-
-        $agendaItem = MeetingRequest::create([
-            'meeting_id' => $meeting->id,
-            'request_id' => $requestRecord->id,
-            'item_type' => 'employee_request',
-            'agenda_order' => 1,
-        ]);
-        // Stage 82 — [D] Art. 85's study sequence now gates voting; see
-        // Tests\RunsStudySequence for why it is written directly here.
-        $this->completeStudySequence($agendaItem);
-
-        return $agendaItem;
     }
 
     private function userWithRole(string $roleCode): User

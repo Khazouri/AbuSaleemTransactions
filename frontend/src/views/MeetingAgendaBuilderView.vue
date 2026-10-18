@@ -17,7 +17,7 @@ import AppModal from '../components/AppModal.vue'
 import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import { useAuthStore } from '../stores/auth'
 // Stage 82 — [D] Art. 83's ranks and Appendix 24's priority grounds, mirrored
-// once so this screen and the live runner name them identically.
+// once so every screen names them identically.
 import { PRIORITY_LEVELS, agendaRankLabel, priorityGroundLabel } from '../lib/agenda'
 // Stage 83 — [D] Appendix 33's five enumerated grounds for عاجل.
 import { URGENCY_REASONS } from '../lib/lifecycle'
@@ -58,8 +58,8 @@ async function loadMeetings() {
 
 const meeting = ref(null)
 // F3 — enough of what this screen already reloads to notice an act taken
-// elsewhere (e.g. the agenda being adopted from the live runner's own card).
-const dutiesRefreshKey = computed(() => `${meeting.value?.status ?? ''}:${meeting.value?.agenda_adopted_at ?? ''}:${meeting.value?.minutes_status ?? ''}`)
+// elsewhere (e.g. the agenda being adopted from the meeting's own page).
+const dutiesRefreshKey = computed(() => `${meeting.value?.status ?? ''}:${meeting.value?.agenda_adopted_at ?? ''}:${meeting.value?.results_recorded_at ?? ''}`)
 const stats = ref(null)
 const loading = ref(false)
 const error = ref('')
@@ -537,13 +537,6 @@ onMounted(async () => {
                   <span v-if="item.department" class="pill">{{ name(item.department) }}</span>
                 </template>
                 <span class="pill">{{ t(`meetings.agenda.itemType.${item.item_type}`) }}</span>
-                <RouterLink
-                  v-if="item.item_type === 'employee_request'"
-                  class="ghost memo-link"
-                  :to="{ name: 'meeting_live', query: { meeting: meeting.id, item: item.id } }"
-                >
-                  {{ t('meetingsUnit.agenda.openMemo') }}
-                </RouterLink>
               </div>
               <div v-can="'meeting_agenda.edit'" class="item-actions">
                 <button class="ghost danger" type="button" @click="removeItem(item)">{{ t('meetings.agenda.remove') }}</button>
@@ -705,7 +698,6 @@ label { display: flex; flex-direction: column; gap: .3rem; font-size: var(--text
 .drag-handle { display: inline-flex; align-items: center; color: var(--color-muted); cursor: grab; }
 .agenda-item.dragging .drag-handle { cursor: grabbing; }
 .pill { margin-inline-start: var(--space-2); }
-.memo-link { margin-inline-start: var(--space-2); padding: .1rem .5rem; font-size: var(--text-xs); text-decoration: none; }
 .item-actions { white-space: nowrap; }
 .edit-row { display: flex; gap: var(--space-4); flex-wrap: wrap; }
 .edit-row label { margin-bottom: 0; }

@@ -63,9 +63,8 @@ class RequestClosureService
      * the server instead: `appeal_path_concluded` (#10) is Appeal::openAgainst(),
      * `archive_location_set` (#12) is Stage 100's two archive records (ملف
      * اللجنة by المقرر, ملف الخدمة by الموارد البشرية), and
-     * `execution_document_attached` (#9) is Stage 76's Appendix 70 evidence — which is what closes Stage 75's own open
-     * item (2), since that check was an attestation only for as long as there
-     * was nothing verifiable to read. Asking a human for an answer the system
+     * `execution_document_attached` (#9), which has no execution leg to come
+     * from since 2026-10-18 and so always reads `not_applicable`. Asking a human for an answer the system
      * already holds — and would then have to override — is worse than not
      * asking, the split Stage 60 established for appeal formal verification.
      *
@@ -333,7 +332,7 @@ class RequestClosureService
                 throw new \DomainException($reason);
             }
 
-            return $this->writeClosure($locked, $actor, $card, $this->auditRecord($locked, $audit), 'تم استيفاء قائمة التدقيق النهائية وإقفال المعاملة وأرشفتها.');
+            return $this->writeClosure($locked, $actor, $card, $this->auditRecord($audit), 'تم استيفاء قائمة التدقيق النهائية وإقفال المعاملة وأرشفتها.');
         });
     }
 
@@ -426,7 +425,7 @@ class RequestClosureService
      * @param  array<string, string>  $audit
      * @return array<string, string>
      */
-    private function auditRecord(Request $requestRecord, array $audit): array
+    private function auditRecord(array $audit): array
     {
         $record = [];
 
@@ -435,16 +434,9 @@ class RequestClosureService
                 // #10 — the same predicate the refusal above enforces; reaching
                 // here means it passed.
                 'appeal_path_concluded' => 'yes',
-                // #9 — Stage 76 made this verifiable. Appendix 70 refuses to
-                // let "تم إرفاق مستند التنفيذ" be a claim, so it is read from
-                // the request's own marked documents. Art. 37's Paths 2 and 3
-                // close requests that were never executed and honestly have no
-                // execution document, hence 'not_applicable' rather than 'no'.
-                'execution_document_attached' => $requestRecord->attachments()
-                    ->whereNotNull('execution_evidence_type')
-                    ->exists()
-                        ? 'yes'
-                        : 'not_applicable',
+                // #9 — the paper sitting (2026-10-18) has no execution leg, so
+                // no file carries an execution document to attach.
+                'execution_document_attached' => 'not_applicable',
                 // #12 — Stage 100: the two archive records refusalReason()
                 // demands; reaching here means both owed halves exist.
                 'archive_location_set' => 'yes',

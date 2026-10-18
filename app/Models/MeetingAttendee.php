@@ -18,13 +18,11 @@ class MeetingAttendee extends Model
         'guest_title',
         'invitation_status',
         'responded_at',
-        'attended',
     ];
 
     protected function casts(): array
     {
         return [
-            'attended' => 'boolean',
             'responded_at' => 'datetime',
         ];
     }

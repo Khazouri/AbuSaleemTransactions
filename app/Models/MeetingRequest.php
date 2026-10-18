@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
@@ -16,8 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $item_type employee_request|administrative|emerging|appeal
  * @property string|null $priority Stage 82 — Appendix 24's two levels: high|normal
  * @property string|null $priority_reason Appendix 24's "مبرر إداري موثق" for a declared high priority
- * @property array|null $study_sequence Stage 82 — Art. 85's attested steps, keyed by step code
- * @property string $item_state presented|discussion|voting|deciding|complete
+ * @property string $item_state presented|complete (the paper results set `complete`)
  */
 class MeetingRequest extends Model
 {
@@ -47,8 +45,6 @@ class MeetingRequest extends Model
         'department_id',
         'item_state',
         'state_changed_at',
-        'study_sequence',
-        'study_sequence_completed_at',
     ];
 
     protected function casts(): array
@@ -56,34 +52,13 @@ class MeetingRequest extends Model
         return [
             'estimated_minutes' => 'integer',
             'state_changed_at' => 'datetime',
-            'study_sequence' => 'array',
-            'study_sequence_completed_at' => 'datetime',
         ];
     }
 
     /**
-     * Stage 82 — [D] Appendix 25's fifth stage: "ولا يجوز استمرار تعديل
-     * الوقائع أو المستندات بعد بدء التصويت". Deliberately bounded to an item
-     * whose vote is still *open*: once the decision is recorded the item is
-     * finished and the request moves on to execution, where Stage 76 needs
-     * new documents uploaded — a permanent freeze would break that.
-     */
-    public static function openVoteExistsFor(int $requestId): bool
-    {
-        return static::query()
-            ->where('request_id', $requestId)
-            ->whereHas('votes')
-            ->whereDoesntHave('decision')
-            ->exists();
-    }
-
-    /**
-     * Stage 34 — the one place "is this agenda item done?" is decided, so the
-     * meeting-close gate and the runner's progress readout can't disagree.
-     * A request item reaches this only via a recorded decision (see
-     * DecisionController::record); an admin/emerging item only via the
-     * runner's manual state endpoint, which is the case the vote/decision
-     * machinery has no way to resolve on its own.
+     * Stage 34 — the one place "is this agenda item done?" is decided. An
+     * item reaches it through the paper results, which record its decision
+     * and mark it `complete` together (MeetingResultsController).
      */
     public function isResolved(): bool
     {
@@ -116,33 +91,9 @@ class MeetingRequest extends Model
         return $this->belongsTo(Department::class);
     }
 
-    /** Stage 21 — every committee member's vote cast on this agenda item. */
-    public function votes(): HasMany
-    {
-        return $this->hasMany(Vote::class);
-    }
-
-    /** Stage 21 — the binding outcome, once the head has recorded it. */
+    /** The committee's outcome, once the مقرر has entered the results. */
     public function decision(): HasOne
     {
         return $this->hasOne(Decision::class);
-    }
-
-    /** Stage 34 — the live runner's discussion feed, oldest first. */
-    public function notes(): HasMany
-    {
-        return $this->hasMany(MeetingDiscussionNote::class)->orderBy('created_at');
-    }
-
-    /** Stage 46 — the compiled pre-meeting memo, [D] Art. 22. */
-    public function presentationMemo(): HasOne
-    {
-        return $this->hasOne(PresentationMemo::class);
-    }
-
-    /** Stage 48 — every member who has disclosed a stake in this item. */
-    public function conflictDeclarations(): HasMany
-    {
-        return $this->hasMany(ConflictOfInterestDeclaration::class);
     }
 }

@@ -170,9 +170,9 @@ class WorkflowValidatorTest extends TestCase
 
     public function test_every_committee_decision_outcome_must_stay(): void
     {
-        // The vote tally picks the action (DecisionController::ACTIONS); a deleted row makes recording impossible.
+        // The مقرر's recommendation picks the action (DecisionController::ACTIONS); a deleted row makes recording impossible.
         $committee = $this->draft->stage('receive_from_committee');
-        WorkflowTransition::query()->where('from_stage_id', $committee->id)->where('action', 'request_legal_opinion')->delete();
+        WorkflowTransition::query()->where('from_stage_id', $committee->id)->where('action', 'reject_by_committee')->delete();
 
         $this->assertContains(['required_rule_missing', 'receive_from_committee'], $this->errorCodes());
     }

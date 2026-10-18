@@ -7,14 +7,10 @@ use App\Models\Appeal;
 use App\Models\AppealStatus;
 use App\Models\Committee;
 use App\Models\Meeting;
-use App\Models\MeetingMinutes;
-use App\Models\MeetingMinuteSignature;
-use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\User;
 use App\Models\WorkflowTransition;
 use App\Services\CommitteeStatusService;
-use App\Services\DecisionEligibility;
 use App\Services\Lifecycle\SpecialCaseRules;
 use App\Services\MeetingVisibility;
 use App\Services\RequestClosureService;
@@ -33,8 +29,7 @@ use Illuminate\Support\Collection;
  * Two rules keep it honest, and both matter more than the aggregation itself:
  *
  *  - It never re-derives a queue. Each source calls the query builder that
- *    already owns that rule (DecisionEligibility for votes, CommitteeStatusService
- *    for candidates and legal review, this class's own approval query, which
+ *    already owns that rule (CommitteeStatusService for candidates and legal review, this class's own approval query, which
  *    ApprovalController now calls too). A worklist offering a row its target
  *    endpoint refuses would be worse than no worklist at all.
  *  - A source is collected ONLY if the actor holds the grant that lets them act
@@ -75,7 +70,6 @@ class PendingTaskCollector
 
     public function __construct(
         private readonly CommitteeStatusService $committeeStatus,
-        private readonly DecisionEligibility $decisions,
         private readonly MeetingVisibility $meetings,
         private readonly RequestVisibility $requests,
         private readonly WorkflowService $workflow,
@@ -88,10 +82,8 @@ class PendingTaskCollector
     {
         $sources = array_values(array_filter([
             $this->approvals($actor),
-            $this->votes($actor),
             $this->candidates($actor),
             $this->legalReviews($actor),
-            $this->minuteSignatures($actor),
             $this->meetingInvitations($actor),
             $this->meetingsDue($actor),
             $this->myCompletions($actor),
@@ -176,30 +168,6 @@ class PendingTaskCollector
     }
 
     /** @return array<string, mixed>|null */
-    private function votes(User $actor): ?array
-    {
-        if (! $actor->hasScreenPermission('decisions', 'can_add')) {
-            return null;
-        }
-
-        $rows = $this->decisions->pendingVotesQuery($actor)
-            ->with(['request:id,reference_number,title', 'meeting:id,title,scheduled_at'])
-            ->limit(self::PER_SOURCE_LIMIT + 1)
-            ->get();
-
-        return $this->source('vote', $rows, fn ($item) => [
-            'title' => $item->request?->title ?? $item->subject,
-            'reference_number' => $item->request?->reference_number,
-            'subject' => $item->meeting?->title,
-            'waiting_since' => $item->meeting?->scheduled_at?->toIso8601String(),
-            'due_at' => $item->meeting?->scheduled_at?->toIso8601String(),
-            'is_overdue' => false,
-            // Decision wizard — sub-project 2: the item's wizard opens straight away.
-            'route' => ['name' => 'meeting_live', 'query' => ['meeting' => $item->meeting_id, 'item' => $item->id, 'decide' => 1]],
-        ]);
-    }
-
-    /** @return array<string, mixed>|null */
     private function candidates(User $actor): ?array
     {
         // The `edit` tier rather than the '*' view tier: a candidate is only a
@@ -247,37 +215,6 @@ class PendingTaskCollector
             'due_at' => $r->due_date?->toIso8601String(),
             'is_overdue' => $r->overdue_at !== null,
             'route' => ['name' => 'request_details', 'params' => ['id' => $r->id], 'query' => ['decide' => 1]],
-        ]);
-    }
-
-    /** @return array<string, mixed>|null */
-    private function minuteSignatures(User $actor): ?array
-    {
-        if (! $actor->hasScreenPermission('meeting_minutes', 'can_add')) {
-            return null;
-        }
-
-        $rows = MeetingMinuteSignature::query()
-            ->where('user_id', $actor->id)
-            ->whereNull('signed_at')
-            ->whereHas('minutes', fn (Builder $minutes) => $minutes
-                ->where('status', MeetingMinutes::STATUS_PENDING_SIGNATURES)
-                // A sitting whose committee the actor has since left is no
-                // longer theirs to sign, and the screen would 404 on it.
-                ->whereHas('meeting', fn (Builder $meeting) => $this->meetings->apply($meeting, $actor)))
-            ->with('minutes.meeting:id,title,scheduled_at')
-            ->limit(self::PER_SOURCE_LIMIT + 1)
-            ->get();
-
-        return $this->source('minutes_signature', $rows, fn ($signature) => [
-            'title' => $signature->minutes?->meeting?->title,
-            'reference_number' => $signature->minutes?->minutes_number,
-            'subject' => null,
-            'waiting_since' => $signature->minutes?->meeting?->scheduled_at?->toIso8601String(),
-            'due_at' => null,
-            'is_overdue' => false,
-            // Decision wizard — sub-project 2: every meeting duty is taken in MeetingWizard.
-            'route' => ['name' => 'meeting_details', 'params' => ['id' => $signature->minutes?->meeting_id], 'query' => ['decide' => 1]],
         ]);
     }
 
@@ -482,10 +419,6 @@ class PendingTaskCollector
         $meetings = fn () => $this->meetings->apply(Meeting::query(), $actor)
             ->orderBy('scheduled_at')
             ->limit(self::PER_SOURCE_LIMIT + 1);
-        // MeetingRequest::isResolved() as SQL.
-        $allResolved = fn (Builder $meeting) => $meeting->whereDoesntHave('agendaItems', fn (Builder $item) => $item
-            ->where('item_state', '!=', 'complete')
-            ->whereDoesntHave('decision'));
         $tasks = collect();
 
         if ($actor->hasScreenPermission('meeting_agenda', 'can_approve')) {
@@ -497,91 +430,23 @@ class PendingTaskCollector
                 ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('adopt_agenda', $m)));
         }
 
-        if ($actor->hasScreenPermission('meeting_readiness', 'can_edit')) {
-            // The server does not wait for the date; the inbox does, so next
-            // month's sitting is not today's work.
-            $meetings()
-                ->where('status', 'scheduled')
-                ->whereNull('convened_at')
-                ->where('scheduled_at', '<=', now()->endOfDay())
-                ->get()
-                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('convene', $m)));
-        }
-
-        if ($actor->hasScreenPermission('decisions', 'can_approve')) {
-            // Tie and majority refusals are not SQL; such an item still waits
-            // on the chair (a re-vote), so it is listed rather than hidden.
-            MeetingRequest::query()
-                ->whereIn('item_type', ['employee_request', 'appeal'])
-                ->whereDoesntHave('decision')
-                ->whereNotNull('study_sequence_completed_at')
-                ->whereHas('votes', fn (Builder $vote) => $vote->where('vote', '!=', 'abstain'))
-                ->whereHas('meeting', fn (Builder $m) => $this->meetings->apply($m, $actor)
-                    ->where('status', 'scheduled')
-                    ->whereNotNull('convened_at'))
-                ->where(fn (Builder $item) => $item
-                    ->where(fn (Builder $request) => $request
-                        ->where('item_type', 'employee_request')
-                        ->whereHas('request.currentStage', fn (Builder $s) => $s->where('code', 'receive_from_committee')))
-                    ->orWhere(fn (Builder $appeal) => $appeal
-                        ->where('item_type', 'appeal')
-                        ->whereHas('appeal.status', fn (Builder $s) => $s->where('code', 'legal_review'))))
-                ->with(['meeting:id,title,meeting_number,scheduled_at', 'request:id,title,reference_number,intake_receipt_number'])
-                ->limit(self::PER_SOURCE_LIMIT + 1)
-                ->get()
-                ->each(fn (MeetingRequest $item) => $tasks->push($this->task('record_decision', $item->id, [
-                    'title' => $item->request?->title ?? $item->subject,
-                    'reference_number' => $item->request?->trackingNumber(),
-                    'subject' => $item->meeting?->title,
-                    'waiting_since' => $item->meeting?->scheduled_at?->toIso8601String(),
-                    'due_at' => null,
-                    'is_overdue' => false,
-                    // Decision wizard — sub-project 2: the item's wizard opens straight away.
-                    'route' => ['name' => 'meeting_live', 'query' => ['meeting' => $item->meeting_id, 'item' => $item->id, 'decide' => 1]],
-                ])));
-        }
-
-        if ($actor->hasScreenPermission('meeting_minutes', 'can_add')) {
-            $meetings()
-                ->where('status', 'scheduled')
-                ->where(fn (Builder $due) => $due
-                    // Not yet drafted, once every item is settled…
-                    ->where(fn (Builder $fresh) => $allResolved($fresh
-                        ->whereNotNull('convened_at')
-                        ->whereDoesntHave('meetingMinutes')))
-                    // …or sent back by the reviewer, which generate() clears.
-                    ->orWhereHas('meetingMinutes', fn (Builder $minutes) => $minutes
-                        ->where('status', MeetingMinutes::STATUS_DRAFT)
-                        ->whereNotNull('review_comment')))
-                ->get()
-                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('generate_minutes', $m)));
-        }
-
-        if ($actor->hasScreenPermission('meeting_minutes', 'can_approve')) {
-            $meetings()
-                ->where('status', 'scheduled')
-                ->whereHas('meetingMinutes', fn (Builder $minutes) => $minutes
-                    ->where('status', MeetingMinutes::STATUS_DRAFT)
-                    ->whereNull('review_comment'))
-                ->get()
-                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('review_minutes', $m)));
-        }
-
-        if ($actor->hasScreenPermission('meetings', 'can_edit')) {
-            $allResolved($meetings()
-                ->where('status', 'scheduled')
-                ->whereNotNull('convened_at')
-                ->whereHas('meetingMinutes', fn (Builder $minutes) => $minutes->where('status', MeetingMinutes::STATUS_APPROVED)))
-                ->get()
-                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('close_meeting', $m)));
-        }
+        // The paper sitting (2026-10-18): the seated مقرر enters the results
+        // once the meeting's day has come (MeetingDuties::recordResultsRefusal()).
+        $meetings()
+            ->where('status', 'scheduled')
+            ->whereNull('results_recorded_at')
+            ->where('scheduled_at', '<=', now()->endOfDay())
+            ->whereHas('agendaItems')
+            ->whereHas('committee.members', fn (Builder $seat) => $seat->where('seat', 'rapporteur')->where('user_id', $actor->id))
+            ->get()
+            ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('record_results', $m)));
 
         return $this->tasks('meeting_duty', $tasks);
     }
 
     /**
      * My-tasks completeness (2026-09-26) — a decided file's remaining life:
-     * Art. 103's certification, execution, the two archive records, closure,
+     * the two archive records, closure,
      * and the approving body's returns and referrals. Conditions follow each
      * endpoint's refusals (RequestClosureService::refusalReason() for closure,
      * minus the closer's own checklist answers, which are input).
@@ -647,14 +512,6 @@ class PendingTaskCollector
         }
 
         if ($approve) {
-            $this->visibleRequests($actor)
-                ->whereHas('currentStage', fn (Builder $s) => $s->where('code', 'final_approval_archiving'))
-                ->whereHas('status', $atStatus(['in_execution']))
-                ->whereNull('executed_at')
-                ->whereHas('meetingRequests', $decided)
-                ->get()
-                ->each(fn (Request $r) => $tasks->push($this->requestTask('execute', $r, $r->status?->name_ar, ['decide' => 'execute'])));
-
             $push('close', $closable()
                 ->whereNotNull('committee_file_archived_at')
                 ->where(fn (Builder $service) => $service

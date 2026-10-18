@@ -107,7 +107,7 @@ class ConsultationLayerTest extends TestCase
             ->assertNotFound();
     }
 
-    // ── Row 6: اللجنة مطلع / Row 7: العضو القانوني مشارك ──────────────────
+    // ── Row 6: اللجنة مطلع ────────────────────────────────────────────
 
     public function test_the_committee_chair_can_read_the_legal_review_queue_but_not_write_to_it(): void
     {
@@ -120,14 +120,6 @@ class ConsultationLayerTest extends TestCase
         // A plain committee member is deliberately not granted the queue: they
         // would be listed rows they cannot open.
         $this->actingAs($this->userWithRole('R04'))->getJson('/api/legal-reviews')->assertForbidden();
-    }
-
-    public function test_the_legal_member_holds_the_memo_write_tier_and_an_ordinary_member_does_not(): void
-    {
-        $this->assertTrue($this->userWithRole('R11')->hasScreenPermission('meeting_agenda', 'can_add'));
-        $this->assertFalse($this->userWithRole('R04')->hasScreenPermission('meeting_agenda', 'can_add'));
-        // ...but not the agenda-structure tier: they contribute to the memo, they do not build the agenda.
-        $this->assertFalse($this->userWithRole('R11')->hasScreenPermission('meeting_agenda', 'can_edit'));
     }
 
     // ── Row 1: الرئيس المباشر مطلع, الموارد البشرية مطلع ───────────────────

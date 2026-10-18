@@ -5,13 +5,9 @@
  * member has something to do on the meeting (or something held back), and
  * opens MeetingWizard. «المهام المعلقة» arrives with ?decide=1 to open it once.
  *
- * `autoOpen` is false on meeting_live when the URL also names an item: there
- * `decide=1` belongs to AgendaItemWizard instead, and this card must neither
- * open on it nor consume it (final-review F1 — two wizards were opening
- * stacked for the chair). `refreshKey` lets a host force a re-fetch when an
- * act taken elsewhere can change what this card offers — e.g. the item
- * wizard recording the meeting's last decision unblocks `generate_minutes`
- * here, which a poll-only reload would otherwise miss (F3).
+ * `refreshKey` lets a host force a re-fetch when an act taken elsewhere can
+ * change what this card offers — e.g. an agenda edit on the builder changes
+ * whether the agenda can be adopted (F3).
  */
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -21,7 +17,6 @@ import api from '../lib/api'
 
 const props = defineProps({
   meetingId: { type: [Number, String], default: '' },
-  autoOpen: { type: Boolean, default: true },
   refreshKey: { type: [String, Number], default: '' },
 })
 const emit = defineEmits(['updated'])
@@ -40,8 +35,8 @@ async function load() {
   try {
     const { data } = await api.get(`/meetings/${props.meetingId}/duties`)
     duties.value = data.data
-    // Once only, and only when this card owns `decide` (F1).
-    if (!autoOpened && props.autoOpen && route.query.decide && hasDuties.value) {
+    // Once only: a later refresh must not reopen a wizard the user closed.
+    if (!autoOpened && route.query.decide && hasDuties.value) {
       autoOpened = true
       open.value = true
     }
@@ -61,9 +56,7 @@ async function act() {
 
 function close() {
   open.value = false
-  // Only a card that actually consumed `decide` may strip it — one that
-  // never auto-opened (autoOpen=false, or opened by the button instead)
-  // leaves it alone for whoever else owns it (F1).
+  // Only a card that actually consumed `decide` strips it.
   if (autoOpened && route.query.decide) {
     const { decide, ...query } = route.query
     router.replace({ query })

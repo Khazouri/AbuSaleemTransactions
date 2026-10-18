@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Appeal;
+use App\Models\AppealStatus;
 use App\Models\Decision;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -133,6 +135,52 @@ class PaperMeetingResultsTest extends TestCase
         $this->assertContains('record_results', $available);
         $this->assertNotContains('convene', $available);
         $this->assertNotContains('close', $available);
+    }
+
+    public function test_an_appeal_on_the_agenda_is_decided_with_the_results(): void
+    {
+        [$rapporteur, $meeting, [$item]] = $this->paperMeeting();
+        $accepted = $this->appealOnAgenda($meeting, $this->legalReviewAppeal());
+        $deferred = $this->appealOnAgenda($meeting, $this->legalReviewAppeal());
+
+        // An appeal's outcome states the committee's reason.
+        $this->recordResults($rapporteur, $meeting, [
+            $item->id => ['recommendation' => 'approve', 'approving_authority' => 'dean'],
+            $accepted->id => ['recommendation' => 'approve'],
+            $deferred->id => ['recommendation' => 'defer', 'note' => 'لحين ورود الرد'],
+        ])->assertStatus(422);
+
+        $this->recordResults($rapporteur, $meeting, [
+            $item->id => ['recommendation' => 'approve', 'approving_authority' => 'dean'],
+            $accepted->id => ['recommendation' => 'approve', 'note' => 'ثبت وجه التظلم'],
+            $deferred->id => ['recommendation' => 'defer', 'note' => 'لحين ورود الرد'],
+        ])->assertOk();
+
+        // The committee decides an appeal itself: no جهة الاعتماد.
+        $this->assertSame('appeal_accept', $accepted->fresh()->decision->outcome);
+        $this->assertSame('ثبت وجه التظلم', $accepted->fresh()->decision->comment);
+        $this->assertSame('committee_presentation', $accepted->appeal->fresh()->status->code);
+
+        // A deferred appeal stays ready for a later agenda.
+        $appeal = $deferred->appeal->fresh();
+        $this->assertSame('legal_review', $appeal->status->code);
+        $this->assertTrue($appeal->awaitsNomination());
+        $this->assertSame('completed', $meeting->fresh()->status);
+    }
+
+    private function legalReviewAppeal(): Appeal
+    {
+        $original = $this->committeeFile();
+
+        return Appeal::create([
+            'appellant_user_id' => $original->subject_user_id,
+            'original_request_id' => $original->id,
+            'original_decision_reference' => 'قرار',
+            'known_at' => now()->subDay(),
+            'appeal_reasons' => 'أسباب',
+            'final_request' => 'طلب',
+            'appeal_status_id' => AppealStatus::where('code', 'legal_review')->value('id'),
+        ]);
     }
 
     private function assertStage($item, string $stage, string $status): void

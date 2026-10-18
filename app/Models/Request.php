@@ -87,7 +87,7 @@ class Request extends Model
         'prior_request_id',
         // Stage 78 — [D] Appendix 63's بوابة 1 (قبل القيد). Written only by
         // RequestController::recordIntakeGate() and cleared by reopen(),
-        // fillable for the same reason the closure/execution cards below are.
+        // fillable for the same reason the closure cards below are.
         'intake_gate',
         'intake_gate_checked_by_user_id',
         'intake_gate_checked_at',
@@ -108,19 +108,6 @@ class Request extends Model
         'service_file_location',
         'service_file_archived_by_user_id',
         'service_file_archived_at',
-        // Stage 76 — النموذج 17's execution card and its متابعة التنفيذ
-        // checks. Written only by MeetingOutputService::markExecuted() (and
-        // cleared by RequestController::reopen), fillable for the same reason
-        // the closure columns above are.
-        'execution',
-        'execution_checklist',
-        'executed_by_user_id',
-        'executed_at',
-        // Stage 78 — [D] Art. 103's قائمة فحص سلامة القرار, recorded before
-        // the result may be referred to execution.
-        'execution_soundness',
-        'execution_soundness_checked_by_user_id',
-        'execution_soundness_checked_at',
     ];
 
     protected function casts(): array
@@ -145,8 +132,6 @@ class Request extends Model
             'intake_gate_checked_at' => 'datetime',
             'employment_file' => 'array',
             'employment_file_prepared_at' => 'datetime',
-            'execution_soundness' => 'array',
-            'execution_soundness_checked_at' => 'datetime',
             // Stage 75 — Art. 37's eight closure fields and Appendix 47's
             // twelve-point pre-closure audit.
             'closure' => 'array',
@@ -154,11 +139,6 @@ class Request extends Model
             'closed_at' => 'datetime',
             'committee_file_archived_at' => 'datetime',
             'service_file_archived_at' => 'datetime',
-            // Stage 76 — Appendix 70's execution proof and النموذج 17's
-            // seven-point tracking checklist.
-            'execution' => 'array',
-            'execution_checklist' => 'array',
-            'executed_at' => 'datetime',
         ];
     }
 
@@ -241,12 +221,6 @@ class Request extends Model
         return $this->belongsTo(User::class, 'service_file_archived_by_user_id');
     }
 
-    /** Stage 76 — النموذج 17's executing officer. */
-    public function executedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'executed_by_user_id');
-    }
-
     /**
      * Stage 84 — who answered [D] Art. 45's jurisdiction test. The appeals
      * side has carried this since Stage 62; the request side did not until
@@ -267,12 +241,6 @@ class Request extends Model
     public function employmentFilePreparedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'employment_file_prepared_by_user_id');
-    }
-
-    /** Stage 78 — who certified Art. 103's قائمة فحص سلامة القرار. */
-    public function executionSoundnessCheckedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'execution_soundness_checked_by_user_id');
     }
 
     public function stageLogs(): HasMany
@@ -478,10 +446,7 @@ class Request extends Model
      * direct manager. Intake auto-hops past stage 1, so in practice that is
      * after a return (`return_to_employee`, `return_missing_docs`): a return is
      * how a missing document is asked for, and the only way one gets in.
-     * Two duties the system already gives someone else are the only
-     * exceptions:
-     *   - `executor` — Appendix 70's proof of execution, by whoever may record
-     *     execution (meeting_outputs,approve) while the file is in_execution;
+     * One duty the system already gives someone else is the only exception:
      *   - `hr_service_file` — Stage 98's الملف الوظيفي, by R12 while the file
      *     is with HR at receive_and_register. The caller must still confirm
      *     the document itself is a service-file row.
@@ -495,27 +460,11 @@ class Request extends Model
             return 'filer';
         }
 
-        if ($this->status?->code === 'in_execution' && $actor->hasScreenPermission('meeting_outputs', 'can_approve')) {
-            return 'executor';
-        }
-
         if ($this->currentStage?->code === 'receive_and_register' && $actor->hasRole('R12')) {
             return 'hr_service_file';
         }
 
         return null;
-    }
-
-    /**
-     * Decision wizard — sub-project 3. [D] Appendix 25's freeze while a vote
-     * on this file is open, read by AttachmentController::store() and by the
-     * wizard's attach act.
-     */
-    public function attachmentRefusal(): ?string
-    {
-        return MeetingRequest::openVoteExistsFor($this->id)
-            ? 'بدأ التصويت على هذا الموضوع في اللجنة، ولا يجوز إضافة مستندات قبل إثبات النتيجة.'
-            : null;
     }
 
     /** A breach becomes official only when the scheduled sweep records it. */

@@ -182,60 +182,13 @@ class ScreenRolePermissionSeeder extends Seeder
         // buys nothing for a cell that says only «مشارك». `edit` (the agenda's
         // structure) stays with المقرر and the chair, and the seat still bounds
         // it: `meeting.member` requires R11 to sit on the committee (Stage 99).
-        'meeting_agenda' => ['view' => '*', 'add' => ['R02', 'R03', 'R11'], 'edit' => ['R02', 'R03'], 'approve' => ['R03'], 'print' => '*'],
-        'meeting_readiness' => ['view' => '*', 'add' => ['R03', 'R04'], 'edit' => ['R03'], 'print' => '*'],
-        // Stage 84 — R02 joins `add` (the live discussion feed): Art. 15 (أ)
-        // ثانيًا 5 makes تدوين المناقشات المقرر's own duty. `edit` — advancing
-        // the item state and ticking Art. 85's study sequence — stays R03,
-        // since Art. 12 (أ) 9-10 give إقفال المناقشة and طرح الموضوعات
-        // للتصويت to the chair.
-        // Stage 99 — R11 joins `add`: Appendix 6 row 9 makes العضو القانوني
-        // «عضو» of the deliberation. Still bounded by the seat, since the
-        // membership gate zeroes this screen for anyone not seated.
-        // Stage 102 — R12 joins `add`, `decisions,add` and `meeting_minutes,add`:
-        // مدير إدارة الموارد البشرية holds the `hr_director` seat (Art. 10 (أ) 3),
-        // a voting member who deliberates, votes and signs like the others.
-        'meeting_live' => ['view' => '*', 'add' => ['R02', 'R03', 'R04', 'R11', 'R12'], 'edit' => ['R03'], 'print' => '*'],
-        // Stage 84 — `export` joins R06/R07 (below).
-        //
-        // Stage 97 — `approve` (recording the tallied result) is R03 ALONE
-        // again. Stage 84 gave it to R02 on Appendix 45's تسجيل النتيجة, but
-        // every committee outcome row in workflow_transitions requires R03, so
-        // an R02 passed this 403 gate and then 422'd in WorkflowService — a
-        // grant that only ever looked like a capability. Appendix 6 row 10 has
-        // المقرر «توثيق» (documentation, which R02 already holds through
-        // `meeting_minutes,add`), not the tally. The trade re-opens
-        // Appendix 45's تسجيل النتيجة, recorded in compliance-matrix.md.
-        //
-        // `add` deliberately does NOT gain R02: that tier casts a vote, and
-        // Art. 16 (أ) 2 forbids المقرر voting unless قرار التشكيل says
-        // otherwise — which is Stage 73's `rapporteur_votes` flag on the
-        // committee record, not a permission.
-        //
-        // `export` joins the R06/R07 tier every other export in the app uses
-        // (registers, reports, audit_log), all of which share this screen's
-        // own ReportDocument/ReportExporter path. Not a new disclosure:
-        // `view` is already '*', so both roles read these rows — vote tallies
-        // included — on screen today, and register 6 already exports the same
-        // population to them. Art. 102's tally restriction is about صاحب
-        // العلاقة, whom Stage 79 excluded from DecisionRecordedNotification.
-        // Stage 99 — R11 joins `add` (cast a vote): Appendix 6 row 10,
-        // «مشارك كعضو». DecisionEligibility still requires the seat and the
-        // attendance, never a role, so this grant is the whole change.
-        'decisions' => ['view' => '*', 'add' => ['R03', 'R04', 'R11', 'R12'], 'approve' => ['R03'], 'print' => '*', 'export' => ['R06', 'R07']],
-        // Stage 36: `add` covers both generating a draft and casting one's
-        // own signature (mirrors `decisions,add` covering vote-casting);
-        // `approve` is the head's review decision, same split as `decisions`.
-        // Stage 84 — R02 joins `add`. Appendix 45 lists المحاضر among المقرر's
-        // capabilities and Art. 15 (أ) ثانيًا 9 / ثالثًا 1 give them إعداد
-        // مسودة المحضر and إعداد المحضر بصورته النهائية. R04 stays because
-        // this tier also casts a member's own signature (Art. 13 (أ) 15).
-        // `approve` stays R03 — Art. 12 (أ) 13 is the chair's own اعتماد.
-        // Stage 99 — R11 joins `add` because signing rides it: an attending
-        // legal member holds a signature row, and without the grant the محضر
-        // could never finish. `edit` gated no route until now; it becomes
-        // Appendix 6 row 11's «مراجعة عند الحاجة» (the legal note) and is R11's.
-        'meeting_minutes' => ['view' => '*', 'add' => ['R02', 'R03', 'R04', 'R11', 'R12'], 'approve' => ['R03'], 'edit' => ['R11'], 'print' => '*'],
+        // 2026-10-18 — `add` (the presentation memo) went with the in-system sitting.
+        'meeting_agenda' => ['view' => '*', 'edit' => ['R02', 'R03'], 'approve' => ['R03'], 'print' => '*'],
+        // 2026-10-18 — the register only: voting (`add`) and recording the
+        // result (`approve`) went with the in-system sitting, and the paper
+        // results ride `meetings,edit`. `export` is the R06/R07 tier every
+        // other export in the app uses.
+        'decisions' => ['view' => '*', 'print' => '*', 'export' => ['R06', 'R07']],
         // Stage 37: everyone may follow live outputs; only the head certifies
         // execution completion through `edit`.
         // Stage 75 — R02 joins `edit`: Appendix 47 addresses closure to المقرر

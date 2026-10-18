@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Attachment;
 use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
@@ -22,13 +21,12 @@ use Tests\TestCase;
 
 /**
  * Stage 78 — [D] Appendix 63's four control gates ("وتمنع المنظومة
- * الإلكترونية الانتقال إذا كانت متطلبات البوابة غير مكتملة"), Art. 103's
- * قائمة فحص سلامة القرار and Art. 105's إيقاف إجرائي.
+ * الإلكترونية الانتقال إذا كانت متطلبات البوابة غير مكتملة") and Art. 105's
+ * إيقاف إجرائي.
  *
- * Gate 2 (قبل جدول الأعمال) is Stage 33's MeetingReadinessTest and gate 3
- * (قبل الاعتماد) rides the minutes lifecycle, so both are covered where they
- * live; what this file owns is gate 1, Art. 103, Art. 105, and the Appendix 8
- * refusals that are new here.
+ * What this file owns is gate 1 and Art. 105. The committee meets on paper
+ * since 2026-10-18, so the gates that rode the in-system sitting (readiness,
+ * the minutes' Appendix 8 checks, Art. 103's soundness list) went with it.
  */
 class ControlGateTest extends TestCase
 {
@@ -146,136 +144,22 @@ class ControlGateTest extends TestCase
         }
     }
 
-    // --- بوابة 3 — قبل الاعتماد (Appendix 8) --------------------------
-
-    /**
-     * The محضر's `content` freezes at generate() time, so a document compiled
-     * before the agenda changed no longer says what the meeting was. Until
-     * this gate, generate → change the agenda → approve was a clean path to an
-     * approved محضر describing a sitting that did not happen.
-     */
-    public function test_minutes_compiled_before_the_agenda_changed_cannot_be_approved(): void
-    {
-        [$head, , $meeting] = $this->committeeWithApprovableMinutes();
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/generate")
-            ->assertOk();
-
-        // The agenda moves after the snapshot was taken.
-        $meeting->agendaItems()->create([
-            'item_type' => 'administrative',
-            'subject' => 'بند أضيف بعد إنشاء المحضر',
-            'agenda_order' => 9,
-            'item_state' => 'complete',
-        ]);
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'لا يحال المحضر للاعتماد قبل التحقق من: تطابق البنود مع جدول الأعمال');
-
-        // Regenerating against the current agenda clears it.
-        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
-        $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
-            ->assertOk();
-    }
-
-    public function test_the_one_reviewer_answered_quality_check_refuses_when_it_is_no(): void
-    {
-        [$head, , $meeting] = $this->committeeWithApprovableMinutes();
-
-        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
-
-        $this->actingAs($head, 'sanctum')
-            ->postJson(
-                "/api/meetings/{$meeting->id}/minutes/review",
-                $this->minutesApprovalPayload(['quality_checks' => ['no_internal_contradictions' => false]]),
-            )
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'لا يحال المحضر للاعتماد قبل التحقق من: خلو المحضر من تعارضات داخلية');
-    }
-
-    /**
-     * All sixteen are stored, so the record reads as Appendix 8's own list.
-     * The sixteenth carries its honest value rather than a tick: the signature
-     * lifecycle is what enforces it, and at review time nobody has signed yet.
-     */
-    public function test_an_approved_minutes_records_all_sixteen_appendix_8_checks(): void
-    {
-        [$head, , $meeting] = $this->committeeWithApprovableMinutes();
-
-        $this->actingAs($head, 'sanctum')->postJson("/api/meetings/{$meeting->id}/minutes/generate")->assertOk();
-
-        $response = $this->actingAs($head, 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/minutes/review", $this->minutesApprovalPayload())
-            ->assertOk();
-
-        $checks = $response->json('data.quality_checks');
-        $this->assertCount(16, $checks);
-        $this->assertSame('yes', $checks['items_match_agenda']);
-        $this->assertSame('yes', $checks['no_internal_contradictions']);
-        $this->assertSame('enforced_by_signature_lifecycle', $checks['signatures_complete']);
-    }
-
-    // --- Art. 103 — قائمة فحص سلامة القرار ----------------------------
+    // --- no execution leg --------------------------------------------
 
     /**
      * 2026-10-18 — no execution leg (user decision): the dean's
-     * final_approved -> in_execution step is gone, certified or not, and an
-     * approved file goes straight to its archives.
+     * final_approved -> in_execution step is gone, and an approved file goes
+     * straight to its archives.
      */
     public function test_a_final_approved_file_has_no_step_into_execution(): void
     {
-        [, $requestRecord] = $this->requestReadyForExecution();
-        $this->certifySoundness($requestRecord);
+        [, $requestRecord] = $this->finalApprovedRequest();
 
         $this->actingAs($this->userWithRole('R07'), 'sanctum')
             ->post("/api/approvals/final/{$requestRecord->id}", [], ['Accept' => 'application/json'])
             ->assertStatus(422);
 
         $this->assertSame('final_approved', $requestRecord->fresh()->status->code);
-    }
-
-    public function test_a_single_no_on_an_attested_check_refuses_and_quotes_it_back(): void
-    {
-        $certifier = $this->userWithRole('R02');
-        [, $requestRecord] = $this->requestReadyForExecution();
-
-        $this->actingAs($certifier, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/execution-soundness", $this->soundnessPayload([
-                'employee_name_correct' => 'no',
-            ]))
-            ->assertOk()
-            ->assertJsonPath(
-                'data.control_gates.execution_soundness.refusal',
-                'لا تحال النتيجة للتنفيذ قبل التحقق من: صحة اسم الموظف',
-            );
-    }
-
-    /**
-     * Art. 104's point, made mechanical: the eight derived checks are read
-     * from real state, so answering "yes" cannot make an unsigned محضر signed.
-     */
-    public function test_a_derived_check_cannot_be_ticked_away(): void
-    {
-        $certifier = $this->userWithRole('R02');
-        [$meeting, $requestRecord] = $this->requestReadyForExecution();
-
-        // Take the محضر back out of `approved` — Art. 103's توقيع المحضر now
-        // fails, and no answer the certifier gives can change that.
-        $meeting->meetingMinutes()->update(['status' => 'draft']);
-
-        $response = $this->actingAs($certifier, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/execution-soundness", $this->soundnessPayload())
-            ->assertOk();
-
-        $this->assertSame('no', $response->json('data.control_gates.execution_soundness.record.minutes_signed'));
-        $this->assertSame(
-            'لا تحال النتيجة للتنفيذ قبل التحقق من: توقيع المحضر',
-            $response->json('data.control_gates.execution_soundness.refusal'),
-        );
     }
 
     // --- Art. 105 — الإيقاف الإجرائي ----------------------------------
@@ -287,7 +171,7 @@ class ControlGateTest extends TestCase
     public function test_suspending_is_status_only_and_writes_no_stage_log(): void
     {
         $suspender = $this->userWithRole('R02');
-        [, $requestRecord] = $this->requestReadyForExecution();
+        [, $requestRecord] = $this->finalApprovedRequest();
 
         $this->actingAs($suspender, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/suspend", [
@@ -310,8 +194,7 @@ class ControlGateTest extends TestCase
     {
         $suspender = $this->userWithRole('R02');
         $approver = $this->userWithRole('R07');
-        [, $requestRecord] = $this->requestReadyForExecution();
-        $this->certifySoundness($requestRecord);
+        [, $requestRecord] = $this->finalApprovedRequest();
 
         $this->actingAs($suspender, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/suspend", [
@@ -350,7 +233,7 @@ class ControlGateTest extends TestCase
     {
         $suspender = $this->userWithRole('R02');
         $legal = $this->userWithRole('R11');
-        [, $requestRecord] = $this->requestReadyForExecution();
+        [, $requestRecord] = $this->finalApprovedRequest();
 
         $this->actingAs($suspender, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/suspend", [
@@ -394,7 +277,7 @@ class ControlGateTest extends TestCase
     {
         $suspender = $this->userWithRole('R02');
         $legal = $this->userWithRole('R11');
-        [, $requestRecord] = $this->requestReadyForExecution();
+        [, $requestRecord] = $this->finalApprovedRequest();
 
         $this->actingAs($suspender, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/suspend", [
@@ -430,7 +313,7 @@ class ControlGateTest extends TestCase
     {
         $suspender = $this->userWithRole('R02');
         $legal = $this->userWithRole('R11');
-        [, $requestRecord] = $this->requestReadyForExecution();
+        [, $requestRecord] = $this->finalApprovedRequest();
 
         foreach (['أول شك في المستند.', 'شك ثانٍ بعد الاستئناف.'] as $detail) {
             $this->actingAs($suspender, 'sanctum')
@@ -475,20 +358,19 @@ class ControlGateTest extends TestCase
 
     /**
      * The sixth instance of the same visibility class Stages 47/68/75/76/77
-     * each had to close: the certifier and the suspender must be able to open
-     * the very file they are meant to act on.
+     * each had to close: the suspender must be able to open the very file
+     * they are meant to act on.
      */
-    public function test_the_certifier_can_open_a_final_approved_request_they_did_not_create(): void
+    public function test_the_suspender_can_open_a_final_approved_request_they_did_not_create(): void
     {
-        $certifier = $this->userWithRole('R02');
-        [, $requestRecord] = $this->requestReadyForExecution();
+        $suspender = $this->userWithRole('R02');
+        [, $requestRecord] = $this->finalApprovedRequest();
 
-        $this->assertNotSame($certifier->id, $requestRecord->created_by_user_id);
+        $this->assertNotSame($suspender->id, $requestRecord->created_by_user_id);
 
-        $this->actingAs($certifier, 'sanctum')
+        $this->actingAs($suspender, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")
-            ->assertOk()
-            ->assertJsonPath('data.control_gates.execution_soundness.derived.minutes_signed', true);
+            ->assertOk();
 
         // Grant-bounded, not a general read of the pipeline.
         $this->actingAs($this->userWithRole('R04'), 'sanctum')
@@ -499,8 +381,7 @@ class ControlGateTest extends TestCase
     public function test_reopening_clears_the_gate_records_but_keeps_the_suspension_register(): void
     {
         $actor = $this->userWithRole('R02');
-        [, $requestRecord] = $this->requestReadyForExecution();
-        $this->certifySoundness($requestRecord);
+        [, $requestRecord] = $this->finalApprovedRequest();
         $this->passIntakeGate($requestRecord);
 
         RequestSuspension::create([
@@ -523,7 +404,6 @@ class ControlGateTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.control_gates.intake.record', null)
-            ->assertJsonPath('data.control_gates.execution_soundness.record', null)
             // The register survives — earlier rounds staying readable is the
             // whole reason it is a history rather than a column.
             ->assertJsonCount(1, 'data.suspensions');
@@ -550,50 +430,31 @@ class ControlGateTest extends TestCase
         ]);
     }
 
-    /** A committee whose محضر can legitimately clear Appendix 8. */
-    private function committeeWithApprovableMinutes(): array
+    /**
+     * A file the authority approved, standing on `final_approval_archiving`
+     * with the committee's decision behind it — the window Art. 105's
+     * suspension acts in.
+     *
+     * @return array{0: Meeting, 1: Request}
+     */
+    private function finalApprovedRequest(): array
     {
-        $head = $this->userWithRole('R03');
-        $member = $this->userWithRole('R04');
-
-        $committee = Committee::create([
-            'name_ar' => 'لجنة بوابات الرقابة',
-            'quorum_type' => 'fraction',
-            'quorum_numerator' => 1,
-            'quorum_denominator' => 2,
-            'quorum_comparator' => 'more_than',
-            'quorum_text' => 'أكثر من نصف الأعضاء',
-        ]);
-        $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
-        $committee->members()->create(['user_id' => $member->id]);
+        $rapporteur = $this->userWithRole('R02');
+        $committee = Committee::create(['name_ar' => 'لجنة بوابات الرقابة']);
+        $committee->members()->create(['user_id' => $rapporteur->id, 'seat' => 'rapporteur']);
 
         $meeting = Meeting::create([
             'committee_id' => $committee->id,
             'meeting_number' => 'PM-MTG/2026/01',
             'title' => 'اجتماع بوابات الرقابة',
             'scheduled_at' => now()->subDay(),
-            'created_by_user_id' => $head->id,
+            'status' => 'completed',
+            'created_by_user_id' => $rapporteur->id,
         ]);
-        $meeting->attendees()->create(['user_id' => $head->id, 'attended' => true]);
-        $meeting->attendees()->create(['user_id' => $member->id, 'attended' => true]);
-
-        return [$head, $member, $meeting];
-    }
-
-    /**
-     * A complete file standing on `final_approval_archiving`: a structured
-     * decision from a quorate sitting, a document, an approved محضر and Art.
-     * 45's test — everything Art. 103's eight derived checks read.
-     *
-     * @return array{0: Meeting, 1: Request}
-     */
-    private function requestReadyForExecution(): array
-    {
-        [$head, $member, $meeting] = $this->committeeWithApprovableMinutes();
 
         $requestRecord = Request::create([
             'reference_number' => 'PM-COM/2026/'.str_pad((string) (Request::count() + 1), 4, '0', STR_PAD_LEFT),
-            'title' => 'معاملة جاهزة للإحالة للتنفيذ',
+            'title' => 'معاملة معتمدة',
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
             'status_id' => RequestStatus::where('code', 'final_approved')->value('id'),
@@ -604,36 +465,20 @@ class ControlGateTest extends TestCase
             'jurisdiction_test' => $this->jurisdictionAnswers(),
         ]);
 
-        Attachment::create([
-            'request_id' => $requestRecord->id,
-            'disk' => 'local',
-            'path' => 'attachments/fixture.pdf',
-            'original_name' => 'مستند مؤيد.pdf',
-            'mime_type' => 'application/pdf',
-            'size_bytes' => 2048,
-            'uploaded_by_user_id' => $requestRecord->created_by_user_id,
-        ]);
-
         $agendaItem = MeetingRequest::create([
             'meeting_id' => $meeting->id,
             'request_id' => $requestRecord->id,
             'agenda_order' => 1,
             'item_state' => 'complete',
         ]);
+        // The committee decides on paper since 2026-10-18 (PaperMeetingResultsTest).
         Decision::create([
             'meeting_request_id' => $agendaItem->id,
             'outcome' => 'approve',
-            'instrument' => 'decision',
-            'votes_approve_count' => 2,
-            'decision_subject' => 'ترقية الموظف.',
-            'decision_facts' => 'استوفى الموظف شروط الترقية.',
-            'decision_basis' => 'المادة 135 من قانون علاقات العمل.',
-            'decision_operative' => 'قررت اللجنة الموافقة على الترقية.',
-            'decided_by_user_id' => $head->id,
+            'instrument' => 'recommendation',
+            'decided_by_user_id' => $rapporteur->id,
             'decided_at' => now()->subDay(),
         ]);
-
-        $this->approveMinutes($meeting, $head, [$head, $member]);
 
         return [$meeting->fresh(), $requestRecord->fresh()];
     }

@@ -66,7 +66,7 @@ class RequestTimeCard
     /**
      * @param  Collection<int, object>  $stageLogs  this request's own logs, oldest first
      * @param  Collection<int, object>  $statusHistory  this request's own history, oldest first
-     * @param  array<string, CarbonInterface|null>  $marks  submitted_at / closed_at / executed_at
+     * @param  array<string, CarbonInterface|null>  $marks  submitted_at / closed_at
      * @param  array<string, CarbonInterface|null>  $meetingMarks  first sitting and its minutes
      * @param  array<string, CarbonInterface|null>  $referralMarks  Stage 80's referral pair
      */
@@ -96,7 +96,8 @@ class RequestTimeCard
             't6' => $this->days($this->reachedStatus('ready'), $this->meetingMarks['held_at'] ?? null),
             't7' => $this->days($this->meetingMarks['held_at'] ?? null, $this->meetingMarks['minutes_generated_at'] ?? null),
             't8' => $this->approvalDuration(),
-            't9' => $this->days($this->reachedStatus('final_approved'), $this->marks['executed_at'] ?? null),
+            // No execution leg since the paper sitting (2026-10-18).
+            't9' => null,
             't10' => $this->days($this->marks['submitted_at'] ?? null, $this->marks['closed_at'] ?? null),
         ];
     }

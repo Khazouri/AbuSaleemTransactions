@@ -13,13 +13,23 @@ What is open, why it was left, and what would close it.
 
 ---
 
-### How is an appeal decided once appeals leave agendas? — paper meeting — opened 2026-10-18
+### Art. 98's register 9 (سجل التنفيذ) and Appendix 10's two execution warnings are gone — paper meeting slice 2 — opened 2026-10-18
+Slice 2 deleted the execution leg (user decision 2026-10-18: no execution step), and with it every record an
+execution wrote. So `ExecutionRegister`, Appendix 10's «ورد اعتمادها ولم تنفذ» and «نفذت ولم تحدث في ملف الموظف»,
+and the time card's t9 (always null now) have nothing to read. Art. 98 lists twelve registers as a minimum and the
+system now has eleven. سجل المحاضر was kept, rewritten over the meetings whose scanned محضر was entered.
+Appendix 47's closure checklist still asks the closer «هل المحضر معتمد؟» and «هل تم التنفيذ؟», and #9 «هل أرفق
+مستند التنفيذ؟» is always `not_applicable`. **To close:** ask the user whether the execution register, the two
+warnings and those checklist questions should come back as something the paper process records (e.g. HR
+confirming the employee file was updated), or be recorded as not applicable to this organisation.
+
+### How is an appeal decided once appeals leave agendas? — paper meeting — opened 2026-10-18 — **Resolved (2026-10-18, paper meeting slice 2):** the user put appeals back on the paper agenda; the مقرر enters قبول / رفض / تأجيل with the results.
 The user decided that appeals leave meeting agendas (2026-10-18). An appeal at `legal_review` is still decided only as
 an agenda item (`DecisionController::recordAppealDecision()`), so once slice 2 stops nominating appeals no appeal can be
 decided at all. Slice 1 only refuses a paper-results submit whose agenda still holds an appeal. **To close:** ask the
 user who records an appeal's outcome, and where, before slice 2 removes `nominate`.
 
-### The in-system sitting is still in the code — paper meeting slice 2 — opened 2026-10-18
+### The in-system sitting is still in the code — paper meeting slice 2 — opened 2026-10-18 — **Resolved (2026-10-18, paper meeting slice 2):** deleted, with its tables, and the committee's three rows are R02's.
 Slice 1 stops offering convening and closing, and paper meetings never convene, so votes, the live runner, generated and
 signed minutes, readiness and the study sequence are unreachable from the UI. Their routes, controllers, screens
 (`meeting_readiness`, `meeting_live`, `meeting_minutes`), the R03 committee rows other than approve/reject/defer, and
@@ -322,7 +332,7 @@ were closable and appealable; the new one says only what the code does. Not chec
 stage-5 actions are still offered on a `rejected` file. **To close:** a process decision on whether [D]
 treats الرفض الشكلي as closable/appealable, then add the status to the lists that should hold it.
 
-### A committee's creator stays a seatless member and is counted in the quorum — found while updating the test plans — opened 2026-10-02
+### A committee's creator stays a seatless member and is counted in the quorum — found while updating the test plans — opened 2026-10-02 — **Resolved (2026-10-18, paper meeting slice 2):** no quorum is counted in the system any more; the readiness and tally services are deleted.
 `CommitteeController::store()` adds whoever creates a committee as a member with no seat, and
 `CommitteeVotingRules`, `MeetingReadinessService` and `DecisionTally` all count `Committee::activeMembers()`
 — every member, seated or not. On a fresh install the first committee is created by R08 (an unseated R02
@@ -365,7 +375,7 @@ the ~256 tests that sort after it do not. Workaround used: run `--exclude-filter
 'Maintenance(Bootstrap|Console)Test'` and those two files separately. **To close:** have the
 runner skip `set_time_limit` under `app()->runningUnitTests()`, or reset it in those tests' `tearDown()`.
 
-### `GET meetings/appeal-options` has no SPA caller — decision wizard sub-project 3 final-review fixes — opened 2026-09-28
+### `GET meetings/appeal-options` has no SPA caller — decision wizard sub-project 3 final-review fixes — opened 2026-09-28 — **Resolved (2026-10-18, paper meeting slice 2):** route and method deleted.
 Nomination moved from the agenda builder into the appeal wizard, which reads `GET appeals/{a}/acts`, so
 nothing in `frontend/` calls `meetings/appeal-options` any more; it was kept by controller ruling and is
 still covered by `AppealCommitteePresentationTest`. **To close:** delete the route, the controller method
@@ -402,7 +412,7 @@ tied to fixture data), not a functional risk. **To close:** the user (who holds 
 `personal_access_tokens` id 288 directly, or simply leaves it — Sanctum tokens don't expire by default in
 this app, but the account's password is already the standing security boundary.
 
-### `generate_minutes` does not itself require a convened meeting or resolved items — decision wizard sub-project 2 — opened 2026-09-27
+### `generate_minutes` does not itself require a convened meeting or resolved items — decision wizard sub-project 2 — opened 2026-09-27 — **Resolved (2026-10-18, paper meeting slice 2):** generated minutes are deleted; the محضر is the scanned file entered with the results.
 `MeetingMinutesController::generate()` has no gate of its own on `convened_at` or on every agenda item
 being resolved — only `MeetingDuties::forMeeting()`'s offer condition (read by the inbox and
 `MeetingWizard`) withholds the action until both hold. A caller that skips the wizard (a direct API call,
@@ -410,7 +420,7 @@ or a future screen) can still generate a محضر for a sitting that never opene
 touches roughly ten test files that call `generate()` on an unconvened fixture. **To close:** add the same
 two checks to `generate()` and convene those fixtures first.
 
-### `meeting_minutes,add` lets every signing member generate the minutes, not only المقرر — decision wizard sub-project 2 — opened 2026-09-27
+### `meeting_minutes,add` lets every signing member generate the minutes, not only المقرر — decision wizard sub-project 2 — opened 2026-09-27 — **Resolved (2026-10-18, paper meeting slice 2):** the screen is deleted; only the seated مقرر enters the results and the محضر.
 `MeetingWizard`'s `generate_minutes` action follows `meeting_minutes,add` (R02/R03/R04/R11/R12 —
 Stage 99's whole sitting), so any of the five may (re)compile the draft. [D] Art. 15 gives إعداد المحضر
 to المقرر (R02) specifically. **To close:** either split generation onto its own action tier seeded
@@ -500,7 +510,7 @@ R04 now carries the `ministry_delegate` seat (مندوب الخدمة المدن
 `RoleSeeder` name and the three `r04.member*` test accounts were left as they were. **To close:**
 decide whether to rename R04 or add a dedicated role; renaming touches every test that labels R04.
 
-### Votes do not check that the sitting was convened — Stage 102 — opened 2026-09-26
+### Votes do not check that the sitting was convened — Stage 102 — opened 2026-09-26 — **Resolved again (2026-10-18, paper meeting slice 2):** votes are deleted.
 Convening requires the meeting to be `scheduled` (every member accepted), but votes and decisions
 still check only the adopted agenda and the study sequence, not `convened_at`. Pre-existing; not
 widened here. **To close:** refuse votes/decisions on a meeting with no `convened_at` and update the

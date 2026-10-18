@@ -4,7 +4,7 @@
  * lifts a sheet showing the file's first page, and a click opens the full
  * preview. Every payload that lists a stored file carries the same
  * original_name / mime_type / preview_url trio, so the request page, the
- * decision wizard, the live runner and the appeal dossier all share this one
+ * decision wizard and the appeal dossier all share this one
  * component instead of each wiring its own blob fetch.
  *
  * The file is a private stream behind the bearer token, so it is fetched once

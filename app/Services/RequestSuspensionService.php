@@ -34,12 +34,11 @@ use Illuminate\Support\Facades\DB;
  *    began. A review recorded months earlier says nothing about the doubt
  *    raised today.
  * 3. **قبل ترتيب أثر جديد عليه** — while a suspension is open, `approve` is
- *    refused at every entry point that could arrange a new effect. Closure and
- *    execution need no guard of their own and that is deliberate rather than
- *    an oversight: `RequestClosureService::CLOSABLE_STATUSES` and
- *    `RequestExecutionService::EXECUTABLE_STATUS` are status whitelists that
- *    `execution_suspended` is simply not on, so Appendix 48 needs no ninth
- *    condition.
+ *    refused at every entry point that could arrange a new effect. Closure
+ *    needs no guard of its own and that is deliberate rather than an
+ *    oversight: `RequestClosureService::CLOSABLE_STATUSES` is a status
+ *    whitelist that `execution_suspended` is simply not on, so Appendix 48
+ *    needs no ninth condition.
  */
 class RequestSuspensionService
 {
@@ -59,7 +58,7 @@ class RequestSuspensionService
     public const SUSPENDABLE_STATUSES = [
         ...ApprovalReturnService::APPROVAL_CYCLE_STATUSES,
         'final_approved',
-        RequestExecutionService::EXECUTABLE_STATUS,
+        'in_execution',
     ];
 
     /** Art. 78's إعادة العرض, the same branch Stage 77's substantive return takes. */

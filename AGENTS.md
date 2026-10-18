@@ -118,7 +118,7 @@ Key architectural facts worth knowing before changing things:
   scheduling, so no seat is picked by hand — deliberately not at naming time,
   so a sitting already under way keeps its invitees. A former holder still
   seated until then is a stand-in, and
-  carries that role's grants on the seven meeting-duty screens, plus its
+  carries that role's grants on the three meeting-duty screens, plus its
   workflow rows on its own meeting's requests, from the invitation until every
   meeting it was invited to is concluded and none of the files it decided is
   still before an approving body (`SeatDutyGrant`, computed live — no table,
@@ -128,8 +128,8 @@ Key architectural facts worth knowing before changing things:
   them, and is `regular`. The مقرر may also invite **extra members, each with a
   صفة** (`meeting_attendees.guest_title`, user decision 2026-10-16), at
   scheduling or via `POST|DELETE meetings/{m}/guests` while the date is open.
-  A guest answers the date and nothing else: off the roll call, so no vote,
-  signature or quorum; only `meeting.member:guests` routes (the meeting, its
+  A guest answers the date and nothing else, and never counts toward the
+  acceptances; only `meeting.member:guests` routes (the meeting, its
   duties, the answer) admit them, and `show()` withholds the agenda. The committee is **a group the مقرر picks, not a
   department** (user decision 2026-10-02): there is no committee row in
   `departments`, and its members belong to their own units. Only the active
@@ -140,8 +140,8 @@ Key architectural facts worth knowing before changing things:
   `scheduled` once Settings' `meeting_acceptances_required` seat holders (2–5,
   default 3, the مقرر's automatic yes included; a guest's yes never counts) accept through their own
   `POST meetings/{m}/respond`; answers close then, and a date change resets
-  every answer. Convening
-  already requires `scheduled`, so that is the whole gate. Don't reintroduce
+  every answer. Entering the results already requires `scheduled`, so that is
+  the whole gate. Don't reintroduce
   voting ad-hoc attendees, free-text agenda items, or staff-recorded RSVPs.
 - **Every write on the request page and the appeals screen is a wizard act
   (decision wizard sub-projects 1–3).** The request's workflow transitions,
@@ -172,17 +172,17 @@ Key architectural facts worth knowing before changing things:
   role-segregated** (R02/R03/R06/R07); R08 holds none of them, so an admin
   who must approve needs that role on the Users screen.
 - **جهة الاعتماد is العميد or الوزير, one step, picked per request by the
-  chair** (user decision 2026-10-17). `DecisionController::record()` requires
-  `approving_authority` (`dean`|`minister`, stored on `requests`) on an
-  approve/conditional outcome. `WorkflowService::routesToMinister()` sends a
+  committee** (user decision 2026-10-17). The paper results require
+  `approving_authority` (`dean`|`minister`, stored on `requests`) on every
+  request row but a تأجيل. `WorkflowService::routesToMinister()` sends a
   minister file from the committee to `local_governance_ministry` (R06), and a
   dean file goes to `approval_by_authority`, whose approve row is now R07 →
   `final_approval_archiving` + `final_approved`. R05 approves nothing. The
-  request type's grade threshold only suggests (`suggested_authority` in the
-  agenda item's duties). الوزير is one sole post (`SOLE_ROLES['minister']`,
+  request type's grade threshold only suggests (`suggested_authority` on the
+  agenda item). الوزير is one sole post (`SOLE_ROLES['minister']`,
   named by R08), an account مدير مكتب العميد operates.
 - **The committee meets on paper and only recommends** (user decision
-  2026-10-18, slice 1). The مقرر prints the agenda, then enters every item's
+  2026-10-18, slices 1–2). The مقرر prints the agenda, then enters every item's
   توصية (موافقة / عدم موافقة / تأجيل), note and جهة الاعتماد plus the scanned محضر
   in one submit (`POST meetings/{m}/results`, duty `record_results`,
   `WorkflowService::applyCommitteeRecommendation()`), which concludes the
@@ -193,9 +193,19 @@ Key architectural facts worth knowing before changing things:
   page and approval queue refuse that decision
   (`RequestController::authorityStageRefusal()`). There is **no execution
   leg**: `final_approved` is a final path, and the second archive closes the
-  file (`RequestClosureService::archive()`, `closure_audit` null). Convening,
-  votes, the live runner and generated minutes are no longer offered; slice 2
-  deletes them.
+  file (`RequestClosureService::archive()`, `closure_audit` null). **Appeals
+  sit on the paper agenda too**: an appeal row is قبول / رفض / تأجيل with a
+  required note and no authority; قبول or رفض records `appeal_accept` /
+  `appeal_reject` and moves it to `committee_presentation`, and تأجيل leaves it
+  at `legal_review` to be nominated again (`Appeal::awaitsNomination()`). The
+  committee's three rules at `receive_from_committee` (approve, defer,
+  `reject_by_committee`) are R02's, the role that records them. Slice 2
+  deleted the in-system sitting and its tables (2026-10-18): convening,
+  readiness, roll call, votes, the live runner, conflict declarations, the
+  study sequence, presentation memos, generated and signed minutes, closing a
+  meeting by hand, Art. 103's soundness card and the execution card. Don't
+  bring any of it back piecemeal; a decision is written only by
+  `MeetingResultsController::store()`.
 - **RTL/i18n**: layout CSS uses logical properties (`margin-inline-start`,
   `text-align: start`, etc.), not `left`/`right`, so the UI mirrors
   automatically when `vue-i18n` flips `dir` on `<html>`. Don't introduce

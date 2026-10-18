@@ -48,7 +48,6 @@ class AuditLog extends Model
         Meeting::class,
         MeetingAttendee::class,
         MeetingRequest::class,
-        Vote::class,
         Decision::class,
 
         // Master data and access control — low volume, high consequence

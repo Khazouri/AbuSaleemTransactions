@@ -129,10 +129,6 @@ function bilingual(entity) {
   return locale.value === 'ar' ? (entity.name_ar || entity.name_en) : (entity.name_en || entity.name_ar)
 }
 
-function minutesStatusLabel(status) {
-  return status ? t(`appeals.file.minutes.status.${status}`) : t('common.none')
-}
-
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return ''
   const units = ['B', 'KB', 'MB', 'GB']
@@ -359,75 +355,6 @@ onMounted(() => load())
                         </li>
                       </ul>
                     </div>
-                  </section>
-
-                  <section class="dossier-section">
-                    <h4>{{ t('appeals.file.memo.heading') }}</h4>
-                    <p v-if="!fileData.presentation_memo" class="state">{{ t('appeals.file.memo.none') }}</p>
-                    <template v-else>
-                      <dl class="info-grid">
-                        <dt>{{ t('appeals.file.memo.workUnit') }}</dt>
-                        <dd>{{ bilingual(fileData.presentation_memo.derived.work_unit) }}</dd>
-                        <dt>{{ t('appeals.file.memo.referringBody') }}</dt>
-                        <dd>{{ bilingual(fileData.presentation_memo.derived.referring_body) }}</dd>
-                      </dl>
-                      <div v-if="fileData.presentation_memo.derived.key_documents?.length">
-                        <h5>{{ t('appeals.file.memo.keyDocuments') }}</h5>
-                        <ul class="doc-list">
-                          <li v-for="doc in fileData.presentation_memo.derived.key_documents" :key="doc.id">
-                            <AttachmentLink :attachment="doc" />
-                          </li>
-                        </ul>
-                      </div>
-                      <template v-if="fileData.presentation_memo.authored">
-                        <p v-if="fileData.presentation_memo.authored.facts_summary"><strong>{{ t('appeals.file.memo.factsSummary') }}:</strong> {{ fileData.presentation_memo.authored.facts_summary }}</p>
-                        <p v-if="fileData.presentation_memo.authored.legal_opinion"><strong>{{ t('appeals.file.memo.legalOpinion') }}:</strong> {{ fileData.presentation_memo.authored.legal_opinion }}</p>
-                        <p v-if="fileData.presentation_memo.authored.committee_question"><strong>{{ t('appeals.file.memo.committeeQuestion') }}:</strong> {{ fileData.presentation_memo.authored.committee_question }}</p>
-                      </template>
-                      <p v-else class="state">{{ t('appeals.file.memo.notAuthoredYet') }}</p>
-                    </template>
-                  </section>
-
-                  <section class="dossier-section">
-                    <h4>{{ t('appeals.file.minutes.heading') }}</h4>
-                    <p v-if="!fileData.meeting_minutes" class="state">{{ t('appeals.file.minutes.none') }}</p>
-                    <template v-else>
-                      <span class="pill">{{ minutesStatusLabel(fileData.meeting_minutes.status) }}</span>
-                      <dl class="info-grid" v-if="fileData.meeting_minutes.attendance">
-                        <dt>{{ t('appeals.file.minutes.quorum') }}</dt>
-                        <!-- Stage 73 — a محضر compiled for a committee with no
-                             transcribed quorum rule carries no required figure. -->
-                        <dd>{{ fileData.meeting_minutes.attendance.quorum_present }} / {{ fileData.meeting_minutes.attendance.quorum_required ?? t('meetingsUnit.readiness.quorum.notRecorded') }}</dd>
-                      </dl>
-                      <template v-if="fileData.meeting_minutes.agenda_item">
-                        <p v-if="fileData.meeting_minutes.agenda_item.facts_summary"><strong>{{ t('appeals.file.minutes.factsSummary') }}:</strong> {{ fileData.meeting_minutes.agenda_item.facts_summary }}</p>
-                        <p v-if="fileData.meeting_minutes.agenda_item.legal_basis"><strong>{{ t('appeals.file.minutes.legalBasis') }}:</strong> {{ fileData.meeting_minutes.agenda_item.legal_basis }}</p>
-                        <div v-if="fileData.meeting_minutes.agenda_item.votes">
-                          <h5>{{ t('appeals.file.minutes.votes') }}</h5>
-                          <p class="text-block">
-                            <span v-for="(count, outcome) in fileData.meeting_minutes.agenda_item.votes" :key="outcome">
-                              {{ t('decisions.tally.' + outcome) }}: {{ count }}&nbsp;&nbsp;
-                            </span>
-                          </p>
-                        </div>
-                        <div v-if="fileData.meeting_minutes.agenda_item.dissenting_opinions?.length">
-                          <h5>{{ t('appeals.file.minutes.dissentingOpinions') }}</h5>
-                          <ul class="doc-list">
-                            <li v-for="(opinion, index) in fileData.meeting_minutes.agenda_item.dissenting_opinions" :key="index">
-                              {{ opinion.user }} — {{ t('decisions.vote.' + opinion.vote) }}: {{ opinion.comment }}
-                            </li>
-                          </ul>
-                        </div>
-                      </template>
-                      <div v-if="fileData.meeting_minutes.required_signatories?.length">
-                        <h5>{{ t('appeals.file.minutes.requiredSignatories') }}</h5>
-                        <ul class="doc-list">
-                          <li v-for="signatory in fileData.meeting_minutes.required_signatories" :key="signatory.id">
-                            {{ signatory.name }}
-                          </li>
-                        </ul>
-                      </div>
-                    </template>
                   </section>
 
                   <section class="dossier-section">

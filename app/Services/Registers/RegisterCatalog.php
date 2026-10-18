@@ -16,23 +16,25 @@ namespace App\Services\Registers;
 class RegisterCatalog
 {
     /**
-     * Art. 98's twelve, in order.
+     * Art. 98's registers, in order. Register 9 (سجل التنفيذ) went with the
+     * execution leg on 2026-10-18: nothing records an execution any more.
      *
-     * @var list<class-string<Register>>
+     * Keyed by the article's own number, so a gap stays a gap.
+     *
+     * @var array<int, class-string<Register>>
      */
     private const REGISTERS = [
-        IncomingRequestsRegister::class,       // 1. سجل المعاملات الواردة
-        IncompleteRequestsRegister::class,     // 2. سجل المعاملات الناقصة
-        MeetingsRegister::class,               // 3. سجل الاجتماعات
-        AgendaRegister::class,                 // 4. سجل جدول الأعمال
-        MinutesRegister::class,                // 5. سجل المحاضر
-        DecisionsRegister::class,              // 6. سجل القرارات والتوصيات
-        ApprovalReferralsRegister::class,      // 7. سجل الإحالات للاعتماد
-        ApprovalReturnsRegister::class,        // 8. سجل القرارات المعادة من جهة الاعتماد
-        ExecutionRegister::class,              // 9. سجل التنفيذ
-        AppealsRegister::class,                // 10. سجل التظلمات
-        DeferredRequestsRegister::class,       // 11. سجل المعاملات المؤجلة
-        ClosureRegister::class,                // 12. سجل الإقفال والأرشفة
+        1 => IncomingRequestsRegister::class,       // سجل المعاملات الواردة
+        2 => IncompleteRequestsRegister::class,     // سجل المعاملات الناقصة
+        3 => MeetingsRegister::class,               // سجل الاجتماعات
+        4 => AgendaRegister::class,                 // سجل جدول الأعمال
+        5 => MinutesRegister::class,                // سجل المحاضر
+        6 => DecisionsRegister::class,              // سجل القرارات والتوصيات
+        7 => ApprovalReferralsRegister::class,      // سجل الإحالات للاعتماد
+        8 => ApprovalReturnsRegister::class,        // سجل القرارات المعادة من جهة الاعتماد
+        10 => AppealsRegister::class,                // سجل التظلمات
+        11 => DeferredRequestsRegister::class,       // سجل المعاملات المؤجلة
+        12 => ClosureRegister::class,                // سجل الإقفال والأرشفة
     ];
 
     /** @var array<string, Register>|null */
@@ -67,15 +69,13 @@ class RegisterCatalog
      */
     public function describe(): array
     {
-        $index = 0;
+        $numbers = array_flip(array_map(fn (string $class) => app($class)->code(), self::REGISTERS));
 
-        return array_values(array_map(function (Register $register) use (&$index) {
-            $index++;
-
+        return array_values(array_map(function (Register $register) use ($numbers) {
             return [
                 // The article's own numbering, so a printed register can cite
                 // "سجل رقم 7" and mean what Art. 98 means by it.
-                'number' => $index,
+                'number' => $numbers[$register->code()],
                 'code' => $register->code(),
                 'name_ar' => $register->nameAr(),
                 'name_en' => $register->nameEn(),

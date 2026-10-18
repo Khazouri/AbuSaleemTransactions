@@ -3,7 +3,8 @@
  * 2026-10-18 — the paper sitting's results. The مقرر copies, item by item,
  * the توصية the committee wrote on paper, its note and its جهة الاعتماد, and
  * attaches the scanned محضر; MeetingWizard posts it all in one submit. A
- * deferral goes back to the pending list, so it names no authority.
+ * deferral goes back to the pending list, so it names no authority. An appeal
+ * row names none either, and always states its reason.
  */
 import { useI18n } from 'vue-i18n'
 import FileDropZone from './FileDropZone.vue'
@@ -17,6 +18,10 @@ const minutes = defineModel('minutes', { type: Object, default: null })
 const { t, locale } = useI18n()
 
 const RECOMMENDATIONS = ['approve', 'decline', 'defer']
+const isAppeal = (item) => item.item_type === 'appeal'
+const optionLabel = (item, option) => t(`paperMeeting.${isAppeal(item) ? 'appealRecommendations' : 'recommendations'}.${option}`)
+const noteRequired = (item) => isAppeal(item)
+  || (Boolean(rows.value[item.id].recommendation) && rows.value[item.id].recommendation !== 'approve')
 const typeName = (type) => (type ? (locale.value === 'ar' ? type.name_ar : type.name_en || type.name_ar) : '')
 
 function choose(files) {
@@ -28,7 +33,13 @@ function choose(files) {
   <div class="results">
     <ol class="items">
       <li v-for="(item, index) in items" :key="item.id" class="item">
-        <p class="item-head">
+        <p v-if="isAppeal(item)" class="item-head">
+          <span class="number">{{ index + 1 }}</span>
+          <span class="ltr reference">{{ item.appeal?.original_request?.reference_number }}</span>
+          <strong>{{ t('paperMeeting.appealOn', { title: item.appeal?.original_request?.title ?? '' }) }}</strong>
+          <span class="meta">{{ item.appeal?.appellant?.name }}</span>
+        </p>
+        <p v-else class="item-head">
           <span class="number">{{ index + 1 }}</span>
           <span class="ltr reference">{{ item.request?.reference_number }}</span>
           <strong>{{ item.request?.title }}</strong>
@@ -41,12 +52,12 @@ function choose(files) {
           </legend>
           <label v-for="option in RECOMMENDATIONS" :key="option" class="pill-choice" :class="{ chosen: rows[item.id].recommendation === option }">
             <input v-model="rows[item.id].recommendation" type="radio" :name="`recommendation-${item.id}`" :value="option" required />
-            <span>{{ t(`paperMeeting.recommendations.${option}`) }}</span>
+            <span>{{ optionLabel(item, option) }}</span>
           </label>
         </fieldset>
 
         <div class="fields">
-          <label>
+          <label v-if="!isAppeal(item)">
             <span>{{ t('paperMeeting.authority') }}<span v-if="rows[item.id].recommendation !== 'defer'" class="required-mark" aria-hidden="true">*</span></span>
             <select
               v-model="rows[item.id].approving_authority"
@@ -59,14 +70,14 @@ function choose(files) {
           </label>
           <label>
             <span>
-              {{ rows[item.id].recommendation === 'approve' || !rows[item.id].recommendation ? t('paperMeeting.noteOptional') : t('paperMeeting.noteRequired') }}<span v-if="rows[item.id].recommendation && rows[item.id].recommendation !== 'approve'" class="required-mark" aria-hidden="true">*</span>
+              {{ noteRequired(item) ? t('paperMeeting.noteRequired') : t('paperMeeting.noteOptional') }}<span v-if="noteRequired(item)" class="required-mark" aria-hidden="true">*</span>
             </span>
             <textarea
               v-model="rows[item.id].note"
               rows="2"
               maxlength="2000"
               :disabled="disabled"
-              :required="Boolean(rows[item.id].recommendation) && rows[item.id].recommendation !== 'approve'"
+              :required="noteRequired(item)"
             />
           </label>
         </div>

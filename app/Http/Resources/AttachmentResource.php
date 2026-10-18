@@ -26,9 +26,6 @@ class AttachmentResource extends JsonResource
             // and `other` is a real answer rather than an absence: the
             // matrix names no row for it.
             'required_document_key' => $this->required_document_key,
-            // Stage 76 — non-null marks this document as Appendix 70's
-            // دليل التنفيذ and records which of its kinds it is.
-            'execution_evidence_type' => $this->execution_evidence_type,
             // The client fetches this private stream through its bearer-aware
             // API instance; storage paths themselves never leave the server.
             'preview_url' => route('requests.attachments.preview', [

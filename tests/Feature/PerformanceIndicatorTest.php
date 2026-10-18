@@ -8,7 +8,6 @@ use App\Models\Committee;
 use App\Models\Decision;
 use App\Models\Department;
 use App\Models\Meeting;
-use App\Models\MeetingMinutes;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStatus;
@@ -45,7 +44,7 @@ class PerformanceIndicatorTest extends TestCase
 
     // ---------------------------------------------------------------- Appendix 71
 
-    /** A file walked end to end reports every one of the ten segments. */
+    /** A file walked end to end reports every measurable one of the ten segments. */
     public function test_the_time_card_measures_appendix_71s_ten_segments(): void
     {
         $requestRecord = $this->walkedRequest();
@@ -60,9 +59,9 @@ class PerformanceIndicatorTest extends TestCase
         $this->assertSame(3.0, $segments['t3']);   // the قيد dwell
         $this->assertSame(4.0, $segments['t5']);   // legal review, in and out
         $this->assertSame(5.0, $segments['t6']);   // ready → the sitting
-        $this->assertSame(2.0, $segments['t7']);   // sitting → minutes
+        $this->assertSame(2.0, $segments['t7']);   // sitting → results and محضر entered
         $this->assertSame(6.0, $segments['t8']);   // referral → result
-        $this->assertSame(3.0, $segments['t9']);   // final approval → executed
+        $this->assertNull($segments['t9']);        // no execution leg since 2026-10-18
         $this->assertSame(30.0, $segments['t10']); // submitted → closed
     }
 
@@ -100,7 +99,7 @@ class PerformanceIndicatorTest extends TestCase
 
         $segments = app(TimeCardCompiler::class)->forRequest($requestRecord)->segments();
 
-        $this->assertNull($segments['t9']);  // never executed
+        $this->assertNull($segments['t9']);  // nothing is executed any more
         $this->assertNull($segments['t10']); // never closed
         $this->assertNull($segments['t4']);  // never short of anything
     }
@@ -288,7 +287,7 @@ class PerformanceIndicatorTest extends TestCase
 
     // ---------------------------------------------------------------- Appendix 10
 
-    /** Each of the ten conditions fires on its own, and a clean file fires none. */
+    /** Each condition fires on its own, and a clean file fires none. */
     public function test_each_early_warning_fires_on_its_own_condition(): void
     {
         $service = app(EarlyWarningService::class);
@@ -313,16 +312,8 @@ class PerformanceIndicatorTest extends TestCase
             'recorded_by_user_id' => $awaiting->created_by_user_id,
         ]);
 
-        // 5 — approved but not executed.
-        $notExecuted = $this->baseRequest('اعتُمد ولم ينفذ');
-        $notExecuted->status_id = RequestStatus::where('code', 'final_approved')->value('id');
-        $notExecuted->save();
-
-        // 6 — executed, but the Stage 76 checklist says the file was not updated.
-        $notUpdated = $this->baseRequest('نُفذ دون تحديث الملف');
-        $notUpdated->executed_at = now()->subDay();
-        $notUpdated->execution_checklist = ['employee_file_updated' => 'no'];
-        $notUpdated->save();
+        // 5 and 6 (approved but not executed, executed without updating the
+        // file) went with the execution leg on 2026-10-18.
 
         // 7 — an unresolved Stage 77 return.
         $returned = $this->baseRequest('أعيد من جهة الاعتماد');
@@ -344,8 +335,6 @@ class PerformanceIndicatorTest extends TestCase
         $this->assertContains('repeated_completion_returns', $this->keysFor($fired, $twiceShort->id));
         $this->assertContains('repeated_deferrals', $this->keysFor($fired, $twiceDeferred->id));
         $this->assertContains('approval_not_received', $this->keysFor($fired, $awaiting->id));
-        $this->assertContains('approved_not_executed', $this->keysFor($fired, $notExecuted->id));
-        $this->assertContains('executed_file_not_updated', $this->keysFor($fired, $notUpdated->id));
         $this->assertContains('returned_by_approving_body', $this->keysFor($fired, $returned->id));
         $this->assertContains('employee_not_notified', $this->keysFor($fired, $unnotified->id));
     }
@@ -401,8 +390,8 @@ class PerformanceIndicatorTest extends TestCase
         $this->assertNotContains($closed->id, $alerts);
     }
 
-    /** The summary tallies all ten, including the ones firing on nothing. */
-    public function test_the_warning_summary_lists_all_ten_conditions(): void
+    /** The summary tallies every condition, including the ones firing on nothing. */
+    public function test_the_warning_summary_lists_every_condition(): void
     {
         $response = $this->actingAs($this->userWithRole('R01'), 'sanctum')
             ->getJson('/api/reports/performance/warnings')
@@ -410,8 +399,14 @@ class PerformanceIndicatorTest extends TestCase
 
         $summary = $response->json('summary');
 
-        $this->assertCount(10, $summary);
-        $this->assertSame(range(1, 10), array_column($summary, 'number'));
+        // Appendix 10's ten, less the two execution warnings.
+        $this->assertSame([
+            'unusual_dwell', 'repeated_completion_returns', 'repeated_deferrals',
+            'approval_not_received', 'returned_by_approving_body', 'employee_not_notified',
+            'approaching_legal_deadline', 'open_appeal',
+        ], array_column($summary, 'key'));
+        // The appendix's own numbers: 5 and 6 are gaps, not a shift.
+        $this->assertSame([1, 2, 3, 4, 7, 8, 9, 10], array_column($summary, 'number'));
         $this->assertSame('بقيت لدى جهة واحدة مدة غير معتادة', $summary[0]['label']);
     }
 
@@ -569,7 +564,6 @@ class PerformanceIndicatorTest extends TestCase
     {
         $requestRecord = $this->baseRequest();
         $requestRecord->submitted_at = now()->subDays(30);
-        $requestRecord->executed_at = now()->subDays(2);
         $requestRecord->closed_at = now();
         $requestRecord->save();
 
@@ -582,21 +576,12 @@ class PerformanceIndicatorTest extends TestCase
         $this->history($requestRecord, 'under_legal_review', now()->subDays(23));
         $this->history($requestRecord, 'ready', now()->subDays(19));
 
-        // T6 = 5, T7 = 2.
+        // T6 = 5, T7 = 2 (the مقرر enters the paper sitting's results two days on).
         [$meeting] = $this->fixtureMeeting($requestRecord, now()->subDays(14));
-        MeetingMinutes::create([
-            'meeting_id' => $meeting->id,
-            'minutes_number' => 'PM-MIN/2026/01',
-            'content' => [],
-            'status' => 'approved',
-            'generated_at' => now()->subDays(12),
-        ]);
+        $meeting->update(['results_recorded_at' => now()->subDays(12)]);
 
         // T8 = 6.
         $this->referral($requestRecord, now()->subDays(11), now()->subDays(5));
-
-        // T9 = 3.
-        $this->history($requestRecord, 'final_approved', now()->subDays(5));
 
         return $requestRecord->refresh();
     }

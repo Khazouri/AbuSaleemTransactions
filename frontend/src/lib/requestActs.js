@@ -12,7 +12,6 @@ import ConflictResolveForm from '../components/acts/ConflictResolveForm.vue'
 import ClosureForm from '../components/acts/ClosureForm.vue'
 import CorrectionForm from '../components/acts/CorrectionForm.vue'
 import DeterminationForm from '../components/acts/DeterminationForm.vue'
-import ExecutionForm from '../components/acts/ExecutionForm.vue'
 import LiftForm from '../components/acts/LiftForm.vue'
 import NoteForm from '../components/acts/NoteForm.vue'
 import ReferralForm from '../components/acts/ReferralForm.vue'
@@ -21,61 +20,19 @@ import ReopenForm from '../components/acts/ReopenForm.vue'
 import ResolveNoteForm from '../components/acts/ResolveNoteForm.vue'
 import ReturnForm from '../components/acts/ReturnForm.vue'
 import ReturnResolveForm from '../components/acts/ReturnResolveForm.vue'
-import SoundnessForm from '../components/acts/SoundnessForm.vue'
 import SpecialCaseForm from '../components/acts/SpecialCaseForm.vue'
 import SuspendForm from '../components/acts/SuspendForm.vue'
 import WithdrawalForm from '../components/acts/WithdrawalForm.vue'
-import { SOUNDNESS_CERTIFIER_CHECKS, SUSPENSION_GROUNDS, SUSPENSION_RESOLUTIONS } from './controlGates'
+import { SUSPENSION_GROUNDS, SUSPENSION_RESOLUTIONS } from './controlGates'
 import { CONFLICT_KINDS, MATERIAL_ERROR_KINDS, SPECIAL_CASES } from './lifecycle'
 import { CLOSER_CHECKS } from './requestClosure'
-import { EXECUTOR_CHECKS } from './requestExecution'
 
 export const ACT_FAMILIES = ['after_decision', 'records', 'file']
 
 const filled = (value) => String(value ?? '').trim() !== ''
 const base = (request) => `/requests/${request.id}`
 
-/** Appendix 70 — attachment id → evidence kind, as the endpoint wants the list. */
-export function evidenceEntries(form) {
-  return Object.entries(form.evidence)
-    .filter(([, type]) => type)
-    .map(([id, type]) => ({ attachment_id: Number(id), evidence_type: type }))
-}
-
 export const REQUEST_ACTS = {
-  execution_soundness: {
-    labelKey: 'controlGates.soundness.action',
-    form: SoundnessForm,
-    method: 'patch',
-    url: (request) => `${base(request)}/execution-soundness`,
-    // A revision starts from the answers already on record.
-    blank: (request) => ({
-      checks: Object.fromEntries(SOUNDNESS_CERTIFIER_CHECKS.map((key) => [
-        key, request.control_gates?.execution_soundness?.record?.[key] ?? '',
-      ])),
-    }),
-    ready: (form) => SOUNDNESS_CERTIFIER_CHECKS.every((key) => form.checks[key] !== ''),
-  },
-  execute: {
-    labelKey: 'requestExecution.action',
-    form: ExecutionForm,
-    method: 'post',
-    url: (request, act) => `/meetings/${act.target.meeting_id}/outputs/${act.target.id}/execute`,
-    blank: () => ({
-      executing_body: '',
-      action_taken: '',
-      effective_date: '',
-      approving_body: '',
-      approval_number: '',
-      approval_date: '',
-      financial_effect_note: '',
-      checklist: Object.fromEntries(EXECUTOR_CHECKS.map((key) => [key, 'yes'])),
-      evidence: {},
-    }),
-    ready: (form) => filled(form.executing_body) && filled(form.action_taken) && filled(form.effective_date)
-      && filled(form.approving_body) && evidenceEntries(form).length > 0,
-    body: (form) => ({ ...form, evidence: evidenceEntries(form) }),
-  },
   archive_committee_file: {
     labelKey: 'decisionWizard.acts.archive_committee_file',
     form: ArchiveForm,

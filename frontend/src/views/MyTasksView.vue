@@ -7,8 +7,8 @@
  * answer to "what is waiting for me" that spanned their whole job.
  *
  * This screen LISTS; it does not act. Every row links to the screen that
- * already owns that action — the request workspace for an approval, the live
- * runner for a vote, the legal-review screen for a verdict — so each action
+ * already owns that action — the request workspace for an approval, the
+ * meeting page for its results, the legal-review screen for a verdict — so each action
  * keeps exactly one implementation and one set of guards. The server decides
  * which sources a reader gets, by checking the grant that lets them act, so
  * there is nothing to filter here and no row that cannot be acted on.
@@ -29,10 +29,8 @@ const activeSource = ref('all')
 
 const ICON_BY_SOURCE = {
   approval: 'check-circle',
-  vote: 'check-square',
   candidate: 'file-plus',
   legal_review: 'scale',
-  minutes_signature: 'book',
   meeting_invitation: 'calendar',
   meeting_due: 'calendar',
   completion: 'inbox',

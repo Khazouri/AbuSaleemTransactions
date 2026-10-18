@@ -49,15 +49,13 @@ class DocumentReview
     }
 
     /**
-     * The files under review, oldest first. Execution evidence is left out:
-     * it arrives long after both gates and is Appendix 70's to judge.
+     * The files under review, oldest first.
      *
      * @return Collection<int, Attachment>
      */
     public function attachments(Request $requestRecord): Collection
     {
         $files = $requestRecord->attachments()
-            ->whereNull('execution_evidence_type')
             ->when($this->onlyKeys !== null, fn ($query) => $query->whereIn('required_document_key', $this->onlyKeys))
             ->orderBy('id')
             ->get(['id', 'request_id', 'original_name', 'required_document_key']);

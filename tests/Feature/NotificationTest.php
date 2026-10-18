@@ -35,11 +35,11 @@ class NotificationTest extends TestCase
      * The Stage 23 done-when: a transition fires notifications, and only on
      * the channels the recipient has enabled.
      *
-     * Stage 4 forwards to stage 5, whose configured role is R05 — so the
-     * "waiting for you" message goes to the admin manager, the creator gets
-     * the informational update, and the person who pressed the button gets
-     * neither. The channel assertions are the point: `stage_changed` defaults
-     * to in-app only, `action_required` to in-app plus email.
+     * The committee's approve hands the file to العميد — so the "waiting for
+     * you" message goes to the dean, the creator gets the informational
+     * update, and the person who pressed the button gets neither. The channel
+     * assertions are the point: `stage_changed` defaults to in-app only,
+     * `action_required` to in-app plus email.
      */
     public function test_a_transition_notifies_the_creator_and_the_next_actor_on_their_enabled_channels_only(): void
     {
@@ -48,16 +48,13 @@ class NotificationTest extends TestCase
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
         // The fixture needs a hop whose actor and next actor are different
-        // parties, or there is no handoff left to assert. Stage 86 moved it to
-        // `reviewer_review -> observations` because `observations` had become
-        // R09's; Stage 96 gave R02 the whole pre-committee chain back, which
-        // makes that hop same-role again. Stage 102 made the مقرر's approve at
-        // requirements_check the hop onto the committee's pending list — the
-        // first after which the file genuinely changes hands: R02 moves it,
-        // R03 (the committee) acts next.
-        $nextActor = $this->userWithRole('R03');
+        // parties, or there is no handoff left to assert. Since 2026-10-18 the
+        // مقرر also holds the committee's outcome rules, so requirements_check
+        // → the committee is same-role; the committee's approve, R02 → العميد
+        // (R07), is the next real handoff.
+        $nextActor = $this->userWithRole('R07');
         $bystander = $this->userWithRole('R04');
-        $requestRecord = $this->requestAtStage('requirements_check', $creator);
+        $requestRecord = $this->requestAtStage('receive_from_committee', $creator, 'in_meeting');
 
         app(WorkflowService::class)->transition($requestRecord, 'approve', $actor);
 
@@ -121,8 +118,8 @@ class NotificationTest extends TestCase
 
         $creator = $this->userWithRole('R01');
         $actor = $this->userWithRole('R02');
-        $nextActor = $this->userWithRole('R03');
-        $requestRecord = $this->requestAtStage('requirements_check', $creator);
+        $nextActor = $this->userWithRole('R07');
+        $requestRecord = $this->requestAtStage('receive_from_committee', $creator, 'in_meeting');
 
         // The next actor drops email but keeps the bell...
         NotificationSetting::create([
@@ -299,14 +296,14 @@ class NotificationTest extends TestCase
             ->assertJsonValidationErrors('settings.0.event_type');
     }
 
-    private function requestAtStage(string $stageCode, User $creator): Request
+    private function requestAtStage(string $stageCode, User $creator, string $statusCode = 'in_review'): Request
     {
         return Request::create([
             'reference_number' => '2026-ADM-'.fake()->unique()->numerify('######'),
             'title' => 'اختبار الإشعارات',
             'department_id' => Department::where('code', 'ADM')->value('id'),
             'request_type_id' => RequestType::where('code', 'PROM')->value('id'),
-            'status_id' => RequestStatus::where('code', 'in_review')->value('id'),
+            'status_id' => RequestStatus::where('code', $statusCode)->value('id'),
             'current_stage_id' => WorkflowStage::where('code', $stageCode)->value('id'),
             'created_by_user_id' => $creator->id,
             'submitted_at' => now(),

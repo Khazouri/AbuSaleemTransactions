@@ -208,7 +208,8 @@ class AgendaOrderingTest extends TestCase
         $this->assertSame('أولوية عالية', $withPredecessor[0]['priority']);
     }
 
-    public function test_readiness_blocks_convening_on_an_out_of_rule_agenda_until_a_justification_is_recorded(): void
+    /** Appendix 24's documented reason for a departure from Art. 83, recorded on the meeting. */
+    public function test_an_out_of_rule_agenda_records_the_chairs_justification(): void
     {
         $this->seed(DatabaseSeeder::class);
 
@@ -216,22 +217,18 @@ class AgendaOrderingTest extends TestCase
         $this->agendaItem($meeting, $this->readyRequest('READY', now()->subDay()), 1);
         $this->agendaItem($meeting, $this->deferredRequest('DEFER'), 2);
 
-        $codes = fn () => collect(
-            $this->actingAs($head, 'sanctum')
-                ->getJson("/api/meetings/{$meeting->id}/readiness")
-                ->assertOk()
-                ->json('data.exceptions'),
-        )->pluck('code')->all();
-
-        $this->assertContains('agenda_order_departs_from_rule', $codes());
-
-        $this->actingAs($head, 'sanctum')
-            ->putJson("/api/meetings/{$meeting->id}", [
-                'agenda_order_justification' => 'قرر رئيس اللجنة تقديم الملف المكتمل لارتباطه باجتماع لاحق.',
-            ])
+        $ordering = fn () => $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}/agenda/ordering")
             ->assertOk();
 
-        $this->assertNotContains('agenda_order_departs_from_rule', $codes());
+        $ordering()->assertJsonPath('data.matches_rule', false)->assertJsonPath('data.justification', null);
+
+        $reason = 'قرر رئيس اللجنة تقديم الملف المكتمل لارتباطه باجتماع لاحق.';
+        $this->actingAs($head, 'sanctum')
+            ->putJson("/api/meetings/{$meeting->id}", ['agenda_order_justification' => $reason])
+            ->assertOk();
+
+        $ordering()->assertJsonPath('data.matches_rule', false)->assertJsonPath('data.justification', $reason);
     }
 
     public function test_priority_accepts_only_appendix_24s_two_levels(): void
@@ -375,17 +372,7 @@ class AgendaOrderingTest extends TestCase
     {
         $head = $this->userWithRole('R03');
 
-        $committee = Committee::create([
-            'name_ar' => 'لجنة شؤون الموظفين',
-            // Stage 73 — a committee with no transcribed quorum rule blocks
-            // convening on its own, which would drown out the exception this
-            // test is actually about.
-            'quorum_type' => 'fraction',
-            'quorum_numerator' => 1,
-            'quorum_denominator' => 2,
-            'quorum_comparator' => 'more_than',
-            'quorum_text' => 'أكثر من نصف الأعضاء',
-        ]);
+        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
         $committee->members()->create(['user_id' => $head->id, 'is_head' => true]);
 
         $meeting = Meeting::create([

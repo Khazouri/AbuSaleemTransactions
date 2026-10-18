@@ -37,20 +37,24 @@ class ScreenTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
-    public function test_the_meetings_management_group_seeds_all_eight_codes(): void
+    public function test_the_meetings_management_group_seeds_its_five_codes(): void
     {
         $codes = [
             'meetings_dashboard', 'committee_candidates', 'meetings',
-            'meeting_agenda', 'meeting_readiness', 'meeting_live',
-            'meeting_minutes', 'meeting_outputs',
+            'meeting_agenda', 'meeting_outputs',
         ];
 
         $screens = Screen::whereIn('code', $codes)->get()->keyBy('code');
 
-        $this->assertCount(8, $screens);
+        $this->assertCount(5, $screens);
         foreach ($codes as $code) {
             $this->assertSame('meetings_management', $screens[$code]->group, "code={$code}");
         }
+
+        // The paper meeting (2026-10-18) removed the sitting's own screens, and
+        // the outputs screen survives as a grant only, with no page of its own.
+        $this->assertSame(0, Screen::whereIn('code', ['meeting_readiness', 'meeting_live', 'meeting_minutes'])->count());
+        $this->assertNull($screens['meeting_outputs']->route);
 
         // A screen outside the group stays ungrouped.
         $this->assertNull(Screen::where('code', 'dashboard')->value('group'));

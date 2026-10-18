@@ -658,7 +658,7 @@ textarea {
   white-space: nowrap;
 }
 /* Recurring tone modifiers — a readiness/status verdict rendered as a small
-   pill appears on nine-plus screens (meeting readiness, legal review, the
+   pill appears on nine-plus screens (legal review, the
    maintenance console…), each redeclaring the same four colour pairs. */
 .pill.good, .pill.success { background: var(--color-success-bg); color: var(--color-success-fg); border-color: var(--color-success-border); }
 .pill.bad, .pill.danger { background: var(--color-danger-bg); color: var(--color-danger-fg); border-color: var(--color-danger-border); }
@@ -924,8 +924,8 @@ textarea {
 
 /* -- Control-gate panels ---------------------------------------------------
    The request workspace's gate/closure/execution/suspension panels
-   (IntakeGatePanel, RequestSoundnessPanel, RequestSuspensionPanel, and the
-   former RequestClosurePanel/RequestExecutionPanel) all share one shape: a
+   (IntakeGatePanel, RequestSuspensionPanel, and the former
+   RequestClosurePanel/RequestExecutionPanel/RequestSoundnessPanel) all share one shape: a
    small trigger button that expands into a bordered form holding a
    question/answer checklist. Five near-identical ~150-line copies of this
    collapse into one definition here. */
