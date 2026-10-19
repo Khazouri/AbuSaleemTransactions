@@ -7,8 +7,8 @@
  * Sub-project 1 built it on `available_transitions` / `blocked_transitions`.
  * Sub-project 2 adds the committee's own moves on a file (`committee_actions`):
  * asking for completion, handing it to the legal member, and the legal
- * member's opinion, whose card fills the Checks step and whose five verdicts
- * join the choices. The server decides what is offered; the wizard lays it out.
+ * member's توصية, which since 2026-10-19 is all he enters: موافقة or عدم موافقة
+ * plus جهة الاعتماد. The server decides what is offered; the wizard lays it out.
  *
  * Sub-project 3 adds everything else done on a file (`acts`): the work after
  * the decision, the file's records, and its content. Grouped under headings,
@@ -20,7 +20,6 @@ import AttachmentLink from './AttachmentLink.vue'
 import FileUpload from './FileUpload.vue'
 import IntakeGatePanel from './IntakeGatePanel.vue'
 import JurisdictionTestForm from './JurisdictionTestForm.vue'
-import LegalReviewCard from './LegalReviewCard.vue'
 import StepChecklistPanel from './StepChecklistPanel.vue'
 import RequestStageRail from './RequestStageRail.vue'
 import WizardShell from './WizardShell.vue'
@@ -41,15 +40,8 @@ const { t, te, locale } = useI18n()
 const DESTRUCTIVE = ['cancel', 'reject', 'reject_review', 'reject_formally', 'reject_by_committee', 'declare_no_jurisdiction']
 // The three requirements_check outcomes Art. 45's test gates (Stage 54).
 const CLASSIFYING = ['approve', 'declare_no_jurisdiction', 'reject_formally']
-// [D] Art. 21's five outcomes in the article's order; the two that permit
-// agenda insertion say so on the option.
-const VERDICTS = [
-  { code: 'sound_ready', permits: true },
-  { code: 'needs_document', permits: false },
-  { code: 'needs_clarification', permits: false },
-  { code: 'jurisdiction_note', permits: false },
-  { code: 'present_with_note', permits: true },
-]
+// The legal member's two answers; either returns the file to the pending list.
+const RECOMMENDATIONS = ['approve', 'decline']
 // Where each committee move posts. `defer` / `return_to_study` are workflow
 // rows and ride /transition like every other one.
 const COMMITTEE_ENDPOINTS = {
@@ -85,7 +77,6 @@ const checks = computed(() => {
   }
   // Workflow designer — slice 4. A custom step's checklist, for whoever is offered an outcome that waits on it.
   if (gates.value.step_checklist && [...available.value, ...blocked.value].some((item) => item.requires_checks)) list.push('step_checklist')
-  if (offersLegalOpinion.value) list.push('legal_card')
   return list
 })
 
@@ -119,15 +110,14 @@ const choices = computed(() => [
       isException: false,
     })),
   ...(offersLegalOpinion.value
-    ? VERDICTS.map((verdict) => ({
-      key: `verdict:${verdict.code}`,
+    ? RECOMMENDATIONS.map((code) => ({
+      key: `verdict:${code}`,
       kind: 'verdict',
-      action: verdict.code,
-      label: t(`meetingsUnit.legalReview.verdicts.${verdict.code}`),
-      meaning: t(verdict.permits ? 'meetingsUnit.legalReview.form.permitsAgenda' : 'meetingsUnit.legalReview.form.blocksAgenda'),
+      action: code,
+      label: t(`meetingsUnit.legalReview.recommendations.${code}`),
+      meaning: t('meetingsUnit.legalReview.recommendationMeaning'),
       destination: '',
-      // Mirrors StoreRequestLegalReviewRequest: every verdict but sound_ready carries the note.
-      requiresComment: verdict.code !== 'sound_ready',
+      requiresComment: false,
       isException: false,
     }))
     : []),
@@ -171,16 +161,8 @@ const blockedItems = computed(() => [
 
 const selected = ref('')
 const comment = ref('')
-const legalCard = ref({
-  primary_legislation: '',
-  article_reference: '',
-  supplementary_decision: '',
-  committee_mandate: '',
-  approving_body: '',
-  requires_central_approval: '',
-  legal_deadline: '',
-  prohibiting_conditions: '',
-})
+// The type's grade threshold suggests الوزير, as on the مقرر's results form.
+const authority = ref(props.request.requires_ministry_approval ? 'minister' : 'dean')
 const submitting = ref(false)
 const error = ref('')
 
@@ -254,8 +236,11 @@ async function post(item, note) {
     if (item.action !== 'send_to_legal_review' && note) body = { comment: note }
     await api.post(COMMITTEE_ENDPOINTS[item.action](id), body)
   } else {
-    const card = Object.fromEntries(Object.entries(legalCard.value).filter(([, value]) => value !== ''))
-    await api.post(`/requests/${id}/legal-reviews`, { ...card, verdict: item.action, ...(note ? { legal_note: note } : {}) })
+    await api.post(`/requests/${id}/legal-reviews`, {
+      recommendation: item.action,
+      approving_authority: authority.value,
+      ...(note ? { legal_note: note } : {}),
+    })
   }
   // Those endpoints answer with the list resource, not the workspace's.
   const { data } = await api.get(`/requests/${id}`)
@@ -386,7 +371,6 @@ if (props.initial?.action) {
           @updated="onCheckSaved"
         />
         <StepChecklistPanel v-else-if="check === 'step_checklist'" :request="request" @updated="onCheckSaved" />
-        <LegalReviewCard v-else-if="check === 'legal_card'" v-model="legalCard" :request-id="request.id" />
         <JurisdictionTestForm v-else :request="request" @updated="onCheckSaved" />
       </div>
     </template>
@@ -441,6 +425,13 @@ if (props.initial?.action) {
         <p class="slip-action">{{ choice?.label }}</p>
         <p v-if="choice?.destination" class="slip-destination">{{ choice.destination }}</p>
         <p v-if="actSpec?.summary" class="slip-destination">{{ actSpec.summary(t, request) }}</p>
+        <label v-if="choice?.kind === 'verdict'" class="slip-note">
+          <span>{{ t('meetingsUnit.legalReview.fields.approvingBody') }}<span class="required-mark" aria-hidden="true">*</span></span>
+          <select v-model="authority" required :disabled="submitting">
+            <option value="dean">{{ t('decisions.approvingAuthority.dean') }}</option>
+            <option value="minister">{{ t('decisions.approvingAuthority.minister') }}</option>
+          </select>
+        </label>
         <label v-if="showsNote" class="slip-note">
           <span>{{ choice?.requiresComment ? t('decisionWizard.slip.reasonRequired') : t('decisionWizard.slip.noteOptional') }}<span v-if="choice?.requiresComment" class="required-mark" aria-hidden="true">*</span></span>
           <textarea v-model="comment" rows="3" maxlength="5000" :required="choice?.requiresComment" :disabled="submitting" />

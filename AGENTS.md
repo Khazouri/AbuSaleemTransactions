@@ -205,7 +205,11 @@ Key architectural facts worth knowing before changing things:
   study sequence, presentation memos, generated and signed minutes, closing a
   meeting by hand, Art. 103's soundness card and the execution card. Don't
   bring any of it back piecemeal; a decision is written only by
-  `MeetingResultsController::store()`.
+  `MeetingResultsController::store()`. **The legal member enters a توصية
+  (`approve`/`decline`) and جهة الاعتماد only** (user decision 2026-10-19,
+  `request_legal_reviews.recommendation`/`approving_authority`). Either one
+  returns the file to the pending list, and the results form starts the row
+  from it; only a verdict recorded before then can still block the agenda.
 - **RTL/i18n**: layout CSS uses logical properties (`margin-inline-start`,
   `text-align: start`, etc.), not `left`/`right`, so the UI mirrors
   automatically when `vue-i18n` flips `dir` on `<html>`. Don't introduce

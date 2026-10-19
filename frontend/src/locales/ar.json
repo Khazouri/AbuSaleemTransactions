@@ -208,7 +208,7 @@
     "legalReviewBypass": "السماح للمقرر بتجاوز المراجعة القانونية",
     "meetingAcceptances": "عدد الأعضاء المطلوب قبولهم لموعد الاجتماع",
     "meetingAcceptancesHint": "يُعتمد الاجتماع حين يقبل موعده هذا العدد من المدعوين، ويُحتسب منهم المقرر لأنه مقترح الموعد. من 2 إلى 5.",
-    "legalReviewBypassHint": "عند التفعيل يستطيع المقرر إدراج أي طلب من قائمة الطلبات المعلقة في جدول أعمال الاجتماع دون موافقة العضو القانوني، ولا يُخرج رأي العضو القانوني الملف من القائمة.",
+    "legalReviewBypassHint": "عند التفعيل يستطيع المقرر إدراج أي طلب من قائمة الطلبات المعلقة في جدول أعمال الاجتماع قبل أن يسجّل العضو القانوني توصيته.",
     "taskColors": "ألوان فئات المهام المعلقة",
     "taskColorsHint": "تُلوَّن مهام كل فئة في صفحة «المهام المعلقة» بلونها، في الوضعين الفاتح والداكن."
   },
@@ -817,7 +817,8 @@
       "verdict": "النتيجة",
       "reviewedBy": "العضو القانوني",
       "reviewedAt": "تاريخ المراجعة",
-      "rounds": "عدد جولات المراجعة"
+      "rounds": "عدد جولات المراجعة",
+      "recommendation": "توصية العضو القانوني"
     },
     "linkedDocuments": {
       "kinds": {
@@ -1262,21 +1263,9 @@
       "actions": {
         "openFile": "فتح الملف"
       },
-      "form": {
-        "appendix21": "ملاحظة إجرائية:",
-        "history": "المراجعات السابقة",
-        "permitsAgenda": "هذه النتيجة تجيز إدراج الملف في جدول الأعمال.",
-        "blocksAgenda": "هذه النتيجة توقف الإدراج إلى حين الاستكمال أو التصحيح ثم إعادة المراجعة."
-      },
       "fields": {
         "primaryLegislation": "التشريع الأساسي",
-        "articleReference": "رقم المادة",
-        "supplementaryDecision": "القرار أو المنشور المكمل",
-        "committeeMandate": "اختصاص اللجنة",
         "approvingBody": "جهة الاعتماد",
-        "requiresCentralApproval": "هل يلزم اعتماد مركزي؟",
-        "legalDeadline": "هل توجد مدة قانونية؟",
-        "prohibitingConditions": "هل توجد شروط مانعة؟",
         "legalNote": "ملاحظة العضو القانوني"
       },
       "verdicts": {
@@ -1286,17 +1275,11 @@
         "jurisdiction_note": "توجد ملاحظة بشأن الاختصاص",
         "present_with_note": "مسألة قانونية تستوجب العرض مع بيانها"
       },
-      "mandates": {
-        "decision": "قرار",
-        "recommendation": "توصية",
-        "opinion": "رأي",
-        "study_only": "دراسة فقط"
+      "recommendations": {
+        "approve": "توصية بالموافقة",
+        "decline": "توصية بعدم الموافقة"
       },
-      "centralApproval": {
-        "yes": "نعم",
-        "no": "لا",
-        "needs_verification": "يحتاج إلى تحقق"
-      }
+      "recommendationMeaning": "يعود الملف إلى قائمة الطلبات المعلّقة لدى المقرر."
     }
   },
   "reopenReasons": {
@@ -2085,7 +2068,6 @@
       "employment_file": "تجهيز الملف الوظيفي",
       "intake": "البوابة الأولى: اكتمال الملف",
       "jurisdiction_test": "اختبار الاختصاص (المادة 45)",
-      "legal_card": "بطاقة السند القانوني",
       "step_checklist": "قائمة التحقق في هذه المرحلة"
     },
     "choose": {
@@ -2095,7 +2077,7 @@
       "blocked": "غير متاح بعد",
       "toChecks": "الانتقال إلى التحققات",
       "none": "لا يوجد إجراء متاح لك الآن. أكمل التحققات أولاً.",
-      "verdicts": "رأيك القانوني",
+      "verdicts": "توصيتك",
       "meetingLede": "اختر الإجراء الذي تتخذه على الاجتماع."
     },
     "slip": {
@@ -2317,6 +2299,7 @@
     "recordDecision": "تسجيل القرار",
     "authorityNotYours": "ليس لك قرار على هذا الطلب.",
     "resultsRecorded": "أُدخلت النتائج في {date} بواسطة {name}.",
-    "openMinutes": "عرض المحضر"
+    "openMinutes": "عرض المحضر",
+    "legalRecommendation": "توصية العضو القانوني: {recommendation} · جهة الاعتماد: {authority}"
   }
 }

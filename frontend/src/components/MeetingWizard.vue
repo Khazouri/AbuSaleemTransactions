@@ -42,9 +42,12 @@ onMounted(async () => {
     const { data } = await api.get(`/meetings/${props.meetingId}`)
     meeting.value = data.data
     resultRows.value = Object.fromEntries((meeting.value.agenda_items ?? []).map((item) => [item.id, {
-      recommendation: '',
+      // 2026-10-19 — a request row starts from the legal member's توصية.
+      recommendation: item.request?.legal_recommendation?.recommendation ?? '',
       // An appeal row names no جهة الاعتماد, so it never carries one.
-      approving_authority: item.item_type === 'appeal' ? null : item.request?.suggested_authority ?? 'dean',
+      approving_authority: item.item_type === 'appeal'
+        ? null
+        : item.request?.legal_recommendation?.approving_authority ?? item.request?.suggested_authority ?? 'dean',
       note: '',
     }]))
   } catch (requestError) {
