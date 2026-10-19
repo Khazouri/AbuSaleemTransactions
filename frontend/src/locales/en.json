@@ -1551,7 +1551,8 @@
       "request_notice": "Request notice (Art. 101)",
       "reference_assigned": "Reference number assigned",
       "request_notice_copy": "Copy of the employee notice",
-      "meeting_invitation_response": "Answer to a meeting date"
+      "meeting_invitation_response": "Answer to a meeting date",
+      "legal_review": "Legal review"
     }
   },
   "employeeNotices": {

@@ -19,6 +19,39 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-19 14:10 EET — Claude — The legal member and the مقرر are notified around the legal review (complete)
+
+Built per the plan below. No migration or seeder. `CommitteeStatusService` now takes `NotificationDispatcher` through
+its constructor; nothing instantiates it with `new`. The notice names no verdict or recommendation, so it reads the
+same before and after main-wt's `feat/legal-recommendation` form change, which sends every review through
+`pass_legal_review`.
+
+Verified:
+- `LegalReviewNotificationTest` went RED, then GREEN;
+- full suite 813 / 5213 green; Pint clean on the touched PHP; build passes (`dist` committed, production API URL in
+  the bundle);
+- parity 1856; `aislop ci` exit 0 (98).
+
+Not checked in a browser. `graphify update` was not run: main-wt holds another session's uncommitted graph.
+
+---
+### 2026-10-19 13:45 EET — Claude — Implementation plan: the legal member and the مقرر are notified around the legal review
+
+User: «a notification should reach العضو القانوني when المقرر delegates a request, and another should reach the مقرر
+when القانوني submits his recommendation». Built on its own worktree and branch (`feat/legal-review-notifications`),
+because another session was editing main-wt's legal review form at the same time. Plan:
+- `CommitteeStatusService::move()` is where both events pass through: `send_to_legal_review` (from the candidates list
+  and the legal review screen), and `pass_legal_review`/`fail_legal_review` (the recorded review). After the move it
+  calls a new `NotificationDispatcher::legalReviewRequested()` or `legalReviewRecorded()`;
+- the recipient is the active holder of the sole post (`User::activeSeatHolder('legal')` /
+  `activeRapporteur()`), never the actor;
+- one notification class, `LegalReviewNotification`, with one event type, `legal_review` (in-app and email on), plus
+  its label in both locale files.
+
+A suspension review (Art. 105) makes no move, so it notifies nobody. Verify: a new `LegalReviewNotificationTest` (RED
+then GREEN), full PHPUnit, Pint, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-19 12:55 EET — Claude — Each «المهام المعلقة» category has a colour R08 picks in Settings (complete)
 
 Built per the plan below; no migration. `SettingSeeder` was run on the real MySQL and wrote all 12 `task_color_*` rows,

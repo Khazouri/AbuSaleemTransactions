@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\DB;
  */
 class CommitteeStatusService
 {
+    public function __construct(private readonly NotificationDispatcher $notifications) {}
+
     /**
      * action => [from statuses, to status, whether a comment is required].
      *
@@ -202,7 +204,7 @@ class CommitteeStatusService
             throw CommitteeStatusTransitionException::commentRequired();
         }
 
-        return DB::transaction(function () use ($requestRecord, $rule, $action, $actor, $comment) {
+        $moved = DB::transaction(function () use ($requestRecord, $rule, $action, $actor, $comment) {
             $locked = Request::query()
                 ->lockForUpdate()
                 ->findOrFail($requestRecord->getKey());
@@ -228,6 +230,16 @@ class CommitteeStatusService
 
             return $locked->refresh();
         });
+
+        // Every hand-off to the legal member and every recorded review passes
+        // through here, whichever screen started it.
+        match ($action) {
+            'send_to_legal_review' => $this->notifications->legalReviewRequested($moved, $actor),
+            'pass_legal_review', 'fail_legal_review' => $this->notifications->legalReviewRecorded($moved, $actor),
+            default => null,
+        };
+
+        return $moved;
     }
 
     /**
