@@ -12,6 +12,7 @@ use App\Models\WorkflowTransition;
 use App\Notifications\ActionRequiredNotification;
 use App\Notifications\AppealDecidedNotification;
 use App\Notifications\FinancialImpactReviewNotification;
+use App\Notifications\LegalReviewNotification;
 use App\Notifications\MeetingInvitationResponseNotification;
 use App\Notifications\MeetingScheduledNotification;
 use App\Notifications\RequestCreatedNotification;
@@ -280,6 +281,28 @@ class NotificationDispatcher
         $this->send(
             $this->ownersOf($requestRecord, [$actor->id]),
             new RequestReferenceAssignedNotification($requestRecord),
+        );
+    }
+
+    /**
+     * 2026-10-19 (user decision) — the مقرر handed a file to العضو القانوني.
+     * The legal seat is a sole post, so its one active holder is told rather
+     * than everyone with the legal review screen.
+     */
+    public function legalReviewRequested(Request $requestRecord, User $actor): void
+    {
+        $this->send(
+            collect([User::activeSeatHolder('legal', $actor->id)])->filter(),
+            new LegalReviewNotification($requestRecord, recorded: false),
+        );
+    }
+
+    /** 2026-10-19 (user decision) — the legal member's review is in; the مقرر picks the file up again. */
+    public function legalReviewRecorded(Request $requestRecord, User $actor): void
+    {
+        $this->send(
+            collect([User::activeRapporteur($actor->id)])->filter(),
+            new LegalReviewNotification($requestRecord, recorded: true),
         );
     }
 

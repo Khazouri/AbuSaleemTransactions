@@ -65,6 +65,9 @@ class NotificationSetting extends Model
         // Stage 102 — a member accepted or declined the proposed date; the
         // مقرر acts on a decline, so the `meeting_scheduled` defaults.
         'meeting_invitation_response' => ['in_app' => true, 'email' => true, 'sms' => false],
+        // 2026-10-19 — a file handed to the legal member, or their review back
+        // to the مقرر. Both ask the reader to act, so email is on.
+        'legal_review' => ['in_app' => true, 'email' => true, 'sms' => false],
     ];
 
     /** The preference columns, in the order the preferences screen shows them. */

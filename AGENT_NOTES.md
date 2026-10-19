@@ -19,6 +19,39 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-19 14:35 EET — Claude — The legal member and the مقرر are notified around the legal review (complete)
+
+Built per the plan below. No migration or seeder. `CommitteeStatusService` now takes `NotificationDispatcher` through
+its constructor; nothing instantiates it with `new`. The notice names no verdict or recommendation, so it reads the
+same before and after main-wt's `feat/legal-recommendation` form change, which sends every review through
+`pass_legal_review`.
+
+Verified:
+- `LegalReviewNotificationTest` went RED, then GREEN;
+- full suite 812 / 5180 green after merging main; Pint clean on the touched PHP; build passes (`dist` committed, production API URL in
+  the bundle);
+- parity 1843 after merging main; `aislop ci` exit 0 (98).
+
+Not checked in a browser. `graphify update` was not run: main-wt holds another session's uncommitted graph.
+
+---
+### 2026-10-19 13:45 EET — Claude — Implementation plan: the legal member and the مقرر are notified around the legal review
+
+User: «a notification should reach العضو القانوني when المقرر delegates a request, and another should reach the مقرر
+when القانوني submits his recommendation». Built on its own worktree and branch (`feat/legal-review-notifications`),
+because another session was editing main-wt's legal review form at the same time. Plan:
+- `CommitteeStatusService::move()` is where both events pass through: `send_to_legal_review` (from the candidates list
+  and the legal review screen), and `pass_legal_review`/`fail_legal_review` (the recorded review). After the move it
+  calls a new `NotificationDispatcher::legalReviewRequested()` or `legalReviewRecorded()`;
+- the recipient is the active holder of the sole post (`User::activeSeatHolder('legal')` /
+  `activeRapporteur()`), never the actor;
+- one notification class, `LegalReviewNotification`, with one event type, `legal_review` (in-app and email on), plus
+  its label in both locale files.
+
+A suspension review (Art. 105) makes no move, so it notifies nobody. Verify: a new `LegalReviewNotificationTest` (RED
+then GREEN), full PHPUnit, Pint, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-19 14:20 EET — Claude — The legal member enters only a recommendation and جهة الاعتماد (complete)
 
 Built per the plan below. Migration `add_recommendation_to_request_legal_reviews` is applied to the real MySQL, and the
@@ -809,6 +842,7 @@ rule for it and the form never carries it. `EmploymentFilePreparationService` an
 that field, so HR's card silently loses its service-file rows after any edit. Fix: a `nullable|in:FILE_SECTIONS` rule
 with an Arabic message, and the form round-trips the field untouched. Verify: two new `RequestTypeCrudTest` cases (RED
 then GREEN), full PHPUnit, Pint, build (`dist` committed), parity, aislop ci.
+
 
 ---
 ### 2026-10-10 15:10 EET — Claude — A «مطلوب» checkbox per document row; HR checks every required one (complete)
