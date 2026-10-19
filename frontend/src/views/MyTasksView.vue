@@ -148,7 +148,13 @@ onMounted(load)
 
         <p v-if="truncated" class="alert warning">{{ t('myTasks.truncated') }}</p>
 
-        <section v-for="source in visibleSources" :key="source.code" class="group">
+        <!-- Each category's colour is R08's pick on the Settings screen (2026-10-19). -->
+        <section
+          v-for="source in visibleSources"
+          :key="source.code"
+          :class="['group', { tinted: source.color }]"
+          :style="source.color ? { '--task-color': source.color } : null"
+        >
           <h2>
             <AppIcon :name="ICON_BY_SOURCE[source.code] || 'dot'" />
             {{ sourceLabel(source.code) }}
@@ -298,6 +304,23 @@ h1 {
   background: var(--color-surface-hover);
 }
 
+/* The picked colour is one hex for both themes, so it is mixed into the
+   surface token rather than used as the fill: a light tint on a light page,
+   a dark one on a dark page, with the text colour readable on either. */
+.tinted .row {
+  background: color-mix(in srgb, var(--task-color) 12%, var(--color-surface));
+  border-inline-start-color: var(--task-color);
+}
+
+.tinted .row:hover {
+  background: color-mix(in srgb, var(--task-color) 20%, var(--color-surface));
+}
+
+.tinted h2 :deep(svg) {
+  color: var(--task-color);
+}
+
+/* More specific than .tinted .row, so a late task keeps its danger strip. */
 li.overdue .row {
   border-inline-start-color: var(--color-danger-fg);
 }
