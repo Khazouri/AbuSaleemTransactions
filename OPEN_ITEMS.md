@@ -13,6 +13,13 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The guide and test plans still describe Art. 21's five verdicts and Appendix 22's card — legal recommendation — opened 2026-10-19
+Since 2026-10-19 the legal member enters only a توصية (موافقة / عدم موافقة) and جهة الاعتماد, and neither blocks the
+file. `USER_GUIDE.ar.md` and the `TEST_PLAN*.md` files still walk through the five verdicts, the «مطلوب استكمال» loop
+they triggered, and the card's eight fields. The same form also serves Art. 105's suspension review, where a توصية is
+an odd fit. **To close:** update those sections (and the PDF), and ask the user whether a suspension review should
+keep a form of its own.
+
 ### Art. 98's register 9 (سجل التنفيذ) and Appendix 10's two execution warnings are gone — paper meeting slice 2 — opened 2026-10-18
 Slice 2 deleted the execution leg (user decision 2026-10-18: no execution step), and with it every record an
 execution wrote. So `ExecutionRegister`, Appendix 10's «ورد اعتمادها ولم تنفذ» and «نفذت ولم تحدث في ملف الموظف»,

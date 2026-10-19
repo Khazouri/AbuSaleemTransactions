@@ -45,6 +45,12 @@ function choose(files) {
           <strong>{{ item.request?.title }}</strong>
           <span class="meta">{{ item.request?.subject_name }}<template v-if="item.request?.request_type"> · {{ typeName(item.request.request_type) }}</template></span>
         </p>
+        <p v-if="item.request?.legal_recommendation" class="legal">
+          {{ t('paperMeeting.legalRecommendation', {
+            recommendation: t(`meetingsUnit.legalReview.recommendations.${item.request.legal_recommendation.recommendation}`),
+            authority: t(`decisions.approvingAuthority.${item.request.legal_recommendation.approving_authority}`),
+          }) }}
+        </p>
 
         <fieldset class="choice" :disabled="disabled">
           <legend>
@@ -103,6 +109,7 @@ function choose(files) {
 .number { display: inline-grid; place-items: center; min-inline-size: 1.75rem; block-size: 1.75rem; border-radius: var(--radius-full); background: var(--color-brand); color: var(--color-on-brand); font-size: var(--text-sm); }
 .reference { color: var(--color-black-600); font-size: var(--text-sm); }
 .meta { color: var(--color-black-600); font-size: var(--text-sm); }
+.legal { margin: 0; color: var(--color-info-fg); font-size: var(--text-sm); }
 .choice { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; border: 0; min-inline-size: 0; }
 .choice legend { margin-block-end: var(--space-1); padding: 0; color: var(--color-black-700); font-size: var(--text-sm); }
 .pill-choice { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-full); cursor: pointer; }

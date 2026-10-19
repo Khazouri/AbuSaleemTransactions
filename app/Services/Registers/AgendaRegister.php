@@ -214,9 +214,18 @@ class AgendaRegister extends Register
         return ($preferred ?: $fallback) ?: null;
     }
 
-    /** @param array{verdict: string|null, note: string|null, legal_deadline: string|null} $legal */
+    /** @param array{recommendation: string|null, verdict: string|null, note: string|null, legal_deadline: string|null} $legal */
     private function legalVerdict(array $legal, string $locale): ?string
     {
+        // 2026-10-19 — a review records a توصية; older rows carry a verdict.
+        $recommendations = [
+            'approve' => ['ar' => 'توصية بالموافقة', 'en' => 'Recommends approval'],
+            'decline' => ['ar' => 'توصية بعدم الموافقة', 'en' => 'Recommends refusal'],
+        ];
+        if (($legal['recommendation'] ?? null) !== null) {
+            return $this->label($recommendations, $legal['recommendation'], $locale);
+        }
+
         $verdicts = [
             'sound_ready' => ['ar' => 'سليم قانونياً وجاهز للعرض', 'en' => 'Legally sound, ready'],
             'needs_document' => ['ar' => 'يحتاج إلى استكمال مستند', 'en' => 'Needs a document'],

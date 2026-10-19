@@ -20,7 +20,11 @@ class RequestLegalReviewResource extends JsonResource
             'id' => $this->id,
             'request_id' => $this->request_id,
 
-            // Appendix 22 — بطاقة السند القانوني
+            // 2026-10-19 — all the legal member enters now.
+            'recommendation' => $this->recommendation,
+            'approving_authority' => $this->approving_authority,
+
+            // Appendix 22 — بطاقة السند القانوني, on rows before 2026-10-19
             'primary_legislation' => $this->primary_legislation,
             'article_reference' => $this->article_reference,
             'supplementary_decision' => $this->supplementary_decision,

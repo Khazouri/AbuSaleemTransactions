@@ -8,8 +8,6 @@ use App\Http\Requests\RequestLegalReview\StoreRequestLegalReviewRequest;
 use App\Http\Resources\RequestLegalReviewResource;
 use App\Http\Resources\RequestResource;
 use App\Models\Request;
-use App\Models\RequestLegalReview;
-use App\Models\Setting;
 use App\Services\CommitteeStatusService;
 use App\Services\RequestSuspensionService;
 use Illuminate\Http\Request as HttpRequest;
@@ -25,7 +23,7 @@ use Illuminate\Validation\ValidationException;
  * Four actions, split across two permission tiers per Appendix 6's RACI row
  * for المراجعة القانونية (العضو القانوني = مسؤول، مقرر اللجنة = منسق):
  *   - requestReview()  `legal_review,edit`  — the rapporteur hands the file over
- *   - store()          `legal_review,add`   — the legal member records a verdict
+ *   - store()          `legal_review,add`   — the legal member records a توصية
  *   - index()/show()   `legal_review,view`  — Art. 21 requires the recorded
  *                                             opinion to be readable by the
  *                                             committee at study time
@@ -49,9 +47,7 @@ class RequestLegalReviewController extends Controller
         $requests = $committeeStatus->legalReviewQueueQuery()
             ->with([
                 'department:id,name_ar,name_en,code',
-                // Appendix 21's per-subject legal basis rides the type and
-                // pre-fills Appendix 22's card, so the queue carries it too.
-                'requestType:id,code,name_ar,name_en,legal_basis_ar,legal_basis_note_ar',
+                'requestType:id,code,name_ar,name_en',
                 'status:id,code,name_ar,name_en,color',
                 'currentStage:id,order_no,code,name_ar,name_en',
                 'createdBy:id,name',
@@ -69,17 +65,10 @@ class RequestLegalReviewController extends Controller
      * One request's full review history, oldest first — Art. 21's "ويثبت الرأي
      * أو الملاحظة القانونية في الملف بما يسمح لأعضاء اللجنة بالاطلاع عليها عند
      * الدراسة" is why every round is returned, not just the latest.
-     *
-     * `legal_basis` echoes Appendix 21's per-type row so the review form can
-     * pre-fill Appendix 22's card rather than making the legal member retype a
-     * statute citation the manual already fixes for that subject.
      */
     public function show(Request $requestRecord): array
     {
-        $requestRecord->loadMissing([
-            'requestType:id,code,name_ar,name_en,legal_basis_ar,legal_basis_note_ar',
-            'legalReviews.reviewedBy:id,name',
-        ]);
+        $requestRecord->loadMissing('legalReviews.reviewedBy:id,name');
 
         return [
             'data' => [
@@ -87,10 +76,6 @@ class RequestLegalReviewController extends Controller
                     'id' => $requestRecord->id,
                     'reference_number' => $requestRecord->reference_number,
                     'title' => $requestRecord->title,
-                ],
-                'legal_basis' => [
-                    'primary_legislation' => $requestRecord->requestType?->legal_basis_ar,
-                    'procedural_note' => $requestRecord->requestType?->legal_basis_note_ar,
                 ],
                 'reviews' => RequestLegalReviewResource::collection(
                     $requestRecord->legalReviews->sortBy('id')->values(),
@@ -128,12 +113,6 @@ class RequestLegalReviewController extends Controller
         $validated = $request->validated();
         $actor = $request->user();
 
-        // R08's Settings checkbox (user decision 2026-10-16): the verdict is
-        // still recorded, but every one returns the file to the pending list
-        // so the مقرر may present it anyway.
-        $permits = Setting::enabled(Setting::LEGAL_REVIEW_BYPASS)
-            || in_array($validated['verdict'], RequestLegalReview::PERMITTING_VERDICTS, strict: true);
-
         // Stage 78 — Art. 105's referral is the other reason a file can be in
         // front of the legal member, and it is not Art. 21's. A suspended
         // request is not at `receive_from_committee` and not on
@@ -146,22 +125,15 @@ class RequestLegalReviewController extends Controller
             === RequestSuspensionService::SUSPENDED_STATUS;
 
         try {
-            $review = DB::transaction(function () use ($requestRecord, $validated, $actor, $committeeStatus, $permits, $isSuspensionReview) {
+            $review = DB::transaction(function () use ($requestRecord, $validated, $actor, $committeeStatus, $isSuspensionReview) {
                 // move() locks the request row and enforces that it is
                 // actually at `under_legal_review`; running it FIRST means a
                 // request that was never handed over never gets a review row
-                // written for it either.
+                // written for it either. A recommendation is advice to the
+                // committee (2026-10-19), so either one returns the file to
+                // the pending list.
                 if (! $isSuspensionReview) {
-                    $committeeStatus->move(
-                        $requestRecord,
-                        $permits ? 'pass_legal_review' : 'fail_legal_review',
-                        $actor,
-                        // fail_legal_review requires a comment; the legal
-                        // member's own note is that comment, and the
-                        // FormRequest has already guaranteed it is present for
-                        // every blocking verdict.
-                        $validated['legal_note'] ?? null,
-                    );
+                    $committeeStatus->move($requestRecord, 'pass_legal_review', $actor, $validated['legal_note'] ?? null);
                 }
 
                 return $requestRecord->legalReviews()->create([
@@ -171,7 +143,7 @@ class RequestLegalReviewController extends Controller
                 ]);
             });
         } catch (CommitteeStatusTransitionException $exception) {
-            throw ValidationException::withMessages(['verdict' => [$exception->getMessage()]]);
+            throw ValidationException::withMessages(['recommendation' => [$exception->getMessage()]]);
         }
 
         return (new RequestLegalReviewResource($review->load('reviewedBy:id,name')))

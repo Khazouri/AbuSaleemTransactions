@@ -59,6 +59,14 @@ class MeetingRequestResource extends JsonResource
                 'suggested_authority' => $this->request->relationLoaded('requestType')
                     ? ($this->request->requiresMinistryApproval() ? 'minister' : 'dean')
                     : null,
+                // 2026-10-19 — the legal member's توصية and جهة الاعتماد, which
+                // the results form starts the row from.
+                'legal_recommendation' => $this->request->relationLoaded('latestLegalReview') && $this->request->latestLegalReview?->recommendation
+                    ? [
+                        'recommendation' => $this->request->latestLegalReview->recommendation,
+                        'approving_authority' => $this->request->latestLegalReview->approving_authority,
+                    ]
+                    : null,
                 'stage_code' => $this->request->relationLoaded('currentStage') ? $this->request->currentStage?->code : null,
                 'subject_name' => $this->request->relationLoaded('subject') ? $this->request->subject?->name : null,
                 'request_type' => $this->request->relationLoaded('requestType') && $this->request->requestType ? [
