@@ -31,6 +31,7 @@ class UpdateSettingRequest extends FormRequest
             'value.required' => 'هذا الإعداد يحتاج إلى قيمة.',
             'value.integer' => 'القيمة يجب أن تكون عددًا صحيحًا.',
             'value.between' => 'عدد الأعضاء المطلوب قبولهم يجب أن يكون بين :min و:max.',
+            'value.regex' => 'اللون يجب أن يكون بالصيغة #rrggbb.',
         ];
     }
 }

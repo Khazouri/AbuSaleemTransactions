@@ -38,5 +38,24 @@ class SettingSeeder extends Seeder
             ['key' => Setting::MEETING_ACCEPTANCES_REQUIRED],
             ['value' => '3'],
         );
+
+        // User decision 2026-10-19 — one colour per «المهام المعلقة» source,
+        // distinct hues that still read as a light tint on either theme.
+        foreach ([
+            'approval' => '#2e7d32',
+            'candidate' => '#1565c0',
+            'legal_review' => '#6a1b9a',
+            'meeting_invitation' => '#00838f',
+            'meeting_due' => '#0277bd',
+            'completion' => '#ef6c00',
+            'workflow_step' => '#558b2f',
+            'overdue' => '#c62828',
+            'meeting_duty' => '#00695c',
+            'post_decision' => '#4527a0',
+            'open_record' => '#795548',
+            'appeal' => '#ad1457',
+        ] as $source => $color) {
+            Setting::firstOrCreate(['key' => Setting::TASK_COLOR_PREFIX.$source], ['value' => $color]);
+        }
     }
 }

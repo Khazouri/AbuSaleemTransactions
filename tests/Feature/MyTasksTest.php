@@ -13,6 +13,7 @@ use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\Role;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
@@ -384,6 +385,32 @@ class MyTasksTest extends TestCase
             $data['total'],
         );
         $this->assertFalse($data['truncated']);
+    }
+
+    /**
+     * Each category carries the colour R08 picked on the Settings screen, and a
+     * colour that is not a #rrggbb hex never reaches the setting, since the
+     * page writes it straight into CSS.
+     */
+    public function test_each_source_carries_the_colour_picked_in_settings(): void
+    {
+        $employee = $this->userWithRole('R01');
+        $this->requestAt('receive_from_municipality', 'completion_required', $employee);
+
+        $setting = Setting::where('key', 'task_color_completion')->firstOrFail();
+        $admin = $this->userWithRole('R08');
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson("/api/settings/{$setting->id}", ['key' => $setting->key, 'value' => 'red; background: url(x)'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('value');
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson("/api/settings/{$setting->id}", ['key' => $setting->key, 'value' => '#12AB9f'])
+            ->assertOk();
+
+        $sources = $this->inbox($employee);
+        $this->assertSame('#12AB9f', $sources['completion']['color']);
     }
 
     /** @return array<string, array<string, mixed>> keyed by source code */

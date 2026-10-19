@@ -208,7 +208,9 @@
     "legalReviewBypass": "Let the rapporteur skip the legal review",
     "meetingAcceptances": "Members who must accept a meeting date",
     "meetingAcceptancesHint": "A meeting is confirmed once this many invitees accept its date. The rapporteur proposes the date, so they count. From 2 to 5.",
-    "legalReviewBypassHint": "While ticked, the rapporteur can put any pending request on a meeting agenda without the legal member's approval, and a legal verdict no longer takes the file off the pending list."
+    "legalReviewBypassHint": "While ticked, the rapporteur can put any pending request on a meeting agenda without the legal member's approval, and a legal verdict no longer takes the file off the pending list.",
+    "taskColors": "My Tasks category colours",
+    "taskColorsHint": "Each category's tasks on the My Tasks page are tinted with its colour, in both light and dark mode."
   },
   "templates": {
     "title": "Templates & Forms",

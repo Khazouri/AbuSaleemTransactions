@@ -19,6 +19,36 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-19 12:55 EET — Claude — Each «المهام المعلقة» category has a colour R08 picks in Settings (complete)
+
+Built per the plan below; no migration. `SettingSeeder` was run on the real MySQL and wrote all 12 `task_color_*` rows,
+checked with `Setting::taskColors()`. Only a `#rrggbb` hex is accepted (Arabic `value.regex` message), because the
+page writes it into a CSS variable. The Settings card lists whichever `task_color_*` rows exist, so a new source needs
+only a seeder line. Verified:
+- the new `MyTasksTest` case went RED, then GREEN;
+- full suite **789 / 5044 + 9 + 14** green; Pint clean on the touched PHP; build passes (`dist` committed, production API URL in the bundle);
+- parity 1855; `aislop ci` exit 0.
+
+Headless screenshots of My Tasks and Settings against a mocked API (no DB writes), ar light/dark and en dark: the
+tints read in both themes, a late task keeps its red strip, there is no page overflow and there are no console errors.
+
+---
+### 2026-10-19 12:31 EET — Claude — Implementation plan: each «المهام المعلقة» category has a colour R08 picks in Settings
+
+User: «My-tasks keep every task category background in a specific color that can be picked from the admin settings».
+The user skipped the questions, so these are my calls:
+- each of the 12 `PendingTaskCollector` sources gets a seeded setting `task_color_<code>` (a `#rrggbb` value,
+  `firstOrCreate`, so a reseed never overwrites a picked colour). `Setting::valueRules()` takes only a hex for those
+  keys;
+- `collect()` adds `color` to each source in one query;
+- `MyTasksView` tints every row with `color-mix()` into `--color-surface`, so the same hex works in both themes, and
+  gives the row's start strip the full colour (overdue's danger strip still wins);
+- `SettingsView` shows a colour picker per category and keeps those keys out of the generic table.
+
+No migration. Verify: a new `MyTasksTest` case plus a Settings validation case (RED then GREEN), full PHPUnit, Pint,
+build (`dist` committed), parity, aislop ci, `SettingSeeder` on the real DB.
+
+---
 ### 2026-10-18 23:30 EET — Claude — The paper meeting, slice 2: the in-system sitting deleted, appeals back on the paper agenda (complete)
 
 Built per the plan below. Migration `drop_the_in_system_sitting` is applied to the real MySQL; every dropped table and

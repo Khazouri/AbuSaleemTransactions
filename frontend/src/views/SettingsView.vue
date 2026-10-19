@@ -27,7 +27,13 @@ const BYPASS_KEY = 'legal_review_bypass'
 const ACCEPTANCES_KEY = 'meeting_acceptances_required'
 const bypass = computed(() => settings.value.find((s) => s.key === BYPASS_KEY))
 const acceptances = computed(() => settings.value.find((s) => s.key === ACCEPTANCES_KEY))
-const rows = computed(() => settings.value.filter((s) => ![BYPASS_KEY, ACCEPTANCES_KEY].includes(s.key)))
+// «المهام المعلقة»'s category colours (user decision 2026-10-19), one seeded
+// `task_color_<source>` row each, read by the server as Setting::taskColors().
+const COLOR_PREFIX = 'task_color_'
+const taskColors = computed(() => settings.value.filter((s) => s.key.startsWith(COLOR_PREFIX)))
+const rows = computed(() =>
+  settings.value.filter((s) => ![BYPASS_KEY, ACCEPTANCES_KEY].includes(s.key) && !s.key.startsWith(COLOR_PREFIX)),
+)
 const ownSaving = ref(false)
 
 /** Saves one typed setting; false (with the server's reason shown) when refused. */
@@ -57,6 +63,10 @@ async function saveAcceptances(event) {
   if (!(await saveOwn(acceptances.value, ACCEPTANCES_KEY, event.target.value))) {
     event.target.value = acceptances.value?.value ?? '3'
   }
+}
+
+async function saveColor(setting, event) {
+  if (!(await saveOwn(setting, setting.key, event.target.value))) event.target.value = setting.value
 }
 
 const blankForm = () => ({ key: '', value: '' })
@@ -197,6 +207,18 @@ onMounted(load)
       <small class="hint">{{ t('settings.meetingAcceptancesHint') }}</small>
     </div>
 
+    <!-- My Tasks category colours (user decision 2026-10-19). -->
+    <div v-if="!loading && !loadError && taskColors.length" v-can="'settings.edit'" class="card card-flat card-pad toggle">
+      <strong>{{ t('settings.taskColors') }}</strong>
+      <small class="hint">{{ t('settings.taskColorsHint') }}</small>
+      <div class="colors">
+        <label v-for="setting in taskColors" :key="setting.id" class="color">
+          <input type="color" :value="setting.value" :disabled="ownSaving" @change="saveColor(setting, $event)" />
+          {{ t(`myTasks.sources.${setting.key.slice(COLOR_PREFIX.length)}`) }}
+        </label>
+      </div>
+    </div>
+
     <div class="card card-flat card-pad list">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="loadError" class="alert">{{ t('nav.error') }} <button class="ghost" @click="load">{{ t('common.retry') }}</button></p>
@@ -229,6 +251,9 @@ textarea { resize: vertical; }
 .checkbox { flex-direction: row; align-items: center; gap: var(--space-2); color: var(--color-foreground); }
 .checkbox input { padding: 0; }
 .count { inline-size: 6rem; }
+.colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr)); gap: var(--space-2); }
+.color { flex-direction: row; align-items: center; gap: var(--space-2); color: var(--color-foreground); }
+.color input { inline-size: 2.5rem; block-size: 2rem; padding: .1rem; cursor: pointer; }
 .value { white-space: pre-wrap; }
 .row-actions { display: flex; justify-content: flex-end; gap: var(--space-2); white-space: nowrap; }
 </style>

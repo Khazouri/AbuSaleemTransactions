@@ -8,6 +8,7 @@ use App\Models\AppealStatus;
 use App\Models\Committee;
 use App\Models\Meeting;
 use App\Models\Request;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\WorkflowTransition;
 use App\Services\CommitteeStatusService;
@@ -94,6 +95,9 @@ class PendingTaskCollector
             $this->openRecords($actor),
             $this->appeals($actor),
         ]));
+
+        $colors = Setting::taskColors();
+        $sources = array_map(fn (array $source) => [...$source, 'color' => $colors[$source['code']] ?? null], $sources);
 
         return [
             'sources' => $sources,
