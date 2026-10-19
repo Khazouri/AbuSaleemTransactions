@@ -208,7 +208,7 @@
     "legalReviewBypass": "Let the rapporteur skip the legal review",
     "meetingAcceptances": "Members who must accept a meeting date",
     "meetingAcceptancesHint": "A meeting is confirmed once this many invitees accept its date. The rapporteur proposes the date, so they count. From 2 to 5.",
-    "legalReviewBypassHint": "While ticked, the rapporteur can put any pending request on a meeting agenda without the legal member's approval, and a legal verdict no longer takes the file off the pending list.",
+    "legalReviewBypassHint": "While ticked, the rapporteur can put any pending request on a meeting agenda before the legal member records a recommendation.",
     "taskColors": "My Tasks category colours",
     "taskColorsHint": "Each category's tasks on the My Tasks page are tinted with its colour, in both light and dark mode."
   },
@@ -817,7 +817,8 @@
       "verdict": "Outcome",
       "reviewedBy": "Legal officer",
       "reviewedAt": "Reviewed on",
-      "rounds": "Review rounds"
+      "rounds": "Review rounds",
+      "recommendation": "Legal member's recommendation"
     },
     "linkedDocuments": {
       "kinds": {
@@ -1262,21 +1263,9 @@
       "actions": {
         "openFile": "Open file"
       },
-      "form": {
-        "appendix21": "Procedural note:",
-        "history": "Earlier reviews",
-        "permitsAgenda": "This outcome allows the file onto a meeting agenda.",
-        "blocksAgenda": "This outcome holds the file back for completion or correction, then re-review."
-      },
       "fields": {
         "primaryLegislation": "Primary legislation",
-        "articleReference": "Article reference",
-        "supplementaryDecision": "Supplementary decision or circular",
-        "committeeMandate": "Committee's mandate",
         "approvingBody": "Approving body",
-        "requiresCentralApproval": "Central approval required?",
-        "legalDeadline": "Statutory deadline?",
-        "prohibitingConditions": "Prohibiting conditions?",
         "legalNote": "Legal officer's note"
       },
       "verdicts": {
@@ -1286,17 +1275,11 @@
         "jurisdiction_note": "There is a jurisdiction note",
         "present_with_note": "A legal issue requiring presentation with a statement"
       },
-      "mandates": {
-        "decision": "Decision",
-        "recommendation": "Recommendation",
-        "opinion": "Opinion",
-        "study_only": "Study only"
+      "recommendations": {
+        "approve": "Recommend approval",
+        "decline": "Recommend refusal"
       },
-      "centralApproval": {
-        "yes": "Yes",
-        "no": "No",
-        "needs_verification": "Needs verification"
-      }
+      "recommendationMeaning": "The file goes back to the rapporteur's pending list."
     }
   },
   "reopenReasons": {
@@ -2084,7 +2067,6 @@
       "employment_file": "Employment file",
       "intake": "Gate 1: file completeness",
       "jurisdiction_test": "Jurisdiction test (Art. 45)",
-      "legal_card": "Legal basis card",
       "step_checklist": "This step's checklist"
     },
     "choose": {
@@ -2094,7 +2076,7 @@
       "blocked": "Not available yet",
       "toChecks": "Go to checks",
       "none": "No action is open to you yet. Complete the checks first.",
-      "verdicts": "Your legal opinion",
+      "verdicts": "Your recommendation",
       "meetingLede": "Choose the act to take on this meeting."
     },
     "slip": {
@@ -2316,6 +2298,7 @@
     "recordDecision": "Record decision",
     "authorityNotYours": "This request is not yours to decide.",
     "resultsRecorded": "Results entered on {date} by {name}.",
-    "openMinutes": "View minutes"
+    "openMinutes": "View minutes",
+    "legalRecommendation": "Legal member: {recommendation} · approving authority: {authority}"
   }
 }

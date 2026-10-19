@@ -6,7 +6,6 @@ use App\Models\Committee;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\Request;
-use App\Models\RequestLegalReview;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\Role;
@@ -20,13 +19,15 @@ use Tests\TestCase;
 
 /**
  * Stage 68 — [D] Art. 21 / [E] stage 08's pre-meeting legal review: the review
- * record itself, Art. 38's status 07, the five-verdict routing, and the
- * agenda-insertion gate that is this stage's own done-when.
+ * record itself, Art. 38's status 07, and the agenda-insertion gate. Since
+ * 2026-10-19 the legal member records a توصية and جهة الاعتماد only.
  */
 class RequestLegalReviewTest extends TestCase
 {
     use PassesControlGates;
     use RefreshDatabase;
+
+    private const APPROVE = ['recommendation' => 'approve', 'approving_authority' => 'dean'];
 
     public function test_the_rapporteur_hands_a_ready_file_to_the_legal_member(): void
     {
@@ -56,201 +57,170 @@ class RequestLegalReviewTest extends TestCase
         $requestRecord = $this->committeeRequest('ready');
 
         $this->actingAs($legalOfficer, 'sanctum')
-            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", ['verdict' => 'sound_ready'])
+            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", self::APPROVE)
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('verdict');
+            ->assertJsonValidationErrors('recommendation');
 
         // The status move runs first inside the same transaction, so a refused
         // move must leave no review row behind either.
         $this->assertSame(0, $requestRecord->legalReviews()->count());
     }
 
-    /** Art. 21's five outcomes, each landing on the status [E] stage 08 routes it to. */
-    public function test_each_of_the_five_verdicts_lands_on_the_right_status(): void
+    /**
+     * 2026-10-19 — the legal member enters a توصية and جهة الاعتماد only, and
+     * either توصية returns the file to the pending list: «عدم موافقة» is advice
+     * to the committee, not a block.
+     */
+    public function test_either_recommendation_returns_the_file_to_the_pending_list(): void
     {
         $this->seed(DatabaseSeeder::class);
         $legalOfficer = $this->userWithRole('R11');
 
-        $expected = [
-            'sound_ready' => 'ready',
-            'present_with_note' => 'ready',
-            'needs_document' => 'completion_required',
-            'needs_clarification' => 'completion_required',
-            'jurisdiction_note' => 'completion_required',
-        ];
-
-        foreach ($expected as $verdict => $statusCode) {
+        foreach (['approve' => 'dean', 'decline' => 'minister'] as $recommendation => $authority) {
             $requestRecord = $this->committeeRequest('under_legal_review');
 
             $this->actingAs($legalOfficer, 'sanctum')
                 ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
-                    'verdict' => $verdict,
-                    'legal_note' => 'ملاحظة العضو القانوني.',
+                    'recommendation' => $recommendation,
+                    'approving_authority' => $authority,
                 ])
                 ->assertCreated()
-                ->assertJsonPath('data.verdict', $verdict)
-                ->assertJsonPath(
-                    'data.permits_agenda',
-                    in_array($verdict, RequestLegalReview::PERMITTING_VERDICTS, strict: true),
-                );
+                ->assertJsonPath('data.recommendation', $recommendation)
+                ->assertJsonPath('data.approving_authority', $authority)
+                ->assertJsonPath('data.permits_agenda', true);
 
-            $this->assertSame($statusCode, $requestRecord->refresh()->status->code, "verdict {$verdict}");
+            $this->assertSame('ready', $requestRecord->refresh()->status->code, "recommendation {$recommendation}");
         }
     }
 
-    public function test_appendix_22_card_fields_round_trip_and_the_type_prefills_appendix_21_legal_basis(): void
+    public function test_the_form_takes_a_recommendation_and_an_authority_and_nothing_else(): void
     {
         $this->seed(DatabaseSeeder::class);
         $legalOfficer = $this->userWithRole('R11');
         $requestRecord = $this->committeeRequest('under_legal_review');
+
+        $this->actingAs($legalOfficer, 'sanctum')
+            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['recommendation', 'approving_authority']);
 
         $this->actingAs($legalOfficer, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
-                'verdict' => 'sound_ready',
-                'primary_legislation' => 'قانون علاقات العمل',
-                'article_reference' => 'المادة 135',
-                'supplementary_decision' => 'قرار وزير الحكم المحلي رقم 1500 لسنة 2022',
-                'committee_mandate' => 'recommendation',
+                'recommendation' => 'sound_ready',
+                'approving_authority' => 'عميد البلدية',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['recommendation', 'approving_authority']);
+
+        // The old card's fields and verdict are no longer read; the note stays optional.
+        $this->actingAs($legalOfficer, 'sanctum')
+            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
+                ...self::APPROVE,
+                'verdict' => 'needs_document',
                 'approving_body' => 'عميد البلدية',
-                'requires_central_approval' => 'needs_verification',
-                'legal_deadline' => '30 يومًا',
-                'prohibiting_conditions' => 'لا توجد شروط مانعة.',
+                'legal_note' => 'لا مانع.',
             ])
             ->assertCreated()
-            ->assertJsonPath('data.committee_mandate', 'recommendation')
-            ->assertJsonPath('data.requires_central_approval', 'needs_verification')
-            ->assertJsonPath('data.article_reference', 'المادة 135');
-
-        // Appendix 21's per-subject legal basis rides request_types and is
-        // echoed so the form can pre-fill Appendix 22's card. PROM is one of
-        // the six subjects the appendix actually names.
-        $this->actingAs($legalOfficer, 'sanctum')
-            ->getJson("/api/requests/{$requestRecord->id}/legal-reviews")
-            ->assertOk()
-            ->assertJsonPath('data.legal_basis.primary_legislation', 'المواد المنظمة لشغل الوظائف والترقية')
-            ->assertJsonCount(1, 'data.reviews');
-    }
-
-    /** Appendix 21 covers only six of the twelve types; the rest are an honest null. */
-    public function test_a_type_appendix_21_does_not_cover_reports_a_null_legal_basis(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        $legalOfficer = $this->userWithRole('R11');
-        $requestRecord = $this->committeeRequest('under_legal_review', typeCode: 'LEAV');
-
-        $this->actingAs($legalOfficer, 'sanctum')
-            ->getJson("/api/requests/{$requestRecord->id}/legal-reviews")
-            ->assertOk()
-            ->assertJsonPath('data.legal_basis.primary_legislation', null)
-            ->assertJsonPath('data.legal_basis.procedural_note', null);
-    }
-
-    public function test_every_verdict_but_sound_ready_requires_the_legal_members_note(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-        $legalOfficer = $this->userWithRole('R11');
-
-        foreach (['needs_document', 'needs_clarification', 'jurisdiction_note', 'present_with_note'] as $verdict) {
-            $requestRecord = $this->committeeRequest('under_legal_review');
-
-            $this->actingAs($legalOfficer, 'sanctum')
-                ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", ['verdict' => $verdict])
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors('legal_note');
-
-            $this->assertSame('under_legal_review', $requestRecord->refresh()->status->code);
-        }
-
-        // sound_ready has nothing to state, so it may omit the note.
-        $requestRecord = $this->committeeRequest('under_legal_review');
-        $this->actingAs($legalOfficer, 'sanctum')
-            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", ['verdict' => 'sound_ready'])
-            ->assertCreated();
+            ->assertJsonPath('data.verdict', null)
+            ->assertJsonPath('data.approving_body', null)
+            ->assertJsonPath('data.legal_note', 'لا مانع.');
     }
 
     /**
-     * The stage's own done-when, half one: an unreviewed or blocked file
-     * cannot reach the agenda; the two permitting verdicts can.
+     * An unreviewed file still cannot reach the agenda; any recommendation
+     * admits it, while a blocking verdict recorded before 2026-10-19 still holds.
      */
-    public function test_the_agenda_gate_admits_only_the_two_permitting_verdicts(): void
+    public function test_the_agenda_gate_admits_any_recommendation(): void
     {
         $this->seed(DatabaseSeeder::class);
         $head = $this->userWithRole('R03');
         $legalOfficer = $this->userWithRole('R11');
         $meeting = $this->meetingFor($head);
 
-        // No review at all.
         $unreviewed = $this->committeeRequest('ready');
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $unreviewed->id])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('request_id');
 
-        foreach (RequestLegalReview::VERDICTS as $verdict) {
+        foreach (['approve', 'decline'] as $recommendation) {
             $requestRecord = $this->committeeRequest('under_legal_review');
-
             $this->actingAs($legalOfficer, 'sanctum')
                 ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
-                    'verdict' => $verdict,
-                    'legal_note' => 'ملاحظة.',
+                    'recommendation' => $recommendation,
+                    'approving_authority' => 'dean',
                 ])->assertCreated();
 
-            $response = $this->actingAs($head, 'sanctum')
-                ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestRecord->id]);
-
-            if (in_array($verdict, RequestLegalReview::PERMITTING_VERDICTS, strict: true)) {
-                $response->assertCreated();
-            } else {
-                $response->assertUnprocessable()->assertJsonValidationErrors('request_id');
-            }
+            $this->actingAs($head, 'sanctum')
+                ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestRecord->id])
+                ->assertCreated();
         }
+
+        $old = $this->committeeRequest('ready');
+        $old->legalReviews()->create(['verdict' => 'needs_document', 'legal_note' => 'ينقص مستند.']);
+        $this->actingAs($head, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $old->id])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('request_id');
     }
 
-    /** [E] stage 08's loop: correct, re-review, and the latest verdict is what counts. */
+    /** A second round supersedes the first while the history is preserved. */
     public function test_a_re_review_supersedes_the_first_while_the_history_is_preserved(): void
     {
         $this->seed(DatabaseSeeder::class);
         $rapporteur = $this->userWithRole('R02');
         $legalOfficer = $this->userWithRole('R11');
-        $head = $this->userWithRole('R03');
-        $meeting = $this->meetingFor($head);
-
         $requestRecord = $this->committeeRequest('under_legal_review');
 
         $this->actingAs($legalOfficer, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
-                'verdict' => 'needs_document',
-                'legal_note' => 'ينقص قرار التعيين.',
+                'recommendation' => 'decline',
+                'approving_authority' => 'dean',
             ])->assertCreated();
 
-        $this->assertSame('completion_required', $requestRecord->refresh()->status->code);
-
-        // Stage 69 — this used to write status_id by hand, because
-        // `completion_required` had no route back to legal review at all: the
-        // loop Art. 21 and [E] stage 08 both describe was unreachable through
-        // any endpoint. Validating the map against Appendix 5 surfaced it, so
-        // the re-dispatch below now walks the real path.
         $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/legal-reviews/request")
             ->assertOk();
 
         $this->actingAs($legalOfficer, 'sanctum')
-            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", ['verdict' => 'sound_ready'])
-            ->assertCreated();
+            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
+                'recommendation' => 'approve',
+                'approving_authority' => 'minister',
+            ])->assertCreated();
 
-        // Art. 21 requires the earlier opinion to stay readable in the file.
         $this->actingAs($legalOfficer, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}/legal-reviews")
             ->assertOk()
             ->assertJsonCount(2, 'data.reviews')
-            ->assertJsonPath('data.reviews.0.verdict', 'needs_document')
-            ->assertJsonPath('data.reviews.0.legal_note', 'ينقص قرار التعيين.')
-            ->assertJsonPath('data.reviews.1.verdict', 'sound_ready');
+            ->assertJsonPath('data.reviews.0.recommendation', 'decline')
+            ->assertJsonPath('data.reviews.1.recommendation', 'approve');
 
-        // The gate reads only the latest.
+        $this->assertSame('minister', $requestRecord->refresh()->latestLegalReview->approving_authority);
+    }
+
+    /** The مقرر's results form starts each request row from the legal member's choice. */
+    public function test_the_meeting_carries_the_legal_recommendation_for_the_results_form(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $head = $this->userWithRole('R03');
+        $legalOfficer = $this->userWithRole('R11');
+        $meeting = $this->meetingFor($head);
+        $requestRecord = $this->committeeRequest('under_legal_review');
+
+        $this->actingAs($legalOfficer, 'sanctum')
+            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
+                'recommendation' => 'decline',
+                'approving_authority' => 'minister',
+            ])->assertCreated();
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $requestRecord->id])
             ->assertCreated();
+
+        $this->actingAs($head, 'sanctum')
+            ->getJson("/api/meetings/{$meeting->id}")
+            ->assertOk()
+            ->assertJsonPath('data.agenda_items.0.request.legal_recommendation.recommendation', 'decline')
+            ->assertJsonPath('data.agenda_items.0.request.legal_recommendation.approving_authority', 'minister');
     }
 
     public function test_the_two_write_tiers_are_not_interchangeable(): void
@@ -262,7 +232,7 @@ class RequestLegalReviewTest extends TestCase
 
         // Recording a verdict is the legal member's own act (Art. 14 (ب)).
         $this->actingAs($rapporteur, 'sanctum')
-            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", ['verdict' => 'sound_ready'])
+            ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", self::APPROVE)
             ->assertForbidden();
 
         // Dispatching a file is the rapporteur's coordinating act (Appendix 6).
@@ -307,14 +277,9 @@ class RequestLegalReviewTest extends TestCase
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $unreviewed->id])
             ->assertCreated();
 
-        $blocked = $this->committeeRequest('under_legal_review');
-        $this->actingAs($legalOfficer, 'sanctum')
-            ->postJson("/api/requests/{$blocked->id}/legal-reviews", [
-                'verdict' => 'needs_document',
-                'legal_note' => 'ملاحظة.',
-            ])->assertCreated();
-        // The verdict is recorded, but it no longer pulls the file off the pending list.
-        $this->assertSame('ready', $blocked->refresh()->status->code);
+        // A blocking verdict recorded before 2026-10-19 is waved through too.
+        $blocked = $this->committeeRequest('ready');
+        $blocked->legalReviews()->create(['verdict' => 'needs_document', 'legal_note' => 'ملاحظة.']);
         $this->actingAs($head, 'sanctum')
             ->postJson("/api/meetings/{$meeting->id}/agenda", ['request_id' => $blocked->id])
             ->assertCreated();
@@ -334,14 +299,14 @@ class RequestLegalReviewTest extends TestCase
 
         $this->actingAs($legalOfficer, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
-                'verdict' => 'present_with_note',
+                ...self::APPROVE,
                 'legal_note' => 'تعارض محتمل مع المادة 178.',
             ])->assertCreated();
 
         $this->actingAs($legalOfficer, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")
             ->assertOk()
-            ->assertJsonPath('data.legal_review.verdict', 'present_with_note')
+            ->assertJsonPath('data.legal_review.recommendation', 'approve')
             ->assertJsonPath('data.legal_review.permits_agenda', true)
             ->assertJsonPath('data.legal_reviews_count', 1);
     }

@@ -258,7 +258,8 @@ class ControlGateTest extends TestCase
 
         $this->actingAs($legal, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
-                'verdict' => 'sound_ready',
+                'recommendation' => 'approve',
+                'approving_authority' => 'dean',
                 'legal_note' => 'راجعت الدرجة وثبتت صحتها.',
             ])
             ->assertCreated();
@@ -288,7 +289,8 @@ class ControlGateTest extends TestCase
 
         $this->actingAs($legal, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
-                'verdict' => 'needs_document',
+                'recommendation' => 'decline',
+                'approving_authority' => 'dean',
                 'legal_note' => 'المستند غير صالح ويجب إعادة العرض.',
             ])
             ->assertCreated();
@@ -325,7 +327,8 @@ class ControlGateTest extends TestCase
 
             $this->actingAs($legal, 'sanctum')
                 ->postJson("/api/requests/{$requestRecord->id}/legal-reviews", [
-                    'verdict' => 'sound_ready',
+                    'recommendation' => 'approve',
+                    'approving_authority' => 'dean',
                     'legal_note' => 'راجعت المستند.',
                 ])
                 ->assertCreated();

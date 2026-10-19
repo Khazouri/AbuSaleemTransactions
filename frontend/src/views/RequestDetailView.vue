@@ -604,7 +604,17 @@ function onWizardUpdated(updated) {
         <!-- Stage 68 — [D] Art. 21's pre-meeting legal review. -->
         <section v-if="request.legal_review" class="card card-flat card-pad summary legal-review">
           <h3>{{ t('requestDetail.legalReview.title') }}</h3>
-          <div>
+          <template v-if="request.legal_review.recommendation">
+            <div>
+              <span>{{ t('requestDetail.legalReview.recommendation') }}</span>
+              <strong>{{ t(`meetingsUnit.legalReview.recommendations.${request.legal_review.recommendation}`) }}</strong>
+            </div>
+            <div>
+              <span>{{ t('meetingsUnit.legalReview.fields.approvingBody') }}</span>
+              <strong>{{ t(`decisions.approvingAuthority.${request.legal_review.approving_authority}`) }}</strong>
+            </div>
+          </template>
+          <div v-else>
             <span>{{ t('requestDetail.legalReview.verdict') }}</span>
             <strong :class="request.legal_review.permits_agenda ? 'ok' : 'warn'">
               {{ t(`meetingsUnit.legalReview.verdicts.${request.legal_review.verdict}`) }}

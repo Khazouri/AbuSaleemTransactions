@@ -388,6 +388,8 @@ class AgendaOrderingService
                 ? ['code' => $item->request->status->code, 'name_ar' => $item->request->status->name_ar, 'name_en' => $item->request->status->name_en]
                 : null,
             'legal_opinion' => $review === null ? null : [
+                'recommendation' => $review->recommendation,
+                'approving_authority' => $review->approving_authority,
                 'verdict' => $review->verdict,
                 'note' => $review->legal_note,
                 'legal_deadline' => $review->legal_deadline,

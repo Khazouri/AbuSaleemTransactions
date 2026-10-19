@@ -15,9 +15,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * *re-review*, and the earlier opinion must stay readable in the file. Only
  * the latest one gates anything — see Request::latestLegalReview().
  *
- * @property string $verdict One of self::VERDICTS
- * @property string|null $legal_note ملاحظة العضو القانوني — required for every
- *                                   verdict except `sound_ready`
+ * Since 2026-10-19 the legal member records only a توصية and جهة الاعتماد
+ * (user decision); `verdict` and Appendix 22's card are read on older rows.
+ *
+ * @property string|null $recommendation One of self::RECOMMENDATIONS
+ * @property string|null $approving_authority dean | minister
+ * @property string|null $verdict One of self::VERDICTS, on rows before 2026-10-19
+ * @property string|null $legal_note ملاحظة العضو القانوني
  */
 class RequestLegalReview extends Model
 {
@@ -47,11 +51,8 @@ class RequestLegalReview extends Model
     /** The verdicts that let a request reach a meeting agenda. */
     public const PERMITTING_VERDICTS = ['sound_ready', 'present_with_note'];
 
-    /** Appendix 22 — اختصاص اللجنة: قرار · توصية · رأي · دراسة فقط. */
-    public const COMMITTEE_MANDATES = ['decision', 'recommendation', 'opinion', 'study_only'];
-
-    /** Appendix 22 — هل يلزم اعتماد مركزي؟ نعم · لا · يحتاج إلى تحقق. */
-    public const CENTRAL_APPROVAL_ANSWERS = ['yes', 'no', 'needs_verification'];
+    /** The codes the مقرر's results form uses for the same two answers. */
+    public const RECOMMENDATIONS = ['approve', 'decline'];
 
     protected $fillable = [
         'request_id',
@@ -63,6 +64,8 @@ class RequestLegalReview extends Model
         'requires_central_approval',
         'legal_deadline',
         'prohibiting_conditions',
+        'recommendation',
+        'approving_authority',
         'verdict',
         'legal_note',
         'reviewed_by_user_id',
@@ -76,9 +79,11 @@ class RequestLegalReview extends Model
         ];
     }
 
+    /** A recommendation is advice, never a block; only an older verdict can block. */
     public function permitsAgenda(): bool
     {
-        return in_array($this->verdict, self::PERMITTING_VERDICTS, strict: true);
+        return $this->recommendation !== null
+            || in_array($this->verdict, self::PERMITTING_VERDICTS, strict: true);
     }
 
     public function request(): BelongsTo

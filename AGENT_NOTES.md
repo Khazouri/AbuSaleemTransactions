@@ -19,6 +19,48 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-19 14:20 EET — Claude — The legal member enters only a recommendation and جهة الاعتماد (complete)
+
+Built per the plan below. Migration `add_recommendation_to_request_legal_reviews` is applied to the real MySQL, and the
+columns were checked there. **Deviations:**
+- `GET requests/{r}/legal-reviews` lost `legal_basis`, because its only reader was the deleted `LegalReviewCard.vue`;
+- the bypass's Settings hint was reworded, since a review no longer takes a file off the pending list.
+
+The Art. 105 suspension review rides the same endpoint, so it now records a توصية too (OPEN_ITEMS, with the guide).
+Old rows keep their verdict, which the request page still shows.
+
+Verified:
+- `RequestLegalReviewTest` rewritten (RED 7/11, then GREEN); `ControlGateTest`'s three posts moved to the new shape;
+- full suite 788 / 5011 + 23 / 165 green; Pint clean on the touched PHP;
+- build passes (`dist` committed, production API URL in the bundle); parity 1842; `aislop ci` exit 0.
+
+Not checked in a browser.
+
+---
+### 2026-10-19 13:30 EET — Claude — Implementation plan: the legal member enters only a recommendation and جهة الاعتماد
+
+User: «القانوني enters his recommendation and approval destination only». Put to the user and answered (they approved
+the plan):
+- the legal member's form becomes a توصية (`approve`/`decline`) and جهة الاعتماد (`dean`/`minister`), with an
+  optional note. Appendix 22's card and Art. 21's five verdicts leave the form;
+- every recommendation returns the file to `ready`. «عدم موافقة» is advice and blocks nothing;
+- the مقرر's results form seeds each request row's توصية and جهة الاعتماد from the latest legal review.
+
+Plan:
+- one migration adds `request_legal_reviews.recommendation`/`approving_authority` and makes `verdict` nullable.
+  `permitsAgenda()` is true for any recommendation, and old rows keep their verdict rule;
+- `StoreRequestLegalReviewRequest` and `RequestLegalReviewController::store()` change accordingly, and the store's
+  bypass branch goes;
+- the agenda item resource carries `legal_recommendation`. The agenda register and agenda ordering read the new
+  columns;
+- SPA: the wizard offers two recommendation choices with an authority select, `LegalReviewCard.vue` is deleted, and
+  `MeetingWizard` seeds the results rows from the legal recommendation.
+
+Kept: Settings' bypass, which still lets an unreviewed file onto the agenda, and the appeal legal review. Verify:
+`RequestLegalReviewTest` rewritten (RED then GREEN), the other tests that post verdicts moved to the new shape, full
+PHPUnit, Pint, migrate on the real DB, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-19 12:55 EET — Claude — Each «المهام المعلقة» category has a colour R08 picks in Settings (complete)
 
 Built per the plan below; no migration. `SettingSeeder` was run on the real MySQL and wrote all 12 `task_color_*` rows,
