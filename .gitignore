@@ -28,3 +28,4 @@ yarn-error.log
 # aislop runtime state (hook session, baseline, lock); only the config is shared.
 /.aislop/*
 !/.aislop/config.yml
+.vscode/cruise/
