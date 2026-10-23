@@ -74,6 +74,15 @@ Key architectural facts worth knowing before changing things:
   active member of that department, `UserController` clears it when the head
   leaves, is deactivated or deleted, and nothing in the workflow reads it —
   manager-gated transitions follow each employee's own `users.manager_id`.
+- **Request-type documents come from a managed list** (`documents`, user
+  decision 2026-10-23), kept on the Request Types screen's second tab. Its id
+  is the number the screen shows. Every `required_documents` row must carry a
+  `document_id` (`exists`, `distinct`), and it keeps its own copy of the
+  wording. A file's `required_document_key` is still index + Arabic-label hash
+  (`IntakeGateService::documentKey()`), so renaming a list entry deliberately
+  does not touch the types listing it: that would re-key their files. Entries
+  are deactivated, never deleted. A seeder row is linked through
+  `Document::link()`.
 - **Screens/permissions**: `screens`, `roles`, `permissions`,
   `screen_role_permissions` model a menu-and-permission matrix, and it is
   enforced on both sides (Stage 9): the API's `screen.permission:<code>,

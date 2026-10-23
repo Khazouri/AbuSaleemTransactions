@@ -54,6 +54,7 @@ class AuditLog extends Model
         Department::class,
         User::class,
         RequestType::class,
+        Document::class,
         ScreenRolePermission::class,
         Setting::class,
         Template::class,

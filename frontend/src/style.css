@@ -757,6 +757,70 @@ textarea {
   gap: var(--space-2);
 }
 
+/* -- Master–detail ----------------------------------------------------------
+   A list of records beside the one picked from it (Request Types and its
+   documents list). The picked record is in the URL; a phone shows one pane at
+   a time, and .split-back returns it to the list. */
+.split-view {
+  display: grid;
+  grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.split-list { padding: var(--space-2); position: sticky; inset-block-start: var(--space-4); }
+.split-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.split-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  inline-size: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-inline-start: 3px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-foreground);
+  text-align: start;
+  cursor: pointer;
+}
+.split-item:hover { background: var(--color-surface-hover); }
+.split-item[aria-current='true'] { background: var(--color-surface-hover); border-inline-start-color: var(--color-brand); }
+.split-item[aria-current='true'] .split-item-name { color: var(--color-brand-text); font-weight: 600; }
+.split-item.inactive .split-item-name { color: var(--color-muted); }
+.split-item-meta { display: flex; align-items: center; gap: var(--space-2); }
+.split-view code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); white-space: nowrap; }
+.split-back { display: none; margin-bottom: var(--space-3); }
+.split-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+.split-head h3 { margin: 0; font-size: var(--text-xl); color: var(--color-foreground); }
+.split-head h3:focus { outline: none; }
+.split-sub { display: flex; align-items: center; gap: var(--space-2); margin: 0.35rem 0 0; }
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(8.5rem, 100%), 1fr));
+  gap: var(--space-4) var(--space-5);
+  margin: var(--space-4) 0;
+}
+.facts .wide { grid-column: 1 / -1; }
+.facts dt { font-size: var(--text-sm); color: var(--color-muted); }
+.facts dd { margin: 0.2rem 0 0; color: var(--color-foreground); }
+.facts .figure { font-size: var(--text-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 767px) {
+  .split-view { grid-template-columns: minmax(0, 1fr); }
+  .split-list { position: static; }
+  .split-view.showing-detail .split-list,
+  .split-view:not(.showing-detail) .split-detail { display: none; }
+  .split-back { display: inline-flex; }
+}
+
 /* -- Tables ----------------------------------------------------------------
    A number in a register lines up in columns; tabular-nums is what makes
    that true wherever a figure — a reference, a date, a day count — appears. */
