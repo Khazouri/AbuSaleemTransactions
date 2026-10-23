@@ -45,6 +45,7 @@ const blankForm = () => ({
   name: '',
   email: '',
   employee_number: '',
+  erp_user_id: '',
   password: '',
   department_id: null,
   manager_id: null,
@@ -129,6 +130,7 @@ function startEdit(user) {
     name: user.name ?? '',
     email: user.email ?? '',
     employee_number: user.employee_number ?? '',
+    erp_user_id: user.erp_user_id ?? '',
     password: '',
     department_id: user.department?.id ?? null,
     manager_id: user.manager?.id ?? null,
@@ -156,6 +158,7 @@ async function save() {
     name: form.value.name,
     email: form.value.email,
     employee_number: form.value.employee_number,
+    erp_user_id: form.value.erp_user_id,
     department_id: form.value.department_id,
     manager_id: form.value.manager_id,
     role_ids: form.value.role_ids,
@@ -261,6 +264,16 @@ onMounted(() => {
             {{ t('users.employeeNumber') }}
             <input v-model="form.employee_number" type="text" dir="ltr" maxlength="32" />
             <small v-if="errors.employee_number" class="field-error">{{ errors.employee_number[0] }}</small>
+          </label>
+
+          <!-- ERP single sign-on — the account's ERP user id. A user who
+               links it themselves from the user menu proves it; one typed here
+               is not checked against the ERP, only audited. -->
+          <label>
+            {{ t('users.erpUserId') }}
+            <input v-model="form.erp_user_id" type="number" min="1" step="1" dir="ltr" />
+            <small class="hint">{{ t('users.erpUserIdHint') }}</small>
+            <small v-if="errors.erp_user_id" class="field-error">{{ errors.erp_user_id[0] }}</small>
           </label>
 
           <label>

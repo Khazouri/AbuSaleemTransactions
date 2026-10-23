@@ -56,6 +56,24 @@ Key architectural facts worth knowing before changing things:
 - **Auth**: Sanctum bearer tokens, not cookies/sessions. Token lives in
   `localStorage` on the frontend; `auth:sanctum` middleware on the backend.
   Login is rate-limited (`throttle:6,1`).
+- **ERP single sign-on (user decision 2026-10-23)** is OAuth 2.0 authorization
+  code + PKCE, with the EmployeePlus ERP (`ep.scco.ly`) as the authorization
+  server. The ERP only proves identity. `ErpIdentity` redeems the code server to
+  server (client secret + verifier), reads `sub` from userinfo, and discards the
+  ERP access token. `ErpAuthController` then issues an ordinary Sanctum token
+  that expires after `ERP_SESSION_HOURS`, so every route and permission works
+  unchanged. The SPA (`lib/erpSso.js`) makes and checks `state` and holds the
+  verifier.
+  - The account is found by `users.erp_user_id`, set by self-linking from the
+    user menu or typed by R08. An unlinked ERP user is refused, and an R08
+    holder never signs in through the ERP.
+  - The feature 404s until all six `ERP_*` values are set.
+  - Don't add an ERP password field (ROPC) or accept an ERP JWT in a URL. RFC
+    9700 forbids both, and both were rejected in review.
+  - The ERP team's half is still owed: an authorize endpoint (code, S256,
+    `state`), a token endpoint (single-use code, ≤ 60 s), a userinfo endpoint
+    returning `sub` = ERP userId, and a client registration with redirect
+    `<SPA>/erp-callback`. The ERP links employees to `<SPA>/erp-login`.
 - **The login screen's test-account picker is gated by the BACKEND**, not the
   build: `GET /api/dev/test-users` (`DevTestUserController`) is public but
   answers 404 unless `app()->environment('local')`, and the SPA shows the panel

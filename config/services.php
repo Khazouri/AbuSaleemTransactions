@@ -44,4 +44,20 @@ return [
         'driver' => env('SMS_DRIVER', 'log'),
     ],
 
+    /*
+     * ERP single sign-on — the EmployeePlus ERP as an OAuth 2.0 authorization
+     * server (authorization code + PKCE). ErpAuthController treats the feature
+     * as absent until every value but the two numbers is set.
+     */
+    'erp' => [
+        'authorize_url' => env('ERP_AUTHORIZE_URL'),
+        'token_url' => env('ERP_TOKEN_URL'),
+        'userinfo_url' => env('ERP_USERINFO_URL'),
+        'client_id' => env('ERP_CLIENT_ID'),
+        'client_secret' => env('ERP_CLIENT_SECRET'),
+        'redirect_uri' => env('ERP_REDIRECT_URI'),
+        'session_hours' => (int) env('ERP_SESSION_HOURS', 12),
+        'timeout' => (int) env('ERP_TIMEOUT', 10),
+    ],
+
 ];

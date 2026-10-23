@@ -43,6 +43,15 @@ const routes = [
     component: () => import('../views/LoginView.vue'),
     meta: { guestOnly: true },
   },
+  // ERP single sign-on. /erp-login is the address the ERP links to: the login
+  // screen starts the flow itself when ?erp=1 is set. /erp-callback is where
+  // the ERP sends the user back, signed in or out (a link comes back signed in).
+  { path: '/erp-login', redirect: { name: 'login', query: { erp: '1' } } },
+  {
+    path: '/erp-callback',
+    name: 'erp-callback',
+    component: () => import('../views/ErpCallbackView.vue'),
+  },
   {
     // The shell. Everything below it requires authentication.
     path: '/',

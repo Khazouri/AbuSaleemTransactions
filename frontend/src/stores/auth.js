@@ -93,6 +93,24 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * ERP single sign-on — redeem the ERP's one-time code for our own token.
+   * Same response shape as login(), so the session is stored the same way.
+   */
+  async function erpSignIn(code, verifier) {
+    const { data } = await api.post('/auth/erp/callback', { code, code_verifier: verifier })
+    setToken(data.token)
+    user.value = data.user
+    return data.user
+  }
+
+  /** ERP single sign-on — attach the ERP account to the signed-in user. */
+  async function erpLink(code, verifier) {
+    const { data } = await api.post('/auth/erp/link', { code, code_verifier: verifier })
+    user.value = data.data ?? data
+    return user.value
+  }
+
   /** Fetch the current user using the stored token. */
   async function fetchMe() {
     if (!token.value) {
@@ -147,6 +165,6 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     token, user, loading, ready,
     isAuthenticated, roleCodes, permissions,
-    hasRole, can, login, logout, fetchMe, clear, init,
+    hasRole, can, login, erpSignIn, erpLink, logout, fetchMe, clear, init,
   }
 })

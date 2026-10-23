@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -56,13 +57,20 @@ class AuthController extends Controller
             ]);
         }
 
+        return self::issueToken($user, $request->string('device_name')->value() ?: 'spa');
+    }
+
+    /**
+     * The one shape every sign-in answers with, local or ERP
+     * (ErpAuthController), so the SPA stores either the same way.
+     */
+    public static function issueToken(User $user, string $device, ?DateTimeInterface $expiresAt = null): JsonResponse
+    {
         // One token per device. Naming them means a user can later be shown
         // "you are signed in on: spa, mobile" and revoke individually.
         // plainTextToken is the only moment the raw token exists — the database
         // stores just a hash of it.
-        $token = $user->createToken(
-            $request->string('device_name')->value() ?: 'spa',
-        )->plainTextToken;
+        $token = $user->createToken($device, ['*'], $expiresAt)->plainTextToken;
 
         return response()->json([
             'token' => $token,

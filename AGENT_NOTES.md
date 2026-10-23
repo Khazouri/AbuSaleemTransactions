@@ -19,6 +19,48 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-23 19:20 EET — Claude — Single sign-on from the EmployeePlus ERP (complete, our half)
+
+Built per the plan below. Migration `add_erp_user_id_to_users_table` is applied to the real MySQL (checked: the
+column exists, and no account is linked yet). `ERP_*` is unset everywhere, so the feature 404s and the login screen
+looks as before until the ERP team delivers. `AuthController::issueToken()` is now the one token+user response
+for both sign-ins.
+
+Verified:
+- new `ErpSsoTest` (12) went RED, then GREEN;
+- full suite 823 / 5618 green; Pint clean on the touched PHP;
+- build passes (`dist` committed, production API URL in the bundle); parity 1870; `aislop ci` exit 0 (98);
+- headless run against `vite preview` of `dist` with every API call mocked (31/31, ar/en, 375px, dark): the
+  authorize URL carries S256 + state, the posted verifier hashes to the challenge, the code is stripped from the
+  URL, a forged `/erp-callback?code&state` posts nothing and shows the refusal, an unconfigured backend shows no
+  button, `/erp-login` starts the flow by itself, and the menu's «ربط حساب ERP» links.
+
+Not done: a real sign-in, because the ERP has no OAuth endpoints yet (OPEN_ITEMS). `graphify update` was not run,
+because `graphify-out/` holds another session's uncommitted changes.
+
+---
+### 2026-10-23 18:45 EET — Claude — Implementation plan: single sign-on from the EmployeePlus ERP
+
+User: ERP employees (`https://ep.scco.ly`) should reach this system and its API once signed in to the ERP. Put
+to the user and answered, after a standards review (RFC 9700, OWASP ASVS):
+- an OAuth 2.0 authorization-code + PKCE flow, with the ERP as the authorization server. Its half does not
+  exist yet, so ours is built against `Http::fake`;
+- no ERP password ever passes through us (ROPC is dropped), and no ERP JWT travels in a URL;
+- `users.erp_user_id` links the accounts, set by self-linking through the same flow or typed by R08;
+- an unlinked ERP user is refused, R08 holders never sign in through the ERP, and local login stays.
+
+Plan:
+- `config('services.erp')`, enabled only when every `ERP_*` value is set;
+- `ErpIdentity` redeems the code (client secret + verifier) and reads `sub` from userinfo; the ERP access
+  token is discarded;
+- `ErpAuthController`: `GET auth/erp/config` (404 when unconfigured), `POST auth/erp/callback` (issues a
+  Sanctum token expiring after `ERP_SESSION_HOURS`), `POST auth/erp/link`;
+- SPA: `lib/erpSso.js` (state + PKCE in sessionStorage), `/erp-login` and `/erp-callback`, a login button,
+  a «ربط حساب ERP» menu item and an ERP id field on the Users modal.
+
+Verify: new `ErpSsoTest` (RED then GREEN), full PHPUnit, Pint, migrate, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-23 18:30 EET — Claude — A managed documents list with a permanent number per document (complete)
 
 Built per the plan below. On the real MySQL, migration `create_documents_table` built **77 entries** from the 12
