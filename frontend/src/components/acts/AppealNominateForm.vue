@@ -15,8 +15,7 @@ const { t, locale } = useI18n()
 const meetings = ref([])
 const loading = ref(true)
 const loadError = ref('')
-const open = computed(() => meetings.value.filter((meeting) => ['pending_confirmation', 'scheduled'].includes(meeting.status)
-  && !meeting.agenda_adopted_at))
+const open = computed(() => meetings.value.filter((meeting) => ['pending_confirmation', 'scheduled'].includes(meeting.status)))
 const when = (value) => new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
 
 onMounted(async () => {

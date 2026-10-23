@@ -5,8 +5,7 @@
  * Two screens render the same matrix — the intake form (what to bring) and the
  * request workspace (what the officer running Art. 18's فحص اكتمال الملف has
  * to judge the file against) — so the grouping and label rules live here once
- * rather than in both, the same way lib/decisionOutcomes.js owns the outcome
- * vocabulary.
+ * rather than in both.
  *
  * GROUP_ORDER is Appendix 57's own order (أساسية مشتركة before الخاصة بالنوع).
  * The appendix's fourth group, الناتجة عن دورة اللجنة, is never seeded — those

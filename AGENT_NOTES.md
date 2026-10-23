@@ -19,6 +19,70 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-23 19:35 EET — Claude — What the paper meeting left behind is removed (complete)
+
+Built per the plan below. **Deviations:**
+- adoption's agenda freeze needed no replacement, because `CheckMeetingMembership` already refuses every write on a
+  `completed` meeting. The new `ConcludedAgendaTest` pins that;
+- the `emerging` bucket and the agenda's discussion/voting/deciding states were kept: they label rows from before
+  2026-10-18 (OPEN_ITEMS);
+- `DecisionResource` also lost its vote counts, which nothing read; the export keeps them.
+
+The committee board's bucket 5 and the pending list now share one constraint,
+`CommitteeStatusService::awaitingItsMeeting()`.
+
+On the real MySQL:
+- migration `drop_the_sittings_leftovers` is applied. It deleted only the 7 seeded templates: no decision, committee or
+  meeting used a dropped field (checked by query first);
+- `ScreenSeeder` was re-run and deleted the `templates` screen;
+- `meeting_agenda` `approve` was cleared cell by cell (2 cells).
+
+**Heads-up for the `feat/erp-summary` session:** until that branch merges `main`, its old code reads the dropped
+`templates` table and committee columns, so abusaleem.test's Decisions screen, meeting page and committee save fail
+there (user's call).
+
+Verified:
+- new tests went RED, then GREEN (`ConcludedAgendaTest`, the board and register cases, the next-action case);
+- full suite 822 / 5581 green; Pint clean;
+- build passes (`dist` committed, production API URL in the bundle); parity 1780; `aislop ci` exit 0 (98);
+- route list 204 → 199, the five intended routes only.
+
+Not checked in a browser.
+
+---
+### 2026-10-23 19:05 EET — Claude — Implementation plan: remove what the paper meeting left behind
+
+User: «remove any meeting related item that still exists after the meeting offline change». An audit found three kinds of
+leftover, and the user chose to remove all three. One exception: R08's `deadline_expired` at the committee stays as it is.
+Built on worktree `AbuSaleem-leftovers`, because another session is working on `feat/erp-summary` in the main checkout.
+- **Dead code:**
+  - `CommitteeStatusService`'s place/remove/start/send/resume actions and `fail_legal_review`;
+  - the `regulatory_review` and `prepare_presentation_memo` next actions;
+  - `approved_with_conditions` in `SeatDutyGrant`;
+  - the agenda's `emerging` bucket;
+  - `AgendaRegister`'s discussion/voting/deciding states;
+  - locale keys that nothing references.
+- **Obsolete features:**
+  - the committee card's voting fields (`rapporteur_votes`, quorum/majority/tie-break, the minutes rules, recusal and
+    voting rights) go, with `CommitteeVotingRules`. A migration drops those columns;
+  - agenda adoption goes: the route, act, inbox task and agenda freeze, the `meetings.agenda_adopted_*` columns and the
+    `meeting_agenda,approve` grant;
+  - decision templates go: the `templates` screen, route, model, seeder, `decisions.template_id` and the `templates`
+    table;
+  - the Decisions screen's vote-tally column goes. The vote counts stay in the export, as history.
+- **Wrong behaviour:**
+  - the decisions register's «المنطوق» falls back to the paper note (`comment`), and its search covers that note;
+  - `final_approved` and the `final_approval_archiving` stage get «أرشفة الملف» as their next action instead of the
+    execution order;
+  - the committee board's «مدرجة في الاجتماع القادم» counts files on a live meeting's agenda, and takes them out of the
+    status buckets.
+
+Kept: old statuses, `decisions` columns, stages 6–8 and the approval-level map, which still blocks a request-page
+approve at the committee. Verify: tests rewritten or deleted alongside the code, full PHPUnit, Pint, migrate on the real
+MySQL, ScreenSeeder (deletes `templates`) on the real DB, build (`dist` committed), parity, aislop ci. (Clock note: the
+machine reads 19:05, behind the entry below.)
+
+---
 ### 2026-10-23 19:20 EET — Claude — Single sign-on from the EmployeePlus ERP (complete, our half)
 
 Built per the plan below. Migration `add_erp_user_id_to_users_table` is applied to the real MySQL (checked: the

@@ -425,15 +425,6 @@ class PendingTaskCollector
             ->limit(self::PER_SOURCE_LIMIT + 1);
         $tasks = collect();
 
-        if ($actor->hasScreenPermission('meeting_agenda', 'can_approve')) {
-            $meetings()
-                ->whereIn('status', [Meeting::STATUS_PENDING_CONFIRMATION, 'scheduled'])
-                ->whereNull('agenda_adopted_at')
-                ->whereHas('agendaItems')
-                ->get()
-                ->each(fn (Meeting $m) => $tasks->push($this->meetingTask('adopt_agenda', $m)));
-        }
-
         // The paper sitting (2026-10-18): the seated مقرر enters the results
         // once the meeting's day has come (MeetingDuties::recordResultsRefusal()).
         $meetings()

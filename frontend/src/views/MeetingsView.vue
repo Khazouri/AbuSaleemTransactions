@@ -59,20 +59,14 @@ const editingCommitteeId = ref(null)
 const showCommitteeForm = ref(false)
 const savingCommittee = ref(false)
 
-// Stage 73 — [D] Appendix 65's بطاقة تعريف اللجنة. Blank means "not
-// transcribed yet", which the list flags rather than filling in a figure of
-// its own (Appendix 64).
-const CARD_FIELDS = [
-  'formation_decision_number', 'formation_decision_date', 'term_note', 'legal_basis',
-  'minutes_approval_body', 'voting_rights_note', 'minutes_signature_rule', 'recusal_rules',
-  'quorum_type', 'quorum_count', 'quorum_numerator', 'quorum_denominator', 'quorum_comparator', 'quorum_text',
-  'majority_type', 'majority_basis', 'majority_numerator', 'majority_denominator', 'majority_comparator', 'majority_text',
-  'tie_break', 'tie_break_text',
-]
+// Stage 73 — [D] Appendix 65's بطاقة تعريف اللجنة. Its voting and minutes
+// rules went with the in-system sitting (2026-10-18): the committee meets on
+// paper, so nothing here counts a quorum or a majority.
+const CARD_FIELDS = ['formation_decision_number', 'formation_decision_date', 'term_note', 'legal_basis']
 
 const blankCard = () => Object.fromEntries(CARD_FIELDS.map((key) => [key, '']))
 
-const blankCommitteeForm = () => ({ name_ar: '', name_en: '', description: '', is_active: true, rapporteur_votes: false, ...blankCard() })
+const blankCommitteeForm = () => ({ name_ar: '', name_en: '', description: '', is_active: true, ...blankCard() })
 const committeeForm = ref(blankCommitteeForm())
 
 async function loadCommittees() {
@@ -103,7 +97,6 @@ function startEditCommittee(committee) {
     name_en: committee.name_en ?? '',
     description: committee.description ?? '',
     is_active: committee.is_active,
-    rapporteur_votes: committee.rapporteur_votes ?? false,
     ...Object.fromEntries(CARD_FIELDS.map((key) => [key, committee[key] ?? ''])),
   }
   committeeErrors.value = {}
@@ -269,15 +262,9 @@ onMounted(async () => {
           <input v-model="committeeForm.is_active" type="checkbox" />
           {{ t('common.active') }}
         </label>
-        <label class="checkbox">
-          <input v-model="committeeForm.rapporteur_votes" type="checkbox" />
-          {{ t('committees.rapporteurVotes') }}
-        </label>
 
-        <!-- Stage 73 — Appendix 65's بطاقة تعريف اللجنة. Appendix 64 forbids the
-             system supplying a quorum or a majority of its own, so these are
-             transcribed from the committee's قرار التشكيل and left blank when
-             it has not been read yet. -->
+        <!-- Stage 73 — Appendix 65's بطاقة تعريف اللجنة, transcribed from the
+             committee's قرار التشكيل. -->
         <fieldset class="card-fields">
           <legend>{{ t('committees.card.title') }}</legend>
           <p class="hint">{{ t('committees.card.hint') }}</p>
@@ -294,113 +281,9 @@ onMounted(async () => {
               {{ t('committees.card.termNote') }}
               <input v-model="committeeForm.term_note" type="text" />
             </label>
-            <label>
-              {{ t('committees.card.minutesApprovalBody') }}
-              <input v-model="committeeForm.minutes_approval_body" type="text" />
-            </label>
             <label class="span-2">
               {{ t('committees.card.legalBasis') }}
               <textarea v-model="committeeForm.legal_basis" rows="2" />
-            </label>
-            <label class="span-2">
-              {{ t('committees.card.votingRightsNote') }}
-              <textarea v-model="committeeForm.voting_rights_note" rows="2" />
-            </label>
-            <label class="span-2">
-              {{ t('committees.card.minutesSignatureRule') }}
-              <textarea v-model="committeeForm.minutes_signature_rule" rows="2" />
-            </label>
-            <label class="span-2">
-              {{ t('committees.card.recusalRules') }}
-              <textarea v-model="committeeForm.recusal_rules" rows="2" />
-            </label>
-
-            <label>
-              {{ t('committees.card.quorumType') }}
-              <select v-model="committeeForm.quorum_type">
-                <option value="">{{ t('committees.card.notRecorded') }}</option>
-                <option value="count">{{ t('committees.card.types.count') }}</option>
-                <option value="fraction">{{ t('committees.card.types.fraction') }}</option>
-              </select>
-            </label>
-            <label v-if="committeeForm.quorum_type === 'count'">
-              {{ t('committees.card.quorumCount') }}
-              <input v-model="committeeForm.quorum_count" type="number" min="1" />
-            </label>
-            <template v-if="committeeForm.quorum_type === 'fraction'">
-              <label>
-                {{ t('committees.card.numerator') }}
-                <input v-model="committeeForm.quorum_numerator" type="number" min="1" />
-              </label>
-              <label>
-                {{ t('committees.card.denominator') }}
-                <input v-model="committeeForm.quorum_denominator" type="number" min="1" />
-              </label>
-              <label>
-                {{ t('committees.card.comparator') }}
-                <select v-model="committeeForm.quorum_comparator">
-                  <option value="">{{ t('committees.card.notRecorded') }}</option>
-                  <option value="at_least">{{ t('committees.card.comparators.at_least') }}</option>
-                  <option value="more_than">{{ t('committees.card.comparators.more_than') }}</option>
-                </select>
-              </label>
-            </template>
-            <label class="span-2">
-              {{ t('committees.card.quorumText') }}
-              <input v-model="committeeForm.quorum_text" type="text" />
-            </label>
-
-            <label>
-              {{ t('committees.card.majorityType') }}
-              <select v-model="committeeForm.majority_type">
-                <option value="">{{ t('committees.card.notRecorded') }}</option>
-                <option value="plurality">{{ t('committees.card.majorityTypes.plurality') }}</option>
-                <option value="fraction">{{ t('committees.card.majorityTypes.fraction') }}</option>
-              </select>
-            </label>
-            <template v-if="committeeForm.majority_type === 'fraction'">
-              <label>
-                {{ t('committees.card.majorityBasis') }}
-                <select v-model="committeeForm.majority_basis">
-                  <option value="">{{ t('committees.card.notRecorded') }}</option>
-                  <option value="votes_cast">{{ t('committees.card.bases.votes_cast') }}</option>
-                  <option value="present">{{ t('committees.card.bases.present') }}</option>
-                  <option value="members">{{ t('committees.card.bases.members') }}</option>
-                </select>
-              </label>
-              <label>
-                {{ t('committees.card.numerator') }}
-                <input v-model="committeeForm.majority_numerator" type="number" min="1" />
-              </label>
-              <label>
-                {{ t('committees.card.denominator') }}
-                <input v-model="committeeForm.majority_denominator" type="number" min="1" />
-              </label>
-              <label>
-                {{ t('committees.card.comparator') }}
-                <select v-model="committeeForm.majority_comparator">
-                  <option value="">{{ t('committees.card.notRecorded') }}</option>
-                  <option value="at_least">{{ t('committees.card.comparators.at_least') }}</option>
-                  <option value="more_than">{{ t('committees.card.comparators.more_than') }}</option>
-                </select>
-              </label>
-            </template>
-            <label class="span-2">
-              {{ t('committees.card.majorityText') }}
-              <input v-model="committeeForm.majority_text" type="text" />
-            </label>
-
-            <label>
-              {{ t('committees.card.tieBreak') }}
-              <select v-model="committeeForm.tie_break">
-                <option value="">{{ t('committees.card.notRecorded') }}</option>
-                <option value="chair_casting_vote">{{ t('committees.card.tieBreaks.chair_casting_vote') }}</option>
-                <option value="no_decision">{{ t('committees.card.tieBreaks.no_decision') }}</option>
-              </select>
-            </label>
-            <label class="span-2">
-              {{ t('committees.card.tieBreakText') }}
-              <input v-model="committeeForm.tie_break_text" type="text" />
             </label>
           </div>
         </fieldset>
@@ -424,8 +307,6 @@ onMounted(async () => {
               <td>
                 <strong>{{ name(committee) }}</strong>
                 <span v-if="!committee.is_active" class="pill">{{ t('common.inactive') }}</span>
-                <!-- Stage 73 — a committee whose card is not transcribed yet. -->
-                <span v-if="committee.rules_recorded === false" class="pill warn">{{ t('committees.card.missing') }}</span>
               </td>
               <td class="meta">
                 <span>{{ committee.members_count }} {{ t('committees.members') }}</span>

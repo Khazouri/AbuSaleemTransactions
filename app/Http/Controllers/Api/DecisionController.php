@@ -92,7 +92,7 @@ class DecisionController extends Controller
                 'النتيجة', 'نوع الإصدار', 'المنطوق', 'سبب عدم الموافقة',
                 'موافق', 'رافض', 'مؤجل', 'مشروط', 'رأي قانوني', 'إحالة', 'عدم اختصاص',
                 'قبول التظلم', 'قبول جزئي', 'رفض التظلم', 'إحالة التظلم', 'إعادة الإجراءات', 'ممتنع',
-                'القالب', 'صاحب القرار', 'تاريخ القرار', 'الملاحظات',
+                'صاحب القرار', 'تاريخ القرار', 'الملاحظات',
             ],
             'none' => '—',
         ],
@@ -145,7 +145,7 @@ class DecisionController extends Controller
                 'Outcome', 'Instrument', 'Operative clause', 'Refusal reason',
                 'Approve', 'Reject', 'Defer', 'Conditional', 'Legal opinion', 'Referred', 'No jurisdiction',
                 'Appeal accepted', 'Appeal partial', 'Appeal rejected', 'Appeal referred', 'Appeal redo', 'Abstain',
-                'Template', 'Decided by', 'Decided at', 'Comment',
+                'Decided by', 'Decided at', 'Comment',
             ],
             'none' => '—',
         ],
@@ -260,7 +260,6 @@ class DecisionController extends Controller
             ))
             ->with([
                 'decidedBy:id,name',
-                'template:id,code,name_ar,name_en',
                 'meetingRequest:id,meeting_id,request_id,appeal_id',
                 'meetingRequest.request:id,reference_number,title',
                 // Stage 63 — the appeal riding an `appeal` item, mirroring the
@@ -355,7 +354,6 @@ class DecisionController extends Controller
             $decision->votes_appeal_refer_count,
             $decision->votes_appeal_redo_count,
             $decision->votes_abstain_count,
-            $this->localName($decision->template, $locale, $labels),
             $decision->decidedBy?->name ?? $labels['none'],
             $decision->decided_at?->format('Y-m-d H:i') ?? $labels['none'],
             $decision->comment ?? $labels['none'],

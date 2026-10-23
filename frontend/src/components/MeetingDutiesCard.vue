@@ -6,8 +6,7 @@
  * opens MeetingWizard. «المهام المعلقة» arrives with ?decide=1 to open it once.
  *
  * `refreshKey` lets a host force a re-fetch when an act taken elsewhere can
- * change what this card offers — e.g. an agenda edit on the builder changes
- * whether the agenda can be adopted (F3).
+ * change what this card offers — e.g. the results being entered (F3).
  */
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'

@@ -46,9 +46,6 @@ class Meeting extends Model
         'agenda_order_justification',
         'status',
         'created_by_user_id',
-        // Stage 99 — Art. 84's «اعتماد جدول الأعمال» (Appendix 6 row 8).
-        'agenda_adopted_at',
-        'agenda_adopted_by_user_id',
         // 2026-10-18 — the paper sitting's محضر and who entered its results.
         'minutes_file_path',
         'minutes_file_name',
@@ -63,7 +60,6 @@ class Meeting extends Model
             'scheduled_at' => 'datetime',
             'agenda_deadline' => 'datetime',
             'expected_duration_minutes' => 'integer',
-            'agenda_adopted_at' => 'datetime',
             'results_recorded_at' => 'datetime',
         ];
     }
@@ -86,11 +82,6 @@ class Meeting extends Model
     public function rapporteur(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rapporteur_user_id');
-    }
-
-    public function agendaAdoptedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'agenda_adopted_by_user_id');
     }
 
     public function resultsRecordedBy(): BelongsTo

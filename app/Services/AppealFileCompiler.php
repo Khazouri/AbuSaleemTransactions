@@ -30,7 +30,6 @@ class AppealFileCompiler
             'originalRequest.createdBy:id,name',
             'originalRequest.attachments',
             'originalDecision.decidedBy:id,name',
-            'originalDecision.template:id,code,name_ar,name_en',
         ]);
 
         $originalRequest = $appeal->originalRequest;

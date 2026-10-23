@@ -19,24 +19,16 @@ class CommitteeStatusServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_full_walk_through_committee_substates_never_moves_the_stage_or_logs_a_stage_move(): void
+    public function test_the_legal_review_round_trip_never_moves_the_stage_or_logs_a_stage_move(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $actor = $this->userWithRole('R03');
-        // Stage 102 removed `nominate` (picking a request for a meeting is the
-        // nomination), so the walk starts from the legacy nominated status.
-        $requestRecord = $this->committeeRequest('nominated_for_committee');
+        $requestRecord = $this->committeeRequest('registered');
         $service = app(CommitteeStatusService::class);
         $committeeStageId = $requestRecord->current_stage_id;
 
-        $steps = [
-            ['place_on_agenda', 'on_agenda'],
-            ['start_discussion', 'under_discussion'],
-            ['send_for_recommendation_approval', 'awaiting_recommendation_approval'],
-        ];
-
-        foreach ($steps as [$action, $expectedStatus]) {
+        foreach ([['send_to_legal_review', 'under_legal_review'], ['pass_legal_review', 'ready']] as [$action, $expectedStatus]) {
             $requestRecord = $service->move($requestRecord, $action, $actor);
 
             $this->assertSame($committeeStageId, $requestRecord->current_stage_id);
@@ -44,15 +36,15 @@ class CommitteeStatusServiceTest extends TestCase
         }
 
         $this->assertDatabaseCount('request_stage_logs', 0);
-        $this->assertCount(3, $requestRecord->statusHistory);
+        $this->assertCount(2, $requestRecord->statusHistory);
     }
 
-    public function test_require_completion_needs_a_comment_and_resume_discussion_returns_to_under_discussion(): void
+    public function test_require_completion_needs_a_comment(): void
     {
         $this->seed(DatabaseSeeder::class);
 
         $actor = $this->userWithRole('R03');
-        $requestRecord = $this->committeeRequest('under_discussion');
+        $requestRecord = $this->committeeRequest('ready');
         $service = app(CommitteeStatusService::class);
 
         try {
@@ -64,34 +56,10 @@ class CommitteeStatusServiceTest extends TestCase
 
         $requestRecord = $service->move($requestRecord, 'require_completion', $actor, 'يلزم استكمال مستند مالي.');
         $this->assertSame('completion_required', $requestRecord->status->code);
-
-        $requestRecord = $service->move($requestRecord, 'resume_discussion', $actor);
-        $this->assertSame('under_discussion', $requestRecord->status->code);
-
         $this->assertDatabaseHas('request_status_history', [
             'request_id' => $requestRecord->id,
             'reason' => 'يلزم استكمال مستند مالي.',
         ]);
-        $this->assertDatabaseCount('request_stage_logs', 0);
-    }
-
-    public function test_remove_from_agenda_requires_a_comment_and_returns_to_nominated(): void
-    {
-        $this->seed(DatabaseSeeder::class);
-
-        $actor = $this->userWithRole('R03');
-        $requestRecord = $this->committeeRequest('on_agenda');
-        $service = app(CommitteeStatusService::class);
-
-        try {
-            $service->move($requestRecord, 'remove_from_agenda', $actor);
-            $this->fail('remove_from_agenda should demand a reason.');
-        } catch (CommitteeStatusTransitionException $exception) {
-            $this->assertSame('يجب إدخال سبب لتنفيذ هذا الإجراء.', $exception->getMessage());
-        }
-
-        $requestRecord = $service->move($requestRecord, 'remove_from_agenda', $actor, 'تعارض في الجدول.');
-        $this->assertSame('nominated_for_committee', $requestRecord->status->code);
     }
 
     public function test_move_rejects_an_action_not_allowed_from_the_current_status_without_mutating_state(): void
@@ -99,19 +67,19 @@ class CommitteeStatusServiceTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $actor = $this->userWithRole('R03');
-        $requestRecord = $this->committeeRequest('nominated_for_committee');
+        $requestRecord = $this->committeeRequest('ready');
         $service = app(CommitteeStatusService::class);
 
         try {
-            // start_discussion is only reachable from on_agenda.
-            $service->move($requestRecord, 'start_discussion', $actor);
-            $this->fail('start_discussion should be rejected from nominated_for_committee.');
+            // pass_legal_review is only reachable from under_legal_review.
+            $service->move($requestRecord, 'pass_legal_review', $actor);
+            $this->fail('pass_legal_review should be rejected from ready.');
         } catch (CommitteeStatusTransitionException $exception) {
             $this->assertSame('هذا الإجراء غير متاح في الحالة الراهنة للطلب.', $exception->getMessage());
         }
 
         $requestRecord->refresh();
-        $this->assertSame('nominated_for_committee', $requestRecord->status->code);
+        $this->assertSame('ready', $requestRecord->status->code);
         $this->assertDatabaseCount('request_status_history', 0);
     }
 

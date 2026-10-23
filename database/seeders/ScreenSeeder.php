@@ -38,6 +38,9 @@ class ScreenSeeder extends Seeder
         // 2026-10-18 — the in-system sitting's three screens went with it: the
         // committee meets on paper and the مقرر enters the results.
         Screen::query()->whereIn('code', ['meeting_readiness', 'meeting_live', 'meeting_minutes'])->delete();
+        // 2026-10-23 — the decision templates fed the recording screen, which
+        // went with the sitting; nothing else read them.
+        Screen::query()->where('code', 'templates')->delete();
 
         // [code, Arabic name, English name, Vue route, icon, group]
         // `group` is null for every ungrouped (flat, top-level) screen —
@@ -148,7 +151,6 @@ class ScreenSeeder extends Seeder
             ['registers',                'السجلات الرسمية',            'Official Registers',           '/registers',                'book',         null],
             ['audit_log',                'سجل التدقيق',               'Audit Log',                    '/audit-log',                'clipboard',    null],
             ['notifications',            'الإشعارات',                 'Notifications',                '/notifications',            'bell',         null],
-            ['templates',                'القوالب والنماذج',           'Templates & Forms',            '/templates',                'layout',       null],
             ['backup',                   'النسخ الاحتياطي',            'Backup',                       '/backup',                   'database',     null],
             // The maintenance console. Beside `backup` because it is the same
             // kind of screen: a server operation an administrator performs on

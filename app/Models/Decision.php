@@ -11,7 +11,6 @@ class Decision extends Model
     protected $fillable = [
         'meeting_request_id',
         'decision_number',
-        'template_id',
         'outcome',
         'votes_approve_count',
         'votes_reject_count',
@@ -72,11 +71,5 @@ class Decision extends Model
     public function decidedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'decided_by_user_id');
-    }
-
-    /** Stage 35 — which reusable text, if any, the recorded comment started from. */
-    public function template(): BelongsTo
-    {
-        return $this->belongsTo(Template::class);
     }
 }

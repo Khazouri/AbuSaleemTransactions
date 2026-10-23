@@ -1,7 +1,7 @@
 <script setup>
 /**
  * Decision wizard — sub-project 2: the meeting's own acts — answering the
- * proposed date, adopting the agenda and entering the paper sitting's results
+ * proposed date and entering the paper sitting's results
  * (2026-10-18). Review the sitting and its five seats, choose, then confirm as
  * a line in the session register.
  *
@@ -27,7 +27,6 @@ const { t, te, locale } = useI18n()
 const REQUESTS = {
   respond_accept: (id) => api.post(`/meetings/${id}/respond`, { response: 'accept' }),
   respond_decline: (id) => api.post(`/meetings/${id}/respond`, { response: 'decline' }),
-  adopt_agenda: (id) => api.post(`/meetings/${id}/agenda/adopt`),
   // 2026-10-18 — the paper sitting's results and its محضر, in one submit.
   record_results: (id, results) => api.post(`/meetings/${id}/results`, results),
 }
@@ -151,8 +150,7 @@ async function submit() {
         <div>
           <dt>{{ t('decisionWizard.review.agenda') }}</dt>
           <dd>
-            {{ t('decisionWizard.review.items', { count: meeting.agenda_items?.length ?? 0 }) }}{{ locale === 'ar' ? '،' : ',' }}
-            {{ meeting.agenda_adopted_at ? t('decisionWizard.review.agendaAdopted') : t('decisionWizard.review.agendaNotAdopted') }}
+            {{ t('decisionWizard.review.items', { count: meeting.agenda_items?.length ?? 0 }) }}
           </dd>
         </div>
       </dl>

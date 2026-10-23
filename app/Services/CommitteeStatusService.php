@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\CommitteeStatusTransitionException;
+use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
@@ -15,8 +16,8 @@ use Illuminate\Support\Facades\DB;
  *
  * WorkflowService stays the sole authority for stage changes (workflow_transitions
  * is admin-configurable and drives current_stage_id). The moves here are a fixed,
- * hardcoded state machine on purpose — nomination, agenda placement, discussion
- * and recommendation-approval are internal committee bookkeeping, not workflow
+ * hardcoded state machine on purpose — completion requests and the legal
+ * review are internal committee bookkeeping, not workflow
  * stages, so they must never appear in workflow_transitions or touch
  * current_stage_id / request_stage_logs. Every move is confined to a
  * request currently at the `receive_from_committee` stage, which is the
@@ -35,26 +36,6 @@ class CommitteeStatusService
      * a candidate status for rows that took it before.
      */
     private const ACTIONS = [
-        'place_on_agenda' => [
-            'from' => ['nominated_for_committee'],
-            'to' => 'on_agenda',
-            'requires_comment' => false,
-        ],
-        'remove_from_agenda' => [
-            'from' => ['on_agenda'],
-            'to' => 'nominated_for_committee',
-            'requires_comment' => true,
-        ],
-        'start_discussion' => [
-            'from' => ['on_agenda'],
-            'to' => 'under_discussion',
-            'requires_comment' => false,
-        ],
-        'send_for_recommendation_approval' => [
-            'from' => ['under_discussion'],
-            'to' => 'awaiting_recommendation_approval',
-            'requires_comment' => false,
-        ],
         // Stage 32 widened this action's origin beyond the mid-discussion
         // statuses it started with: the candidate-requests worklist offers
         // "request completion" on a not-yet-nominated/nominated item too, so
@@ -65,11 +46,6 @@ class CommitteeStatusService
             'to' => 'completion_required',
             'requires_comment' => true,
         ],
-        'resume_discussion' => [
-            'from' => ['completion_required'],
-            'to' => 'under_discussion',
-            'requires_comment' => false,
-        ],
 
         // --- Stage 68: [D] Art. 21's pre-meeting legal review ---------------
         // Art. 38's code 07 (تحت المراجعة القانونية) is status-only for the
@@ -78,18 +54,16 @@ class CommitteeStatusService
         // completeness (Art. 20) and the presentation memo (Art. 22), so it
         // is not a workflow stage and must not move current_stage_id.
         //
-        // The two verdict actions are called by RequestLegalReviewController
-        // inside the same transaction that writes the RequestLegalReview row,
-        // so a recorded review and the status it implies cannot disagree.
+        // pass_legal_review is called by RequestLegalReviewController inside
+        // the same transaction that writes the RequestLegalReview row, so a
+        // recorded review and the status it implies cannot disagree. Every
+        // recommendation returns the file to the pending list (2026-10-19).
         // Stage 69 — `completion_required` added to the origin list after
         // validating the map against Appendix 5. Its status-05 rule is that a
         // file waiting on missing material "تعاد إلى (تحت فحص الاكتمال) ولا
         // تقفز مباشرة إلى جدول الأعمال"; for a file parked here by
-        // fail_legal_review the analogue is re-review, which Art. 21 and [E]
+        // require_completion the analogue is re-review, which Art. 21 and [E]
         // stage 08 both spell out ("استكمال أو تصحيح ثم إعادة المراجعة").
-        // Without it the only exit was resume_discussion → under_discussion,
-        // i.e. exactly the jump ahead the rule forbids, and the loop Stage 68
-        // documented was reachable only by writing status_id by hand.
         'send_to_legal_review' => [
             'from' => [...self::CANDIDATE_STATUSES, 'completion_required'],
             'to' => 'under_legal_review',
@@ -102,16 +76,6 @@ class CommitteeStatusService
             'from' => ['under_legal_review'],
             'to' => 'ready',
             'requires_comment' => false,
-        ],
-        // A blocking verdict lands on Art. 38's code 05 (بانتظار استكمال
-        // النواقص) — the same status `require_completion` uses, since [E]
-        // stage 08's own routing for a flagged file is "استكمال أو تصحيح ثم
-        // إعادة المراجعة". The comment is the legal member's own note, which
-        // StoreRequestLegalReviewRequest already requires.
-        'fail_legal_review' => [
-            'from' => ['under_legal_review'],
-            'to' => 'completion_required',
-            'requires_comment' => true,
         ],
     ];
 
@@ -235,7 +199,7 @@ class CommitteeStatusService
         // through here, whichever screen started it.
         match ($action) {
             'send_to_legal_review' => $this->notifications->legalReviewRequested($moved, $actor),
-            'pass_legal_review', 'fail_legal_review' => $this->notifications->legalReviewRecorded($moved, $actor),
+            'pass_legal_review' => $this->notifications->legalReviewRecorded($moved, $actor),
             default => null,
         };
 
@@ -253,9 +217,20 @@ class CommitteeStatusService
             // Stage 102 — a file picked for a meeting leaves the list until
             // that meeting decides it (a deferral returns it at once) or is
             // cancelled.
-            ->whereDoesntHave('meetingRequests', fn ($item) => $item
-                ->whereDoesntHave('decision')
-                ->whereHas('meeting', fn ($meeting) => $meeting->whereNotIn('status', ['completed', 'cancelled'])));
+            ->whereDoesntHave('meetingRequests', self::awaitingItsMeeting(...));
+    }
+
+    /**
+     * An agenda item whose meeting has neither decided it nor been cancelled:
+     * the file is picked for that meeting. CommitteeBoardService counts the
+     * same set as «مدرجة في الاجتماع القادم».
+     *
+     * @param  Builder<MeetingRequest>  $item
+     */
+    public static function awaitingItsMeeting(Builder $item): void
+    {
+        $item->whereDoesntHave('decision')
+            ->whereHas('meeting', fn ($meeting) => $meeting->whereNotIn('status', ['completed', 'cancelled']));
     }
 
     /**

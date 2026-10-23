@@ -64,6 +64,9 @@ class CommitteeBoardService
         'on_agenda' => [
             'ar' => 'مدرجة في الاجتماع القادم', 'en' => 'On the next agenda',
             'scope' => 'live',
+            // Statuses only rows from before the paper meeting hold; a file
+            // picked since keeps its pending-list status, so board() adds
+            // every file on a live meeting's agenda.
             'statuses' => ['on_agenda', 'in_meeting'],
         ],
         'deferred' => [
@@ -122,6 +125,12 @@ class CommitteeBoardService
                 default => collect($bucket['statuses'] ?? [])->sum(fn (string $code) => $counts[$code] ?? 0),
             };
 
+            if ($key === 'on_agenda') {
+                $total += Request::query()
+                    ->whereHas('meetingRequests', CommitteeStatusService::awaitingItsMeeting(...))
+                    ->count();
+            }
+
             $rows[] = [
                 'key' => $key,
                 // Appendix 11's own numbering, with 7 and 8 being the two
@@ -143,13 +152,16 @@ class CommitteeBoardService
     }
 
     /**
-     * Current status counts across the whole population, in one query.
+     * Current status counts across the whole population, in one query. A file
+     * on a live meeting's agenda is left out: bucket 5 counts it, which keeps
+     * the live buckets disjoint.
      *
      * @return array<string, int>
      */
     private function liveCounts(): array
     {
-        return DB::table('requests')
+        return Request::query()
+            ->whereDoesntHave('meetingRequests', CommitteeStatusService::awaitingItsMeeting(...))
             ->join('request_statuses', 'request_statuses.id', '=', 'requests.status_id')
             ->select('request_statuses.code', DB::raw('COUNT(*) as total'))
             ->groupBy('request_statuses.code')

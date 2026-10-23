@@ -31,20 +31,6 @@ class MeetingDuties
 
     // --- Refusals the endpoints call ------------------------------------------
 
-    /** MeetingController::adoptAgenda(). */
-    public function adoptRefusal(Meeting $meeting): ?string
-    {
-        if ($meeting->agenda_adopted_at !== null) {
-            return 'تم اعتماد جدول الأعمال بالفعل.';
-        }
-
-        if (! $meeting->agendaItems()->exists()) {
-            return 'لا يمكن اعتماد جدول أعمال فارغ.';
-        }
-
-        return null;
-    }
-
     /**
      * MeetingResultsController::store() — the paper sitting (user decision
      * 2026-10-18). The مقرر seated on this committee enters what the committee
@@ -143,7 +129,6 @@ class MeetingDuties
     public function forMeeting(Meeting $meeting, User $actor): array
     {
         $meeting->loadMissing(['attendees', 'committee.members.user']);
-        $open = in_array($meeting->status, [Meeting::STATUS_PENDING_CONFIRMATION, 'scheduled'], true);
         $duties = ['available' => [], 'blocked' => []];
 
         // Stage 102 — each invited member answers the proposed date themselves.
@@ -151,11 +136,6 @@ class MeetingDuties
             && $meeting->attendees->contains('user_id', $actor->id)) {
             $this->offer($duties, 'respond_accept', null);
             $this->offer($duties, 'respond_decline', null);
-        }
-
-        if ($open && $meeting->agenda_adopted_at === null
-            && $actor->hasScreenPermission('meeting_agenda', 'can_approve')) {
-            $this->offer($duties, 'adopt_agenda', $this->adoptRefusal($meeting));
         }
 
         // The paper sitting (2026-10-18): the مقرر enters the results once,

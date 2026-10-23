@@ -156,13 +156,6 @@ const routes = [
         meta: { screenCode: 'committee_roles' },
       },
       {
-        // Stage 10 — reusable bilingual text templates.
-        path: 'templates',
-        name: 'templates',
-        component: () => import('../views/TemplatesView.vue'),
-        meta: { screenCode: 'templates' },
-      },
-      {
         // Stage 20 — committee administration and the meeting schedule.
         path: 'meetings',
         name: 'meetings',

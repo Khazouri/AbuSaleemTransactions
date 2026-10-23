@@ -60,6 +60,19 @@ class RequestResponsibilityTest extends TestCase
         $this->assertSame('register_request', $atRegistration['next_action']['code']);
     }
 
+    /**
+     * 2026-10-18 — there is no execution leg: a finally approved file waits on
+     * its two archives, and the second one closes it.
+     */
+    public function test_a_finally_approved_file_is_waiting_on_its_archive(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $service = app(RequestResponsibilityService::class);
+
+        $this->assertSame('archive_file', $service->for($this->requestAt('final_approval_archiving', 'final_approved'))['next_action']['code']);
+        $this->assertSame('archive_file', $service->for($this->requestAt('final_approval_archiving', 'in_review'))['next_action']['code']);
+    }
+
     /** A status that names its own owner beats whatever the stage would say. */
     public function test_a_file_waiting_on_the_employee_says_so_whatever_stage_it_is_parked_at(): void
     {

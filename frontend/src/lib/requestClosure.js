@@ -1,5 +1,5 @@
 // Stage 75 — [D] Appendix 47's قائمة التدقيق النهائية قبل الإقفال, mirrored
-// once for every screen that renders it (the decisionOutcomes.js precedent).
+// once for every screen that renders it.
 //
 // Twelve checks, verbatim and in the appendix's own order. Nine are answered by
 // the closer; `appeal_path_concluded`, `archive_location_set` and — since Stage

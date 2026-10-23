@@ -39,7 +39,6 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ScreenController;
 use App\Http\Controllers\Api\ScreenRolePermissionController;
 use App\Http\Controllers\Api\SettingController;
-use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WorkflowController;
 use App\Models\CommitteeMember;
@@ -264,7 +263,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ->delete('users/{user}', [UserController::class, 'destroy']);
 
     /*
-     * Stage 10 — settings and template administration. Each verb is bound to
+     * Stage 10 — settings administration. Each verb is bound to
      * the matching screen permission, keeping these low-risk CRUD screens in
      * step with the server-side enforcement introduced in Stage 9.
      */
@@ -283,15 +282,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:committee_roles,edit')
         ->put('committee-roles/{seat}', [CommitteeRoleController::class, 'assign'])
         ->whereIn('seat', array_keys(CommitteeMember::SOLE_ROLES));
-
-    Route::middleware('screen.permission:templates,view')
-        ->get('templates', [TemplateController::class, 'index']);
-    Route::middleware('screen.permission:templates,add')
-        ->post('templates', [TemplateController::class, 'store']);
-    Route::middleware('screen.permission:templates,edit')
-        ->put('templates/{template}', [TemplateController::class, 'update']);
-    Route::middleware('screen.permission:templates,delete')
-        ->delete('templates/{template}', [TemplateController::class, 'destroy']);
 
     /*
      * Stage 11 — request work queue. Static request paths must precede
@@ -707,11 +697,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // reason `meetings/department-options` precedes `meetings/{meeting}`.
     Route::middleware(['screen.permission:meeting_agenda,view', 'meeting.member'])
         ->get('meetings/{meeting}/agenda/ordering', [MeetingController::class, 'agendaOrdering']);
-    // Stage 99 — Art. 84's «اعتماد جدول الأعمال», Appendix 6 row 8. Its own
-    // `approve` tier (R03), the decisions add/approve split: building the
-    // agenda is المقرر's, adopting it is the chair's on the committee's behalf.
-    Route::middleware(['screen.permission:meeting_agenda,approve', 'meeting.member'])
-        ->post('meetings/{meeting}/agenda/adopt', [MeetingController::class, 'adoptAgenda']);
     Route::middleware(['screen.permission:meeting_agenda,edit', 'meeting.member'])->group(function () {
         Route::post('meetings/{meeting}/agenda', [MeetingController::class, 'addAgendaItem']);
         Route::put('meetings/{meeting}/agenda/reorder', [MeetingController::class, 'reorderAgenda']);

@@ -50,11 +50,11 @@ class CheckMeetingMembership
             404,
         );
 
-        // A concluded sitting is a closed record: its agenda, attendance, votes,
-        // decisions and minutes describe what happened and must not change
-        // afterwards. Every meeting-bound write already passes through here, so
-        // one check covers them all. Execution follow-up (outputs/execute) is
-        // not behind this middleware and stays open by design.
+        // A concluded sitting is a closed record: its agenda, attendance and
+        // results describe what happened and must not change afterwards. Every
+        // meeting-bound write already passes through here, so one check covers
+        // them all. The authority's decision is not behind this middleware: it
+        // is made after the meeting concludes.
         if (! $request->isMethodSafe() && $meeting->status === 'completed') {
             throw ValidationException::withMessages([
                 'meeting' => ['لا يجوز تعديل اجتماع منتهٍ.'],

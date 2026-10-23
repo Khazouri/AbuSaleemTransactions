@@ -13,6 +13,21 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### A paper deferral records no reason, so the deferral indicators read zero — paper-meeting leftovers — opened 2026-10-23
+The audit of what the paper meeting left behind found that `MeetingResultsController::store()` writes a deferral's
+note to `decisions.comment` only. `deferral_reason`/`deferral_required_document` and the rest stay null, so the
+deferred register (11) shows blanks for a paper deferral and Art. 106's «deferred for documents» indicator
+(`PerformanceIndicatorService`) is always 0. The employee notice that quotes the deferral reason is empty too. **To
+close:** ask the user whether the مقرر's results form should take a deferral reason (and the required document), or
+whether those register columns go.
+
+### Legacy committee statuses and agenda types are still labelled — paper-meeting leftovers — opened 2026-10-23
+The paper meeting never sets `on_agenda`/`in_meeting`/`under_discussion`/`awaiting_recommendation_approval`/`decided`,
+nor the agenda states `discussion`/`voting`/`deciding` or the `administrative`/`emerging` item types. Their labels,
+next-action mappings and register buckets were kept, because rows from before 2026-10-18 still hold them. **To
+close:** once no live file holds one (query the real DB), drop the mappings in `RequestResponsibilityService`,
+`AgendaRegister`, `MeetingController::agendaStats()` and `CommitteeBoardService`.
+
 ### ERP single sign-on waits on the ERP team's half — ERP SSO — opened 2026-10-23
 Our half of the authorization-code + PKCE flow is built and tested against `Http::fake` and a mocked headless run,
 but EmployeePlus (`ep.scco.ly`) exposes no authorize, token or userinfo endpoint today: its Swagger has only

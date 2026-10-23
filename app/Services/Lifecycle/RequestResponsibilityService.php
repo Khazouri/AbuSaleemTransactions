@@ -96,7 +96,6 @@ class RequestResponsibilityService
         'prepare_minutes' => ['ar' => 'إعداد محضر', 'en' => 'Prepare the minutes'],
         'send_for_approval' => ['ar' => 'إرسال للاعتماد', 'en' => 'Send for approval'],
         'await_ministry_reply' => ['ar' => 'انتظار رد الوزارة', 'en' => 'Await the ministry reply'],
-        'issue_execution_order' => ['ar' => 'إصدار قرار تنفيذ', 'en' => 'Issue the execution order'],
         'update_employee_file' => ['ar' => 'تحديث ملف الموظف', 'en' => 'Update the employee file'],
         'close_request' => ['ar' => 'إقفال المعاملة', 'en' => 'Close the request'],
         // Named beyond the appendix's ten examples — see the docblock above.
@@ -104,8 +103,9 @@ class RequestResponsibilityService
         'administrative_routing' => ['ar' => 'إحالة الطلب للجهة المعنية', 'en' => 'Route the request to the relevant body'],
         'register_request' => ['ar' => 'تجهيز الملف الإداري وقيده', 'en' => 'Prepare and register the file'],
         'completeness_check' => ['ar' => 'فحص اكتمال الملف', 'en' => 'Check the file for completeness'],
-        'regulatory_review' => ['ar' => 'مراجعة المقرر وفق اللوائح', 'en' => 'Rapporteur review against the regulations'],
-        'prepare_presentation_memo' => ['ar' => 'إعداد مذكرة العرض', 'en' => 'Prepare the presentation memo'],
+        // 2026-10-18 — no execution leg: the committee file and the service
+        // file are archived, and the second archive closes the file.
+        'archive_file' => ['ar' => 'أرشفة ملف اللجنة والملف الوظيفي', 'en' => 'Archive the committee and service files'],
         'reprocess_approval_return' => ['ar' => 'إثبات إجراء إعادة المعالجة', 'en' => 'Record the re-processing action'],
         'closed' => ['ar' => 'لا إجراء مطلوب — المعاملة مقفلة', 'en' => 'No action required — the file is closed'],
         // Workflow designer — slice 3: whatever a custom step asks; the stage name says what.
@@ -199,7 +199,7 @@ class RequestResponsibilityService
         'approved' => 'send_for_approval',
         'awaiting_central_approval' => 'await_ministry_reply',
         'returned_by_approving_body' => 'reprocess_approval_return',
-        'final_approved' => 'issue_execution_order',
+        'final_approved' => 'archive_file',
         'in_execution' => 'update_employee_file',
         'executed' => 'close_request',
         'not_approved' => 'close_request',
@@ -220,7 +220,7 @@ class RequestResponsibilityService
         'receive_from_committee' => 'await_meeting',
         'approval_by_authority' => 'send_for_approval',
         'local_governance_ministry' => 'await_ministry_reply',
-        'final_approval_archiving' => 'issue_execution_order',
+        'final_approval_archiving' => 'archive_file',
     ];
 
     /** @var Collection<int, WorkflowTransition>|null */

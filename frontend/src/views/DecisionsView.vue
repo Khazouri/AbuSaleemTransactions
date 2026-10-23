@@ -10,7 +10,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
-import { TALLY_OUTCOMES } from '../lib/decisionOutcomes'
 import { downloadExport } from '../lib/download'
 
 const { t, locale } = useI18n()
@@ -97,14 +96,6 @@ async function exportAs(format) {
   } finally {
     exporting.value = null
   }
-}
-
-// The register row carries one votes_<outcome>_count column per option; only
-// the options that actually received votes are worth a chip.
-function rowTally(row) {
-  return TALLY_OUTCOMES
-    .map((outcome) => [outcome, row[`votes_${outcome}_count`] ?? 0])
-    .filter(([, count]) => count > 0)
 }
 
 function applyFilters() { load(1) }
@@ -202,8 +193,6 @@ onMounted(async () => {
               <!-- Stage 74 — Art. 90: the outcome word alone does not say whether
                    a decision, a recommendation or an opinion was issued. -->
               <th>{{ t('decisions.instrument.label') }}</th>
-              <th>{{ t('decisions.columns.tally') }}</th>
-              <th>{{ t('decisions.columns.template') }}</th>
               <th>{{ t('decisions.columns.decidedBy') }}</th>
               <th>{{ t('decisions.columns.decidedAt') }}</th>
             </tr>
@@ -249,21 +238,6 @@ onMounted(async () => {
                 <small v-if="row.refusal_reason_code" class="muted">
                   {{ t(`decisions.refusal.reasons.${row.refusal_reason_code}`) }}
                 </small>
-              </td>
-              <td>
-                <div v-if="rowTally(row).length" class="vote-chips">
-                  <span
-                    v-for="[outcome, count] in rowTally(row)"
-                    :key="outcome"
-                    class="vote-chip outcome"
-                    :class="[outcome, { lead: outcome === row.outcome }]"
-                  >{{ t(`decisions.tally.${outcome}`) }}<b>{{ count }}</b></span>
-                </div>
-                <span v-else class="muted">{{ t("common.none") }}</span>
-              </td>
-              <td>
-                <span v-if="row.template" class="template-chip">{{ localName(row.template) }}</span>
-                <span v-else class="muted">{{ t('common.none') }}</span>
               </td>
               <td>{{ row.decided_by?.name ?? t('common.none') }}</td>
               <td class="nowrap">{{ dateTime(row.decided_at) }}</td>
@@ -313,12 +287,7 @@ select:focus, input:focus { outline: 2px solid var(--color-brand-text); outline-
 .outcome.appeal_accept { color: var(--color-success-fg); border-color: var(--color-success-border); background: var(--color-success-bg); }
 .outcome.appeal_partial_accept { color: var(--color-info-fg); border-color: var(--color-info-border); background: var(--color-info-bg); }
 .outcome.appeal_reject { color: var(--color-danger-fg); border-color: var(--color-danger-border); background: var(--color-danger-bg); }
-.outcome.appeal_refer, .outcome.abstain { color: var(--color-muted); border-color: var(--color-border-hover); background: var(--color-surface-hover); }
+.outcome.appeal_refer { color: var(--color-muted); border-color: var(--color-border-hover); background: var(--color-surface-hover); }
 .outcome.appeal_redo { color: var(--color-warning-fg); border-color: var(--color-warning-border); background: var(--color-warning-bg); }
-.template-chip { display: inline-block; max-inline-size: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; padding: .1rem .55rem; border-radius: 6px; border: 1px dashed var(--color-border-hover); background: var(--color-surface-hover); color: var(--color-brand-text); font-size: var(--text-xs); }
-.vote-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
-.vote-chip { display: inline-flex; align-items: center; gap: .35rem; padding-block: .1rem; padding-inline: .55rem .2rem; border-radius: 999px; font-size: var(--text-xs); white-space: nowrap; }
-.vote-chip b { min-inline-size: 1.3rem; padding: 0 .3rem; border-radius: 999px; background: var(--color-surface); text-align: center; font-variant-numeric: tabular-nums; }
-.vote-chip.lead { font-weight: 600; box-shadow: 0 0 0 1px currentColor; }
 .outcome.no_jurisdiction { color: var(--color-warning-fg); border-color: var(--color-border-hover); background: var(--color-surface-hover); }
 </style>
