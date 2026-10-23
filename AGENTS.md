@@ -235,7 +235,10 @@ Key architectural facts worth knowing before changing things:
   deleted the in-system sitting and its tables (2026-10-18): convening,
   readiness, roll call, votes, the live runner, conflict declarations, the
   study sequence, presentation memos, generated and signed minutes, closing a
-  meeting by hand, Art. 103's soundness card and the execution card. Don't
+  meeting by hand, Art. 103's soundness card and the execution card. Its
+  leftovers went on 2026-10-23: the chair's adoption of the agenda (the
+  agenda is fixed only once the meeting is `completed`), the committee card's
+  voting and minutes rules, and the decision templates screen. Don't
   bring any of it back piecemeal; a decision is written only by
   `MeetingResultsController::store()`. **The legal member enters a توصية
   (`approve`/`decline`) and جهة الاعتماد only** (user decision 2026-10-19,

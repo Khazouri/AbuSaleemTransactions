@@ -165,6 +165,30 @@ class RegisterTest extends TestCase
         $this->assertCount(12, $response->json('columns'));
     }
 
+    /**
+     * The paper results (2026-10-18) write the committee's note to `comment`
+     * and no منطوق, so the register falls back to the note and searches it.
+     */
+    public function test_a_paper_decisions_note_is_its_operative_clause_in_the_register(): void
+    {
+        $requestRecord = $this->fixtureRequest();
+        [, $agendaItem] = $this->fixtureMeeting($requestRecord);
+
+        Decision::create([
+            'meeting_request_id' => $agendaItem->id,
+            'outcome' => 'approve',
+            'comment' => 'توصي اللجنة بالموافقة على الترقية.',
+            'decided_by_user_id' => $this->userWithRole('R02')->id,
+            'decided_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($this->userWithRole('R06'), 'sanctum')
+            ->getJson('/api/registers/decisions?search='.urlencode('بالموافقة'))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.operative', 'توصي اللجنة بالموافقة على الترقية.');
+    }
+
     /** Register 11 reads the decision, not the status — Appendix 29's own point. */
     public function test_the_deferred_register_carries_art_34s_five_fields(): void
     {

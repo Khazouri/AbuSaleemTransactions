@@ -75,7 +75,7 @@ class DecisionsRegister extends Register
 
     protected function searchColumns(): array
     {
-        return ['decisions.decision_number', 'decisions.decision_subject'];
+        return ['decisions.decision_number', 'decisions.decision_subject', 'decisions.comment'];
     }
 
     protected function baseQuery(): Builder
@@ -109,7 +109,9 @@ class DecisionsRegister extends Register
             'reference_number' => $requestRecord?->reference_number,
             'employee' => $requestRecord?->subject?->name,
             'subject_type' => $this->localName($requestRecord?->requestType, $locale),
-            'operative' => $model->decision_operative,
+            // The paper results (2026-10-18) record the committee's note and no
+            // منطوق, so a paper decision's operative clause is its note.
+            'operative' => $model->decision_operative ?? $model->comment,
             'meeting_date' => $this->date($model->meetingRequest?->meeting?->scheduled_at),
             'approving_body' => $approved?->referred_to_body ?? ($closure['approving_body'] ?? null),
             'approved_at' => $this->date($approved?->result_received_at),

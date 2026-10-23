@@ -57,7 +57,6 @@ class AuditLog extends Model
         Document::class,
         ScreenRolePermission::class,
         Setting::class,
-        Template::class,
         GuideArticle::class,
 
         // Stage 26 — taking or destroying a snapshot of the whole system is

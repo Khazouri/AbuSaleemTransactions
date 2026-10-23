@@ -173,16 +173,15 @@ class ScreenRolePermissionSeeder extends Seeder
         // the presentation memo. The chair keeps both tiers (Art. 12 (أ) 3 is
         // مراجعة واعتماد جدول الأعمال). Stage 96 dropped R09: the appendix
         // gives إدارة جدول الأعمال to المقرر as a single مسؤول.
-        // Stage 99 — `approve` is Art. 84's «اعتماد جدول الأعمال», Appendix 6
-        // row 8's اللجنة «اعتماد تنظيمي», recorded by the chair (Art. 12 (أ) 3).
         // Stage 101 — R11 joins `add`: Appendix 6 row 7 makes العضو القانوني
         // «مشارك» in مذكرة العرض, whose authored `legal_opinion` field is theirs
         // to write. The whole tier, not that one field — gating a single field
         // buys nothing for a cell that says only «مشارك». `edit` (the agenda's
         // structure) stays with المقرر and the chair, and the seat still bounds
         // it: `meeting.member` requires R11 to sit on the committee (Stage 99).
-        // 2026-10-18 — `add` (the presentation memo) went with the in-system sitting.
-        'meeting_agenda' => ['view' => '*', 'edit' => ['R02', 'R03'], 'approve' => ['R03'], 'print' => '*'],
+        // 2026-10-18 — `add` (the presentation memo) went with the in-system
+        // sitting, and 2026-10-23 `approve` (the chair's adoption) with it.
+        'meeting_agenda' => ['view' => '*', 'edit' => ['R02', 'R03'], 'print' => '*'],
         // 2026-10-18 — the register only: voting (`add`) and recording the
         // result (`approve`) went with the in-system sitting, and the paper
         // results ride `meetings,edit`. `export` is the R06/R07 tier every
@@ -245,7 +244,6 @@ class ScreenRolePermissionSeeder extends Seeder
         // Stage 103 — the مقرر names the other four seat holders here; who
         // may name which seat is CommitteeRoleController's own check.
         'committee_roles' => ['view' => ['R02'], 'edit' => ['R02']],
-        'templates' => [],
         'backup' => [],
         // The maintenance console. Empty, i.e. R08-only on every action — and
         // that includes `approve`, which here means "may run a command that

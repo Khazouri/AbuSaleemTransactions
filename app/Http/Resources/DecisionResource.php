@@ -16,29 +16,6 @@ class DecisionResource extends JsonResource
             // Stage 70 — Art. 89's رقم القرار (Appendix 15's PM-DEC series).
             'decision_number' => $this->decision_number,
             'outcome' => $this->outcome,
-            'votes_approve_count' => $this->votes_approve_count,
-            'votes_reject_count' => $this->votes_reject_count,
-            'votes_defer_count' => $this->votes_defer_count,
-            // Stage 35 — three richer outcomes alongside the original three.
-            'votes_conditional_approval_count' => $this->votes_conditional_approval_count,
-            'votes_legal_opinion_count' => $this->votes_legal_opinion_count,
-            'votes_refer_other_body_count' => $this->votes_refer_other_body_count,
-            // Stage 49 — a seventh outcome: the matter is outside the
-            // committee's jurisdiction entirely, distinct from asking another
-            // body for input (refer_other_body above).
-            'votes_no_jurisdiction_count' => $this->votes_no_jurisdiction_count,
-            // Stage 63 — Art. 75 point 5's five-outcome appeal vocabulary,
-            // recorded by DecisionController::recordAppealDecision instead of
-            // record() — always zero for an employee_request decision.
-            'votes_appeal_accept_count' => $this->votes_appeal_accept_count,
-            'votes_appeal_partial_accept_count' => $this->votes_appeal_partial_accept_count,
-            'votes_appeal_reject_count' => $this->votes_appeal_reject_count,
-            'votes_appeal_refer_count' => $this->votes_appeal_refer_count,
-            'votes_appeal_redo_count' => $this->votes_appeal_redo_count,
-            // Stage 41 — counted like any other vote, but never a plurality
-            // leader: DecisionController::record never lets it drive a
-            // workflow transition, so it stays outside the outcome list.
-            'votes_abstain_count' => $this->votes_abstain_count,
             // Art. 89's الملاحظات اللازمة — since Stage 74 gave the four
             // drafting parts columns of their own, this is genuinely notes
             // again rather than the place all of them were crammed.
@@ -70,12 +47,6 @@ class DecisionResource extends JsonResource
             'decided_by' => $this->whenLoaded('decidedBy', fn () => $this->decidedBy ? [
                 'id' => $this->decidedBy->id,
                 'name' => $this->decidedBy->name,
-            ] : null),
-            'template' => $this->whenLoaded('template', fn () => $this->template ? [
-                'id' => $this->template->id,
-                'code' => $this->template->code,
-                'name_ar' => $this->template->name_ar,
-                'name_en' => $this->template->name_en,
             ] : null),
             // Stage 25 — the register lists decisions away from the meeting
             // that produced them, so it needs enough context to link back.

@@ -238,24 +238,6 @@
     "taskColors": "My Tasks category colours",
     "taskColorsHint": "Each category's tasks on the My Tasks page are tinted with its colour, in both light and dark mode."
   },
-  "templates": {
-    "title": "Templates & Forms",
-    "add": "Add template",
-    "edit": "Edit template",
-    "code": "Template code",
-    "category": "Usage type",
-    "categoryGeneral": "General",
-    "categoryDecision": "Committee decisions",
-    "nameAr": "Name (Arabic)",
-    "nameEn": "Name (English)",
-    "subjectAr": "Subject (Arabic)",
-    "subjectEn": "Subject (English)",
-    "bodyAr": "Body (Arabic)",
-    "bodyEn": "Body (English)",
-    "empty": "No templates yet.",
-    "codeHint": "A stable code for wiring this template to a later feature",
-    "placeholdersHint": "For decision templates, any of the following can be used in the text and will be filled in automatically from the request's own data when the draft is generated (reference number, request title, employee name, department, request type, committee name, meeting date, decision date):"
-  },
   "guide": {
     "title": "User Guide",
     "subtitle": "How the system works, section by section.",
@@ -685,30 +667,6 @@
     "gradeDate": "Grade date",
     "gradeDataHint": "HR checks these three against the organisation's records."
   },
-  "approvals": {
-    "subtitle": "Only requests currently waiting at this checkpoint appear here.",
-    "decisionGrade": "Job grade",
-    "comment": "Approval comment (optional)",
-    "approve": "Approve",
-    "approving": "Approving…",
-    "overdue": "This request has exceeded its SLA.",
-    "empty": "No requests are waiting for this approval.",
-    "loadFailed": "The approval queue could not be loaded.",
-    "actionFailed": "The approval could not be completed.",
-    "confirmApprove": {
-      "title": "Confirm approval",
-      "body": "Are you sure you want to approve {reference} — {title}?",
-      "confirm": "Confirm approval"
-    },
-    "levels": {
-      "reviewer": "Reviewer approval",
-      "committee-head": "Committee head approval",
-      "admin-manager": "Admin manager approval",
-      "ministry": "Ministry approval",
-      "authority": "Competent authority approval",
-      "final": "Final approval and archiving"
-    }
-  },
   "approvalTrail": {
     "title": "Approval trail",
     "empty": "No approvals have been recorded yet.",
@@ -873,7 +831,6 @@
     "head": "Head",
     "noMembers": "No members yet.",
     "cannotDeleteHasMeetings": "A committee that has held meetings cannot be deleted.",
-    "rapporteurVotes": "The rapporteur votes too (per the committee's formation decision)",
     "seats": {
       "empty": "Vacant",
       "chair": "Chair",
@@ -884,49 +841,11 @@
     },
     "card": {
       "title": "Committee identity card",
-      "hint": "Transcribed from the committee's formation decision and its governing text. The system never supplies a quorum or a majority of its own: leave the quorum blank and readiness will report it as not recorded.",
-      "notRecorded": "Not recorded",
+      "hint": "Transcribed from the committee's formation decision and its governing text.",
       "formationDecisionNumber": "Formation decision no.",
       "formationDecisionDate": "Formation decision date",
       "termNote": "Committee term, if any",
-      "legalBasis": "Legal basis",
-      "minutesApprovalBody": "Minutes approving body",
-      "votingRightsNote": "Who may vote",
-      "minutesSignatureRule": "Minutes signing rules",
-      "recusalRules": "Recusal and conflict-of-interest cases",
-      "quorumType": "Quorum for a valid sitting",
-      "quorumCount": "Members required",
-      "quorumText": "Quorum as written in the text",
-      "majorityType": "Majority required to decide",
-      "majorityBasis": "Majority measured against",
-      "majorityText": "Voting rule as written in the text",
-      "numerator": "Numerator",
-      "denominator": "Denominator",
-      "comparator": "Wording",
-      "tieBreak": "Tied vote",
-      "tieBreakText": "Tie rule as written in the text",
-      "types": {
-        "count": "A fixed number of members",
-        "fraction": "A share of the members"
-      },
-      "majorityTypes": {
-        "plurality": "Whichever outcome leads",
-        "fraction": "A fixed share"
-      },
-      "bases": {
-        "votes_cast": "Votes cast",
-        "present": "Members present",
-        "members": "Committee members"
-      },
-      "comparators": {
-        "at_least": "At least",
-        "more_than": "More than"
-      },
-      "tieBreaks": {
-        "chair_casting_vote": "The chair's vote prevails",
-        "no_decision": "Undecided — vote again"
-      },
-      "missing": "Quorum not recorded"
+      "legalBasis": "Legal basis"
     }
   },
   "meetings": {
@@ -1023,17 +942,11 @@
         "fields": "Item fields (Appendix 24)",
         "none": "Not recorded",
         "notPresented": "No"
-      },
-      "adoption": {
-        "title": "Agenda adoption",
-        "pending": "The agenda has not been adopted. No item may be discussed before it is (Art. 84).",
-        "adopted": "Adopted by {name} on {date}. After adoption only an emerging item may be added."
       }
     },
     "attendance": {
       "title": "Attendees",
       "empty": "No attendees yet.",
-      "attended": "Attended",
       "invitation": {
         "pending": "Awaiting response",
         "confirmed": "Confirmed",
@@ -1093,21 +1006,6 @@
     }
   },
   "decisions": {
-    "tally": {
-      "approve": "Approve",
-      "reject": "Reject",
-      "defer": "Defer",
-      "conditional_approval": "Conditional",
-      "legal_opinion": "Legal opinion",
-      "refer_other_body": "Referred",
-      "no_jurisdiction": "No jurisdiction",
-      "appeal_accept": "Accept appeal",
-      "appeal_partial_accept": "Partial acceptance",
-      "appeal_reject": "Reject appeal",
-      "appeal_refer": "Refer appeal",
-      "appeal_redo": "Redo procedures",
-      "abstain": "Abstain"
-    },
     "outcome": {
       "approve": "Approved",
       "reject": "Rejected",
@@ -1172,8 +1070,6 @@
       "committee": "Committee",
       "meeting": "Meeting",
       "outcome": "Outcome",
-      "tally": "Votes",
-      "template": "Template",
       "decidedBy": "Decided by",
       "decidedAt": "Decided at"
     }
@@ -1804,15 +1700,13 @@
         "prepare_minutes": "Prepare the minutes",
         "send_for_approval": "Send for approval",
         "await_ministry_reply": "Await the ministry reply",
-        "issue_execution_order": "Issue the execution order",
+        "archive_file": "Archive the committee and service files",
         "update_employee_file": "Update the employee file",
         "close_request": "Close the request",
         "manager_review": "Direct-manager review and referral",
         "administrative_routing": "Route the request to the relevant body",
         "register_request": "Prepare and register the file",
         "completeness_check": "Check the file for completeness",
-        "regulatory_review": "Rapporteur review against the regulations",
-        "prepare_presentation_memo": "Prepare the presentation memo",
         "reprocess_approval_return": "Record the re-processing action",
         "closed": "No action required — the file is closed",
         "complete_step": "Complete this step's action"
@@ -2022,7 +1916,6 @@
       "forward": "Approve & forward",
       "register": "Prepare employment file & register",
       "deadline_expired": "Escalate — deadline expired",
-      "adopt_agenda": "Adopt the agenda",
       "record_results": "Enter the meeting's results",
       "archive_committee_file": "Archive the committee file",
       "archive_service_file": "Archive the service file",
@@ -2080,9 +1973,7 @@
       "date": "Date",
       "status": "Meeting status",
       "agenda": "Agenda",
-      "items": "{count} item(s)",
-      "agendaAdopted": "adopted",
-      "agendaNotAdopted": "not adopted"
+      "items": "{count} item(s)"
     },
     "checks": {
       "lede": "These checks are yours to complete before some actions open up. Each one saves with its own button.",
@@ -2129,7 +2020,6 @@
       "send_to_legal_review": "Hands the file to the legal member for an opinion before it goes on an agenda.",
       "respond_accept": "Confirms you can attend on the proposed date; the meeting is confirmed once the required number of members accept.",
       "respond_decline": "You can’t make the date; the meeting is confirmed only if enough other members accept, or the rapporteur proposes another date.",
-      "adopt_agenda": "Adopts the agenda: it is fixed against additions, removals and reordering, and deliberation can begin.",
       "record_results": "Enter each item's recommendation and approving authority as recorded at the meeting, and attach the signed minutes. The meeting closes and the requests go to their approving authorities."
     },
     "act": "Take action",
@@ -2138,7 +2028,6 @@
       "send_to_legal_review": "Send for legal review",
       "respond_accept": "Accept the date",
       "respond_decline": "Decline the date",
-      "adopt_agenda": "Adopt the agenda",
       "record_results": "Enter meeting results"
     },
     "seats": {
@@ -2155,7 +2044,6 @@
     "ledger": {
       "respond_accept": "The member accepted the meeting date.",
       "respond_decline": "The member declined the meeting date.",
-      "adopt_agenda": "The agenda was adopted.",
       "record_results": "The committee's recommendations were entered and the minutes attached."
     },
     "families": {

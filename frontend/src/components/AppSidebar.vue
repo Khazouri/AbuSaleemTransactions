@@ -69,7 +69,6 @@ const ICON_BY_CODE = {
   registers: 'book',
   audit_log: 'history',
   notifications: 'bell',
-  templates: 'copy',
   backup: 'database',
   maintenance: 'terminal',
   user_guide: 'book',

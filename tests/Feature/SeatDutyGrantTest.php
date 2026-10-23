@@ -41,13 +41,13 @@ class SeatDutyGrantTest extends TestCase
         [$standIn, $committee] = $this->standInChair();
 
         // Seated, not yet invited: nothing of R03's.
-        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_approve'));
+        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_edit'));
         $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meetings_dashboard', 'can_edit'));
 
         $this->meetingFor($committee, $standIn);
 
         $user = $this->fresh($standIn);
-        $this->assertTrue($user->hasScreenPermission('meeting_agenda', 'can_approve'));
+        $this->assertTrue($user->hasScreenPermission('meeting_agenda', 'can_edit'));
         $this->assertTrue($user->hasScreenPermission('meetings_dashboard', 'can_edit'));
         $this->assertTrue($user->hasScreenPermission('meetings', 'can_edit'));
         // R03 grants outside the meeting duties are never lent.
@@ -82,10 +82,10 @@ class SeatDutyGrantTest extends TestCase
 
         $requestRecord->update(['status_id' => $this->statusId('awaiting_municipal_approval')]);
         $meeting->update(['status' => 'completed']);
-        $this->assertTrue($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_approve'));
+        $this->assertTrue($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_edit'));
 
         $requestRecord->update(['status_id' => $this->statusId('in_execution')]);
-        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_approve'));
+        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_edit'));
     }
 
     public function test_a_cancelled_meeting_or_one_that_sent_nothing_for_approval_ends_the_grant(): void
@@ -95,11 +95,11 @@ class SeatDutyGrantTest extends TestCase
         [, $requestRecord] = $this->itemOn($meeting);
 
         $meeting->update(['status' => 'cancelled']);
-        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_approve'));
+        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_edit'));
 
         $requestRecord->update(['status_id' => $this->statusId('not_approved')]);
         $meeting->update(['status' => 'completed']);
-        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_approve'));
+        $this->assertFalse($this->fresh($standIn)->hasScreenPermission('meeting_agenda', 'can_edit'));
     }
 
     public function test_a_holder_of_the_role_is_unaffected_when_the_grant_ends(): void
@@ -109,7 +109,7 @@ class SeatDutyGrantTest extends TestCase
         $committee->members()->create(['user_id' => $chair->id, 'seat' => 'chair', 'is_head' => true]);
         $this->meetingFor($committee, $chair)->update(['status' => 'cancelled']);
 
-        $this->assertTrue($this->fresh($chair)->hasScreenPermission('meeting_agenda', 'can_approve'));
+        $this->assertTrue($this->fresh($chair)->hasScreenPermission('meeting_agenda', 'can_edit'));
         $this->assertTrue($this->fresh($chair)->hasScreenPermission('committee_head_approval', 'can_view'));
     }
 

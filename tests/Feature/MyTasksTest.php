@@ -195,28 +195,11 @@ class MyTasksTest extends TestCase
         $this->assertArrayNotHasKey('overdue', $this->inbox($this->userWithRole('R02')));
     }
 
-    public function test_the_chair_is_offered_adopting_the_agenda_but_a_non_member_is_not(): void
-    {
-        [$meeting, $seats] = $this->meetingWithSeats(['status' => 'scheduled', 'scheduled_at' => now()]);
-        MeetingRequest::create(['meeting_id' => $meeting->id, 'agenda_order' => 1, 'item_type' => 'employee_request']);
-
-        $sources = $this->inbox($seats['chair']);
-        $this->assertLinksAreOpenable($seats['chair'], $sources);
-
-        // Decision wizard, sub-project 2 — a meeting's duties are taken on its detail page.
-        $task = collect($sources['meeting_duty']['tasks'])->firstWhere('action', 'adopt_agenda');
-        $this->assertSame('meeting_details', $task['route']['name']);
-        $this->assertSame(['id' => $meeting->id], $task['route']['params']);
-        $this->assertSame(['decide' => 1], $task['route']['query']);
-
-        $this->assertArrayNotHasKey('meeting_duty', $this->inbox($this->userWithRole('R03')));
-    }
-
     /** The paper sitting (2026-10-18): once the day has come, the seated مقرر owes the results. */
     public function test_the_seated_rapporteur_is_offered_recording_the_results_once_the_day_has_come(): void
     {
         [$meeting, $seats] = $this->meetingWithSeats([
-            'status' => 'scheduled', 'scheduled_at' => now()->addWeek(), 'agenda_adopted_at' => now(),
+            'status' => 'scheduled', 'scheduled_at' => now()->addWeek(),
         ]);
         $file = $this->requestAt('receive_from_committee', 'on_agenda', $this->userWithRole('R01'));
         MeetingRequest::create(['meeting_id' => $meeting->id, 'request_id' => $file->id, 'agenda_order' => 1, 'item_type' => 'employee_request']);

@@ -58,8 +58,8 @@ async function loadMeetings() {
 
 const meeting = ref(null)
 // F3 — enough of what this screen already reloads to notice an act taken
-// elsewhere (e.g. the agenda being adopted from the meeting's own page).
-const dutiesRefreshKey = computed(() => `${meeting.value?.status ?? ''}:${meeting.value?.agenda_adopted_at ?? ''}:${meeting.value?.results_recorded_at ?? ''}`)
+// elsewhere (e.g. the results being entered from the meeting's own page).
+const dutiesRefreshKey = computed(() => `${meeting.value?.status ?? ''}:${meeting.value?.results_recorded_at ?? ''}`)
 const stats = ref(null)
 const loading = ref(false)
 const error = ref('')
@@ -361,20 +361,8 @@ onMounted(async () => {
         </button>
       </section>
 
-      <!-- Decision wizard — sub-project 2: adopting the agenda and every other meeting act. -->
+      <!-- Decision wizard — sub-project 2: every meeting act. -->
       <MeetingDutiesCard :meeting-id="meetingId" :refresh-key="dutiesRefreshKey" @updated="loadMeeting" />
-
-      <!-- Stage 99 — the committee's adoption of its own agenda. -->
-      <section class="card card-flat card-pad adoption">
-        <h3>{{ t('meetings.agenda.adoption.title') }}</h3>
-        <p v-if="meeting.agenda_adopted_at" class="state">
-          {{ t('meetings.agenda.adoption.adopted', {
-            name: meeting.agenda_adopted_by?.name ?? t('common.none'),
-            date: new Date(meeting.agenda_adopted_at).toLocaleString(),
-          }) }}
-        </p>
-        <p v-else class="alert">{{ t('meetings.agenda.adoption.pending') }}</p>
-      </section>
 
       <!-- Stage 82 — [D] Art. 83's ordering. Offered, not imposed: the
            article's fifth rule leaves the arrangement to the chair, and

@@ -30,7 +30,7 @@ const actionError = ref('')
 const dutiesRefreshKey = computed(() => {
   if (!meeting.value) return ''
   const items = (meeting.value.agenda_items ?? []).map((item) => item.id).join(',')
-  return [items, meeting.value.status, meeting.value.agenda_adopted_at, meeting.value.results_recorded_at].join('|')
+  return [items, meeting.value.status, meeting.value.results_recorded_at].join('|')
 })
 
 const name = (item) => {

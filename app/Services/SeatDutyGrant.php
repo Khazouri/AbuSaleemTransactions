@@ -40,18 +40,6 @@ class SeatDutyGrant
     /** A meeting still awaiting its date's acceptance, or still to sit. */
     private const OPEN_MEETING_STATUSES = ['pending_confirmation', 'scheduled'];
 
-    /**
-     * Statuses of a decided file still before an approving body: the approval
-     * cycle itself and a conditional approval. `final_approved` is not one:
-     * since 2026-10-18 the authority's approve is the file's last decision.
-     *
-     * @return list<string>
-     */
-    public static function pendingApprovalStatuses(): array
-    {
-        return [...ApprovalReturnService::APPROVAL_CYCLE_STATUSES, 'approved_with_conditions'];
-    }
-
     /** @return Collection<int, int> role ids lent to $user across every live meeting */
     public function roleIdsFor(User $user): Collection
     {
@@ -74,7 +62,9 @@ class SeatDutyGrant
      */
     private function liveSeats(User $user): Builder
     {
-        $pendingApprovalIds = DB::table('request_statuses')->whereIn('code', self::pendingApprovalStatuses())->select('id');
+        // Not `final_approved`: since 2026-10-18 the authority's approve is the
+        // file's last decision.
+        $pendingApprovalIds = DB::table('request_statuses')->whereIn('code', ApprovalReturnService::APPROVAL_CYCLE_STATUSES)->select('id');
 
         return DB::table('meeting_attendees')
             ->join('meetings', 'meetings.id', '=', 'meeting_attendees.meeting_id')

@@ -457,6 +457,30 @@ class PerformanceIndicatorTest extends TestCase
         $this->assertSame(1, $board['overdue']['total']);
     }
 
+    /**
+     * The paper meeting (2026-10-18) never moves a file to `on_agenda`: a file
+     * picked for a meeting keeps its pending-list status. Bucket 5 therefore
+     * reads the agenda itself, and the file leaves its status bucket for it.
+     */
+    public function test_a_file_on_a_live_meetings_agenda_is_on_the_next_agenda_not_ready(): void
+    {
+        foreach (['picked', 'waiting'] as $title) {
+            $file = $this->baseRequest($title);
+            $file->update(['status_id' => RequestStatus::where('code', 'ready')->value('id')]);
+        }
+        [$meeting] = $this->fixtureMeeting(Request::where('title', 'picked')->firstOrFail(), now()->addWeek());
+
+        $board = collect(app(CommitteeBoardService::class)->board())->keyBy('key');
+        $this->assertSame(1, $board['ready']['total']);
+        $this->assertSame(1, $board['on_agenda']['total']);
+
+        $meeting->update(['status' => 'cancelled']);
+
+        $board = collect(app(CommitteeBoardService::class)->board())->keyBy('key');
+        $this->assertSame(2, $board['ready']['total'], 'a cancelled meeting returns its files to the pending list');
+        $this->assertSame(0, $board['on_agenda']['total']);
+    }
+
     // ---------------------------------------------------------------- Arts. 107, 39, 40
 
     /** Each of the three reports returns its own shape. */

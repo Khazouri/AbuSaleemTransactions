@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Committee;
 use App\Models\CommitteeMember;
 use App\Models\Meeting;
-use App\Models\MeetingRequest;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
@@ -26,21 +25,6 @@ class MeetingDutiesTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
-    }
-
-    public function test_adopting_an_empty_agenda_is_blocked_with_the_endpoints_own_refusal(): void
-    {
-        [$meeting, $seats] = $this->meeting(['status' => 'scheduled']);
-
-        $reason = $this->blockedReason($seats['chair'], $meeting, 'adopt_agenda');
-        $this->actingAs($seats['chair'], 'sanctum')
-            ->postJson("/api/meetings/{$meeting->id}/agenda/adopt")
-            ->assertStatus(422)
-            ->assertJsonPath('message', $reason);
-
-        MeetingRequest::create(['meeting_id' => $meeting->id, 'agenda_order' => 1, 'item_type' => 'employee_request']);
-        $this->assertContains('adopt_agenda', $this->availableActions($seats['chair'], $meeting));
-        $this->assertNotContains('adopt_agenda', $this->availableActions($seats['legal'], $meeting));
     }
 
     /** F13 (final-review) — the membership gate, not just the screen grant. */

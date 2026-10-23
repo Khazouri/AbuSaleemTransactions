@@ -21,8 +21,6 @@ use Illuminate\Database\Seeder;
  *   AppealStatusSeeder  Stage 58's own small appeal status machine
  *   SettingSeeder       Stage 60's appeal_filing_deadline_days default (no
  *                       dependency — the settings table stands alone)
- *   TemplateSeeder      Stage 74's seven Appendix 59 decision formulas (same:
- *                       no dependency)
  *   ScreenSeeder        the menu screens
  *   ScreenRolePerm..    one row per screen x role — needs screens AND roles
  *
@@ -55,9 +53,6 @@ class DatabaseSeeder extends Seeder
             // above (see AppealStatusSeeder's own docblock).
             AppealStatusSeeder::class,
             SettingSeeder::class,
-            // Stage 74 — Appendix 59's seven official decision formulas; no
-            // dependency of its own, the templates table stands alone.
-            TemplateSeeder::class,
             ScreenSeeder::class,
             ScreenRolePermissionSeeder::class,
         ]));
