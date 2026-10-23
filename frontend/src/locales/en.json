@@ -9,7 +9,11 @@
     "loading": "Loading menu…",
     "error": "Could not load the menu",
     "groups": {
-      "meetings_management": "Meetings Management"
+      "requests_work": "Requests & appeals",
+      "meetings_management": "Meetings management",
+      "records": "Decisions & records",
+      "people_access": "People & access",
+      "system": "System"
     }
   },
   "header": {

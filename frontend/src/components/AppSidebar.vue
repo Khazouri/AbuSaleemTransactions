@@ -11,8 +11,9 @@
  *   collapsed  desktop rail — icons only, labels hidden (width handled in CSS)
  *   mobileOpen off-canvas drawer slid into view on small screens
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { useScreensStore } from '../stores/screens'
 import AppIcon from './AppIcon.vue'
 
@@ -50,19 +51,19 @@ const ICON_BY_CODE = {
   // Stage 89 — the employee's own view of the files they filed.
   my_tasks: 'inbox',
   request_tracking: 'compass',
-  request_details: 'file-text',
   meetings: 'calendar',
   decisions: 'check-circle',
   appeals: 'flag',
   // Stage 28 — meetings management group.
-  meetings_dashboard: 'grid',
-  committee_candidates: 'file-plus',
+  meetings_dashboard: 'gauge',
+  committee_candidates: 'list-checks',
   legal_review: 'scale',
-  meeting_agenda: 'file-text',
+  meeting_agenda: 'clipboard-list',
   users: 'users',
   request_types: 'layers',
-  workflow_designer: 'compass',
+  workflow_designer: 'route',
   roles_permissions: 'shield',
+  committee_roles: 'award',
   settings: 'settings',
   reports: 'bar-chart',
   // Stage 80 — Art. 98's official registers.
@@ -71,7 +72,7 @@ const ICON_BY_CODE = {
   notifications: 'bell',
   backup: 'database',
   maintenance: 'terminal',
-  user_guide: 'book',
+  user_guide: 'help-circle',
 }
 const iconFor = (code) => ICON_BY_CODE[code] || 'dot'
 
@@ -90,15 +91,52 @@ const labelled = (screen) => ({ ...screen, label: label(screen) })
  * Stage 28 — groups the user has explicitly collapsed. Empty by default, so
  * every group starts expanded; tracking the exception (collapsed) rather
  * than the rule (expanded) means a newly-seeded group needs no extra state.
+ * Remembered per browser: it is a viewing preference, and storage may be
+ * blocked (private windows), in which case the menu simply starts open.
  */
-const collapsedGroups = ref(new Set())
+const COLLAPSED_KEY = 'sidebar.collapsedGroups'
+function readCollapsed() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]'))
+  } catch {
+    return new Set()
+  }
+}
+const collapsedGroups = ref(readCollapsed())
 const isExpanded = (key) => !collapsedGroups.value.has(key)
+function setCollapsed(next) {
+  collapsedGroups.value = next
+  try {
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]))
+  } catch {
+    // Not persisted; the in-memory state still applies for this visit.
+  }
+}
 function toggleGroup(key) {
   const next = new Set(collapsedGroups.value)
   if (next.has(key)) next.delete(key)
   else next.add(key)
-  collapsedGroups.value = next
+  setCollapsed(next)
 }
+
+/**
+ * The group holding the current page. Matched by path prefix rather than by
+ * RouterLink's exact match, so a context-only page (/requests/51) still opens
+ * the section its list lives in.
+ */
+const route = useRoute()
+const activeGroup = computed(() => {
+  const here = route.path
+  const screen = screensStore.navItems.find(
+    (s) => s.group && (here === s.route || here.startsWith(`${s.route}/`)),
+  )
+  return screen?.group ?? null
+})
+// Arriving in a collapsed section opens it, so the current page is never
+// hidden; the user can still fold it again while there.
+watch(activeGroup, (key) => {
+  if (key && collapsedGroups.value.has(key)) toggleGroup(key)
+}, { immediate: true })
 
 /**
  * One ordered list of render entries — either a flat `{ type: 'item' }` or
@@ -108,15 +146,13 @@ function toggleGroup(key) {
  * being pinned to the top or bottom of the menu, and a grouped screen is
  * never also rendered as a flat entry.
  *
- * In rail mode (collapsed) there's no room for a group header, so every
- * screen — grouped or not — falls back to one flat icon list, identical to
- * pre-Stage-28 behaviour.
+ * A group the user can see only one screen of renders as that plain link: a
+ * heading over a single entry costs a row and a click for nothing.
+ *
+ * `divided` marks where a new section starts. Rail mode (collapsed) has no
+ * room for headings, so it draws those as hairlines between icon runs.
  */
 const entries = computed(() => {
-  if (props.collapsed) {
-    return screensStore.navItems.map((screen) => ({ type: 'item', screen: labelled(screen) }))
-  }
-
   const groupsByKey = new Map(screensStore.navGroups.map((g) => [g.key, g.items]))
   const placed = new Set()
   const list = []
@@ -127,13 +163,17 @@ const entries = computed(() => {
     }
     if (placed.has(screen.group)) continue
     placed.add(screen.group)
-    list.push({
-      type: 'group',
-      key: screen.group,
-      items: groupsByKey.get(screen.group).map(labelled),
-    })
+    const items = groupsByKey.get(screen.group)
+    list.push(
+      items.length === 1
+        ? { type: 'item', screen: labelled(items[0]), grouped: true }
+        : { type: 'group', key: screen.group, items: items.map(labelled) },
+    )
   }
-  return list
+  return list.map((entry, i) => {
+    const isSection = (e) => e.type === 'group' || e.grouped
+    return { ...entry, divided: i > 0 && (isSection(entry) || isSection(list[i - 1])) }
+  })
 })
 </script>
 
@@ -159,6 +199,13 @@ const entries = computed(() => {
 
       <ul v-else>
         <template v-for="entry in entries" :key="entry.type === 'item' ? entry.screen.code : entry.key">
+          <!-- Expanded, a group's heading already starts its section, so only
+               a flat entry after a section needs the hairline. -->
+          <li
+            v-if="entry.divided && (collapsed || entry.type === 'item')"
+            class="nav-divider"
+            role="separator"
+          ></li>
           <!--
             RouterLink applies .router-link-active automatically, which is what
             highlights the current screen without any manual tracking. In rail
@@ -177,13 +224,23 @@ const entries = computed(() => {
             </RouterLink>
           </li>
 
-          <!-- Stage 28 — a collapsible group, e.g. "إدارة الاجتماعات". Only
-               ever reached when NOT collapsed: rail mode flattens groups. -->
+          <!-- Rail mode has no room for a heading: the group's icons follow
+               its hairline as plain entries. -->
+          <template v-else-if="collapsed">
+            <li v-for="screen in entry.items" :key="screen.code">
+              <RouterLink :to="screen.route" class="nav-link center" :title="screen.label">
+                <AppIcon :name="iconFor(screen.code)" class="nav-icon" />
+              </RouterLink>
+            </li>
+          </template>
+
+          <!-- Stage 28 — a collapsible group, e.g. "إدارة الاجتماعات". -->
           <li v-else class="nav-group">
             <button
               type="button"
               class="nav-group-toggle"
               :aria-expanded="isExpanded(entry.key)"
+              :aria-controls="`nav-group-${entry.key}`"
               @click="toggleGroup(entry.key)"
             >
               <span class="nav-group-label">{{ t(`nav.groups.${entry.key}`) }}</span>
@@ -193,9 +250,9 @@ const entries = computed(() => {
                 :class="{ collapsed: !isExpanded(entry.key) }"
               />
             </button>
-            <ul v-show="isExpanded(entry.key)" class="nav-group-items">
+            <ul v-show="isExpanded(entry.key)" :id="`nav-group-${entry.key}`" class="nav-group-items">
               <li v-for="screen in entry.items" :key="screen.code">
-                <RouterLink :to="screen.route" class="nav-link nav-sublink">
+                <RouterLink :to="screen.route" class="nav-link">
                   <AppIcon :name="iconFor(screen.code)" class="nav-icon" />
                   <span class="nav-label">{{ screen.label }}</span>
                 </RouterLink>
@@ -289,10 +346,11 @@ ul {
 }
 
 .nav-link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 0.65rem var(--space-3);
+  padding: 0.55rem var(--space-3);
   border-radius: var(--radius-xl);
   color: rgba(255, 255, 255, 0.7);
   text-decoration: none;
@@ -333,6 +391,23 @@ ul {
 .nav-link.router-link-active .nav-icon {
   color: var(--color-primary);
 }
+/* A start-edge bar, so the current page reads by shape as well as colour. */
+.nav-link.router-link-active::before {
+  content: '';
+  position: absolute;
+  inset-block: 25%;
+  inset-inline-start: 0;
+  inline-size: 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+}
+
+/* Where one section of the menu ends and the next begins. */
+.nav-divider {
+  block-size: 1px;
+  margin: var(--space-2) var(--space-3);
+  background: rgba(255, 255, 255, 0.1);
+}
 
 .state {
   padding: var(--space-3);
@@ -345,21 +420,23 @@ ul {
 }
 
 /* -- Stage 28: collapsible group ------------------------------------------ */
+.nav-group {
+  margin-block-start: var(--space-2);
+}
 .nav-group-toggle {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: 0.65rem var(--space-3);
+  padding: 0.5rem var(--space-3);
   background: none;
   border: none;
   border-radius: var(--radius-xl);
-  color: rgba(255, 255, 255, 0.55);
-  font-size: var(--text-xs);
+  /* 0.62, not lower: ~4.6:1 on the light theme's nav green. */
+  color: rgba(255, 255, 255, 0.62);
+  font-size: var(--text-sm);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
@@ -380,16 +457,10 @@ ul {
 .nav-group-chevron.collapsed {
   transform: rotate(-180deg);
 }
+/* No indent: the heading already says where the section starts, and an
+   indent would cost the long labels their width. */
 .nav-group-items {
-  list-style: none;
-  margin: 0.15rem 0 var(--space-1);
-  padding-inline-start: var(--space-2);
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-.nav-sublink {
-  padding-inline-start: 1.75rem;
+  margin-block: 0.15rem var(--space-1);
 }
 
 /* -- Mobile: off-canvas drawer -------------------------------------------

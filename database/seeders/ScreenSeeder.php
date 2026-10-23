@@ -43,40 +43,30 @@ class ScreenSeeder extends Seeder
         Screen::query()->where('code', 'templates')->delete();
 
         // [code, Arabic name, English name, Vue route, icon, group]
-        // `group` is null for every ungrouped (flat, top-level) screen —
-        // Stage 28 is the first to use it, on the Committee block below.
+        // `group` is the sidebar section (labels in the SPA's `nav.groups.*`);
+        // null is a top-level entry. AppSidebar draws a group where its first
+        // member sits, so a group's rows must stay contiguous in this array.
         $screens = [
-            // --- Day-to-day work ---------------------------------------------
+            // --- Top level: where every working day starts -------------------
             ['dashboard',                'لوحة التحكم الرئيسية',       'Dashboard',                    '/dashboard',                'gauge',        null],
-            ['requests',             'الطلبات',                  'Requests',                 '/requests',             'list',         null],
-            ['request_intake',       'إرسال الطلب',            'Request Intake',           '/requests/create',      'inbox',        null],
-            // Stage 89 — «متابعة طلباتي», the employee's own view of the files
-            // they filed. Top-level and ungrouped beside the two other
-            // employee-facing request screens, not inside any committee block:
-            // tracking your own request is the counterpart of submitting it,
-            // which is why it sits here rather than beside `requests` (the
-            // internal work queue, whose framing is "work I can act on").
             ['my_tasks',             'المهام المعلقة',           'Pending Tasks',            '/my-tasks',             'inbox',        null],
-            ['request_tracking',     'متابعة طلباتي',           'My Requests',              '/my-requests',          'compass',      null],
+
+            // --- Requests (2026-10-23 sidebar categories) ----------------------
+            // Stage 89 — «متابعة طلباتي» sits beside intake: tracking your own
+            // request is the counterpart of submitting it.
+            ['request_intake',       'إرسال الطلب',            'Request Intake',           '/requests/create',      'inbox',        'requests_work'],
+            ['request_tracking',     'متابعة طلباتي',           'My Requests',              '/my-requests',          'compass',      'requests_work'],
+            ['requests',             'الطلبات',                  'Requests',                 '/requests',             'list',         'requests_work'],
+            // Stage 58 — appeals (تظلمات) against an already-decided request.
+            // Filing one is an employee-facing action, not committee
+            // administration, so it does NOT sit inside meetings_management
+            // (see STAGE_PLAN.md Track J's intro).
+            ['appeals',               'التظلمات',                'Appeals',                  '/appeals',              'flag',         'requests_work'],
+            // Reached in context only (`:id` routes), so never in the menu.
             ['request_details',      'تفاصيل الطلب',            'Request Details',          '/requests/:id',         'file-text',    null],
             ['notes_attachments',        'الملاحظات والمرفقات',        'Notes & Attachments',          '/requests/:id/notes',   'paperclip',    null],
-            // Stage 58 — appeals (تظلمات) against an already-decided request.
-            // Top-level and ungrouped on purpose: filing an appeal is an
-            // employee-facing action, not committee administration, so it
-            // does NOT sit inside meetings_management below (see
-            // STAGE_PLAN.md Track J's intro).
-            ['appeals',               'التظلمات',                'Appeals',                  '/appeals',              'flag',         null],
 
             // --- Committee (Stage 28: "إدارة الاجتماعات" / meetings_management) --
-            // 8 grouped slots for Track H (stages 28-37). `meetings` already
-            // existed (Stage 20) and is unchanged apart from gaining a
-            // `group`; 6 more are empty navigation shells until later stages
-            // give them real content. `decisions` (Stage 25) was grouped here
-            // too until Stage 43 pulled it back out — [C] is explicit that
-            // decisions is a shared system-wide unit, not a meetings-only one
-            // ("وحدات مشتركة في النظام ولا نكررها داخل قسم الاجتماعات") — so it
-            // stays in this array position for a stable diff but carries no
-            // `group`, same as every other shared screen.
             ['meetings_dashboard',       'لوحة قيادة الاجتماعات',      'Meetings Dashboard',           '/meetings/dashboard',       'grid',         'meetings_management'],
             ['committee_candidates',     'الطلبات المرشحة',            'Committee Candidates',         '/meetings/candidates',      'file-plus',    'meetings_management'],
             // Stage 68 — [D] Art. 21's pre-meeting legal review. Grouped with
@@ -86,8 +76,6 @@ class ScreenSeeder extends Seeder
             ['legal_review',             'المراجعة القانونية',          'Legal Review',                 '/meetings/legal-review',    'scale',        'meetings_management'],
             ['meetings',                 'الاجتماعات',                'Meetings',                     '/meetings',                 'users',        'meetings_management'],
             ['meeting_agenda',           'جدول الأعمال',               'Meeting Agenda',               '/meetings/agenda',          'file-text',    'meetings_management'],
-            // Stage 43 — decisions is shared, not part of meetings_management.
-            ['decisions',                'القرارات والتوصيات',         'Decisions & Recommendations',  '/decisions',                'check-square', null],
             // 2026-10-18 — no page of its own any more (the outputs tracker
             // went with the execution leg), but its grants still gate the
             // archives, closure, returns, referrals and suspensions, and
@@ -119,44 +107,49 @@ class ScreenSeeder extends Seeder
             // party; see the explicit delete() call below.
             ['final_approval',           'الاعتماد النهائي والأرشفة',   'Final Approval & Archiving',  null,          'archive',      null],
 
-            // --- Administration ------------------------------------------------
-            ['users',                    'المستخدمون',                'Users',                        '/users',                    'user',         null],
+            // --- Decisions and records ------------------------------------------
+            // Stage 43 — decisions is a shared system-wide unit, not a
+            // meetings-only one ([C]: «وحدات مشتركة في النظام ولا نكررها داخل
+            // قسم الاجتماعات»), so it sits with the other records, outside
+            // meetings_management.
+            ['decisions',                'القرارات والتوصيات',         'Decisions & Recommendations',  '/decisions',                'check-square', 'records'],
+            // Stage 80 — [D] Art. 98's official registers: a system-wide
+            // oversight record, not committee administration.
+            ['registers',                'السجلات الرسمية',            'Official Registers',           '/registers',                'book',         'records'],
+            ['reports',                  'التقارير والإحصائيات',       'Reports & Statistics',         '/reports',                  'bar-chart',    'records'],
+            ['audit_log',                'سجل التدقيق',               'Audit Log',                    '/audit-log',                'clipboard',    'records'],
+
+            // --- People and access ----------------------------------------------
+            ['users',                    'المستخدمون',                'Users',                        '/users',                    'user',         'people_access'],
             // NOTE: `departments` is a 23rd screen, not on the original
             // 22-screen sheet. The system needs somewhere to manage the org
             // tree (Stage 6) and no existing screen covers it. Restricted to
             // R08 like the other administration screens.
-            ['departments',              'الإدارات والأقسام',          'Departments',                  '/departments',              'sitemap',      null],
+            ['departments',              'الإدارات والأقسام',          'Departments',                  '/departments',              'sitemap',      'people_access'],
+            ['roles_permissions',        'الأدوار والصلاحيات',         'Roles & Permissions',          '/roles',                    'key',          'people_access'],
+            // Stage 103 — R08 names the مقرر here, and the مقرر names the
+            // other four seat holders.
+            ['committee_roles',          'المناصب الفردية',            'Sole-holder Posts',              '/committee-roles',          'shield',       'people_access'],
+
+            // --- System ---------------------------------------------------------
             // The request-type catalogue (أنواع الطلبات). Seeded since Stage
             // 53 with no way to maintain it — the type carries the SLA, the
             // ministry-escalation grade and Appendix 57's document matrix, so
-            // it needs a screen. Administration, i.e. R08-only, like its
-            // neighbours here.
-            ['request_types',            'أنواع الطلبات',              'Request Types',                '/request-types',            'layers',       null],
+            // it needs a screen. Administration, i.e. R08-only.
+            ['request_types',            'أنواع الطلبات',              'Request Types',                '/request-types',            'layers',       'system'],
             // Workflow designer — slice 2. Every workflow and its versions,
-            // drawn as a diagram. Administration, so R08-only like its
-            // neighbours; editing arrives in slice 3 on this same screen.
-            ['workflow_designer',        'مسارات العمل',               'Workflows',                    '/workflows',                'compass',      null],
-            ['roles_permissions',        'الأدوار والصلاحيات',         'Roles & Permissions',          '/roles',                    'key',          null],
-            ['settings',                 'الإعدادات العامة',           'General Settings',             '/settings',                 'settings',     null],
-            // Stage 103 — R08 names the مقرر here, and the مقرر names the
-            // other four seat holders. Beside the settings it extends.
-            ['committee_roles',          'المناصب الفردية',            'Sole-holder Posts',              '/committee-roles',          'shield',       null],
-
-            // --- Oversight and support -----------------------------------------
-            ['reports',                  'التقارير والإحصائيات',       'Reports & Statistics',         '/reports',                  'bar-chart',    null],
-            // Stage 80 — [D] Art. 98's twelve official registers. Top-level
-            // and ungrouped beside `reports`/`audit_log`: a register is a
-            // system-wide oversight record, not committee administration, so
-            // it does NOT sit inside meetings_management.
-            ['registers',                'السجلات الرسمية',            'Official Registers',           '/registers',                'book',         null],
-            ['audit_log',                'سجل التدقيق',               'Audit Log',                    '/audit-log',                'clipboard',    null],
-            ['notifications',            'الإشعارات',                 'Notifications',                '/notifications',            'bell',         null],
-            ['backup',                   'النسخ الاحتياطي',            'Backup',                       '/backup',                   'database',     null],
+            // drawn as a diagram. Administration, so R08-only.
+            ['workflow_designer',        'مسارات العمل',               'Workflows',                    '/workflows',                'compass',      'system'],
+            ['settings',                 'الإعدادات العامة',           'General Settings',             '/settings',                 'settings',     'system'],
+            ['backup',                   'النسخ الاحتياطي',            'Backup',                       '/backup',                   'database',     'system'],
             // The maintenance console. Beside `backup` because it is the same
             // kind of screen: a server operation an administrator performs on
             // the deployment rather than on the committee's work. R08-only
             // through an empty DEFAULTS entry in ScreenRolePermissionSeeder.
-            ['maintenance',              'الصيانة والنشر',             'Maintenance & Deployment',     '/maintenance',              'terminal',     null],
+            ['maintenance',              'الصيانة والنشر',             'Maintenance & Deployment',     '/maintenance',              'terminal',     'system'],
+
+            // --- Bottom of the menu: for everyone ------------------------------
+            ['notifications',            'الإشعارات',                 'Notifications',                '/notifications',            'bell',         null],
             ['user_guide',               'دليل الاستخدام',             'User Guide',                   '/guide',                    'book',         null],
         ];
 
@@ -169,10 +162,9 @@ class ScreenSeeder extends Seeder
                     'route' => $route,
                     'icon' => $icon,
                     'group' => $group,
-                    // Array position drives sidebar order (1-based). Inserting
-                    // the 7 new Committee rows renumbers everything after
-                    // them — cosmetic only, since `orderBy('sort_order')` is
-                    // the only thing that reads this.
+                    // Array position drives sidebar order (1-based). Moving a
+                    // row renumbers everything after it — cosmetic only, since
+                    // `orderBy('sort_order')` is the only thing that reads this.
                     'sort_order' => $i + 1,
                     'is_active' => true,
                 ],
