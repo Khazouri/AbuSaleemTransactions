@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Document;
 use App\Models\RequestType;
 use Illuminate\Database\Seeder;
 
@@ -201,7 +202,12 @@ class RequestTypeSeeder extends Seeder
                     'default_sla_days' => $sla,
                     'decision_grade_threshold' => 10,
                     'is_active' => true,
-                    'required_documents' => [...$common, ...($specificDocuments[$code] ?? [])],
+                    // Each row points at its entry in the managed documents
+                    // list (2026-10-23), created here on a fresh install.
+                    'required_documents' => array_map(
+                        Document::link(...),
+                        [...$common, ...($specificDocuments[$code] ?? [])],
+                    ),
                     'default_administrative_route' => $administrativeRoutes[$code],
                     'legal_basis_ar' => $legalBases[$code][0] ?? null,
                     'legal_basis_note_ar' => $legalBases[$code][1] ?? null,

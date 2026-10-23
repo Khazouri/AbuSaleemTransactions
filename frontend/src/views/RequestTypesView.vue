@@ -17,16 +17,24 @@
  * (`?type=<id>`, so a link lands on it) shows its rules and its whole
  * Appendix 57 matrix at once. A type's documents are what an admin comes here
  * to check, and a table row had no room to show them.
+ *
+ * Every row is picked from the managed documents list (قائمة المستندات,
+ * 2026-10-23), kept on this screen's second tab (`?tab=documents`) and
+ * numbered by its id. A picked row copies the entry's wording; the names are
+ * not editable here, because a row's Arabic name is part of the key its files
+ * are stored under.
  */
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
 import AppModal from '../components/AppModal.vue'
+import DocumentCatalog from '../components/DocumentCatalog.vue'
 import {
   DOCUMENT_GROUPS,
   documentCondition,
   documentLabel,
+  documentNumber,
   groupDocuments,
 } from '../lib/requiredDocuments'
 
@@ -35,6 +43,8 @@ const route = useRoute()
 const router = useRouter()
 
 const types = ref([])
+const documents = ref([])
+const catalog = ref(null)
 // Workflow designer — slice 3. The workflows a type may be bound to (each has a published version).
 const workflows = ref([])
 const standardWorkflowId = () => workflows.value.find((workflow) => workflow.code === 'standard')?.id
@@ -79,6 +89,16 @@ function isDeletable(type) {
   return (type.requests_count ?? 0) === 0 && (type.workflow_transitions_count ?? 0) === 0
 }
 
+const tab = computed(() => (route.query.tab === 'documents' ? 'documents' : 'types'))
+
+function switchTab(next) {
+  router.replace({ query: next === 'documents' ? { tab: 'documents' } : {} })
+}
+
+function openType(id) {
+  router.replace({ query: { type: id } })
+}
+
 // With no `?type=` the first type is shown, so a wide screen never opens on an
 // empty pane. A phone shows one pane at a time and keys it off the query
 // alone, so it opens on the list.
@@ -118,6 +138,7 @@ async function load() {
   try {
     const { data } = await api.get('/request-types')
     types.value = data.data ?? data
+    documents.value = data.documents ?? []
     workflows.value = data.workflows ?? []
   } catch (e) {
     loadError.value = e
@@ -126,9 +147,37 @@ async function load() {
   }
 }
 
+/** A type row as the editor holds it, copied from a list entry's defaults. */
+function rowFromDocument(doc) {
+  return {
+    document_id: doc.id,
+    ar: doc.name_ar,
+    en: doc.name_en ?? '',
+    group: doc.group,
+    condition_ar: doc.condition_ar ?? '',
+    condition_en: doc.condition_en ?? '',
+    required: doc.required,
+    section: doc.section ?? null,
+  }
+}
+
+/** Active entries this type does not list yet; the server refuses a repeat too. */
+const pickable = computed(() => {
+  const listed = new Set(form.value.required_documents.map((doc) => doc.document_id))
+  return documents.value.filter((doc) => doc.is_active && !listed.has(doc.id))
+})
+
 function startCreate() {
   editingId.value = null
-  form.value = { ...blankForm(), workflow_id: standardWorkflowId() ?? null }
+  // A new type opens with the active shared basics, which Appendix 57 merges
+  // into every type; anything else is picked.
+  form.value = {
+    ...blankForm(),
+    workflow_id: standardWorkflowId() ?? null,
+    required_documents: documents.value
+      .filter((doc) => doc.is_active && doc.group === 'basic')
+      .map(rowFromDocument),
+  }
   errors.value = {}
   formError.value = null
   showForm.value = true
@@ -153,6 +202,7 @@ function startEdit(type) {
     // showing edits that were never saved. The condition's two halves are
     // flattened because a nested object is awkward to v-model.
     required_documents: (type.required_documents ?? []).map((doc) => ({
+      document_id: doc.document_id ?? null,
       ar: doc.ar ?? '',
       en: doc.en ?? '',
       group: doc.group || 'basic',
@@ -174,16 +224,15 @@ function cancelForm() {
   formError.value = null
 }
 
-function addDocument() {
-  form.value.required_documents.push({
-    ar: '',
-    en: '',
-    group: 'specific',
-    condition_ar: '',
-    condition_en: '',
-    required: true,
-    section: null,
-  })
+function documentName(doc) {
+  return locale.value === 'ar' ? doc.name_ar : doc.name_en || doc.name_ar
+}
+
+/** The picker is a one-shot action, so it resets to its prompt after each pick. */
+function addDocument(event) {
+  const doc = documents.value.find((entry) => entry.id === Number(event.target.value))
+  if (doc) form.value.required_documents.push(rowFromDocument(doc))
+  event.target.value = ''
 }
 
 function removeDocument(index) {
@@ -224,6 +273,7 @@ async function save() {
       // qualifier chip on the intake checklist. The server normalises this
       // too; doing it here as well keeps the form honest about what it sent.
       required_documents: form.value.required_documents.map((doc) => ({
+        document_id: doc.document_id,
         ar: doc.ar,
         en: doc.en || null,
         group: doc.group,
@@ -286,12 +336,21 @@ onMounted(load)
 <template>
   <section class="page">
     <div class="heading">
-      <div>
-        <h2>{{ t('requestTypes.title') }}</h2>
-        <p v-if="!loading && !loadError" class="subtitle">{{ types.length }}</p>
-      </div>
-      <button v-can="'request_types.add'" class="primary" type="button" @click="startCreate">
+      <h2>{{ t('requestTypes.title') }}</h2>
+      <button v-if="tab === 'types'" v-can="'request_types.add'" class="primary" type="button" @click="startCreate">
         {{ t('requestTypes.add') }}
+      </button>
+      <button v-else v-can="'request_types.add'" class="primary" type="button" @click="catalog?.startCreate()">
+        {{ t('requestTypes.documents.add') }}
+      </button>
+    </div>
+
+    <div class="view-tabs" role="group" :aria-label="t('requestTypes.title')">
+      <button type="button" class="chip" :class="{ active: tab === 'types' }" :aria-pressed="tab === 'types'" @click="switchTab('types')">
+        {{ t('requestTypes.tabs.types') }} <span class="count">{{ types.length }}</span>
+      </button>
+      <button type="button" class="chip" :class="{ active: tab === 'documents' }" :aria-pressed="tab === 'documents'" @click="switchTab('documents')">
+        {{ t('requestTypes.tabs.documents') }} <span class="count">{{ documents.length }}</span>
       </button>
     </div>
 
@@ -388,17 +447,18 @@ onMounted(load)
           </p>
 
           <div v-for="(doc, index) in form.required_documents" :key="index" class="document-row">
-            <label>
-              <span>{{ t('requestTypes.documents.nameAr') }}<span class="required-mark" aria-hidden="true">*</span></span>
-              <input v-model="doc.ar" required />
-              <small v-if="documentError(index, 'ar')" class="field-error">
-                {{ documentError(index, 'ar') }}
+            <!-- Read-only: the wording comes from the documents list, and the
+                 Arabic name is part of the key this row's files are stored under. -->
+            <div class="document-name">
+              <code class="ltr" :title="t('requestTypes.catalog.number')">{{ documentNumber(doc.document_id) }}</code>
+              <span>
+                {{ doc.ar }}
+                <small v-if="doc.en">{{ doc.en }}</small>
+              </span>
+              <small v-if="documentError(index, 'document_id')" class="field-error">
+                {{ documentError(index, 'document_id') }}
               </small>
-            </label>
-            <label>
-              {{ t('requestTypes.documents.nameEn') }}
-              <input v-model="doc.en" class="ltr" />
-            </label>
+            </div>
             <label>
               {{ t('requestTypes.documents.group') }}
               <select v-model="doc.group">
@@ -430,9 +490,15 @@ onMounted(load)
             </label>
           </div>
 
-          <button class="ghost" type="button" @click="addDocument">
-            + {{ t('requestTypes.documents.add') }}
-          </button>
+          <label v-if="pickable.length" class="document-pick">
+            {{ t('requestTypes.documents.pick') }}
+            <select @change="addDocument">
+              <option value="" selected disabled>{{ t('requestTypes.documents.pickPlaceholder') }}</option>
+              <option v-for="doc in pickable" :key="doc.id" :value="doc.id">
+                {{ documentNumber(doc.id) }}  {{ documentName(doc) }}
+              </option>
+            </select>
+          </label>
         </fieldset>
 
         <div class="modal-actions">
@@ -444,7 +510,7 @@ onMounted(load)
       </form>
     </AppModal>
 
-    <div v-if="loading || loadError || types.length === 0" class="card card-flat card-pad">
+    <div v-if="loading || loadError || (tab === 'types' && types.length === 0)" class="card card-flat card-pad">
       <p v-if="loading" class="state">{{ t('common.loading') }}</p>
       <p v-else-if="loadError" class="alert">
         {{ t('nav.error') }}
@@ -453,20 +519,29 @@ onMounted(load)
       <p v-else class="state">{{ t('requestTypes.empty') }}</p>
     </div>
 
-    <div v-else class="split" :class="{ 'showing-detail': showingDetail }">
-      <nav ref="listEl" class="type-list card card-flat" :aria-label="t('requestTypes.title')">
+    <DocumentCatalog
+      v-else-if="tab === 'documents'"
+      ref="catalog"
+      :documents="documents"
+      :types="types"
+      @changed="load"
+      @open-type="openType"
+    />
+
+    <div v-else class="split-view" :class="{ 'showing-detail': showingDetail }">
+      <nav ref="listEl" class="split-list card card-flat" :aria-label="t('requestTypes.title')">
         <ul>
           <li v-for="type in types" :key="type.id">
             <button
               type="button"
-              class="type-item"
+              class="split-item"
               :class="{ inactive: !type.is_active }"
               :data-type-id="type.id"
               :aria-current="selected?.id === type.id ? 'true' : undefined"
               @click="select(type)"
             >
-              <span class="type-name">{{ label(type) }}</span>
-              <span class="type-meta">
+              <span class="split-item-name">{{ label(type) }}</span>
+              <span class="split-item-meta">
                 <code class="ltr">{{ type.code || '—' }}</code>
                 <span v-if="!type.is_active" class="pill">{{ t('common.inactive') }}</span>
               </span>
@@ -475,13 +550,13 @@ onMounted(load)
         </ul>
       </nav>
 
-      <article v-if="selected" class="detail card card-flat card-pad" aria-labelledby="request-type-title">
-        <button class="ghost back" type="button" @click="backToList">{{ t('requestTypes.backToList') }}</button>
+      <article v-if="selected" class="split-detail card card-flat card-pad" aria-labelledby="request-type-title">
+        <button class="ghost split-back" type="button" @click="backToList">{{ t('requestTypes.backToList') }}</button>
 
-        <header class="detail-head">
+        <header class="split-head">
           <div>
             <h3 id="request-type-title" ref="detailHeading" tabindex="-1">{{ label(selected) }}</h3>
-            <p class="detail-sub">
+            <p class="split-sub">
               <code class="ltr">{{ selected.code || '—' }}</code>
               <span class="pill" :class="{ success: selected.is_active }">
                 {{ selected.is_active ? t('common.active') : t('common.inactive') }}
@@ -561,6 +636,7 @@ onMounted(load)
             <ul>
               <li v-for="(doc, i) in section.items" :key="i" :class="{ required: doc.required }">
                 <span class="mark" aria-hidden="true"></span>
+                <code class="ltr" :title="t('requestTypes.catalog.number')">{{ documentNumber(doc.document_id) }}</code>
                 <span class="doc-text">
                   <span>{{ documentLabel(doc, locale) }}</span>
                   <small v-if="doc.condition">{{ documentCondition(doc, locale) }}</small>
@@ -612,62 +688,6 @@ input, select {
 }
 .document-controls { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); padding-block-end: .3rem; }
 
-/* -- Master–detail -- */
-.split {
-  display: grid;
-  grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-.type-list { padding: var(--space-2); position: sticky; inset-block-start: var(--space-4); }
-.type-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.type-item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: .2rem;
-  inline-size: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-inline-start: 3px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-foreground);
-  text-align: start;
-  cursor: pointer;
-}
-.type-item:hover { background: var(--color-surface-hover); }
-.type-item[aria-current='true'] { background: var(--color-surface-hover); border-inline-start-color: var(--color-brand); }
-.type-item[aria-current='true'] .type-name { color: var(--color-brand-text); font-weight: 600; }
-.type-item.inactive .type-name { color: var(--color-muted); }
-.type-meta { display: flex; align-items: center; gap: var(--space-2); }
-code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); white-space: nowrap; }
-
-.back { display: none; margin-bottom: var(--space-3); }
-.detail-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-}
-.detail-head h3 { margin: 0; font-size: var(--text-xl); color: var(--color-foreground); }
-.detail-head h3:focus { outline: none; }
-.detail-sub { display: flex; align-items: center; gap: var(--space-2); margin: .35rem 0 0; }
-
-.facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(8.5rem, 100%), 1fr));
-  gap: var(--space-4) var(--space-5);
-  margin: var(--space-4) 0;
-}
-.facts .wide { grid-column: 1 / -1; }
-.facts dt { font-size: var(--text-sm); color: var(--color-muted); }
-.facts dd { margin: .2rem 0 0; color: var(--color-foreground); }
-.facts .figure { font-size: var(--text-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
-
 /* Appendix 57's matrix, read as the checklist it is: a filled square is a
    document the file cannot go forward without, an empty one may be skipped.
    The word beside it says the same, so the square is never the only cue. */
@@ -678,7 +698,7 @@ code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--co
 .document-group ul { list-style: none; margin: 0; padding: 0; }
 .document-group li {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: baseline;
   gap: var(--space-3);
   padding: var(--space-2) 0;
@@ -698,14 +718,13 @@ li.required .mark { background: var(--color-brand); border-color: var(--color-br
 .need { font-size: var(--text-sm); color: var(--color-muted); white-space: nowrap; }
 li.required .need { color: var(--color-foreground); font-weight: 600; }
 
-/* A phone shows one pane at a time: the list, or the type picked from it. */
-@media (max-width: 767px) {
-  .split { grid-template-columns: minmax(0, 1fr); }
-  .type-list { position: static; }
-  .split.showing-detail .type-list,
-  .split:not(.showing-detail) .detail { display: none; }
-  .back { display: inline-flex; }
-}
+.view-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); }
+.view-tabs .count { font-variant-numeric: tabular-nums; opacity: .75; }
+.document-name { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-3); }
+.document-name small { display: block; color: var(--color-muted); font-size: var(--text-sm); }
+.document-pick { margin-top: var(--space-2); }
+code { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-muted); white-space: nowrap; }
+
 @media (max-width: 640px) {
   .document-row { grid-template-columns: minmax(0, 1fr); }
 }

@@ -120,7 +120,9 @@
       "conditionHint": "Shown beside the document name. Whether it must be attached is set by «Required».",
       "required": "Required",
       "optional": "Optional",
-      "summary": "{total} documents, {required} required"
+      "summary": "{total} documents, {required} required",
+      "pick": "Add a document from the list",
+      "pickPlaceholder": "Choose a document"
     },
     "workflow": "Workflow",
     "workflowHint": "New requests of this type are filed on this workflow's published version.",
@@ -128,6 +130,21 @@
     "sections": {
       "identity": "Identity",
       "rules": "Handling rules"
+    },
+    "tabs": {
+      "types": "Types",
+      "documents": "Documents list"
+    },
+    "catalog": {
+      "edit": "Edit document",
+      "number": "Document number",
+      "defaultsNote": "These values are copied into a request type when the document is picked; its group, condition and Required can be changed there. Editing them here does not change types that already list the document.",
+      "requiredDefault": "Required when picked",
+      "condition": "Condition",
+      "usedBy": "Request types listing it ({count})",
+      "unused": "No request type lists it yet.",
+      "empty": "The list has no documents yet.",
+      "backToList": "All documents"
     }
   },
   "users": {
@@ -1476,7 +1493,8 @@
       "template": "Template",
       "guide_article": "Guide article",
       "backup": "Backup",
-      "appeal": "Appeal"
+      "appeal": "Appeal",
+      "document": "Documents-list entry"
     },
     "fields": {
       "title": "Subject",

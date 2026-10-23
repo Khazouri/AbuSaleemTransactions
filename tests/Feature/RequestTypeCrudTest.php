@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Document;
 use App\Models\Request;
 use App\Models\RequestType;
 use App\Models\Role;
@@ -166,10 +167,10 @@ class RequestTypeCrudTest extends TestCase
             ->postJson('/api/request-types', [
                 'name_ar' => 'نوع بمستندات',
                 'required_documents' => [
-                    ['ar' => 'صورة القرار', 'en' => 'Copy of the decision', 'group' => 'basic', 'condition' => null],
-                    ['ar' => 'الإفادة المالية', 'en' => null, 'group' => 'specific', 'condition' => ['ar' => 'عند الحاجة', 'en' => 'If needed']],
+                    ['document_id' => $this->entry('صورة القرار'), 'ar' => 'صورة القرار', 'en' => 'Copy of the decision', 'group' => 'basic', 'condition' => null],
+                    ['document_id' => $this->entry('الإفادة المالية'), 'ar' => 'الإفادة المالية', 'en' => null, 'group' => 'specific', 'condition' => ['ar' => 'عند الحاجة', 'en' => 'If needed']],
                     // Both halves blank: must come back as null, not as {ar:'', en:''}.
-                    ['ar' => 'مستند ثالث', 'en' => null, 'group' => 'specific', 'condition' => ['ar' => '', 'en' => '']],
+                    ['document_id' => $this->entry('مستند ثالث'), 'ar' => 'مستند ثالث', 'en' => null, 'group' => 'specific', 'condition' => ['ar' => '', 'en' => '']],
                 ],
             ])
             ->assertCreated()
@@ -194,10 +195,10 @@ class RequestTypeCrudTest extends TestCase
             ->postJson('/api/request-types', [
                 'name_ar' => 'نوع بعلامة الإلزام',
                 'required_documents' => [
-                    ['ar' => 'مستند غير مطلوب', 'group' => 'basic', 'condition' => null, 'required' => false],
-                    ['ar' => 'مستند مشروط مطلوب', 'group' => 'basic', 'condition' => ['ar' => 'عند الحاجة'], 'required' => true],
-                    ['ar' => 'مستند بلا علامة', 'group' => 'specific', 'condition' => null],
-                    ['ar' => 'مستند مشروط بلا علامة', 'group' => 'specific', 'condition' => ['ar' => 'عند الحاجة']],
+                    ['document_id' => $this->entry('مستند غير مطلوب'), 'ar' => 'مستند غير مطلوب', 'group' => 'basic', 'condition' => null, 'required' => false],
+                    ['document_id' => $this->entry('مستند مشروط مطلوب'), 'ar' => 'مستند مشروط مطلوب', 'group' => 'basic', 'condition' => ['ar' => 'عند الحاجة'], 'required' => true],
+                    ['document_id' => $this->entry('مستند بلا علامة'), 'ar' => 'مستند بلا علامة', 'group' => 'specific', 'condition' => null],
+                    ['document_id' => $this->entry('مستند مشروط بلا علامة'), 'ar' => 'مستند مشروط بلا علامة', 'group' => 'specific', 'condition' => ['ar' => 'عند الحاجة']],
                 ],
             ])
             ->assertCreated()
@@ -308,6 +309,12 @@ class RequestTypeCrudTest extends TestCase
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['required_documents.0.section' => 'مجلد المستند غير معروف.']);
+    }
+
+    /** The managed-list entry a posted row names; every row must name one (2026-10-23). */
+    private function entry(string $nameAr): int
+    {
+        return Document::firstOrCreate(['name_ar' => $nameAr])->id;
     }
 
     private function admin(): User

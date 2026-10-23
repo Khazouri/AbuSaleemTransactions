@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DevTestUserController;
+use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MaintenanceController;
 use App\Http\Controllers\Api\MeetingController;
@@ -181,6 +182,16 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::middleware('screen.permission:request_types,delete')
         ->delete('request-types/{requestType}', [RequestTypeController::class, 'destroy']);
+
+    // The managed documents list types pick from (2026-10-23). It lives on the
+    // Request Types screen, so that screen's grants gate it; read through
+    // GET request-types. No delete: an entry is deactivated.
+    Route::middleware('screen.permission:request_types,add')
+        ->post('documents', [DocumentController::class, 'store']);
+    Route::middleware('screen.permission:request_types,edit')->group(function () {
+        Route::patch('documents/{document}/toggle-active', [DocumentController::class, 'toggleActive']);
+        Route::put('documents/{document}', [DocumentController::class, 'update']);
+    });
 
     // Workflow designer — slice 2: read-only workflows and versions (R08).
     Route::middleware('screen.permission:workflow_designer,view')->group(function () {

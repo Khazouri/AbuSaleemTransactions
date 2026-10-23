@@ -13,6 +13,13 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### Renaming a documents-list entry does not reach the types already listing it — documents list — opened 2026-10-23
+A request type copies an entry's wording when the entry is picked, and its Arabic name is half of the key every file
+answering that row is stored under. So editing an entry on «قائمة المستندات» changes only the entry; a type keeps the
+old name until the row is removed and picked again, which re-keys it. Doing that automatically would need the
+attachment keys, both gate records and the published checklists to move with it. **To close:** decide with the user
+whether a rename should propagate, and if so, key files by `document_id` and migrate every stored key.
+
 ### The guide and test plans still describe Art. 21's five verdicts and Appendix 22's card — legal recommendation — opened 2026-10-19
 Since 2026-10-19 the legal member enters only a توصية (موافقة / عدم موافقة) and جهة الاعتماد, and neither blocks the
 file. `USER_GUIDE.ar.md` and the `TEST_PLAN*.md` files still walk through the five verdicts, the «مطلوب استكمال» loop

@@ -19,6 +19,59 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-23 18:30 EET — Claude — A managed documents list with a permanent number per document (complete)
+
+Built per the plan below. On the real MySQL, migration `create_documents_table` built **77 entries** from the 12
+types, and all **184 rows** carry a `document_id` (checked by query). No file key moved, since the key is still
+index + label hash. The new-type prefill and the picker were checked in a headless browser: 9 basics prefilled, 68
+left to pick, and the picker resets after each pick.
+
+The master–detail layout classes moved into `style.css` (`.split-view` and siblings) because both tabs use them.
+
+Open: renaming an entry does not reach the types listing it (OPEN_ITEMS).
+
+Verified:
+- `DocumentCatalogTest` (6) went RED, then GREEN; two `RequestTypeCrudTest` cases and one `RequestIntakeTest`
+  assertion moved to the new row shape;
+- full suite 811 / 5559 green; Pint clean;
+- build passes (`dist` committed, production API URL in the bundle); parity 1854; `aislop ci` exit 0;
+- screenshots at ar 1280 light and en 375 dark of both tabs and both modals: no page overflow, no console errors.
+
+---
+### 2026-10-23 17:40 EET — Claude — Implementation plan: a managed documents list with a permanent number per document
+
+User: «add default documents that can be picked from for new request types; add the id/sequence number of every
+document». Put to the user and answered: a **managed list** (its own table, kept on the Request Types screen), which
+types pick from only, and a **permanent catalogue number** per document. Plan:
+- **Data:** a migration creates `documents`:
+  - fields: `name_ar` unique, `name_en`, `group`, `condition_ar/en`, `required`, `section`, `is_active`;
+  - its id is the permanent number;
+  - it backfills one row per distinct Arabic name found in the existing types (by type id, then row order), and stamps
+    `document_id` on every `required_documents` row.
+
+  `RequestTypeSeeder` links its rows the same way (`firstOrCreate` by name), so a fresh install gets the catalogue too.
+- **Keys:** a type row still stores its own copy of names, group, condition and «مطلوب». File keys (index + label hash)
+  are unchanged, so no attachment, gate record or checklist is re-keyed. Renaming a catalogue entry does not rename the
+  rows already copied from it.
+- **API:**
+  - `GET request-types` adds `documents`;
+  - new `POST documents`, `PUT documents/{d}` and `PATCH documents/{d}/toggle-active`, behind `request_types`
+    add/edit;
+  - `required_documents.*.document_id` becomes required, `exists` and `distinct`;
+  - nothing is deleted: a document is deactivated instead;
+  - `Document` is audited.
+- **SPA:**
+  - the list pane gets «الأنواع» / «المستندات» tabs;
+  - the document pane shows its number, defaults and the types using it, with edit (modal) and deactivate;
+  - a type's editor adds documents through a picker of active entries. Names become read-only and show the number;
+  - a new type starts with the active shared basics;
+  - every document row shows its number.
+
+Verify: a new `DocumentCatalogTest` (RED then GREEN), `RequestTypeCrudTest` posts moved to the new shape, full
+PHPUnit, Pint, migrate on the real MySQL (checked by query), build (`dist` committed), parity, aislop ci, and headless
+screenshots.
+
+---
 ### 2026-10-23 17:20 EET — Claude — Request Types is a master–detail screen (complete)
 
 Built per the plan below. It is frontend only, with no API change. Changes:

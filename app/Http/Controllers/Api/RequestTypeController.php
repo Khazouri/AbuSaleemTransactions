@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RequestType\StoreRequestTypeRequest;
 use App\Http\Requests\RequestType\UpdateRequestTypeRequest;
+use App\Http\Resources\DocumentResource;
 use App\Http\Resources\RequestTypeResource;
+use App\Models\Document;
 use App\Models\RequestType;
 use App\Models\Workflow;
 use Illuminate\Http\JsonResponse;
@@ -40,6 +42,9 @@ class RequestTypeController extends Controller
             ->get();
 
         return RequestTypeResource::collection($types)->additional([
+            // The managed documents list a type's rows are picked from, inactive
+            // entries included: a type may still list one.
+            'documents' => DocumentResource::collection(Document::query()->orderBy('id')->get()),
             // Workflow designer — slice 3. The workflows a type may be bound to;
             // none while the designer is off, which hides the picker.
             'workflows' => ! config('app.workflow_designer') ? [] : Workflow::query()->whereHas('publishedVersion')->orderBy('id')->get(['id', 'code', 'name_ar', 'name_en']),

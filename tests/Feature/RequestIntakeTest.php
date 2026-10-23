@@ -70,9 +70,10 @@ class RequestIntakeTest extends TestCase
         // `section` joined the entry when the submitter started naming which
         // recommended document a file provides: the [D] Appendix 14 folder is
         // derived from that answer, and the seeder declares it per row rather
-        // than it being guessed from the label afterwards.
+        // than it being guessed from the label afterwards. `document_id` names
+        // the row's entry in the managed documents list (2026-10-23).
         $this->assertSame(
-            ['ar', 'en', 'group', 'condition', 'section'],
+            ['ar', 'en', 'group', 'condition', 'section', 'document_id'],
             array_keys($promotion->first()),
         );
 

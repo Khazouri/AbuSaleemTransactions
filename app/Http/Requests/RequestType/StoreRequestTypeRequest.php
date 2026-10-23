@@ -114,6 +114,9 @@ class StoreRequestTypeRequest extends FormRequest
 
             // Stage 72 — Appendix 57's matrix.
             'required_documents' => ['nullable', 'array'],
+            // Every row is picked from the managed documents list (2026-10-23),
+            // and a type lists a document once.
+            'required_documents.*.document_id' => ['required', 'integer', 'distinct', Rule::exists('documents', 'id')],
             'required_documents.*.ar' => ['required', 'string', 'max:500'],
             'required_documents.*.en' => ['nullable', 'string', 'max:500'],
             'required_documents.*.group' => ['required', Rule::in(RequestType::DOCUMENT_GROUPS)],
@@ -186,6 +189,9 @@ class StoreRequestTypeRequest extends FormRequest
             'decision_grade_threshold.integer' => 'درجة القرار يجب أن تكون رقماً.',
             'default_administrative_route.in' => 'جهة الإحالة المقترحة غير معروفة.',
             'workflow_id.exists' => 'مسار العمل المحدد لا يملك إصدارًا منشورًا.',
+            'required_documents.*.document_id.required' => 'اختر المستند من قائمة المستندات.',
+            'required_documents.*.document_id.exists' => 'اختر المستند من قائمة المستندات.',
+            'required_documents.*.document_id.distinct' => 'المستند مكرر في هذا النوع.',
             'required_documents.*.ar.required' => 'اسم المستند بالعربية مطلوب.',
             'required_documents.*.group.in' => 'تصنيف المستند غير معروف.',
             'required_documents.*.section.in' => 'مجلد المستند غير معروف.',

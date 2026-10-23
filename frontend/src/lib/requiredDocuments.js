@@ -15,6 +15,14 @@
  */
 export const DOCUMENT_GROUPS = ['basic', 'specific']
 
+/**
+ * A document's permanent number in the managed documents list (2026-10-23):
+ * its id, padded so a column of them lines up. '' for a row that names none.
+ */
+export function documentNumber(id) {
+  return id ? String(id).padStart(3, '0') : ''
+}
+
 /** Picks the caller's locale, falling back to the other side rather than blank. */
 export function documentLabel(doc, locale) {
   return locale === 'ar' ? doc.ar || doc.en : doc.en || doc.ar
