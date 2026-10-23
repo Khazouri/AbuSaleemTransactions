@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DevTestUserController;
 use App\Http\Controllers\Api\DocumentController;
+use App\Http\Controllers\Api\ErpAuthController;
 use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MaintenanceController;
 use App\Http\Controllers\Api\MeetingController;
@@ -116,6 +117,12 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])
         ->middleware('throttle:6,1');
 
+    // ERP single sign-on (authorization code + PKCE). Public like login, and
+    // throttled the same: the callback is where a stolen code would be tried.
+    Route::get('/erp/config', [ErpAuthController::class, 'config']);
+    Route::post('/erp/callback', [ErpAuthController::class, 'callback'])
+        ->middleware('throttle:6,1');
+
     /*
      * Protected: auth:sanctum rejects anything without a valid bearer token
      * with a 401, which the SPA's axios interceptor turns into a logout.
@@ -123,6 +130,9 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/logout', [AuthController::class, 'logout']);
+        // ERP single sign-on — the signed-in user links their own ERP account.
+        Route::post('/erp/link', [ErpAuthController::class, 'link'])
+            ->middleware('throttle:6,1');
     });
 });
 

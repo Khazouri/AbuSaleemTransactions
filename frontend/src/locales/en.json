@@ -182,7 +182,9 @@
       "expand": "Expand",
       "collapse": "Collapse",
       "saveFailed": "Couldn’t save the change. Try again."
-    }
+    },
+    "erpUserId": "ERP user ID",
+    "erpUserIdHint": "Prefer letting the employee link it from their menu: a number typed here is not checked with the ERP."
   },
   "rolesPermissions": {
     "title": "Roles & Permissions",
@@ -2318,5 +2320,21 @@
     "resultsRecorded": "Results entered on {date} by {name}.",
     "openMinutes": "View minutes",
     "legalRecommendation": "Legal member: {recommendation} · approving authority: {authority}"
+  },
+  "erp": {
+    "signIn": "Sign in with the ERP",
+    "or": "or",
+    "redirecting": "Taking you to the ERP…",
+    "unavailable": "ERP sign-in is not available right now.",
+    "verifying": "Verifying your ERP account…",
+    "denied": "The ERP did not complete the sign-in.",
+    "stateMismatch": "This sign-in was not started from this browser tab, so it was refused. Start again from the sign-in page.",
+    "failed": "The ERP account could not be verified. Try again.",
+    "tooMany": "Too many attempts. Wait a minute and try again.",
+    "linkSignedOut": "Your session ended before the link finished. Sign in and link again.",
+    "link": "Link ERP account",
+    "linked": "Your ERP account is now linked. Next time you can sign in with the ERP.",
+    "backToApp": "Back to the system",
+    "backToLogin": "Back to sign in"
   }
 }

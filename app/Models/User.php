@@ -51,6 +51,7 @@ class User extends Authenticatable
         'password',
         'phone',
         'employee_number',
+        'erp_user_id',
         'department_id',
         'manager_id',
         'is_active',
@@ -97,6 +98,7 @@ class User extends Authenticatable
             // stores a hash. Never call Hash::make() on top of this.
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'erp_user_id' => 'integer',
         ];
     }
 

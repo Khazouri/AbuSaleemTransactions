@@ -13,6 +13,19 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### ERP single sign-on waits on the ERP team's half — ERP SSO — opened 2026-10-23
+Our half of the authorization-code + PKCE flow is built and tested against `Http::fake` and a mocked headless run,
+but EmployeePlus (`ep.scco.ly`) exposes no authorize, token or userinfo endpoint today: its Swagger has only
+`POST /api/auth/login` and `GET /api/auth/me`. Until it does, `ERP_*` stays unset and the login screen shows no ERP
+button. **To close:** the ERP team provides the endpoints and a client registration (contract in AGENTS.md's ERP bullet
+and the 2026-10-23 AGENT_NOTES entry). Then set the six `ERP_*` values in the server's `.env`, clear the config cache,
+and walk a real sign-in and a self-link once.
+
+### Leaving the ERP does not end an ERP session here at once — ERP SSO — opened 2026-10-23
+A token issued through the ERP expires after `ERP_SESSION_HOURS` (12), and nothing tells us sooner that an employee
+was disabled in the ERP. **To close:** if a shorter window matters, the ERP sends a back-channel logout (OIDC
+Back-Channel Logout) and we revoke that user's `erp` tokens, or lower `ERP_SESSION_HOURS`.
+
 ### Renaming a documents-list entry does not reach the types already listing it — documents list — opened 2026-10-23
 A request type copies an entry's wording when the entry is picked, and its Arabic name is half of the key every file
 answering that row is stored under. So editing an entry on «قائمة المستندات» changes only the entry; a type keeps the

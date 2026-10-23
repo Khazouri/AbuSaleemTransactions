@@ -17,6 +17,7 @@ import { useScreensStore } from '../stores/screens'
 import { useNotificationsStore } from '../stores/notifications'
 import { applyLocale, SUPPORTED_LOCALES } from '../i18n'
 import { theme, toggleTheme } from '../lib/theme'
+import { erpConfig, startErpSignIn } from '../lib/erpSso'
 import AppIcon from './AppIcon.vue'
 
 defineProps({
@@ -156,6 +157,19 @@ function goSettings() {
   router.push({ name: 'settings' })
 }
 
+// ERP single sign-on — self-linking proves the ERP account is this user's,
+// which a number typed on the Users screen cannot. Offered only where the
+// backend has the ERP configured and the account is not linked yet.
+const erpAvailable = ref(false)
+onMounted(async () => {
+  erpAvailable.value = !!(await erpConfig())
+})
+
+function linkErp() {
+  menuOpen.value = false
+  startErpSignIn('link')
+}
+
 async function signOut() {
   menuOpen.value = false
   await auth.logout()
@@ -278,6 +292,11 @@ async function signOut() {
             <button class="dropdown-item" @click="goSettings">
               <AppIcon name="settings" :size="16" />
               <span>{{ t('header.settings') }}</span>
+            </button>
+
+            <button v-if="erpAvailable && !auth.user?.erp_user_id" class="dropdown-item" @click="linkErp">
+              <AppIcon name="shield" :size="16" />
+              <span>{{ t('erp.link') }}</span>
             </button>
 
             <div class="sep" />

@@ -10,6 +10,7 @@ import { defineAsyncComponent, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import api from '../lib/api'
+import { erpConfig, startErpSignIn } from '../lib/erpSso'
 import { useAuthStore } from '../stores/auth'
 
 const { t } = useI18n()
@@ -41,6 +42,29 @@ onMounted(async () => {
     // something whose absence deserves an error message.
   }
 })
+
+// ERP single sign-on — the button shows only where the backend has the ERP
+// configured. ?erp=1 (what /erp-login redirects to, the address the ERP links
+// to) starts the flow at once, so an employee coming from the ERP never sees
+// this form.
+const erpAvailable = ref(false)
+const erpStarting = ref(false)
+
+onMounted(async () => {
+  erpAvailable.value = !!(await erpConfig())
+  if (erpAvailable.value && route.query.erp === '1') signInWithErp()
+})
+
+async function signInWithErp() {
+  error.value = null
+  erpStarting.value = true
+  try {
+    await startErpSignIn('login')
+  } catch {
+    erpStarting.value = false
+    error.value = t('erp.unavailable')
+  }
+}
 
 // Form fields, bound with v-model in the template.
 const email = ref('')
@@ -170,6 +194,13 @@ function signInAs({ email: testEmail }) {
       <button class="primary" type="submit" :disabled="auth.loading">
         {{ auth.loading ? t('auth.loggingIn') : t('auth.login') }}
       </button>
+
+      <template v-if="erpAvailable">
+        <p class="or">{{ t('erp.or') }}</p>
+        <button class="btn ghost" type="button" :disabled="erpStarting" @click="signInWithErp">
+          {{ erpStarting ? t('erp.redirecting') : t('erp.signIn') }}
+        </button>
+      </template>
     </form>
 
     <!-- Renders only when the API answered /dev/test-users, i.e. APP_ENV=local. -->
@@ -208,6 +239,7 @@ function signInAs({ email: testEmail }) {
 }
 h1 { margin: 0; font-size: var(--text-xl); color: var(--color-brand-text); text-align: center; }
 .sub { margin: 0; text-align: center; color: var(--color-muted); font-size: var(--text-base); }
+.or { margin: 0; text-align: center; color: var(--color-muted); font-size: var(--text-sm); }
 label { display: flex; flex-direction: column; gap: .35rem; font-size: var(--text-base); color: var(--color-black-700); }
 input {
   padding: var(--space-3);

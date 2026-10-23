@@ -41,6 +41,13 @@ class UpdateUserRequest extends FormRequest
                 Rule::unique('users', 'employee_number')->ignore($user->id),
             ],
 
+            // ERP single sign-on — the ERP's user id. A self-link through the
+            // ERP proves it; one typed here is trusted to R08 and audited.
+            'erp_user_id' => [
+                'nullable', 'integer', 'min:1',
+                Rule::unique('users', 'erp_user_id')->ignore($user->id),
+            ],
+
             'password' => ['nullable', 'string', 'min:8'],
 
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
@@ -76,6 +83,9 @@ class UpdateUserRequest extends FormRequest
             'email.unique' => 'هذا البريد الإلكتروني مستخدم بالفعل.',
             'employee_number.max' => 'لا يمكن أن يتجاوز الرقم الوظيفي 32 حرفاً.',
             'employee_number.unique' => 'هذا الرقم الوظيفي مسند لمستخدم آخر.',
+            'erp_user_id.integer' => 'رقم المستخدم في ERP يجب أن يكون رقماً صحيحاً.',
+            'erp_user_id.min' => 'رقم المستخدم في ERP يجب أن يكون رقماً صحيحاً.',
+            'erp_user_id.unique' => 'حساب ERP هذا مربوط بمستخدم آخر.',
             'password.min' => 'كلمة المرور يجب ألا تقل عن 8 أحرف.',
             'department_id.exists' => 'الإدارة المحددة غير موجودة.',
             'manager_id.exists' => 'المدير المباشر المحدد غير موجود.',

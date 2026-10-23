@@ -38,6 +38,12 @@ class StoreUserRequest extends FormRequest
                 Rule::unique('users', 'employee_number'),
             ],
 
+            // ERP single sign-on — see UpdateUserRequest.
+            'erp_user_id' => [
+                'nullable', 'integer', 'min:1',
+                Rule::unique('users', 'erp_user_id'),
+            ],
+
             'password' => ['required', 'string', 'min:8'],
 
             // Null is allowed — an account can exist before it's assigned to
@@ -67,6 +73,9 @@ class StoreUserRequest extends FormRequest
             'email.unique' => 'هذا البريد الإلكتروني مستخدم بالفعل.',
             'employee_number.max' => 'لا يمكن أن يتجاوز الرقم الوظيفي 32 حرفاً.',
             'employee_number.unique' => 'هذا الرقم الوظيفي مسند لمستخدم آخر.',
+            'erp_user_id.integer' => 'رقم المستخدم في ERP يجب أن يكون رقماً صحيحاً.',
+            'erp_user_id.min' => 'رقم المستخدم في ERP يجب أن يكون رقماً صحيحاً.',
+            'erp_user_id.unique' => 'حساب ERP هذا مربوط بمستخدم آخر.',
             'password.required' => 'كلمة المرور مطلوبة.',
             'password.min' => 'كلمة المرور يجب ألا تقل عن 8 أحرف.',
             'department_id.exists' => 'الإدارة المحددة غير موجودة.',
