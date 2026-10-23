@@ -19,6 +19,21 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-23 16:16 EET — Claude — Implementation plan: one branch, `main`; the two stranded branches merged in
+
+User: «i want a singular branch named main… delete the other branches». Put to the user and answered: merge both
+branches whose work never reached `main`, then push `main` and delete every other branch, local and on GitHub. The
+two branches:
+- `feat/template-design-system-shell` (2026-10-09, «a search box on every select», frontend only, 87 commits behind);
+- `feat/remove-financial-impact` (2026-10-09, «الأثر المالي» removed, with a migration, 90 commits behind).
+  `main` has since deleted `RequestExecutionService` and the execution card it edits, so the conflicts are resolved
+  against today's code: the parts of the removal still apply, and the removed parts stay removed.
+
+`claude/agent-tooling` is deleted without merging: `bfed7e1` redid the same work. Worktree `AbuSaleem-nofin` goes
+with its branch. Verify: full PHPUnit, Pint on touched PHP, migrate on the real MySQL, build (`dist` rebuilt and
+committed), parity, aislop ci.
+
+---
 ### 2026-10-19 14:35 EET — Claude — The legal member and the مقرر are notified around the legal review (complete)
 
 Built per the plan below. No migration or seeder. `CommitteeStatusService` now takes `NotificationDispatcher` through
