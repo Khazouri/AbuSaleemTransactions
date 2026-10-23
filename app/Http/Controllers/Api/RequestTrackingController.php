@@ -47,7 +47,7 @@ class RequestTrackingController extends Controller
         $filters = $request->validated();
         $scope = $filters['scope'] ?? 'all';
 
-        $requests = $this->ownedBy($request)
+        $requests = Request::query()->ownedBy($request->user())
             ->with([
                 'subject:id,name',
                 'requestType:id,code,name_ar,name_en,decision_grade_threshold,default_administrative_route',
@@ -146,13 +146,5 @@ class RequestTrackingController extends Controller
         );
 
         return new RequestTrackingResource($requestRecord);
-    }
-
-    /** @return Builder<Request> */
-    private function ownedBy(HttpRequest $request): Builder
-    {
-        return Request::query()->where(fn (Builder $mine) => $mine
-            ->where('created_by_user_id', $request->user()->id)
-            ->orWhere('subject_user_id', $request->user()->id));
     }
 }

@@ -74,6 +74,11 @@ Key architectural facts worth knowing before changing things:
     `state`), a token endpoint (single-use code, ≤ 60 s), a userinfo endpoint
     returning `sub` = ERP userId, and a client registration with redirect
     `<SPA>/erp-callback`. The ERP links employees to `<SPA>/erp-login`.
+  - `GET /api/erp/summary` (`ErpSummaryController`) gives the ERP one
+    employee's tasks, requests, meetings and notifications. The ERP sends **that
+    employee's own ERP access token**, never a shared key, and we resolve it
+    through userinfo. The same refusals as the callback apply, and each section
+    needs its screen's `view` grant, so the ERP sees what the SPA would.
 - **The login screen's test-account picker is gated by the BACKEND**, not the
   build: `GET /api/dev/test-users` (`DevTestUserController`) is public but
   answers 404 unless `app()->environment('local')`, and the SPA shows the panel

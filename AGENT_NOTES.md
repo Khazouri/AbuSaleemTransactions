@@ -83,6 +83,59 @@ MySQL, ScreenSeeder (deletes `templates`) on the real DB, build (`dist` committe
 machine reads 19:05, behind the entry below.)
 
 ---
+### 2026-10-23 20:50 EET — Claude — Swagger (OpenAPI) documentation for the API (complete)
+
+Built per the plan below, with one change: Scramble's built-in `MiddlewareAuthSecurityStrategy` (config only)
+replaced the planned `AppServiceProvider` code. `config/scramble.php` holds only the overridden keys, because the
+published file reads an enum case, which would fatal on a `--no-dev` host. The spec covers all 200 API operations,
+117 schemas, and the 8 routes without `auth:sanctum` are marked public. 13 export warnings are rules that read the
+route-bound model (`$meeting->id`); Scramble skips just that rule. `/api.json` (the export) is git-ignored.
+Verified: `abusaleem.test/docs/api` and `/docs/api.json` answer 200; full suite 831 / 5642; Pint clean; `aislop ci`
+exit 0. No frontend change.
+
+---
+### 2026-10-23 20:30 EET — Claude — Implementation plan: Swagger (OpenAPI) documentation for the API
+
+User: «generate a swagger documentation». Plan: `dedoc/scramble` (dev dependency), which builds OpenAPI 3.1 from
+the routes, Form Requests and API Resources the code already has, so no hand-written annotations can drift. The
+UI is served at `/docs/api` and the spec at `/docs/api.json`, both local-only (Scramble's default `viewApiDocs`
+gate), so production exposes no API map. `php artisan scramble:export` writes a static `api.json` to hand to the
+ERP team. `AppServiceProvider` declares bearer (Sanctum) auth and clears it on routes without `auth:sanctum`,
+guarded by `class_exists` so a `--no-dev` install never loads Scramble. Verify: export runs without analysis
+errors, full PHPUnit, Pint, aislop ci. No frontend change.
+
+---
+### 2026-10-23 20:05 EET — Claude — The ERP reads an employee's summary (complete)
+
+Built per the plan below; no migration and no frontend change. `ErpIdentity::userIdFromAccessToken()` returns null on
+a refusal, and the SSO callback still answers 422 through it. `ErpAuthController::abortUnlessConfigured()` is now
+public static and gates both. The tracking screen's ownership query became `Request::scopeOwnedBy()`, so both lists
+agree. Meetings are those `pending_confirmation`/`scheduled` from today on.
+
+Verified:
+- new `ErpSummaryTest` (8) went RED, then GREEN;
+- full suite 831 / 5642 green; Pint clean on the touched PHP; `aislop ci` exit 0.
+
+Not done: a call with a real ERP token, because the ERP has no userinfo endpoint yet (OPEN_ITEMS).
+
+---
+### 2026-10-23 19:45 EET — Claude — Implementation plan: the ERP reads an employee's summary
+
+User: «a route that provides all the employee data for the ERP: pending tasks, requests, meetings,
+notifications». Put to the user and answered: the ERP sends **the employee's own ERP access token**, and the payload
+is counts plus recent items. Plan:
+- `GET /api/erp/summary`, public, `throttle:60,1`, and 404 until ERP is configured;
+- `ErpIdentity::userIdFromAccessToken()` is split out of the code redemption; the token is never kept;
+- the account is found by `erp_user_id`, with the callback's three refusals (unlinked, inactive, R08);
+- each section appears only with that screen's `view` grant:
+  - `my_tasks`: the collector's output;
+  - `request_tracking`: open count + latest 10;
+  - `meetings`: upcoming, through `MeetingVisibility`;
+  - `notifications`: unread count + latest 10.
+
+Verify: new `ErpSummaryTest` (RED then GREEN), full PHPUnit, Pint, aislop ci. No frontend change.
+
+---
 ### 2026-10-23 19:20 EET — Claude — Single sign-on from the EmployeePlus ERP (complete, our half)
 
 Built per the plan below. Migration `add_erp_user_id_to_users_table` is applied to the real MySQL (checked: the

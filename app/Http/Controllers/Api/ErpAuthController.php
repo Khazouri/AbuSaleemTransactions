@@ -31,7 +31,7 @@ class ErpAuthController extends Controller
      */
     public function config(): JsonResponse
     {
-        $this->abortUnlessConfigured();
+        self::abortUnlessConfigured();
 
         return response()->json([
             'authorize_url' => config('services.erp.authorize_url'),
@@ -42,7 +42,7 @@ class ErpAuthController extends Controller
 
     public function callback(ErpCallbackRequest $request): JsonResponse
     {
-        $this->abortUnlessConfigured();
+        self::abortUnlessConfigured();
 
         $erpUserId = $this->erp->userIdFromCode($request->validated('code'), $request->validated('code_verifier'));
         $user = User::query()->where('erp_user_id', $erpUserId)->first();
@@ -75,7 +75,7 @@ class ErpAuthController extends Controller
      */
     public function link(ErpCallbackRequest $request): UserResource
     {
-        $this->abortUnlessConfigured();
+        self::abortUnlessConfigured();
 
         $erpUserId = $this->erp->userIdFromCode($request->validated('code'), $request->validated('code_verifier'));
         $user = $request->user();
@@ -89,7 +89,8 @@ class ErpAuthController extends Controller
         return (new UserResource($user->load('roles', 'department', 'manager:id,name')))->withPermissions();
     }
 
-    private function abortUnlessConfigured(): void
+    /** Also gates ErpSummaryController: every ERP route 404s until configured. */
+    public static function abortUnlessConfigured(): void
     {
         $erp = config('services.erp');
         $required = ['authorize_url', 'token_url', 'userinfo_url', 'client_id', 'client_secret', 'redirect_uri'];
