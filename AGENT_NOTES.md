@@ -37,9 +37,9 @@ On the real MySQL:
 - `ScreenSeeder` was re-run and deleted the `templates` screen;
 - `meeting_agenda` `approve` was cleared cell by cell (2 cells).
 
-**Heads-up for the `feat/erp-summary` session:** until that branch merges `main`, its old code reads the dropped
-`templates` table and committee columns, so abusaleem.test's Decisions screen, meeting page and committee save fail
-there (user's call).
+The migration ran (user's call) while the main checkout still served the old code, so from then until this merge
+abusaleem.test's Decisions screen, meeting page and committee save failed. Branch merged with `main` after the ERP
+summary and API docs landed; the suite was re-run on the merged tree.
 
 Verified:
 - new tests went RED, then GREEN (`ConcludedAgendaTest`, the board and register cases, the next-action case);
