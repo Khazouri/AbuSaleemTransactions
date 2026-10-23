@@ -261,6 +261,12 @@ The endpoint uses `request_id` only to pick the version, so it is an existence p
 the request is returned). Low risk. **To close:** apply `RequestVisibility` to the id, or ignore ids the caller
 cannot open.
 
+### The searchable select is unchecked on iOS Safari — select search — opened 2026-10-09
+`lib/selectSearch.js` suppresses the native list by preventing `mousedown` on the `<select>`. That works in Chrome,
+desktop and touch-emulated. iOS Safari may still open its own picker wheel on top of the popover, and no iPhone
+was available to check. **To close:** open any select on an iPhone. If both lists appear, the suppression also needs
+`touchstart`/`pointerdown`, or iOS keeps the native picker.
+
 ### A rejected «مستند آخر» file cannot be replaced — per-file document review — opened 2026-10-09
 On both document gates a «غير معتمد» file blocks until a newer upload of the **same document type** replaces it
 (`DocumentReview::attachments()`). A file typed «مستند آخر», or one with no type, has no type to be replaced under,
