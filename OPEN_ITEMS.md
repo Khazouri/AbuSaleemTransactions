@@ -261,6 +261,12 @@ The endpoint uses `request_id` only to pick the version, so it is an existence p
 the request is returned). Low risk. **To close:** apply `RequestVisibility` to the id, or ignore ids the caller
 cannot open.
 
+### The searchable select is unchecked on iOS Safari — select search — opened 2026-10-09
+`lib/selectSearch.js` suppresses the native list by preventing `mousedown` on the `<select>`. That works in Chrome,
+desktop and touch-emulated. iOS Safari may still open its own picker wheel on top of the popover, and no iPhone
+was available to check. **To close:** open any select on an iPhone. If both lists appear, the suppression also needs
+`touchstart`/`pointerdown`, or iOS keeps the native picker.
+
 ### A rejected «مستند آخر» file cannot be replaced — per-file document review — opened 2026-10-09
 On both document gates a «غير معتمد» file blocks until a newer upload of the **same document type** replaces it
 (`DocumentReview::attachments()`). A file typed «مستند آخر», or one with no type, has no type to be replaced under,
@@ -274,6 +280,13 @@ judges the files attached instead (user decision). The matrix is still enforced 
 before the agenda (`DocumentCompletenessService::refusalForRequest()`), so a missing service-file document is now
 first caught when المقرر tries to put the file on an agenda, not at register. **To close:** confirm that is
 acceptable, or add the matrix check back beside the per-file review at `register`.
+
+### «الأثر المالي» removal not merged or migrated; docs still describe it — opened 2026-10-09
+The removal is committed on `feat/remove-financial-impact` only. Two other sessions had uncommitted work in the main
+tree, so it was built in a worktree. Its migration was not run on the real MySQL, because the main tree's code still
+writes `has_financial_impact` at intake and would fail against the dropped column. The docs are paused (user,
+2026-10-07): `USER_GUIDE.ar.md`, `TEST_PLAN*.md`, `STAGE_PLAN.md` (Stage 47) and `docs/` still describe the flag.
+**To close:** merge the branch, run `php artisan migrate`, and update those docs when the pause lifts.
 
 ### The manager's return and cancel still require a reason on the real database — optional note — opened 2026-10-07
 `WorkflowTransitionSeeder` now seeds `return_to_employee` and both manager `cancel` rows with `requires_comment = false`,

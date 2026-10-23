@@ -361,14 +361,6 @@ function onWizardUpdated(updated) {
                   </template>
                 </strong>
               </div>
-              <!-- Stage 47 — derived from request type at intake; read-only here,
-                   corrected through the wizard's set_financial_impact act. -->
-              <div>
-                <span>{{ t('requestDetail.financialImpact.label') }}</span>
-                <strong>
-                  {{ request.has_financial_impact ? t('requestDetail.financialImpact.yes') : t('requestDetail.financialImpact.no') }}
-                </strong>
-              </div>
             </section>
 
             <section class="card card-flat card-pad description">

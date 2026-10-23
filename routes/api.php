@@ -422,15 +422,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:notes_attachments,add')
         ->post('requests/{requestRecord}/notes', [NoteController::class, 'store']);
 
-    // Stage 47 — correcting the financial-impact flag is an ancillary
-    // correction, not core request editing, so it rides the same narrow
-    // notes_attachments,edit grant (R01/R02) rather than a new permission.
-    Route::middleware('screen.permission:notes_attachments,edit')
-        ->patch('requests/{requestRecord}/financial-impact', [RequestController::class, 'updateFinancialImpact']);
-
-    // Stage 54 — recording [D] Art. 45's jurisdiction test is the same kind
-    // of narrow ancillary correction as financial-impact above, so it rides
-    // the same grant rather than a new permission tier.
+    // Stage 54 — recording [D] Art. 45's jurisdiction test is a narrow
+    // ancillary correction, not core request editing, so it rides the
+    // notes_attachments,edit grant rather than a new permission tier.
     Route::middleware('screen.permission:notes_attachments,edit')
         ->patch('requests/{requestRecord}/jurisdiction-test', [RequestController::class, 'recordJurisdictionTest']);
 

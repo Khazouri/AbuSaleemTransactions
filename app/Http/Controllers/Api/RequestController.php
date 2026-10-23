@@ -20,7 +20,6 @@ use App\Http\Requests\Request\ResolveApprovalReturnRequest;
 use App\Http\Requests\Request\StoreRequest;
 use App\Http\Requests\Request\SuspendRequest;
 use App\Http\Requests\Request\TransitionRequest;
-use App\Http\Requests\Request\UpdateFinancialImpactRequest;
 use App\Http\Resources\RequestDetailResource;
 use App\Http\Resources\RequestResource;
 use App\Models\ApprovalReferral;
@@ -425,9 +424,6 @@ class RequestController extends Controller
                     // raised after an earlier file on the same subject closed.
                     'prior_relation' => $priorRelation,
                     'prior_request_id' => $priorRequestId,
-                    // Stage 47 — starting value only; a study-stage reviewer
-                    // can correct it later via updateFinancialImpact().
-                    'has_financial_impact' => $type->default_has_financial_impact,
                 ]);
 
                 // Loaded once rather than per file: every attachment on this
@@ -657,30 +653,10 @@ class RequestController extends Controller
     }
 
     /**
-     * Stage 47 — correct the auto-derived financial-impact flag. Rides the
-     * existing notes_attachments,edit grant (R01/R02) rather than a new
-     * request_details edit tier: this is a narrow ancillary correction, not
-     * general request-field editing.
-     */
-    public function updateFinancialImpact(
-        UpdateFinancialImpactRequest $request,
-        Request $requestRecord,
-        WorkflowService $workflow,
-        RequestVisibility $visibility,
-    ): RequestDetailResource {
-        abort_unless($visibility->canView($request->user(), $requestRecord), 404);
-
-        $requestRecord->update(['has_financial_impact' => $request->boolean('has_financial_impact')]);
-
-        return $this->detailResource($requestRecord, $workflow, $request->user());
-    }
-
-    /**
      * Stage 54 — record [D] Art. 45's 6-question jurisdiction test. Rides the
-     * same notes_attachments,edit grant updateFinancialImpact() uses, and
-     * carries no stage restriction of its own — it is a working draft that
-     * can be revised any time before (or after) requirements_check acts on
-     * it, mirroring that method's own precedent.
+     * notes_attachments,edit grant, and carries no stage restriction of its
+     * own — it is a working draft that can be revised any time before (or
+     * after) requirements_check acts on it.
      *
      * Stage 84 — but never by the person who filed the request. [D] Appendix
      * 19's مصفوفة الفصل بين الصلاحيات is explicit ("لا يكون مقدم الطلب هو
@@ -1103,9 +1079,8 @@ class RequestController extends Controller
      * 20's own attestation that the facts themselves are sound.
      *
      * Rides the same `notes_attachments,edit` grant Stage 54's jurisdiction
-     * test and Stage 47's financial-impact correction already use, and
-     * carries no stage restriction of its own for the same reason those two
-     * don't: it is a working record the officer builds while the file is
+     * test already uses, and carries no stage restriction of its own for the
+     * same reason it doesn't: it is a working record the officer builds while the file is
      * being checked, and `requirements_check → approve` is what reads it.
      *
      * Stage 84 — never by the person who filed the request. This is the

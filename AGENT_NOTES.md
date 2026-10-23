@@ -19,6 +19,21 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-23 16:16 EET — Claude — Implementation plan: one branch, `main`; the two stranded branches merged in
+
+User: «i want a singular branch named main… delete the other branches». Put to the user and answered: merge both
+branches whose work never reached `main`, then push `main` and delete every other branch, local and on GitHub. The
+two branches:
+- `feat/template-design-system-shell` (2026-10-09, «a search box on every select», frontend only, 87 commits behind);
+- `feat/remove-financial-impact` (2026-10-09, «الأثر المالي» removed, with a migration, 90 commits behind).
+  `main` has since deleted `RequestExecutionService` and the execution card it edits, so the conflicts are resolved
+  against today's code: the parts of the removal still apply, and the removed parts stay removed.
+
+`claude/agent-tooling` is deleted without merging: `bfed7e1` redid the same work. Worktree `AbuSaleem-nofin` goes
+with its branch. Verify: full PHPUnit, Pint on touched PHP, migrate on the real MySQL, build (`dist` rebuilt and
+committed), parity, aislop ci.
+
+---
 ### 2026-10-19 14:35 EET — Claude — The legal member and the مقرر are notified around the legal review (complete)
 
 Built per the plan below. No migration or seeder. `CommitteeStatusService` now takes `NotificationDispatcher` through
@@ -922,6 +937,33 @@ verified, then `git merge --no-ff` it into `main` and delete it (merge style cho
 still need an explicit request. Instruction change only; no code touched.
 
 ---
+### 2026-10-09 20:05 EET — Claude — A search box on every select (complete)
+
+Built per the plan below; frontend only, no template touched. `lib/selectSearch.js` is the whole feature. The popover's
+CSS sits in `style.css` beside the modals, and `selectSearch.placeholder|empty` are new (parity 2083). A select
+that is `disabled`, `multiple` or has `size` > 1 keeps the native list. **Gotcha for a future test:** the audit log's
+filters apply on submit, not on change, so "the request carries the filter" needs the form submitted. Verified: build
+passes (`dist` committed), `aislop ci` exit 0, and headless Chrome on the audit-log user filter and the Users modal
+(ar/en × 1280/375, touch at 375): opening by press, Enter and a typed letter; filtering with highlight and empty state;
+keyboard pick setting the value, refocusing the select and reaching `v-model`; Escape closing the list but not the
+modal; and an outside press closing it. 76/76 passed, with no console errors. `check-layout.mjs` (440 views) fails
+only on pre-existing issues: the `/decisions` overflow at 1024px, and `/requests/create` bouncing R08 to the
+dashboard since R08 stopped filing (2026-10-07). The script still logs in as R08, so that route is never checked. **Not checked:** iOS Safari, where
+preventing `mousedown` may not suppress the native picker.
+
+---
+### 2026-10-09 19:40 EET — Claude — Implementation plan: a search box on every select
+
+User: «add search to every select input» (then /frontend-design). Plan: one global `lib/selectSearch.js`, imported
+once in `main.js` like `lib/cardTables.js`, so none of the ~75 selects in 42 files changes and a future one is covered.
+A press (or Enter/Space/Alt+↓/F4, or a typed letter) on any single `<select>` suppresses the native list and opens a
+body-level popover with a search input and the select's own options (optgroup headings kept, disabled shown but not
+pickable). Picking sets `option.selected` and fires `input` + `change`, so every `v-model` (number values included)
+is untouched. Arabic matching folds أإآ→ا, ة→ه, ى→ي. Escape is captured on window so it never closes an AppModal
+underneath. Tokens only; two new locale keys. Verify: build (`dist` committed), parity, aislop ci, check-layout,
+headless check (ar/en, 1280/375).
+
+---
 ### 2026-10-09 19:15 EET — Claude — Notifications are sent instantly (complete)
 
 Built per the plan below; no migration and no frontend change. `NotificationDispatcher::send()` now sends on `sync`
@@ -981,6 +1023,31 @@ the agenda still demands every mandatory matrix row, but HR's register no longer
 submit button.
 
 Verify: new tests RED then GREEN, full PHPUnit, Pint, migrate, build (`dist` committed), parity, aislop ci.
+
+---
+### 2026-10-09 19:40 EET — Claude — «الأثر المالي» removed from the system (complete, branch only)
+
+Built per the plan below on branch `feat/remove-financial-impact` (worktree `../AbuSaleem-nofin`), **not** on
+`feat/template-design-system-shell`. Migration `2026_10_09_190000_remove_financial_impact` prunes the two document rows
+in place rather than reseeding `RequestTypeSeeder`, which would reset types edited on screen. A scratch SQLite run with
+the rows present confirmed both go and the rest stay. The execution card now has six checks (five answered). An
+earlier record keeps its stored `financial_effect_referred`/`financial_effect_note` keys, unshown. Kept: the SAL
+department, PROM's «الإفادة المالية» (financial coverage, not effect), Appendix 52's «تعديل الوضع المالي» line, and the
+[D] quotes «الأثر الإداري أو المالي». Verified: full suite 837 + 9 + 14 green, Pint clean, build passes (`dist`
+committed), parity 2076, `aislop ci` exit 0 (97). **Not migrated on the real MySQL** (OPEN_ITEMS.md). Docs are paused.
+
+---
+### 2026-10-09 18:55 EET — Claude — Implementation plan: «الأثر المالي» removed from the system
+
+User: «remove اثر مالي from the system». Put to the user and answered: everything goes, including the execution card's
+financial items and the Appendix 57 document rows. Plan: a migration drops `requests.has_financial_impact` and
+`request_types.default_has_financial_impact` and deletes `financial_impact_review` settings rows. Stage 47 goes with
+them: the correction act and its route, `FinancialImpactReviewNotification`, the SAL visibility clause, the request-type
+checkbox and the request-page row. The execution card loses `financial_effect_referred` (and Art. 97's binding),
+`financial_effect_note` and the `financial_statement` evidence type. SECD's «الأثر المالي» and SETL's «البيانات المالية»
+document rows go. Kept: the SAL department and Appendix 52's «تعديل الوضع المالي» guidance line. Built in a separate
+worktree (`feat/remove-financial-impact`), because two other sessions have uncommitted work in this tree. Verify: tests
+updated, full PHPUnit, Pint, migrate, build (`dist` committed), parity, aislop ci.
 
 ---
 ### 2026-10-09 17:55 EET — Claude — Hover/click preview for timeline and memo documents (complete)

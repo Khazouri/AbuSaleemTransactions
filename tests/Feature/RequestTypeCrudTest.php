@@ -45,14 +45,12 @@ class RequestTypeCrudTest extends TestCase
                 'name_en' => 'Test type',
                 'default_sla_days' => 12,
                 'decision_grade_threshold' => 10,
-                'default_has_financial_impact' => true,
                 'default_administrative_route' => 'hr',
                 'legal_basis_ar' => 'المادة 1',
             ])
             ->assertCreated()
             ->assertJsonPath('data.code', 'TEST')
             ->assertJsonPath('data.default_sla_days', 12)
-            ->assertJsonPath('data.default_has_financial_impact', true)
             ->assertJsonPath('data.is_active', true)
             // The counts index() returns, so the screen can explain a refused
             // delete before anyone attempts one.

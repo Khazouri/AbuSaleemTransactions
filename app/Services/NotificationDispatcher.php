@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Appeal;
-use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\Request;
 use App\Models\User;
@@ -11,7 +10,6 @@ use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
 use App\Notifications\ActionRequiredNotification;
 use App\Notifications\AppealDecidedNotification;
-use App\Notifications\FinancialImpactReviewNotification;
 use App\Notifications\LegalReviewNotification;
 use App\Notifications\MeetingInvitationResponseNotification;
 use App\Notifications\MeetingScheduledNotification;
@@ -86,19 +84,6 @@ class NotificationDispatcher
             $this->actorsForStage($requestRecord, $requestRecord->current_stage_id, $excluded),
             new ActionRequiredNotification($requestRecord, $toStage),
         );
-
-        // Stage 47 — قسم المرتبات والمزايا holds no seat in workflow_transitions
-        // ([D] doesn't name one; see AGENT_NOTES.md), so it can't be picked up
-        // by actorsForStage() above. Stage 102 — told when the file arrives on
-        // the committee's pending list, the first stop after the study now
-        // that `observations` is off the path. Arrival, not a self-loop at the
-        // committee stage (defer etc.): a `return_to_study` sends the file
-        // back to requirements_check, so its return to the list re-notifies.
-        if ($toStage?->code === 'receive_from_committee'
-            && $fromStage?->id !== $toStage->id
-            && $requestRecord->has_financial_impact) {
-            $this->send($this->salariesAndBenefitsDepartment($excluded), new FinancialImpactReviewNotification($requestRecord));
-        }
     }
 
     /** Stage 17 sweep — a breach concerns both the owner and whoever can unblock it. */
@@ -477,10 +462,9 @@ class NotificationDispatcher
     /**
      * Stage 71 — active holders of any of the given role codes.
      *
-     * Resolved by code rather than by id for the same reason
-     * salariesAndBenefitsDepartment() resolves a department by code: the
-     * escalation targets are named in [D], and a code keeps the mapping
-     * readable at the call site instead of hiding it behind a seeded id.
+     * Resolved by code rather than by id: the escalation targets are named
+     * in [D], and a code keeps the mapping readable at the call site instead
+     * of hiding it behind a seeded id.
      *
      * @param  array<int, string>  $roleCodes
      * @return Collection<int, User>
@@ -494,29 +478,6 @@ class NotificationDispatcher
         return User::query()
             ->where('is_active', true)
             ->whereHas('roles', fn ($query) => $query->whereIn('roles.code', $roleCodes))
-            ->get();
-    }
-
-    /**
-     * Active users in قسم المرتبات والمزايا (Stage 47) — resolved by
-     * department code, the same style WorkflowService resolves stages by
-     * code, since this department has no role of its own to key off.
-     *
-     * @param  array<int, int>  $excludeUserIds
-     * @return Collection<int, User>
-     */
-    private function salariesAndBenefitsDepartment(array $excludeUserIds = []): Collection
-    {
-        $departmentId = Department::query()->where('code', 'SAL')->value('id');
-
-        if ($departmentId === null) {
-            return collect();
-        }
-
-        return User::query()
-            ->where('department_id', $departmentId)
-            ->where('is_active', true)
-            ->when($excludeUserIds !== [], fn ($query) => $query->whereKeyNot($excludeUserIds))
             ->get();
     }
 

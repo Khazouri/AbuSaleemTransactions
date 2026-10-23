@@ -189,10 +189,7 @@ class RequestRecordActsTest extends TestCase
         $this->assertContains('attach_document', $this->available($filer, $atIntake));
         $this->assertNotContains('attach_document', $this->available($filer, $atCommittee));
         $this->assertContains('add_note', $this->available($filer, $atCommittee));
-
-        $impact = collect($this->acts($rapporteur, $atCommittee)['available'])->firstWhere('action', 'set_financial_impact');
-        $this->assertSame((bool) $atCommittee->has_financial_impact, $impact['has_financial_impact']);
-        $this->assertNotContains('set_financial_impact', $this->available($filer, $atCommittee));
+        $this->assertNotContains('set_financial_impact', $this->available($rapporteur, $atCommittee));
     }
 
     public function test_a_notice_is_blocked_when_the_subject_has_no_active_account(): void

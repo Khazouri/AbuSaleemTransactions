@@ -17,8 +17,8 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  * Request types are master data in the same sense departments are: created
  * rarely, referenced everywhere, and carrying rules other stages read — the
  * SLA that becomes a request's due_date (Stage 17), the decision grade that
- * forces ministry escalation (Stage 18), the default financial-impact flag
- * (Stage 47), and [D] Appendix 57's document matrix (Stage 72). So this
+ * forces ministry escalation (Stage 18), and [D] Appendix 57's document
+ * matrix (Stage 72). So this
  * controller follows DepartmentController rather than a plain apiResource:
  * deactivate instead of delete, and refuse a delete that would erase history.
  */
