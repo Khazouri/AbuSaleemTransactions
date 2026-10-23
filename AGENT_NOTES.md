@@ -19,6 +19,28 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-23 20:50 EET — Claude — Swagger (OpenAPI) documentation for the API (complete)
+
+Built per the plan below, with one change: Scramble's built-in `MiddlewareAuthSecurityStrategy` (config only)
+replaced the planned `AppServiceProvider` code. `config/scramble.php` holds only the overridden keys, because the
+published file reads an enum case, which would fatal on a `--no-dev` host. The spec covers all 200 API operations,
+117 schemas, and the 8 routes without `auth:sanctum` are marked public. 13 export warnings are rules that read the
+route-bound model (`$meeting->id`); Scramble skips just that rule. `/api.json` (the export) is git-ignored.
+Verified: `abusaleem.test/docs/api` and `/docs/api.json` answer 200; full suite 831 / 5642; Pint clean; `aislop ci`
+exit 0. No frontend change.
+
+---
+### 2026-10-23 20:30 EET — Claude — Implementation plan: Swagger (OpenAPI) documentation for the API
+
+User: «generate a swagger documentation». Plan: `dedoc/scramble` (dev dependency), which builds OpenAPI 3.1 from
+the routes, Form Requests and API Resources the code already has, so no hand-written annotations can drift. The
+UI is served at `/docs/api` and the spec at `/docs/api.json`, both local-only (Scramble's default `viewApiDocs`
+gate), so production exposes no API map. `php artisan scramble:export` writes a static `api.json` to hand to the
+ERP team. `AppServiceProvider` declares bearer (Sanctum) auth and clears it on routes without `auth:sanctum`,
+guarded by `class_exists` so a `--no-dev` install never loads Scramble. Verify: export runs without analysis
+errors, full PHPUnit, Pint, aislop ci. No frontend change.
+
+---
 ### 2026-10-23 20:05 EET — Claude — The ERP reads an employee's summary (complete)
 
 Built per the plan below; no migration and no frontend change. `ErpIdentity::userIdFromAccessToken()` returns null on

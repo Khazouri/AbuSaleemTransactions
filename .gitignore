@@ -29,3 +29,4 @@ yarn-error.log
 /.aislop/*
 !/.aislop/config.yml
 .vscode/cruise/
+/api.json
