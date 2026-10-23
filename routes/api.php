@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\DevTestUserController;
 use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\ErpAuthController;
+use App\Http\Controllers\Api\ErpSummaryController;
 use App\Http\Controllers\Api\GuideArticleController;
 use App\Http\Controllers\Api\MaintenanceController;
 use App\Http\Controllers\Api\MeetingController;
@@ -135,6 +136,10 @@ Route::prefix('auth')->group(function () {
             ->middleware('throttle:6,1');
     });
 });
+
+// ERP employee summary — the ERP reads one employee's tasks, requests, meetings
+// and notifications with that employee's own ERP token (no Sanctum token).
+Route::get('erp/summary', ErpSummaryController::class)->middleware('throttle:60,1');
 
 /*
  * Signed-in application routes.

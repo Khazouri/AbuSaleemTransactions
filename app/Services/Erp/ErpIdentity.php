@@ -42,18 +42,36 @@ class ErpIdentity
                 $this->fail('token', $token->status());
             }
 
-            $userinfo = Http::withToken($accessToken)->timeout($erp['timeout'])->acceptJson()->get($erp['userinfo_url']);
+            $userId = $this->userIdFromAccessToken($accessToken);
         } catch (ConnectionException) {
             Log::warning('ERP sign-in: the ERP could not be reached.');
 
             throw ValidationException::withMessages(['code' => 'تعذّر الاتصال بنظام ERP. حاول لاحقاً.']);
         }
 
+        // userIdFromAccessToken() has already logged the status.
+        return $userId ?? $this->refuse();
+    }
+
+    /**
+     * Whose ERP access token this is, or null when the ERP refuses it. Also how
+     * the ERP's summary call names its employee: the token is asked about and
+     * dropped, under the same never-kept rule as above.
+     *
+     * @throws ConnectionException
+     */
+    public function userIdFromAccessToken(string $accessToken): ?int
+    {
+        $erp = config('services.erp');
+        $userinfo = Http::withToken($accessToken)->timeout($erp['timeout'])->acceptJson()->get($erp['userinfo_url']);
+
         // A non-numeric or missing `sub` fails closed: it can't name an account.
         $sub = $userinfo->successful() ? $userinfo->json('sub') : null;
         $sub = is_scalar($sub) ? (string) $sub : '';
         if (! ctype_digit($sub) || (int) $sub < 1) {
-            $this->fail('userinfo', $userinfo->status());
+            Log::warning('ERP userinfo refused the token.', ['status' => $userinfo->status()]);
+
+            return null;
         }
 
         return (int) $sub;
@@ -63,6 +81,11 @@ class ErpIdentity
     {
         Log::warning("ERP sign-in: the {$step} step was refused.", ['status' => $status]);
 
+        $this->refuse();
+    }
+
+    private function refuse(): never
+    {
         throw ValidationException::withMessages(['code' => 'تعذّر التحقق من حساب ERP. أعد المحاولة من البداية.']);
     }
 }
