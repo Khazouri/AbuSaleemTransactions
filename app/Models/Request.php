@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -47,6 +48,17 @@ class Request extends Model
                 $requestRecord->subject_user_id = $requestRecord->created_by_user_id;
             }
         });
+    }
+
+    /**
+     * «طلباتي»: filed by the user or about them (Stage 95). Read by the tracking
+     * screen and the ERP summary, so both list the same files.
+     */
+    public function scopeOwnedBy(Builder $query, User $user): void
+    {
+        $query->where(fn (Builder $mine) => $mine
+            ->where('created_by_user_id', $user->id)
+            ->orWhere('subject_user_id', $user->id));
     }
 
     protected $fillable = [

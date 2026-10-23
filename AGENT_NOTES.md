@@ -19,6 +19,37 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-23 20:05 EET — Claude — The ERP reads an employee's summary (complete)
+
+Built per the plan below; no migration and no frontend change. `ErpIdentity::userIdFromAccessToken()` returns null on
+a refusal, and the SSO callback still answers 422 through it. `ErpAuthController::abortUnlessConfigured()` is now
+public static and gates both. The tracking screen's ownership query became `Request::scopeOwnedBy()`, so both lists
+agree. Meetings are those `pending_confirmation`/`scheduled` from today on.
+
+Verified:
+- new `ErpSummaryTest` (8) went RED, then GREEN;
+- full suite 831 / 5642 green; Pint clean on the touched PHP; `aislop ci` exit 0.
+
+Not done: a call with a real ERP token, because the ERP has no userinfo endpoint yet (OPEN_ITEMS).
+
+---
+### 2026-10-23 19:45 EET — Claude — Implementation plan: the ERP reads an employee's summary
+
+User: «a route that provides all the employee data for the ERP: pending tasks, requests, meetings,
+notifications». Put to the user and answered: the ERP sends **the employee's own ERP access token**, and the payload
+is counts plus recent items. Plan:
+- `GET /api/erp/summary`, public, `throttle:60,1`, and 404 until ERP is configured;
+- `ErpIdentity::userIdFromAccessToken()` is split out of the code redemption; the token is never kept;
+- the account is found by `erp_user_id`, with the callback's three refusals (unlinked, inactive, R08);
+- each section appears only with that screen's `view` grant:
+  - `my_tasks`: the collector's output;
+  - `request_tracking`: open count + latest 10;
+  - `meetings`: upcoming, through `MeetingVisibility`;
+  - `notifications`: unread count + latest 10.
+
+Verify: new `ErpSummaryTest` (RED then GREEN), full PHPUnit, Pint, aislop ci. No frontend change.
+
+---
 ### 2026-10-23 19:20 EET — Claude — Single sign-on from the EmployeePlus ERP (complete, our half)
 
 Built per the plan below. Migration `add_erp_user_id_to_users_table` is applied to the real MySQL (checked: the

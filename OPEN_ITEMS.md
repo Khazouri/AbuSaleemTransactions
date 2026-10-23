@@ -13,6 +13,12 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The ERP summary route waits on the ERP calling it — ERP summary — opened 2026-10-23
+`GET /api/erp/summary` is built and tested against `Http::fake`. It needs the ERP's userinfo endpoint (owed, see the
+next item) to accept the employee's ERP access token, and the ERP must send that token from its **server**. Each call
+costs one userinfo round-trip, with no caching. **To close:** the ERP team calls it once with a real token for a
+linked employee. If they poll often, cache `sub` for a few minutes, keyed on a hash of the token.
+
 ### ERP single sign-on waits on the ERP team's half — ERP SSO — opened 2026-10-23
 Our half of the authorization-code + PKCE flow is built and tested against `Http::fake` and a mocked headless run,
 but EmployeePlus (`ep.scco.ly`) exposes no authorize, token or userinfo endpoint today: its Swagger has only
