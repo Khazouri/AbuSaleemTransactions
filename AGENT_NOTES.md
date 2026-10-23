@@ -19,6 +19,22 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-23 17:05 EET — Claude — One branch, `main`; the two stranded branches merged in (complete)
+
+Built per the plan below. Conflicts were resolved by keeping `main`'s side and dropping only the financial-impact
+lines; the execution leg's files stay deleted. **The migration is re-dated** to
+`2026_10_23_163000_remove_financial_impact` (it had never run), so a fresh install runs it after the 10-18 drops. It
+is applied to the real MySQL, and was checked by query: both columns, the settings rows and the SECD/SETL document rows
+are gone. The Homestead checkout was moved onto the new `main` first, because the old code still wrote the dropped column.
+
+Verified:
+- full suite 782 / 4995 + 23 / 165 green; Pint clean on the merged PHP;
+- build passes (`dist` committed, production API URL in the bundle); parity 1837; `aislop ci` exit 0;
+- live API as R02 and R08 (requests, my-tasks, request-types, settings) answers 200. The test tokens were revoked.
+
+Not checked in a browser; the select search was last walked on 2026-10-09.
+
+---
 ### 2026-10-23 16:16 EET — Claude — Implementation plan: one branch, `main`; the two stranded branches merged in
 
 User: «i want a singular branch named main… delete the other branches». Put to the user and answered: merge both

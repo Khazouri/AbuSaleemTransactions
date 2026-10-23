@@ -287,6 +287,8 @@ tree, so it was built in a worktree. Its migration was not run on the real MySQL
 writes `has_financial_impact` at intake and would fail against the dropped column. The docs are paused (user,
 2026-10-07): `USER_GUIDE.ar.md`, `TEST_PLAN*.md`, `STAGE_PLAN.md` (Stage 47) and `docs/` still describe the flag.
 **To close:** merge the branch, run `php artisan migrate`, and update those docs when the pause lifts.
+**Partly resolved (2026-10-23):** merged into `main` and migrated on the real MySQL (as
+`2026_10_23_163000_remove_financial_impact`). Only the docs remain.
 
 ### The manager's return and cancel still require a reason on the real database — optional note — opened 2026-10-07
 `WorkflowTransitionSeeder` now seeds `return_to_employee` and both manager `cancel` rows with `requires_comment = false`,
