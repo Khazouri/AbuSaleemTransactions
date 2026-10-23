@@ -19,6 +19,42 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-23 17:20 EET — Claude — Request Types is a master–detail screen (complete)
+
+Built per the plan below. It is frontend only, with no API change. Changes:
+- the view's private copies of the Appendix 57 helpers are gone in favour of `lib/requiredDocuments.js`;
+- `requestTypes.name` and `requestTypes.documents.show` were dropped, because nothing else read them;
+- five keys were added (`backToList`, `sections.identity|rules`, `documents.optional|summary`).
+
+With no `?type=` the first type shows on a wide screen, while a phone opens on the list. Picking a type on a phone
+moves focus to its heading, and «كل الأنواع» moves it back to the list item.
+
+Verified:
+- build passes (`dist` committed, production API URL in the bundle), parity 1840, `aislop ci` exit 0 (98);
+- headless screenshots (read-only, every write refused by the proxy) at ar/en × 1280/768/375 × light/dark, of the
+  list, the detail pane and the edit modal: no page overflow and no console errors.
+
+`graphify update` was not run, because `graphify-out/` holds another session's uncommitted changes.
+
+---
+### 2026-10-23 16:54 EET — Claude — Implementation plan: Request Types becomes a master–detail screen
+
+User (/frontend-design on `/request-types`): put to the user and answered, a master–detail redesign, with editing kept
+in the modal (2026-09-26's rule). The current table is broken: the usage and actions `<td>`s are `display: flex`, so
+they leave the table and the buttons fall under «0 طلب»; codes split mid-word; and at 375px the card is clipped. Plan,
+in `RequestTypesView.vue` only (frontend, no API change):
+- the start pane lists the types (name, code, inactive mark), and the selected one is `?type=<id>`;
+- the detail pane shows its rules as a `<dl>`, its actions, and Appendix 57's documents grouped by
+  `lib/requiredDocuments.js`, each marked required or optional. The view's own copies of `groupDocuments` and
+  `documentLabel` go;
+- below 768px one pane shows at a time, and «كل الأنواع» returns to the list;
+- the modal is split into identity, rules and documents. Each document row is laid out as names, group + «مطلوب» +
+  remove, and the condition pair, with the condition hint stated once.
+
+A few new locale keys. Verify: build (`dist` committed), parity, aislop ci, and headless screenshots at ar/en ×
+1280/375 × light/dark. (Clock note: the machine reads 16:54, behind the entry below.)
+
+---
 ### 2026-10-23 17:05 EET — Claude — One branch, `main`; the two stranded branches merged in (complete)
 
 Built per the plan below. Conflicts were resolved by keeping `main`'s side and dropping only the financial-impact
