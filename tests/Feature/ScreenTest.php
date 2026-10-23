@@ -20,7 +20,7 @@ use Tests\TestCase;
  * `navGroups` grouping depends on — not the screen content.
  *
  * Stage 43 pulled `decisions` back out of the group (per [C]: it's a shared
- * system-wide screen, not meetings-only) — `test_decisions_is_shared_not_grouped`
+ * system-wide screen, not meetings-only) — `test_decisions_sits_with_the_records_not_the_meetings`
  * covers that.
  *
  * Membership gate — the menu is now also filtered by whether the user holds a
@@ -60,9 +60,28 @@ class ScreenTest extends TestCase
         $this->assertNull(Screen::where('code', 'dashboard')->value('group'));
     }
 
-    public function test_decisions_is_shared_not_grouped(): void
+    public function test_decisions_sits_with_the_records_not_the_meetings(): void
     {
-        $this->assertNull(Screen::where('code', 'decisions')->value('group'));
+        $this->assertSame('records', Screen::where('code', 'decisions')->value('group'));
+    }
+
+    /**
+     * AppSidebar draws a group at the position of its first member and pulls
+     * every later member up into it, so a group split by another screen in
+     * sort_order would silently move that screen's neighbours.
+     */
+    public function test_every_group_is_contiguous_in_sort_order(): void
+    {
+        $groups = Screen::query()->orderBy('sort_order')->pluck('group')->all();
+
+        $runs = [];
+        foreach ($groups as $i => $group) {
+            if ($group !== null && ($i === 0 || $groups[$i - 1] !== $group)) {
+                $runs[] = $group;
+            }
+        }
+
+        $this->assertSame(array_values(array_unique($runs)), $runs);
     }
 
     public function test_a_seated_committee_head_sees_the_group_in_their_screen_menu(): void

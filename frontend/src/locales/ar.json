@@ -9,7 +9,11 @@
     "loading": "جارٍ تحميل القائمة…",
     "error": "تعذّر تحميل القائمة",
     "groups": {
-      "meetings_management": "إدارة الاجتماعات"
+      "requests_work": "الطلبات والتظلمات",
+      "meetings_management": "إدارة الاجتماعات",
+      "records": "القرارات والسجلات",
+      "people_access": "المستخدمون والصلاحيات",
+      "system": "إعدادات النظام"
     }
   },
   "header": {

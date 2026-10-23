@@ -19,6 +19,49 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-23 23:15 EET — Claude — The sidebar's categories and display (complete)
+
+Built per the plan below; no migration. `ScreenSeeder` was run on the real MySQL and the groups were checked by
+query. **Deviations:**
+- `requests_work` is labelled «الطلبات والتظلمات», so it does not repeat the «الطلبات» entry inside it;
+- grouped entries are no longer indented, because the heading already marks the section and long labels need the
+  width;
+- headings sit at 62% white (~4.6:1 on the light theme's nav green).
+
+The Roles & Permissions grid also orders by sort_order, so its rows now follow the menu's sections.
+A new `ScreenTest` case pins that every group is contiguous in sort_order: the old roster split
+`meetings_management` at `decisions`, which the test would have caught.
+
+Verified:
+- full suite 831 / 5606 green; Pint clean; build passes (`dist` committed, production API URL in the bundle); parity 1784;
+  `aislop ci` exit 0;
+- headless screenshots against the dev server, as R08 and R01, ar/en × light/dark × 1280 open/rail and 375 drawer:
+  no page overflow, no console errors, and no entry falls back to the dot icon. Collapsing a group survives a reload,
+  and opening a page inside a collapsed group expands it.
+
+**Gotcha for screenshots:** Puppeteer's `screenshot({ clip })` briefly resizes the viewport. AppLayout's resize
+handler then takes it for a phone and closes the sidebar, so the shot shows a half-animated rail. Capture without
+`clip`.
+
+---
+### 2026-10-23 22:49 EET — Claude — Implementation plan: the sidebar's categories and display
+
+User (/frontend-design): «improve the menu categories and display». Today one group (meetings) exists and R08 sees
+~29 entries in one flat list; five screens share an icon and `committee_roles` has none. Plan:
+- `ScreenSeeder` reorders and groups the rows (sort_order follows): top level keeps dashboard and my_tasks, then
+  `requests_work`, `meetings_management` (unchanged), `records` (decisions, registers, reports, audit log),
+  `people_access` (users, departments, roles, sole posts), `system` (request types, workflows, settings, backup,
+  maintenance), with notifications and the guide ungrouped at the end. `decisions` stays out of the meetings group
+  (Stage 43);
+- `AppSidebar`: a group with one visible screen renders as a plain link, the group holding the current route stays
+  open, collapsed groups are remembered in localStorage, rail mode draws a divider between groups, the active link
+  gets a start-edge bar, headings lose the uppercase/tracking;
+- six new AppIcon glyphs so every screen has its own.
+
+No migration. Verify: `ScreenTest` updated, full PHPUnit, Pint, ScreenSeeder on the real DB, build (`dist`
+committed), parity, aislop ci, headless screenshots.
+
+---
 ### 2026-10-23 19:35 EET — Claude — What the paper meeting left behind is removed (complete)
 
 Built per the plan below. **Deviations:**
