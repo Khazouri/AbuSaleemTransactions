@@ -116,27 +116,6 @@ class GateAuthorshipTest extends TestCase
     }
 
     /**
-     * Recorded rather than incidental: dropping R01 from `notes_attachments,
-     * edit` also takes Stage 47's financial-impact correction away from the
-     * employee. Appendix 45's صلاحية الموظف carries no editing capability at
-     * all, and R02 keeps it.
-     */
-    public function test_an_employee_can_no_longer_correct_the_financial_impact_flag(): void
-    {
-        $employee = $this->userWithRoles(['R01']);
-        $reviewer = $this->userWithRoles(['R02']);
-        $requestRecord = $this->requestAtRequirementsCheck($employee);
-
-        $this->actingAs($employee, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/financial-impact", ['has_financial_impact' => true])
-            ->assertForbidden();
-
-        $this->actingAs($reviewer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/financial-impact", ['has_financial_impact' => true])
-            ->assertOk();
-    }
-
-    /**
      * The bug this stage also closes. reopen() cleared `intake_gate` and
      * `execution_soundness` with their who/when pairs but never
      * `jurisdiction_test`, so a reopened file arrived already satisfying the

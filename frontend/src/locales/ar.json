@@ -95,8 +95,6 @@
       "diwan": "وكيل الديوان",
       "committee_secretary": "أمين سر اللجنة"
     },
-    "financialImpact": "له أثر مالي بشكل افتراضي",
-    "financialImpactShort": "أثر مالي",
     "legalBasis": "السند القانوني",
     "legalBasisHint": "يُستخدم لتعبئة بطاقة السند القانوني في المراجعة القانونية.",
     "legalBasisNote": "الملاحظة الإجرائية",
@@ -749,11 +747,6 @@
     "noAttachments": "لا توجد مرفقات بعد.",
     "loadFailed": "تعذّر تحميل تفاصيل الطلب.",
     "actionFailed": "تعذّر تنفيذ إجراء سير العمل. حاول مرة أخرى.",
-    "financialImpact": {
-      "label": "أثر مالي",
-      "yes": "له أثر مالي",
-      "no": "لا يوجد أثر مالي"
-    },
     "documentsComplete": {
       "label": "اكتمال الملف",
       "yes": "الملف مكتمل",
@@ -1532,7 +1525,6 @@
       "meeting_scheduled": "دعوة لاجتماع",
       "decision_recorded": "تسجيل قرار لجنة",
       "minutes_approved": "اعتماد محضر اجتماع",
-      "financial_impact_review": "مراجعة الأثر المالي",
       "appeal_decided": "نتيجة التظلم",
       "delay_escalation": "تصعيد تأخير المعاملة",
       "request_notice": "إشعار المعاملة (المادة 101)",
@@ -2150,11 +2142,9 @@
     "acts": {
       "archive_committee_file": "أرشفة ملف اللجنة",
       "archive_service_file": "أرشفة ملف الخدمة",
-      "set_financial_impact": "تصحيح الأثر المالي",
       "add_note": "إضافة ملاحظة",
       "attach_document": "إرفاق مستند"
-    },
-    "financialImpactTo": "يصبح الأثر المالي: {value}"
+    }
   },
   "workflows": {
     "title": "مسارات العمل",

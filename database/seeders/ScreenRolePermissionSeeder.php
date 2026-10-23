@@ -73,8 +73,7 @@ class ScreenRolePermissionSeeder extends Seeder
         // بوابة 1 — the completeness attestation the قيد hangs on — which
         // Appendix 6's RACI gives to مقرر اللجنة with the الموظف column left
         // empty, and which Appendix 19 forbids the submitter from signing off
-        // on ("لا يكون مقدم الطلب هو معتمد الطلب"). R01 loses Stage 47's
-        // financial-impact correction as a consequence; R02 keeps it.
+        // on ("لا يكون مقدم الطلب هو معتمد الطلب").
         //
         // Stage 87 — R12 (HR Manager) added: [F] names إدارة الموارد البشرية
         // as co-owner of the study at `observations`, and RequestVisibility's

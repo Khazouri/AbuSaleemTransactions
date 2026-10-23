@@ -110,7 +110,6 @@ class TestRequestSeeder extends Seeder
                         'created_by_user_id' => $filer->id,
                         'submitted_at' => $submittedAt,
                         'due_date' => $deadlines->dueDateFor($type, $submittedAt),
-                        'has_financial_impact' => $type->default_has_financial_impact,
                     ]);
 
                     // One origin row each, so the timeline does not start empty.

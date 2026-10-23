@@ -281,6 +281,13 @@ before the agenda (`DocumentCompletenessService::refusalForRequest()`), so a mis
 first caught when المقرر tries to put the file on an agenda, not at register. **To close:** confirm that is
 acceptable, or add the matrix check back beside the per-file review at `register`.
 
+### «الأثر المالي» removal not merged or migrated; docs still describe it — opened 2026-10-09
+The removal is committed on `feat/remove-financial-impact` only. Two other sessions had uncommitted work in the main
+tree, so it was built in a worktree. Its migration was not run on the real MySQL, because the main tree's code still
+writes `has_financial_impact` at intake and would fail against the dropped column. The docs are paused (user,
+2026-10-07): `USER_GUIDE.ar.md`, `TEST_PLAN*.md`, `STAGE_PLAN.md` (Stage 47) and `docs/` still describe the flag.
+**To close:** merge the branch, run `php artisan migrate`, and update those docs when the pause lifts.
+
 ### The manager's return and cancel still require a reason on the real database — optional note — opened 2026-10-07
 `WorkflowTransitionSeeder` now seeds `return_to_employee` and both manager `cancel` rows with `requires_comment = false`,
 but Homestead's MySQL was unreachable, so the real database still demands a reason for them. The removed

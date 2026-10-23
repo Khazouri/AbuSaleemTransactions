@@ -1025,6 +1025,31 @@ submit button.
 Verify: new tests RED then GREEN, full PHPUnit, Pint, migrate, build (`dist` committed), parity, aislop ci.
 
 ---
+### 2026-10-09 19:40 EET — Claude — «الأثر المالي» removed from the system (complete, branch only)
+
+Built per the plan below on branch `feat/remove-financial-impact` (worktree `../AbuSaleem-nofin`), **not** on
+`feat/template-design-system-shell`. Migration `2026_10_09_190000_remove_financial_impact` prunes the two document rows
+in place rather than reseeding `RequestTypeSeeder`, which would reset types edited on screen. A scratch SQLite run with
+the rows present confirmed both go and the rest stay. The execution card now has six checks (five answered). An
+earlier record keeps its stored `financial_effect_referred`/`financial_effect_note` keys, unshown. Kept: the SAL
+department, PROM's «الإفادة المالية» (financial coverage, not effect), Appendix 52's «تعديل الوضع المالي» line, and the
+[D] quotes «الأثر الإداري أو المالي». Verified: full suite 837 + 9 + 14 green, Pint clean, build passes (`dist`
+committed), parity 2076, `aislop ci` exit 0 (97). **Not migrated on the real MySQL** (OPEN_ITEMS.md). Docs are paused.
+
+---
+### 2026-10-09 18:55 EET — Claude — Implementation plan: «الأثر المالي» removed from the system
+
+User: «remove اثر مالي from the system». Put to the user and answered: everything goes, including the execution card's
+financial items and the Appendix 57 document rows. Plan: a migration drops `requests.has_financial_impact` and
+`request_types.default_has_financial_impact` and deletes `financial_impact_review` settings rows. Stage 47 goes with
+them: the correction act and its route, `FinancialImpactReviewNotification`, the SAL visibility clause, the request-type
+checkbox and the request-page row. The execution card loses `financial_effect_referred` (and Art. 97's binding),
+`financial_effect_note` and the `financial_statement` evidence type. SECD's «الأثر المالي» and SETL's «البيانات المالية»
+document rows go. Kept: the SAL department and Appendix 52's «تعديل الوضع المالي» guidance line. Built in a separate
+worktree (`feat/remove-financial-impact`), because two other sessions have uncommitted work in this tree. Verify: tests
+updated, full PHPUnit, Pint, migrate, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-09 17:55 EET — Claude — Hover/click preview for timeline and memo documents (complete)
 
 Built per the plan below, with no migration and no locale change. The new route is

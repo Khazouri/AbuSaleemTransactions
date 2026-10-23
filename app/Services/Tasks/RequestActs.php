@@ -21,7 +21,7 @@ use Illuminate\Support\Str;
  * ones open now, and the ones held back with the endpoint's own reason. Three
  * families: after_decision (post-decision archive/closure/return work),
  * records (the file's own open records — conflicts, corrections, withdrawals)
- * and file (the notice, financial flag, reopen, notes and attachments).
+ * and file (the notice, reopen, notes and attachments).
  *
  * MeetingDuties' three parts again: an act needs its route's grant (else it
  * is "not yours") and its moment (else "not now"), and either absence leaves
@@ -170,8 +170,8 @@ class RequestActs
     }
 
     /**
-     * What is written onto the file itself: the notice, the financial flag,
-     * a reopen, a note, a document.
+     * What is written onto the file itself: the notice, a reopen, a note, a
+     * document.
      *
      * @param  array{available: list<array<string, mixed>>, blocked: list<array<string, mixed>>}  $acts
      */
@@ -179,10 +179,6 @@ class RequestActs
     {
         if ($actor->hasScreenPermission('meeting_outputs', 'can_edit')) {
             $this->offer($acts, 'file', 'issue_notice', $this->notices->issueRefusal($r));
-        }
-
-        if ($actor->hasScreenPermission('notes_attachments', 'can_edit')) {
-            $this->offer($acts, 'file', 'set_financial_impact', null, ['has_financial_impact' => (bool) $r->has_financial_impact]);
         }
 
         if ($actor->hasScreenPermission('appeals', 'can_edit')

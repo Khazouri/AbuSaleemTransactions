@@ -95,8 +95,6 @@
       "diwan": "Diwan Deputy",
       "committee_secretary": "Committee Secretary"
     },
-    "financialImpact": "Has a financial impact by default",
-    "financialImpactShort": "Financial impact",
     "legalBasis": "Legal basis",
     "legalBasisHint": "Pre-fills the legal-basis card during legal review.",
     "legalBasisNote": "Procedural note",
@@ -749,11 +747,6 @@
     "noAttachments": "There are no attachments yet.",
     "loadFailed": "The request details could not be loaded.",
     "actionFailed": "The workflow action could not be completed. Please try again.",
-    "financialImpact": {
-      "label": "Financial impact",
-      "yes": "Has a financial impact",
-      "no": "No financial impact"
-    },
     "documentsComplete": {
       "label": "File completeness",
       "yes": "File complete",
@@ -1532,7 +1525,6 @@
       "meeting_scheduled": "Meeting invitation",
       "decision_recorded": "Committee decision recorded",
       "minutes_approved": "Meeting minutes approved",
-      "financial_impact_review": "Financial impact review",
       "appeal_decided": "Appeal result",
       "delay_escalation": "Request delay escalation",
       "request_notice": "Request notice (Art. 101)",
@@ -2150,11 +2142,9 @@
     "acts": {
       "archive_committee_file": "Archive the committee file",
       "archive_service_file": "Archive the service file",
-      "set_financial_impact": "Correct the financial impact",
       "add_note": "Add a note",
       "attach_document": "Attach a document"
-    },
-    "financialImpactTo": "Financial impact becomes: {value}"
+    }
   },
   "workflows": {
     "title": "Workflows",

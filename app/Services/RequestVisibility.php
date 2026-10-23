@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Department;
 use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\User;
@@ -43,16 +42,7 @@ class RequestVisibility
         $terminalStatusIds = RequestStatus::query()
             ->whereIn('code', ['cancelled', 'archived', 'not_approved', 'in_execution', 'executed', 'completed_closed', 'decision_withdrawn', 'decision_amended'])
             ->select('id');
-        // Stage 47 — قسم المرتبات والمزايا has no role tied to any
-        // workflow_transitions row, so without this a flagged request's
-        // notification would be a dead end (a 404 on open). Bounded to
-        // exactly the requests this department was actually notified about —
-        // not a general committee-style bypass — and, like creator
-        // visibility below, not stage- or terminal-status-gated: their
-        // interest in a request they were consulted on doesn't expire.
-        $salariesDepartmentId = Department::query()->where('code', 'SAL')->value('id');
-        $isSalariesReviewer = $salariesDepartmentId !== null && $actor->department_id === $salariesDepartmentId;
-        // Stage 68 — same class of gap, same bounded fix. [D] Art. 21 puts the
+        // Stage 68 — a bounded visibility fix. [D] Art. 21 puts the
         // completed file in front of the legal member ("يعرض الملف المستوفي
         // على العضو القانوني"), but R11 holds no workflow_transitions row, so
         // without this the legal-review queue would list files that 404 when
@@ -135,7 +125,7 @@ class RequestVisibility
             ->where('code', EmploymentFilePreparationService::GATED_STAGE)
             ->pluck('id');
 
-        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isSalariesReviewer, $isLegalReviewer, $isCloser, $isHrStudyCoOwner, $hrStudyStageIds, $preparationStageIds) {
+        return $query->where(function (Builder $visible) use ($actor, $roleIds, $isSystemAdmin, $terminalStatusIds, $isLegalReviewer, $isCloser, $isHrStudyCoOwner, $hrStudyStageIds, $preparationStageIds) {
             // Stage 95 — the filer AND صاحب العلاقة. A request raised on an
             // employee's behalf is that employee's own file: Art. 101 tells
             // them about it and «متابعة طلباتي» lists it, so without this
@@ -144,10 +134,6 @@ class RequestVisibility
             // Both, not one: the clerk keeps sight of the work they filed.
             $visible->where('requests.created_by_user_id', $actor->id)
                 ->orWhere('requests.subject_user_id', $actor->id);
-
-            if ($isSalariesReviewer) {
-                $visible->orWhere('requests.has_financial_impact', true);
-            }
 
             if ($isHrStudyCoOwner) {
                 $visible->orWhereIn('requests.current_stage_id', $hrStudyStageIds);

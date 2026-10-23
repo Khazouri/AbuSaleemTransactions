@@ -18,11 +18,6 @@ use Illuminate\Database\Seeder;
  * so a category could later be given a different bar without touching code.
  * Stage 18 enforces it.
  *
- * default_has_financial_impact (Stage 47) is true for PROM/ALLW/SETL — the
- * three of Stage 47's own example list ("promotion, settlement, allowance,
- * back-pay, grade change") that now have a matching RequestType row; every
- * other type defaults false and is still overridable per request.
- *
  * Stage 53 — CONF/APPT/CTRC/SETL/PEVG are new rows closing named gaps against
  * [D] Art. 46's six رئيسية functional groups (التعيين، التعاقد، الترقية،
  * الندب، الإعارة، النقل) and Art. 47's secondary categories: تثبيت بعد
@@ -140,20 +135,20 @@ class RequestTypeSeeder extends Seeder
         // basics only; see the class docblock for why that is deliberate.
         $specificDocuments = $this->specificDocuments();
 
-        // [code, Arabic name, English name, SLA in days, has financial impact by default]
+        // [code, Arabic name, English name, SLA in days]
         $types = [
-            ['PROM', 'ترقية', 'Promotion', 15, true],
-            ['LEAV', 'إجازة', 'Leave', 7, false],
-            ['ALLW', 'علاوة', 'Allowance', 10, true],
-            ['SECD', 'انتداب', 'Secondment', 15, false],
-            ['GRIV', 'تظلم', 'Grievance', 20, false],
-            ['TRNS', 'نقل', 'Transfer', 15, false],
-            ['EOSV', 'إنهاء خدمة', 'End of Service', 20, false],
-            ['CONF', 'تثبيت بعد الاختبار', 'Confirmation after probation', 15, false],
-            ['APPT', 'تعيين', 'Appointment', 15, false],
-            ['CTRC', 'تعاقد', 'Contracting', 15, false],
-            ['SETL', 'تسوية وضع وظيفي', 'Employment status settlement', 15, true],
-            ['PEVG', 'تظلم من تقييم أداء', 'Performance evaluation grievance', 20, false],
+            ['PROM', 'ترقية', 'Promotion', 15],
+            ['LEAV', 'إجازة', 'Leave', 7],
+            ['ALLW', 'علاوة', 'Allowance', 10],
+            ['SECD', 'انتداب', 'Secondment', 15],
+            ['GRIV', 'تظلم', 'Grievance', 20],
+            ['TRNS', 'نقل', 'Transfer', 15],
+            ['EOSV', 'إنهاء خدمة', 'End of Service', 20],
+            ['CONF', 'تثبيت بعد الاختبار', 'Confirmation after probation', 15],
+            ['APPT', 'تعيين', 'Appointment', 15],
+            ['CTRC', 'تعاقد', 'Contracting', 15],
+            ['SETL', 'تسوية وضع وظيفي', 'Employment status settlement', 15],
+            ['PEVG', 'تظلم من تقييم أداء', 'Performance evaluation grievance', 20],
         ];
 
         // Stage 56 — suggested administrative_routing target per type, see
@@ -197,7 +192,7 @@ class RequestTypeSeeder extends Seeder
             'SETL' => ['المادة 178 وما يتصل بها', 'تعتمد الحسابات على مدد موثقة'],
         ];
 
-        foreach ($types as [$code, $nameAr, $nameEn, $sla, $hasFinancialImpact]) {
+        foreach ($types as [$code, $nameAr, $nameEn, $sla]) {
             RequestType::updateOrCreate(
                 ['code' => $code],
                 [
@@ -206,7 +201,6 @@ class RequestTypeSeeder extends Seeder
                     'default_sla_days' => $sla,
                     'decision_grade_threshold' => 10,
                     'is_active' => true,
-                    'default_has_financial_impact' => $hasFinancialImpact,
                     'required_documents' => [...$common, ...($specificDocuments[$code] ?? [])],
                     'default_administrative_route' => $administrativeRoutes[$code],
                     'legal_basis_ar' => $legalBases[$code][0] ?? null,
@@ -317,7 +311,6 @@ class RequestTypeSeeder extends Seeder
                 $this->specific('مدة الندب', 'Duration of the secondment'),
                 $this->specific('سبب الندب', 'Reason for the secondment'),
                 $this->specific('موقف جهة العمل الأصلية من الندب', "The original body's position on the secondment"),
-                $this->specific('الأثر المالي', 'Financial effect', ['ar' => 'عند وجوده', 'en' => 'Where there is one']),
                 $this->specific('الموافقات التي يستلزمها نوع الندب', 'The approvals this kind of secondment requires'),
             ],
 
@@ -374,11 +367,6 @@ class RequestTypeSeeder extends Seeder
                 $this->specific('مدد الإجازات المؤثرة', 'Leave periods affecting the count', self::WHEN_NEEDED),
                 $this->specific('مدد الندب أو الإعارة ذات العلاقة', 'Related secondment or loan periods', self::WHEN_NEEDED),
                 $this->specific('القرارات السابقة ذات العلاقة', 'Earlier related decisions'),
-                $this->specific(
-                    'البيانات المالية',
-                    'Financial data',
-                    ['ar' => 'إذا كان للتسوية أثر مالي', 'en' => 'Where the settlement has a financial effect'],
-                ),
             ],
 
             // Appendix 57 سابعًا — ملف التظلم, plus Art. 75's نسخة من القرار.
