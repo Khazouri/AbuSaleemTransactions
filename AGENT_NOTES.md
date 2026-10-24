@@ -19,6 +19,27 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-24 17:05 EET — Claude — «إضافة بند» lists the pending files, deferred first (complete)
+
+Built per the plan below; no migration and no new locale key (the tag shows the status's own name, and the empty
+state reuses `meetingsUnit.candidates.empty`). The deferred-first `orderByRaw` sits in
+`CommitteeCandidateController::index()` only, not in `candidatesQuery()`, which the counts also read. After an add,
+the modal reloads the list, and the added file drops out because it is now awaiting this meeting. Verified: the new
+`CommitteeCandidatesDashboardTest` case went RED, then GREEN; full suite 836 / 5627 green; Pint clean; build passes
+(`dist` committed, production API URL in the bundle); parity 1784; `aislop ci` exit 0. Not checked in a browser.
+
+---
+### 2026-10-24 16:50 EET — Claude — Implementation plan: «إضافة بند» lists the pending files, deferred first
+
+User: the meeting page's «إضافة بند» should list the requests not picked by other meetings, with deferred ones first.
+Agreed in chat: the modal opens on the pending list (`GET committee-candidates`, which already leaves out a file
+awaiting another meeting), and the search box filters it instead of being the only way in. Deferred rows are tagged.
+`CommitteeCandidateController::index()` orders `deferred` first, then by `submitted_at`, so the candidates worklist
+and the scheduling wizard follow. The modal loads 50. Verify: a new `CommitteeCandidate` ordering test (RED then
+GREEN), full PHPUnit, Pint, build (`dist` committed), parity, aislop ci. (Clock note: the machine reads 16:32,
+behind the entry below.)
+
+---
 ### 2026-10-24 16:45 EET — Claude — «Re-seed screens» grants a host's new screens their defaults (complete)
 
 User: «المناصب الفردية» and similar pages may be missing from production's menu. Grants are only ever read from

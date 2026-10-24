@@ -163,33 +163,37 @@ const agendaRequestIds = computed(() => new Set(
   (meeting.value?.agenda_items ?? []).filter((i) => i.request).map((i) => i.request.id),
 ))
 
-watch(agendaSearch, (value) => {
-  clearTimeout(searchTimer)
-  if (!value.trim()) {
+// Stage 102 — only the committee's pending list feeds an agenda. It already
+// leaves out a file picked for another meeting, and lists deferred files first.
+async function loadAgendaCandidates() {
+  agendaSearching.value = true
+  try {
+    const { data } = await api.get('/committee-candidates', {
+      params: { search: agendaSearch.value.trim() || undefined, per_page: 50 },
+    })
+    agendaResults.value = data.data ?? []
+  } catch {
     agendaResults.value = []
-    return
+  } finally {
+    agendaSearching.value = false
   }
-  searchTimer = setTimeout(async () => {
-    agendaSearching.value = true
-    try {
-      // Stage 102 — only the committee's pending list feeds an agenda.
-      const { data } = await api.get('/committee-candidates', { params: { search: value.trim(), per_page: 5 } })
-      agendaResults.value = data.data ?? []
-    } catch {
-      agendaResults.value = []
-    } finally {
-      agendaSearching.value = false
-    }
-  }, 300)
+}
+
+function openAgendaSearch() {
+  showAgendaSearch.value = true
+  loadAgendaCandidates()
+}
+
+watch(agendaSearch, () => {
+  clearTimeout(searchTimer)
+  if (showAgendaSearch.value) searchTimer = setTimeout(loadAgendaCandidates, 300)
 })
 
 async function addToAgenda(request) {
   agendaError.value = ''
   try {
     await api.post(`/meetings/${meeting.value.id}/agenda`, { request_id: request.id })
-    agendaSearch.value = ''
-    agendaResults.value = []
-    await load()
+    await Promise.all([load(), loadAgendaCandidates()])
   } catch (requestError) {
     agendaError.value = requestError.response?.data?.message
       ?? requestError.response?.data?.errors?.request_id?.[0]
@@ -442,7 +446,7 @@ onMounted(async () => {
           <div class="agenda-heading">
             <h3>{{ t('meetings.agenda.title') }}</h3>
             <div class="agenda-heading-links no-print">
-              <button v-can="'meeting_agenda.edit'" class="ghost" type="button" @click="showAgendaSearch = true">
+              <button v-can="'meeting_agenda.edit'" class="ghost" type="button" @click="openAgendaSearch">
                 {{ t('meetingsUnit.agenda.addItem') }}
               </button>
               <RouterLink
@@ -524,13 +528,18 @@ onMounted(async () => {
                 :placeholder="t('meetings.agenda.searchPlaceholder')"
                 :aria-label="t('meetings.agenda.searchPlaceholder')"
               />
-              <ul v-if="agendaSearch.trim()" class="results">
+              <ul class="results">
                 <li v-if="agendaSearching" class="state">{{ t('common.loading') }}</li>
                 <template v-else>
-                  <li v-if="!agendaResults.length" class="state">{{ t('meetings.agenda.noResults') }}</li>
+                  <li v-if="!agendaResults.length" class="state">
+                    {{ agendaSearch.trim() ? t('meetings.agenda.noResults') : t('meetingsUnit.candidates.empty') }}
+                  </li>
                   <li v-for="result in agendaResults" :key="result.id" class="result">
                     <span class="ref ltr">{{ result.reference_number || `#${result.id}` }}</span>
-                    <span>{{ result.title }}</span>
+                    <span class="result-title">
+                      {{ result.title }}
+                      <span v-if="result.status?.code === 'deferred'" class="pill warning">{{ name(result.status) }}</span>
+                    </span>
                     <button
                       class="ghost"
                       type="button"
@@ -619,7 +628,8 @@ select { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); bor
 .pill { margin-inline-start: var(--space-2); }
 .item-actions { white-space: nowrap; display: flex; gap: var(--space-1); }
 .agenda-search input { inline-size: 100%; padding: .5rem .6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); box-sizing: border-box; }
-.results { display: grid; gap: .4rem; padding: 0; margin: var(--space-2) 0 0; list-style: none; }
+.results { display: grid; gap: .4rem; padding: 0; margin: var(--space-2) 0 0; list-style: none; max-block-size: 55vh; overflow-y: auto; }
+.result-title { flex: 1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .result { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); font-size: var(--text-base); }
 
 .attendance ul { display: grid; gap: var(--space-2); padding: 0; margin: 0 0 var(--space-3); list-style: none; }
