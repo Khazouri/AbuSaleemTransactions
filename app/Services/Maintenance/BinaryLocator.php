@@ -28,16 +28,30 @@ class BinaryLocator
             return $configured;
         }
 
+        return self::candidates($configured)[0] ?? $configured;
+    }
+
+    /**
+     * Every executable match for a bare name, in search order. resolve() takes
+     * the first; `maintenance:locate-node` tries them all, because the first
+     * alt-nodejs build alphabetically is the oldest one.
+     *
+     * @return array<int, string>
+     */
+    public static function candidates(string $name): array
+    {
+        $found = [];
+
         foreach (self::searchDirectories() as $directory) {
-            $candidate = $directory.DIRECTORY_SEPARATOR.$configured;
+            $candidate = $directory.DIRECTORY_SEPARATOR.$name;
 
             // @: open_basedir on shared hosting warns rather than returning false.
             if (@is_file($candidate) && @is_executable($candidate)) {
-                return $candidate;
+                $found[] = $candidate;
             }
         }
 
-        return $configured;
+        return $found;
     }
 
     /**

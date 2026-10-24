@@ -19,6 +19,31 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-24 09:45 EET — Claude — «Find and set Node.js» on the maintenance console (complete)
+
+Built per the plan below; no migration, seeder or frontend change (the console lists catalog entries itself). The
+launchers are plain `#!/bin/sh` scripts quoted by hand, because `escapeshellarg()` quotes for cmd on Windows. The npm
+launcher puts its node's directory first on PATH, so npm's `#!/usr/bin/env node` works under the web user's bare PATH.
+Checked on Homestead (Linux): with only the VM's Node 21.6 it refuses and writes nothing; with a throwaway Node 22.12
+in `/tmp` it picks 22.12, `BinaryLocator::resolve('npm')` returns the launcher, and `npm --version` runs under
+`env -i PATH=/usr/bin:/bin`. The launchers and that Node were removed afterwards. Verified: `LocateNodeTest` RED then
+GREEN, full suite 833 / 5615, Pint clean, `aislop ci` exit 0. Not run on the cPanel host itself. `graphify update` was
+not run, because `graphify-out/` holds another session's uncommitted changes.
+
+---
+### 2026-10-24 09:14 EET — Claude — Implementation plan: «Find and set Node.js» on the maintenance console
+
+User: the host's console `npm run build` fails because `BinaryLocator` picks `/opt/alt/alt-nodejs10` (the glob is
+alphabetical, so 10 sorts first) and that build cannot load `libicui18n.so.67`. Agreed in chat: a new catalog entry
+`node:locate` (artisan `maintenance:locate-node`, group dependencies), modelled on `maintenance:install-composer`.
+It tries every `node` the locator can see with `node --version`. It keeps those that start, have an `npm` beside them
+and meet Vite 8's `^20.19.0 || >=22.12.0`, and picks the newest. It writes `node`/`npm` shell launchers into
+`BinaryLocator::localBinDirectory()`, which is searched first, and reports each candidate's verdict. No `.env` change;
+an explicit `MAINTENANCE_NPM_PATH` still wins. `BinaryLocator::candidates()` is split out of `resolve()`. Verify: new
+`LocateNodeTest` (RED then GREEN) on the pure pick and the launcher writing, full PHPUnit, Pint, aislop ci. No frontend
+change.
+
+---
 ### 2026-10-23 23:15 EET — Claude — The sidebar's categories and display (complete)
 
 Built per the plan below; no migration. `ScreenSeeder` was run on the real MySQL and the groups were checked by
