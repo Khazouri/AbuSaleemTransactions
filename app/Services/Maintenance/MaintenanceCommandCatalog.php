@@ -294,6 +294,18 @@ class MaintenanceCommandCatalog
             'description_ar' => 'أخف كثيراً من التثبيت الكامل، ويكفي عادةً بعد رفع ملفات PHP جديدة تحت مجلد app/.',
             'description_en' => 'Far lighter than a full install, and usually enough after uploading new PHP files under app/.',
         ],
+        // Find and set Node.js: the first node the locator sees is the oldest alt-nodejs build.
+        'node:locate' => [
+            'kind' => self::KIND_ARTISAN,
+            'artisan' => 'maintenance:locate-node',
+            'params' => [],
+            'group' => 'dependencies',
+            'destructive' => false,
+            'label_ar' => 'البحث عن Node.js وضبطه',
+            'label_en' => 'Find and set Node.js',
+            'description_ar' => 'يجرّب كل إصدار Node.js على الخادم، ويختار أحدث إصدار يعمل ويصلح لبناء الواجهة (20.19 أو 22.12 فأحدث)، ثم يجعل أوامر npm تستخدمه دون تعديل .env. شغّله قبل تثبيت حزم الواجهة وبنائها. يتطلب proc_open.',
+            'description_en' => 'Tries every Node.js on this host, picks the newest that starts and can build the frontend (20.19+ or 22.12+), and makes the npm commands use it with no .env change. Run it before installing and building the frontend. Needs proc_open.',
+        ],
         'npm:install' => [
             'kind' => self::KIND_SHELL,
             'binary' => 'npm',
