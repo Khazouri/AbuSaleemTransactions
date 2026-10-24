@@ -52,7 +52,7 @@ class TestRequestSeeder extends Seeder
     /** The stage where the قيد is made, and with it the PM-COM number. */
     private const FIRST_REGISTERED_STAGE = 'receive_from_committee';
 
-    private const TITLES = [
+    public const TITLES = [
         'طلب ترقية',
         'طلب إجازة',
         'طلب نقل',

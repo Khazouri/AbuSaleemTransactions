@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\MaintenanceRun;
+use App\Models\Meeting;
 use App\Models\Request;
 use App\Models\Role;
 use App\Models\Screen;
@@ -121,6 +122,28 @@ class MaintenanceConsoleTest extends TestCase
             ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-requests'])
             ->assertOk();
         $this->assertSame(count(TestRequestSeeder::STAGES) * 5, Request::count());
+    }
+
+    /** Fabricated meetings are offered and accepted only while APP_DEBUG is on. */
+    public function test_the_test_meeting_generator_exists_only_when_app_debug_is_on(): void
+    {
+        config()->set('app.debug', true);
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-users'])
+            ->assertOk();
+
+        config()->set('app.debug', false);
+        $this->assertNotContains('db:seed:test-meetings', MaintenanceCommandCatalog::codes());
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-meetings'])
+            ->assertStatus(422);
+        $this->assertSame(0, Meeting::count());
+
+        config()->set('app.debug', true);
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-meetings'])
+            ->assertOk();
+        $this->assertSame(3, Meeting::count());
     }
 
     public function test_the_screen_reports_the_hosts_own_limits_and_the_command_catalogue(): void
