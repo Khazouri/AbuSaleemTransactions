@@ -170,5 +170,10 @@ class ScreenSeeder extends Seeder
                 ],
             );
         }
+
+        // A screen this database has never seen arrives with its default
+        // grants; without any row nobody, R08 included, would see it. Every
+        // other screen's grants stay as Roles & Permissions left them.
+        $this->call(ScreenRolePermissionSeeder::class, true, ['onlyUngranted' => true]);
     }
 }

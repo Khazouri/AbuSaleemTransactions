@@ -279,10 +279,19 @@ class ScreenRolePermissionSeeder extends Seeder
         'export' => 'can_export',
     ];
 
-    public function run(): void
+    /**
+     * @param  bool  $onlyUngranted  Seed only screens with no grant rows at all —
+     *                               ones this database has never seen. The grid
+     *                               saves every cell, false included, so a
+     *                               customised screen always has rows and is
+     *                               never reset by this mode.
+     */
+    public function run(bool $onlyUngranted = false): void
     {
         $roles = Role::all();
-        $screens = Screen::all();
+        $screens = $onlyUngranted
+            ? Screen::query()->whereNotIn('id', ScreenRolePermission::query()->select('screen_id'))->get()
+            : Screen::all();
 
         foreach ($screens as $screen) {
             // No entry for this screen means "R08 only".
