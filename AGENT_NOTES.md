@@ -19,6 +19,18 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-24 16:45 EET — Claude — «Re-seed screens» grants a host's new screens their defaults (complete)
+
+User: «المناصب الفردية» and similar pages may be missing from production's menu. Grants are only ever read from
+`screen_role_permissions` (R08 has no implicit access), so a screen row created by «Re-seed screens» on a host
+that never had it was invisible even to R08. Fix: `ScreenSeeder` ends by calling
+`ScreenRolePermissionSeeder::run(onlyUngranted: true)`, which seeds only screens with **no grant rows at all**. The
+grid saves every cell, false included, so a customised screen always has rows and is never reset. No migration.
+The test DB has no ungranted screen (checked by query), so nothing was run there. Verified: the new
+`MaintenanceConsoleTest` case went RED (the page missing from R08's map), then GREEN; full suite 835 / 5625 green;
+Pint clean; `aislop ci` exit 0.
+
+---
 ### 2026-10-24 16:10 EET — Claude — A «Re-seed screens» maintenance command (complete)
 
 Built per the plan below; no migration and no frontend change. `db:seed:screens` runs `ScreenSeeder` alone, and

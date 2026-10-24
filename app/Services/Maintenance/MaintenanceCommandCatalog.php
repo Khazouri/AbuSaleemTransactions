@@ -98,8 +98,8 @@ class MaintenanceCommandCatalog
             'destructive' => false,
             'label_ar' => 'إعادة زراعة الشاشات',
             'label_en' => 'Re-seed screens',
-            'description_ar' => 'تحديث أسماء الشاشات ومساراتها وأقسامها وترتيبها في القائمة الجانبية من الإصدار المرفوع. لا يمس الصلاحيات. شغّله بعد رفع إصدار يغيّر القائمة.',
-            'description_en' => 'Updates the menu\'s screen names, routes, sections and order from the uploaded release. Grants are untouched. Run it after uploading a release that changes the menu.',
+            'description_ar' => 'تحديث أسماء الشاشات ومساراتها وأقسامها وترتيبها في القائمة الجانبية من الإصدار المرفوع. الشاشة الجديدة على هذا الخادم تُمنح صلاحياتها الافتراضية، أما صلاحيات بقية الشاشات فلا تُمس. شغّله بعد رفع إصدار يغيّر القائمة.',
+            'description_en' => 'Updates the menu\'s screen names, routes, sections and order from the uploaded release. A screen new to this host gets its default grants; every other screen\'s grants are untouched. Run it after uploading a release that changes the menu.',
         ],
         'db:seed:test-users' => [
             'kind' => self::KIND_ARTISAN,

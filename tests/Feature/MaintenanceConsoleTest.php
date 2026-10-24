@@ -82,6 +82,25 @@ class MaintenanceConsoleTest extends TestCase
         $this->assertSame($cell->can_export, $cell->fresh()->can_export);
     }
 
+    /**
+     * A host whose database predates a screen gets the row from the same run,
+     * and with no grant rows at all nobody — R08 included — would see it.
+     */
+    public function test_reseeding_screens_gives_a_screen_new_to_this_host_its_default_grants(): void
+    {
+        $screen = Screen::where('code', 'committee_roles')->firstOrFail();
+        ScreenRolePermission::where('screen_id', $screen->id)->delete();
+        $screen->delete();
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:screens'])
+            ->assertOk();
+
+        $this->assertTrue($this->admin()->screenPermissions()['committee_roles']['can_view']);
+        $this->assertTrue($this->userWithRole('R02')->screenPermissions()['committee_roles']['can_view']);
+        $this->assertFalse($this->userWithRole('R01')->screenPermissions()['committee_roles']['can_view']);
+    }
+
     /** Fabricated requests are offered and accepted only while APP_DEBUG is on. */
     public function test_the_test_request_generator_exists_only_when_app_debug_is_on(): void
     {
