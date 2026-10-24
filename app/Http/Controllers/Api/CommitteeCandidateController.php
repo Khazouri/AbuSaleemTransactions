@@ -9,6 +9,7 @@ use App\Http\Requests\CommitteeCandidate\CommitteeCandidateActionRequest;
 use App\Http\Requests\CommitteeCandidate\IndexCommitteeCandidateRequest;
 use App\Http\Resources\RequestResource;
 use App\Models\Request;
+use App\Models\RequestStatus;
 use App\Services\CommitteeStatusService;
 use App\Services\WorkflowService;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -63,6 +64,9 @@ class CommitteeCandidateController extends Controller
                     ->where('reference_number', 'like', "%{$search}%")
                     ->orWhere('title', 'like', "%{$search}%"),
             ))
+            // A deferred file has already waited a whole meeting, so it is
+            // offered before anything that arrived since («إضافة بند»).
+            ->orderByRaw('CASE WHEN status_id = ? THEN 0 ELSE 1 END', [RequestStatus::where('code', 'deferred')->value('id')])
             ->orderBy('submitted_at')
             ->paginate($filters['per_page'] ?? 20)
             ->withQueryString();

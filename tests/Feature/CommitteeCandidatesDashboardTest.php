@@ -72,6 +72,29 @@ class CommitteeCandidatesDashboardTest extends TestCase
             ->assertNotFound();
     }
 
+    /**
+     * A deferred file has already waited a whole meeting, so «إضافة بند» and
+     * the worklist offer it before anything that arrived since.
+     */
+    public function test_deferred_requests_come_first_then_oldest_first(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $rapporteur = $this->userWithRole('R02');
+        $oldest = $this->committeeRequest('registered');
+        $oldest->update(['submitted_at' => now()->subDays(10)]);
+        $newer = $this->committeeRequest('registered');
+        $newer->update(['submitted_at' => now()->subDays(5)]);
+        $deferred = $this->committeeRequest('deferred');
+
+        $ids = collect($this->actingAs($rapporteur, 'sanctum')
+            ->getJson('/api/committee-candidates')
+            ->assertOk()
+            ->json('data'))->pluck('id')->all();
+
+        $this->assertSame([$deferred->id, $oldest->id, $newer->id], $ids);
+    }
+
     public function test_index_includes_employee_attachment_count_and_proposed_meeting(): void
     {
         $this->seed(DatabaseSeeder::class);
