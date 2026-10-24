@@ -115,7 +115,8 @@ class MaintenanceCommandCatalog
             'description_ar' => 'إنشاء حساب اختبار لكل دور بكلمة المرور password. متاح فقط عند APP_DEBUG=true.',
             'description_en' => 'Creates one test account per role, password "password". Only available while APP_DEBUG=true.',
         ],
-        // Test data — 5 random requests per reachable stage (user request 2026-10-03).
+        // Test data — 5 random requests per reachable stage (user request 2026-10-03),
+        // with full attachments and history (2026-10-24).
         'db:seed:test-requests' => [
             'kind' => self::KIND_ARTISAN,
             'artisan' => 'db:seed',
@@ -126,8 +127,8 @@ class MaintenanceCommandCatalog
             'debug_only' => true,
             'label_ar' => 'توليد طلبات تجريبية',
             'label_en' => 'Generate test requests',
-            'description_ar' => 'ينشئ 5 طلبات عشوائية في كل مرحلة يمكن الوصول إليها (40 طلبًا في كل تشغيل)، مقدَّمة من حسابات الاختبار. تحتاج «زراعة حسابات الاختبار» أولاً. متاح فقط عند APP_DEBUG=true.',
-            'description_en' => 'Creates 5 random requests at every reachable stage (40 per run), filed by the test accounts. Needs "Seed test users" first. Only available while APP_DEBUG=true.',
+            'description_ar' => 'ينشئ 5 طلبات عشوائية في كل مرحلة يمكن الوصول إليها (40 طلبًا في كل تشغيل)، مقدَّمة من حسابات الاختبار، ولكل منها مرفقاته كاملة وسجله حتى مرحلته، بما فيه اجتماع منعقد واحد للطلبات التي تجاوزت اللجنة. تحتاج «زراعة حسابات الاختبار» أولاً. متاح فقط عند APP_DEBUG=true.',
+            'description_en' => 'Creates 5 random requests at every reachable stage (40 per run), filed by the test accounts, each with its full attachments and history up to its stage, including one held meeting for the files past the committee. Needs "Seed test users" first. Only available while APP_DEBUG=true.',
         ],
         // Test data — three meetings ready for testers (user request 2026-10-24).
         'db:seed:test-meetings' => [
