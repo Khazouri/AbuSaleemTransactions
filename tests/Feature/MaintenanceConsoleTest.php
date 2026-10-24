@@ -56,6 +56,32 @@ class MaintenanceConsoleTest extends TestCase
         $this->assertNotNull(User::query()->where('email', 'r01.employee@abusaleem.test')->first());
     }
 
+    /**
+     * The menu's names, routes and sections can be refreshed on a live host
+     * without the full DatabaseSeeder, whose grant seeder would put every
+     * customised Roles & Permissions cell back to its default.
+     */
+    public function test_reseeding_screens_refreshes_the_menu_and_keeps_customised_grants(): void
+    {
+        config()->set('app.debug', false);
+        Screen::where('code', 'reports')->update(['group' => null, 'name_en' => 'Old name']);
+        $cell = ScreenRolePermission::query()
+            ->where('screen_id', Screen::where('code', 'reports')->value('id'))
+            ->where('role_id', Role::where('code', 'R01')->value('id'))
+            ->firstOrFail();
+        $cell->update(['can_export' => ! $cell->can_export]);
+
+        $this->assertContains('db:seed:screens', MaintenanceCommandCatalog::codes());
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:screens'])
+            ->assertOk();
+
+        $reports = Screen::where('code', 'reports')->firstOrFail();
+        $this->assertSame('records', $reports->group);
+        $this->assertSame('Reports & Statistics', $reports->name_en);
+        $this->assertSame($cell->can_export, $cell->fresh()->can_export);
+    }
+
     /** Fabricated requests are offered and accepted only while APP_DEBUG is on. */
     public function test_the_test_request_generator_exists_only_when_app_debug_is_on(): void
     {

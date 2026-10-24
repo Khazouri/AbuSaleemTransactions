@@ -86,8 +86,20 @@ class MaintenanceCommandCatalog
             'destructive' => false,
             'label_ar' => 'إعادة زراعة البيانات المرجعية',
             'label_en' => 'Re-seed reference data',
-            'description_ar' => 'تشغيل DatabaseSeeder: الأدوار والشاشات والصلاحيات ومراحل سير العمل. كل البذور تستخدم updateOrCreate فلا تُنشئ صفوفاً مكررة — شغّلها بعد أي ترحيل يضيف شاشة أو صلاحية.',
-            'description_en' => 'Runs DatabaseSeeder — roles, screens, permissions, workflow stages. Every seeder uses updateOrCreate, so re-running never duplicates rows. Run it after any migration that adds a screen or a grant.',
+            'description_ar' => 'تشغيل DatabaseSeeder: الأدوار والشاشات والصلاحيات ومراحل سير العمل. لا تُنشئ صفوفاً مكررة، لكنها تعيد كل صلاحية إلى قيمتها الافتراضية فتضيع أي صلاحيات عُدّلت من شاشة الأدوار والصلاحيات. لتحديث القائمة فقط استخدم «إعادة زراعة الشاشات».',
+            'description_en' => 'Runs DatabaseSeeder — roles, screens, permissions, workflow stages. It never duplicates rows, but it puts every grant back to its default, so anything changed on Roles & Permissions is lost. To refresh only the menu, use "Re-seed screens".',
+        ],
+        // 2026-10-24 — refreshes the menu on a live host without touching grants.
+        'db:seed:screens' => [
+            'kind' => self::KIND_ARTISAN,
+            'artisan' => 'db:seed',
+            'params' => ['--class' => 'ScreenSeeder', '--force' => true],
+            'group' => 'database',
+            'destructive' => false,
+            'label_ar' => 'إعادة زراعة الشاشات',
+            'label_en' => 'Re-seed screens',
+            'description_ar' => 'تحديث أسماء الشاشات ومساراتها وأقسامها وترتيبها في القائمة الجانبية من الإصدار المرفوع. لا يمس الصلاحيات. شغّله بعد رفع إصدار يغيّر القائمة.',
+            'description_en' => 'Updates the menu\'s screen names, routes, sections and order from the uploaded release. Grants are untouched. Run it after uploading a release that changes the menu.',
         ],
         'db:seed:test-users' => [
             'kind' => self::KIND_ARTISAN,

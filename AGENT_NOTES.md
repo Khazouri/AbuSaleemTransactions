@@ -19,6 +19,25 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-24 16:10 EET — Claude — A «Re-seed screens» maintenance command (complete)
+
+Built per the plan below; no migration and no frontend change. `db:seed:screens` runs `ScreenSeeder` alone, and
+`db:seed`'s description now says it resets customised grants. **To ship the sidebar sections to production:**
+upload the backend (it carries the new `ScreenSeeder.php` and catalog) and `frontend/dist/*`, then run «إعادة
+زراعة الشاشات» on `/maintenance`. Verified: the new `MaintenanceConsoleTest` case went RED, then GREEN; full suite
+834 / 5621 green; Pint clean on the touched PHP; `aislop ci` exit 0.
+
+---
+### 2026-10-24 15:48 EET — Claude — Implementation plan: a «Re-seed screens» maintenance command
+
+User: production lacks the sidebar sections, because they live in `screens.group`. The console's only seed
+command runs the whole `DatabaseSeeder`, whose `ScreenRolePermissionSeeder` puts every grant back to its
+default. Plan: a new catalog entry `db:seed:screens` (artisan `db:seed --class=ScreenSeeder --force`, not
+destructive, not debug-only) and an honest description on `db:seed` saying it resets customised grants. No
+frontend change: the console lists the catalog. Verify: a `MaintenanceConsoleTest` case (RED then GREEN: the run
+restores a screen's section and leaves a customised grant alone), full PHPUnit, Pint, aislop ci.
+
+---
 ### 2026-10-24 09:45 EET — Claude — «Find and set Node.js» on the maintenance console (complete)
 
 Built per the plan below; no migration, seeder or frontend change (the console lists catalog entries itself). The
