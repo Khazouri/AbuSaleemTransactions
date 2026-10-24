@@ -19,6 +19,45 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-24 16:55 EET — Claude — A «Generate test meetings» button for testers (complete)
+
+Built per the plan below. There is no migration and no frontend change. `TestRequestSeeder::TITLES` is now public so the
+two seeders share it. The seat check runs before anything is written. A meeting's time is up to 30 minutes before the
+press, clamped to midnight so it stays today.
+
+Verified:
+- the new `TestMeetingSeederTest` (3, including the مقرر's results submit on meeting A) and the console case went RED,
+  then GREEN;
+- full suite 838 / 5687 (834 + 4); Pint clean on touched files; `aislop ci` exit 0.
+
+Not run against the real database: pressing the button is left to the user. `graphify update` was not run, because the
+main checkout's `graphify-out/` holds another session's uncommitted changes.
+
+---
+### 2026-10-24 16:33 EET — Claude — Implementation plan: a «Generate test meetings» button for testers
+
+User: one button that sets up meetings for testers. Agreed in chat: each press makes three meetings, A with 5
+requests, B with 1 and C with none. All three are dated earlier on the day of the press, so the مقرر can enter
+results at once. Each is `scheduled`, and all five seat holders have `confirmed`. Each request has its history
+written out: filing, the manager's `forward`, HR's `register`, the مقرر's قيد (`approve`, PM-COM), and the legal
+member's recommendation. It ends at `receive_from_committee` / `ready`.
+
+Plan:
+- a new `TestMeetingSeeder`. It reuses the first active committee or forms one, then fills the seats with
+  `seatRoleHolders()`. If any seat is empty it warns and writes nothing;
+- requests are inserted as `TestRequestSeeder` does, with one stage-log + status-history row per step;
+- each press adds a new set;
+- a debug-only catalog entry `db:seed:test-meetings`, with no frontend change.
+
+My calls:
+- no attachments, gate cards or notifications;
+- built on worktree `AbuSaleem-testmeetings`, because the main checkout holds another session's uncommitted
+  `feat/reseed-screens-grants` work in the same files.
+
+Verify: a new `TestMeetingSeederTest` (RED then GREEN, including the مقرر's results submit going through on meeting
+A), a `MaintenanceConsoleTest` case, full PHPUnit, Pint, aislop ci.
+
+---
 ### 2026-10-24 16:10 EET — Claude — A «Re-seed screens» maintenance command (complete)
 
 Built per the plan below; no migration and no frontend change. `db:seed:screens` runs `ScreenSeeder` alone, and

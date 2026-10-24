@@ -129,6 +129,19 @@ class MaintenanceCommandCatalog
             'description_ar' => 'ينشئ 5 طلبات عشوائية في كل مرحلة يمكن الوصول إليها (40 طلبًا في كل تشغيل)، مقدَّمة من حسابات الاختبار. تحتاج «زراعة حسابات الاختبار» أولاً. متاح فقط عند APP_DEBUG=true.',
             'description_en' => 'Creates 5 random requests at every reachable stage (40 per run), filed by the test accounts. Needs "Seed test users" first. Only available while APP_DEBUG=true.',
         ],
+        // Test data — three meetings ready for testers (user request 2026-10-24).
+        'db:seed:test-meetings' => [
+            'kind' => self::KIND_ARTISAN,
+            'artisan' => 'db:seed',
+            'params' => ['--class' => 'TestMeetingSeeder', '--force' => true],
+            'group' => 'database',
+            'destructive' => false,
+            'debug_only' => true,
+            'label_ar' => 'إنشاء اجتماعات تجريبية',
+            'label_en' => 'Generate test meetings',
+            'description_ar' => 'ينشئ ثلاثة اجتماعات بتاريخ اليوم، وافق جميع الأعضاء على موعدها، في جداول أعمالها 5 طلبات وطلب واحد ولا شيء، وكل طلب مسجَّل بمساره الكامل حتى قائمة اللجنة. تحتاج «زراعة حسابات الاختبار» أولاً. متاح فقط عند APP_DEBUG=true.',
+            'description_en' => 'Creates three meetings dated today, with every member having accepted the date and 5, 1 and 0 requests on their agendas. Each request carries its full path to the committee. Needs "Seed test users" first. Only available while APP_DEBUG=true.',
+        ],
         'migrate:rollback' => [
             'kind' => self::KIND_ARTISAN,
             'artisan' => 'migrate:rollback',
