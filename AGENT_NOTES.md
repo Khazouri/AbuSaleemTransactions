@@ -19,6 +19,36 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-24 18:30 EET — Claude — «توليد طلبات تجريبية» writes full attachments and history (complete)
+
+Built per the plan below; no migration or frontend change. Filers are now limited to accounts with an employee number
+and no sole post, so nobody checks or decides their own file. The final stage's files alternate between العميد and
+الوزير. Each run adds one completed meeting holding its 15 committee-decided files. Each attachment is a stored
+one-page PDF, so previews open. **Gotcha:** the console test now fakes the `local` disk, because the run writes files.
+Verified:
+- the extended `TestRequestSeederTest` went RED, then GREEN (4 tests, including العميد deciding a generated file from
+  its meeting, and a missing الوزير writing nothing);
+- full suite 842 / 6969; Pint clean; `aislop ci` exit 0 (98).
+
+Not run against the real database: pressing the button is left to the user. `graphify update` was not run, because
+`graphify-out/` holds another session's uncommitted changes.
+
+---
+### 2026-10-24 17:59 EET — Claude — Implementation plan: «توليد طلبات تجريبية» writes full attachments and history
+
+User: the console's test requests should have full attachments and history. Today each is one intake row parked at its
+stage. Plan, in `TestRequestSeeder` only: every request walks the real path up to its stage as written rows:
+- stage logs and status history per step;
+- one stored PDF per Appendix 57 row: the filer's at intake, the service-file rows by HR on arrival;
+- HR's employment-file card and the مقرر's بوابة 1, each with its previews;
+- the قيد and its Approval ledger row;
+- past the committee: the legal review, one completed meeting per run (محضر file, agenda items, decisions), the
+  committee's approve and the authority's approve, with قرار الوزير on a minister file.
+
+The run now also needs every committee seat, العميد and الوزير. With any missing it warns and writes nothing. No
+migration, no frontend change. Verify: `TestRequestSeederTest` extended (RED then GREEN), full PHPUnit, Pint, aislop ci.
+
+---
 ### 2026-10-24 17:05 EET — Claude — «إضافة بند» lists the pending files, deferred first (complete)
 
 Built per the plan below; no migration and no new locale key (the tag shows the status's own name, and the empty

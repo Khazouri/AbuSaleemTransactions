@@ -15,6 +15,7 @@ use Database\Seeders\TestRequestSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -105,6 +106,8 @@ class MaintenanceConsoleTest extends TestCase
     /** Fabricated requests are offered and accepted only while APP_DEBUG is on. */
     public function test_the_test_request_generator_exists_only_when_app_debug_is_on(): void
     {
+        // The generator stores a PDF per attached document.
+        Storage::fake('local');
         config()->set('app.debug', true);
         $this->actingAs($this->admin(), 'sanctum')
             ->postJson('/api/maintenance/run', ['command' => 'db:seed:test-users'])
