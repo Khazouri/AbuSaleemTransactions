@@ -12,6 +12,7 @@ import { useRoute } from 'vue-router'
 import AppModal from '../components/AppModal.vue'
 import AuthorityDecisionForm from '../components/AuthorityDecisionForm.vue'
 import GuestInviteForm from '../components/GuestInviteForm.vue'
+import ImageSlideshow from '../components/ImageSlideshow.vue'
 import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
@@ -280,7 +281,9 @@ function printAgenda() {
   window.print()
 }
 
+const slideshowOpen = ref(false)
 const minutesError = ref('')
+// A محضر entered as one file, before the scanned pages (2026-10-25), may be a PDF.
 async function openMinutes() {
   minutesError.value = ''
   // Opened before the await, so the browser does not block it as a popup.
@@ -365,9 +368,21 @@ onMounted(async () => {
         <p class="minutes-status">
           {{ t('paperMeeting.resultsRecorded', { date: dateTime(meeting.results_recorded_at), name: meeting.results_recorded_by?.name ?? '' }) }}
         </p>
-        <button class="ghost" type="button" @click="openMinutes">{{ t('paperMeeting.openMinutes') }}</button>
+        <button v-if="meeting.minutes_page_count" class="ghost" type="button" @click="slideshowOpen = true">
+          {{ t('paperMeeting.pages.open', { count: meeting.minutes_page_count }) }}
+        </button>
+        <button v-else class="ghost" type="button" @click="openMinutes">{{ t('paperMeeting.openMinutes') }}</button>
         <p v-if="minutesError" class="alert" role="alert">{{ minutesError }}</p>
       </section>
+      <!-- 2026-10-25 — the محضر's scanned pages, one at a time. -->
+      <ImageSlideshow
+        v-if="slideshowOpen"
+        :title="t('paperMeeting.minutes')"
+        :count="meeting.minutes_page_count"
+        :page-url="(n) => `/meetings/${meeting.id}/minutes-file?page=${n}`"
+        :file-prefix="String(meeting.id)"
+        @close="slideshowOpen = false"
+      />
       <p v-if="meeting.status === 'pending_confirmation'" class="state">{{ t('meetings.rsvp.awaiting') }}</p>
 
       <section class="card card-flat card-pad summary">

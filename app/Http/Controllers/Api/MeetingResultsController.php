@@ -19,6 +19,7 @@ use App\Services\WorkflowService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -61,11 +62,10 @@ class MeetingResultsController extends Controller
             }
         }
 
-        $upload = $request->file('minutes_file');
-        $path = $upload->store("meeting-minutes/{$meeting->id}", 'local');
+        $pages = $this->storeMinutesPages($meeting, $request->file('minutes_pages'));
 
         try {
-            DB::transaction(function () use ($meeting, $items, $rows, $actor, $workflow, $numbers, $upload, $path) {
+            DB::transaction(function () use ($meeting, $items, $rows, $actor, $workflow, $numbers, $pages) {
                 // A second submit racing the first finds the results already in.
                 $locked = Meeting::query()->lockForUpdate()->findOrFail($meeting->id);
                 if ($locked->results_recorded_at !== null) {
@@ -106,20 +106,42 @@ class MeetingResultsController extends Controller
 
                 $locked->update([
                     'status' => 'completed',
-                    'minutes_file_path' => $path,
-                    'minutes_file_name' => $upload->getClientOriginalName(),
-                    'minutes_file_mime' => $upload->getMimeType(),
+                    'minutes_pages' => $pages,
                     'results_recorded_at' => now(),
                     'results_recorded_by_user_id' => $actor->id,
                 ]);
             });
         } catch (WorkflowTransitionException|DomainException $exception) {
-            Storage::disk('local')->delete($path);
+            Storage::disk('local')->delete($pages);
 
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
         return response()->json(['message' => 'تم إدخال نتائج الاجتماع.']);
+    }
+
+    /**
+     * Page n is saved as «<meeting id>-<n>», n from 1 in the order the مقرر
+     * arranged them, which is also the name it downloads under. The extension
+     * comes from the checked MIME type, never from the client's file name.
+     *
+     * @param  list<UploadedFile>  $uploads
+     * @return list<string>
+     */
+    private function storeMinutesPages(Meeting $meeting, array $uploads): array
+    {
+        $paths = [];
+        foreach (array_values($uploads) as $index => $upload) {
+            $extension = $upload->getMimeType() === 'image/png' ? 'png' : 'jpg';
+            $path = $upload->storeAs("meeting-minutes/{$meeting->id}", "{$meeting->id}-".($index + 1).".{$extension}", 'local');
+            if ($path === false) {
+                Storage::disk('local')->delete($paths);
+                abort(500, 'تعذّر حفظ صفحات المحضر.');
+            }
+            $paths[] = $path;
+        }
+
+        return $paths;
     }
 
     /**
@@ -144,10 +166,22 @@ class MeetingResultsController extends Controller
         return null;
     }
 
-    /** The scanned محضر the مقرر attached with the results. */
-    public function minutesFile(Meeting $meeting): StreamedResponse
+    /**
+     * One page of the scanned محضر (`?page=n`, from 1). A meeting entered
+     * before the pages (2026-10-25) has one file instead, served as page 1.
+     */
+    public function minutesFile(HttpRequest $request, Meeting $meeting): StreamedResponse
     {
-        abort_unless($meeting->minutes_file_path !== null && Storage::disk('local')->exists($meeting->minutes_file_path), 404);
+        $page = (int) $request->query('page', '1');
+
+        if ($meeting->minutes_pages) {
+            $path = $meeting->minutes_pages[$page - 1] ?? null;
+            abort_unless($page >= 1 && $path !== null && Storage::disk('local')->exists($path), 404);
+
+            return Storage::disk('local')->response($path, basename($path));
+        }
+
+        abort_unless($page === 1 && $meeting->minutes_file_path !== null && Storage::disk('local')->exists($meeting->minutes_file_path), 404);
 
         return Storage::disk('local')->response($meeting->minutes_file_path, $meeting->minutes_file_name, [
             'Content-Type' => $meeting->minutes_file_mime,

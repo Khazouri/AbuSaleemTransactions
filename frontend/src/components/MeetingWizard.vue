@@ -73,8 +73,8 @@ watch(choices, (list) => {
 
 // 2026-10-18 — MeetingResultsForm's state: agenda item id => its row.
 const resultRows = ref({})
-const minutesFile = ref(null)
-const resultsComplete = computed(() => Boolean(minutesFile.value)
+const minutesPages = ref([])
+const resultsComplete = computed(() => minutesPages.value.length > 0
   && Object.values(resultRows.value).length > 0
   && (meeting.value?.agenda_items ?? []).every((item) => {
     const row = resultRows.value[item.id]
@@ -87,7 +87,8 @@ const resultsComplete = computed(() => Boolean(minutesFile.value)
 
 function resultsPayload() {
   const form = new FormData()
-  form.append('minutes_file', minutesFile.value)
+  // Indexed, so the server numbers the pages in the order the مقرر arranged.
+  minutesPages.value.forEach((page, index) => form.append(`minutes_pages[${index}]`, page))
   for (const [id, row] of Object.entries(resultRows.value)) {
     form.append(`items[${id}][recommendation]`, row.recommendation)
     if (row.recommendation !== 'defer' && row.approving_authority) form.append(`items[${id}][approving_authority]`, row.approving_authority)
@@ -189,7 +190,7 @@ async function submit() {
       <MeetingResultsForm
         v-if="choice?.action === 'record_results' && meeting"
         v-model:rows="resultRows"
-        v-model:minutes="minutesFile"
+        v-model:minutes-pages="minutesPages"
         :items="meeting.agenda_items ?? []"
         :disabled="submitting"
       />

@@ -2211,7 +2211,15 @@
     "authorityNotYours": "This request is not yours to decide.",
     "resultsRecorded": "Results entered on {date} by {name}.",
     "openMinutes": "View minutes",
-    "legalRecommendation": "Legal member: {recommendation} · approving authority: {authority}"
+    "legalRecommendation": "Legal member: {recommendation} · approving authority: {authority}",
+    "pages": {
+      "hint": "Images only (JPG or PNG). Pages are numbered in the order listed here.",
+      "rejected": "Not an image, left out: {names}",
+      "moveUp": "Move page {n} up",
+      "moveDown": "Move page {n} down",
+      "remove": "Remove page {n}",
+      "open": "View minutes · pages: {count}"
+    }
   },
   "erp": {
     "signIn": "Sign in with the ERP",
@@ -2228,5 +2236,13 @@
     "linked": "Your ERP account is now linked. Next time you can sign in with the ERP.",
     "backToApp": "Back to the system",
     "backToLogin": "Back to sign in"
+  },
+  "slideshow": {
+    "alt": "{title}, page {n}",
+    "failed": "This page could not be loaded.",
+    "previous": "Previous page",
+    "next": "Next page",
+    "position": "Page {n} of {total}",
+    "download": "Download this page"
   }
 }

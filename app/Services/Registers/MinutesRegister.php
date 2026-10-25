@@ -57,7 +57,9 @@ class MinutesRegister extends Register
     protected function baseQuery(): Builder
     {
         return Meeting::query()
-            ->whereNotNull('minutes_file_path')
+            // The results always carry the محضر, as one file or (since
+            // 2026-10-25) as scanned pages, so this covers both.
+            ->whereNotNull('results_recorded_at')
             ->with(['committee:id,name_ar,name_en', 'resultsRecordedBy:id,name'])
             ->withCount('agendaItems');
     }

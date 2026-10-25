@@ -36,7 +36,10 @@ class MeetingResource extends JsonResource
                 'id' => $this->resultsRecordedBy->id,
                 'name' => $this->resultsRecordedBy->name,
             ] : null),
-            'has_minutes_file' => $this->minutes_file_path !== null,
+            'has_minutes_file' => $this->minutes_file_path !== null || ! empty($this->minutes_pages),
+            // 2026-10-25 — the scanned pages the slideshow steps through; 0 for
+            // a محضر entered as one file before then.
+            'minutes_page_count' => count($this->minutes_pages ?? []),
             'committee' => $this->whenLoaded('committee', fn () => [
                 'id' => $this->committee->id,
                 'name_ar' => $this->committee->name_ar,

@@ -2,19 +2,20 @@
 /**
  * 2026-10-18 — the paper sitting's results. The مقرر copies, item by item,
  * the توصية the committee wrote on paper, its note and its جهة الاعتماد, and
- * attaches the scanned محضر; MeetingWizard posts it all in one submit. A
- * deferral goes back to the pending list, so it names no authority. An appeal
- * row names none either, and always states its reason.
+ * attaches the scanned محضر as numbered pages (images only, 2026-10-25);
+ * MeetingWizard posts it all in one submit. A deferral goes back to the
+ * pending list, so it names no authority. An appeal row names none either,
+ * and always states its reason.
  */
 import { useI18n } from 'vue-i18n'
-import FileDropZone from './FileDropZone.vue'
+import ScannedPagesInput from './ScannedPagesInput.vue'
 
 defineProps({
   items: { type: Array, required: true },
   disabled: { type: Boolean, default: false },
 })
 const rows = defineModel('rows', { type: Object, required: true })
-const minutes = defineModel('minutes', { type: Object, default: null })
+const minutesPages = defineModel('minutesPages', { type: Array, default: () => [] })
 const { t, locale } = useI18n()
 
 const RECOMMENDATIONS = ['approve', 'decline', 'defer']
@@ -23,10 +24,6 @@ const optionLabel = (item, option) => t(`paperMeeting.${isAppeal(item) ? 'appeal
 const noteRequired = (item) => isAppeal(item)
   || (Boolean(rows.value[item.id].recommendation) && rows.value[item.id].recommendation !== 'approve')
 const typeName = (type) => (type ? (locale.value === 'ar' ? type.name_ar : type.name_en || type.name_ar) : '')
-
-function choose(files) {
-  minutes.value = files[0] ?? null
-}
 </script>
 
 <template>
@@ -92,11 +89,7 @@ function choose(files) {
 
     <div class="minutes">
       <p class="label">{{ t('paperMeeting.minutes') }}<span class="required-mark" aria-hidden="true">*</span></p>
-      <FileDropZone accept=".pdf,.jpg,.jpeg,.png" :disabled="disabled" @files="choose" />
-      <p v-if="minutes" class="chosen-file">
-        <span dir="auto">{{ minutes.name }}</span>
-        <button class="link" type="button" :disabled="disabled" @click="minutes = null">{{ t('paperMeeting.removeFile') }}</button>
-      </p>
+      <ScannedPagesInput v-model="minutesPages" :disabled="disabled" />
     </div>
   </div>
 </template>
@@ -119,5 +112,4 @@ function choose(files) {
 .fields label { display: grid; gap: var(--space-1); min-inline-size: 0; color: var(--color-black-700); font-size: var(--text-sm); }
 .minutes { display: grid; gap: var(--space-2); }
 .label { margin: 0; color: var(--color-black-700); font-weight: 600; }
-.chosen-file { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; }
 </style>
