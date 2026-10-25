@@ -158,9 +158,10 @@ class AuthorityDecisionTest extends TestCase
                 ->postJson("/api/requests/{$file->id}/transition", ['action' => 'approve', 'comment' => 'يعتمد'])
                 ->assertOk();
 
+            // 2026-10-25 — the decision waits for the مقرر's review, as a meeting one does.
             $file->refresh();
-            $this->assertSame('final_approval_archiving', $file->currentStage->code);
-            $this->assertSame('final_approved', $file->status->code);
+            $this->assertSame('rapporteur_decision_review', $file->currentStage->code);
+            $this->assertSame('authority_approved', $file->status->code);
         }
     }
 
