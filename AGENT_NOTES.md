@@ -19,6 +19,23 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-25 19:10 EET — Claude — Paper-meeting plan, wave 2 merged into main (B5, B6): all seven items built
+
+The two wave 2 branches are merged into `main`:
+- `feat/results-rollback` merged cleanly;
+- `feat/bulk-authority-decision` conflicted only in `MeetingDuties` and AGENT_NOTES, and both sides were kept.
+
+Verified on the merged `main`:
+- full suite 846 + 9 + 18 green; parity 1820; `aislop ci` exit 0;
+- build passes (`dist` committed, production API URL in the bundle).
+
+**Still owed on the real MySQL** (Homestead unreachable all session):
+- `php artisan migrate`, which runs B1's `minutes_pages` and B5's `authority_decisions`;
+- then `php artisan db:seed --class=WorkflowSeeder` (B4's review stage).
+
+On the host, the same steps are the console's migrate followed by «db:seed:workflow». Until both run, the live system keeps the old flow. Not checked in a browser.
+
+---
 ### 2026-10-25 18:40 EET — Claude — جهة الاعتماد decides several files with one قرار (B5, complete, branch only)
 
 Built per the plan below on `feat/bulk-authority-decision`. `dist` is not committed (wave plan). **Migration
