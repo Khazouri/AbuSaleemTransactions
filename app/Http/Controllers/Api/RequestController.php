@@ -93,11 +93,17 @@ class RequestController extends Controller
      * and the محضر, where the minister's paper قرار is attached too. The
      * request page and the approval queue therefore refuse the decision, and
      * MeetingResultsController::authorityDecision() takes it instead.
+     *
+     * Only for a file a meeting actually recommended on: one R08 escalated by
+     * `deadline_expired` reaches the ministry with no توصية (or only a
+     * deferral), so no meeting page can take it, and refusing it here too
+     * left it decidable nowhere.
      */
     public static function authorityStageRefusal(Request $requestRecord, string $action): ?string
     {
         return in_array($action, ['approve', 'reject'], true)
             && array_key_exists((string) $requestRecord->currentStage()->value('code'), MeetingDuties::AUTHORITY_STAGES)
+            && in_array($requestRecord->latestDecidedItem()->first()?->decision?->outcome, ['approve', 'reject'], true)
             ? 'يُسجَّل قرار جهة الاعتماد من صفحة الاجتماع.'
             : null;
     }

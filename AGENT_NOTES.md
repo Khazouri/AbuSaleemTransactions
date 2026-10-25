@@ -19,6 +19,37 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-25 16:05 EET — Claude — «اعتماد العميد — nothing happens» fixed (B2 `fix/authority-navigation`, complete)
+
+Built per the plan below; no migration, seeder or route. **Root cause, confirmed by a RED test:** the bell sends العميد
+to the request page, where approve/reject were blocked with the meeting-page reason and no link. A file R08
+escalated by `deadline_expired` was refused there too, though no meeting page could take it. Now
+`authorityStageRefusal()` refuses only when `latestDecidedItem`'s outcome is approve/reject. `PendingTaskCollector`
+routes by the same refusal, so a deferred-then-escalated file no longer lands on a meeting. Frontend:
+- the request page has an «افتح» link to `?item=&decide=1`, and the wizard's blocked approve/reject links there too;
+- the committee summary links to the meeting;
+- the meeting page: agenda and awaiting rows link to the request, a `route.params.id` watch, `awaitingMe` limited to
+  approve/reject, and a success notice.
+
+Verified: 2 new `AuthorityDecisionTest` cases went RED, then GREEN; full suite 818 + 26 maintenance green; Pint clean;
+build passes (`dist` reverted per the wave plan); parity 1788; `aislop ci` exit 0 (98). Not checked in a browser.
+
+---
+### 2026-10-25 15:26 EET — Claude — Implementation plan: «اعتماد العميد — nothing happens» (B2 `fix/authority-navigation`)
+
+Items 4 and 5 of the paper-meeting plan. The dean's bell sends him to the request page, where approve/reject are
+blocked acts («يُسجَّل قرار جهة الاعتماد من صفحة الاجتماع.») with no way to the meeting; and a file R08 escalated by
+`deadline_expired` has no recommended agenda item, so it can be decided nowhere. Plan:
+- `RequestController::authorityStageRefusal()` refuses only when the file's latest decided agenda item is an
+  approve/reject recommendation; an escalated file is decided on the request page;
+- `committee_summary` gains `meeting_id` and `agenda_item_id`;
+- the request page links to the meeting, and at an authority stage gives the authority a link straight to the decision;
+- the meeting page: agenda rows link to the request, a `route.params.id` watch, `awaitingMe` limited to approve/reject
+  recommendations, a success notice after a decision.
+
+Verify: new tests RED then GREEN, full PHPUnit, Pint, build (dist reverted), parity, aislop ci.
+
+---
 ### 2026-10-24 18:30 EET — Claude — «توليد طلبات تجريبية» writes full attachments and history (complete)
 
 Built per the plan below; no migration or frontend change. Filers are now limited to accounts with an employee number

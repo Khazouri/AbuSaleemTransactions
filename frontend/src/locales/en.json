@@ -2228,5 +2228,11 @@
     "linked": "Your ERP account is now linked. Next time you can sign in with the ERP.",
     "backToApp": "Back to the system",
     "backToLogin": "Back to sign in"
+  },
+  "authorityNav": {
+    "openMeeting": "Open the meeting",
+    "decideAtMeeting": "The decision is recorded on the meeting page",
+    "open": "Open",
+    "decided": "The decision was recorded."
   }
 }
