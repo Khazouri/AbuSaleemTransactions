@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Decision;
 use App\Models\Request;
+use App\Models\RequestStageLog;
 use App\Models\RequestStatusHistory;
 
 /**
@@ -53,7 +54,9 @@ class EmployeeNoticeService
      * استكمال الآتي"), and Art. 102's own limiting rule admits "الإجراء المطلوب
      * منه". Every other moment withholds the internal text: النموذج 16's عدم
      * الموافقة formula says "للأسباب المثبتة في القرار المعتمد" rather than
-     * repeating them, which is Art. 102 in action.
+     * repeating the committee's, which is Art. 102 in action. (Since
+     * 2026-10-25 that notice quotes the approved decision's own reason, the
+     * authority's reject note; see authorityReason().)
      */
     public const REASON_BEARING_MOMENTS = ['documents_missing', 'returned_for_completion'];
 
@@ -62,6 +65,9 @@ class EmployeeNoticeService
      * history turns a later `registered` from moment 1 into moment 3.
      */
     private const INCOMPLETE_STATUSES = ['incomplete', 'completion_required'];
+
+    /** The authority's decision awaiting the مقرر's confirmation (2026-10-25). */
+    private const AUTHORITY_DECIDED_STATUSES = ['authority_approved', 'authority_rejected'];
 
     /**
      * status code => moment, for the moments a bare destination status settles.
@@ -169,6 +175,14 @@ class EmployeeNoticeService
      */
     public function momentFor(Request $requestRecord, ?string $fromCode, string $toCode): ?string
     {
+        // 2026-10-25 — جهة الاعتماد's decision is not the result until the
+        // مقرر confirms it, so a return to the authority (which lands back on
+        // an «awaiting approval» status) tells the employee nothing; only the
+        // confirmed final_approved / not_approved does.
+        if (in_array($fromCode, self::AUTHORITY_DECIDED_STATUSES, true) && ! in_array($toCode, ['final_approved', 'not_approved'], true)) {
+            return null;
+        }
+
         if ($fromCode === 'completion_required' && in_array($toCode, self::COMPLETION_RESUMED_STATUSES, true)) {
             return 'documents_completed';
         }
@@ -252,8 +266,33 @@ class EmployeeNoticeService
             'required_completion' => $moment === 'committee_result'
                 ? $decision?->deferral_required_completion
                 : null,
-            'detail' => in_array($moment, self::REASON_BEARING_MOMENTS, true) ? $reason : null,
+            'detail' => match (true) {
+                in_array($moment, self::REASON_BEARING_MOMENTS, true) => $reason,
+                $moment === 'not_approved' => $this->authorityReason($requestRecord),
+                default => null,
+            },
         ];
+    }
+
+    /**
+     * النموذج 16's عدم الموافقة quotes «الأسباب المثبتة في القرار المعتمد»,
+     * and since 2026-10-18 the approved decision is جهة الاعتماد's: its
+     * reject note, entered with the decision (plan item 7, 2026-10-25). Read
+     * off the stage log rather than the history reason, which on the
+     * confirmation is the مقرر's own internal note. Null for a pre-committee
+     * `rejected`, which has no such decision.
+     */
+    private function authorityReason(Request $requestRecord): ?string
+    {
+        if ($requestRecord->status()->value('code') !== 'not_approved') {
+            return null;
+        }
+
+        return RequestStageLog::query()
+            ->where('request_id', $requestRecord->getKey())
+            ->where('action', 'reject')
+            ->latest('id')
+            ->value('comment');
     }
 
     /** Has this request ever been parked on one of Art. 38's نواقص codes? */

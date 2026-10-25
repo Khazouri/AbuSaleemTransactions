@@ -51,12 +51,15 @@ class ArtThirtyEightStatusTest extends TestCase
         $workflow = app(WorkflowService::class);
         $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting', decisionGrade: 10);
         $requestRecord->update(['approving_authority' => 'minister']);
+        $rapporteur = $this->userWithRole('R02');
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R02'));
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $rapporteur);
         $this->assertSame('local_governance_ministry', $requestRecord->currentStage->code);
         $this->assertSame('awaiting_central_approval', $requestRecord->status->code);
 
         $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R06'));
+        // 2026-10-25 — code 17 arrives with the مقرر's confirmation.
+        $requestRecord = $workflow->transition($requestRecord, 'confirm_decision', $rapporteur);
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
     }
@@ -70,12 +73,15 @@ class ArtThirtyEightStatusTest extends TestCase
     {
         $workflow = app(WorkflowService::class);
         $requestRecord = $this->requestAt('receive_from_committee', 'in_meeting', decisionGrade: 1);
+        $rapporteur = $this->userWithRole('R02');
 
-        $requestRecord = $workflow->transition($requestRecord, 'approve', $this->userWithRole('R02'));
+        $requestRecord = $workflow->transition($requestRecord, 'approve', $rapporteur);
         $this->assertSame('awaiting_municipal_approval', $requestRecord->status->code);
 
         $dean = $this->userWithRole('R07');
         $requestRecord = $workflow->transition($requestRecord, 'approve', $dean);
+        // 2026-10-25 — code 17 arrives with the مقرر's confirmation.
+        $requestRecord = $workflow->transition($requestRecord, 'confirm_decision', $rapporteur);
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
         $this->assertNotContains('approve', $workflow->availableActions($requestRecord->fresh(), $dean)->all());
@@ -111,6 +117,9 @@ class ArtThirtyEightStatusTest extends TestCase
         $this->assertDatabaseCount('approvals', 0);
 
         $requestRecord = $workflow->transition($requestRecord, 'reject', $this->userWithRole('R07'));
+        // 2026-10-25 — code 13 arrives with the مقرر's confirmation.
+        $this->assertSame('authority_rejected', $requestRecord->status->code);
+        $requestRecord = $workflow->transition($requestRecord, 'confirm_decision', $rapporteur);
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('not_approved', $requestRecord->status->code);
     }

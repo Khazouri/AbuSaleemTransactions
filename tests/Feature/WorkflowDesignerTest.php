@@ -131,7 +131,8 @@ class WorkflowDesignerTest extends TestCase
 
         $this->assertSame(0, WorkflowStage::query()->whereKey($goneIds)->count());
         $this->assertSame(0, WorkflowTransition::query()->whereIn('from_stage_id', $goneIds)->count());
-        $this->assertSame(range(1, 8), $draft->stages()->orderBy('order_no')->pluck('order_no')->all());
+        // 2026-10-25 — 13 built-in stages, the مقرر's review included, less the four removed.
+        $this->assertSame(range(1, 9), $draft->stages()->orderBy('order_no')->pluck('order_no')->all());
     }
 
     public function test_a_built_in_step_and_rule_are_edited_but_not_their_code_action_name_or_checklist(): void

@@ -46,7 +46,8 @@ use Illuminate\Support\Str;
  *     approved, and the Approval ledger row of each approve;
  *   - past the committee: the legal member's recommendation, one completed
  *     meeting per run (its محضر on disk) holding every such file with its
- *     decision, and the authority's approve, with قرار الوزير on a minister file.
+ *     decision, and the authority's approve, with قرار الوزير on a minister file,
+ *     then the مقرر's confirmation of it.
  *
  * No notification is sent: forty fake "action required" prompts would only
  * bury the real ones. Each run adds another batch; nothing is deduplicated.
@@ -69,6 +70,7 @@ class TestRequestSeeder extends Seeder
         'receive_from_committee' => 'registered',
         'approval_by_authority' => 'awaiting_municipal_approval',
         'local_governance_ministry' => 'awaiting_central_approval',
+        'rapporteur_decision_review' => 'authority_approved',
         'final_approval_archiving' => 'final_approved',
     ];
 
@@ -81,7 +83,8 @@ class TestRequestSeeder extends Seeder
         'receive_from_committee' => ['intake', 'submit', 'forward', 'register', 'enlist'],
         'approval_by_authority' => ['intake', 'submit', 'forward', 'register', 'enlist', 'to_legal', 'legal', 'committee'],
         'local_governance_ministry' => ['intake', 'submit', 'forward', 'register', 'enlist', 'to_legal', 'legal', 'committee'],
-        'final_approval_archiving' => ['intake', 'submit', 'forward', 'register', 'enlist', 'to_legal', 'legal', 'committee', 'authority'],
+        'rapporteur_decision_review' => ['intake', 'submit', 'forward', 'register', 'enlist', 'to_legal', 'legal', 'committee', 'authority'],
+        'final_approval_archiving' => ['intake', 'submit', 'forward', 'register', 'enlist', 'to_legal', 'legal', 'committee', 'authority', 'confirm'],
     ];
 
     /**
@@ -99,7 +102,9 @@ class TestRequestSeeder extends Seeder
         'to_legal' => [null, null, 'under_legal_review', 'rapporteur'],
         'legal' => [null, null, 'ready', 'legal'],
         'committee' => ['approve', 'approval_by_authority', 'awaiting_municipal_approval', 'rapporteur'],
-        'authority' => ['approve', 'final_approval_archiving', 'final_approved', 'authority'],
+        // 2026-10-25 — the authority's approve waits for the مقرر's confirmation.
+        'authority' => ['approve', 'rapporteur_decision_review', 'authority_approved', 'authority'],
+        'confirm' => ['confirm_decision', 'final_approval_archiving', 'final_approved', 'rapporteur'],
     ];
 
     /** WorkflowService::APPROVAL_LEVELS, for the approves written here. */
@@ -228,7 +233,7 @@ class TestRequestSeeder extends Seeder
     {
         $steps = self::STEPS[$stageCode];
         $authority = match (true) {
-            $stageCode === 'local_governance_ministry', $stageCode === 'final_approval_archiving' && $i % 2 === 1 => 'minister',
+            $stageCode === 'local_governance_ministry', in_array('authority', $steps, true) && $i % 2 === 1 => 'minister',
             in_array('committee', $steps, true) => 'dean',
             default => null,
         };

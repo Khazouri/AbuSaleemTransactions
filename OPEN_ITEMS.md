@@ -13,6 +13,14 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The مقرر's review step is in no report bucket, and the filer still gets the generic stage-change notice — B4 — opened 2026-10-25
+A file at `rapporteur_decision_review` (`authority_approved`/`authority_rejected`) falls into none of
+`CommitteeBoardService`'s or `PeriodicReportService`'s «awaiting approval» buckets, which list statuses by name. Also,
+the Art. 101 notice now waits for the confirmation, but the muteable `stage_changed` notice still tells the filer the
+authority approved/rejected and the file moved to the مقرر's review. The same notice told them about the authority's
+decision before. **To close:** ask whether the two statuses join the «awaiting approval» bucket, and whether
+`stage_changed` should be withheld from the owners on the authority's decision and on a return.
+
 ### A paper deferral records no reason, so the deferral indicators read zero — paper-meeting leftovers — opened 2026-10-23
 The audit of what the paper meeting left behind found that `MeetingResultsController::store()` writes a deferral's
 note to `decisions.comment` only. `deferral_reason`/`deferral_required_document` and the rest stay null, so the

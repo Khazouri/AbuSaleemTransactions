@@ -34,7 +34,9 @@ class TestRequestSeederTest extends TestCase
         'receive_from_committee' => ['intake', 'submit', 'forward', 'register', 'approve'],
         'approval_by_authority' => ['intake', 'submit', 'forward', 'register', 'approve', 'approve'],
         'local_governance_ministry' => ['intake', 'submit', 'forward', 'register', 'approve', 'approve'],
-        'final_approval_archiving' => ['intake', 'submit', 'forward', 'register', 'approve', 'approve', 'approve'],
+        // 2026-10-25 — the authority's approve now waits for the مقرر's confirmation.
+        'rapporteur_decision_review' => ['intake', 'submit', 'forward', 'register', 'approve', 'approve', 'approve'],
+        'final_approval_archiving' => ['intake', 'submit', 'forward', 'register', 'approve', 'approve', 'approve', 'confirm_decision'],
     ];
 
     protected function setUp(): void
@@ -88,7 +90,8 @@ class TestRequestSeederTest extends TestCase
         // One completed meeting decided every file past the committee, with its محضر on disk.
         $meeting = Meeting::query()->with('agendaItems.decision')->sole();
         $this->assertSame('completed', $meeting->status);
-        $this->assertCount(15, $meeting->agendaItems);
+        // Four stages past the committee since the مقرر's review (2026-10-25).
+        $this->assertCount(20, $meeting->agendaItems);
         $this->assertSame(['approve'], $meeting->agendaItems->pluck('decision.outcome')->unique()->values()->all());
         Storage::disk('local')->assertExists($meeting->minutes_file_path);
 
@@ -115,7 +118,8 @@ class TestRequestSeederTest extends TestCase
             ->postJson("/api/meetings/{$item->meeting_id}/agenda/{$item->id}/authority-decision", ['decision' => 'approve'])
             ->assertOk();
 
-        $this->assertSame('final_approved', $requestRecord->fresh()->status->code);
+        // 2026-10-25 — on to the مقرر's review, not yet final.
+        $this->assertSame('authority_approved', $requestRecord->fresh()->status->code);
     }
 
     public function test_a_missing_sole_post_writes_nothing(): void

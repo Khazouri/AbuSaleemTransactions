@@ -62,7 +62,7 @@ class RequestResponsibilityTest extends TestCase
 
     /**
      * 2026-10-18 — there is no execution leg: a finally approved file waits on
-     * its two archives, and the second one closes it.
+     * HR's service-file archive, which closes it.
      */
     public function test_a_finally_approved_file_is_waiting_on_its_archive(): void
     {

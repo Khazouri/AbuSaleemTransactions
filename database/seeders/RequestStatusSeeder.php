@@ -194,6 +194,14 @@ class RequestStatusSeeder extends Seeder
             // the matter is reviewed and then resumes or goes back to the
             // committee. Written only by App\Services\RequestSuspensionService.
             ['execution_suspended', 'موقوفة لمراجعة قانونية', 'Suspended for Legal Review', '#7f1d1d'],
+
+            // --- 2026-10-25: the مقرر reviews جهة الاعتماد's decision -------
+            // The authority's approve or reject is not yet the file's result:
+            // the مقرر confirms it (final_approved / not_approved) or returns
+            // it. Deliberately NOT terminal, and no Art. 101 moment
+            // (EmployeeNoticeService): the employee hears the confirmed result.
+            ['authority_approved', 'اعتمدتها جهة الاعتماد — بانتظار تدقيق المقرر', 'Approved by the authority — awaiting the rapporteur', '#0e7490'],
+            ['authority_rejected', 'رفضتها جهة الاعتماد — بانتظار تدقيق المقرر', 'Declined by the authority — awaiting the rapporteur', '#9a3412'],
         ];
 
         foreach ($statuses as [$code, $nameAr, $nameEn, $color]) {

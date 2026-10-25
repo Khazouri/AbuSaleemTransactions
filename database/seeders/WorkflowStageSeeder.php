@@ -9,7 +9,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Seeds the 12 lifecycle stages, in order, from intake to archiving.
+ * Seeds the 13 lifecycle stages, in order, from intake to archiving.
  *
  * The `responsible_role_id` column set here is INDICATIVE — it tells the UI
  * who a request is normally sitting with at each stage. It is NOT used for
@@ -28,7 +28,8 @@ use Illuminate\Support\Facades\DB;
  * standard — `ministry_endorsement` (pre-committee) and `competent_authority`
  * (a fourth post-committee approval tier) — see AGENT_NOTES.md. 14 stages
  * became 12; every code below order 8 is unchanged, everything from
- * `forward_to_committee` onward shifted down.
+ * `forward_to_committee` onward shifted down. 2026-10-25 added stage 12,
+ * `rapporteur_decision_review`, so archiving is 13.
  *
  * Runs after RoleSeeder (looks roles up by code).
  *
@@ -46,7 +47,7 @@ use Illuminate\Support\Facades\DB;
  * at that stage. A stage stays `null, null` when its row carries no day count
  * ("الاجتماع التالي") or when Appendix 37 names no action for it at all — the
  * honest gap Stage 52 established, never a fabricated target. The 14 rows map
- * onto these 12 stages as:
+ * onto these 13 stages as:
  *
  *   2  direct_manager_review     استلام الطلب من الرئيس المباشر  يوم عمل
  *   3  administrative_routing    إحالة الطلب للجهة المعنية       يومان
@@ -56,7 +57,10 @@ use Illuminate\Support\Facades\DB;
  *   7  observations              إعداد مذكرة العرض               يومان
  *   9  receive_from_committee    إعداد المحضر بعد الاجتماع        3 أيام
  *   10 approval_by_authority     إحالة المحضر للاعتماد           يومان
- *   12 final_approval_archiving  إحالة القرار للتنفيذ / إشعار النتيجة  يوم / يومان
+ *   13 final_approval_archiving  إحالة القرار للتنفيذ / إشعار النتيجة  يوم / يومان
+ *
+ * Stage 12 (`rapporteur_decision_review`, 2026-10-25) has no Appendix 37 row;
+ * its one day is this system's own target for a check, not a study.
  *
  * `reviewer_review` keeps المراجعة القانونية even though Stage 68 built Art.
  * 21's pre-meeting legal review as a status-only substate of
@@ -65,7 +69,7 @@ use Illuminate\Support\Facades\DB;
  * اللوائح") is still the only one that IS a regulatory-conformance review.
  *
  * The min/max pair is a range the source states, never a sum this seeder
- * computes: stage 12 is the only row using it, because Appendix 37 gives that
+ * computes: stage 13 is the only row using it, because Appendix 37 gives that
  * stage two counted actions (1 day and 2 days) rather than one figure.
  */
 class WorkflowStageSeeder extends Seeder
@@ -88,10 +92,10 @@ class WorkflowStageSeeder extends Seeder
         // order_no is UNIQUE. A naive in-place renumber of existing rows
         // collides mid-loop (e.g. a stage claiming order_no=8 while another
         // still holds 8 from before this run). Bump every existing row out
-        // of the entire 1..12 target range first, in one set-based UPDATE,
+        // of the entire 1..13 target range first, in one set-based UPDATE,
         // so the second pass below can freely write final values with no row
         // ever transiently colliding with another. Safe headroom: order_no
-        // is unsignedSmallInteger (max 65535) and there are only 12 rows.
+        // is unsignedSmallInteger (max 65535) and there are only 13 rows.
         // Scoped to the seeded version: order_no is unique per version, and
         // a version an admin published is never the seeder's to renumber.
         WorkflowStage::query()
@@ -138,7 +142,10 @@ class WorkflowStageSeeder extends Seeder
             // to (`requests.approving_authority`).
             [10, 'approval_by_authority',     'اعتماد العميد',                   'Dean approval',                'R07', 2, 2],
             [11, 'local_governance_ministry', 'اعتماد الوزير',                   'Minister approval',            'R06', null, null],
-            [12, 'final_approval_archiving',  'الاعتماد النهائي والأرشفة',        'Final approval & archiving',   'R07', 1, 2],
+            // 2026-10-25 — the مقرر confirms the authority's decision or
+            // returns it. A one-day target: it is a check, not a study.
+            [12, 'rapporteur_decision_review', 'تدقيق المقرر لقرار جهة الاعتماد', "Rapporteur's review of the authority's decision", 'R02', 1, 1],
+            [13, 'final_approval_archiving',  'الاعتماد النهائي والأرشفة',        'Final approval & archiving',   'R07', 1, 2],
         ];
 
         foreach ($stages as [$order, $code, $nameAr, $nameEn, $roleCode, $targetMin, $targetMax]) {

@@ -19,6 +19,44 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-25 16:40 EET — Claude — The مقرر reviews جهة الاعتماد's decision (B4, complete, branch only)
+
+Built per the plan below, with no migration and no Vue change. The confirm and return are ordinary transitions in the
+request page's wizard, and `workflowSteps()` lists `confirm_decision` as an R02 task without any change.
+**The main session must reseed after merging**, in this order: `RequestStatusSeeder`, `WorkflowStageSeeder`,
+`WorkflowTransitionSeeder`. The new `WorkflowSeeder` runs all three, and production gets the same run through the
+console's «إعادة زراعة مسار العمل».
+
+**Deviation:** the `not_approved` notice quotes the latest `reject` stage-log comment, never the history reason,
+because on a confirmation that reason is the مقرر's internal note. The review stage has no cancel and no
+`deadline_expired` row, since neither may set aside a decision the authority has already made. The مقرر's copy in
+`requestNotice()` now never fires, because the مقرر is the actor on the confirm. HR and the manager still get theirs.
+Open items: report buckets and the filer's `stage_changed` notice (OPEN_ITEMS).
+
+Verified:
+- `RapporteurDecisionReviewTest` (10) went RED (9 failing), then GREEN; 8 existing test files were updated in place;
+- full suite green, 826 / 7167 plus the maintenance files 18 / 163 and 9 / 27;
+- Pint clean; build passes (dist reverted); parity 1789; `aislop ci` exit 0.
+
+---
+### 2026-10-25 15:31 EET — Claude — Implementation plan: the مقرر reviews جهة الاعتماد's decision (B4)
+
+Plan item 7, workflow half, on `feat/rapporteur-decision-review`. After العميد or الوزير approves or rejects, the file
+goes to a new built-in stage `rapporteur_decision_review` (R02, order 12; `final_approval_archiving` becomes 13).
+- **Statuses:** new non-terminal `authority_approved` / `authority_rejected`, stamped by the authorities' four rows.
+- **Confirm:** two R02 `confirm_decision` rows keyed on the required status lead to `final_approval_archiving` with
+  `final_approved` / `not_approved`.
+- **Return:** one R02 `return_to_authority` exception, note required. `WorkflowService` sends it back to the stage and
+  status the file held before it reached the review, which covers dean, minister and escalated files.
+- **Notices:** `EmployeeNoticeService` stays silent on the authority's decision and on a return. The `not_approved`
+  notice carries the authority's reject note.
+- **Other wiring:** responsibility (مقرر + `review_authority_decision`), locale keys, both test-data generators, and a
+  `db:seed:workflow` maintenance entry (a new `WorkflowSeeder`: statuses, stages, transitions; no grants).
+
+Verify: new `RapporteurDecisionReviewTest` (RED then GREEN), update the tests that pin the old path, full PHPUnit,
+Pint, build (dist reverted), parity, aislop ci.
+
+---
 ### 2026-10-25 16:05 EET — Claude — «اعتماد العميد — nothing happens» fixed (B2 `fix/authority-navigation`, complete)
 
 Built per the plan below; no migration, seeder or route. **Root cause, confirmed by a RED test:** the bell sends العميد

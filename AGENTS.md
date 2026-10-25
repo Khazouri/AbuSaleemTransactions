@@ -208,8 +208,18 @@ Key architectural facts worth knowing before changing things:
   `approving_authority` (`dean`|`minister`, stored on `requests`) on every
   request row but a تأجيل. `WorkflowService::routesToMinister()` sends a
   minister file from the committee to `local_governance_ministry` (R06), and a
-  dean file goes to `approval_by_authority`, whose approve row is now R07 →
-  `final_approval_archiving` + `final_approved`. R05 approves nothing. The
+  dean file goes to `approval_by_authority` (R07). R05 approves nothing.
+  **The authority's decision is not the result until المقرر reviews it** (plan
+  item 7, 2026-10-25): R07/R06's approve and reject land on
+  `rapporteur_decision_review` (R02) as `authority_approved` /
+  `authority_rejected`. There R02's `confirm_decision` (two rows keyed on that
+  status) gives `final_approval_archiving` + `final_approved` / `not_approved`.
+  Its `return_to_authority` (note required) sends the file back to the stage
+  and status it decided from (`WorkflowService::authorityArrival()`), which
+  covers dean, minister and escalated files. The employee's Art. 101 notice
+  waits for the confirmation, and the `not_approved` one quotes the authority's
+  reject note. `db:seed:workflow` on the maintenance console reseeds the path
+  without touching grants. The
   request type's grade threshold only suggests (`suggested_authority` on the
   agenda item). الوزير is one sole post (`SOLE_ROLES['minister']`,
   named by R08), an account مدير مكتب العميد operates.
@@ -301,8 +311,8 @@ Key architectural facts worth knowing before changing things:
   validator refuses a publish that breaks what the code depends on:
   - an unreachable anchor;
   - a missing required rule (`required_rule_missing`: a normal `submit` at
-    intake and `forward` at the manager, neither requiring a note; `approve`
-    at approval_by_authority; every committee decision outcome);
+    intake and `forward` at the manager, neither requiring a note; every
+    committee decision outcome);
   - `status_unmet` (a file reaching a stage with a status none of its exits
     accept).
 
