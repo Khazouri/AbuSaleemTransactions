@@ -22,6 +22,13 @@ class Setting extends Model
     public const MEETING_ACCEPTANCES_REQUIRED = 'meeting_acceptances_required';
 
     /**
+     * R08's Settings checkbox (user decision 2026-10-25): while '1', every
+     * attendee, guests included, has accepted the date the مقرر sets, so the
+     * meeting is `scheduled` at once.
+     */
+    public const MEETING_AUTO_ACCEPT = 'meeting_auto_accept';
+
+    /**
      * R08's Settings colours (user decision 2026-10-19): `task_color_<source>`
      * holds the #rrggbb that «المهام المعلقة» tints that category's rows with.
      */

@@ -117,7 +117,11 @@ class MeetingController extends Controller
             throw ValidationException::withMessages(['guests' => ['المدعو الإضافي لا يكون من شاغلي مقاعد اللجنة الخمسة.']]);
         }
 
-        [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request, $numbers, $seats, $guests) {
+        // User decision 2026-10-25 — Settings can answer the date for everyone.
+        $autoAccept = Setting::enabled(Setting::MEETING_AUTO_ACCEPT);
+        $accepted = ['invitation_status' => 'confirmed', 'responded_at' => now()];
+
+        [$meeting, $invitedUserIds] = DB::transaction(function () use ($data, $request, $numbers, $seats, $guests, $autoAccept, $accepted) {
             $rapporteurId = $seats['rapporteur']->user_id;
 
             $meeting = Meeting::create([
@@ -127,7 +131,7 @@ class MeetingController extends Controller
                 'rapporteur_user_id' => $rapporteurId,
                 // Stage 102 — a proposed date, approved only once enough
                 // invited members accept it (respond()).
-                'status' => Meeting::STATUS_PENDING_CONFIRMATION,
+                'status' => $autoAccept ? 'scheduled' : Meeting::STATUS_PENDING_CONFIRMATION,
                 // Stage 70 — [D] Appendix 15 numbers the meeting itself
                 // (PM-MTG/YEAR/NN), and Appendix 8 refuses to send a محضر for
                 // approval without "تطابق رقم الاجتماع". Server-minted rather
@@ -144,11 +148,11 @@ class MeetingController extends Controller
                 MeetingAttendee::create([
                     'meeting_id' => $meeting->id,
                     'user_id' => $userId,
-                    ...($userId === $rapporteurId ? ['invitation_status' => 'confirmed', 'responded_at' => now()] : []),
+                    ...($autoAccept || $userId === $rapporteurId ? $accepted : []),
                 ]);
             }
             foreach ($guests as $guest) {
-                $meeting->attendees()->create($guest);
+                $meeting->attendees()->create([...$guest, ...($autoAccept ? $accepted : [])]);
             }
 
             return [$meeting, $memberUserIds->merge($guests->pluck('user_id'))];
@@ -180,7 +184,8 @@ class MeetingController extends Controller
         $data = $request->validated();
 
         // Stage 102 — a new date is a new proposal: every member answers it
-        // again, and the meeting is not approved until enough accept.
+        // again, and the meeting is not approved until enough accept — unless
+        // Settings' auto-accept answers it for everyone (2026-10-25).
         $dateChanged = isset($data['scheduled_at'])
             && ! Carbon::parse($data['scheduled_at'])->equalTo($meeting->scheduled_at);
         if ($dateChanged) {
@@ -191,6 +196,13 @@ class MeetingController extends Controller
         }
 
         DB::transaction(function () use ($meeting, $data, $dateChanged) {
+            if ($dateChanged && Setting::enabled(Setting::MEETING_AUTO_ACCEPT)) {
+                $meeting->update([...$data, 'status' => 'scheduled']);
+                $meeting->attendees()->update(['invitation_status' => 'confirmed', 'responded_at' => now()]);
+
+                return;
+            }
+
             $meeting->update($dateChanged ? [...$data, 'status' => Meeting::STATUS_PENDING_CONFIRMATION] : $data);
 
             if ($dateChanged) {

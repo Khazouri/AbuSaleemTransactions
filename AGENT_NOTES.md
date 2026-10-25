@@ -19,6 +19,31 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-25 14:50 EET — Claude — A Settings checkbox auto-accepts a meeting for every attendee (complete)
+
+Built per the plan below; no migration. `MeetingController::store()` reads `Setting::MEETING_AUTO_ACCEPT` once, before
+its transaction. `update()`'s date change takes its own branch while the box is ticked, and nothing else changed: with
+the box off, `respond()` and the reset are as before. `SettingsView`'s `toggleBypass` became a shared `toggle()`.
+**Not seeded on the real MySQL:** Homestead was unreachable. That is harmless, because a missing row reads as off and
+ticking the box POSTs the row. Verified: two new `CommitteeSinglePathTest` cases went RED, then GREEN; full suite
+844 / 6978; Pint clean; build passes (`dist` committed, production API URL in the bundle); parity 1786; `aislop ci`
+exit 0 (98). Not checked in a browser.
+
+---
+### 2026-10-25 14:24 EET — Claude — Implementation plan: a Settings checkbox auto-accepts a meeting for every attendee
+
+User: «a check in the settings that auto accepts the meeting for all attendees». Agreed in chat:
+- a seeded setting `meeting_auto_accept` (`'0'`, `firstOrCreate`);
+- while ticked, `MeetingController::store()` writes every attendee (seats and guests) as `confirmed` and the meeting
+  as `scheduled`. `update()`'s date change does the same instead of resetting the answers;
+- the invitation still goes out;
+- `SettingsView` gets a checkbox card.
+
+Accepted side effect: a meeting is never `pending_confirmation` while ticked, so guests can be added only in the
+scheduling wizard. No migration. Verify: new `CommitteeSinglePathTest` cases (RED then GREEN), full PHPUnit, Pint,
+build (`dist` committed), parity, aislop ci, `SettingSeeder` on the real DB.
+
+---
 ### 2026-10-24 18:30 EET — Claude — «توليد طلبات تجريبية» writes full attachments and history (complete)
 
 Built per the plan below; no migration or frontend change. Filers are now limited to accounts with an employee number
