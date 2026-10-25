@@ -19,6 +19,23 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-25 17:30 EET — Claude — Paper-meeting plan, wave 1 merged into main (B1–B4)
+
+Four branches were built in parallel worktrees and merged into `main` in this order: `feat/hr-only-archive`,
+`feat/minutes-pages`, `fix/authority-navigation`, `feat/rapporteur-decision-review`. Branches left `dist` out (user OK);
+it is rebuilt once here. One cross-branch fix: B2's escalated-file test now expects the مقرر's review stage.
+
+Verified on the merged `main`:
+- full suite 836 + 9 + 18 green;
+- parity 1805; `aislop ci` exit 0; build passes, with the production API URL in the bundle.
+
+**Not applied to the real MySQL** (Homestead unreachable):
+- B1's migration `2026_10_25_153000_add_minutes_pages_to_meetings_table`;
+- B4's reseed (`php artisan db:seed --class=WorkflowSeeder`).
+
+Run both once the VM is up. Wave 2 (the bulk authority قرار, and the results rollback) follows.
+
+---
 ### 2026-10-25 16:40 EET — Claude — The مقرر reviews جهة الاعتماد's decision (B4, complete, branch only)
 
 Built per the plan below, with no migration and no Vue change. The confirm and return are ordinary transitions in the
