@@ -5,10 +5,13 @@ namespace Tests\Feature;
 use App\Models\MaintenanceRun;
 use App\Models\Meeting;
 use App\Models\Request;
+use App\Models\RequestStatus;
 use App\Models\Role;
 use App\Models\Screen;
 use App\Models\ScreenRolePermission;
 use App\Models\User;
+use App\Models\WorkflowStage;
+use App\Models\WorkflowTransition;
 use App\Services\Maintenance\MaintenanceCommandCatalog;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\TestRequestSeeder;
@@ -81,6 +84,31 @@ class MaintenanceConsoleTest extends TestCase
         $reports = Screen::where('code', 'reports')->firstOrFail();
         $this->assertSame('records', $reports->group);
         $this->assertSame('Reports & Statistics', $reports->name_en);
+        $this->assertSame($cell->can_export, $cell->fresh()->can_export);
+    }
+
+    /** A release that changes the path reaches a live host without resetting any grant (2026-10-25). */
+    public function test_reseeding_the_workflow_restores_the_path_and_keeps_customised_grants(): void
+    {
+        config()->set('app.debug', false);
+        WorkflowStage::where('code', 'rapporteur_decision_review')->delete();
+        RequestStatus::where('code', 'authority_approved')->delete();
+        $cell = ScreenRolePermission::query()
+            ->where('screen_id', Screen::where('code', 'reports')->value('id'))
+            ->where('role_id', Role::where('code', 'R01')->value('id'))
+            ->firstOrFail();
+        $cell->update(['can_export' => ! $cell->can_export]);
+
+        $this->assertContains('db:seed:workflow', MaintenanceCommandCatalog::codes());
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'db:seed:workflow'])
+            ->assertOk();
+
+        $review = WorkflowStage::where('code', 'rapporteur_decision_review')->firstOrFail();
+        $this->assertSame(12, $review->order_no);
+        $this->assertSame(2, WorkflowTransition::where('from_stage_id', $review->id)->where('action', 'confirm_decision')->count());
+        $this->assertTrue(WorkflowTransition::where('to_stage_id', $review->id)->where('action', 'approve')
+            ->where('set_status_id', RequestStatus::where('code', 'authority_approved')->value('id'))->exists());
         $this->assertSame($cell->can_export, $cell->fresh()->can_export);
     }
 

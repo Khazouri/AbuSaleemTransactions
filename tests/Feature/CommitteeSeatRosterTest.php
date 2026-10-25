@@ -100,6 +100,8 @@ class CommitteeSeatRosterTest extends TestCase
         // workflow move is what is tested here.
         if ($authority === 'dean') {
             app(WorkflowService::class)->transition($requestRecord->fresh(), 'approve', $this->userWithRole('R07'));
+            // 2026-10-25 — final once the مقرر confirms the dean's approve.
+            app(WorkflowService::class)->transition($requestRecord->fresh(), 'confirm_decision', $rapporteur);
         }
 
         return $requestRecord;

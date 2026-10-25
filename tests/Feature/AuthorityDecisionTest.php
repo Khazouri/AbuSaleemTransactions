@@ -6,6 +6,7 @@ use App\Models\Attachment;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Models\User;
+use App\Notifications\ActionRequiredNotification;
 use App\Notifications\RequestNoticeCopyNotification;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,8 +19,9 @@ use Tests\TestCase;
 /**
  * The committee only recommends (user decision 2026-10-18): العميد decides a
  * dean file, and مكتب العميد records the minister's paper قرار on a minister
- * file, each from the meeting's own page. The result is announced, and the
- * file goes straight to its two archives, which close it.
+ * file, each from the meeting's own page. Once the مقرر confirms it
+ * (2026-10-25) the result is announced, and the file goes to its two archives,
+ * which close it.
  */
 class AuthorityDecisionTest extends TestCase
 {
@@ -56,9 +58,10 @@ class AuthorityDecisionTest extends TestCase
 
         $this->decide($dean, $meeting, $item, ['decision' => 'approve', 'note' => 'يعتمد'])->assertOk();
 
+        // 2026-10-25 — the مقرر reviews it before it is final (RapporteurDecisionReviewTest).
         $requestRecord = $item->request->fresh();
-        $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
-        $this->assertSame('final_approved', $requestRecord->status->code);
+        $this->assertSame('rapporteur_decision_review', $requestRecord->currentStage->code);
+        $this->assertSame('authority_approved', $requestRecord->status->code);
     }
 
     public function test_the_dean_declines_and_the_file_is_not_approved(): void
@@ -67,9 +70,10 @@ class AuthorityDecisionTest extends TestCase
 
         $this->decide($this->userWith('R07'), $meeting, $item, ['decision' => 'reject', 'note' => 'لا يعتمد'])->assertOk();
 
+        // 2026-10-25 — not_approved once the مقرر confirms it.
         $requestRecord = $item->request->fresh();
-        $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
-        $this->assertSame('not_approved', $requestRecord->status->code);
+        $this->assertSame('rapporteur_decision_review', $requestRecord->currentStage->code);
+        $this->assertSame('authority_rejected', $requestRecord->status->code);
     }
 
     public function test_the_ministers_office_must_attach_the_paper_decision(): void
@@ -86,7 +90,8 @@ class AuthorityDecisionTest extends TestCase
             'decision_file' => UploadedFile::fake()->create('قرار.pdf', 80, 'application/pdf'),
         ])->assertOk();
 
-        $this->assertSame('final_approved', $item->request->fresh()->status->code);
+        // 2026-10-25 — on to the مقرر's review.
+        $this->assertSame('authority_approved', $item->request->fresh()->status->code);
         $attachment = Attachment::where('request_id', $item->request_id)->sole();
         $this->assertSame('approval', $attachment->file_section);
         Storage::disk('local')->assertExists($attachment->path);
@@ -144,7 +149,11 @@ class AuthorityDecisionTest extends TestCase
         Notification::fake();
         $this->decide($this->userWith('R07'), $meeting, $item, ['decision' => 'approve'])->assertOk();
 
-        Notification::assertSentTo($rapporteur, RequestNoticeCopyNotification::class);
+        // 2026-10-25 — the مقرر is asked to review the decision, and HR and the
+        // manager hear the result once the مقرر confirms it.
+        Notification::assertSentTo($rapporteur, ActionRequiredNotification::class);
+        Notification::assertNotSentTo($hr, RequestNoticeCopyNotification::class);
+        $this->confirm($rapporteur, $item);
         Notification::assertSentTo($hr, RequestNoticeCopyNotification::class);
     }
 
@@ -153,6 +162,8 @@ class AuthorityDecisionTest extends TestCase
         [$meeting, $item] = $this->recommended('approve', 'dean');
         $this->decide($this->userWith('R07'), $meeting, $item, ['decision' => 'approve'])->assertOk();
         $rapporteur = $meeting->committee->seatRapporteur();
+        // 2026-10-25 — archived once the مقرر confirms the decision.
+        $this->confirm($rapporteur, $item);
 
         $this->actingAs($rapporteur, 'sanctum')
             ->patchJson("/api/requests/{$item->request_id}/archive/committee-file", ['location' => 'خزانة 3'])
@@ -179,6 +190,13 @@ class AuthorityDecisionTest extends TestCase
         ])->assertOk();
 
         return [$meeting->fresh(), $item->fresh()];
+    }
+
+    private function confirm(User $rapporteur, MeetingRequest $item): void
+    {
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson("/api/requests/{$item->request_id}/transition", ['action' => 'confirm_decision'])
+            ->assertOk();
     }
 
     /** @param  array<string, mixed>  $payload */

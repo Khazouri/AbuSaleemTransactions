@@ -101,6 +101,18 @@ class MaintenanceCommandCatalog
             'description_ar' => 'تحديث أسماء الشاشات ومساراتها وأقسامها وترتيبها في القائمة الجانبية من الإصدار المرفوع. الشاشة الجديدة على هذا الخادم تُمنح صلاحياتها الافتراضية، أما صلاحيات بقية الشاشات فلا تُمس. شغّله بعد رفع إصدار يغيّر القائمة.',
             'description_en' => 'Updates the menu\'s screen names, routes, sections and order from the uploaded release. A screen new to this host gets its default grants; every other screen\'s grants are untouched. Run it after uploading a release that changes the menu.',
         ],
+        // 2026-10-25 — the مقرر's review step reached production through this.
+        'db:seed:workflow' => [
+            'kind' => self::KIND_ARTISAN,
+            'artisan' => 'db:seed',
+            'params' => ['--class' => 'WorkflowSeeder', '--force' => true],
+            'group' => 'database',
+            'destructive' => false,
+            'label_ar' => 'إعادة زراعة مسار العمل',
+            'label_en' => 'Re-seed the workflow',
+            'description_ar' => 'تحديث حالات الطلبات ومراحل المسار القياسي وقواعد انتقاله من الإصدار المرفوع، دون المساس بالصلاحيات. شغّله بعد رفع إصدار يغيّر مسار العمل.',
+            'description_en' => 'Updates the request statuses, the stages and rules of the standard path from the uploaded release, without touching any grant. Run it after uploading a release that changes the workflow.',
+        ],
         'db:seed:test-users' => [
             'kind' => self::KIND_ARTISAN,
             'artisan' => 'db:seed',

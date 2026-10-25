@@ -70,7 +70,9 @@ class WorkflowServiceTest extends TestCase
             ['receive_from_committee', 'approval_by_authority', 'approve', 'R02', 'awaiting_municipal_approval'],
             // 2026-10-17 — جهة الاعتماد is one step: with no authority picked
             // (or `dean`), العميد approves here and the file is fully approved.
-            ['approval_by_authority', 'final_approval_archiving', 'approve', 'R07', 'final_approved'],
+            // 2026-10-25 — العميد's approve waits for the مقرر's confirmation.
+            ['approval_by_authority', 'rapporteur_decision_review', 'approve', 'R07', 'authority_approved'],
+            ['rapporteur_decision_review', 'final_approval_archiving', 'confirm_decision', 'R02', 'final_approved'],
             // 2026-10-18 — no execution step: final_approved waits for the
             // two archives, which close the file (RequestClosureService).
         ];
@@ -95,13 +97,13 @@ class WorkflowServiceTest extends TestCase
 
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
-        $this->assertCount(6, $requestRecord->stageLogs);
-        $this->assertCount(6, $requestRecord->statusHistory);
+        $this->assertCount(7, $requestRecord->stageLogs);
+        $this->assertCount(7, $requestRecord->statusHistory);
         $this->assertSame(
             [
                 'direct_manager_review', 'receive_and_register',
                 'requirements_check', 'receive_from_committee', 'approval_by_authority',
-                'final_approval_archiving',
+                'rapporteur_decision_review', 'final_approval_archiving',
             ],
             $requestRecord->stageLogs()
                 ->with('toStage')
@@ -174,7 +176,8 @@ class WorkflowServiceTest extends TestCase
         // reviewer_review, observations and forward_to_committee off the path,
         // one row each: 11 - 3 = 8. 2026-10-18 dropped the execution
         // self-loop and gave each authority a `reject`: 8 - 1 + 2 = 9.
-        $this->assertCount(9, $rules);
+        // 2026-10-25 added the مقرر's two `confirm_decision` rows: 9 + 2 = 11.
+        $this->assertCount(11, $rules);
         $this->assertFalse($rules->contains('is_exception', true));
         $this->assertFalse($rules->contains('requires_comment', true));
 
@@ -187,6 +190,7 @@ class WorkflowServiceTest extends TestCase
             'receive_from_committee' => 1,
             'approval_by_authority' => 2,
             'local_governance_ministry' => 2,
+            'rapporteur_decision_review' => 2,
             'final_approval_archiving' => 0,
         ] as $stageCode => $expectedCount) {
             $this->assertSame($expectedCount, $countsByFromStageCode->get($stageCode, 0), "stage {$stageCode}");
@@ -332,9 +336,11 @@ class WorkflowServiceTest extends TestCase
         // cancel row per stage again after Stage 96 — receive_and_register
         // briefly had three, one per receiving role, and now has only R12's.
         // Stage 102 — stages 6, 7 and 8 are off the path: 12 - 3 = 9.
+        // 2026-10-25 — the مقرر's review (12) has no cancel: the authority has
+        // already decided. Archiving moved to 13.
         $this->assertCount(9, $cancelRules);
         $this->assertEqualsCanonicalizing(
-            [1, 2, 3, 4, 5, 9, 10, 11, 12],
+            [1, 2, 3, 4, 5, 9, 10, 11, 13],
             $cancelRules->pluck('fromStage.order_no')->all(),
         );
         // The two manager-gated cancels take an optional note (2026-10-07);
@@ -369,7 +375,9 @@ class WorkflowServiceTest extends TestCase
         $this->assertSame('local_governance_ministry', $requestRecord->currentStage->code);
         $this->assertSame('awaiting_central_approval', $requestRecord->status->code);
 
+        // 2026-10-25 — via the مقرر's confirmation of الوزير's approve.
         $requestRecord = $service->transition($requestRecord, 'approve', $actors['R06']);
+        $requestRecord = $service->transition($requestRecord, 'confirm_decision', $actors['R02']);
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
 

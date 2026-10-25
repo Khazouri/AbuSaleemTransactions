@@ -103,20 +103,25 @@ class WorkflowTransitionSeeder extends Seeder
             // holds no approval at all. A minister file never comes here —
             // WorkflowService sends the committee's approve straight to the
             // ministry stage, whose own row below is unchanged.
-            ['approval_by_authority', 'final_approval_archiving', 'approve', 'R07', 'final_approved'],
+            //
+            // 2026-10-25 — and none of the four authority rows here is the
+            // file's result any more: each lands on the مقرر's review
+            // (`rapporteur_decision_review`), whose `confirm_decision` rows
+            // below stamp final_approved / not_approved. The from-stage is
+            // unchanged, so the approve still writes its level 3/4 Approval.
+            ['approval_by_authority', 'rapporteur_decision_review', 'approve', 'R07', 'authority_approved'],
             // Stage 57 — ministry approval is now the literal last gate
             // before final_approval_archiving (competent_authority, a fourth
             // approval tier the standard never describes, is gone); arrival
-            // here means every required approval is complete, so this row
-            // sets final_approved directly rather than the tail's usual
-            // still-pending `approved`.
-            ['local_governance_ministry', 'final_approval_archiving', 'approve', 'R06', 'final_approved'],
+            // here means every required approval is complete (final_approved
+            // once the مقرر confirms it, 2026-10-25).
+            ['local_governance_ministry', 'rapporteur_decision_review', 'approve', 'R06', 'authority_approved'],
             // 2026-10-18 — the committee only recommends, so the authority's
             // own "no" is the file's final result (Art. 38 code 13), whichever
-            // way the committee leaned. Recorded from the meeting page
-            // (MeetingResultsController::authorityDecision()).
-            ['approval_by_authority', 'final_approval_archiving', 'reject', 'R07', 'not_approved'],
-            ['local_governance_ministry', 'final_approval_archiving', 'reject', 'R06', 'not_approved'],
+            // way the committee leaned, once the مقرر confirms it. Recorded
+            // from the meeting page (MeetingResultsController::authorityDecision()).
+            ['approval_by_authority', 'rapporteur_decision_review', 'reject', 'R07', 'authority_rejected'],
+            ['local_governance_ministry', 'rapporteur_decision_review', 'reject', 'R06', 'authority_rejected'],
             // 2026-10-18 — no execution leg: the old R07 self-loop
             // (final_approved -> in_execution) is gone, and an approved file
             // goes straight to its two archives. The generic delete above
@@ -299,6 +304,47 @@ class WorkflowTransitionSeeder extends Seeder
                 ],
             );
         }
+
+        // 2026-10-25 — the مقرر confirms جهة الاعتماد's decision. One action,
+        // two rows told apart by the status the authority stamped, so the
+        // confirmation can only ever carry the authority's own answer forward.
+        // Same widened upsert key as the `register` rows above, for the same
+        // reason: two rows share (from_stage, action, role).
+        foreach (['authority_approved' => 'final_approved', 'authority_rejected' => 'not_approved'] as $decided => $result) {
+            WorkflowTransition::updateOrCreate(
+                [
+                    'request_type_id' => null,
+                    'from_stage_id' => $stages['rapporteur_decision_review']->id,
+                    'action' => 'confirm_decision',
+                    'required_role_id' => $roles['R02']->id,
+                    'required_status_id' => $statuses[$decided]->id,
+                ],
+                [
+                    'to_stage_id' => $stages['final_approval_archiving']->id,
+                    'requires_submitter_manager' => false,
+                    'requires_creator' => false,
+                    'set_status_id' => $statuses[$result]->id,
+                    'is_exception' => false,
+                    'requires_comment' => false,
+                    'order_no' => 14,
+                ],
+            );
+        }
+
+        // 2026-10-25 — or returns it to the same authority to decide again,
+        // with the reason. The row's destination is only the dean's default:
+        // WorkflowService::destinationStageId() sends the file back to the
+        // stage, and the status, it came from — the ministry for a minister or
+        // an escalated file. No cancel or deadline_expired here: the authority
+        // has already decided, and neither may set that decision aside.
+        $this->seedException(
+            $stages['rapporteur_decision_review']->id,
+            $stages['approval_by_authority']->id,
+            'return_to_authority',
+            $roles['R02']->id,
+            $statuses['awaiting_municipal_approval']->id,
+            57,
+        );
 
         // Stage 16 — backward exception paths always preserve an actor's
         // reason, while cancellation keeps the last active stage as context.

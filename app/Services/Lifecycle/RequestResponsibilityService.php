@@ -107,6 +107,8 @@ class RequestResponsibilityService
         // file are archived, and the second archive closes the file.
         'archive_file' => ['ar' => 'أرشفة ملف اللجنة والملف الوظيفي', 'en' => 'Archive the committee and service files'],
         'reprocess_approval_return' => ['ar' => 'إثبات إجراء إعادة المعالجة', 'en' => 'Record the re-processing action'],
+        // 2026-10-25 — the مقرر confirms جهة الاعتماد's decision or returns it.
+        'review_authority_decision' => ['ar' => 'تدقيق قرار جهة الاعتماد', 'en' => "Review the authority's decision"],
         'closed' => ['ar' => 'لا إجراء مطلوب — المعاملة مقفلة', 'en' => 'No action required — the file is closed'],
         // Workflow designer — slice 3: whatever a custom step asks; the stage name says what.
         'complete_step' => ['ar' => 'إنجاز إجراء المرحلة', 'en' => "Complete this step's action"],
@@ -169,6 +171,8 @@ class RequestResponsibilityService
         'approved' => 'mayor',
         'awaiting_central_approval' => 'ministry',
         'returned_by_approving_body' => 'committee_rapporteur',
+        'authority_approved' => 'committee_rapporteur',
+        'authority_rejected' => 'committee_rapporteur',
         'in_execution' => 'execution_body',
         'executed' => 'committee_rapporteur',
         'not_approved' => 'committee_rapporteur',
@@ -199,6 +203,8 @@ class RequestResponsibilityService
         'approved' => 'send_for_approval',
         'awaiting_central_approval' => 'await_ministry_reply',
         'returned_by_approving_body' => 'reprocess_approval_return',
+        'authority_approved' => 'review_authority_decision',
+        'authority_rejected' => 'review_authority_decision',
         'final_approved' => 'archive_file',
         'in_execution' => 'update_employee_file',
         'executed' => 'close_request',
@@ -220,6 +226,7 @@ class RequestResponsibilityService
         'receive_from_committee' => 'await_meeting',
         'approval_by_authority' => 'send_for_approval',
         'local_governance_ministry' => 'await_ministry_reply',
+        'rapporteur_decision_review' => 'review_authority_decision',
         'final_approval_archiving' => 'archive_file',
     ];
 

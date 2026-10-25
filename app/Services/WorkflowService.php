@@ -830,11 +830,16 @@ class WorkflowService
      * جهة الاعتماد (user decision 2026-10-17): the committee's approving rows
      * lead to العميد's stage, and a file the chair gave to الوزير goes to the
      * ministry stage instead. Each authority is one step; both then land on
-     * final_approval_archiving through their own seeded row. A null authority
-     * (a file decided before this existed) keeps the dean's row.
+     * the مقرر's review through their own seeded row (2026-10-25), and the
+     * مقرر's return goes back to whichever one decided (authorityArrival()).
+     * A null authority (a file decided before this existed) keeps the dean's row.
      */
     private function destinationStageId(Request $requestRecord, WorkflowTransition $rule): int
     {
+        if ($rule->action === 'return_to_authority') {
+            return $this->authorityArrival($requestRecord)['stage_id'] ?? $rule->to_stage_id;
+        }
+
         if (! $this->routesToMinister($requestRecord, $rule)) {
             return $rule->to_stage_id;
         }
@@ -850,11 +855,48 @@ class WorkflowService
      */
     private function destinationStatusId(Request $requestRecord, WorkflowTransition $rule): ?int
     {
+        if ($rule->action === 'return_to_authority') {
+            return $this->authorityArrival($requestRecord)['status_id'] ?? $rule->set_status_id;
+        }
+
         if (! $this->routesToMinister($requestRecord, $rule) || $rule->action === 'conditional_approve') {
             return $rule->set_status_id;
         }
 
         return RequestStatus::query()->where('code', 'awaiting_central_approval')->value('id');
+    }
+
+    /**
+     * 2026-10-25 — where the authority decided from, for the مقرر's return:
+     * the from-stage of the latest move onto the file's current (review)
+     * stage, and the status the file held just before it. That one read
+     * covers the dean, the minister and a file R08 escalated to the ministry
+     * (which waits there as `in_review`), with no list of authorities to keep
+     * in step. Both rows are written in the same applyRule() call, so the
+     * stage log and the status history agree.
+     *
+     * @return array{stage_id: int, status_id: ?int}|null
+     */
+    private function authorityArrival(Request $requestRecord): ?array
+    {
+        $arrival = RequestStageLog::query()
+            ->where('request_id', $requestRecord->id)
+            ->where('to_stage_id', $requestRecord->current_stage_id)
+            ->whereColumn('from_stage_id', '!=', 'to_stage_id')
+            ->latest('id')
+            ->first();
+
+        if ($arrival?->from_stage_id === null) {
+            return null;
+        }
+
+        $history = RequestStatusHistory::query()
+            ->where('request_id', $requestRecord->id)
+            ->where('to_status_id', $requestRecord->status_id)
+            ->latest('id')
+            ->first();
+
+        return ['stage_id' => (int) $arrival->from_stage_id, 'status_id' => $history?->from_status_id];
     }
 
     private function routesToMinister(Request $requestRecord, WorkflowTransition $rule): bool

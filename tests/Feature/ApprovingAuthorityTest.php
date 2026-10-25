@@ -43,6 +43,8 @@ class ApprovingAuthorityTest extends TestCase
         $this->assertSame('minister', $requestRecord->approving_authority);
 
         $this->approveAs('R06', $requestRecord);
+        // 2026-10-25 — the authority's approve is final once the مقرر confirms it.
+        app(WorkflowService::class)->transition($requestRecord->fresh(), 'confirm_decision', $rapporteur);
 
         $requestRecord->refresh();
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
@@ -68,6 +70,8 @@ class ApprovingAuthorityTest extends TestCase
             ->assertNotFound();
 
         $this->approveAs('R07', $requestRecord);
+        // 2026-10-25 — the authority's approve is final once the مقرر confirms it.
+        app(WorkflowService::class)->transition($requestRecord->fresh(), 'confirm_decision', $rapporteur);
 
         $requestRecord->refresh();
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);

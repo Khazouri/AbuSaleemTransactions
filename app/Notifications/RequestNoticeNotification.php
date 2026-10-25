@@ -18,7 +18,7 @@ use App\Services\EmployeeNoticeService;
  * see: it holds a tracking number, a moment, and at most three quoted facts —
  * the meeting number and the deferral's required completion, both of which
  * النموذج 16 itself prints, plus the recorded reason for the two moments where
- * the employee has to act. It has no access to a vote tally, a member's
+ * the employee has to act and جهة الاعتماد's reason on a non-approval. It has no access to a vote tally, a member's
  * opinion, an internal memo or another employee's record, so it cannot leak
  * one. The committee's own tally stays in DecisionRecordedNotification, which
  * after this stage goes to the committee and not to the employee.
@@ -136,8 +136,8 @@ class RequestNoticeNotification extends SystemNotification
                 "Request {$ref} has been returned for completion before consideration resumes.{$suffixEn}",
             ],
             'not_approved' => [
-                "نفيدكم بأن لجنة شؤون الموظفين انتهت، بعد دراسة معاملتكم رقم {$ref}، إلى عدم الموافقة على الطلب للأسباب المثبتة في القرار المعتمد. ويتم توجيه صاحب العلاقة إلى مسار التظلم النظامي إن وجد.",
-                "After studying request {$ref}, the committee did not approve it, for the reasons recorded in the approved decision. You may pursue the formal grievance path where one applies.",
+                "نفيدكم بأن لجنة شؤون الموظفين انتهت، بعد دراسة معاملتكم رقم {$ref}، إلى عدم الموافقة على الطلب للأسباب المثبتة في القرار المعتمد. ويتم توجيه صاحب العلاقة إلى مسار التظلم النظامي إن وجد.{$suffix}",
+                "After studying request {$ref}, the committee did not approve it, for the reasons recorded in the approved decision. You may pursue the formal grievance path where one applies.{$suffixEn}",
             ],
             'no_jurisdiction' => [
                 "نفيدكم بأن موضوع معاملتكم رقم {$ref} لا يدخل في اختصاص لجنة شؤون الموظفين، وقد تقرر توجيهه إلى الجهة المختصة.",
