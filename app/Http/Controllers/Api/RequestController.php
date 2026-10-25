@@ -90,9 +90,9 @@ class RequestController extends Controller
     /**
      * The paper sitting (user decision 2026-10-18): جهة الاعتماد decides a
      * recommended file from its meeting's page, next to the committee's توصية
-     * and the محضر, where the minister's paper قرار is attached too. The
-     * request page and the approval queue therefore refuse the decision, and
-     * MeetingResultsController::authorityDecision() takes it instead.
+     * and the محضر, with its own paper قرار (2026-10-25). The request page
+     * and the approval queue therefore refuse the decision, and
+     * MeetingResultsController::recordAuthorityDecisions() takes it instead.
      *
      * Only for a file a meeting actually recommended on: one R08 escalated by
      * `deadline_expired` reaches the ministry with no توصية (or only a

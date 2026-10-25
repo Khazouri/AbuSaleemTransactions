@@ -1392,6 +1392,7 @@
       "meeting_request": "بند جدول أعمال",
       "vote": "تصويت",
       "decision": "قرار",
+      "authority_decision": "قرار جهة الاعتماد",
       "department": "إدارة",
       "user": "مستخدم",
       "request_type": "نوع طلب",
@@ -2206,8 +2207,6 @@
     "minutes": "محضر الاجتماع",
     "removeFile": "إزالة الملف",
     "awaitingYou": "بانتظار اعتمادك",
-    "deanTitle": "قرار العميد",
-    "ministerTitle": "قرار الوزير",
     "file": "الطلب",
     "committeeNote": "ملاحظة اللجنة",
     "authorityDecision": "القرار",
@@ -2215,9 +2214,6 @@
       "approve": "اعتماد",
       "reject": "عدم اعتماد"
     },
-    "ministerDecisionFile": "قرار الوزير الموقّع",
-    "recordDecision": "تسجيل القرار",
-    "authorityNotYours": "ليس لك قرار على هذا الطلب.",
     "resultsRecorded": "أُدخلت النتائج في {date} بواسطة {name}.",
     "openMinutes": "عرض المحضر",
     "legalRecommendation": "توصية العضو القانوني: {recommendation} · جهة الاعتماد: {authority}",
@@ -2259,5 +2255,22 @@
     "decideAtMeeting": "يُسجَّل القرار من صفحة الاجتماع",
     "open": "فتح",
     "decided": "سُجِّل القرار."
+  },
+  "authorityBulk": {
+    "title": "قرار جهة الاعتماد",
+    "open": "تسجيل قرار",
+    "intro": "اختر الطلبات التي يشملها القرار، وحدّد لكل طلب اعتماده أو عدم اعتماده. يُرفق القرار مرة واحدة لها جميعاً.",
+    "select": "اختيار",
+    "selectRow": "اختيار الطلب {ref}",
+    "decisionFor": "القرار على الطلب {ref}",
+    "note": "الملاحظة",
+    "noteFor": "ملاحظة على الطلب {ref}",
+    "notYours": "ليس هذا الطلب بانتظار قرارك.",
+    "document": "بيانات القرار",
+    "reference": "إشاري القرار",
+    "decidedOn": "تاريخ القرار",
+    "pages": "صفحات القرار الممسوحة",
+    "submit": "تسجيل القرار ({count})",
+    "view": "عرض القرار · الصفحات: {count}"
   }
 }

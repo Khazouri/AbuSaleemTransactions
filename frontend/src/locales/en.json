@@ -1392,6 +1392,7 @@
       "meeting_request": "Agenda item",
       "vote": "Vote",
       "decision": "Decision",
+      "authority_decision": "Authority's decision",
       "department": "Department",
       "user": "User",
       "request_type": "Request type",
@@ -2206,8 +2207,6 @@
     "minutes": "Meeting minutes",
     "removeFile": "Remove file",
     "awaitingYou": "Awaiting your decision",
-    "deanTitle": "Dean's decision",
-    "ministerTitle": "Minister's decision",
     "file": "Request",
     "committeeNote": "Committee note",
     "authorityDecision": "Decision",
@@ -2215,9 +2214,6 @@
       "approve": "Approve",
       "reject": "Do not approve"
     },
-    "ministerDecisionFile": "Signed minister's decision",
-    "recordDecision": "Record decision",
-    "authorityNotYours": "This request is not yours to decide.",
     "resultsRecorded": "Results entered on {date} by {name}.",
     "openMinutes": "View minutes",
     "legalRecommendation": "Legal member: {recommendation} · approving authority: {authority}",
@@ -2259,5 +2255,22 @@
     "decideAtMeeting": "The decision is recorded on the meeting page",
     "open": "Open",
     "decided": "The decision was recorded."
+  },
+  "authorityBulk": {
+    "title": "Approving authority's decision",
+    "open": "Record a decision",
+    "intro": "Tick the requests the decision covers, and approve or decline each one. The decision is attached once for all of them.",
+    "select": "Select",
+    "selectRow": "Select request {ref}",
+    "decisionFor": "Decision on request {ref}",
+    "note": "Note",
+    "noteFor": "Note on request {ref}",
+    "notYours": "This request is not awaiting your decision.",
+    "document": "The decision document",
+    "reference": "Decision reference",
+    "decidedOn": "Decision date",
+    "pages": "Scanned pages of the decision",
+    "submit": "Record decision ({count})",
+    "view": "View decision · pages: {count}"
   }
 }

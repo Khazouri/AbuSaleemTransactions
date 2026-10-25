@@ -19,6 +19,47 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-25 18:40 EET — Claude — جهة الاعتماد decides several files with one قرار (B5, complete, branch only)
+
+Built per the plan below on `feat/bulk-authority-decision`. `dist` is not committed (wave plan). **Migration
+`2026_10_25_180000_create_authority_decisions_table` is not applied to the real MySQL.**
+
+Deviations:
+- the scanned-page writer is now a shared `storePages()`, used by the محضر and the قرار;
+- the optional meeting-side page route was skipped: the meeting page does not show the قرار;
+- an item of another meeting, a deferred file and the wrong authority get 404 (visibility), not 422;
+- `TestRequestSeeder` writes one قرار (one PNG page) per decided file, instead of the «قرار الوزير» PDF;
+- five dead `paperMeeting.*` keys were dropped.
+
+Verified:
+- `AuthorityDecisionTest` rewritten (14 tests) went RED (11 failing), then GREEN;
+- full suite 840 + 18 + 9 green; Pint clean on touched PHP; build passes; parity 1816; `aislop ci` exit 0 (98).
+
+Not checked in a browser.
+
+---
+### 2026-10-25 17:45 EET — Claude — Implementation plan: جهة الاعتماد decides several files with one قرار (B5)
+
+Wave 2, item 6 of the paper-meeting plan, on branch `feat/bulk-authority-decision`. The user decided: one قرار per submit
+(اشاري, date and numbered scanned images, required for the dean too) covers every ticked file, and each file keeps its
+own approve or reject, with a note required on reject.
+- **Data:** a migration adds `authority_decisions` (reference, decided_on, pages, decided_by) and
+  `meeting_requests.authority_decision_id`. The model is audited.
+- **Endpoints:**
+  - `POST meetings/{m}/authority-decisions` replaces the single-item route, `AuthorityDecisionRequest`, the «قرار الوزير»
+    attachment and `MeetingDuties::forAuthority()`. Per item it checks `RequestVisibility` (404) and the unchanged
+    `authorityDecisionRefusal()` (422 naming the reference), then writes in one transaction. A re-decision after the
+    مقرر's return overwrites the link.
+  - `GET meetings/{m}/authority-duties` lists the awaiting items, each with its refusal.
+  - `GET requests/{r}/authority-decision/pages/{n}` serves the scanned pages.
+- **Request page:** `committee_summary.authority_decision` shows on it, with a slideshow. It is null while the file sits
+  at an authority stage.
+- **SPA:** the meeting page's modal becomes a table to tick rows, plus one قرار block.
+
+Verify: `AuthorityDecisionTest` rewritten (RED then GREEN), the seeder and tests moved to the new route, full PHPUnit,
+Pint, build (`dist` not committed, per the wave plan), parity, aislop ci. (Clock note: the machine reads 14:51.)
+
+---
 ### 2026-10-25 17:30 EET — Claude — The مقرر rolls back a meeting's results (B6, complete, branch only)
 
 Built per the plan below on `feat/results-rollback`, with no migration. `MeetingDuties::committeeResultHistory()` is the

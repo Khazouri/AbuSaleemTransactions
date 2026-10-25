@@ -277,12 +277,18 @@ const myStages = computed(() => Object.entries(MY_STAGE).filter(([role]) => auth
 const awaitingMe = computed(() => (meeting.value?.agenda_items ?? [])
   .filter((item) => myStages.value.includes(item.request?.stage_code)
     && ['approve', 'reject'].includes(item.decision?.outcome)))
-const authorityItemId = ref(null)
-const authorityItem = computed(() => awaitingMe.value.find((item) => item.id === authorityItemId.value) ?? null)
+// 2026-10-25 — one قرار covers every file ticked in the modal; a row's own
+// button opens it with that file already ticked.
+const authorityOpen = ref(false)
+const authorityInitial = ref(null)
+function openAuthority(itemId = null) {
+  authorityInitial.value = itemId
+  authorityOpen.value = true
+}
 // The modal closes on success, so the page itself says the decision landed.
-const decidedNotice = ref(false)
-function onAuthorityDecided() {
-  decidedNotice.value = true
+const decidedNotice = ref('')
+function onAuthorityDecided(message) {
+  decidedNotice.value = message || t('authorityNav.decided')
   load()
 }
 
@@ -307,11 +313,11 @@ async function openMinutes() {
 }
 
 async function openFromRoute() {
-  decidedNotice.value = false
+  decidedNotice.value = ''
   await load()
   // «المهام المعلقة» opens the authority's decision straight away.
   const requested = Number(route.query.item)
-  if (route.query.decide && awaitingMe.value.some((item) => item.id === requested)) authorityItemId.value = requested
+  if (route.query.decide && awaitingMe.value.some((item) => item.id === requested)) openAuthority(requested)
 }
 
 // The view is reused when moving from one meeting to another (the bell, the inbox).
@@ -360,24 +366,28 @@ onMounted(openFromRoute)
 
       <!-- 2026-10-18 — what جهة الاعتماد is to decide from this meeting. -->
       <section v-if="awaitingMe.length" class="card card-flat card-pad awaiting no-print">
-        <h3>{{ t('paperMeeting.awaitingYou') }}</h3>
+        <div class="awaiting-head">
+          <h3>{{ t('paperMeeting.awaitingYou') }}</h3>
+          <button class="primary" type="button" @click="openAuthority()">{{ t('authorityBulk.open') }}</button>
+        </div>
         <ul>
           <li v-for="item in awaitingMe" :key="item.id">
             <RouterLink :to="{ name: 'request_details', params: { id: item.request.id } }">
               <span class="ref ltr">{{ item.request.reference_number }}</span> {{ item.request.title }}
             </RouterLink>
-            <button class="primary" type="button" @click="authorityItemId = item.id">{{ t('decisionWizard.act') }}</button>
+            <button class="ghost" type="button" @click="openAuthority(item.id)">{{ t('decisionWizard.act') }}</button>
           </li>
         </ul>
       </section>
       <AuthorityDecisionForm
-        v-if="authorityItem"
+        v-if="authorityOpen"
         :meeting-id="meeting.id"
-        :item="authorityItem"
+        :items="awaitingMe"
+        :initial-item-id="authorityInitial"
         @decided="onAuthorityDecided"
-        @close="authorityItemId = null"
+        @close="authorityOpen = false"
       />
-      <p v-if="decidedNotice" class="alert success no-print" role="status">{{ t('authorityNav.decided') }}</p>
+      <p v-if="decidedNotice" class="alert success no-print" role="status">{{ decidedNotice }}</p>
 
       <!-- 2026-10-18 — the scanned محضر of the paper sitting. -->
       <section v-if="meeting.has_minutes_file" class="card card-flat card-pad minutes-link no-print">
@@ -672,6 +682,7 @@ select { padding: .35rem .5rem; border: 1px solid var(--color-border-hover); bor
 .attendee-row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .invitation-status { padding: .2rem .4rem; font-size: var(--text-xs); }
 .propose-date-open { margin-block-end: var(--space-4); }
+.awaiting-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .awaiting ul { display: grid; gap: var(--space-2); padding: 0; margin: 0; list-style: none; }
 .awaiting li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .item-meta { margin: var(--space-1) 0 0; color: var(--color-muted); font-size: var(--text-sm); }

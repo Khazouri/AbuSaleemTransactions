@@ -14,6 +14,7 @@ import { useRoute, useRouter } from 'vue-router'
 import TimelineDocuments from '../components/TimelineDocuments.vue'
 import AttachmentLink from '../components/AttachmentLink.vue'
 import DecisionWizard from '../components/DecisionWizard.vue'
+import ImageSlideshow from '../components/ImageSlideshow.vue'
 import IntakeGatePanel from '../components/IntakeGatePanel.vue'
 import JurisdictionTestForm from '../components/JurisdictionTestForm.vue'
 import RequestSuspensionPanel from '../components/RequestSuspensionPanel.vue'
@@ -107,6 +108,9 @@ const timelineMovement = (entry) => entry.from_stage
 // panels that sat above it: one button opens the wizard, and a task from
 // «المهام المعلقة» arrives with `?decide=1` to open it straight away.
 const wizardOpen = ref(false)
+
+// 2026-10-25 — جهة الاعتماد's scanned قرار, which the creator sees too.
+const authoritySlideshowOpen = ref(false)
 
 // Workflow designer — slice 2: the version this request runs on, with its stage marked.
 const workflowOpen = ref(false)
@@ -685,6 +689,29 @@ function onWizardUpdated(updated) {
             <span>{{ t('requestDetail.committeeSummary.decisionDate') }}</span>
             <strong>{{ date(request.committee_summary.decision_date) }}</strong>
           </div>
+          <template v-if="request.committee_summary.authority_decision">
+            <div>
+              <span>{{ t('authorityBulk.reference') }}</span>
+              <strong dir="auto">{{ request.committee_summary.authority_decision.reference }}</strong>
+            </div>
+            <div>
+              <span>{{ t('authorityBulk.decidedOn') }}</span>
+              <strong>{{ date(request.committee_summary.authority_decision.decided_on) }}</strong>
+            </div>
+            <p class="full">
+              <button class="ghost" type="button" @click="authoritySlideshowOpen = true">
+                {{ t('authorityBulk.view', { count: request.committee_summary.authority_decision.page_count }) }}
+              </button>
+            </p>
+            <ImageSlideshow
+              v-if="authoritySlideshowOpen"
+              :title="t('authorityBulk.title')"
+              :count="request.committee_summary.authority_decision.page_count"
+              :page-url="(n) => `/requests/${request.id}/authority-decision/pages/${n}`"
+              :file-prefix="String(request.committee_summary.authority_decision.id)"
+              @close="authoritySlideshowOpen = false"
+            />
+          </template>
           <p v-if="request.committee_summary.meeting_id" v-can="'meetings.view'" class="full">
             <RouterLink :to="{ name: 'meeting_details', params: { id: request.committee_summary.meeting_id } }">
               {{ t('authorityNav.openMeeting') }}

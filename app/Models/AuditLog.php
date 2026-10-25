@@ -49,6 +49,8 @@ class AuditLog extends Model
         MeetingAttendee::class,
         MeetingRequest::class,
         Decision::class,
+        // 2026-10-25 — جهة الاعتماد's paper قرار, which decides the files.
+        AuthorityDecision::class,
 
         // Master data and access control — low volume, high consequence
         Department::class,

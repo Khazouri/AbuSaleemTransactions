@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\AuthorityDecision;
 use App\Models\User;
 use App\Services\RequestClosureService;
 use Illuminate\Http\Request;
@@ -74,6 +75,8 @@ class RequestDetailResource extends RequestResource
                     'agenda_item_number' => $agendaItem->agenda_order,
                     'committee_result' => $agendaItem->decision?->outcome,
                     'decision_date' => $agendaItem->decision?->decided_at?->toDateString(),
+                    // 2026-10-25 — جهة الاعتماد's paper قرار, which the creator sees too.
+                    'authority_decision' => $this->authorityDecision(),
                 ];
             }),
             // Stage 18 — the authoritative approval chain, separate from the
@@ -170,6 +173,24 @@ class RequestDetailResource extends RequestResource
             'location' => $location,
             'archived_at' => $archivedAt?->toIso8601String(),
             'archived_by' => $archivedBy ? ['id' => $archivedBy->id, 'name' => $archivedBy->name] : null,
+        ];
+    }
+
+    /**
+     * 2026-10-25 — جهة الاعتماد's paper قرار, which the creator sees too. `id`
+     * names the downloaded pages, which are stored as «<id>-<n>».
+     *
+     * @return array{id: int, reference: string, decided_on: string, page_count: int}|null
+     */
+    private function authorityDecision(): ?array
+    {
+        $decision = AuthorityDecision::shownOn($this->resource);
+
+        return $decision === null ? null : [
+            'id' => $decision->id,
+            'reference' => $decision->reference,
+            'decided_on' => $decision->decided_on->toDateString(),
+            'page_count' => count($decision->pages),
         ];
     }
 }

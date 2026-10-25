@@ -195,7 +195,7 @@ class RapporteurDecisionReviewTest extends TestCase
         return $file->fresh();
     }
 
-    /** The authority's decision, as MeetingResultsController::authorityDecision() takes it. */
+    /** The authority's decision, as MeetingResultsController::recordAuthorityDecisions() applies it. */
     private function authority(string $roleCode, Request $file, string $decision, ?string $note = 'قرار جهة الاعتماد'): Request
     {
         return app(WorkflowService::class)->transition($file, $decision, $this->userWith($roleCode), $note)->fresh();

@@ -119,7 +119,7 @@ class WorkflowTransitionSeeder extends Seeder
             // 2026-10-18 — the committee only recommends, so the authority's
             // own "no" is the file's final result (Art. 38 code 13), whichever
             // way the committee leaned, once the مقرر confirms it. Recorded
-            // from the meeting page (MeetingResultsController::authorityDecision()).
+            // from the meeting page (MeetingResultsController::recordAuthorityDecisions()).
             ['approval_by_authority', 'rapporteur_decision_review', 'reject', 'R07', 'authority_rejected'],
             ['local_governance_ministry', 'rapporteur_decision_review', 'reject', 'R06', 'authority_rejected'],
             // 2026-10-18 — no execution leg: the old R07 self-loop

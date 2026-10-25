@@ -9,7 +9,6 @@ use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Models\RequestStatusHistory;
 use App\Models\User;
-use App\Services\MeetingVisibility;
 
 /**
  * Decision wizard — sub-project 2. What one member may do on a meeting, or on
@@ -26,8 +25,6 @@ use App\Services\MeetingVisibility;
  */
 class MeetingDuties
 {
-    public function __construct(private readonly MeetingVisibility $visibility) {}
-
     /** The two stages where جهة الاعتماد decides, and the role that decides at each. */
     public const AUTHORITY_STAGES = ['approval_by_authority' => 'R07', 'local_governance_ministry' => 'R06'];
 
@@ -140,10 +137,10 @@ class MeetingDuties
     }
 
     /**
-     * MeetingResultsController::authorityDecision(). The committee only
-     * recommends: العميد decides a dean file, and مكتب العميد (R06) records
-     * the minister's paper قرار on a minister file, each on the file this
-     * meeting recommended on.
+     * MeetingResultsController::recordAuthorityDecisions(), per item. The
+     * committee only recommends: العميد decides a dean file, and مكتب العميد
+     * (R06) records the minister's paper قرار on a minister file, each on the
+     * file this meeting recommended on.
      */
     public function authorityDecisionRefusal(MeetingRequest $item, User $actor): ?string
     {
@@ -172,18 +169,29 @@ class MeetingDuties
     }
 
     /**
-     * @return array{available: list<array<string, mixed>>, blocked: list<array{action: string, reason: string}>}
+     * GET meetings/{m}/authority-duties (2026-10-25) — the files this meeting
+     * recommended on that sit at the stage the actor's role decides, each
+     * with the refusal the bulk submit would give it (null: it may be
+     * ticked). A file deferred here and recommended at a later sitting is
+     * left out: its decided item here is a deferral.
+     *
+     * @return list<array{id: int, reason: string|null}>
      */
-    public function forAuthority(MeetingRequest $item, User $actor): array
+    public function authorityItems(Meeting $meeting, User $actor): array
     {
-        $duties = ['available' => [], 'blocked' => []];
-        if ($this->visibility->isAuthority($actor)) {
-            $this->offer($duties, 'authority_decision', $this->authorityDecisionRefusal($item, $actor), false, [
-                'authority' => $item->request?->approving_authority ?? 'dean',
-            ]);
+        $stages = array_keys(array_filter(self::AUTHORITY_STAGES, fn (string $role) => $actor->hasRole($role)));
+        if ($stages === []) {
+            return [];
         }
 
-        return $duties;
+        return $meeting->agendaItems()
+            ->whereHas('decision', fn ($query) => $query->whereIn('outcome', ['approve', 'reject']))
+            ->whereHas('request.currentStage', fn ($query) => $query->whereIn('code', $stages))
+            ->with(['request', 'decision', 'meeting'])
+            ->orderBy('agenda_order')
+            ->get()
+            ->map(fn (MeetingRequest $item) => ['id' => $item->id, 'reason' => $this->authorityDecisionRefusal($item, $actor)])
+            ->all();
     }
 
     /**
