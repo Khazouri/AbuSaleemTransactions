@@ -38,8 +38,8 @@ class RequestClosureService
      * stage, which is the gap Stage 69's own note left open here.
      *
      * `final_approved` joined Path 1 on 2026-10-18: with no execution leg (user
-     * decision), the authority's approval is the file's final result and the
-     * two archives follow it directly. `executed` stays for files executed
+     * decision), the authority's approval is the file's final result and HR's
+     * service-file archive follows it directly. `executed` stays for files executed
      * before then.
      *
      * `referred_to_other_body` is deliberately absent even though النموذج 18
@@ -61,8 +61,8 @@ class RequestClosureService
      *
      * Three of the twelve are absent from CLOSER_CHECKS below and answered by
      * the server instead: `appeal_path_concluded` (#10) is Appeal::openAgainst(),
-     * `archive_location_set` (#12) is Stage 100's two archive records (ملف
-     * اللجنة by المقرر, ملف الخدمة by الموارد البشرية), and
+     * `archive_location_set` (#12) is Stage 100's archive record (ملف الخدمة by
+     * الموارد البشرية, its only owner since 2026-10-25), and
      * `execution_document_attached` (#9), which has no execution leg to come
      * from since 2026-10-18 and so always reads `not_applicable`. Asking a human for an answer the system
      * already holds — and would then have to override — is worse than not
@@ -200,13 +200,10 @@ class RequestClosureService
             return $specialCase;
         }
 
-        // Stage 100 — Art. 38's code 20 is مغلقة **ومؤرشفة**, and Appendix 6
-        // row 15 gives the archiving two مسؤول. Each half is its owner's own
-        // act, so the closer cannot stand in for either.
-        if ($requestRecord->committee_file_archived_at === null) {
-            return 'لا تغلق المعاملة قبل أرشفة ملف اللجنة من قبل المقرر.';
-        }
-
+        // Stage 100 — Art. 38's code 20 is مغلقة **ومؤرشفة**. Since 2026-10-25
+        // HR alone archives (user decision): the مقرر's ملف اللجنة half went,
+        // and ملف الخدمة is HR's own act, so the closer cannot stand in for it.
+        // A file no decision touched has no service file to archive.
         if ($requestRecord->service_file_archived_at === null && $this->hasRecordedDecision($requestRecord)) {
             return 'لا تغلق المعاملة قبل أرشفة ملف الخدمة من قبل الموارد البشرية.';
         }
@@ -264,18 +261,17 @@ class RequestClosureService
     }
 
     /**
-     * Stage 100 — record where one of Appendix 6 row 15's two files went.
+     * Stage 100 — record where ملف الخدمة went (Appendix 6 row 15; the
+     * committee-file half was dropped on 2026-10-25).
      *
      * Only while the file stands on one of Art. 37's final paths and is not
      * yet closed: before that there is nothing final to archive, and after it
      * the record is part of what closure attested. Overwrites, so a mistyped
      * location is corrected by recording it again (the Stage 78 precedent).
-     *
-     * @param  'committee'|'service'  $file
      */
-    public function archive(Request $requestRecord, User $actor, string $file, string $location): Request
+    public function archive(Request $requestRecord, User $actor, string $location): Request
     {
-        return DB::transaction(function () use ($requestRecord, $actor, $file, $location) {
+        return DB::transaction(function () use ($requestRecord, $actor, $location) {
             $locked = $this->lockForClosure($requestRecord);
 
             if (($reason = $this->archiveRefusal($locked)) !== null) {
@@ -283,12 +279,13 @@ class RequestClosureService
             }
 
             $locked->update([
-                "{$file}_file_location" => $location,
-                "{$file}_file_archived_by_user_id" => $actor->id,
-                "{$file}_file_archived_at" => now(),
+                'service_file_location' => $location,
+                'service_file_archived_by_user_id' => $actor->id,
+                'service_file_archived_at' => now(),
             ]);
 
-            // 2026-10-18 — the second archive closes the file (user decision):
+            // 2026-10-18 — the archive closes the file (user decision; HR's
+            // service file is the only one since 2026-10-25):
             // the authority's decision is the final result, and archiving is
             // the last thing Art. 38's code 20 waits for. A hold Appendix 48
             // names (an open appeal, a special case) still stops it, and the
@@ -297,11 +294,11 @@ class RequestClosureService
                 return $locked;
             }
 
-            return $this->writeClosure($locked, $actor, $this->derivedCard($locked), null, 'اكتملت أرشفة ملف اللجنة وملف الخدمة فأقفلت المعاملة.');
+            return $this->writeClosure($locked, $actor, $this->derivedCard($locked), null, 'اكتملت أرشفة ملف الخدمة فأقفلت المعاملة.');
         });
     }
 
-    /** Whether the service-file half of the archive is owed at all. */
+    /** Whether the service-file archive is owed at all. */
     public function requiresServiceFileArchive(Request $requestRecord): bool
     {
         return $this->hasRecordedDecision($requestRecord);
@@ -316,7 +313,7 @@ class RequestClosureService
 
     /**
      * Write Art. 37's closure record and move the request to code 20, for a
-     * file a hold kept open past its second archive.
+     * file a hold kept open past its archive, or one that owed none.
      *
      * @param  array<string, mixed>  $card  Art. 37's human-supplied fields
      * @param  array<string, string>  $audit  Appendix 47's closer answers
@@ -345,7 +342,7 @@ class RequestClosureService
     }
 
     /**
-     * Art. 37's card for a file the second archive closes: everything it asks
+     * Art. 37's card for a file its archive closes: everything it asks
      * is already on the file, so nobody is asked to retype it.
      *
      * @return array<string, string|null>
@@ -437,8 +434,8 @@ class RequestClosureService
                 // #9 — the paper sitting (2026-10-18) has no execution leg, so
                 // no file carries an execution document to attach.
                 'execution_document_attached' => 'not_applicable',
-                // #12 — Stage 100: the two archive records refusalReason()
-                // demands; reaching here means both owed halves exist.
+                // #12 — Stage 100: the archive record refusalReason()
+                // demands; reaching here means it exists, or none was owed.
                 'archive_location_set' => 'yes',
                 default => $audit[$key],
             };

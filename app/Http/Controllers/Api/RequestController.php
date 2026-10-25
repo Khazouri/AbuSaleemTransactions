@@ -750,7 +750,8 @@ class RequestController extends Controller
             ]);
         }
 
-        // Stage 100 — both archive records, for the same reason, and outside
+        // Stage 100 — the archive records (ملف اللجنة only from before
+        // 2026-10-25), for the same reason, and outside
         // the guard above: a file can be archived on a closable status and
         // reopened (not_approved is both) before anyone closed it.
         $requestRecord->update([
@@ -849,39 +850,21 @@ class RequestController extends Controller
         return $this->detailResource($requestRecord, $workflow, $actor);
     }
 
-    /** Stage 100 — Appendix 6 row 15: المقرر «مسؤول ملف اللجنة». */
-    public function archiveCommitteeFile(
-        ArchiveFileRequest $request,
-        Request $requestRecord,
-        RequestClosureService $closure,
-        WorkflowService $workflow,
-    ): RequestDetailResource|JsonResponse {
-        return $this->recordArchive($request, $requestRecord, $closure, $workflow, 'committee');
-    }
-
-    /** Stage 100 — Appendix 6 row 15: الموارد البشرية «مسؤول ملف الخدمة». */
+    /**
+     * Stage 100 — Appendix 6 row 15: الموارد البشرية «مسؤول ملف الخدمة»; the
+     * only archive since 2026-10-25.
+     */
     public function archiveServiceFile(
         ArchiveFileRequest $request,
         Request $requestRecord,
         RequestClosureService $closure,
         WorkflowService $workflow,
     ): RequestDetailResource|JsonResponse {
-        return $this->recordArchive($request, $requestRecord, $closure, $workflow, 'service');
-    }
-
-    /** @param  'committee'|'service'  $file */
-    private function recordArchive(
-        ArchiveFileRequest $request,
-        Request $requestRecord,
-        RequestClosureService $closure,
-        WorkflowService $workflow,
-        string $file,
-    ): RequestDetailResource|JsonResponse {
         $requestRecord->loadMissing('status:id,code');
 
         try {
             // archive() works on its own locked copy, and may close the file.
-            $requestRecord = $closure->archive($requestRecord, $request->user(), $file, $request->validated('location'));
+            $requestRecord = $closure->archive($requestRecord, $request->user(), $request->validated('location'));
         } catch (DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }

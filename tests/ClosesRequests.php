@@ -40,16 +40,13 @@ trait ClosesRequests
     }
 
     /**
-     * Stage 100 — both of Appendix 6 row 15's archive records, which closure
-     * now demands. Written directly: each half has its own endpoint and its
-     * own owner, and a test about something else should not have to act as
-     * both owners to finish its story.
+     * Stage 100 — the service-file archive closure demands of a decided file
+     * (HR's alone since 2026-10-25). Written directly, so a test about
+     * something else need not act as HR to finish its story.
      */
     protected function archiveFiles(Request $requestRecord): void
     {
         $requestRecord->forceFill([
-            'committee_file_location' => 'أرشيف لجنة شؤون الموظفين — ملف 7',
-            'committee_file_archived_at' => now(),
             'service_file_location' => 'ملف الخدمة — الموارد البشرية',
             'service_file_archived_at' => now(),
         ])->save();

@@ -65,10 +65,6 @@ class RequestActs
         $open = $r->closed_at === null;
         $closable = $open && in_array($status, RequestClosureService::CLOSABLE_STATUSES, true);
 
-        if ($edit && $closable) {
-            $this->offer($acts, 'after_decision', 'archive_committee_file', $this->closure->archiveRefusal($r));
-        }
-
         if ($actor->hasScreenPermission('meeting_outputs', 'can_add') && $closable && $this->closure->requiresServiceFileArchive($r)) {
             $this->offer($acts, 'after_decision', 'archive_service_file', $this->closure->archiveRefusal($r));
         }

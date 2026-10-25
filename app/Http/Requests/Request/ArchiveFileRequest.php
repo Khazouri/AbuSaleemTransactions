@@ -5,10 +5,8 @@ namespace App\Http\Requests\Request;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Stage 100 — where one of Appendix 6 row 15's two files was archived.
- *
- * Shared by both halves (ملف اللجنة, ملف الخدمة): the payload is the same
- * single location, and which half is being recorded is the route, not the body.
+ * Stage 100 — where ملف الخدمة was archived (Appendix 6 row 15). Its
+ * committee-file twin went on 2026-10-25, when HR became the only archiver.
  */
 class ArchiveFileRequest extends FormRequest
 {

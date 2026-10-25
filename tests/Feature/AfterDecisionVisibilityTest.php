@@ -48,7 +48,6 @@ class AfterDecisionVisibilityTest extends TestCase
         $writes = [
             ['patch', "requests/{$id}/reopen"],
             ['patch', "requests/{$id}/close"],
-            ['patch', "requests/{$id}/archive/committee-file"],
             ['patch', "requests/{$id}/archive/service-file"],
             ['post', "requests/{$id}/notices/issue"],
             ['patch', "requests/{$id}/approval-return"],

@@ -709,7 +709,7 @@ function onWizardUpdated(updated) {
         </section>
 
         <!-- Stage 75 — [D] Art. 37's الإقفال. -->
-        <!-- Stage 100 — [D] Appendix 6 row 15's two archive records. -->
+        <!-- Stage 100 — [D] Appendix 6 row 15's archive record (HR's alone since 2026-10-25). -->
         <section
           v-if="request.archive && (request.archive.committee_file || request.archive.service_file)"
           class="card card-flat card-pad summary closure"
@@ -754,7 +754,7 @@ function onWizardUpdated(updated) {
               <strong>{{ t(`requestClosure.notice.${request.closure.notice_status}`) }}</strong>
             </div>
           </dl>
-          <!-- 2026-10-18 — a file its second archive closed answered no audit. -->
+          <!-- 2026-10-18 — a file its archive closed answered no audit. -->
           <h4 v-if="request.closure_audit">{{ t('requestClosure.auditTitle') }}</h4>
           <ul v-if="request.closure_audit" class="audit-record">
             <li v-for="check in AUDIT_CHECKS" :key="check">

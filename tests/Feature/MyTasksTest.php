@@ -238,23 +238,26 @@ class MyTasksTest extends TestCase
         }
     }
 
-    /** Archive first (each file by its owner), then close — never both at once. */
+    /**
+     * Archive first, then close — never both at once. 2026-10-25: HR alone
+     * archives (user decision), so the مقرر is never handed an archive task.
+     */
     public function test_archiving_hands_over_to_closure(): void
     {
         $rapporteur = $this->userWithRole('R02');
         $hr = $this->userWithRole('R12');
         $file = $this->decidedRequestAt('final_approval_archiving', 'executed');
+        $undecided = $this->requestAt('requirements_check', 'outside_jurisdiction', $this->userWithRole('R01'));
+        $closeTasks = fn () => collect($this->inbox($hr)['post_decision']['tasks'] ?? [])
+            ->where('action', 'close')->pluck('route.params.id')->all();
 
-        $this->assertContains('archive_committee_file', $this->postDecisionActions($rapporteur));
+        $this->assertNotContains('archive_committee_file', $this->postDecisionActions($rapporteur));
         $this->assertContains('archive_service_file', $this->postDecisionActions($hr));
-        $this->assertNotContains('close', $this->postDecisionActions($hr));
-
-        $file->forceFill(['committee_file_archived_at' => now()])->save();
-        $this->assertNotContains('close', $this->postDecisionActions($hr), 'the service file is still owed');
+        // A file with no decision owes no archive, so it is closed straight away.
+        $this->assertSame([$undecided->id], $closeTasks());
 
         $file->forceFill(['service_file_archived_at' => now()])->save();
-        $this->assertContains('close', $this->postDecisionActions($hr));
-        $this->assertNotContains('archive_committee_file', $this->postDecisionActions($rapporteur));
+        $this->assertEqualsCanonicalizing([$file->id, $undecided->id], $closeTasks());
         $this->assertNotContains('archive_service_file', $this->postDecisionActions($hr));
     }
 

@@ -33,14 +33,6 @@ const filled = (value) => String(value ?? '').trim() !== ''
 const base = (request) => `/requests/${request.id}`
 
 export const REQUEST_ACTS = {
-  archive_committee_file: {
-    labelKey: 'decisionWizard.acts.archive_committee_file',
-    form: ArchiveForm,
-    method: 'patch',
-    url: (request) => `${base(request)}/archive/committee-file`,
-    blank: () => ({ location: '' }),
-    ready: (form) => filled(form.location),
-  },
   archive_service_file: {
     labelKey: 'decisionWizard.acts.archive_service_file',
     form: ArchiveForm,

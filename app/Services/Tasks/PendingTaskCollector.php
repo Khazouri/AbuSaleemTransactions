@@ -441,7 +441,7 @@ class PendingTaskCollector
 
     /**
      * My-tasks completeness (2026-09-26) — a decided file's remaining life:
-     * the two archive records, closure,
+     * HR's service-file archive, closure,
      * and the approving body's returns and referrals. Conditions follow each
      * endpoint's refusals (RequestClosureService::refusalReason() for closure,
      * minus the closer's own checklist answers, which are input).
@@ -471,7 +471,6 @@ class PendingTaskCollector
         };
 
         if ($edit) {
-            $push('archive_committee_file', $closable()->whereNull('committee_file_archived_at'));
             $push('resolve_approval_return', $this->visibleRequests($actor)
                 ->whereHas('approvalReturns', fn (Builder $r) => $r->whereNull('resolved_at'))
                 // A formal resolve would overwrite a suspension's status.
@@ -508,7 +507,6 @@ class PendingTaskCollector
 
         if ($approve) {
             $push('close', $closable()
-                ->whereNotNull('committee_file_archived_at')
                 ->where(fn (Builder $service) => $service
                     ->whereNotNull('service_file_archived_at')
                     ->orWhereDoesntHave('meetingRequests', $decided))

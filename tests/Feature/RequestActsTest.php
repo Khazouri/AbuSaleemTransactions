@@ -46,8 +46,8 @@ class RequestActsTest extends TestCase
 
         $this->assertSame($reason, app(RequestClosureService::class)->archiveRefusal($file));
 
-        $this->actingAs($this->userWithRole('R02'), 'sanctum')
-            ->patchJson("/api/requests/{$file->id}/archive/committee-file", ['location' => 'خزانة 1'])
+        $this->actingAs($this->userWithRole('R12'), 'sanctum')
+            ->patchJson("/api/requests/{$file->id}/archive/service-file", ['location' => 'خزانة 1'])
             ->assertStatus(422)
             ->assertJsonPath('message', $reason);
     }
@@ -85,25 +85,28 @@ class RequestActsTest extends TestCase
         $this->assertNotContains('execution_soundness', $this->available($this->userWithRole('R12'), $file));
     }
 
-    public function test_each_file_is_archived_by_its_owner(): void
+    /** 2026-10-25 — HR alone archives (user decision); ملف اللجنة is nobody's act now. */
+    public function test_only_hr_archives(): void
     {
         $rapporteur = $this->userWithRole('R02');
         $hr = $this->userWithRole('R12');
         $decided = $this->fileAt('final_approval_archiving', 'executed', decided: true);
         $undecided = $this->fileAt('requirements_check', 'outside_jurisdiction');
 
-        $this->assertContains('archive_committee_file', $this->available($rapporteur, $decided));
+        foreach ([$rapporteur, $hr] as $actor) {
+            $this->assertNotContains('archive_committee_file', $this->available($actor, $decided));
+        }
         $this->assertNotContains('archive_service_file', $this->available($rapporteur, $decided));
         $this->assertContains('archive_service_file', $this->available($hr, $decided));
         // Only a recorded decision makes the service file owed.
         $this->assertNotContains('archive_service_file', $this->available($hr, $undecided));
     }
 
-    public function test_close_is_blocked_with_the_closure_refusal_until_both_files_are_archived(): void
+    public function test_close_is_blocked_with_the_closure_refusal_until_the_service_file_is_archived(): void
     {
         $hr = $this->userWithRole('R12');
         $file = $this->fileAt('final_approval_archiving', 'executed', decided: true);
-        $reason = 'لا تغلق المعاملة قبل أرشفة ملف اللجنة من قبل المقرر.';
+        $reason = 'لا تغلق المعاملة قبل أرشفة ملف الخدمة من قبل الموارد البشرية.';
 
         $this->assertSame($reason, $this->blockedReason($hr, $file, 'close'));
         $this->actingAs($hr, 'sanctum')
