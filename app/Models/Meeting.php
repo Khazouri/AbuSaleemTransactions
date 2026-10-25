@@ -50,6 +50,8 @@ class Meeting extends Model
         'minutes_file_path',
         'minutes_file_name',
         'minutes_file_mime',
+        // 2026-10-25 — the scanned pages that replaced the one file.
+        'minutes_pages',
         'results_recorded_at',
         'results_recorded_by_user_id',
     ];
@@ -61,6 +63,7 @@ class Meeting extends Model
             'agenda_deadline' => 'datetime',
             'expected_duration_minutes' => 'integer',
             'results_recorded_at' => 'datetime',
+            'minutes_pages' => 'array',
         ];
     }
 

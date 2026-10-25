@@ -65,7 +65,7 @@ class TestMeetingSeederTest extends TestCase
             'items' => $meeting->agendaItems()->pluck('id')
                 ->mapWithKeys(fn (int $id) => [$id => ['recommendation' => 'approve', 'approving_authority' => 'dean']])
                 ->all(),
-            'minutes_file' => UploadedFile::fake()->create('محضر.pdf', 120, 'application/pdf'),
+            'minutes_pages' => [UploadedFile::fake()->image('محضر.jpg')],
         ], ['Accept' => 'application/json'])->assertOk();
     }
 

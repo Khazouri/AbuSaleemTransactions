@@ -99,13 +99,17 @@ trait HoldsPaperMeetings
     }
 
     /**
+     * The محضر is scanned pages, images only (2026-10-25); one page unless the
+     * caller hands its own, in the order the مقرر arranged them.
+     *
      * @param  array<int, array<string, mixed>>  $results  agenda item id => its row
+     * @param  list<UploadedFile>|null  $pages
      */
-    protected function recordResults(User $actor, Meeting $meeting, array $results, bool $withMinutes = true): TestResponse
+    protected function recordResults(User $actor, Meeting $meeting, array $results, bool $withMinutes = true, ?array $pages = null): TestResponse
     {
         $payload = ['items' => $results];
         if ($withMinutes) {
-            $payload['minutes_file'] = UploadedFile::fake()->create('محضر.pdf', 120, 'application/pdf');
+            $payload['minutes_pages'] = $pages ?? [UploadedFile::fake()->image('محضر.jpg')];
         }
 
         return $this->actingAs($actor, 'sanctum')->post("/api/meetings/{$meeting->id}/results", $payload, ['Accept' => 'application/json']);

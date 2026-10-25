@@ -19,6 +19,38 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-25 16:10 EET — Claude — The محضر is numbered scanned images, shown in a slideshow (B1, complete, branch only)
+
+Built per the plan below on `feat/minutes-pages`. **The main session must run migration
+`2026_10_25_153000_add_minutes_pages_to_meetings_table` after merging.** Each page's extension comes from its checked
+MIME type (`png`, else `jpg`), never the client's name. Its download name is its stored basename. A legacy one-file
+محضر answers `?page=1` only, and the meeting page keeps its old new-tab opener when `minutes_page_count` is 0.
+`TestRequestSeeder` still writes a legacy PDF محضر, which is left for B4's seeder pass. For B5:
+- `ScannedPagesInput` is `v-model` = `File[]`, prop `disabled`;
+- `ImageSlideshow` takes `title`, `count`, `pageUrl(n)` (API path, n from 1) and `filePrefix` (download
+  «<prefix>-<n>.<ext>»), and emits `close`.
+
+Verified: 6 new `PaperMeetingResultsTest` cases went RED, then GREEN; full suite 822 / 6920 + maintenance 26 / 183;
+Pint clean on the touched PHP; build passes (`dist` reverted, per the plan); parity 1796; `aislop ci` exit 0 (98). Not
+checked in a browser.
+
+---
+### 2026-10-25 15:25 EET — Claude — Implementation plan: the محضر is numbered scanned images, shown in a slideshow (B1)
+
+Branch `feat/minutes-pages`, items 1 and 2 of plan `1-when-the-serene-shell`. Plan:
+- migration `meetings.minutes_pages` (JSON, nullable, the ordered paths); the legacy `minutes_file_*` columns stay so
+  an older محضر (possibly a PDF) still opens;
+- `RecordMeetingResultsRequest` takes `minutes_pages[]` (1–50 JPG/PNG, 10 MB each) instead of `minutes_file`;
+  `store()` saves page n as `meeting-minutes/{id}/{id}-{n}.{ext}`, in the order sent, and deletes them on failure;
+- `GET …/minutes-file?page=n` serves page n (404 out of range), falling back to the legacy file;
+  `MeetingResource.minutes_page_count`; `MinutesRegister` lists meetings with results recorded;
+- SPA: `ScannedPagesInput.vue` (ordered list, ↑/↓/remove) in the results form, and `ImageSlideshow.vue` (AppModal,
+  pages fetched as blobs) on the meeting page. Both generic, for B5.
+
+Verify: new `PaperMeetingResultsTest` cases (RED then GREEN), full PHPUnit, Pint, build (`dist` not committed, per the
+plan), parity, aislop ci. The main session runs the migration after merging.
+
+---
 ### 2026-10-25 15:40 EET — Claude — HR alone archives a decided file (complete)
 
 Built per the plan below; no migration. The `archive/committee-file` route, `archiveCommitteeFile()`, the act, the

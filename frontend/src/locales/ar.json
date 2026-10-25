@@ -2211,7 +2211,15 @@
     "authorityNotYours": "ليس لك قرار على هذا الطلب.",
     "resultsRecorded": "أُدخلت النتائج في {date} بواسطة {name}.",
     "openMinutes": "عرض المحضر",
-    "legalRecommendation": "توصية العضو القانوني: {recommendation} · جهة الاعتماد: {authority}"
+    "legalRecommendation": "توصية العضو القانوني: {recommendation} · جهة الاعتماد: {authority}",
+    "pages": {
+      "hint": "صور فقط (JPG أو PNG). ترقّم الصفحات بالترتيب المعروض هنا.",
+      "rejected": "ليست صورة، فلم تُضف: {names}",
+      "moveUp": "تقديم الصفحة {n}",
+      "moveDown": "تأخير الصفحة {n}",
+      "remove": "حذف الصفحة {n}",
+      "open": "عرض المحضر · عدد الصفحات: {count}"
+    }
   },
   "erp": {
     "signIn": "الدخول عبر ERP",
@@ -2228,5 +2236,13 @@
     "linked": "تم ربط حساب ERP بحسابك. يمكنك الدخول عبر ERP من الآن.",
     "backToApp": "العودة إلى النظام",
     "backToLogin": "العودة إلى صفحة الدخول"
+  },
+  "slideshow": {
+    "alt": "{title}، صفحة {n}",
+    "failed": "تعذّر تحميل هذه الصفحة.",
+    "previous": "الصفحة السابقة",
+    "next": "الصفحة التالية",
+    "position": "صفحة {n} من {total}",
+    "download": "تنزيل هذه الصفحة"
   }
 }
