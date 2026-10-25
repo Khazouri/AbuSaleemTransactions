@@ -19,6 +19,37 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-25 15:40 EET — Claude — HR alone archives a decided file (complete)
+
+Built per the plan below; no migration. The `archive/committee-file` route, `archiveCommitteeFile()`, the act, the
+task and the two `archive_committee_file` locale keys are gone. `RequestClosureService::archive()` lost its `$file`
+parameter, since only the service file is left. A decided file closes on HR's archive. A file with no decision owes
+none: the inbox offers its close at once, and `close` closes it. The panel shows a committee row only for a record
+made before today, and `requestArchive.intro` and the `archive_file` next-action label now name HR's file only.
+Comments that still say «two archives» in `WorkflowTransitionSeeder`, `WorkflowServiceTest` and
+`RequestResponsibilityTest` were left alone, because B4 rewrites those files.
+
+Verified:
+- seven rewritten tests went RED, then GREEN;
+- full suite 848 / 6993, plus Maintenance 9 + 15;
+- Pint clean; build passes (`dist` reverted per the plan); parity 1782; `aislop ci` exit 0.
+
+---
+### 2026-10-25 15:00 EET — Claude — Implementation plan: HR alone archives a decided file
+
+Branch B3 of the paper-meeting plan (item 7, archiving). User decision: once the authority has decided, **HR only**
+archives, and HR's service-file archive closes the file. Plan:
+- `RequestClosureService::refusalReason()` drops the committee-archive requirement; a decided file still needs the
+  service archive, and the auto-close reason becomes «اكتملت أرشفة ملف الخدمة فأقفلت المعاملة.»;
+- the committee-file act goes end to end: the `archive/committee-file` route, `archiveCommitteeFile()`, the
+  `RequestActs` and `PendingTaskCollector` entries, `lib/requestActs.js` and its two locale keys;
+- the close task waits for the service archive only (or no decision: an `outside_jurisdiction` file is closed by `close`);
+- the `committee_file_*` columns stay, and the request page still shows a committee archive recorded before this.
+
+No migration. Verify: the archive tests rewritten (RED then GREEN), full PHPUnit, Pint, build (`dist` reverted, per the
+plan), parity, aislop ci.
+
+---
 ### 2026-10-24 18:30 EET — Claude — «توليد طلبات تجريبية» writes full attachments and history (complete)
 
 Built per the plan below; no migration or frontend change. Filers are now limited to accounts with an employee number

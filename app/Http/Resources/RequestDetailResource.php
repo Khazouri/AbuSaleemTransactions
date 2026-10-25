@@ -106,9 +106,10 @@ class RequestDetailResource extends RequestResource
                 ] : null,
             ],
             'closure_audit' => $this->closure_audit,
-            // Stage 100 — Appendix 6 row 15's two archive records, each its
-            // owner's own act. `service_file_required` is the closure gate's
-            // own condition, so the screen asks only for what closure demands.
+            // Stage 100 — Appendix 6 row 15's archive records. `committee_file`
+            // is only ever a record from before 2026-10-25, when HR became the
+            // sole archiver. `service_file_required` is the closure gate's own
+            // condition, so the screen asks only for what closure demands.
             'archive' => [
                 'committee_file' => $this->archiveRecord(
                     $this->committee_file_location,

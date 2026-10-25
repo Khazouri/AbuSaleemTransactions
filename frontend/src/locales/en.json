@@ -1259,7 +1259,7 @@
   },
   "requestArchive": {
     "title": "Archiving",
-    "intro": "Appendix 6 gives archiving two owners: the rapporteur for the committee file and HR for the service file. The request cannot be closed until each required file is archived.",
+    "intro": "HR archives the service file. A decided request cannot be closed before it is archived, and archiving it closes the request.",
     "files": {
       "committee_file": "Committee file",
       "service_file": "Service file"
@@ -1704,7 +1704,7 @@
         "prepare_minutes": "Prepare the minutes",
         "send_for_approval": "Send for approval",
         "await_ministry_reply": "Await the ministry reply",
-        "archive_file": "Archive the committee and service files",
+        "archive_file": "Archive the service file",
         "update_employee_file": "Update the employee file",
         "close_request": "Close the request",
         "manager_review": "Direct-manager review and referral",
@@ -1921,7 +1921,6 @@
       "register": "Prepare employment file & register",
       "deadline_expired": "Escalate — deadline expired",
       "record_results": "Enter the meeting's results",
-      "archive_committee_file": "Archive the committee file",
       "archive_service_file": "Archive the service file",
       "close": "Close",
       "resolve_approval_return": "Handle the approving body's return",
@@ -2057,7 +2056,6 @@
       "file": "The file's content"
     },
     "acts": {
-      "archive_committee_file": "Archive the committee file",
       "archive_service_file": "Archive the service file",
       "add_note": "Add a note",
       "attach_document": "Attach a document"

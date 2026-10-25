@@ -36,23 +36,14 @@ class NoticeArchiveOversightTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
-    /** Row 15 — ملف اللجنة is المقرر's; HR cannot record it. */
-    public function test_the_committee_file_is_archived_by_the_rapporteur_only(): void
+    /** 2026-10-25 — HR alone archives (user decision): المقرر no longer records ملف اللجنة. */
+    public function test_the_committee_file_archive_is_gone(): void
     {
-        $rapporteur = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('executed', withDecision: true);
 
-        $this->actingAs($this->userWithRole('R12'), 'sanctum')
+        $this->actingAs($this->userWithRole('R02'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/archive/committee-file", ['location' => 'x'])
-            ->assertForbidden();
-
-        $this->actingAs($rapporteur, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/archive/committee-file", ['location' => 'أرشيف اللجنة — ملف 4'])
-            ->assertOk()
-            ->assertJsonPath('data.archive.committee_file.location', 'أرشيف اللجنة — ملف 4')
-            ->assertJsonPath('data.archive.committee_file.archived_by.id', $rapporteur->id)
-            ->assertJsonPath('data.archive.service_file', null)
-            ->assertJsonPath('data.archive.service_file_required', true);
+            ->assertNotFound();
     }
 
     /** Row 15 — ملف الخدمة is HR's; المقرر cannot record it. */
@@ -76,50 +67,47 @@ class NoticeArchiveOversightTest extends TestCase
     {
         $requestRecord = $this->requestAt('in_execution', withDecision: true);
 
-        $this->actingAs($this->userWithRole('R02'), 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/archive/committee-file", ['location' => 'x'])
+        $this->actingAs($this->userWithRole('R12'), 'sanctum')
+            ->patchJson("/api/requests/{$requestRecord->id}/archive/service-file", ['location' => 'x'])
             ->assertStatus(422)
             ->assertJsonFragment(['message' => 'لا يؤرشف الملف قبل بلوغ المعاملة أحد مساراتها النهائية.']);
     }
 
     /**
-     * Art. 38's code 20 is مغلقة **ومؤرشفة** — each owed half, by its owner.
-     * Since 2026-10-18 the second half closes the file itself (user decision),
-     * so the manual close is refused while either is missing and the second
-     * archive is what reaches code 20.
+     * Art. 38's code 20 is مغلقة **ومؤرشفة**. Since 2026-10-25 a decided file
+     * owes one archive, HR's service file (user decision), and recording it
+     * closes the file itself, so the manual close is refused until then.
      */
-    public function test_closure_waits_for_both_owed_archive_halves(): void
+    public function test_closure_waits_for_the_service_archive(): void
     {
-        $closer = $this->userWithRole('R02');
         $requestRecord = $this->requestAt('executed', withDecision: true);
-        $close = fn () => $this->actingAs($closer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload());
 
-        $close()->assertStatus(422)
-            ->assertJsonFragment(['message' => 'لا تغلق المعاملة قبل أرشفة ملف اللجنة من قبل المقرر.']);
-
-        $this->actingAs($closer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/archive/committee-file", ['location' => 'ملف اللجنة'])
-            ->assertJsonPath('data.status.code', 'executed');
-
-        $close()->assertStatus(422)
+        $this->actingAs($this->userWithRole('R02'), 'sanctum')
+            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
+            ->assertStatus(422)
             ->assertJsonFragment(['message' => 'لا تغلق المعاملة قبل أرشفة ملف الخدمة من قبل الموارد البشرية.']);
 
         $this->actingAs($this->userWithRole('R12'), 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/archive/service-file", ['location' => 'ملف الخدمة'])
             ->assertOk()
+            ->assertJsonPath('data.archive.service_file_required', true)
             ->assertJsonPath('data.status.code', 'completed_closed')
             ->assertJsonPath('data.closure_audit', null);
+
+        $this->assertSame(
+            'اكتملت أرشفة ملف الخدمة فأقفلت المعاملة.',
+            RequestStatusHistory::where('request_id', $requestRecord->id)->latest('id')->value('reason'),
+        );
     }
 
-    /** A pre-committee عدم اختصاص touched no service file, so owes no copy. */
-    public function test_a_file_with_no_decision_owes_only_the_committee_file(): void
+    /** A pre-committee عدم اختصاص touched no service file, so owes no archive and is closed by hand. */
+    public function test_a_file_with_no_decision_is_closed_by_close(): void
     {
         $requestRecord = $this->requestAt('outside_jurisdiction');
 
-        // Its one owed archive is therefore the one that closes it (2026-10-18).
         $this->actingAs($this->userWithRole('R02'), 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/archive/committee-file", ['location' => 'ملف اللجنة'])
+            ->patchJson("/api/requests/{$requestRecord->id}/close", $this->closurePayload())
+            ->assertOk()
             ->assertJsonPath('data.archive.service_file_required', false)
             ->assertJsonPath('data.status.code', 'completed_closed');
     }

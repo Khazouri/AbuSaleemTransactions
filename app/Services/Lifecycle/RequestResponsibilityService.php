@@ -103,9 +103,9 @@ class RequestResponsibilityService
         'administrative_routing' => ['ar' => 'إحالة الطلب للجهة المعنية', 'en' => 'Route the request to the relevant body'],
         'register_request' => ['ar' => 'تجهيز الملف الإداري وقيده', 'en' => 'Prepare and register the file'],
         'completeness_check' => ['ar' => 'فحص اكتمال الملف', 'en' => 'Check the file for completeness'],
-        // 2026-10-18 — no execution leg: the committee file and the service
-        // file are archived, and the second archive closes the file.
-        'archive_file' => ['ar' => 'أرشفة ملف اللجنة والملف الوظيفي', 'en' => 'Archive the committee and service files'],
+        // 2026-10-18 — no execution leg: the file is archived, and the archive
+        // closes it. HR's service file is the only archive since 2026-10-25.
+        'archive_file' => ['ar' => 'أرشفة ملف الخدمة', 'en' => 'Archive the service file'],
         'reprocess_approval_return' => ['ar' => 'إثبات إجراء إعادة المعالجة', 'en' => 'Record the re-processing action'],
         'closed' => ['ar' => 'لا إجراء مطلوب — المعاملة مقفلة', 'en' => 'No action required — the file is closed'],
         // Workflow designer — slice 3: whatever a custom step asks; the stage name says what.

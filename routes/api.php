@@ -486,11 +486,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware(['screen.permission:meeting_outputs,approve', 'request.visible'])
         ->patch('requests/{requestRecord}/close', [RequestController::class, 'close']);
 
-    // Stage 100 — [D] Appendix 6 row 15: الأرشفة has two مسؤول. ملف اللجنة is
-    // المقرر's (the `edit` tier, R02 + R03); ملف الخدمة is الموارد البشرية's,
-    // on `add` — a tier that gated no route before this stage, reseeded R12.
-    Route::middleware(['screen.permission:meeting_outputs,edit', 'request.visible'])
-        ->patch('requests/{requestRecord}/archive/committee-file', [RequestController::class, 'archiveCommitteeFile']);
+    // Stage 100 — [D] Appendix 6 row 15: ملف الخدمة is الموارد البشرية's, on
+    // `add` — a tier that gated no route before this stage, reseeded R12.
+    // Since 2026-10-25 HR alone archives (user decision): the مقرر's
+    // committee-file route is gone, and this archive closes the file.
     Route::middleware(['screen.permission:meeting_outputs,add', 'request.visible'])
         ->patch('requests/{requestRecord}/archive/service-file', [RequestController::class, 'archiveServiceFile']);
 

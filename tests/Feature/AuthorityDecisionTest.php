@@ -19,7 +19,7 @@ use Tests\TestCase;
  * The committee only recommends (user decision 2026-10-18): العميد decides a
  * dean file, and مكتب العميد records the minister's paper قرار on a minister
  * file, each from the meeting's own page. The result is announced, and the
- * file goes straight to its two archives, which close it.
+ * file goes straight to HR's service-file archive, which closes it.
  */
 class AuthorityDecisionTest extends TestCase
 {
@@ -148,16 +148,15 @@ class AuthorityDecisionTest extends TestCase
         Notification::assertSentTo($hr, RequestNoticeCopyNotification::class);
     }
 
-    public function test_both_archives_close_the_file(): void
+    /** 2026-10-25 — HR alone archives (user decision); the مقرر's committee-file archive is gone. */
+    public function test_hrs_service_archive_alone_closes_the_file(): void
     {
         [$meeting, $item] = $this->recommended('approve', 'dean');
         $this->decide($this->userWith('R07'), $meeting, $item, ['decision' => 'approve'])->assertOk();
-        $rapporteur = $meeting->committee->seatRapporteur();
 
-        $this->actingAs($rapporteur, 'sanctum')
+        $this->actingAs($meeting->committee->seatRapporteur(), 'sanctum')
             ->patchJson("/api/requests/{$item->request_id}/archive/committee-file", ['location' => 'خزانة 3'])
-            ->assertOk();
-        $this->assertNull($item->request->fresh()->closed_at);
+            ->assertNotFound();
 
         $this->actingAs($this->userWith('R12'), 'sanctum')
             ->patchJson("/api/requests/{$item->request_id}/archive/service-file", ['location' => 'ملف الخدمة'])

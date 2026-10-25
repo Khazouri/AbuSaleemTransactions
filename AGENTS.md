@@ -224,8 +224,11 @@ Key architectural facts worth knowing before changing things:
   `meeting.member`; a minister file needs the قرار attached), and the request
   page and approval queue refuse that decision
   (`RequestController::authorityStageRefusal()`). There is **no execution
-  leg**: `final_approved` is a final path, and the second archive closes the
-  file (`RequestClosureService::archive()`, `closure_audit` null). **Appeals
+  leg**: `final_approved` is a final path, and HR's service-file archive closes
+  the file (`RequestClosureService::archive()`, `closure_audit` null). HR alone
+  archives (user decision 2026-10-25): the مقرر's committee-file archive is gone,
+  its columns kept for older records, and a file with no recorded decision owes
+  no archive and is closed by the `close` act. **Appeals
   sit on the paper agenda too**: an appeal row is قبول / رفض / تأجيل with a
   required note and no authority; قبول or رفض records `appeal_accept` /
   `appeal_reject` and moves it to `committee_presentation`, and تأجيل leaves it
