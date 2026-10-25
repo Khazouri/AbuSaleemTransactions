@@ -69,6 +69,9 @@ class EmployeeNoticeService
     /** The authority's decision awaiting the مقرر's confirmation (2026-10-25). */
     private const AUTHORITY_DECIDED_STATUSES = ['authority_approved', 'authority_rejected'];
 
+    /** What the paper sitting's results stamp on a file (MeetingResultsController::store()). */
+    private const COMMITTEE_RESULT_STATUSES = ['awaiting_municipal_approval', 'awaiting_central_approval', 'deferred'];
+
     /**
      * status code => moment, for the moments a bare destination status settles.
      *
@@ -180,6 +183,13 @@ class EmployeeNoticeService
         // an «awaiting approval» status) tells the employee nothing; only the
         // confirmed final_approved / not_approved does.
         if (in_array($fromCode, self::AUTHORITY_DECIDED_STATUSES, true) && ! in_array($toCode, ['final_approved', 'not_approved'], true)) {
+            return null;
+        }
+
+        // 2026-10-25 — the مقرر taking a meeting's results back returns each
+        // file to the status it held before them; nothing was decided, and a
+        // `registered` or `deferred` arrival must not read as moment 1 or 5.
+        if (in_array($fromCode, self::COMMITTEE_RESULT_STATUSES, true) && in_array($toCode, CommitteeStatusService::CANDIDATE_STATUSES, true)) {
             return null;
         }
 

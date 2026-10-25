@@ -441,7 +441,9 @@ class WorkflowService
      *
      * Every other write shape (both history rows, the stageChanged()
      * notification) still mirrors applyRule()'s, so a reopening leaves the
-     * exact same audit trail an ordinary transition would.
+     * exact same audit trail an ordinary transition would. `$announce: false`
+     * skips that notification for a move that undoes one rather than making
+     * news — the مقرر taking a meeting's results back (2026-10-25).
      *
      * @throws WorkflowTransitionException
      */
@@ -453,6 +455,7 @@ class WorkflowService
         string $action = 'appeal_redo',
         string $statusCode = 'reopened_by_appeal',
         bool $enforceBackwardOnly = true,
+        bool $announce = true,
     ): Request {
         if (in_array($targetStage->code, self::REDO_EXCLUDED_STAGE_CODES, true)) {
             throw WorkflowTransitionException::invalidRedoStage();
@@ -509,7 +512,9 @@ class WorkflowService
             return [$lockedRequest->refresh(), $fromStageId];
         });
 
-        $this->notifications->stageChanged($movedRequest, $actor, $action, WorkflowStage::find($fromStageId), $targetStage);
+        if ($announce) {
+            $this->notifications->stageChanged($movedRequest, $actor, $action, WorkflowStage::find($fromStageId), $targetStage);
+        }
 
         return $movedRequest;
     }

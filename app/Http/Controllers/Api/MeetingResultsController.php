@@ -12,6 +12,7 @@ use App\Models\Decision;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Models\Request;
+use App\Models\User;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\MeetingVisibility;
 use App\Services\Tasks\MeetingDuties;
@@ -164,6 +165,100 @@ class MeetingResultsController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * 2026-10-25 — the مقرر takes the paper sitting's whole result back, so
+     * it can be entered again, until جهة الاعتماد acts on any of its files
+     * (MeetingDuties::rollbackResultsRefusal()). Each file returns to the
+     * committee stage with the status it had, through a logged move: history
+     * is kept, only what store() created is removed. Not behind
+     * `meeting.member`, which refuses every write on a concluded meeting.
+     *
+     * ponytail: decision numbers are max+1, so a rolled-back number can be
+     * issued again; reserve numbers if the register must never repeat one.
+     */
+    public function rollback(
+        HttpRequest $request,
+        Meeting $meeting,
+        MeetingDuties $duties,
+        MeetingVisibility $visibility,
+        WorkflowService $workflow,
+    ): JsonResponse {
+        $actor = $request->user();
+        abort_unless($visibility->canView($actor, $meeting), 404);
+
+        $minutes = [$meeting->minutes_file_path, ...($meeting->minutes_pages ?? [])];
+
+        try {
+            DB::transaction(function () use ($meeting, $actor, $duties, $workflow) {
+                $locked = Meeting::query()->lockForUpdate()->findOrFail($meeting->id);
+                // The files are locked before the check, so an authority
+                // decision racing this one waits, then finds the file back
+                // at the committee and is refused.
+                Request::query()->whereIn('id', $locked->agendaItems()->whereNotNull('request_id')->pluck('request_id'))->lockForUpdate()->get();
+                if ($refusal = $duties->rollbackResultsRefusal($locked, $actor)) {
+                    throw new DomainException($refusal);
+                }
+
+                $legalReview = AppealStatus::where('code', 'legal_review')->value('id');
+                foreach ($locked->agendaItems()->with(['decision', 'request', 'appeal'])->get() as $item) {
+                    if ($item->item_type === 'appeal') {
+                        $item->appeal->update(['appeal_status_id' => $legalReview]);
+                    } else {
+                        $this->rollBackFile($item, $duties, $workflow, $actor);
+                    }
+
+                    // Decision has a unique meeting_request_id, which would refuse the re-entry.
+                    $item->decision->delete();
+                    $item->update(['item_state' => 'presented', 'state_changed_at' => now()]);
+                }
+
+                $locked->update([
+                    'status' => 'scheduled',
+                    'minutes_file_path' => null,
+                    'minutes_file_name' => null,
+                    'minutes_file_mime' => null,
+                    'minutes_pages' => null,
+                    'results_recorded_at' => null,
+                    'results_recorded_by_user_id' => null,
+                ]);
+            });
+        } catch (WorkflowTransitionException|DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        Storage::disk('local')->delete(array_filter($minutes));
+        Storage::disk('local')->deleteDirectory("meeting-minutes/{$meeting->id}");
+
+        return response()->json(['message' => 'تم التراجع عن نتائج الاجتماع، ويمكن إدخالها من جديد.']);
+    }
+
+    /**
+     * One file back where the result found it: its earlier status at the
+     * committee stage, no جهة الاعتماد, and no committee approval in the
+     * ledger. Silent (`announce: false`): nothing was decided, and
+     * EmployeeNoticeService keeps the employee notice quiet too.
+     */
+    private function rollBackFile(MeetingRequest $item, MeetingDuties $duties, WorkflowService $workflow, User $actor): void
+    {
+        $file = $item->request;
+        $priorStatus = $duties->committeeResultHistory($item)->fromStatus()->value('code');
+
+        $file->update(['approving_authority' => null]);
+        if ($item->decision->outcome === 'approve') {
+            $file->approvals()->where('level', 2)->where('action', 'approve')->latest('id')->first()?->delete();
+        }
+
+        $workflow->reopenAtStage(
+            $file,
+            $file->stageByCode('receive_from_committee'),
+            $actor,
+            'تراجع المقرر عن نتائج الاجتماع.',
+            'rollback_results',
+            $priorStatus,
+            announce: false,
+        );
     }
 
     /**

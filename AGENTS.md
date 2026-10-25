@@ -253,7 +253,12 @@ Key architectural facts worth knowing before changing things:
   agenda is fixed only once the meeting is `completed`), the committee card's
   voting and minutes rules, and the decision templates screen. Don't
   bring any of it back piecemeal; a decision is written only by
-  `MeetingResultsController::store()`. **The legal member enters a توصية
+  `MeetingResultsController::store()`. The مقرر may roll the whole result
+  back (`DELETE meetings/{m}/results`, `rollback()`, user decision
+  2026-10-25) until جهة الاعتماد, or anything else, moves any of its files
+  (`MeetingDuties::rollbackResultsRefusal()`). Each file returns to the
+  committee stage through a logged `rollback_results` move, so history is
+  kept, and the meeting goes back to `scheduled`. **The legal member enters a توصية
   (`approve`/`decline`) and جهة الاعتماد only** (user decision 2026-10-19,
   `request_legal_reviews.recommendation`/`approving_authority`). Either one
   returns the file to the pending list, and the results form starts the row
