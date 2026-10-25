@@ -19,6 +19,46 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-25 17:30 EET — Claude — The مقرر rolls back a meeting's results (B6, complete, branch only)
+
+Built per the plan below on `feat/results-rollback`, with no migration. `MeetingDuties::committeeResultHistory()` is the
+one rule for whether a file still stands where the result left it: its latest stage log is the result's own move out of
+`receive_from_committee`, and its latest status row is the one written with that log. The rollback restores that row's
+`from_status`. The endpoint locks the meeting's files before the check, so a racing authority decision waits and is
+then refused. Additions beyond the plan:
+- `workflow.actions.rollback_results` names the move on the timeline;
+- `StepChecklistService::REOPEN_ACTIONS` counts the move as a new arrival;
+- a deferred file or appeal on a later, non-cancelled agenda has its own refusal message.
+
+Verified:
+- the new `MeetingResultsRollbackTest` (6) went RED (405 / no offer), then GREEN;
+- full suite 842 / 7179, plus 18 + 9 maintenance tests, green;
+- Pint clean; build passes (dist reverted); parity 1809; `aislop ci` exit 0 (97).
+
+Not checked in a browser. The ceiling is a `ponytail:` comment: a rolled-back decision number can be reissued.
+
+---
+### 2026-10-25 16:55 EET — Claude — Implementation plan: the مقرر rolls back a meeting's results (B6)
+
+Paper-meeting plan, item 3 (user decision: the whole meeting, only until جهة الاعتماد acts on any file). Plan:
+- `DELETE meetings/{m}/results` (`meetings,edit`, outside `meeting.member`, which refuses writes on a completed meeting;
+  the controller checks `MeetingVisibility`);
+- `MeetingDuties::rollbackResultsRefusal()`, read by the endpoint and offered as `rollback_results` in `forMeeting()`.
+  It refuses when there are no results, when the actor is not the seated مقرر, when a file's latest stage log + status
+  row are no longer the ones the results wrote, when a file or appeal sits on a later agenda, and when an
+  accepted/rejected appeal has left `committee_presentation`;
+- the reversal runs in one transaction. Each file goes back to `receive_from_committee` with its earlier status through
+  `reopenAtStage(..., 'rollback_results', announce: false)`, which keeps the history. It also clears
+  `approving_authority`, deletes the level-2 Approval, moves appeals back to `legal_review`, deletes the Decision rows,
+  sets items back to `presented` and the meeting to `scheduled`, and clears the results/minutes columns. The minutes
+  directory is deleted after commit;
+- `EmployeeNoticeService::momentFor()` is silent on awaiting_*/deferred → a candidate status;
+- `MeetingWizard` gets a confirmation-only act.
+
+No migration. Verify: new `MeetingResultsRollbackTest` (RED then GREEN), full PHPUnit, Pint, build (dist reverted),
+parity, aislop ci. (Clock note: the machine reads 16:55, behind the entry below.)
+
+---
 ### 2026-10-25 17:30 EET — Claude — Paper-meeting plan, wave 1 merged into main (B1–B4)
 
 Four branches were built in parallel worktrees and merged into `main` in this order: `feat/hr-only-archive`,

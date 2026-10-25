@@ -29,6 +29,8 @@ const REQUESTS = {
   respond_decline: (id) => api.post(`/meetings/${id}/respond`, { response: 'decline' }),
   // 2026-10-18 — the paper sitting's results and its محضر, in one submit.
   record_results: (id, results) => api.post(`/meetings/${id}/results`, results),
+  // 2026-10-25 — the مقرر takes the whole result back; the slip is the confirmation.
+  rollback_results: (id) => api.delete(`/meetings/${id}/results`),
 }
 
 const meeting = ref(null)

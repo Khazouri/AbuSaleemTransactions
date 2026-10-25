@@ -674,6 +674,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // the محضر once (MeetingDuties::recordResultsRefusal() names the مقرر).
     Route::middleware(['screen.permission:meetings,edit', 'meeting.member'])
         ->post('meetings/{meeting}/results', [MeetingResultsController::class, 'store']);
+    // 2026-10-25 — the مقرر takes the whole result back until جهة الاعتماد acts.
+    // Outside `meeting.member`, which refuses writes on the concluded meeting;
+    // the controller checks MeetingVisibility itself.
+    Route::middleware('screen.permission:meetings,edit')
+        ->delete('meetings/{meeting}/results', [MeetingResultsController::class, 'rollback']);
     Route::middleware(['screen.permission:meetings,view', 'meeting.member:guests'])
         ->get('meetings/{meeting}/minutes-file', [MeetingResultsController::class, 'minutesFile']);
     // 2026-10-18 — جهة الاعتماد decides each recommended file from the meeting.

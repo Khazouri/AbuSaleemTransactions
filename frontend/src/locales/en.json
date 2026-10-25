@@ -1338,7 +1338,8 @@
       "reject_by_committee": "Non-approval with reason",
       "reopen": "Reopen for re-presentation",
       "confirm_decision": "Confirm the authority's decision",
-      "return_to_authority": "Return to the approving authority"
+      "return_to_authority": "Return to the approving authority",
+      "rollback_results": "Meeting results rolled back"
     }
   },
   "auditLog": {
@@ -2029,6 +2030,7 @@
       "respond_accept": "Confirms you can attend on the proposed date; the meeting is confirmed once the required number of members accept.",
       "respond_decline": "You can’t make the date; the meeting is confirmed only if enough other members accept, or the rapporteur proposes another date.",
       "record_results": "Enter each item's recommendation and approving authority as recorded at the meeting, and attach the signed minutes. The meeting closes and the requests go to their approving authorities.",
+      "rollback_results": "The entered recommendations are undone and the attached minutes deleted; the requests return to the committee in their earlier status and the results can be entered again. Available until the approving authority decides any request.",
       "confirm_decision": "Confirms the authority's decision as the file's final result; the employee is told, and the file goes on to archiving.",
       "return_to_authority": "Sends the file back to the same authority to reconsider its decision, with your reason."
     },
@@ -2038,7 +2040,8 @@
       "send_to_legal_review": "Send for legal review",
       "respond_accept": "Accept the date",
       "respond_decline": "Decline the date",
-      "record_results": "Enter meeting results"
+      "record_results": "Enter meeting results",
+      "rollback_results": "Roll back the meeting's results"
     },
     "seats": {
       "title": "Committee seats",
@@ -2054,7 +2057,8 @@
     "ledger": {
       "respond_accept": "The member accepted the meeting date.",
       "respond_decline": "The member declined the meeting date.",
-      "record_results": "The committee's recommendations were entered and the minutes attached."
+      "record_results": "The committee's recommendations were entered and the minutes attached.",
+      "rollback_results": "The rapporteur rolled the meeting's results back to enter them again."
     },
     "families": {
       "stage": "This stage's decision",

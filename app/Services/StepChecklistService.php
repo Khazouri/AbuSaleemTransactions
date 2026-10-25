@@ -58,12 +58,12 @@ class StepChecklistService
     }
 
     /**
-     * The actions WorkflowService::reopenAtStage()'s four callers log. A
+     * The actions WorkflowService::reopenAtStage()'s callers log. A
      * reopen onto the stage the file already sits on logs from = to, which
      * would otherwise read as a self-loop and hand the new lap the card of the
      * lap that ended in a cancel or a decision — the gate failing open.
      */
-    private const REOPEN_ACTIONS = ['reopen', 'appeal_redo', 'approval_return_restudy', 'article_105_restudy'];
+    private const REOPEN_ACTIONS = ['reopen', 'appeal_redo', 'approval_return_restudy', 'article_105_restudy', 'rollback_results'];
 
     public function arrival(Request $requestRecord): ?RequestStageLog
     {

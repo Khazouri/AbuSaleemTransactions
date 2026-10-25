@@ -2,10 +2,12 @@
 
 namespace App\Services\Tasks;
 
+use App\Http\Controllers\Api\DecisionController;
 use App\Http\Controllers\Api\RequestController;
 use App\Models\CommitteeMember;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
+use App\Models\RequestStatusHistory;
 use App\Models\User;
 use App\Services\MeetingVisibility;
 
@@ -50,9 +52,7 @@ class MeetingDuties
             return 'لا تدخل نتائج الاجتماع قبل موعده.';
         }
 
-        // The seated row, not Committee::seatRapporteur(), which re-seats as a
-        // side effect and has no place in a refusal.
-        if ($meeting->committee?->members()->where('seat', 'rapporteur')->value('user_id') !== $actor->id) {
+        if (! $this->isSeatedRapporteur($meeting, $actor)) {
             return 'يدخل مقرر اللجنة نتائج الاجتماع.';
         }
 
@@ -61,6 +61,82 @@ class MeetingDuties
         }
 
         return null;
+    }
+
+    /**
+     * MeetingResultsController::rollback() — paper-meeting plan, item 3 (user
+     * decision 2026-10-25). The مقرر takes the whole result back, but only
+     * while every file still stands exactly where the result put it: once
+     * جهة الاعتماد (or anyone) has moved one, undoing the result would
+     * rewrite a decision someone has already acted on.
+     */
+    public function rollbackResultsRefusal(Meeting $meeting, User $actor): ?string
+    {
+        if ($meeting->results_recorded_at === null) {
+            return 'لم تُدخل نتائج هذا الاجتماع بعد.';
+        }
+
+        if (! $this->isSeatedRapporteur($meeting, $actor)) {
+            return 'يتراجع مقرر اللجنة عن نتائج الاجتماع.';
+        }
+
+        foreach ($meeting->agendaItems()->with(['decision', 'request', 'appeal.status:id,code'])->get() as $item) {
+            if ($this->onLaterAgenda($item)) {
+                return 'أُدرج أحد بنود هذا الاجتماع في جدول أعمال اجتماع لاحق، فلا يجوز التراجع.';
+            }
+
+            $standsAsLeft = $item->item_type === 'appeal'
+                ? $item->appeal?->status?->code === ($item->decision?->outcome === 'defer' ? 'legal_review' : 'committee_presentation')
+                : $item->request !== null && $this->committeeResultHistory($item) !== null;
+            if (! $standsAsLeft) {
+                return 'لا يجوز التراجع بعد أن تحرك أحد الطلبات (قرار جهة الاعتماد أو غيره).';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The status row this meeting's result wrote on the item's file, while it
+     * is still the file's latest move, or null once anything came after it.
+     * The stage log catches a transition (the authority's decision, a return,
+     * a cancel); the status row, written with it in one beat, catches a
+     * status-only move (an approval return, a suspension, a legal review). The
+     * rollback restores the row's from_status.
+     */
+    public function committeeResultHistory(MeetingRequest $item): ?RequestStatusHistory
+    {
+        $file = $item->request;
+        $log = $file->stageLogs()->with('fromStage:id,code')->latest('id')->first();
+        if ($log === null || $log->fromStage?->code !== 'receive_from_committee'
+            || $log->action !== (DecisionController::ACTIONS[$item->decision?->outcome] ?? null)) {
+            return null;
+        }
+
+        $history = $file->statusHistory()->latest('id')->first();
+
+        return $history !== null && $history->changed_at->equalTo($log->acted_at) && $history->to_status_id === $file->status_id
+            ? $history
+            : null;
+    }
+
+    /** A deferred file or appeal picked again, or decided by a later meeting, belongs to that meeting now. */
+    private function onLaterAgenda(MeetingRequest $item): bool
+    {
+        return MeetingRequest::query()
+            ->where($item->item_type === 'appeal' ? 'appeal_id' : 'request_id', $item->appeal_id ?? $item->request_id)
+            ->where('id', '>', $item->id)
+            ->whereHas('meeting', fn ($query) => $query->where('status', '!=', 'cancelled'))
+            ->exists();
+    }
+
+    /**
+     * The seated row, not Committee::seatRapporteur(), which re-seats as a
+     * side effect and has no place in a refusal.
+     */
+    private function isSeatedRapporteur(Meeting $meeting, User $actor): bool
+    {
+        return $meeting->committee?->members()->where('seat', 'rapporteur')->value('user_id') === $actor->id;
     }
 
     /**
@@ -143,6 +219,12 @@ class MeetingDuties
         if ($meeting->status === 'scheduled' && $meeting->results_recorded_at === null
             && $meeting->committee?->members->contains(fn ($member) => $member->seat === 'rapporteur' && $member->user_id === $actor->id)) {
             $this->offer($duties, 'record_results', $this->recordResultsRefusal($meeting, $actor));
+        }
+
+        // 2026-10-25 — and may take them back until جهة الاعتماد acts; held
+        // back with the reason once a file has moved on.
+        if ($meeting->results_recorded_at !== null && $this->isSeatedRapporteur($meeting, $actor)) {
+            $this->offer($duties, 'rollback_results', $this->rollbackResultsRefusal($meeting, $actor));
         }
 
         return [...$duties, 'seats' => $this->seats($meeting, $this->meetingSeatState($meeting))];
