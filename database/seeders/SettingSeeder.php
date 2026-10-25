@@ -39,6 +39,12 @@ class SettingSeeder extends Seeder
             ['value' => '3'],
         );
 
+        // User decision 2026-10-25 — off: members answer the date themselves.
+        Setting::firstOrCreate(
+            ['key' => Setting::MEETING_AUTO_ACCEPT],
+            ['value' => '0'],
+        );
+
         // User decision 2026-10-19 — one colour per «المهام المعلقة» source,
         // distinct hues that still read as a light tint on either theme.
         foreach ([

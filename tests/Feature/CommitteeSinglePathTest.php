@@ -191,6 +191,44 @@ class CommitteeSinglePathTest extends TestCase
             ->assertForbidden();
     }
 
+    /** Settings' checkbox (user decision 2026-10-25): the date is set for everyone, guests included. */
+    public function test_auto_accept_schedules_the_meeting_with_every_attendee_accepted(): void
+    {
+        Notification::fake();
+        Setting::where('key', Setting::MEETING_AUTO_ACCEPT)->update(['value' => '1']);
+        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
+        $seats = $this->fillFiveSeats($committee);
+        $guest = $this->userWithRole('R01');
+
+        $meetingId = $this->actingAs($seats['rapporteur'], 'sanctum')
+            ->postJson('/api/meetings', [
+                'committee_id' => $committee->id,
+                'title' => 'الاجتماع الشهري',
+                'scheduled_at' => now()->addWeek()->toDateTimeString(),
+                'guests' => [['user_id' => $guest->id, 'guest_title' => 'مستشار']],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'scheduled')
+            ->json('data.id');
+        $meeting = Meeting::findOrFail($meetingId);
+
+        $this->assertSame(6, $meeting->attendees()->where('invitation_status', 'confirmed')->whereNotNull('responded_at')->count());
+        Notification::assertSentTo($guest, MeetingScheduledNotification::class);
+
+        // A new date is accepted for everyone again rather than reopened.
+        $this->actingAs($seats['rapporteur'], 'sanctum')
+            ->putJson("/api/meetings/{$meeting->id}", ['scheduled_at' => now()->addWeeks(2)->toDateTimeString()])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'scheduled');
+        $this->assertSame(0, $meeting->attendees()->where('invitation_status', '!=', 'confirmed')->count());
+    }
+
+    public function test_auto_accept_is_seeded_off(): void
+    {
+        $this->assertFalse(Setting::enabled(Setting::MEETING_AUTO_ACCEPT));
+        $this->assertDatabaseHas('settings', ['key' => Setting::MEETING_AUTO_ACCEPT, 'value' => '0']);
+    }
+
     /** These cases need every member's answer before the date is set. */
     private function requireEveryMember(): void
     {

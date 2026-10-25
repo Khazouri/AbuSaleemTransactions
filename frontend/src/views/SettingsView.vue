@@ -25,14 +25,16 @@ const showForm = ref(false)
 // Setting::enabled() and Setting::meetingAcceptancesRequired().
 const BYPASS_KEY = 'legal_review_bypass'
 const ACCEPTANCES_KEY = 'meeting_acceptances_required'
+const AUTO_ACCEPT_KEY = 'meeting_auto_accept'
 const bypass = computed(() => settings.value.find((s) => s.key === BYPASS_KEY))
 const acceptances = computed(() => settings.value.find((s) => s.key === ACCEPTANCES_KEY))
+const autoAccept = computed(() => settings.value.find((s) => s.key === AUTO_ACCEPT_KEY))
 // «المهام المعلقة»'s category colours (user decision 2026-10-19), one seeded
 // `task_color_<source>` row each, read by the server as Setting::taskColors().
 const COLOR_PREFIX = 'task_color_'
 const taskColors = computed(() => settings.value.filter((s) => s.key.startsWith(COLOR_PREFIX)))
 const rows = computed(() =>
-  settings.value.filter((s) => ![BYPASS_KEY, ACCEPTANCES_KEY].includes(s.key) && !s.key.startsWith(COLOR_PREFIX)),
+  settings.value.filter((s) => ![BYPASS_KEY, ACCEPTANCES_KEY, AUTO_ACCEPT_KEY].includes(s.key) && !s.key.startsWith(COLOR_PREFIX)),
 )
 const ownSaving = ref(false)
 
@@ -53,8 +55,8 @@ async function saveOwn(setting, key, value) {
   }
 }
 
-async function toggleBypass(event) {
-  if (!(await saveOwn(bypass.value, BYPASS_KEY, event.target.checked ? '1' : '0'))) {
+async function toggle(setting, key, event) {
+  if (!(await saveOwn(setting, key, event.target.checked ? '1' : '0'))) {
     event.target.checked = !event.target.checked
   }
 }
@@ -182,7 +184,7 @@ onMounted(load)
     <!-- Legal review bypass (user decision 2026-10-16). -->
     <div v-if="!loading && !loadError" v-can="'settings.edit'" class="card card-flat card-pad toggle">
       <label class="checkbox">
-        <input type="checkbox" :checked="bypass?.value === '1'" :disabled="ownSaving" @change="toggleBypass" />
+        <input type="checkbox" :checked="bypass?.value === '1'" :disabled="ownSaving" @change="toggle(bypass, BYPASS_KEY, $event)" />
         <strong>{{ t('settings.legalReviewBypass') }}</strong>
       </label>
       <small class="hint">{{ t('settings.legalReviewBypassHint') }}</small>
@@ -205,6 +207,20 @@ onMounted(load)
         />
       </label>
       <small class="hint">{{ t('settings.meetingAcceptancesHint') }}</small>
+    </div>
+
+    <!-- Meeting auto-accept (user decision 2026-10-25). -->
+    <div v-if="!loading && !loadError" v-can="'settings.edit'" class="card card-flat card-pad toggle">
+      <label class="checkbox">
+        <input
+          type="checkbox"
+          :checked="autoAccept?.value === '1'"
+          :disabled="ownSaving"
+          @change="toggle(autoAccept, AUTO_ACCEPT_KEY, $event)"
+        />
+        <strong>{{ t('settings.meetingAutoAccept') }}</strong>
+      </label>
+      <small class="hint">{{ t('settings.meetingAutoAcceptHint') }}</small>
     </div>
 
     <!-- My Tasks category colours (user decision 2026-10-19). -->

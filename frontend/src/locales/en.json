@@ -238,6 +238,8 @@
     "legalReviewBypass": "Let the rapporteur skip the legal review",
     "meetingAcceptances": "Members who must accept a meeting date",
     "meetingAcceptancesHint": "A meeting is confirmed once this many invitees accept its date. The rapporteur proposes the date, so they count. From 2 to 5.",
+    "meetingAutoAccept": "Accept meetings automatically for every attendee",
+    "meetingAutoAcceptHint": "While ticked, a meeting’s date is approved as soon as the rapporteur sets it: every attendee, extra members included, is recorded as accepting and is notified of the date with nothing to answer.",
     "legalReviewBypassHint": "While ticked, the rapporteur can put any pending request on a meeting agenda before the legal member records a recommendation.",
     "taskColors": "My Tasks category colours",
     "taskColorsHint": "Each category's tasks on the My Tasks page are tinted with its colour, in both light and dark mode."
