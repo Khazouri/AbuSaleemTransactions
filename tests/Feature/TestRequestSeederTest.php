@@ -13,6 +13,7 @@ use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\TestRequestSeeder;
 use Database\Seeders\TestUserSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -95,13 +96,15 @@ class TestRequestSeederTest extends TestCase
         $this->assertSame(['approve'], $meeting->agendaItems->pluck('decision.outcome')->unique()->values()->all());
         Storage::disk('local')->assertExists($meeting->minutes_file_path);
 
-        $ministryFinals = Request::query()
-            ->where('current_stage_id', WorkflowStage::where('code', 'final_approval_archiving')->value('id'))
-            ->where('approving_authority', 'minister')
-            ->withCount(['attachments' => fn ($q) => $q->where('label', 'قرار الوزير')])
-            ->get();
-        $this->assertNotEmpty($ministryFinals);
-        $this->assertSame([1], $ministryFinals->pluck('attachments_count')->unique()->values()->all());
+        // 2026-10-25 — every file the authority decided carries its scanned قرار.
+        $decided = $meeting->agendaItems->filter(fn (MeetingRequest $item) => in_array(
+            $item->request->currentStage->code, ['rapporteur_decision_review', 'final_approval_archiving'], true,
+        ));
+        $this->assertCount(10, $decided);
+        foreach ($decided as $item) {
+            Storage::disk('local')->assertExists($item->authorityDecision->pages[0]);
+        }
+        $this->assertSame([null], $meeting->agendaItems->diff($decided)->pluck('authority_decision_id')->unique()->values()->all());
     }
 
     public function test_the_dean_can_decide_a_generated_file_from_its_meeting(): void
@@ -115,7 +118,12 @@ class TestRequestSeederTest extends TestCase
         $dean = User::activeSeatHolder('dean');
 
         $this->actingAs($dean)
-            ->postJson("/api/meetings/{$item->meeting_id}/agenda/{$item->id}/authority-decision", ['decision' => 'approve'])
+            ->post("/api/meetings/{$item->meeting_id}/authority-decisions", [
+                'items' => [$item->id => ['decision' => 'approve']],
+                'reference' => 'ق/2026/1',
+                'decided_on' => now()->toDateString(),
+                'pages' => [UploadedFile::fake()->image('قرار.jpg')],
+            ], ['Accept' => 'application/json'])
             ->assertOk();
 
         // 2026-10-25 — on to the مقرر's review, not yet final.

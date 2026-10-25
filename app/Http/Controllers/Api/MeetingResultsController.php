@@ -4,16 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Meeting\AuthorityDecisionRequest;
+use App\Http\Requests\Meeting\RecordAuthorityDecisionsRequest;
 use App\Http\Requests\Meeting\RecordMeetingResultsRequest;
 use App\Models\AppealStatus;
-use App\Models\Attachment;
+use App\Models\AuthorityDecision;
 use App\Models\Decision;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Services\ArtifactNumberGenerator;
 use App\Services\MeetingVisibility;
+use App\Services\RequestVisibility;
 use App\Services\Tasks\MeetingDuties;
 use App\Services\WorkflowService;
 use DomainException;
@@ -62,7 +63,7 @@ class MeetingResultsController extends Controller
             }
         }
 
-        $pages = $this->storeMinutesPages($meeting, $request->file('minutes_pages'));
+        $pages = $this->storePages("meeting-minutes/{$meeting->id}", $meeting->id, $request->file('minutes_pages'));
 
         try {
             DB::transaction(function () use ($meeting, $items, $rows, $actor, $workflow, $numbers, $pages) {
@@ -121,22 +122,23 @@ class MeetingResultsController extends Controller
     }
 
     /**
-     * Page n is saved as «<meeting id>-<n>», n from 1 in the order the مقرر
-     * arranged them, which is also the name it downloads under. The extension
-     * comes from the checked MIME type, never from the client's file name.
+     * Scanned page n is saved as «<id>-<n>» in `$directory`, n from 1 in the
+     * order the user arranged them, which is also the name it downloads under:
+     * the محضر under its meeting's id, جهة الاعتماد's قرار under its own. The
+     * extension comes from the checked MIME type, never the client's file name.
      *
      * @param  list<UploadedFile>  $uploads
      * @return list<string>
      */
-    private function storeMinutesPages(Meeting $meeting, array $uploads): array
+    private function storePages(string $directory, int $id, array $uploads): array
     {
         $paths = [];
         foreach (array_values($uploads) as $index => $upload) {
             $extension = $upload->getMimeType() === 'image/png' ? 'png' : 'jpg';
-            $path = $upload->storeAs("meeting-minutes/{$meeting->id}", "{$meeting->id}-".($index + 1).".{$extension}", 'local');
+            $path = $upload->storeAs($directory, "{$id}-".($index + 1).".{$extension}", 'local');
             if ($path === false) {
                 Storage::disk('local')->delete($paths);
-                abort(500, 'تعذّر حفظ صفحات المحضر.');
+                abort(500, 'تعذّر حفظ الصفحات المرفقة.');
             }
             $paths[] = $path;
         }
@@ -188,68 +190,84 @@ class MeetingResultsController extends Controller
         ]);
     }
 
-    public function authorityDuties(HttpRequest $request, Meeting $meeting, MeetingRequest $agendaItem, MeetingDuties $duties): JsonResponse
+    // 2026-10-25 — what جهة الاعتماد may tick on this meeting's page.
+    public function authorityDuties(HttpRequest $request, Meeting $meeting, MeetingDuties $duties): JsonResponse
     {
-        abort_unless($agendaItem->meeting_id === $meeting->id, 404);
-
-        return response()->json(['data' => $duties->forAuthority($agendaItem, $request->user())]);
+        return response()->json(['items' => $duties->authorityItems($meeting, $request->user())]);
     }
 
     /**
-     * 2026-10-18 — العميد decides a dean file; مكتب العميد records the
-     * minister's paper قرار, attached, on a minister file. Not behind
-     * `meeting.member`, which refuses every write on a concluded meeting, so
-     * the visibility check is here.
+     * 2026-10-25 — جهة الاعتماد decides several files of this meeting with one
+     * paper قرار: one اشاري, one date and one set of scanned pages, and its own
+     * اعتماد or عدم اعتماد per file. All or nothing: one refused file holds
+     * the whole submit back and is named, so a قرار is never half recorded.
+     *
+     * Not behind `meeting.member`, which refuses every write on a concluded
+     * meeting, nor `request.visible`, which cannot see the ticked items, so
+     * both visibility checks are here.
      */
-    public function authorityDecision(
-        AuthorityDecisionRequest $request,
+    public function recordAuthorityDecisions(
+        RecordAuthorityDecisionsRequest $request,
         Meeting $meeting,
-        MeetingRequest $agendaItem,
         MeetingDuties $duties,
-        MeetingVisibility $visibility,
+        MeetingVisibility $meetings,
+        RequestVisibility $requests,
         WorkflowService $workflow,
     ): JsonResponse {
         $actor = $request->user();
-        abort_unless($agendaItem->meeting_id === $meeting->id && $visibility->canView($actor, $meeting), 404);
+        abort_unless($meetings->canView($actor, $meeting), 404);
 
-        if ($refusal = $duties->authorityDecisionRefusal($agendaItem, $actor)) {
-            return response()->json(['message' => $refusal], 422);
+        $rows = $request->validated('items');
+        $items = $meeting->agendaItems()->whereKey(array_keys($rows))->with(['request', 'decision', 'meeting'])->get();
+        abort_unless($items->count() === count($rows), 404);
+
+        foreach ($items as $item) {
+            abort_if($item->request !== null && ! $requests->canView($actor, $item->request), 404);
+            if ($refusal = $duties->authorityDecisionRefusal($item, $actor)) {
+                return response()->json(['message' => ($item->request?->reference_number ?? "#{$item->id}").': '.$refusal], 422);
+            }
         }
 
-        $file = $agendaItem->request;
-        if ($file->currentStage()->value('code') === 'local_governance_ministry' && ! $request->hasFile('decision_file')) {
-            return response()->json(['message' => 'يجب إرفاق قرار الوزير.'], 422);
-        }
-
-        $upload = $request->file('decision_file');
-        $path = $upload?->store("attachments/{$file->id}", 'local');
-
+        $directory = null;
         try {
-            DB::transaction(function () use ($request, $file, $upload, $path, $actor, $workflow) {
-                if ($upload !== null) {
-                    Attachment::create([
-                        'request_id' => $file->id,
-                        'disk' => 'local',
-                        'path' => $path,
-                        'original_name' => 'قرار الوزير - '.$file->reference_number.'.'.$upload->guessExtension(),
-                        'mime_type' => $upload->getMimeType(),
-                        'size_bytes' => $upload->getSize(),
-                        'label' => 'قرار الوزير',
-                        'file_section' => 'approval',
-                        'uploaded_by_user_id' => $actor->id,
-                    ]);
-                }
+            DB::transaction(function () use ($request, $items, $rows, $actor, $workflow, &$directory) {
+                $decision = AuthorityDecision::create([
+                    'reference' => trim($request->validated('reference')),
+                    'decided_on' => $request->validated('decided_on'),
+                    'pages' => [],
+                    'decided_by_user_id' => $actor->id,
+                ]);
+                $directory = "authority-decisions/{$decision->id}";
+                $decision->update(['pages' => $this->storePages($directory, $decision->id, $request->file('pages'))]);
 
-                $workflow->transition($file, $request->validated('decision'), $actor, $request->validated('note'));
+                foreach ($items as $item) {
+                    $note = filled($rows[$item->id]['note'] ?? null) ? trim($rows[$item->id]['note']) : null;
+                    $workflow->transition($item->request, $rows[$item->id]['decision'], $actor, $note);
+                    // A re-decision after the مقرر's return points at the new قرار.
+                    $item->update(['authority_decision_id' => $decision->id]);
+                }
             });
         } catch (WorkflowTransitionException $exception) {
-            if ($path !== null) {
-                Storage::disk('local')->delete($path);
+            if ($directory !== null) {
+                Storage::disk('local')->deleteDirectory($directory);
             }
 
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        return response()->json(['message' => 'تم تسجيل قرار جهة الاعتماد.']);
+        return response()->json(['message' => 'تم تسجيل قرار جهة الاعتماد على '.$items->count().' من الطلبات.']);
+    }
+
+    /**
+     * 2026-10-25 — one page of جهة الاعتماد's قرار on this file, for whoever
+     * may open the request, its creator among them. The same قرار the request
+     * page shows, so none while the file is back before the authority.
+     */
+    public function authorityDecisionPage(Request $requestRecord, int $page): StreamedResponse
+    {
+        $path = AuthorityDecision::shownOn($requestRecord)?->pages[$page - 1] ?? null;
+        abort_unless($page >= 1 && $path !== null && Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path, basename($path));
     }
 }

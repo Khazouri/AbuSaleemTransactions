@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Approval;
 use App\Models\Attachment;
 use App\Models\AttachmentPreview;
+use App\Models\AuthorityDecision;
 use App\Models\Committee;
 use App\Models\CommitteeMember;
 use App\Models\Decision;
@@ -46,7 +47,7 @@ use Illuminate\Support\Str;
  *     approved, and the Approval ledger row of each approve;
  *   - past the committee: the legal member's recommendation, one completed
  *     meeting per run (its محضر on disk) holding every such file with its
- *     decision, and the authority's approve, with قرار الوزير on a minister file,
+ *     decision, and the authority's approve with its scanned قرار,
  *     then the مقرر's confirmation of it.
  *
  * No notification is sent: forty fake "action required" prompts would only
@@ -125,6 +126,9 @@ class TestRequestSeeder extends Seeder
         'طلب صرف علاوة',
         'طلب تثبيت',
     ];
+
+    /** A 1×1 PNG, so the request page's slideshow opens on a real image. */
+    private const PAGE_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
     private Collection $holders;
 
@@ -342,13 +346,7 @@ class TestRequestSeeder extends Seeder
                 'reviewed_at' => $at,
             ]),
             'committee' => $this->decide($requestRecord, $actors['rapporteur'], $at),
-            'authority' => $requestRecord->approving_authority === 'minister'
-                ? $this->attach($requestRecord, [
-                    'original_name' => 'قرار الوزير - '.$requestRecord->reference_number.'.pdf',
-                    'label' => 'قرار الوزير',
-                    'file_section' => 'approval',
-                ], $actors['minister'], $at)
-                : null,
+            'authority' => $this->authorityDecision($requestRecord, $actors['authority'], $at),
             default => null,
         };
     }
@@ -420,6 +418,25 @@ class TestRequestSeeder extends Seeder
             'decided_by_user_id' => $rapporteur->id,
             'decided_at' => $at,
         ]);
+    }
+
+    /**
+     * جهة الاعتماد's قرار on this file, one scanned page, linked to its agenda
+     * item (MeetingResultsController::recordAuthorityDecisions()).
+     */
+    private function authorityDecision(Request $requestRecord, User $authority, Carbon $at): void
+    {
+        $decision = AuthorityDecision::create([
+            'reference' => "ق/{$at->year}/{$requestRecord->id}",
+            'decided_on' => $at->toDateString(),
+            'pages' => [],
+            'decided_by_user_id' => $authority->id,
+        ]);
+        $path = "authority-decisions/{$decision->id}/{$decision->id}-1.png";
+        Storage::disk('local')->put($path, base64_decode(self::PAGE_PNG));
+        $decision->update(['pages' => [$path]]);
+
+        $this->meeting->agendaItems()->where('request_id', $requestRecord->id)->update(['authority_decision_id' => $decision->id]);
     }
 
     /** A random name in `$directory`, as an upload's `store()` would give. */

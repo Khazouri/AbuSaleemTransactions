@@ -385,6 +385,12 @@ Route::middleware('auth:sanctum')->group(function () {
         )
         ->name('requests.attachments.previewed');
 
+    // 2026-10-25 — the scanned pages of جهة الاعتماد's قرار, for whoever may
+    // open the request: its creator sees the قرار on their own file.
+    Route::middleware(['screen.permission:request_details,view', 'request.visible'])
+        ->get('requests/{requestRecord}/authority-decision/pages/{page}', [MeetingResultsController::class, 'authorityDecisionPage'])
+        ->whereNumber('page');
+
     // Stage 15 — the detail screen is read by its own capability. The action
     // endpoint uses that same view gate, then WorkflowService enforces the
     // transition's configured role under lock (not one broad screen flag).
@@ -676,13 +682,14 @@ Route::middleware('auth:sanctum')->group(function () {
         ->post('meetings/{meeting}/results', [MeetingResultsController::class, 'store']);
     Route::middleware(['screen.permission:meetings,view', 'meeting.member:guests'])
         ->get('meetings/{meeting}/minutes-file', [MeetingResultsController::class, 'minutesFile']);
-    // 2026-10-18 — جهة الاعتماد decides each recommended file from the meeting.
-    // Outside `meeting.member`, which refuses every write on the concluded
-    // meeting; the controller checks MeetingVisibility itself.
+    // 2026-10-25 — جهة الاعتماد decides several recommended files from the
+    // meeting with one قرار. The POST is outside `meeting.member`, which
+    // refuses every write on the concluded meeting, and `request.visible`,
+    // which cannot see the ticked items; the controller checks both itself.
     Route::middleware(['screen.permission:meetings,view', 'meeting.member:guests'])
-        ->get('meetings/{meeting}/agenda/{agendaItem}/authority-duties', [MeetingResultsController::class, 'authorityDuties']);
-    Route::middleware(['screen.permission:meetings,view', 'request.visible'])
-        ->post('meetings/{meeting}/agenda/{agendaItem}/authority-decision', [MeetingResultsController::class, 'authorityDecision']);
+        ->get('meetings/{meeting}/authority-duties', [MeetingResultsController::class, 'authorityDuties']);
+    Route::middleware('screen.permission:meetings,view')
+        ->post('meetings/{meeting}/authority-decisions', [MeetingResultsController::class, 'recordAuthorityDecisions']);
     Route::middleware(['screen.permission:meetings,delete', 'meeting.member'])
         ->delete('meetings/{meeting}', [MeetingController::class, 'destroy']);
 

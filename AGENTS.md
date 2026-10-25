@@ -208,8 +208,9 @@ Key architectural facts worth knowing before changing things:
   `approving_authority` (`dean`|`minister`, stored on `requests`) on every
   request row but a تأجيل. `WorkflowService::routesToMinister()` sends a
   minister file from the committee to `local_governance_ministry` (R06), and a
-  dean file goes to `approval_by_authority` (R07). R05 approves nothing.
-  **The authority's decision is not the result until المقرر reviews it** (plan
+  dean file goes to `approval_by_authority` (R07). R05 approves nothing. Each
+  authority enters its own paper قرار (اشاري, date, scanned pages), several files
+  at a time, from the meeting page (next bullet). **The authority's decision is not the result until المقرر reviews it** (plan
   item 7, 2026-10-25): R07/R06's approve and reject land on
   `rapporteur_decision_review` (R02) as `authority_approved` /
   `authority_rejected`. There R02's `confirm_decision` (two rows keyed on that
@@ -229,11 +230,25 @@ Key architectural facts worth knowing before changing things:
   in one submit (`POST meetings/{m}/results`, duty `record_results`,
   `WorkflowService::applyCommitteeRecommendation()`), which concludes the
   meeting. Approve and `reject_by_committee` both go to the authority; defer
-  returns to the pending list. The authority decides each file **from the
-  meeting page** (`POST meetings/{m}/agenda/{item}/authority-decision`, outside
-  `meeting.member`; a minister file needs the قرار attached), and the request
-  page and approval queue refuse that decision
-  (`RequestController::authorityStageRefusal()`). There is **no execution
+  returns to the pending list. The authority decides **from the meeting page**,
+  several files in one submit (`POST meetings/{m}/authority-decisions`, user
+  decision 2026-10-25). The request page and approval queue refuse that
+  decision (`RequestController::authorityStageRefusal()`).
+  - **One paper قرار per submit** covers every ticked file: an `authority_decisions`
+    row with its اشاري, its date and numbered scanned images, required for the
+    dean too.
+  - Each file still gets its own approve or reject, with a note required on reject.
+  - The submit is all or nothing: each item is checked first
+    (`RequestVisibility`, then `MeetingDuties::authorityDecisionRefusal()`), and a
+    refusal names the request's reference.
+  - `meeting_requests.authority_decision_id` links each item to its قرار. A
+    re-decision after the مقرر's return points it at the new one.
+  - The creator sees the قرار on the request page
+    (`committee_summary.authority_decision`, pages at
+    `GET requests/{r}/authority-decision/pages/{n}`), but not while the file is
+    back at an authority stage (`AuthorityDecision::shownOn()`).
+
+  There is **no execution
   leg**: `final_approved` is a final path, and HR's service-file archive closes
   the file (`RequestClosureService::archive()`, `closure_audit` null). HR alone
   archives (user decision 2026-10-25): the مقرر's committee-file archive is gone,

@@ -45,6 +45,7 @@ class MeetingRequest extends Model
         'department_id',
         'item_state',
         'state_changed_at',
+        'authority_decision_id',
     ];
 
     protected function casts(): array
@@ -77,6 +78,12 @@ class MeetingRequest extends Model
     public function request(): BelongsTo
     {
         return $this->belongsTo(Request::class);
+    }
+
+    /** جهة الاعتماد's قرار on this item's file, once it decides (2026-10-25). */
+    public function authorityDecision(): BelongsTo
+    {
+        return $this->belongsTo(AuthorityDecision::class);
     }
 
     /** Stage 63 — set only on an `appeal` item; the appeal riding this agenda slot. */
