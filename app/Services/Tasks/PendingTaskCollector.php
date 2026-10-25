@@ -3,6 +3,7 @@
 namespace App\Services\Tasks;
 
 use App\Http\Controllers\Api\ApprovalController;
+use App\Http\Controllers\Api\RequestController;
 use App\Models\Appeal;
 use App\Models\AppealStatus;
 use App\Models\Committee;
@@ -164,8 +165,10 @@ class PendingTaskCollector
             'waiting_since' => $r->submitted_at?->toIso8601String(),
             'due_at' => $r->due_date?->toIso8601String(),
             'is_overdue' => $r->overdue_at !== null,
-            // جهة الاعتماد decides on the meeting's page, beside the توصية.
-            'route' => array_key_exists((string) $r->currentStage?->code, MeetingDuties::AUTHORITY_STAGES) && $r->latestDecidedItem !== null
+            // جهة الاعتماد decides on the meeting's page, beside the توصية — the
+            // request page's own refusal says when, so an escalated or deferred
+            // file is sent where it can actually be decided.
+            'route' => RequestController::authorityStageRefusal($r, 'approve') !== null
                 ? ['name' => 'meeting_details', 'params' => ['id' => $r->latestDecidedItem->meeting_id], 'query' => ['item' => $r->latestDecidedItem->id, 'decide' => 1]]
                 : ['name' => 'request_details', 'params' => ['id' => $r->id], 'query' => ['decide' => 1]],
         ]);

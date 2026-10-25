@@ -66,6 +66,9 @@ class RequestDetailResource extends RequestResource
                 }
 
                 return [
+                    // The request page links to the meeting, and جهة الاعتماد to its decision there.
+                    'meeting_id' => $agendaItem->meeting_id,
+                    'agenda_item_id' => $agendaItem->id,
                     'meeting_number' => $agendaItem->meeting?->meeting_number,
                     'meeting_date' => $agendaItem->meeting?->scheduled_at?->toDateString(),
                     'agenda_item_number' => $agendaItem->agenda_order,

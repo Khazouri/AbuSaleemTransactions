@@ -31,6 +31,8 @@ import { actionLabel } from '../lib/workflowActions'
 const props = defineProps({
   request: { type: Object, required: true },
   initial: { type: Object, default: null },
+  // Where جهة الاعتماد takes the approve/reject this page refuses, or null.
+  meetingRoute: { type: Object, default: null },
 })
 const emit = defineEmits(['updated', 'close'])
 
@@ -155,7 +157,7 @@ const groups = computed(() => {
 
 // Held-back transitions (sub-project 1) and held-back acts, one list.
 const blockedItems = computed(() => [
-  ...blocked.value.map((item) => ({ key: `transition:${item.action}`, label: ruleLabel(item), reason: item.reason, toChecks: true })),
+  ...blocked.value.map((item) => ({ key: `transition:${item.action}`, label: ruleLabel(item), reason: item.reason, toChecks: true, atMeeting: ['approve', 'reject'].includes(item.action) })),
   ...acts.value.blocked.map((item) => ({ key: actKey(item), label: actLabel(t, item), reason: item.reason, toChecks: false })),
 ])
 
@@ -405,6 +407,7 @@ if (props.initial?.action) {
               <button v-if="item.toChecks && steps.includes('checks')" class="link" type="button" @click="step = 'checks'">
                 {{ t('decisionWizard.choose.toChecks') }}
               </button>
+              <RouterLink v-if="item.atMeeting && meetingRoute" :to="meetingRoute">{{ t('authorityNav.openMeeting') }}</RouterLink>
             </span>
           </div>
         </template>

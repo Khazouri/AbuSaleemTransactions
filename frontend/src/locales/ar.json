@@ -2244,5 +2244,11 @@
     "next": "الصفحة التالية",
     "position": "صفحة {n} من {total}",
     "download": "تنزيل هذه الصفحة"
+  },
+  "authorityNav": {
+    "openMeeting": "فتح الاجتماع",
+    "decideAtMeeting": "يُسجَّل القرار من صفحة الاجتماع",
+    "open": "فتح",
+    "decided": "سُجِّل القرار."
   }
 }

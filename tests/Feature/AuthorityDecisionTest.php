@@ -7,6 +7,7 @@ use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Models\User;
 use App\Notifications\RequestNoticeCopyNotification;
+use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -105,6 +106,57 @@ class AuthorityDecisionTest extends TestCase
             ->assertStatus(422);
 
         $this->assertSame('approval_by_authority', $item->request->fresh()->currentStage->code);
+    }
+
+    /** The request page links the authority to the meeting it decides on. */
+    public function test_the_committee_summary_names_the_meeting_and_its_item(): void
+    {
+        [$meeting, $item] = $this->recommended('approve', 'dean');
+
+        $this->actingAs($this->userWith('R07'), 'sanctum')
+            ->getJson("/api/requests/{$item->request_id}")
+            ->assertOk()
+            ->assertJsonPath('data.committee_summary.meeting_id', $meeting->id)
+            ->assertJsonPath('data.committee_summary.agenda_item_id', $item->id)
+            ->assertJsonPath('data.blocked_transitions.0.reason', 'يُسجَّل قرار جهة الاعتماد من صفحة الاجتماع.');
+    }
+
+    /**
+     * R08's `deadline_expired` sends a file to the ministry with no توصية, so
+     * no meeting page can take its decision: the request page does.
+     */
+    public function test_an_escalated_file_is_decided_on_the_request_page(): void
+    {
+        $unlisted = $this->committeeFile();
+        // Deferred at a sitting, then escalated: its only decided item is a deferral.
+        [$rapporteur, $meeting, [$item]] = $this->paperMeeting();
+        $this->recordResults($rapporteur, $meeting, [$item->id => ['recommendation' => 'defer', 'note' => 'يؤجل']])->assertOk();
+        $deferred = $item->request->fresh();
+
+        $admin = $this->userWith('R08');
+        $office = $this->userWith('R06');
+        foreach ([$unlisted, $deferred] as $file) {
+            $file->forceFill(['overdue_at' => now()])->save();
+            app(WorkflowService::class)->transition($file->fresh(), 'deadline_expired', $admin, 'انتهت المهلة النظامية.');
+
+            $this->actingAs($office, 'sanctum')
+                ->getJson("/api/requests/{$file->id}")
+                ->assertOk()
+                ->assertJsonPath('data.blocked_transitions', []);
+
+            // «المهام المعلقة» sends it to the request page, not a meeting.
+            $task = collect(collect($this->actingAs($office, 'sanctum')->getJson('/api/my-tasks')->assertOk()->json('data.sources'))
+                ->firstWhere('code', 'approval')['tasks'])->firstWhere('id', "approval:{$file->id}");
+            $this->assertSame('request_details', $task['route']['name']);
+
+            $this->actingAs($office, 'sanctum')
+                ->postJson("/api/requests/{$file->id}/transition", ['action' => 'approve', 'comment' => 'يعتمد'])
+                ->assertOk();
+
+            $file->refresh();
+            $this->assertSame('final_approval_archiving', $file->currentStage->code);
+            $this->assertSame('final_approved', $file->status->code);
+        }
     }
 
     /** Art. 94 — a محضر the authority sent back is re-processed before it decides. */

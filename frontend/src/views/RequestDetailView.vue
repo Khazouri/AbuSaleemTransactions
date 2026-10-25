@@ -131,6 +131,18 @@ const canDecide = computed(() => Boolean(
   || request.value?.committee_actions?.length
   || request.value?.acts?.available?.length || request.value?.acts?.blocked?.length,
 ))
+// The request page refuses جهة الاعتماد's approve/reject on a file its meeting
+// recommended on (RequestController::authorityStageRefusal()); this is where
+// that decision is taken instead. Only the authority is offered those rules.
+const AUTHORITY_STAGES = ['approval_by_authority', 'local_governance_ministry']
+const authorityMeetingRoute = computed(() => {
+  const summary = request.value?.committee_summary
+  return AUTHORITY_STAGES.includes(request.value?.current_stage?.code)
+    && ['approve', 'reject'].includes(summary?.committee_result)
+    && request.value.blocked_transitions?.some((rule) => ['approve', 'reject'].includes(rule.action))
+    ? { name: 'meeting_details', params: { id: summary.meeting_id }, query: { item: summary.agenda_item_id, decide: 1 } }
+    : null
+})
 // Decision wizard — sub-project 3. `?decide=<act>&target=<row>` opens on that act.
 const wizardInitial = computed(() => (route.query.decide && route.query.decide !== '1'
   ? { action: route.query.decide, target: route.query.target ?? null }
@@ -278,13 +290,25 @@ function onWizardUpdated(updated) {
         </div>
       </section>
 
+      <p v-if="authorityMeetingRoute" class="alert info authority-nav">
+        {{ t('authorityNav.decideAtMeeting') }} —
+        <RouterLink :to="authorityMeetingRoute">{{ t('authorityNav.open') }}</RouterLink>
+      </p>
+
       <!-- Decision wizard — sub-project 1. -->
       <section v-if="canDecide" class="card card-flat card-pad decide">
         <p>{{ t('decisionWizard.prompt') }}</p>
         <button class="primary" type="button" @click="wizardOpen = true">{{ t('decisionWizard.open') }}</button>
       </section>
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
-      <DecisionWizard v-if="wizardOpen" :request="request" :initial="wizardInitial" @updated="onWizardUpdated" @close="closeWizard" />
+      <DecisionWizard
+        v-if="wizardOpen"
+        :request="request"
+        :initial="wizardInitial"
+        :meeting-route="authorityMeetingRoute"
+        @updated="onWizardUpdated"
+        @close="closeWizard"
+      />
 
       <!-- Tab strip. -->
       <div class="tabs" role="tablist" :aria-label="t('requestDetail.tabsLabel')" @keydown.right.prevent="stepTab(1)" @keydown.left.prevent="stepTab(-1)">
@@ -661,6 +685,11 @@ function onWizardUpdated(updated) {
             <span>{{ t('requestDetail.committeeSummary.decisionDate') }}</span>
             <strong>{{ date(request.committee_summary.decision_date) }}</strong>
           </div>
+          <p v-if="request.committee_summary.meeting_id" v-can="'meetings.view'" class="full">
+            <RouterLink :to="{ name: 'meeting_details', params: { id: request.committee_summary.meeting_id } }">
+              {{ t('authorityNav.openMeeting') }}
+            </RouterLink>
+          </p>
         </section>
       </div>
 
@@ -824,6 +853,8 @@ function onWizardUpdated(updated) {
 .decide p { margin: 0; color: var(--color-black-700); }
 .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
 .committee-summary { margin-bottom: 0; }
+.committee-summary .full { grid-column: 1 / -1; margin: 0; }
+.authority-nav { margin: 0; }
 .legal-review h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); grid-column: 1 / -1; }
 .legal-review .full { grid-column: 1 / -1; }
 .legal-review .muted { margin: 0; color: var(--color-muted); font-size: var(--text-sm); grid-column: 1 / -1; }

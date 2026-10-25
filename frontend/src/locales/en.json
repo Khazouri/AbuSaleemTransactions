@@ -2244,5 +2244,11 @@
     "next": "Next page",
     "position": "Page {n} of {total}",
     "download": "Download this page"
+  },
+  "authorityNav": {
+    "openMeeting": "Open the meeting",
+    "decideAtMeeting": "The decision is recorded on the meeting page",
+    "open": "Open",
+    "decided": "The decision was recorded."
   }
 }

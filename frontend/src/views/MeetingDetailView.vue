@@ -272,10 +272,19 @@ const recommendationLabel = (item) => t(`paperMeeting.${item.item_type === 'appe
 // The stage where each authority decides, by the role that decides there.
 const MY_STAGE = { R07: 'approval_by_authority', R06: 'local_governance_ministry' }
 const myStages = computed(() => Object.entries(MY_STAGE).filter(([role]) => auth.hasRole(role)).map(([, stage]) => stage))
+// Only what this meeting recommended on: a file deferred here and decided at a
+// later sitting also sits at an authority stage, but this page cannot take it.
 const awaitingMe = computed(() => (meeting.value?.agenda_items ?? [])
-  .filter((item) => myStages.value.includes(item.request?.stage_code)))
+  .filter((item) => myStages.value.includes(item.request?.stage_code)
+    && ['approve', 'reject'].includes(item.decision?.outcome)))
 const authorityItemId = ref(null)
 const authorityItem = computed(() => awaitingMe.value.find((item) => item.id === authorityItemId.value) ?? null)
+// The modal closes on success, so the page itself says the decision landed.
+const decidedNotice = ref(false)
+function onAuthorityDecided() {
+  decidedNotice.value = true
+  load()
+}
 
 function printAgenda() {
   window.print()
@@ -297,12 +306,17 @@ async function openMinutes() {
   }
 }
 
-onMounted(async () => {
+async function openFromRoute() {
+  decidedNotice.value = false
   await load()
   // «المهام المعلقة» opens the authority's decision straight away.
   const requested = Number(route.query.item)
   if (route.query.decide && awaitingMe.value.some((item) => item.id === requested)) authorityItemId.value = requested
-})
+}
+
+// The view is reused when moving from one meeting to another (the bell, the inbox).
+watch(() => route.params.id, openFromRoute)
+onMounted(openFromRoute)
 </script>
 
 <template>
@@ -349,7 +363,9 @@ onMounted(async () => {
         <h3>{{ t('paperMeeting.awaitingYou') }}</h3>
         <ul>
           <li v-for="item in awaitingMe" :key="item.id">
-            <span><span class="ref ltr">{{ item.request.reference_number }}</span> {{ item.request.title }}</span>
+            <RouterLink :to="{ name: 'request_details', params: { id: item.request.id } }">
+              <span class="ref ltr">{{ item.request.reference_number }}</span> {{ item.request.title }}
+            </RouterLink>
             <button class="primary" type="button" @click="authorityItemId = item.id">{{ t('decisionWizard.act') }}</button>
           </li>
         </ul>
@@ -358,9 +374,10 @@ onMounted(async () => {
         v-if="authorityItem"
         :meeting-id="meeting.id"
         :item="authorityItem"
-        @decided="load"
+        @decided="onAuthorityDecided"
         @close="authorityItemId = null"
       />
+      <p v-if="decidedNotice" class="alert success no-print" role="status">{{ t('authorityNav.decided') }}</p>
 
       <!-- 2026-10-18 — the scanned محضر of the paper sitting. -->
       <section v-if="meeting.has_minutes_file" class="card card-flat card-pad minutes-link no-print">
@@ -480,8 +497,11 @@ onMounted(async () => {
               <div class="row">
                 <div>
                   <template v-if="item.request">
-                    <span class="ref ltr">{{ item.request.reference_number || `#${item.request.id}` }}</span>
-                    <strong>{{ item.request.title }}</strong>
+                    <!-- The authority reads the file before deciding it. -->
+                    <RouterLink class="ref ltr" :to="{ name: 'request_details', params: { id: item.request.id } }">
+                      {{ item.request.reference_number || `#${item.request.id}` }}
+                    </RouterLink>
+                    <RouterLink :to="{ name: 'request_details', params: { id: item.request.id } }"><strong>{{ item.request.title }}</strong></RouterLink>
                     <span v-if="item.request.status" class="pill">{{ name(item.request.status) }}</span>
                   </template>
                   <template v-else-if="item.appeal">
