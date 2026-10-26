@@ -9,7 +9,7 @@
  * The toggle only emits `toggle`; the layout owns the sidebar state. Nothing
  * here is RTL-specific — start/end and flexbox mirror with <html dir>.
  */
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -18,6 +18,7 @@ import { useNotificationsStore } from '../stores/notifications'
 import { applyLocale, SUPPORTED_LOCALES } from '../i18n'
 import { theme, toggleTheme } from '../lib/theme'
 import { erpConfig, startErpSignIn } from '../lib/erpSso'
+import { playChime } from '../lib/chime'
 import AppIcon from './AppIcon.vue'
 
 defineProps({
@@ -89,6 +90,7 @@ function relativeTime(value) {
 /** Fetch on open rather than on mount — a closed bell only needs its count. */
 async function toggleBell() {
   bellOpen.value = !bellOpen.value
+  toast.value = null
   if (!bellOpen.value) return
 
   bellLoading.value = true
@@ -127,6 +129,24 @@ async function openNotification(notification) {
 function goNotifications() {
   bellOpen.value = false
   router.push({ name: 'notifications' })
+}
+
+// 2026-10-26 — a new notification pops up under the bell with a soft chime.
+// It leaves when its drain line's CSS animation ends, so the timer pauses with
+// it on hover or focus and nobody loses a pop-up they are reading. An open bell
+// already shows the newest item, so it gets neither the pop-up nor the sound.
+const toast = ref(null)
+
+watch(() => notifications.incoming, (incoming) => {
+  if (!incoming || bellOpen.value) return
+  toast.value = incoming
+  playChime()
+})
+
+function openToast() {
+  const notification = toast.value
+  toast.value = null
+  openNotification(notification)
 }
 
 // -- User dropdown ----------------------------------------------------------
@@ -264,6 +284,36 @@ async function signOut() {
             </button>
           </div>
         </transition>
+
+        <!-- The live region stays mounted so a screen reader hears the pop-up
+             that appears inside it. -->
+        <div aria-live="polite">
+          <transition name="crumb">
+            <div
+              v-if="toast"
+              :key="toast.id"
+              class="crumb"
+              @keydown.esc="toast = null"
+            >
+              <button class="crumb-open" type="button" @click="openToast">
+                <span class="notif-title">{{ localised(toast, 'title') }}</span>
+                <span class="notif-body">{{ localised(toast, 'body') }}</span>
+                <span v-if="toast.others > 0" class="notif-when">
+                  {{ t('notifications.andOthers', { n: toast.others }) }}
+                </span>
+              </button>
+              <button
+                class="crumb-close"
+                type="button"
+                :aria-label="t('common.close')"
+                @click="toast = null"
+              >
+                <AppIcon name="x" :size="14" />
+              </button>
+              <span class="crumb-timer" @animationend="toast = null" />
+            </div>
+          </transition>
+        </div>
       </div>
 
       <div ref="menuRef" class="user-menu">
@@ -457,6 +507,113 @@ async function signOut() {
   color: var(--color-muted);
 }
 
+/* -- New-notification pop-up ---------------------------------------------- */
+/* Hangs from the bell: same anchor as the dropdown, with a notch pointing up
+   at the icon so it reads as the bell speaking, not a stray system toast. */
+.crumb {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  inset-inline-end: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  width: 19rem;
+  max-width: calc(100vw - 1.5rem);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+}
+/* A rotated square on the top edge, centred under the 2.25rem bell button. */
+.crumb::before {
+  content: '';
+  position: absolute;
+  top: -0.4rem;
+  inset-inline-end: 0.8rem;
+  width: 0.7rem;
+  height: 0.7rem;
+  background: var(--color-surface);
+  /* Physical sides on purpose: rotated 45°, the top-left corner is the one
+     that points up, whichever way the page reads. */
+  border-top: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
+  transform: rotate(45deg);
+}
+.crumb-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 0.85rem 0.85rem;
+  border: none;
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+}
+.crumb-open:hover .notif-title {
+  color: var(--color-brand-text);
+}
+.crumb-close {
+  flex-shrink: 0;
+  margin: 0.45rem;
+  padding: 0.3rem;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+.crumb-close:hover {
+  background: var(--color-black-100);
+  color: var(--color-foreground);
+}
+/* The timer itself: a hairline that drains toward the bell's side. When it
+   ends the pop-up leaves; reading it (hover or keyboard focus) holds it. */
+.crumb-timer {
+  position: absolute;
+  /* Inset past the rounded corners, which would otherwise cut its ends. */
+  inset-inline: 0.85rem;
+  bottom: 0.3rem;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-brand-text);
+  transform-origin: right;
+  animation: crumb-drain 6s linear forwards;
+}
+:dir(rtl) .crumb-timer {
+  transform-origin: left;
+}
+.crumb:hover .crumb-timer,
+.crumb:focus-within .crumb-timer {
+  animation-play-state: paused;
+}
+@keyframes crumb-drain {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.crumb-enter-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.crumb-leave-active {
+  transition: opacity 0.4s ease;
+}
+.crumb-enter-from {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.crumb-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .crumb-enter-from {
+    transform: none;
+  }
+}
+
 /* -- User menu ------------------------------------------------------------ */
 .user-menu {
   position: relative;
@@ -528,6 +685,19 @@ async function signOut() {
   }
   .dropdown {
     max-width: calc(100vw - 1.5rem);
+  }
+  /* The user menu sits beyond the bell, so a panel hung from the bell runs off
+     the screen's start edge; on a phone both span the width under the bar. */
+  .dropdown.notif-panel,
+  .crumb {
+    position: fixed;
+    top: 4.5rem;
+    inset-inline: 0.75rem;
+    width: auto;
+    max-width: none;
+  }
+  .crumb::before {
+    display: none;
   }
 }
 

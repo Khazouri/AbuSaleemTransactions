@@ -19,6 +19,35 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-26 EET — Claude — A new notification pops up under the bell with a calm chime (complete)
+
+Built per the plan below. It is frontend only, with one locale key (`notifications.andOthers`) and an `x` glyph. It
+still arrives on the 60 s poll, so a notification can show up to a minute late. Below 640px the pop-up and the bell's
+own dropdown span the width under the bar, because the bell is not the bar's last item: the dropdown also ran off an
+RTL phone's edge before this change.
+
+Verified:
+- build passes (`dist` committed, production API URL in the bundle); parity 1826; `aislop ci` exit 0;
+- headless run of `vite preview` against a mocked API at ar 1280 light, en 1280 dark and ar 375 dark: the first poll
+  stays silent, and a rise shows the newest item with «+1». Hover holds it past 6 s, and it leaves after the pointer
+  goes. There was no page overflow.
+
+The chime was not heard, because the run was headless.
+
+---
+### 2026-10-26 EET — Claude — Implementation plan: a new notification pops up under the bell with a calm chime
+
+User (/frontend-design): when a notification arrives, show a small pop-up under the bell icon and play a calm sound,
+then hide it after a delay. Plan, frontend only:
+- the store compares each poll's unread count with the last one. When it rises (never on the first poll), it fetches
+  the newest few and exposes the newest unread one as `incoming`, with how many others arrived;
+- `AppTopbar` shows it under the bell, with a notch pointing at the bell and a thin line that drains over 6 s. Hover
+  or focus pauses it, a click opens the notification, and × dismisses it. It is skipped while the bell is open;
+- `lib/chime.js` plays two soft sine notes through Web Audio, so there is no sound file to ship.
+
+Two locale keys. Verify: build (`dist` committed), parity, aislop ci, headless screenshots.
+
+---
 ### 2026-10-26 EET — Claude — The request page drops «مصفوفة المستندات لهذا النوع» (complete)
 
 Built per the plan below. It is frontend only, so PHPUnit and Pint were not run. `lib/requiredDocuments.js` stays,
