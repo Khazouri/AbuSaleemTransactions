@@ -19,21 +19,33 @@ const props = defineProps({
   stageTimeliness: { type: Object, default: null },
   currentStageName: { type: String, default: '' },
   variant: { type: String, default: 'full' }, // 'full' | 'compact' | 'steps'
-  // 'full' variant only — every stage of the file's version, `{order_no, code,
-  // name, reached}`. `reached` comes from the timeline rather than order_no,
-  // so a stage the path skipped stays grey behind the current one.
+  // 'full' variant only — `stages` and `visitedStageIds` from RequestResource.
+  // A stage is reached once the file's history shows it standing there, not by
+  // order_no, so a stage the path skipped stays grey behind the current one.
   stages: { type: Array, default: () => [] },
+  visitedStageIds: { type: Array, default: () => [] },
+  // 'full' variant only — the work queue's row size: smaller nodes, and the
+  // caption on one line under them.
+  small: { type: Boolean, default: false },
   // 'steps' variant only — a fixed, small wizard sequence with no server total.
   steps: { type: Array, default: () => [] },
   activeStep: { type: Number, default: 0 },
 })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const level = computed(() => props.stageTimeliness?.level ?? null)
 const label = computed(() => stageProgressLabel(t, props.stageProgress))
 const ticks = computed(() => Array.from({ length: props.stageProgress?.total ?? 0 }, (_, index) => index + 1))
 const isCurrent = (stage) => stage.order_no === props.stageProgress?.current
+const stations = computed(() => {
+  const visited = new Set(props.visitedStageIds)
+  return props.stages.map((stage) => ({
+    ...stage,
+    name: locale.value === 'ar' ? stage.name_ar || stage.name_en : stage.name_en || stage.name_ar,
+    reached: visited.has(stage.id),
+  }))
+})
 </script>
 
 <template>
@@ -64,10 +76,10 @@ const isCurrent = (stage) => stage.order_no === props.stageProgress?.current
     <small v-if="label" class="rail-label">{{ label }}</small>
   </div>
 
-  <div v-else class="rail full">
+  <div v-else class="rail full" :class="{ small }">
     <ol class="track" :aria-label="t('requestDetail.stageRail.label')">
       <li
-        v-for="stage in stages"
+        v-for="stage in stations"
         :key="stage.code"
         class="stage"
         :class="{
@@ -144,6 +156,16 @@ const isCurrent = (stage) => stage.order_no === props.stageProgress?.current
 .rail.full .caption { display: flex; align-items: baseline; gap: 0.6rem; }
 .rail.full .caption strong { color: var(--color-black-700); font-size: var(--text-lg); }
 .rail.full .caption small { color: var(--color-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+
+/* The work queue's row: a table cell has no width of its own to share out, so
+   the track keeps a floor that still leaves each icon recognisable. */
+.rail.full.small { gap: 0.4rem; }
+.rail.full.small .track { min-inline-size: 17.5rem; }
+.rail.full.small .badge { inline-size: min(1.75rem, calc(100% - 3px)); border-width: 1px; }
+.rail.full.small .stage.current .badge { box-shadow: 0 0 0 2px color-mix(in srgb, var(--stage-tone) 24%, transparent); }
+.rail.full.small .caption { flex-wrap: wrap; gap: 0.1rem 0.5rem; }
+.rail.full.small .caption strong { font-size: var(--text-sm); font-weight: 600; }
+.rail.full.small .caption small { font-size: var(--text-xs); }
 
 /* -- compact: one line inside a list row or a tracking card --------------- */
 .rail.compact { display: flex; align-items: center; gap: 0.15rem; flex-wrap: wrap; }

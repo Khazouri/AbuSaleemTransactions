@@ -34,13 +34,16 @@ class RequestWorkspaceVisibilityTest extends TestCase
         $assigned = $this->request('requirements_check', 'in_review', $employee);
         $hidden = $this->request('direct_manager_review', 'in_review', $otherEmployee);
 
-        $this->actingAs($reviewer, 'sanctum')
+        // Compared on the rows' own ids: a fragment match would also hit a
+        // stage id in each row's stage rail list.
+        $ids = $this->actingAs($reviewer, 'sanctum')
             ->getJson('/api/requests')
             ->assertOk()
             ->assertJsonPath('meta.total', 2)
-            ->assertJsonFragment(['id' => $own->id])
-            ->assertJsonFragment(['id' => $assigned->id])
-            ->assertJsonMissing(['id' => $hidden->id]);
+            ->json('data.*.id');
+
+        $this->assertEqualsCanonicalizing([$own->id, $assigned->id], $ids);
+        $this->assertNotContains($hidden->id, $ids);
     }
 
     public function test_an_unassigned_user_cannot_open_or_mutate_another_users_workspace(): void

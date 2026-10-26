@@ -19,6 +19,35 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-26 EET — Claude — The stage-icon rail on the requests list (complete)
+
+Built per the plan below; no migration. In the list's stage column the rail (`small`) replaces the dots and the
+separate stage name, and its caption names the stage. The track keeps a 17.5rem floor, the widest that still leaves
+the table without sideways scroll at 1024px. **Gotcha:** every `/api/requests` row now carries stage ids, so
+`assertJsonFragment(['id' => …])`/`assertJsonMissing` on that list can match a stage. `RequestWorkspaceVisibilityTest`
+now compares `data.*.id` instead. The other fragment checks on ids read endpoints that don't load `stageLogs`.
+
+Verified:
+- two `StageProgressTest` cases went RED, then GREEN;
+- full suite 848 + 9 + 18 green after the visibility test fix; Pint clean; build passes (`dist` committed, production
+  API URL in the bundle); `aislop ci` exit 0;
+- headless screenshots against a mocked API (Homestead unreachable): list at ar/en × 1280/1024/375 × light/dark and
+  the request page, with no page or table overflow and no console errors.
+
+---
+### 2026-10-26 EET — Claude — Implementation plan: the stage-icon rail on the requests list
+
+User: add the rail to `/requests`. Plan:
+- `RequestResource` gains `stages` and `visited_stage_ids`, both only when `stageLogs` is loaded. The list's
+  `index()` eager-loads the ids it needs (one query per page), and the detail page already loads it, so
+  `RequestDetailResource` drops its own `stages`. `WorkflowStageCount::stages()` memoises the list per version;
+- the rail works out "reached" from `visited_stage_ids` itself, so both pages agree, and gains a `small` size for
+  the list row, where it replaces the dots and the separate stage name.
+
+Verify: `StageProgressTest` cases (RED then GREEN), full PHPUnit, Pint, build (`dist` committed), parity, aislop ci,
+screenshots.
+
+---
 ### 2026-10-26 EET — Claude — The request page's stage rail and timeline use stage icons (complete)
 
 Built per the plan below; no migration. The rail's `full` variant (used only on the request page) draws each stage as

@@ -226,13 +226,16 @@ onMounted(async () => {
                 <span v-else>{{ t('common.none') }}</span>
               </td>
               <td>
-                <span class="stage-name">{{ name(request.current_stage) }}</span>
                 <RequestStageRail
-                  v-if="request.stage_progress"
-                  variant="compact"
+                  v-if="request.stages?.length"
+                  small
                   :stage-progress="request.stage_progress"
                   :stage-timeliness="request.stage_timeliness"
+                  :current-stage-name="name(request.current_stage)"
+                  :stages="request.stages"
+                  :visited-stage-ids="request.visited_stage_ids"
                 />
+                <span v-else>{{ name(request.current_stage) }}</span>
               </td>
               <td>
                 <span v-if="request.responsibility" class="responsibility">
@@ -276,8 +279,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.stage-progress { display: block; color: var(--color-muted); font-size: var(--text-xs); }
-
 .filters { margin-bottom: var(--space-4); }
 .search-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .search-field { flex: 1; min-inline-size: min(12rem, 100%); }
@@ -299,7 +300,6 @@ onMounted(async () => {
 .reference { display: block; font-family: var(--font-mono); font-size: var(--text-xs); white-space: nowrap; }
 .title { display: block; margin-top: 0.1rem; font-weight: 600; color: var(--color-black-700); }
 .title:hover { text-decoration: underline; }
-.stage-name { display: block; }
 .responsibility { display: grid; gap: 0.1rem; }
 .responsibility strong { color: var(--color-black-700); font-size: var(--text-sm); }
 .responsibility small { color: var(--color-muted); font-size: var(--text-xs); }

@@ -163,11 +163,6 @@ function closeWizard() {
 // Stage 72 — Appendix 57's groups for this request's own type.
 const documentSections = computed(() => groupDocuments(request.value?.required_documents))
 const currentStageName = computed(() => request.value?.current_stage ? name(request.value.current_stage) : '')
-// A stage counts as reached once the timeline shows the file standing there.
-const railStages = computed(() => {
-  const visited = new Set((request.value?.timeline ?? []).flatMap((entry) => [entry.from_stage?.code, entry.to_stage?.code]))
-  return (request.value?.stages ?? []).map((stage) => ({ ...stage, name: name(stage), reached: visited.has(stage.code) }))
-})
 
 // Restyled pass — a tab that can genuinely be empty says so, rather than
 // showing a bare card border with nothing in it. Each mirrors the exact
@@ -261,7 +256,8 @@ function onWizardUpdated(updated) {
         :stage-progress="request.stage_progress"
         :stage-timeliness="request.stage_timeliness"
         :current-stage-name="currentStageName"
-        :stages="railStages"
+        :stages="request.stages"
+        :visited-stage-ids="request.visited_stage_ids"
       />
       <p v-if="request.workflow_view" class="workflow-link">
         <button class="ghost" type="button" @click="openWorkflow">{{ t('workflows.viewOnRequest') }}</button>
