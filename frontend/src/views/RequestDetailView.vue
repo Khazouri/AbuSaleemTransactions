@@ -39,6 +39,7 @@ import { stageIcon } from '../lib/stageIcons'
 // Stage 75 — [D] Appendix 47's twelve checks, mirrored once for every screen.
 import { AUDIT_CHECKS } from '../lib/requestClosure'
 import { actionLabel } from '../lib/workflowActions'
+import { decisionChoices, isDestructiveChoice } from '../lib/decisionChoices'
 
 const route = useRoute()
 const router = useRouter()
@@ -153,8 +154,27 @@ const authorityMeetingRoute = computed(() => {
 const wizardInitial = computed(() => (route.query.decide && route.query.decide !== '1'
   ? { action: route.query.decide, target: route.query.target ?? null }
   : null))
+// The decisions listed beside «اتخاذ القرار»: the stage's own moves and the
+// work after the decision. A file's records and content acts (notes, uploads,
+// conflicts…) are open to most readers on most files, so listing them would
+// bury the decision; they are only counted.
+const choices = computed(() => (request.value ? decisionChoices(request.value, { t, te, locale: locale.value }) : []))
+const isDecision = (item) => item.kind !== 'act' || item.family === 'after_decision'
+const quickChoices = computed(() => [
+  ...choices.value.filter((item) => isDecision(item) && !item.isException),
+  ...choices.value.filter((item) => item.isException),
+])
+const otherActCount = computed(() => choices.value.filter((item) => !isDecision(item)).length)
+// One picked from the list opens the wizard straight on its تأشيرة; Back
+// still reaches the review and the checks.
+const quickInitial = ref(null)
+function decideOn(key) {
+  quickInitial.value = { key }
+  wizardOpen.value = true
+}
 function closeWizard() {
   wizardOpen.value = false
+  quickInitial.value = null
   if (route.query.decide) {
     const { decide, target, ...query } = route.query
     router.replace({ query })
@@ -305,14 +325,30 @@ function onWizardUpdated(updated) {
 
       <!-- Decision wizard — sub-project 1. -->
       <section v-if="canDecide" class="card card-flat card-pad decide">
-        <p>{{ t('decisionWizard.prompt') }}</p>
-        <button class="primary" type="button" @click="wizardOpen = true">{{ t('decisionWizard.open') }}</button>
+        <div class="decide-head">
+          <p>{{ t('decisionWizard.prompt') }}</p>
+          <button class="primary" type="button" @click="wizardOpen = true">{{ t('decisionWizard.open') }}</button>
+        </div>
+        <ul v-if="quickChoices.length" class="decide-options" :aria-label="t('decisionWizard.quick.label')">
+          <li v-for="item in quickChoices" :key="item.key">
+            <button
+              class="ghost"
+              :class="{ danger: isDestructiveChoice(item) }"
+              type="button"
+              :title="item.destination || item.meaning || undefined"
+              @click="decideOn(item.key)"
+            >
+              {{ item.label }}
+            </button>
+          </li>
+        </ul>
+        <p v-if="otherActCount" class="decide-more">{{ t('decisionWizard.quick.more', { count: otherActCount }) }}</p>
       </section>
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
       <DecisionWizard
         v-if="wizardOpen"
         :request="request"
-        :initial="wizardInitial"
+        :initial="quickInitial ?? wizardInitial"
         :meeting-route="authorityMeetingRoute"
         @updated="onWizardUpdated"
         @close="closeWizard"
@@ -880,8 +916,13 @@ function onWizardUpdated(updated) {
 @media (max-width: 1023px) {
   .request-workflow { grid-template-columns: minmax(0, 1fr); }
 }
-.decide { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-brand); }
+.decide { display: grid; gap: var(--space-3); margin-bottom: var(--space-4); border-inline-start: 3px solid var(--color-brand); }
+.decide-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .decide p { margin: 0; color: var(--color-black-700); }
+/* Smaller than the wizard's own button, so the list reads as its shortcuts. */
+.decide-options { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: 0; list-style: none; }
+.decide-options button { padding: var(--space-1) var(--space-3); font-size: var(--text-sm); text-align: start; }
+.decide .decide-more { color: var(--color-muted); font-size: var(--text-xs); }
 .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
 .committee-summary { margin-bottom: 0; }
 .committee-summary .full { grid-column: 1 / -1; margin: 0; }

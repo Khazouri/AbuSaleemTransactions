@@ -19,6 +19,36 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-26 EET — Claude — The request page lists the decisions beside «اتخاذ القرار» (complete)
+
+Built per the plan below. It is frontend only, with no PHP change, so PHPUnit and Pint were not run. Exceptions (such
+as R08's `deadline_expired`) are listed after the stage's ordinary moves. Each button's `title` gives the decision's
+destination. `DecisionWizard`'s `initial` now also takes `key`, because a transition and a legal verdict can share an
+action code.
+
+Verified:
+- build passes (`dist` committed, production API URL in the bundle); parity 1826; `aislop ci` exit 0;
+- headless screenshots against a mocked API at ar/en × 1280/375 × light/dark: no page overflow, «إلغاء الطلب» in the
+  danger style, and a click opens the wizard on «إعادة إلى الموظف»'s تأشيرة;
+- the only console error came from `RequestLifecyclePanel` reading a field the mock left out.
+
+---
+### 2026-10-26 EET — Claude — Implementation plan: the request page lists the decisions beside «اتخاذ القرار»
+
+User (/frontend-design): list the available decisions under the «اتخاذ القرار» button on `/requests/:id`. Plan,
+frontend only:
+- the wizard's option list moves into a new `lib/decisionChoices.js` (`decisionChoices()`, `isDestructiveChoice()`).
+  The wizard and the page both read it, so the list and the Choose step cannot drift;
+- the decide card shows each stage decision, verdict and after-decision act as a small button (destructive ones in
+  the danger style). A click opens the wizard on that decision's تأشيرة (`initial.key`), where Back still reaches
+  Review and Checks;
+- the records and file-content acts (note, upload, conflicts…) are counted as «إجراءات أخرى (N)», which opens the
+  wizard on Choose;
+- blocked decisions stay in the wizard, which explains them.
+
+Two locale keys. Verify: build (`dist` committed), parity, aislop ci, headless screenshots.
+
+---
 ### 2026-10-26 EET — Claude — The stage-icon rail on the requests list (complete)
 
 Built per the plan below; no migration. In the list's stage column the rail (`small`) replaces the dots and the

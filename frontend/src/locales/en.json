@@ -1953,6 +1953,10 @@
     "title": "Make a decision",
     "open": "Make a decision",
     "prompt": "This file is waiting on your decision.",
+    "quick": {
+      "label": "Decisions available to you",
+      "more": "Other file actions inside “Make a decision”: {count}"
+    },
     "back": "Back",
     "next": "Next",
     "submit": "Record “{action}”",
