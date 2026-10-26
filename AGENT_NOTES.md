@@ -19,6 +19,20 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-26 EET — Claude — The request page drops «مصفوفة المستندات لهذا النوع» (complete)
+
+Built per the plan below. It is frontend only, so PHPUnit and Pint were not run. `lib/requiredDocuments.js` stays,
+because intake and Request Types still read it. Verified: build passes (`dist` committed, production API URL in the
+bundle), parity 1824, `aislop ci` exit 0. Not checked in a browser.
+
+---
+### 2026-10-26 EET — Claude — Implementation plan: the request page drops «مصفوفة المستندات لهذا النوع»
+
+User: remove that card from `/requests/:id`. Plan, frontend only: delete the side-column card, its computed and helpers
+in `RequestDetailView`, its scoped CSS and the `requestDetail.requiredDocuments` locale keys. `RequestDetailResource`
+keeps `required_documents` (a test pins it). Verify: build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-26 EET — Claude — The «إجراءات أخرى» line lists its acts on hover (complete)
 
 Built per the plan below. It is frontend only, with no locale or PHP change. The panel sits flush against the trigger,

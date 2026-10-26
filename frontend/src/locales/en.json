@@ -744,10 +744,6 @@
       "yes": "File complete",
       "no": "Awaiting missing documents"
     },
-    "requiredDocuments": {
-      "title": "Document matrix for this type",
-      "hint": "A reference list to check the file's completeness against. A note in brackets is the condition under which an item is required."
-    },
     "stageTimeliness": {
       "label": "Stage timeliness",
       "noTarget": "No target duration for this stage",
