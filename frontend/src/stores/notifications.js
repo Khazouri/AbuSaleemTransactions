@@ -39,8 +39,20 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const loading = ref(false)
   const page = ref({ current_page: 1, last_page: 1, total: 0 })
 
+  /**
+   * The newest notification that arrived since the last poll, plus `others`:
+   * how many more came with it. The topbar pops it up under the bell.
+   */
+  const incoming = ref(null)
+
   /** Timer handle, so the poll can be started and stopped with the layout. */
   let pollTimer = null
+
+  /**
+   * Whether a count has been read since sign-in. The first one is a baseline,
+   * not news: a page load must not chime for notifications already waiting.
+   */
+  let counted = false
 
   // ---- getters --------------------------------------------------------------
 
@@ -55,11 +67,27 @@ export const useNotificationsStore = defineStore('notifications', () => {
   async function fetchUnreadCount() {
     try {
       const { data } = await api.get('/notifications/unread-count')
-      unread.value = data.data?.unread ?? 0
+      const next = data.data?.unread ?? 0
+      const arrived = counted ? next - unread.value : 0
+      unread.value = next
+      counted = true
+      if (arrived > 0) await announce(arrived)
     } catch {
       // A failed poll is not worth interrupting the user over; the next tick
       // will pick the count back up.
     }
+  }
+
+  /**
+   * The count rose, so the newest notification is the one that just arrived
+   * (the list is newest first). The preview is refreshed in the same call, so
+   * an opened bell already holds it.
+   */
+  async function announce(arrived) {
+    const { data } = await api.get('/notifications', { params: { per_page: PREVIEW_SIZE } })
+    preview.value = data.data ?? []
+    const newest = preview.value[0]
+    if (newest && !newest.read_at) incoming.value = { ...newest, others: arrived - 1 }
   }
 
   /**
@@ -134,11 +162,13 @@ export const useNotificationsStore = defineStore('notifications', () => {
     preview.value = []
     items.value = []
     unread.value = 0
+    incoming.value = null
+    counted = false
     page.value = { current_page: 1, last_page: 1, total: 0 }
   }
 
   return {
-    preview, items, unread, loading, page,
+    preview, items, unread, loading, page, incoming,
     hasUnread, badge,
     fetchUnreadCount, fetchPreview, fetchPage, markRead, markAllRead,
     startPolling, stopPolling, reset,

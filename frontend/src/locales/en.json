@@ -1434,6 +1434,7 @@
     "empty": "No notifications.",
     "viewAll": "View all notifications",
     "markAllRead": "Mark all as read",
+    "andOthers": "and {n} more",
     "showUnread": "Unread only",
     "showAll": "Show all",
     "event": "Event type",
