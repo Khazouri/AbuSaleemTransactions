@@ -25,6 +25,7 @@ import RequestStageRail from './RequestStageRail.vue'
 import WizardShell from './WizardShell.vue'
 import WizardSlip from './WizardSlip.vue'
 import api, { firstError } from '../lib/api'
+import { decisionChoices, isDestructiveChoice as isDestructive } from '../lib/decisionChoices'
 import { ACT_FAMILIES, REQUEST_ACTS, actLabel } from '../lib/requestActs'
 import { actionLabel } from '../lib/workflowActions'
 
@@ -38,12 +39,8 @@ const emit = defineEmits(['updated', 'close'])
 
 const { t, te, locale } = useI18n()
 
-// Mirrors the page's old destructive tint: these end or refuse the file.
-const DESTRUCTIVE = ['cancel', 'reject', 'reject_review', 'reject_formally', 'reject_by_committee', 'declare_no_jurisdiction']
 // The three requirements_check outcomes Art. 45's test gates (Stage 54).
 const CLASSIFYING = ['approve', 'declare_no_jurisdiction', 'reject_formally']
-// The legal member's two answers; either returns the file to the pending list.
-const RECOMMENDATIONS = ['approve', 'decline']
 // Where each committee move posts. `defer` / `return_to_study` are workflow
 // rows and ride /transition like every other one.
 const COMMITTEE_ENDPOINTS = {
@@ -54,15 +51,12 @@ const COMMITTEE_ENDPOINTS = {
 const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en : item?.name_en || item?.name_ar) ?? ''
 // Workflow designer — slice 3: a custom outcome is named by its own label.
 const ruleLabel = (item) => actionLabel(item, { t, te, locale: locale.value })
-const meaning = (action) => (te(`decisionWizard.meaning.${action}`) ? t(`decisionWizard.meaning.${action}`) : '')
 
 const available = computed(() => props.request.available_transitions ?? [])
 const blocked = computed(() => props.request.blocked_transitions ?? [])
-const committeeActions = computed(() => props.request.committee_actions ?? [])
 // Decision wizard — sub-project 3.
 const acts = computed(() => props.request.acts ?? { available: [], blocked: [] })
 const actKey = (item) => `act:${item.action}:${item.target?.id ?? ''}`
-const offersLegalOpinion = computed(() => committeeActions.value.some((item) => item.action === 'record_legal_review'))
 const offered = computed(() => new Set([...available.value, ...blocked.value].map((item) => item.action)))
 const stage = computed(() => props.request.current_stage?.code)
 const gates = computed(() => props.request.control_gates ?? {})
@@ -85,57 +79,7 @@ const checks = computed(() => {
 const steps = computed(() => ['review', ...(checks.value.length ? ['checks'] : []), 'choose', 'confirm'])
 const step = ref('review')
 
-// Every option the Choose step lists, whichever endpoint it posts to.
-const choices = computed(() => [
-  ...available.value.map((item) => ({
-    key: `transition:${item.action}`,
-    kind: 'transition',
-    action: item.action,
-    label: ruleLabel(item),
-    meaning: meaning(item.action),
-    destination: item.to_stage
-      ? t('decisionWizard.choose.destination', { stage: name(item.to_stage), status: name(item.to_status) })
-      : '',
-    requiresComment: item.requires_comment,
-    isException: item.is_exception,
-  })),
-  ...committeeActions.value
-    .filter((item) => item.action !== 'record_legal_review')
-    .map((item) => ({
-      key: `committee:${item.action}`,
-      kind: 'committee',
-      action: item.action,
-      label: t(`decisionWizard.actions.${item.action}`),
-      meaning: meaning(item.action),
-      destination: '',
-      requiresComment: item.requires_comment,
-      isException: false,
-    })),
-  ...(offersLegalOpinion.value
-    ? RECOMMENDATIONS.map((code) => ({
-      key: `verdict:${code}`,
-      kind: 'verdict',
-      action: code,
-      label: t(`meetingsUnit.legalReview.recommendations.${code}`),
-      meaning: t('meetingsUnit.legalReview.recommendationMeaning'),
-      destination: '',
-      requiresComment: false,
-      isException: false,
-    }))
-    : []),
-  ...acts.value.available.map((item) => ({
-    key: actKey(item),
-    kind: 'act',
-    action: item.action,
-    act: item,
-    family: item.family,
-    label: actLabel(t, item),
-    meaning: '',
-    destination: '',
-    requiresComment: false,
-    isException: false,
-  })),
-])
+const choices = computed(() => decisionChoices(props.request, { t, te, locale: locale.value }))
 const groups = computed(() => {
   const stage = choices.value.filter((item) => (item.kind === 'transition' || item.kind === 'committee') && !item.isException)
   const verdicts = choices.value.filter((item) => item.kind === 'verdict')
@@ -169,8 +113,6 @@ const submitting = ref(false)
 const error = ref('')
 
 const choice = computed(() => choices.value.find((item) => item.key === selected.value) ?? null)
-const isDestructive = (item) => (item?.kind === 'transition' && DESTRUCTIVE.includes(item.action))
-  || (item?.kind === 'act' && Boolean(REQUEST_ACTS[item.action]?.destructive))
 const commentMissing = computed(() => Boolean(choice.value?.requiresComment) && !comment.value.trim())
 
 const actSpec = computed(() => (choice.value?.kind === 'act' ? REQUEST_ACTS[choice.value.action] : null))
@@ -277,11 +219,13 @@ async function submit() {
 
 // Decision wizard — sub-project 3. An inbox task names its act (and row);
 // open straight on its slip. One no longer offered falls back to Choose,
-// where a blocked act still says why.
-if (props.initial?.action) {
+// where a blocked act still says why. The page's decision list names the
+// option by `key`, since a transition and a verdict can share an action.
+if (props.initial?.key || props.initial?.action) {
   const wanted = props.initial
-  const match = choices.value.find((item) => item.action === wanted.action
-    && (wanted.target == null || String(item.act?.target?.id) === String(wanted.target)))
+  const match = choices.value.find((item) => (wanted.key
+    ? item.key === wanted.key
+    : item.action === wanted.action && (wanted.target == null || String(item.act?.target?.id) === String(wanted.target))))
   selected.value = match?.key ?? ''
   step.value = match ? 'confirm' : 'choose'
 }
