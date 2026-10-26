@@ -32,7 +32,6 @@ const WorkflowCanvas = defineAsyncComponent(() => import('../components/workflow
 import api from '../lib/api'
 // Stage 72 — [D] Appendix 57's grouped document matrix, shared with the intake
 // screen so both read the same list the same way.
-import { documentCondition, documentLabel, groupDocuments } from '../lib/requiredDocuments'
 import { fileSectionLabel } from '../lib/fileSections'
 import { stageProgressLabel } from '../lib/stageProgress'
 import { stageIcon } from '../lib/stageIcons'
@@ -180,8 +179,6 @@ function closeWizard() {
     router.replace({ query })
   }
 }
-// Stage 72 — Appendix 57's groups for this request's own type.
-const documentSections = computed(() => groupDocuments(request.value?.required_documents))
 const currentStageName = computed(() => request.value?.current_stage ? name(request.value.current_stage) : '')
 
 // Restyled pass — a tab that can genuinely be empty says so, rather than
@@ -195,14 +192,6 @@ const hasApprovalsTabContent = computed(() => Boolean(
 const hasLegalTabContent = computed(() => Boolean(
   request.value?.legal_review || request.value?.committee_summary,
 ))
-
-function docLabel(doc) {
-  return documentLabel(doc, locale.value)
-}
-
-function docCondition(doc) {
-  return documentCondition(doc, locale.value)
-}
 
 function fileSize(bytes) {
   if (!Number.isFinite(bytes)) return t('common.none')
@@ -479,20 +468,6 @@ function onWizardUpdated(updated) {
                   <small class="doc-section">{{ fileSectionName(attachment.file_section) }}</small>
                 </li>
               </ul>
-            </section>
-
-            <section v-if="documentSections.length" class="card card-flat card-pad checklist">
-              <h3>{{ t('requestDetail.requiredDocuments.title') }}</h3>
-              <p class="state">{{ t('requestDetail.requiredDocuments.hint') }}</p>
-              <div v-for="section in documentSections" :key="section.group" class="doc-group">
-                <h4>{{ t(`intake.requiredDocuments.groups.${section.group}`) }}</h4>
-                <ul>
-                  <li v-for="(doc, index) in section.items" :key="index">
-                    {{ docLabel(doc) }}
-                    <span v-if="docCondition(doc)" class="doc-condition">({{ docCondition(doc) }})</span>
-                  </li>
-                </ul>
-              </div>
             </section>
 
             <section class="card card-flat card-pad"><RequestNotes :key="refreshKey" :request-id="request.id" /></section>
@@ -985,11 +960,6 @@ function onWizardUpdated(updated) {
 .attachments li { display: grid; gap: 0.15rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--color-border); }
 
 
-.checklist h3 { margin: 0 0 0.3rem; color: var(--color-brand-text); font-size: var(--text-lg); }
-.checklist ul { display: grid; gap: 0.3rem; padding-inline-start: 1.2rem; margin: 0; color: var(--color-black-700); font-size: var(--text-sm); }
-.doc-group { margin-block-start: 0.7rem; }
-.doc-group h4 { margin: 0 0 0.3rem; color: var(--color-black-700); font-size: var(--text-xs); font-weight: 600; }
-.doc-condition { color: var(--color-black-500); font-size: var(--text-xs); }
 .audit-record { display: grid; gap: 0.3rem; padding: 0; margin: var(--space-2) 0 0; list-style: none; font-size: var(--text-sm); }
 .audit-record li { display: flex; justify-content: space-between; gap: var(--space-3); }
 .return-list { display: grid; gap: var(--space-4); padding: 0; margin: 0 0 var(--space-4); list-style: none; grid-column: 1 / -1; }
