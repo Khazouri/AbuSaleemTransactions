@@ -63,6 +63,8 @@ export const APPEAL_ACTS = {
   },
   execute_outcome: {
     labelKey: 'appeals.execution.action',
+    // Asked once more before it posts (lib/confirm.js).
+    confirm: true,
     form: AppealExecuteForm,
     method: 'patch',
     url: (appeal) => `/appeals/${appeal.id}/execute-outcome`,
@@ -72,6 +74,8 @@ export const APPEAL_ACTS = {
   },
   close: {
     labelKey: 'appeals.closure.action',
+    // Asked once more before it posts (lib/confirm.js).
+    confirm: true,
     form: AppealCloseForm,
     method: 'patch',
     url: (appeal) => `/appeals/${appeal.id}/close`,

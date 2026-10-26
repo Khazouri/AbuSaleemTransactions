@@ -8,6 +8,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { confirmDelete } from '../lib/confirm'
 import AppModal from '../components/AppModal.vue'
 
 const { t } = useI18n()
@@ -133,7 +134,7 @@ async function save() {
 }
 
 async function remove(setting) {
-  if (!window.confirm(t('common.confirmDelete'))) return
+  if (!(await confirmDelete(setting.key))) return
   formError.value = null
   try {
     await api.delete(`/settings/${setting.id}`)

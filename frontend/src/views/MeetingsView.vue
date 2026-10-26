@@ -14,6 +14,7 @@ import { RouterLink } from 'vue-router'
 import AppModal from '../components/AppModal.vue'
 import MeetingSchedulingWizard from '../components/MeetingSchedulingWizard.vue'
 import api from '../lib/api'
+import { confirmDelete } from '../lib/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const { t, locale } = useI18n()
@@ -156,7 +157,7 @@ async function toggleCommitteeActive(committee) {
 }
 
 async function removeCommittee(committee) {
-  if (!window.confirm(t('common.confirmDelete'))) return
+  if (!(await confirmDelete(name(committee)))) return
 
   committeeFormError.value = null
   try {

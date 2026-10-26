@@ -54,6 +54,12 @@ const error = ref('')
 // nomination needs from /acts (AppealController::acts), so the reading rows stay hidden.
 const full = computed(() => Boolean(appeal.value && 'appeal_reasons' in appeal.value))
 const reference = computed(() => appeal.value?.original_request?.reference_number || `#${props.appealId}`)
+// An appeal sent to another body ends here, so it is asked about like execution and closure.
+const confirm = computed(() => {
+  if (!choice.value || !(destructive.value || spec.value?.confirm)) return null
+  const key = destructive.value ? 'appeal_other_body' : `appeal_${choice.value.action}`
+  return { action: choice.value.label, message: t(`confirmAction.consequence.${key}`), reference: reference.value }
+})
 const date = (value) => (value ? new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value)) : '—')
 const name = (item) => (locale.value === 'ar' ? item?.name_ar || item?.name_en : item?.name_en || item?.name_ar) ?? '—'
 
@@ -107,6 +113,7 @@ load().then(() => {
     :submit-disabled="!choice || notReady"
     :submitting="submitting"
     :destructive="destructive"
+    :confirm="confirm"
     @submit="submit"
     @close="emit('close')"
   >

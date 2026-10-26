@@ -12,6 +12,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { confirmDelete } from '../lib/confirm'
 import AppModal from '../components/AppModal.vue'
 import { flattenDepartments } from '../lib/departmentTree'
 
@@ -174,7 +175,7 @@ async function toggleActive(dept) {
 }
 
 async function remove(dept) {
-  if (!window.confirm(t('common.confirmDelete'))) return
+  if (!(await confirmDelete(label(dept)))) return
 
   formError.value = null
   try {

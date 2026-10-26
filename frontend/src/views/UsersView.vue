@@ -14,6 +14,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { confirmDelete } from '../lib/confirm'
 import AppModal from '../components/AppModal.vue'
 import DepartmentHierarchy from '../components/DepartmentHierarchy.vue'
 import { useAuthStore } from '../stores/auth'
@@ -199,7 +200,7 @@ async function toggleActive(user) {
 }
 
 async function remove(user) {
-  if (!window.confirm(t('common.confirmDelete'))) return
+  if (!(await confirmDelete(user.name))) return
 
   formError.value = null
   try {

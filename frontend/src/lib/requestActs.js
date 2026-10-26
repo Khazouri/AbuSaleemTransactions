@@ -4,6 +4,7 @@
  * that used to own it), the endpoint it posts to, an empty payload, and when
  * that payload is complete enough to submit. The wizard knows nothing act by
  * act beyond this table; the server decides which acts are offered.
+ * `confirm` marks an act the wizard asks about once more before it posts.
  */
 import FileUpload from '../components/FileUpload.vue'
 import ArchiveForm from '../components/acts/ArchiveForm.vue'
@@ -35,6 +36,7 @@ const base = (request) => `/requests/${request.id}`
 export const REQUEST_ACTS = {
   archive_service_file: {
     labelKey: 'decisionWizard.acts.archive_service_file',
+    confirm: true,
     form: ArchiveForm,
     method: 'patch',
     url: (request) => `${base(request)}/archive/service-file`,
@@ -43,6 +45,7 @@ export const REQUEST_ACTS = {
   },
   close: {
     labelKey: 'requestClosure.action',
+    confirm: true,
     form: ClosureForm,
     method: 'patch',
     url: (request) => `${base(request)}/close`,
@@ -57,6 +60,7 @@ export const REQUEST_ACTS = {
   },
   record_approval_return: {
     labelKey: 'approvalReturn.action',
+    confirm: true,
     form: ReturnForm,
     method: 'patch',
     url: (request) => `${base(request)}/approval-return`,
@@ -94,6 +98,7 @@ export const REQUEST_ACTS = {
     form: SuspendForm,
     method: 'patch',
     destructive: true,
+    confirm: true,
     url: (request) => `${base(request)}/suspend`,
     blank: () => ({ ground: SUSPENSION_GROUNDS[0], detail: '' }),
     ready: (form) => filled(form.detail),
@@ -163,6 +168,7 @@ export const REQUEST_ACTS = {
     form: WithdrawalForm,
     method: 'post',
     destructive: true,
+    confirm: true,
     url: (request) => `${base(request)}/withdrawals`,
     blank: () => ({ reason: '' }),
     ready: (form) => filled(form.reason),
@@ -177,6 +183,7 @@ export const REQUEST_ACTS = {
   },
   issue_notice: {
     labelKey: 'employeeNotices.issue',
+    confirm: true,
     form: null,
     method: 'post',
     url: (request) => `${base(request)}/notices/issue`,

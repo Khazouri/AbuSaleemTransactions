@@ -25,7 +25,7 @@ import RequestStageRail from './RequestStageRail.vue'
 import WizardShell from './WizardShell.vue'
 import WizardSlip from './WizardSlip.vue'
 import api, { firstError } from '../lib/api'
-import { decisionChoices, isDestructiveChoice as isDestructive } from '../lib/decisionChoices'
+import { decisionChoices, isDestructiveChoice as isDestructive, needsConfirm } from '../lib/decisionChoices'
 import { ACT_FAMILIES, REQUEST_ACTS, actLabel } from '../lib/requestActs'
 import { actionLabel } from '../lib/workflowActions'
 
@@ -143,6 +143,9 @@ watch(choices, (list) => {
 const recentTimeline = computed(() => (props.request.timeline ?? []).slice(-3).reverse())
 const dateTime = (value) => new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium' }).format(new Date(value))
 const reference = computed(() => props.request.reference_number || props.request.intake_receipt_number || `#${props.request.id}`)
+const confirm = computed(() => (needsConfirm(choice.value)
+  ? { action: choice.value.label, message: t(`confirmAction.consequence.${choice.value.action}`), reference: reference.value }
+  : null))
 
 // Every check answers with the full detail resource; replacing the page's
 // copy of the request lets the Choose step reflect what the check unlocked.
@@ -241,6 +244,7 @@ if (props.initial?.key || props.initial?.action) {
     :submit-disabled="!choice || commentMissing || actNotReady"
     :submitting="submitting"
     :destructive="isDestructive(choice)"
+    :confirm="confirm"
     :hide-submit="Boolean(actSpec?.embedded)"
     @submit="submit"
     @close="emit('close')"
