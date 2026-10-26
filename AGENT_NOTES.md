@@ -27,7 +27,7 @@ own dropdown span the width under the bar, because the bell is not the bar's las
 RTL phone's edge before this change.
 
 Verified:
-- build passes (`dist` committed, production API URL in the bundle); parity 1826; `aislop ci` exit 0;
+- build passes (`dist` committed, production API URL in the bundle); parity 1825; `aislop ci` exit 0;
 - headless run of `vite preview` against a mocked API at ar 1280 light, en 1280 dark and ar 375 dark: the first poll
   stays silent, and a rise shows the newest item with «+1». Hover holds it past 6 s, and it leaves after the pointer
   goes. There was no page overflow.
