@@ -19,6 +19,26 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-26 EET — Claude — The «إجراءات أخرى» line lists its acts on hover (complete)
+
+Built per the plan below. It is frontend only, with no locale or PHP change. The panel sits flush against the trigger,
+so the pointer can cross into it without the panel closing. A tap on a phone focuses the trigger, which opens it.
+
+Verified:
+- build passes (`dist` committed, production API URL in the bundle); `aislop ci` exit 0;
+- headless run against a mocked API at ar/en × 1280/375 × light/dark: the panel opens on hover and on focus, Escape
+  closes it, and clicking «إضافة ملاحظة» opens the wizard on that act. There was no page overflow and no console error
+  from this change.
+
+---
+### 2026-10-26 EET — Claude — Implementation plan: the «إجراءات أخرى» line lists its acts on hover
+
+User: hovering «إجراءات أخرى على الملف…» should show those other actions. Plan, in `RequestDetailView` only: the line
+becomes a button. On hover or focus it shows a panel under it (CSS `:hover`/`:focus-within`) listing each act as a
+button that opens the wizard on it, like the decision buttons. Escape closes the panel. No new locale key. Verify:
+build (`dist` committed), aislop ci, headless screenshots.
+
+---
 ### 2026-10-26 EET — Claude — The request page lists the decisions beside «اتخاذ القرار» (complete)
 
 Built per the plan below. It is frontend only, with no PHP change, so PHPUnit and Pint were not run. Exceptions (such

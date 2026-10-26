@@ -157,14 +157,14 @@ const wizardInitial = computed(() => (route.query.decide && route.query.decide !
 // The decisions listed beside «اتخاذ القرار»: the stage's own moves and the
 // work after the decision. A file's records and content acts (notes, uploads,
 // conflicts…) are open to most readers on most files, so listing them would
-// bury the decision; they are only counted.
+// bury the decision; they wait behind one line that lists them on hover.
 const choices = computed(() => (request.value ? decisionChoices(request.value, { t, te, locale: locale.value }) : []))
 const isDecision = (item) => item.kind !== 'act' || item.family === 'after_decision'
 const quickChoices = computed(() => [
   ...choices.value.filter((item) => isDecision(item) && !item.isException),
   ...choices.value.filter((item) => item.isException),
 ])
-const otherActCount = computed(() => choices.value.filter((item) => !isDecision(item)).length)
+const otherActs = computed(() => choices.value.filter((item) => !isDecision(item)))
 // One picked from the list opens the wizard straight on its تأشيرة; Back
 // still reaches the review and the checks.
 const quickInitial = ref(null)
@@ -342,7 +342,15 @@ function onWizardUpdated(updated) {
             </button>
           </li>
         </ul>
-        <p v-if="otherActCount" class="decide-more">{{ t('decisionWizard.quick.more', { count: otherActCount }) }}</p>
+        <!-- Shown on hover or focus; Escape blurs the trigger to close it. -->
+        <div v-if="otherActs.length" class="decide-more" @keydown.esc="$event.target.blur()">
+          <button class="decide-more-trigger" type="button">{{ t('decisionWizard.quick.more', { count: otherActs.length }) }}</button>
+          <ul class="decide-more-list">
+            <li v-for="item in otherActs" :key="item.key">
+              <button class="ghost" :class="{ danger: isDestructiveChoice(item) }" type="button" @click="decideOn(item.key)">{{ item.label }}</button>
+            </li>
+          </ul>
+        </div>
       </section>
       <p v-if="actionError" class="alert" role="alert">{{ actionError }}</p>
       <DecisionWizard
@@ -921,8 +929,29 @@ function onWizardUpdated(updated) {
 .decide p { margin: 0; color: var(--color-black-700); }
 /* Smaller than the wizard's own button, so the list reads as its shortcuts. */
 .decide-options { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: 0; list-style: none; }
-.decide-options button { padding: var(--space-1) var(--space-3); font-size: var(--text-sm); text-align: start; }
-.decide .decide-more { color: var(--color-muted); font-size: var(--text-xs); }
+.decide-options button, .decide-more-list button { padding: var(--space-1) var(--space-3); font-size: var(--text-sm); text-align: start; }
+/* The panel touches the trigger (no gap), so the pointer can cross into it. */
+.decide-more { position: relative; inline-size: fit-content; }
+.decide-more-trigger { padding: 0; border: 0; background: none; color: var(--color-muted); font: inherit; font-size: var(--text-xs); text-decoration: underline dotted; text-underline-offset: 0.2em; cursor: help; }
+.decide-more-list {
+  display: none;
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  z-index: 20;
+  min-inline-size: 14rem;
+  max-inline-size: min(22rem, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-2);
+  margin: 0;
+  list-style: none;
+  gap: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-black-950) 14%, transparent);
+}
+.decide-more:hover .decide-more-list, .decide-more:focus-within .decide-more-list { display: grid; }
+.decide-more-list button { inline-size: 100%; border-color: transparent; }
 .description h3, .timeline h3, .attachments h3, .committee-summary h3 { margin: 0 0 var(--space-2); color: var(--color-brand-text); font-size: var(--text-lg); }
 .committee-summary { margin-bottom: 0; }
 .committee-summary .full { grid-column: 1 / -1; margin: 0; }
