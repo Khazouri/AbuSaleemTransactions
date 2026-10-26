@@ -48,6 +48,21 @@ class StageProgressTest extends TestCase
             ->assertJsonPath('data.stage_progress.total', WorkflowStage::count());
     }
 
+    public function test_the_request_workspace_lists_its_versions_stages_in_order(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $employee = $this->userWithRole('R01');
+        $requestRecord = $this->requestAtStage($employee, 'requirements_check');
+
+        $stages = $this->actingAs($employee, 'sanctum')
+            ->getJson("/api/requests/{$requestRecord->id}")
+            ->assertOk()
+            ->json('data.stages');
+
+        $this->assertSame(WorkflowStage::orderBy('order_no')->pluck('code')->all(), array_column($stages, 'code'));
+        $this->assertSame(['order_no', 'code', 'name_ar', 'name_en'], array_keys($stages[0]));
+    }
+
     public function test_the_field_round_trips_through_the_work_queue_too(): void
     {
         $this->seed(DatabaseSeeder::class);
@@ -95,7 +110,8 @@ class StageProgressTest extends TestCase
         $this->actingAs($employee, 'sanctum')
             ->getJson("/api/requests/{$requestRecord->id}")
             ->assertOk()
-            ->assertJsonPath('data.stage_progress', null);
+            ->assertJsonPath('data.stage_progress', null)
+            ->assertJsonPath('data.stages', []);
     }
 
     private function requestAtStage(User $owner, string $stageCode): Request

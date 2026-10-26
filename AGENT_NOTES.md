@@ -19,6 +19,38 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-26 EET — Claude — The request page's stage rail and timeline use stage icons (complete)
+
+Built per the plan below; no migration. The rail's `full` variant (used only on the request page) draws each stage as
+an equal-width node, so it spans the page at any width; the compact and steps variants are unchanged. A stage not yet
+reached has a dashed grey border, and the line is dashed beyond the current stage. The current node's icon uses the
+surface colour on the warning/danger tones, because white disappears on them in the dark theme. Each stage's name is
+in its `title` and in screen-reader text that also gives its state. Seven glyphs were added to `AppIcon`.
+
+Verified:
+- the new `StageProgressTest` case went RED, then GREEN;
+- full suite 847 + 9 + 18 green; Pint clean; build passes (`dist` committed, production API URL in the bundle);
+  parity 1824; `aislop ci` exit 0;
+- headless screenshots against a mocked API (Homestead unreachable) at ar/en × 1280/768/375 × light/dark: no page
+  overflow, and skipped stages stay grey behind the current one. The only console error came from
+  `RequestLifecyclePanel` reading a field the mock left out.
+
+---
+### 2026-10-26 EET — Claude — Implementation plan: the request page's stage rail and timeline use stage icons
+
+User (/frontend-design): on the request page, replace the dots with icons for each stage. The rail at the top shows
+every stage's icon, greyed out until reached, across the full width. Plan:
+- `RequestDetailResource` adds `stages`: the request's own version's stages in order (code, names, order_no), empty
+  with no current stage;
+- a new `lib/stageIcons.js` maps a stage code to an `AppIcon` glyph, with a few new glyphs added;
+- `RequestStageRail`'s `full` variant draws one node per stage. A stage is reached once the timeline shows the file
+  arrived there, so skipped stages (3, 6–8) stay grey. The current node is filled and keeps the timeliness colour;
+- the timeline's dot becomes the icon of the stage the entry moved to.
+
+Verify: a `StageProgressTest` case (RED then GREEN), full PHPUnit, Pint, build (`dist` committed), parity, aislop ci,
+headless screenshots.
+
+---
 ### 2026-10-25 19:10 EET — Claude — Paper-meeting plan, wave 2 merged into main (B5, B6): all seven items built
 
 The two wave 2 branches are merged into `main`:
