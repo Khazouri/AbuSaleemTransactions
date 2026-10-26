@@ -721,7 +721,11 @@
       "empty": "No data in this section yet."
     },
     "stageRail": {
-      "stepsLabel": "Intake steps"
+      "stepsLabel": "Intake steps",
+      "label": "Request stages",
+      "current": "{name} (current stage)",
+      "reached": "{name} (reached)",
+      "pending": "{name} (not reached)"
     },
     "currentStage": "Current stage",
     "submittedAt": "Submitted",

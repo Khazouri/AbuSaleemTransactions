@@ -24,6 +24,7 @@ import RequestLifecyclePanel from '../components/RequestLifecyclePanel.vue'
 import RequestNotes from '../components/RequestNotes.vue'
 import RequestStageRail from '../components/RequestStageRail.vue'
 import AppModal from '../components/AppModal.vue'
+import AppIcon from '../components/AppIcon.vue'
 import WorkflowInspector from '../components/workflow/WorkflowInspector.vue'
 // Workflow designer — slice 2. Async so Vue Flow (~160 kB) loads only when
 // «عرض مسار العمل» is opened, not with every request page.
@@ -34,6 +35,7 @@ import api from '../lib/api'
 import { documentCondition, documentLabel, groupDocuments } from '../lib/requiredDocuments'
 import { fileSectionLabel } from '../lib/fileSections'
 import { stageProgressLabel } from '../lib/stageProgress'
+import { stageIcon } from '../lib/stageIcons'
 // Stage 75 — [D] Appendix 47's twelve checks, mirrored once for every screen.
 import { AUDIT_CHECKS } from '../lib/requestClosure'
 import { actionLabel } from '../lib/workflowActions'
@@ -161,6 +163,11 @@ function closeWizard() {
 // Stage 72 — Appendix 57's groups for this request's own type.
 const documentSections = computed(() => groupDocuments(request.value?.required_documents))
 const currentStageName = computed(() => request.value?.current_stage ? name(request.value.current_stage) : '')
+// A stage counts as reached once the timeline shows the file standing there.
+const railStages = computed(() => {
+  const visited = new Set((request.value?.timeline ?? []).flatMap((entry) => [entry.from_stage?.code, entry.to_stage?.code]))
+  return (request.value?.stages ?? []).map((stage) => ({ ...stage, name: name(stage), reached: visited.has(stage.code) }))
+})
 
 // Restyled pass — a tab that can genuinely be empty says so, rather than
 // showing a bare card border with nothing in it. Each mirrors the exact
@@ -254,6 +261,7 @@ function onWizardUpdated(updated) {
         :stage-progress="request.stage_progress"
         :stage-timeliness="request.stage_timeliness"
         :current-stage-name="currentStageName"
+        :stages="railStages"
       />
       <p v-if="request.workflow_view" class="workflow-link">
         <button class="ghost" type="button" @click="openWorkflow">{{ t('workflows.viewOnRequest') }}</button>
@@ -403,7 +411,7 @@ function onWizardUpdated(updated) {
               <p v-if="!request.timeline?.length" class="state">{{ t('requestDetail.noTimeline') }}</p>
               <ol v-else>
                 <li v-for="entry in request.timeline" :key="entry.id">
-                  <span class="dot" />
+                  <span class="stage-mark"><AppIcon :size="15" :name="entry.to_stage ? stageIcon(entry.to_stage.code) : 'dot'" /></span>
                   <div>
                     <strong>{{ ruleLabel(entry) }}</strong>
                     <p v-if="entry.to_stage">{{ timelineMovement(entry) }}</p>
@@ -900,9 +908,10 @@ function onWizardUpdated(updated) {
 .description p { margin: 0; color: var(--color-black-700); line-height: var(--leading-relaxed); white-space: pre-wrap; }
 .description .reasons-heading { margin-block-start: var(--space-4); }
 .timeline ol { display: grid; gap: 0; padding: 0; margin: var(--space-3) 0 0; list-style: none; }
-.timeline ol > li { position: relative; display: grid; grid-template-columns: 1.2rem minmax(0, 1fr); gap: 0.6rem; padding-bottom: var(--space-4); }
-.timeline ol > li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: 0.45rem; inset-block-start: 0.85rem; inline-size: 1px; block-size: calc(100% - 0.25rem); background: var(--color-border); }
-.dot { position: relative; z-index: 1; inline-size: 0.9rem; block-size: 0.9rem; margin-top: 0.15rem; border: 3px solid var(--color-surface); border-radius: 50%; background: var(--color-primary); box-shadow: 0 0 0 1px var(--color-border-hover); }
+.timeline ol > li { position: relative; display: grid; grid-template-columns: 1.75rem minmax(0, 1fr); gap: 0.6rem; padding-bottom: var(--space-4); }
+.timeline ol > li:not(:last-child)::before { content: ''; position: absolute; inset-inline-start: calc(0.875rem - 0.5px); inset-block-start: 1.75rem; inline-size: 1px; block-size: calc(100% - 1.75rem); background: var(--color-border); }
+/* The icon of the stage the entry moved the file to, as on the stage rail. */
+.stage-mark { display: grid; place-items: center; inline-size: 1.75rem; block-size: 1.75rem; border: 1.5px solid var(--color-brand); border-radius: 50%; background: color-mix(in srgb, var(--color-brand) 14%, var(--color-surface)); color: var(--color-brand-text); }
 .timeline p { margin: 0.2rem 0; color: var(--color-black-700); font-size: var(--text-sm); }
 .timeline small, .attachments small { color: var(--color-muted); font-size: var(--text-xs); }
 .entry-comment { white-space: pre-wrap; }
