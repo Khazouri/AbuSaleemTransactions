@@ -60,7 +60,23 @@ class StageProgressTest extends TestCase
             ->json('data.stages');
 
         $this->assertSame(WorkflowStage::orderBy('order_no')->pluck('code')->all(), array_column($stages, 'code'));
-        $this->assertSame(['order_no', 'code', 'name_ar', 'name_en'], array_keys($stages[0]));
+        $this->assertSame(['id', 'order_no', 'code', 'name_ar', 'name_en'], array_keys($stages[0]));
+    }
+
+    public function test_the_work_queue_lists_the_stages_and_the_ones_the_file_visited(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $employee = $this->userWithRole('R01');
+        $requestRecord = $this->requestAtStage($employee, 'requirements_check');
+        $intake = WorkflowStage::where('code', 'receive_from_municipality')->value('id');
+        $manager = WorkflowStage::where('code', 'direct_manager_review')->value('id');
+        $requestRecord->stageLogs()->create(['from_stage_id' => $intake, 'to_stage_id' => $manager, 'action' => 'submit', 'acted_by_user_id' => $employee->id, 'acted_at' => now()]);
+
+        $this->actingAs($employee, 'sanctum')
+            ->getJson('/api/requests')
+            ->assertOk()
+            ->assertJsonCount(WorkflowStage::count(), 'data.0.stages')
+            ->assertJsonPath('data.0.visited_stage_ids', [$intake, $manager]);
     }
 
     public function test_the_field_round_trips_through_the_work_queue_too(): void

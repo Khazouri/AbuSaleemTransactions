@@ -272,6 +272,8 @@ class RequestController extends Controller
                 // needs the full row shape or the subquery's column names
                 // collide ("ambiguous column name: request_id").
                 'latestStageLog',
+                // The stage rail's visited stages: one query for the page.
+                'stageLogs:id,request_id,from_stage_id,to_stage_id',
             ])
             ->when($filters['status'] ?? null, function ($query, string $status) {
                 $query->whereHas('status', fn ($statusQuery) => $statusQuery->where('code', $status));

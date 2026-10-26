@@ -81,6 +81,19 @@ class RequestResource extends JsonResource
                 'current' => $this->currentStage->order_no,
                 'total' => app(WorkflowStageCount::class)->total($this->currentStage->id),
             ] : null,
+            // 2026-10-26 — the stage rail: every stage of the version this file
+            // runs on (not Standard's, since a custom step adds one), and the
+            // stages its history shows it standing at, so a stage the path
+            // skipped stays grey. Only where the caller loaded stageLogs (the
+            // work queue and the request page), since other lists draw no rail.
+            'stages' => $this->whenLoaded('stageLogs', fn () => $this->currentStage
+                ? app(WorkflowStageCount::class)->stages($this->currentStage->id)
+                : []),
+            'visited_stage_ids' => $this->whenLoaded('stageLogs', fn () => $this->stageLogs
+                ->flatMap(fn ($log) => [$log->from_stage_id, $log->to_stage_id])
+                ->filter()
+                ->unique()
+                ->values()),
             // Stage 83 — [D] Appendices 17 and 18, on the *list* payload and
             // not only the detail one: "يجب أن تظهر في كل معاملة خانة إلزامية
             // باسم: المسؤول الحالي" is a rule about every file, and a list is

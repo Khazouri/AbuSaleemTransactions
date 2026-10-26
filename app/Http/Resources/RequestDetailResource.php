@@ -4,7 +4,6 @@ namespace App\Http\Resources;
 
 use App\Models\AuthorityDecision;
 use App\Models\User;
-use App\Models\WorkflowStage;
 use App\Services\RequestClosureService;
 use Illuminate\Http\Request;
 
@@ -80,13 +79,6 @@ class RequestDetailResource extends RequestResource
                     'authority_decision' => $this->authorityDecision(),
                 ];
             }),
-            // 2026-10-26 — the stage rail draws every stage of the version this
-            // file runs on, not Standard's, since a custom step adds one.
-            'stages' => $this->currentStage === null ? [] : WorkflowStage::query()
-                ->where('workflow_version_id', WorkflowStage::query()->whereKey($this->currentStage->id)->select('workflow_version_id'))
-                ->orderBy('order_no')
-                ->get(['order_no', 'code', 'name_ar', 'name_en'])
-                ->toArray(),
             // Stage 18 — the authoritative approval chain, separate from the
             // broader timeline that also contains forwards and exceptions.
             'approvals' => ApprovalResource::collection($this->whenLoaded('approvals')),

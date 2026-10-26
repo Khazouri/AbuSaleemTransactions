@@ -23,6 +23,25 @@ class WorkflowStageCount
     /** @var array<int, int> stage id (0 = none) => count */
     private array $totals = [];
 
+    /** @var array<int, array<int, array<string, mixed>>> stage id => that version's stages */
+    private array $lists = [];
+
+    /**
+     * 2026-10-26 — the stage rail's stations: every stage of the given stage's
+     * version, in order. Memoised for the same reason as total(): a list page
+     * asks once per row, and nearly every row shares one version.
+     *
+     * @return array<int, array{id: int, order_no: int, code: string, name_ar: string, name_en: ?string}>
+     */
+    public function stages(int $stageId): array
+    {
+        return $this->lists[$stageId] ??= WorkflowStage::query()
+            ->where('workflow_version_id', WorkflowStage::query()->whereKey($stageId)->select('workflow_version_id'))
+            ->orderBy('order_no')
+            ->get(['id', 'order_no', 'code', 'name_ar', 'name_en'])
+            ->toArray();
+    }
+
     /**
      * The published Standard version's stage count, never hard-coded — see
      * WorkflowStageSeeder. Workflow designer — slice 3: given a stage, the
