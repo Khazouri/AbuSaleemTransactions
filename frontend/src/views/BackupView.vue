@@ -13,6 +13,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { confirmDelete } from '../lib/confirm'
 import { downloadExport } from '../lib/download'
 
 const { t, locale } = useI18n()
@@ -94,7 +95,7 @@ async function download(row) {
 }
 
 async function remove(row) {
-  if (!window.confirm(t('common.confirmDelete'))) return
+  if (!(await confirmDelete(row.filename))) return
   busy.value[row.id] = true
   actionError.value = null
   try {

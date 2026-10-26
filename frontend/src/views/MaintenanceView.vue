@@ -20,6 +20,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { confirmAction } from '../lib/confirm'
 
 const { t, locale } = useI18n()
 
@@ -169,7 +170,12 @@ function confirmRun() {
 }
 
 async function clearHistory() {
-  if (!window.confirm(t('maintenance.confirmClear'))) return
+  if (!(await confirmAction({
+    title: t('maintenance.confirmClear'),
+    message: t('confirmAction.consequence.clear_history'),
+    confirmLabel: t('maintenance.history.clear'),
+    danger: true,
+  }))) return
   try {
     await api.delete('/maintenance/runs')
     await loadHistory(1)

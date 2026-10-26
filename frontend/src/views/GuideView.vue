@@ -15,6 +15,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { confirmDelete } from '../lib/confirm'
 
 const { t, locale } = useI18n()
 
@@ -154,7 +155,7 @@ async function save() {
 }
 
 async function remove(article) {
-  if (!window.confirm(t('common.confirmDelete'))) return
+  if (!(await confirmDelete(title(article)))) return
   try {
     await api.delete(`/guide-articles/${article.id}`)
     if (selectedId.value === article.id) selectedId.value = null

@@ -28,6 +28,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { confirmDelete } from '../lib/confirm'
 import AppModal from '../components/AppModal.vue'
 import DocumentCatalog from '../components/DocumentCatalog.vue'
 import {
@@ -314,7 +315,7 @@ async function toggleActive(type) {
 }
 
 async function remove(type) {
-  if (!window.confirm(t('common.confirmDelete'))) return
+  if (!(await confirmDelete(label(type)))) return
   formError.value = null
   try {
     await api.delete('/request-types/' + type.id)

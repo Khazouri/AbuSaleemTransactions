@@ -419,6 +419,11 @@ Key architectural facts worth knowing before changing things:
 - **Pinia stores use setup-style** (not options-style) — refs for state,
   computed for getters, plain functions returned as actions.
 - **Vue components**: `<script setup>` SFCs.
+- **A high-risk act asks first, through `lib/confirm.js`** (user decision 2026-10-26),
+  never `window.confirm`. A wizard passes `WizardShell` a `confirm` prop that states that
+  act's consequence (`confirmAction.consequence.<action>`), and a delete awaits
+  `confirmDelete(name)`. A new act that ends, refuses, returns, escalates or finalises a
+  file joins that list.
 - **A create/edit form on a screen that also lists records goes in a modal**
   (user decision 2026-09-26): wrap it in `components/AppModal.vue`
   (`v-if` on the view's own open flag, `:title`, `wide` for big forms,

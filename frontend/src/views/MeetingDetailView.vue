@@ -15,6 +15,7 @@ import GuestInviteForm from '../components/GuestInviteForm.vue'
 import ImageSlideshow from '../components/ImageSlideshow.vue'
 import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import api from '../lib/api'
+import { confirmDelete } from '../lib/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
@@ -119,7 +120,7 @@ async function proposeDate() {
 }
 
 async function removeMeeting() {
-  if (!window.confirm(t('common.confirmDelete'))) return
+  if (!(await confirmDelete(meeting.value.title))) return
   try {
     await api.delete(`/meetings/${meeting.value.id}`)
     window.history.back()

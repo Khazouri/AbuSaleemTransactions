@@ -14,6 +14,7 @@ import { useI18n } from 'vue-i18n'
 import AppModal from './AppModal.vue'
 import ScannedPagesInput from './ScannedPagesInput.vue'
 import api, { firstError } from '../lib/api'
+import { confirmAction } from '../lib/confirm'
 
 const props = defineProps({
   meetingId: { type: [Number, String], required: true },
@@ -71,6 +72,16 @@ onMounted(async () => {
 
 async function submit() {
   if (!canSubmit.value || submitting.value) return
+  // One قرار settles every ticked file at once, so it is asked about first.
+  const count = ticked.value.length
+  if (!(await confirmAction({
+    title: t('confirmAction.authorityTitle', { count }),
+    message: t('confirmAction.consequence.authority_decisions', { count }),
+    reference: reference.value.trim(),
+    referenceLabel: t('authorityBulk.reference'),
+    confirmLabel: t('authorityBulk.submit', { count }),
+    danger: ticked.value.some((item) => rows[item.id].decision === 'reject'),
+  }))) return
   submitting.value = true
   error.value = ''
   const form = new FormData()

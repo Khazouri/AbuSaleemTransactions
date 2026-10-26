@@ -11,6 +11,15 @@ const DESTRUCTIVE = ['cancel', 'reject', 'reject_review', 'reject_formally', 're
 // The legal member's two answers; either returns the file to the pending list.
 const RECOMMENDATIONS = ['approve', 'decline']
 
+// Asked once more in a dialog before they run (user decision 2026-10-26): they
+// end, refuse, return or escalate the file, or make its result final.
+const CONFIRMED = [...DESTRUCTIVE, 'deadline_expired', 'confirm_decision', 'require_completion',
+  'return_to_employee', 'return_missing_docs', 'return_to_study', 'return_to_authority']
+
+export const needsConfirm = (item) => (item?.kind === 'act'
+  ? Boolean(REQUEST_ACTS[item.action]?.confirm)
+  : item?.kind !== 'verdict' && CONFIRMED.includes(item?.action))
+
 export const isDestructiveChoice = (item) => (item?.kind === 'transition' && DESTRUCTIVE.includes(item.action))
   || (item?.kind === 'act' && Boolean(REQUEST_ACTS[item.action]?.destructive))
 

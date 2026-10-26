@@ -8,6 +8,7 @@
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppModal from './AppModal.vue'
+import { confirmAction } from '../lib/confirm'
 
 const props = defineProps({
   title: { type: String, required: true },
@@ -18,6 +19,8 @@ const props = defineProps({
   submitting: { type: Boolean, default: false },
   destructive: { type: Boolean, default: false },
   hideSubmit: { type: Boolean, default: false },
+  // A high-risk choice's last question: { action, message, reference, referenceLabel? }, or null.
+  confirm: { type: Object, default: null },
 })
 const step = defineModel('step', { type: String, required: true })
 const emit = defineEmits(['submit', 'close'])
@@ -27,6 +30,17 @@ const index = computed(() => props.steps.indexOf(step.value))
 const go = (offset) => { step.value = props.steps[index.value + offset] }
 function close() {
   if (!props.submitting) emit('close')
+}
+async function submit() {
+  if (props.confirm && !(await confirmAction({
+    title: t('confirmAction.title', { action: props.confirm.action }),
+    message: props.confirm.message,
+    reference: props.confirm.reference,
+    referenceLabel: props.confirm.referenceLabel,
+    confirmLabel: props.submitLabel,
+    danger: props.destructive,
+  }))) return
+  emit('submit')
 }
 
 // F5 — a check answered elsewhere can drop the current step out of `steps`
@@ -73,7 +87,7 @@ watch(() => props.steps, (steps) => {
           :class="destructive ? 'btn danger' : 'primary'"
           type="button"
           :disabled="submitting || submitDisabled"
-          @click="emit('submit')"
+          @click="submit"
         >
           {{ submitting ? t('requestDetail.processing') : submitLabel }}
         </button>

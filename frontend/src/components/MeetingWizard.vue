@@ -102,6 +102,15 @@ const submitting = ref(false)
 const error = ref('')
 const submitDisabled = computed(() => !choice.value
   || (choice.value.action === 'record_results' && !resultsComplete.value))
+// Entering the results moves every file on the agenda; rolling them back undoes all of it.
+const confirm = computed(() => (['record_results', 'rollback_results'].includes(choice.value?.action)
+  ? {
+    action: choice.value.label,
+    message: t(`confirmAction.consequence.${choice.value.action}`),
+    reference: meeting.value?.title,
+    referenceLabel: t('confirmAction.meeting'),
+  }
+  : null))
 
 // pending_confirmation → meetings.statusPendingConfirmation
 const statusLabel = (status) => t(`meetings.status${status.replace(/(^|_)(\w)/g, (_, __, c) => c.toUpperCase())}`)
@@ -140,6 +149,8 @@ async function submit() {
     :submit-label="t('decisionWizard.submit', { action: choice?.label ?? '' })"
     :submit-disabled="submitDisabled"
     :submitting="submitting"
+    :destructive="choice?.action === 'rollback_results'"
+    :confirm="confirm"
     @submit="submit"
     @close="emit('close')"
   >
