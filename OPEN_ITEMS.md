@@ -13,6 +13,31 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### A drifted database fails only at the meeting's results — end-to-end walk — opened 2026-10-30
+The live walk found the real MySQL months behind `main`: two migrations had not run, and the committee and authority
+stages still held the rules from before 2026-10-17. `defer` and `reject_by_committee` each had an R02 and an R03 row,
+R05 still held stage 10, and `rapporteur_decision_review` had no rules. Nothing complained until the مقرر submitted the
+results, which refused with «يوجد أكثر من مسار مطابق لهذا الإجراء». This was fixed by `migrate` plus
+`db:seed --class=WorkflowSeeder`. Two gaps remain:
+- `WorkflowVersionValidator::report()` does not flag two rules with the same stage, action, role and required status;
+- no one command runs migrate and the workflow reseed together after an upload.
+
+**To close:** ask whether to add that validator error and a single «بعد الرفع» maintenance entry (migrate, then
+`db:seed:workflow`), and whether the dashboard should warn R08 while the published version reports errors.
+
+### A meeting can be scheduled in the past — end-to-end walk — opened 2026-10-30
+`StoreMeetingRequest` takes any `scheduled_at`, so the مقرر can create a meeting dated an hour ago, collect two
+acceptances and enter its results at once. The live walk did exactly that. **To close:** ask whether `scheduled_at`
+must be `after_or_equal:now` (and on `update()`), or whether back-dating a paper meeting held offline is intended.
+
+### The test accounts break the sole-post and R01 rules — end-to-end walk — opened 2026-10-30
+On the real DB, `TestUserSeeder`'s accounts hold R04 four times and R03 twice, while each is meant to have one holder.
+Only `r01.employee` holds R01 and has a manager. `r09.secretary` cannot file at all, and every other filer's file
+needs R08's unstick to leave the manager stage. **To close:** ask whether `TestUserSeeder` should give every account
+R01, give each filer a manager, and give each sole post one holder.
+
+---
+
 ### The مقرر's review step is in no report bucket, and the filer still gets the generic stage-change notice — B4 — opened 2026-10-25
 A file at `rapporteur_decision_review` (`authority_approved`/`authority_rejected`) falls into none of
 `CommitteeBoardService`'s or `PeriodicReportService`'s «awaiting approval» buckets, which list statuses by name. Also,
