@@ -24,6 +24,16 @@ results, which refused with «يوجد أكثر من مسار مطابق لهذ�
 
 **To close:** ask whether to add that validator error and a single «بعد الرفع» maintenance entry (migrate, then
 `db:seed:workflow`), and whether the dashboard should warn R08 while the published version reports errors.
+**Resolved (2026-10-30, feat/workflow-drift-checks).** The validator reports `duplicate_rule`, and a committee outcome
+the results could not pick (`required_rule_missing`). «بعد الرفع» (`maintenance:after-upload`) migrates, reseeds the
+workflow and fails naming any error. The dashboard lists the published versions' errors to `maintenance` view holders.
+
+### The full suite no longer finishes in one PHPUnit process on Windows — drift checks — opened 2026-10-30
+`MaintenanceRunner::run()` calls `set_time_limit(timeout + 30)` (330 s) inside the test process, and on Windows that is
+wall time. The suite now takes about 10 minutes, so the tests after the maintenance ones die at 92% with «Maximum
+execution time of 330 seconds exceeded», and no test fails. For now, run it as `phpunit --exclude-filter
+'Maintenance(Console|Bootstrap)Test'` plus those two files. **To close:** skip the `set_time_limit` call while
+`app()->runningUnitTests()`, or set `maintenance.timeout` high in `phpunit.xml`.
 
 ### A meeting can be scheduled in the past — end-to-end walk — opened 2026-10-30
 `StoreMeetingRequest` takes any `scheduled_at`, so the مقرر can create a meeting dated an hour ago, collect two

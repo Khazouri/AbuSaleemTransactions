@@ -114,10 +114,39 @@ class WorkflowVersionValidator
             }
         }
 
+        // 2026-10-30 — two rows an actor matches alike leave the engine no way
+        // to choose (pickRule() fails closed), so the act is refused at the
+        // moment it is needed. A drifted host held such pairs unnoticed until
+        // a meeting's results were entered. The actor of a role-less row is
+        // its manager or creator flag.
+        $duplicates = $rules->groupBy(fn (WorkflowTransition $rule) => implode(':', [
+            $rule->from_stage_id, $rule->action, $rule->required_role_id, (int) $rule->requires_submitter_manager,
+            (int) $rule->requires_creator, $rule->required_status_id, $rule->request_type_id,
+        ]))->filter(fn (Collection $group) => $group->count() > 1);
+        foreach ($duplicates as $group) {
+            $rule = $group->first();
+            $errors[] = $this->entry('duplicate_rule', sprintf('في المرحلة «%s» %d قواعد للنتيجة «%s» بالدور والحالة نفسيهما، فلا يُعرف أيها يُطبَّق.', $stages->get($rule->from_stage_id)?->name_ar, $group->count(), $rule->label_ar ?? $rule->action), $stages->get($rule->from_stage_id), $rule->id);
+        }
+
         return [
             'errors' => [...$errors, ...$this->noWayOut($stages, $rules), ...$this->requiredRules($stages, $rules), ...$this->unmetStatuses($stages, $rules, $entryId)],
             'warnings' => $this->warnings($version, $stages, $rules),
         ];
+    }
+
+    /**
+     * 2026-10-30 — the errors of every version files run on now. A reseed or a
+     * migration can break a published version that passed at publish time,
+     * so the after-upload command and R08's dashboard both read this.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function publishedErrors(): array
+    {
+        return WorkflowVersion::query()->where('status', 'published')->get()
+            ->flatMap(fn (WorkflowVersion $version) => $this->report($version)['errors'])
+            ->values()
+            ->all();
     }
 
     /**
@@ -176,11 +205,14 @@ class WorkflowVersionValidator
         }
 
         $committee = $stages->firstWhere('code', self::COMMITTEE);
+        // WorkflowService::applyCommitteeRecommendation() picks the row with no
+        // actor to filter by (2026-10-30), so it needs exactly one candidate, or
+        // exactly one normal one beside exceptions — pickRule()'s own rule.
         foreach ($committee === null ? [] : array_unique(array_values(DecisionController::ACTIONS)) as $action) {
-            $has = $rules->contains(fn (WorkflowTransition $rule) => (int) $rule->from_stage_id === (int) $committee->id
+            $found = $rules->filter(fn (WorkflowTransition $rule) => (int) $rule->from_stage_id === (int) $committee->id
                 && $rule->action === $action && $rule->request_type_id === null);
-            if (! $has) {
-                $errors[] = $this->entry('required_rule_missing', sprintf('تحتاج المرحلة «%s» النتيجة «%s»: يسجّل بها النظام توصية اللجنة حين يدخلها المقرر.', $committee->name_ar, $action), $committee);
+            if ($found->count() !== 1 && $found->reject(fn (WorkflowTransition $rule) => $rule->is_exception)->count() !== 1) {
+                $errors[] = $this->entry('required_rule_missing', sprintf('تحتاج المرحلة «%s» قاعدة واحدة للنتيجة «%s»: يسجّل بها النظام توصية اللجنة حين يدخلها المقرر.', $committee->name_ar, $action), $committee);
             }
         }
 

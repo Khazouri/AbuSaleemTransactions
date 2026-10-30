@@ -53,6 +53,18 @@ class MaintenanceCommandCatalog
     public const COMMANDS = [
 
         // ---- Database ----------------------------------------------------
+        // 2026-10-30 — catches a drifted path right after deployment.
+        'after-upload' => [
+            'kind' => self::KIND_ARTISAN,
+            'artisan' => 'maintenance:after-upload',
+            'params' => [],
+            'group' => 'database',
+            'destructive' => false,
+            'label_ar' => 'بعد الرفع',
+            'label_en' => 'After upload',
+            'description_ar' => 'يشغّل الترحيلات، ثم يعيد زراعة مسار العمل دون المساس بالصلاحيات، ثم يفحص المسار المعتمد ويذكر كل خطأ فيه. شغّله بعد رفع كل إصدار.',
+            'description_en' => 'Runs the migrations, re-seeds the workflow without touching any grant, then checks the published path and lists every error in it. Run it after uploading each release.',
+        ],
         'migrate' => [
             'kind' => self::KIND_ARTISAN,
             'artisan' => 'migrate',

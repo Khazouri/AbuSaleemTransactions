@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Report\IndexReportRequest;
 use App\Services\ReportMetricsService;
+use App\Services\WorkflowVersionValidator;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -19,7 +20,10 @@ use Illuminate\Http\JsonResponse;
  */
 class DashboardController extends Controller
 {
-    public function __construct(private readonly ReportMetricsService $metrics) {}
+    public function __construct(
+        private readonly ReportMetricsService $metrics,
+        private readonly WorkflowVersionValidator $validator,
+    ) {}
 
     public function index(IndexReportRequest $request): JsonResponse
     {
@@ -32,12 +36,17 @@ class DashboardController extends Controller
             $filters['visible_to'] = $request->user()->id;
         }
 
-        return response()->json([
-            'data' => [
-                'scoped' => $scoped,
-                'kpis' => $this->metrics->kpis($filters),
-                'breakdowns' => $this->metrics->breakdowns($filters),
-            ],
-        ]);
+        $data = [
+            'scoped' => $scoped,
+            'kpis' => $this->metrics->kpis($filters),
+            'breakdowns' => $this->metrics->breakdowns($filters),
+        ];
+        // 2026-10-30 — a broken path surfaces to whoever can run «بعد الرفع»,
+        // instead of as a refusal in the middle of someone's work.
+        if ($request->user()->hasScreenPermission('maintenance', 'can_view')) {
+            $data['workflow_errors'] = $this->validator->publishedErrors();
+        }
+
+        return response()->json(['data' => $data]);
     }
 }

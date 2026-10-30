@@ -112,6 +112,33 @@ class MaintenanceConsoleTest extends TestCase
         $this->assertSame($cell->can_export, $cell->fresh()->can_export);
     }
 
+    /** 2026-10-30 — one press after an upload: migrate, reseed the path, then check it. */
+    public function test_after_upload_reseeds_the_workflow_and_passes_when_it_checks_clean(): void
+    {
+        $register = WorkflowTransition::query()->where('action', 'register')->whereNull('request_type_id')->firstOrFail();
+        $register->replicate()->save();
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'after-upload'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'completed');
+
+        $this->assertSame(1, WorkflowTransition::query()->where('action', 'register')->whereNull('request_type_id')
+            ->where('required_role_id', $register->required_role_id)->count());
+    }
+
+    public function test_after_upload_fails_and_names_what_the_reseed_left_broken(): void
+    {
+        WorkflowTransition::query()->where('action', 'deadline_expired')->firstOrFail()->replicate()->save();
+
+        $response = $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/maintenance/run', ['command' => 'after-upload'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'failed');
+
+        $this->assertStringContainsString('duplicate_rule', (string) MaintenanceRun::findOrFail($response->json('data.id'))->output);
+    }
+
     /**
      * A host whose database predates a screen gets the row from the same run,
      * and with no grant rows at all nobody — R08 included — would see it.

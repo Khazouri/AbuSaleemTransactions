@@ -18,6 +18,8 @@ const auth = useAuthStore()
 const kpis = ref(null)
 const breakdowns = ref({ by_status: [], by_stage: [], by_department: [], by_month: [] })
 const scoped = ref(false)
+// 2026-10-30 — sent only to the maintenance screen's holders (R08).
+const workflowErrors = ref([])
 const loading = ref(false)
 const loadError = ref(null)
 
@@ -91,6 +93,7 @@ async function load() {
     kpis.value = data.data.kpis
     breakdowns.value = data.data.breakdowns
     scoped.value = data.data.scoped
+    workflowErrors.value = data.data.workflow_errors ?? []
   } catch (error) {
     loadError.value = error
   } finally {
@@ -118,6 +121,15 @@ onMounted(load)
       {{ t('nav.error') }}
       <button class="ghost" type="button" @click="load">{{ t('common.retry') }}</button>
     </p>
+
+    <div v-if="workflowErrors.length" class="alert" role="alert">
+      <strong>{{ t('dashboard.workflowErrors.title', { count: workflowErrors.length }) }}</strong>
+      <ul>
+        <li v-for="(error, index) in workflowErrors" :key="index" dir="auto">{{ error.message_ar }}</li>
+      </ul>
+      {{ t('dashboard.workflowErrors.fix') }}
+      <RouterLink class="ghost" :to="{ name: 'maintenance' }">{{ t('dashboard.workflowErrors.open') }}</RouterLink>
+    </div>
 
     <p v-if="loading" class="state">{{ t('common.loading') }}</p>
 

@@ -66,6 +66,49 @@ class WorkflowValidatorTest extends TestCase
         $this->assertContains(['committee_unregistered', 'receive_from_committee'], $this->errorCodes());
     }
 
+    /**
+     * 2026-10-30 — a host whose rules drifted held two rows the engine could not
+     * choose between, found only when the مقرر's results were refused.
+     */
+    public function test_two_rules_with_the_same_stage_action_actor_and_status_are_an_error(): void
+    {
+        WorkflowTransition::query()
+            ->where('from_stage_id', $this->draft->stage('receive_and_register')->id)
+            ->where('action', 'register')
+            ->firstOrFail()
+            ->replicate()
+            ->save();
+
+        $this->assertSame([['duplicate_rule', 'receive_and_register']], $this->errorCodes());
+    }
+
+    /** The walk's own drift: the results take the committee's row with no actor to tell R02's from R03's. */
+    public function test_a_committee_outcome_held_by_two_roles_is_an_error(): void
+    {
+        $chair = WorkflowTransition::query()
+            ->where('from_stage_id', $this->draft->stage('receive_from_committee')->id)
+            ->where('action', 'defer')
+            ->firstOrFail()
+            ->replicate();
+        $chair->required_role_id = Role::where('code', 'R03')->value('id');
+        $chair->save();
+
+        $this->assertSame([['required_rule_missing', 'receive_from_committee']], $this->errorCodes());
+    }
+
+    public function test_the_same_action_for_another_role_is_not_a_duplicate(): void
+    {
+        $rule = WorkflowTransition::query()
+            ->where('from_stage_id', $this->draft->stage('receive_and_register')->id)
+            ->where('action', 'register')
+            ->firstOrFail()
+            ->replicate();
+        $rule->required_role_id = Role::where('code', 'R11')->value('id');
+        $rule->save();
+
+        $this->assertNotContains('duplicate_rule', array_column($this->errorCodes(), 0));
+    }
+
     public function test_a_custom_outcome_naming_a_role_nobody_holds_is_a_warning(): void
     {
         $this->customStep('custom_audit');

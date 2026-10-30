@@ -10,6 +10,7 @@ use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Models\WorkflowTransition;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -102,6 +103,24 @@ class DashboardReportTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.scoped', false)
             ->assertJsonPath('data.kpis.total', 7);
+    }
+
+    /** 2026-10-30 — R08 hears of a broken path on the dashboard, not at a meeting's results. */
+    public function test_the_maintenance_holder_is_warned_while_a_published_workflow_has_errors(): void
+    {
+        $this->actingAs($this->admin(), 'sanctum')
+            ->getJson('/api/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.workflow_errors', []);
+
+        WorkflowTransition::query()->where('action', 'register')->firstOrFail()->replicate()->save();
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->getJson('/api/dashboard')
+            ->assertJsonPath('data.workflow_errors.0.code', 'duplicate_rule');
+        $this->actingAs($this->userWithRole('R06'), 'sanctum')
+            ->getJson('/api/dashboard')
+            ->assertJsonMissingPath('data.workflow_errors');
     }
 
     /** Narrowing the filters narrows every figure, not just the row list. */
