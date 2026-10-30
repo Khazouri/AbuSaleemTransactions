@@ -19,6 +19,51 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-30 19:35 EET — Claude — An end-to-end test of the whole request workflow (complete)
+
+Built per the plan below. It is test only; no product code changed. `FullRequestWorkflowTest` covers 3 walks with
+301 assertions, every step over HTTP and as its own actor:
+- dean: the manager's return, a rollback and re-entry;
+- minister: a return to the authority, then a confirmed reject;
+- a deferral that goes onto a second meeting.
+
+**Gotcha:** `User` memoises its screen grants and `actingAs()` reuses the instance, so the test reloads the post holders
+once the committee seats them.
+
+**Live walk** (Node script in the session scratchpad, not committed): files #47–49 and meetings #4–5 are now on the
+real MySQL, all `completed_closed`. It first failed at the results with «أكثر من مسار مطابق», because the real DB was
+still on the old rules, and two migrations were pending. So `php artisan migrate` (minutes_pages, authority_decisions)
+and `db:seed --class=WorkflowSeeder` were run there, which closes the «still owed» step from 2026-10-25. The rules were
+checked by query afterwards. All 20 tokens the walk minted were revoked.
+
+Three findings went to OPEN_ITEMS: drift caught only at the results, meetings dated in the past, and test accounts that
+break the sole-post and R01 rules.
+
+Verified: full suite 878 / 7673 green; Pint clean; `aislop ci` exit 0. No frontend change.
+
+---
+### 2026-10-30 19:06 EET — Claude — Implementation plan: an end-to-end test of the whole request workflow
+
+User: «test the full request workflow from start to finish», then give recommendations. Put to the user and answered:
+a PHPUnit walk **and** a live walk on Homestead, covering the dean path plus the minister path, returns and
+rejections, a deferral, and a results rollback. Plan:
+- a new `tests/Feature/FullRequestWorkflowTest.php` that drives only HTTP endpoints, as each actor:
+  - R08 names the مقرر, العميد and الوزير, and the مقرر names the other four seats and forms the committee;
+  - the employee files with real uploads;
+  - the manager returns the file, the employee re-submits, and the manager forwards it;
+  - HR previews every file, records تجهيز الملف الوظيفي and registers;
+  - the مقرر records the jurisdiction test and بوابة 1, then takes the قيد;
+  - the legal member records a توصية, and the مقرر schedules a meeting that the seats accept;
+  - the مقرر adds the agenda, records the results, rolls them back and records them again;
+  - the authority decides from the meeting page, the مقرر confirms or returns, and HR's archive closes the file.
+  It ends with a minister file and a deferred file that goes onto a second meeting;
+- a live walk against abusaleem.test, scripted with the seeded test accounts. It writes real rows to the shared MySQL
+  by the user's choice;
+- no product code changes. Any bug the walk finds is reported first and fixed only with the user's OK.
+
+Verify: the new test GREEN, full PHPUnit, Pint, aislop ci.
+
+---
 ### 2026-10-26 18:10 EET — Claude — A confirmation modal before every high-risk act (complete)
 
 Built per the plan below. It is frontend only, and adds one locale block (`confirmAction`). `common.confirmDelete`
