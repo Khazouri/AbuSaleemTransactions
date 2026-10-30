@@ -302,6 +302,11 @@ Key architectural facts worth knowing before changing things:
   screen *definitions* only on an existing database; running the full
   `DatabaseSeeder` there would reset the whole permission matrix and discard
   anything customised through Roles & Permissions.
+  **After every upload run «بعد الرفع»** (`after-upload`,
+  `maintenance:after-upload`, 2026-10-30): migrate, then `WorkflowSeeder`,
+  then `WorkflowVersionValidator::publishedErrors()`; it fails listing any
+  error. The same errors show on R08's dashboard (`workflow_errors`, sent
+  only to `maintenance` view holders) until fixed.
 - **The workflow designer is off by default** (user decision 2026-10-12):
   `WORKFLOW_DESIGNER_ENABLED=true` in `.env` (`config('app.workflow_designer')`)
   turns it on. Off, `User::screenPermissions()` clears `workflow_designer`, `GET

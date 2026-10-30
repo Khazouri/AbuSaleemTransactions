@@ -1514,6 +1514,11 @@
     "title": "Dashboard",
     "openReports": "Open reports",
     "scopedNote": "These figures cover only the requests you can open.",
+    "workflowErrors": {
+      "title": "The published workflow has errors ({count}), so an act may be refused when it is needed:",
+      "fix": "Run «After upload» on the maintenance console.",
+      "open": "Open the maintenance console"
+    },
     "byStatus": "By status",
     "byStage": "By stage ({total} in total)",
     "byDepartment": "By department",

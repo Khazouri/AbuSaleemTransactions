@@ -19,6 +19,37 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-30 22:30 EET — Claude — Database drift is caught right after deployment (complete)
+
+Built per the plan below; no migration or seeder. **Addition:** the walk's own drift (`defer` held by R02 and R03, both
+exceptions) differs by role, so `duplicate_rule` would not catch it. The committee check now also requires that
+`applyCommitteeRecommendation()` can pick exactly one row per outcome (`pickRule()`'s rule), not just that one exists.
+The dashboard banner shows `message_ar` in both locales, as the designer does. The real MySQL's published version
+checks clean under both rules (read-only `publishedErrors()` = `[]`).
+
+Verified:
+- 5 new tests went RED, then GREEN;
+- full suite 884 green, run as two processes (855 / 7612 + the two maintenance files' 29 / 197), because in one
+  process the 330 s limit `MaintenanceRunner` sets kills it at 92% (OPEN_ITEMS);
+- Pint clean; build passes (`dist` committed, production API URL in the bundle); parity 1861; `aislop ci` exit 0 (98).
+
+The banner was not checked in a browser.
+
+---
+### 2026-10-30 21:15 EET — Claude — Implementation plan: catch database drift right after deployment
+
+User: closes the OPEN_ITEMS entry «A drifted database fails only at the meeting's results». Plan:
+- `WorkflowVersionValidator` reports `duplicate_rule` when two rules share stage, action, actor (role, or the
+  manager/creator flag on a role-less row), required status and request type: the engine can't pick between them;
+- a new artisan `maintenance:after-upload` runs `migrate --force`, then `db:seed --class=WorkflowSeeder --force`, then
+  validates every published version and fails with the errors listed. It is the console's «بعد الرفع» entry;
+- `GET dashboard` carries `workflow_errors` (the published versions' errors) for a holder of `maintenance` view
+  (R08), and the dashboard shows them in a danger banner pointing to «بعد الرفع».
+
+Verify: new `WorkflowValidatorTest`, `MaintenanceConsoleTest` and `DashboardReportTest` cases (RED then GREEN), full
+PHPUnit, Pint, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-30 19:35 EET — Claude — An end-to-end test of the whole request workflow (complete)
 
 Built per the plan below. It is test only; no product code changed. `FullRequestWorkflowTest` covers 3 walks with
