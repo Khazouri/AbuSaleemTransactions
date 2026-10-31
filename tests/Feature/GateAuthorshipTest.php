@@ -44,10 +44,6 @@ class GateAuthorshipTest extends TestCase
         $requestRecord = $this->requestAtRequirementsCheck($employee);
 
         $this->actingAs($employee, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/jurisdiction-test", $this->jurisdictionAnswers())
-            ->assertForbidden();
-
-        $this->actingAs($employee, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload())
             ->assertForbidden();
 
@@ -69,11 +65,6 @@ class GateAuthorshipTest extends TestCase
         $requestRecord = $this->requestAtRequirementsCheck($officer);
 
         $this->actingAs($officer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/jurisdiction-test", $this->jurisdictionAnswers())
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إجراء اختبار الاختصاص على الطلب بنفسه.');
-
-        $this->actingAs($officer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload())
             ->assertStatus(422)
             ->assertJsonPath('message', 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إثبات اكتمال الملف بنفسه.');
@@ -93,10 +84,6 @@ class GateAuthorshipTest extends TestCase
         $employee = $this->userWithRoles(['R01']);
         $reviewer = $this->userWithRoles(['R02']);
         $requestRecord = $this->requestAtRequirementsCheck($employee);
-
-        $this->actingAs($reviewer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/jurisdiction-test", $this->jurisdictionAnswers())
-            ->assertOk();
 
         $response = $this->actingAs($reviewer, 'sanctum')
             ->patchJson("/api/requests/{$requestRecord->id}/intake-gate", $this->intakeGatePayload())
@@ -172,7 +159,8 @@ class GateAuthorshipTest extends TestCase
     private function intakeGatePayload(): array
     {
         // The fixture carries no file, so there is no per-file verdict to give.
-        return ['documents' => [], 'facts_verified' => true];
+        // Both halves of gate 1 are one card since 2026-10-31.
+        return ['documents' => [], 'facts_verified' => true, 'jurisdiction_test' => $this->jurisdictionAnswers()];
     }
 
     private function requestAtRequirementsCheck(User $creator): Request

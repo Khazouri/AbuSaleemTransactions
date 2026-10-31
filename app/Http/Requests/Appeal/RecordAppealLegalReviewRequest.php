@@ -6,7 +6,7 @@ use Illuminate\Foundation\Http\FormRequest;
 
 /**
  * Stage 62 — Art. 75 point 4's legal-review checklist. All 5 questions are
- * required together, mirroring Stage 54's RecordJurisdictionTestRequest
+ * required together, mirroring Stage 54's jurisdiction test (RecordIntakeGateRequest)
  * ("not finalized until every question is answered") — a partial answer set
  * would misrepresent the review as done. The answers are informational for
  * Stage 63/64's later outcome selection, not a pass/fail gate themselves;

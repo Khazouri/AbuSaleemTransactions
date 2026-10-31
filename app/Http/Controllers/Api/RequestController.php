@@ -13,7 +13,6 @@ use App\Http\Requests\Request\RecordApprovalReferralRequest;
 use App\Http\Requests\Request\RecordApprovalReferralResultRequest;
 use App\Http\Requests\Request\RecordApprovalReturnRequest;
 use App\Http\Requests\Request\RecordIntakeGateRequest;
-use App\Http\Requests\Request\RecordJurisdictionTestRequest;
 use App\Http\Requests\Request\RecordStepReviewRequest;
 use App\Http\Requests\Request\ReopenRequest;
 use App\Http\Requests\Request\ResolveApprovalReturnRequest;
@@ -661,47 +660,6 @@ class RequestController extends Controller
     }
 
     /**
-     * Stage 54 — record [D] Art. 45's 6-question jurisdiction test. Rides the
-     * notes_attachments,edit grant, and carries no stage restriction of its
-     * own — it is a working draft that can be revised any time before (or
-     * after) requirements_check acts on it.
-     *
-     * Stage 84 — but never by the person who filed the request. [D] Appendix
-     * 19's مصفوفة الفصل بين الصلاحيات is explicit ("لا يكون مقدم الطلب هو
-     * معتمد الطلب"), Appendix 6's RACI leaves the الموظف column empty for both
-     * فحص اكتمال ملف اللجنة and القيد, and Appendix 45 gives الفحص to المقرر
-     * alone. Same block AppealController::recordJurisdictionTest() has carried
-     * since Stage 62, and the same shape as reopen()'s own creator refusal.
-     */
-    public function recordJurisdictionTest(
-        RecordJurisdictionTestRequest $request,
-        Request $requestRecord,
-        WorkflowService $workflow,
-        RequestVisibility $visibility,
-    ): RequestDetailResource|JsonResponse {
-        $actor = $request->user();
-
-        abort_unless($visibility->canView($actor, $requestRecord), 404);
-
-        // Stage 95 — and not صاحب العلاقة either: Appendix 19's rule names
-        // مقدم الطلب, but an employee testing jurisdiction on the matter their
-        // own file is ABOUT is the worse of the two cases.
-        if ($this->actorIsAnInterestedParty($requestRecord, $actor)) {
-            return response()->json([
-                'message' => 'لا يجوز لمقدّم الطلب أو صاحب العلاقة إجراء اختبار الاختصاص على الطلب بنفسه.',
-            ], 422);
-        }
-
-        $requestRecord->update([
-            'jurisdiction_test' => $request->validated(),
-            'jurisdiction_tested_by_user_id' => $actor->id,
-            'jurisdiction_tested_at' => now(),
-        ]);
-
-        return $this->detailResource($requestRecord, $workflow, $actor);
-    }
-
-    /**
      * Stage 66, Track J — [D] Arts. 34–37/78–79's re-presentation path for a
      * concluded request, independent of any Appeal (Stage 64's appeal_redo
      * already covers the appeal-driven case via a different status —
@@ -1081,6 +1039,10 @@ class RequestController extends Controller
      * lost `notes_attachments,edit` in the same stage, so this block is the
      * second of two — it additionally covers an R02 who filed on someone's
      * behalf and would otherwise be checking their own work.
+     *
+     * 2026-10-31 — one card with Art. 45's jurisdiction test (Stage 54), the
+     * other half of this gate, which had its own endpoint and its own save.
+     * Both are written in one update, so the card can't save half.
      */
     public function recordIntakeGate(
         RecordIntakeGateRequest $request,
@@ -1109,6 +1071,11 @@ class RequestController extends Controller
             ),
             'intake_gate_checked_by_user_id' => $actor->id,
             'intake_gate_checked_at' => now(),
+            ...($request->has('jurisdiction_test') ? [
+                'jurisdiction_test' => $request->validated('jurisdiction_test'),
+                'jurisdiction_tested_by_user_id' => $actor->id,
+                'jurisdiction_tested_at' => now(),
+            ] : []),
         ]);
 
         return $this->detailResource($requestRecord, $workflow, $actor);

@@ -64,7 +64,8 @@ class WorkflowServiceTest extends TestCase
             ['receive_and_register', 'requirements_check', 'register', 'R12', 'in_review'],
             // Stage 102 — the مقرر's approve lands straight on the committee's
             // pending list; the three R02 forward hops through stages 6–8 are gone.
-            ['requirements_check', 'receive_from_committee', 'approve', 'R02', 'registered'],
+            // 2026-10-31 — and hands it to the legal member in the same beat.
+            ['requirements_check', 'receive_from_committee', 'approve', 'R02', 'under_legal_review'],
             // 2026-10-18 — the committee meets on paper and the مقرر enters
             // its recommendation, so the committee's approve is R02's.
             ['receive_from_committee', 'approval_by_authority', 'approve', 'R02', 'awaiting_municipal_approval'],
@@ -98,7 +99,9 @@ class WorkflowServiceTest extends TestCase
         $this->assertSame('final_approval_archiving', $requestRecord->currentStage->code);
         $this->assertSame('final_approved', $requestRecord->status->code);
         $this->assertCount(7, $requestRecord->stageLogs);
-        $this->assertCount(7, $requestRecord->statusHistory);
+        // One more than the hops: the قيد's hand-off to the legal member is a
+        // status move with no stage log (2026-10-31).
+        $this->assertCount(8, $requestRecord->statusHistory);
         $this->assertSame(
             [
                 'direct_manager_review', 'receive_and_register',
@@ -401,7 +404,8 @@ class WorkflowServiceTest extends TestCase
         $requestRecord = app(WorkflowService::class)->transition($requestRecord, 'approve', $reviewer);
 
         $this->assertSame('receive_from_committee', $requestRecord->currentStage->code);
-        $this->assertSame('registered', $requestRecord->status->code);
+        // 2026-10-31 — the قيد hands the file to the legal member itself.
+        $this->assertSame('under_legal_review', $requestRecord->status->code);
         $this->assertDatabaseCount('approvals', 1);
         $this->assertDatabaseCount('request_stage_logs', 1);
     }

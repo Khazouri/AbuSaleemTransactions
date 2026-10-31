@@ -122,7 +122,8 @@ class DocumentReviewTest extends TestCase
         $this->actingAs($reviewer, 'sanctum')
             ->postJson("/api/requests/{$requestRecord->id}/transition", ['action' => 'approve'])
             ->assertOk()
-            ->assertJsonPath('data.status.code', 'registered');
+            // 2026-10-31 — the قيد hands the file to the legal member itself.
+            ->assertJsonPath('data.status.code', 'under_legal_review');
     }
 
     public function test_a_rejected_file_blocks_until_a_newer_one_of_the_same_document_replaces_it(): void

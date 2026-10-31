@@ -40,6 +40,10 @@ const props = defineProps({
   grade: { type: Object, default: null },
   // HR's card only: the «مطلوب» rows no attached file answers yet.
   missing: { type: Array, default: () => [] },
+  // The مقرر's card only (2026-10-31): Art. 45's answers from the form in the
+  // default slot, saved with the file review. Null until all six are answered.
+  jurisdictionTest: { type: Object, default: null },
+  needsJurisdictionTest: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['updated'])
@@ -99,7 +103,8 @@ function seed() {
 }
 watch(() => [props.review, props.record], seed, { immediate: true })
 
-const canSubmit = computed(() => files.value.every((file) => previewed[file.id] && verdicts[file.id]))
+const canSubmit = computed(() => files.value.every((file) => previewed[file.id] && verdicts[file.id])
+  && (!props.needsJurisdictionTest || props.jurisdictionTest !== null))
 
 function describe(requestError) {
   const errors = requestError.response?.data?.errors
@@ -116,6 +121,7 @@ async function submit() {
       documents: Object.fromEntries(files.value.map((file) => [file.id, verdicts[file.id]])),
       [props.attestationField]: attested.value,
       ...(props.grade ? { grade_verified: gradeVerified.value } : {}),
+      ...(props.needsJurisdictionTest ? { jurisdiction_test: props.jurisdictionTest } : {}),
     })
     emit('updated', data.data)
   } catch (requestError) {
@@ -168,6 +174,11 @@ async function submit() {
     </div>
 
     <form v-if="!readonly" v-can="grant" class="gate-form" @submit.prevent="submit">
+      <section v-if="$slots.default" class="part">
+        <h5>{{ c('jurisdictionPart') }}</h5>
+        <slot />
+      </section>
+      <h5 v-if="$slots.default">{{ c('documentsPart') }}</h5>
       <p class="hint">{{ c('formNote') }}</p>
       <p v-if="!files.length" class="hint">{{ t('controlGates.review.noFiles') }}</p>
       <template v-else>
@@ -211,3 +222,9 @@ async function submit() {
     </form>
   </div>
 </template>
+
+<style scoped>
+/* The مقرر's card is two halves of one check; a rule, not a second card, parts them. */
+.part { display: grid; gap: var(--space-2); padding-block-end: var(--space-4); border-block-end: 1px solid var(--color-border); }
+h5 { margin: 0; color: var(--color-black-700); font-size: var(--text-sm); font-weight: 600; }
+</style>

@@ -334,6 +334,60 @@ class AuthorityDecisionTest extends TestCase
         $this->assertSame('العميد', $requestRecord->closure['approving_body']);
     }
 
+    /** 2026-10-31 — the مقرر confirms several of the authority's decisions from the meeting at once. */
+    public function test_the_rapporteur_confirms_several_decisions_from_the_meeting(): void
+    {
+        [$meeting, [$first, $second]] = $this->recommended(['approve', 'decline'], 'dean');
+        $this->decide($this->dean, $meeting, [
+            $first->id => ['decision' => 'approve'],
+            $second->id => ['decision' => 'reject', 'note' => 'لا يعتمد'],
+        ])->assertOk();
+        $rapporteur = User::findOrFail($meeting->created_by_user_id);
+
+        // The meeting page names what the authority decided on each row.
+        $this->actingAs($rapporteur, 'sanctum')->getJson("/api/meetings/{$meeting->id}")
+            ->assertOk()
+            ->assertJsonPath('data.agenda_items.0.request.status.code', 'authority_approved')
+            ->assertJsonPath('data.agenda_items.1.request.status.code', 'authority_rejected');
+
+        $this->confirmAll($rapporteur, $meeting, [$first->id, $second->id])
+            ->assertOk()
+            ->assertJsonPath('message', 'تم تأكيد قرار جهة الاعتماد على 2 من الطلبات.');
+
+        $this->assertSame(['final_approval_archiving', 'final_approved'], $this->stageAndStatus($first));
+        $this->assertSame(['final_approval_archiving', 'not_approved'], $this->stageAndStatus($second));
+    }
+
+    /** All or nothing, and the refusal names the file, as the authority's own submit does. */
+    public function test_one_file_not_under_review_confirms_nothing(): void
+    {
+        [$meeting, [$first, $second]] = $this->recommended(['approve', 'approve'], 'dean');
+        $this->decide($this->dean, $meeting, [$first->id => ['decision' => 'approve']])->assertOk();
+        $rapporteur = User::findOrFail($meeting->created_by_user_id);
+
+        $this->confirmAll($rapporteur, $meeting, [$first->id, $second->id])
+            ->assertStatus(422)
+            ->assertJsonPath('message', $second->request->reference_number.': ليس هذا الطلب بانتظار مراجعة المقرر لقرار جهة الاعتماد.');
+
+        $this->assertSame(['rapporteur_decision_review', 'authority_approved'], $this->stageAndStatus($first));
+    }
+
+    public function test_only_the_rapporteur_confirms(): void
+    {
+        [$meeting, [$item]] = $this->recommended(['approve'], 'dean');
+        $this->decide($this->dean, $meeting, [$item->id => ['decision' => 'approve']])->assertOk();
+
+        // العميد no longer sees the file once he has decided it.
+        $this->confirmAll($this->dean, $meeting, [$item->id])->assertNotFound();
+        $this->confirmAll($this->userWith('R08'), $meeting, [$item->id])
+            ->assertStatus(422)
+            ->assertJsonPath('message', $item->request->reference_number.': يراجع المقرر قرار جهة الاعتماد.');
+        $this->confirmAll(User::findOrFail($meeting->created_by_user_id), $meeting, [])
+            ->assertStatus(422)->assertJsonValidationErrors('items');
+
+        $this->assertSame(['rapporteur_decision_review', 'authority_approved'], $this->stageAndStatus($item));
+    }
+
     /**
      * One meeting whose results recommend each of its files as given.
      *
@@ -358,6 +412,13 @@ class AuthorityDecisionTest extends TestCase
         $this->actingAs($rapporteur, 'sanctum')
             ->postJson("/api/requests/{$item->request_id}/transition", ['action' => 'confirm_decision'])
             ->assertOk();
+    }
+
+    /** @param  list<int>  $itemIds */
+    private function confirmAll(User $actor, Meeting $meeting, array $itemIds): TestResponse
+    {
+        return $this->actingAs($actor, 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/decision-confirmations", ['items' => $itemIds]);
     }
 
     /** @return array{0: string, 1: string} */

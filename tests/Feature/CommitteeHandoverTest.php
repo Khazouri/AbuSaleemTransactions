@@ -47,9 +47,11 @@ class CommitteeHandoverTest extends TestCase
         $moved = $service->transition($this->newRequest('requirements_check', 'in_review'), 'approve', $this->userWithRole('R02'));
 
         $this->assertSame('receive_from_committee', $moved->currentStage->code);
-        $this->assertSame('registered', $moved->status->code);
+        // 2026-10-31 — the قيد hands the file to the legal member itself.
+        // It joins the pending list once the review is in.
+        $this->assertSame('under_legal_review', $moved->status->code);
         $this->assertNotNull($moved->reference_number);
-        $this->assertTrue(app(CommitteeStatusService::class)->candidatesQuery()->whereKey($moved->id)->exists());
+        $this->assertTrue(app(CommitteeStatusService::class)->legalReviewQueueQuery()->whereKey($moved->id)->exists());
     }
 
     public function test_no_rule_reaches_or_leaves_the_three_retired_stages(): void

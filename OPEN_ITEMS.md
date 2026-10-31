@@ -13,6 +13,17 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### The guide still describes the مقرر's old steps — lighter مقرر load — opened 2026-10-31
+The قيد now sends the file to the legal member itself. The jurisdiction test and بوابة 1 are one card. The مقرر
+confirms جهة الاعتماد's decisions several at a time from the meeting page. `USER_GUIDE.ar.md`, its PDF and the role
+test plans still describe the manual «إرسال للمراجعة القانونية» after the قيد, two separate cards, and confirming one
+file at a time. Doc edits are paused until the user says continue. **To close:** update those sections once docs resume.
+
+### «المهام المعلقة» sends the مقرر to each file, not to the meeting — lighter مقرر load — opened 2026-10-31
+The `confirm_decision` task still opens the request page, one file at a time, while the bulk confirm lives on the
+meeting page. **To close:** ask whether the task should link to the meeting (`?confirm=1`) when the file has a decided
+agenda item, the way the authority's task already links to `?decide=1`.
+
 ### A drifted database fails only at the meeting's results — end-to-end walk — opened 2026-10-30
 The live walk found the real MySQL months behind `main`: two migrations had not run, and the committee and authority
 stages still held the rules from before 2026-10-17. `defer` and `reject_by_committee` each had an R02 and an R03 row,

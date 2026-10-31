@@ -11,6 +11,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import AppModal from '../components/AppModal.vue'
 import AuthorityDecisionForm from '../components/AuthorityDecisionForm.vue'
+import ConfirmDecisionsForm from '../components/ConfirmDecisionsForm.vue'
 import GuestInviteForm from '../components/GuestInviteForm.vue'
 import ImageSlideshow from '../components/ImageSlideshow.vue'
 import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
@@ -293,6 +294,17 @@ function onAuthorityDecided(message) {
   load()
 }
 
+// 2026-10-31 — the مقرر confirms several of those decisions at once. Only what
+// this meeting recommended on, for the same reason as awaitingMe.
+const awaitingReview = computed(() => (auth.hasRole('R02') ? meeting.value?.agenda_items ?? [] : [])
+  .filter((item) => item.request?.stage_code === 'rapporteur_decision_review'
+    && ['approve', 'reject'].includes(item.decision?.outcome)))
+const confirmOpen = ref(false)
+function onDecisionsConfirmed(message) {
+  decidedNotice.value = message || t('confirmDecisions.done')
+  load()
+}
+
 function printAgenda() {
   window.print()
 }
@@ -387,6 +399,27 @@ onMounted(openFromRoute)
         :initial-item-id="authorityInitial"
         @decided="onAuthorityDecided"
         @close="authorityOpen = false"
+      />
+
+      <section v-if="awaitingReview.length" class="card card-flat card-pad awaiting no-print">
+        <div class="awaiting-head">
+          <h3>{{ t('confirmDecisions.awaiting') }}</h3>
+          <button class="primary" type="button" @click="confirmOpen = true">{{ t('confirmDecisions.open') }}</button>
+        </div>
+        <ul>
+          <li v-for="item in awaitingReview" :key="item.id">
+            <RouterLink :to="{ name: 'request_details', params: { id: item.request.id } }">
+              <span class="ref ltr">{{ item.request.reference_number }}</span> {{ item.request.title }}
+            </RouterLink>
+          </li>
+        </ul>
+      </section>
+      <ConfirmDecisionsForm
+        v-if="confirmOpen"
+        :meeting-id="meeting.id"
+        :items="awaitingReview"
+        @confirmed="onDecisionsConfirmed"
+        @close="confirmOpen = false"
       />
       <p v-if="decidedNotice" class="alert success no-print" role="status">{{ decidedNotice }}</p>
 

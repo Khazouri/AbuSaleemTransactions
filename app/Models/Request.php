@@ -88,7 +88,7 @@ class Request extends Model
         'grade_date',
         'jurisdiction_test',
         // Stage 84 — who answered Art. 45's test and when. Written only by
-        // RequestController::recordJurisdictionTest(), cleared by reopen().
+        // RequestController::recordIntakeGate(), cleared by reopen().
         'jurisdiction_tested_by_user_id',
         'jurisdiction_tested_at',
         // Stage 83 — [D] Appendix 16's classification of a request raised

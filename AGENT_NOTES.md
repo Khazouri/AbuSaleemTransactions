@@ -19,6 +19,50 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-10-31 11:10 EET — Claude — A lighter load for the مقرر (complete)
+
+Built per the plan below; no migration or seeder.
+- **Auto hand-off:** `WorkflowService::sendToLegalReviewAtTheQaid()` keys on landing at `receive_from_committee` +
+  `registered`, which only the قيد's rule stamps. It adds a status-history row but no stage log.
+- **Bulk confirm:** `GET meetings/{m}` already carried each row's status, so the payload needed no change. A user
+  who can't see the file gets 404 before the role check, as on the authority submit. The modal starts a row unticked,
+  and tints it with the warning colour, when the authority went against the committee's توصية.
+- **Merged card:** `JurisdictionTestForm` no longer saves; it reports its answers (`v-model:answers`) to
+  `IntakeGatePanel`, which sends them in its one PATCH.
+
+Ten older tests were updated in place: seven expected `registered` after the قيد, and `GateAuthorshipTest` used the
+removed route. Open: the guide, and the inbox task still opening one file at a time (both in OPEN_ITEMS).
+
+Verified:
+- new tests (7) went RED, then GREEN; `FullRequestWorkflowTest` now uses the merged card and the bulk confirm;
+- full suite 859 / 7643 + maintenance 30 / 201 (two processes); Pint clean; build passes (`dist` committed,
+  production API URL in the bundle); parity 1868; `aislop ci` exit 0 (98);
+- headless `vite preview` against a mocked API (ar 1280 light, en 1280 dark, ar 375 dark): the meeting card opens the
+  modal, the mismatched row starts unticked and flagged, with no overflow and no page errors.
+
+The merged card in the decision wizard was not checked in a browser.
+
+---
+### 2026-10-31 09:24 EET — Claude — Implementation plan: a lighter load for the مقرر
+
+User: cut the مقرر's per-file steps in three ways (asked to skip the questions, so these are my calls):
+- **The قيد sends the file to the legal member.** `WorkflowService::transition()` sees the file land on
+  `receive_from_committee` + `registered` and runs `CommitteeStatusService::move('send_to_legal_review')` in the same
+  transaction. It skips this while Settings' `legal_review_bypass` is ticked, so the file stays on the pending list. The
+  manual send stays for a re-review (`completion_required`, `deferred`, reopened);
+- **one card for the jurisdiction test and بوابة 1.** `PATCH requests/{r}/intake-gate` also takes `jurisdiction_test`
+  (Art. 45's six answers). `PATCH …/jurisdiction-test`, its method and Form Request go. In the wizard, one «فحص القيد»
+  check shows the six questions above the file review, with one submit; the gates tab still shows both read-only;
+- **the مقرر confirms several decisions from the meeting page.** `POST meetings/{m}/decision-confirmations`
+  (`items[]`: agenda item ids) runs `confirm_decision` on each in one transaction, all or nothing. Each item is checked
+  first: `RequestVisibility`, then `MeetingDuties::decisionConfirmationRefusal()`, and a refusal names the reference.
+  The meeting page gets a «قرارات بانتظار مراجعتك» card and a modal for the R02 holder. A return needs a note, so it
+  stays per file on the request page.
+
+Verify: new tests RED then GREEN, update the tests that expect `registered` after the قيد or call the old route, full
+PHPUnit, Pint, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-10-30 22:30 EET — Claude — Database drift is caught right after deployment (complete)
 
 Built per the plan below; no migration or seeder. **Addition:** the walk's own drift (`defer` held by R02 and R03, both

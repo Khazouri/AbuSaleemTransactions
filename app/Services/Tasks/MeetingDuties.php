@@ -169,6 +169,25 @@ class MeetingDuties
     }
 
     /**
+     * MeetingResultsController::confirmAuthorityDecisions(), per item
+     * (2026-10-31): the مقرر confirms جهة الاعتماد's decision on several of
+     * this meeting's files at once. A file deferred here and decided at a
+     * later sitting is that sitting's to confirm.
+     */
+    public function decisionConfirmationRefusal(MeetingRequest $item, User $actor): ?string
+    {
+        if ($item->request === null || ! in_array($item->decision?->outcome, ['approve', 'reject'], true)) {
+            return 'لا توجد توصية من هذا الاجتماع على هذا البند.';
+        }
+
+        if ($item->request->currentStage()->value('code') !== 'rapporteur_decision_review') {
+            return 'ليس هذا الطلب بانتظار مراجعة المقرر لقرار جهة الاعتماد.';
+        }
+
+        return $actor->hasRole('R02') ? null : 'يراجع المقرر قرار جهة الاعتماد.';
+    }
+
+    /**
      * GET meetings/{m}/authority-duties (2026-10-25) — the files this meeting
      * recommended on that sit at the stage the actor's role decides, each
      * with the refusal the bulk submit would give it (null: it may be

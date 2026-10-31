@@ -9,7 +9,7 @@ use Illuminate\Foundation\Http\FormRequest;
  * judgment calls a verifier attests to (صفة المتظلم، القرار محل التظلم،
  * عدم التكرار — deliberately re-verified here rather than re-running Stage
  * 59's intake-time heuristic, per the stage's own text). All three are
- * required together, mirroring RecordJurisdictionTestRequest's
+ * required together, mirroring Stage 54's jurisdiction test (RecordIntakeGateRequest)'s
  * all-required-together shape. المواعيد القانونية is computed server-side
  * (App\Services\AppealVerificationService) and is not a client-supplied
  * field at all.
