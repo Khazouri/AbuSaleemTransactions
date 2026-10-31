@@ -94,7 +94,8 @@ class ControlGateTest extends TestCase
                 'action' => 'approve',
             ], ['Accept' => 'application/json'])
             ->assertOk()
-            ->assertJsonPath('data.status.code', 'registered');
+            // 2026-10-31 — the قيد hands the file to the legal member itself.
+            ->assertJsonPath('data.status.code', 'under_legal_review');
     }
 
     /**

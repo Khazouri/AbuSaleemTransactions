@@ -94,7 +94,8 @@ class UnifiedNumberingTest extends TestCase
         // مرجعيًا" is one event, so the status and the number arrive together.
         $service->transition($requestRecord, 'approve', $this->userWithRole('R02'));
         $requestRecord->refresh();
-        $this->assertSame('registered', $requestRecord->status->code);
+        // 2026-10-31 — the قيد hands the file to the legal member itself.
+        $this->assertSame('under_legal_review', $requestRecord->status->code);
         $this->assertSame('PM-COM/'.now()->format('Y').'/0001', $requestRecord->reference_number);
         // The receipt survives the قيد: it is the employee's own record of a
         // submission that really did happen before registration.
@@ -145,7 +146,8 @@ class UnifiedNumberingTest extends TestCase
         $service->transition($requestRecord, 'approve', $reviewer);
 
         $requestRecord->refresh();
-        $this->assertSame('registered', $requestRecord->status->code);
+        // 2026-10-31 — the قيد hands the file to the legal member itself.
+        $this->assertSame('under_legal_review', $requestRecord->status->code);
         $this->assertSame($first, $requestRecord->reference_number);
         $this->assertSame(1, Request::whereNotNull('reference_number')->count());
     }

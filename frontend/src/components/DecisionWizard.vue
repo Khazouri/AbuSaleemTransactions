@@ -67,16 +67,16 @@ const gates = computed(() => props.request.control_gates ?? {})
 const checks = computed(() => {
   const list = []
   if (stage.value === 'receive_and_register' && offered.value.has('register') && gates.value.employment_file) list.push('employment_file')
-  if (stage.value === 'requirements_check' && CLASSIFYING.some((action) => offered.value.has(action))) {
-    if (gates.value.intake) list.push('intake')
-    list.push('jurisdiction_test')
-  }
+  // 2026-10-31 — one card: Art. 45's test and بوابة 1, saved together.
+  if (stage.value === 'requirements_check' && CLASSIFYING.some((action) => offered.value.has(action))) list.push('intake')
   // Workflow designer — slice 4. A custom step's checklist, for whoever is offered an outcome that waits on it.
   if (gates.value.step_checklist && [...available.value, ...blocked.value].some((item) => item.requires_checks)) list.push('step_checklist')
   return list
 })
 
 const steps = computed(() => ['review', ...(checks.value.length ? ['checks'] : []), 'choose', 'confirm'])
+// Art. 45's answers, filled by the form inside the «فحص القيد» card.
+const jurisdictionAnswers = ref(null)
 const step = ref('review')
 
 const choices = computed(() => decisionChoices(props.request, { t, te, locale: locale.value }))
@@ -318,10 +318,13 @@ if (props.initial?.key || props.initial?.action) {
           :refusal="gates.intake.refusal"
           :recorded-by="gates.intake.recorded_by"
           :recorded-at="gates.intake.recorded_at"
+          :jurisdiction-test="jurisdictionAnswers"
+          needs-jurisdiction-test
           @updated="onCheckSaved"
-        />
-        <StepChecklistPanel v-else-if="check === 'step_checklist'" :request="request" @updated="onCheckSaved" />
-        <JurisdictionTestForm v-else :request="request" @updated="onCheckSaved" />
+        >
+          <JurisdictionTestForm v-model:answers="jurisdictionAnswers" :request="request" />
+        </IntakeGatePanel>
+        <StepChecklistPanel v-else :request="request" @updated="onCheckSaved" />
       </div>
     </template>
 

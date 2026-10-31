@@ -127,7 +127,11 @@ Key architectural facts worth knowing before changing things:
 - **The committee path is single and fixed (Stage 102, user decision
   2026-09-26 — «this path is the only path»).** R02's `approve` at
   `requirements_check` (the قيد) lands straight on `receive_from_committee` +
-  `registered`; stages 6–8 (`reviewer_review`, `observations`,
+  `registered`, and in the same transaction goes on to `under_legal_review`
+  unless Settings' `legal_review_bypass` is ticked
+  (`WorkflowService::sendToLegalReviewAtTheQaid()`, user decision 2026-10-31).
+  The قيد's card is one PATCH (`requests/{r}/intake-gate`) carrying both
+  بوابة 1 and Art. 45's `jurisdiction_test`; stages 6–8 (`reviewer_review`, `observations`,
   `forward_to_committee`) keep their rows for history but no rule reaches or
   leaves them. `CommitteeStatusService::candidatesQuery()` is the committee's
   **pending list and the agenda's only source of requests**
@@ -214,7 +218,9 @@ Key architectural facts worth knowing before changing things:
   item 7, 2026-10-25): R07/R06's approve and reject land on
   `rapporteur_decision_review` (R02) as `authority_approved` /
   `authority_rejected`. There R02's `confirm_decision` (two rows keyed on that
-  status) gives `final_approval_archiving` + `final_approved` / `not_approved`.
+  status) gives `final_approval_archiving` + `final_approved` / `not_approved`;
+  the مقرر may confirm several of a meeting's files at once
+  (`POST meetings/{m}/decision-confirmations`, all or nothing, 2026-10-31).
   Its `return_to_authority` (note required) sends the file back to the stage
   and status it decided from (`WorkflowService::authorityArrival()`), which
   covers dean, minister and escalated files. The employee's Art. 101 notice

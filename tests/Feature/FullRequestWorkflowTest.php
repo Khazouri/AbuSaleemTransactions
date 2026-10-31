@@ -75,7 +75,9 @@ class FullRequestWorkflowTest extends TestCase
         $this->authorityDecides($this->posts['dean'], $meeting, [$item->id => ['decision' => 'approve', 'note' => 'يعتمد']])->assertOk();
         $this->assertAt($file, 'rapporteur_decision_review', 'authority_approved');
 
-        $this->transition($this->posts['rapporteur'], $file, 'confirm_decision')->assertOk();
+        // From the meeting page, as several files would be.
+        $this->actingAs($this->posts['rapporteur'], 'sanctum')
+            ->postJson("/api/meetings/{$meeting->id}/decision-confirmations", ['items' => [$item->id]])->assertOk();
         $this->assertAt($file, 'final_approval_archiving', 'final_approved');
 
         $this->archive($file);
@@ -237,27 +239,27 @@ class FullRequestWorkflowTest extends TestCase
         $this->transition($hr, $file, 'register')->assertOk();
         $this->assertAt($file, 'requirements_check', 'in_review');
 
+        // One card: Art. 45's test and بوابة 1 together (2026-10-31).
         $rapporteur = $this->posts['rapporteur'];
-        $this->actingAs($rapporteur, 'sanctum')->patchJson("/api/requests/{$file->id}/jurisdiction-test", [
-            'has_legal_basis' => true,
-            'employee_covered' => true,
-            'within_municipal_jurisdiction' => true,
-            'committee_decides' => true,
-            'final_approval_authority' => 'عميد البلدية',
-            'requires_central_approval' => false,
-        ])->assertOk();
         $this->actingAs($rapporteur, 'sanctum')->patchJson("/api/requests/{$file->id}/intake-gate", [
             'documents' => $this->previewAll($rapporteur, $file),
             'facts_verified' => true,
+            'jurisdiction_test' => [
+                'has_legal_basis' => true,
+                'employee_covered' => true,
+                'within_municipal_jurisdiction' => true,
+                'committee_decides' => true,
+                'final_approval_authority' => 'عميد البلدية',
+                'requires_central_approval' => false,
+            ],
         ])->assertOk()->assertJsonPath('data.control_gates.intake.refusal', null);
         $this->transition($rapporteur, $file, 'approve')->assertOk();
-        $this->assertAt($file, 'receive_from_committee', 'registered');
+        // The قيد hands the file to the legal member itself.
+        $this->assertAt($file, 'receive_from_committee', 'under_legal_review');
     }
 
     private function legalReview(Request $file, string $authority): void
     {
-        $this->actingAs($this->posts['rapporteur'], 'sanctum')
-            ->postJson("/api/requests/{$file->id}/legal-reviews/request")->assertOk();
         $this->actingAs($this->posts['legal'], 'sanctum')
             ->postJson("/api/requests/{$file->id}/legal-reviews", [
                 'recommendation' => 'approve',

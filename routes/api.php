@@ -444,16 +444,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('screen.permission:notes_attachments,add')
         ->post('requests/{requestRecord}/notes', [NoteController::class, 'store']);
 
-    // Stage 54 — recording [D] Art. 45's jurisdiction test is a narrow
-    // ancillary correction, not core request editing, so it rides the
-    // notes_attachments,edit grant rather than a new permission tier.
-    Route::middleware('screen.permission:notes_attachments,edit')
-        ->patch('requests/{requestRecord}/jurisdiction-test', [RequestController::class, 'recordJurisdictionTest']);
-
-    // Stage 78 — [D] Appendix 63's بوابة 1 (قبل القيد). The other half of the
-    // same gate the jurisdiction test above already guards: Art. 45 answers
-    // "is this the committee's business?", this answers Appendix 20's "هل
-    // الوقائع والوثائق صحيحة ومكتملة؟". Same actor, same moment, same grant.
+    // Stage 78 — [D] Appendix 63's بوابة 1 (قبل القيد), and since 2026-10-31
+    // Stage 54's Art. 45 jurisdiction test on the same card: Art. 45 answers
+    // "is this the committee's business?", the file review answers Appendix
+    // 20's "هل الوقائع والوثائق صحيحة ومكتملة؟". Same actor, same moment, same grant.
     Route::middleware('screen.permission:notes_attachments,edit')
         ->patch('requests/{requestRecord}/intake-gate', [RequestController::class, 'recordIntakeGate']);
 
@@ -695,6 +689,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->get('meetings/{meeting}/authority-duties', [MeetingResultsController::class, 'authorityDuties']);
     Route::middleware('screen.permission:meetings,view')
         ->post('meetings/{meeting}/authority-decisions', [MeetingResultsController::class, 'recordAuthorityDecisions']);
+    // 2026-10-31 — the مقرر confirms several of those decisions at once. Outside
+    // `meeting.member` for the same reason; the controller checks visibility.
+    Route::middleware('screen.permission:meetings,view')
+        ->post('meetings/{meeting}/decision-confirmations', [MeetingResultsController::class, 'confirmAuthorityDecisions']);
     Route::middleware(['screen.permission:meetings,delete', 'meeting.member'])
         ->delete('meetings/{meeting}', [MeetingController::class, 'destroy']);
 

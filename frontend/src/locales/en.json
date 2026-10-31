@@ -819,10 +819,7 @@
       "q3": "Does the matter fall within the municipality's jurisdiction at all?",
       "q4": "Does the committee have the authority to decide the matter, or is its authority limited to an opinion or recommendation?",
       "q5": "Which body holds final approval authority?",
-      "q6": "Is prior or subsequent approval required from the ministry of local governance or another central body?",
-      "save": "Save jurisdiction test",
-      "saving": "Saving…",
-      "saveFailed": "The jurisdiction test could not be saved."
+      "q6": "Is prior or subsequent approval required from the ministry of local governance or another central body?"
     },
     "reopen": {
       "hint": "A concluded request may only be re-presented for one of the reasons listed below, naming the stage it re-enters processing at.",
@@ -1608,7 +1605,9 @@
         "present": "Attached",
         "not_applicable": "Not applicable",
         "missing": "Missing"
-      }
+      },
+      "jurisdictionPart": "Jurisdiction (Art. 45)",
+      "documentsPart": "Attached documents"
     },
     "employmentFile": {
       "title": "Employment file preparation",
@@ -2035,8 +2034,7 @@
     "checks": {
       "lede": "These checks are yours to complete before some actions open up. Each one saves with its own button.",
       "employment_file": "Employment file",
-      "intake": "Gate 1: file completeness",
-      "jurisdiction_test": "Jurisdiction test (Art. 45)",
+      "intake": "Registration check: jurisdiction and file completeness",
       "step_checklist": "This step's checklist"
     },
     "choose": {
@@ -2319,5 +2317,16 @@
     "pages": "Scanned pages of the decision",
     "submit": "Record decision ({count})",
     "view": "View decision · pages: {count}"
+  },
+  "confirmDecisions": {
+    "title": "Confirm the approving authority's decisions",
+    "awaiting": "Decisions awaiting your review",
+    "open": "Confirm decisions",
+    "intro": "Tick the decisions that match the committee's minutes to confirm them together. To return a decision to the authority, open the file: a return needs a note.",
+    "mismatch": "Differs from the committee's recommendation",
+    "submit": "Confirm decisions ({count})",
+    "confirmTitle": "Confirm the decision on the selected files ({count})?",
+    "consequence": "The authority's decision becomes the final result of {count} files, and each employee is told the result of their request.",
+    "done": "Decisions confirmed."
   }
 }

@@ -8,6 +8,7 @@ use App\Models\Request;
 use App\Models\RequestStageLog;
 use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
@@ -34,6 +35,7 @@ class WorkflowService
     public function __construct(
         private readonly NotificationDispatcher $notifications,
         private readonly ArtifactNumberGenerator $numbers,
+        private readonly CommitteeStatusService $committeeStatus,
     ) {}
 
     /**
@@ -243,10 +245,10 @@ class WorkflowService
                 throw WorkflowTransitionException::ambiguousConfiguration();
             }
 
-            return $this->skipManagerReviewForDean(
+            return $this->sendToLegalReviewAtTheQaid($this->skipManagerReviewForDean(
                 $this->applyRule($lockedRequest, $rule, $action, $actor, $comment),
                 $actor,
-            );
+            ), $actor);
         });
 
         // Outside the request: the notifications describe a move that has
@@ -367,6 +369,31 @@ class WorkflowService
         );
 
         return [$movedRequest, $fromStage, $toStage];
+    }
+
+    /**
+     * The قيد hands the file to the legal member (user decision 2026-10-31):
+     * the مقرر sent every file there by hand straight after taking the قيد,
+     * so landing on the committee stage as `registered` (the قيد's own rule
+     * stamps it, and nothing else does) sends it on in the same transaction.
+     * While Settings lets the مقرر skip the review it stays on the pending
+     * list, as before. A file back from a deferral, a completion request or a
+     * reopen lands on another status and is still sent by hand.
+     *
+     * @param  array{0: Request, 1: ?WorkflowStage, 2: ?WorkflowStage}  $move
+     * @return array{0: Request, 1: ?WorkflowStage, 2: ?WorkflowStage}
+     */
+    private function sendToLegalReviewAtTheQaid(array $move, User $actor): array
+    {
+        [$movedRequest, $fromStage, $toStage] = $move;
+
+        if ($toStage?->code !== 'receive_from_committee'
+            || $movedRequest->status()->value('code') !== 'registered'
+            || Setting::enabled(Setting::LEGAL_REVIEW_BYPASS)) {
+            return $move;
+        }
+
+        return [$this->committeeStatus->move($movedRequest, 'send_to_legal_review', $actor), $fromStage, $toStage];
     }
 
     /**

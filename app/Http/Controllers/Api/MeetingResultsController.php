@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\WorkflowTransitionException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Meeting\ConfirmAuthorityDecisionsRequest;
 use App\Http\Requests\Meeting\RecordAuthorityDecisionsRequest;
 use App\Http\Requests\Meeting\RecordMeetingResultsRequest;
 use App\Models\AppealStatus;
@@ -351,6 +352,48 @@ class MeetingResultsController extends Controller
         }
 
         return response()->json(['message' => 'تم تسجيل قرار جهة الاعتماد على '.$items->count().' من الطلبات.']);
+    }
+
+    /**
+     * 2026-10-31 — the مقرر confirms جهة الاعتماد's decision on several files
+     * of this meeting at once, the way the authority decides them. Each file
+     * takes its own `confirm_decision` row. All or nothing, like the authority's
+     * submit, with the same visibility checks for the same reasons. A return
+     * needs its own note, so it stays per file on the request page.
+     */
+    public function confirmAuthorityDecisions(
+        ConfirmAuthorityDecisionsRequest $request,
+        Meeting $meeting,
+        MeetingDuties $duties,
+        MeetingVisibility $meetings,
+        RequestVisibility $requests,
+        WorkflowService $workflow,
+    ): JsonResponse {
+        $actor = $request->user();
+        abort_unless($meetings->canView($actor, $meeting), 404);
+
+        $ids = $request->validated('items');
+        $items = $meeting->agendaItems()->whereKey($ids)->with(['request', 'decision'])->orderBy('agenda_order')->get();
+        abort_unless($items->count() === count($ids), 404);
+
+        foreach ($items as $item) {
+            abort_if($item->request !== null && ! $requests->canView($actor, $item->request), 404);
+            if ($refusal = $duties->decisionConfirmationRefusal($item, $actor)) {
+                return response()->json(['message' => ($item->request?->reference_number ?? "#{$item->id}").': '.$refusal], 422);
+            }
+        }
+
+        try {
+            DB::transaction(function () use ($items, $actor, $workflow) {
+                foreach ($items as $item) {
+                    $workflow->transition($item->request, 'confirm_decision', $actor);
+                }
+            });
+        } catch (WorkflowTransitionException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['message' => 'تم تأكيد قرار جهة الاعتماد على '.$items->count().' من الطلبات.']);
     }
 
     /**

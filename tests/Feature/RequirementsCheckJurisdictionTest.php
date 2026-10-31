@@ -7,10 +7,14 @@ use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\Role;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Notifications\LegalReviewNotification;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Testing\TestResponse;
 use Tests\PassesControlGates;
 use Tests\TestCase;
 
@@ -24,7 +28,8 @@ class RequirementsCheckJurisdictionTest extends TestCase
     use PassesControlGates;
     use RefreshDatabase;
 
-    public function test_recording_the_jurisdiction_test_round_trips_through_the_detail_resource(): void
+    /** 2026-10-31 — the jurisdiction test and بوابة 1 are one card with one submit. */
+    public function test_the_qaid_card_records_the_jurisdiction_test_with_the_file_review(): void
     {
         $this->seed(DatabaseSeeder::class);
         $reviewer = $this->userWithRole('R02');
@@ -35,14 +40,27 @@ class RequirementsCheckJurisdictionTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.jurisdiction_test', null);
 
-        $this->actingAs($reviewer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/jurisdiction-test", $this->answers())
+        $this->recordQaidCard($reviewer, $requestRecord, $this->answers())
             ->assertOk()
             ->assertJsonPath('data.jurisdiction_test.has_legal_basis', true)
             ->assertJsonPath('data.jurisdiction_test.final_approval_authority', 'عميد البلدية')
-            ->assertJsonPath('data.jurisdiction_test.requires_central_approval', false);
+            ->assertJsonPath('data.jurisdiction_test.requires_central_approval', false)
+            ->assertJsonPath('data.control_gates.intake.jurisdiction_test.recorded_by.id', $reviewer->id)
+            ->assertJsonPath('data.control_gates.intake.recorded_by.id', $reviewer->id);
 
-        $this->assertNotNull($requestRecord->refresh()->jurisdiction_test);
+        $requestRecord->refresh();
+        $this->assertNotNull($requestRecord->jurisdiction_test);
+        $this->assertTrue($requestRecord->intake_gate['facts_verified']);
+    }
+
+    public function test_the_separate_jurisdiction_test_route_is_gone(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $requestRecord = $this->requestAt('requirements_check', 'in_review');
+
+        $this->actingAs($this->userWithRole('R02'), 'sanctum')
+            ->patchJson("/api/requests/{$requestRecord->id}/jurisdiction-test", $this->answers())
+            ->assertNotFound();
     }
 
     public function test_a_partial_answer_set_is_rejected(): void
@@ -54,12 +72,13 @@ class RequirementsCheckJurisdictionTest extends TestCase
         $answers = $this->answers();
         unset($answers['final_approval_authority']);
 
-        $this->actingAs($reviewer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/jurisdiction-test", $answers)
+        $this->recordQaidCard($reviewer, $requestRecord, $answers)
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('final_approval_authority');
+            ->assertJsonValidationErrors('jurisdiction_test.final_approval_authority');
 
-        $this->assertNull($requestRecord->refresh()->jurisdiction_test);
+        $requestRecord->refresh();
+        $this->assertNull($requestRecord->jurisdiction_test);
+        $this->assertNull($requestRecord->intake_gate);
     }
 
     public function test_approve_declare_no_jurisdiction_and_reject_formally_are_refused_until_the_test_is_recorded(): void
@@ -116,10 +135,8 @@ class RequirementsCheckJurisdictionTest extends TestCase
             ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.current_stage.code', 'receive_from_committee')
-            // Art. 38's code 06, re-stamped: the file was already registered
-            // and numbered when the receiving body accepted it, and passing the
-            // completeness check keeps it in that band.
-            ->assertJsonPath('data.status.code', 'registered');
+            // 2026-10-31 — the قيد hands the file to the legal member itself.
+            ->assertJsonPath('data.status.code', 'under_legal_review');
 
         $referred = $this->requestAt('requirements_check', 'in_review', jurisdictionTest: $this->answers());
         $this->actingAs($reviewer, 'sanctum')
@@ -163,9 +180,7 @@ class RequirementsCheckJurisdictionTest extends TestCase
         }
         $this->assertFalse($blocked->has('return_missing_docs'));
 
-        $this->actingAs($reviewer, 'sanctum')
-            ->patchJson("/api/requests/{$requestRecord->id}/jurisdiction-test", $this->answers())
-            ->assertOk();
+        $this->recordQaidCard($reviewer, $requestRecord, $this->answers())->assertOk();
         // Stage 78 — approve additionally needs Appendix 63's بوابة 1, which the
         // preview filter reads from the same predicate the endpoint does.
         $this->passIntakeGate($requestRecord);
@@ -191,6 +206,44 @@ class RequirementsCheckJurisdictionTest extends TestCase
             ->assertJsonValidationErrors('request');
 
         $this->assertSame('requirements_check', $requestRecord->refresh()->currentStage->code);
+    }
+
+    /**
+     * 2026-10-31 — the قيد sends the file to the legal member, who hears of it,
+     * unless Settings lets the مقرر skip the review: then it stays on the
+     * pending list, as it did before.
+     */
+    public function test_the_qaid_sends_the_file_to_the_legal_member(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $reviewer = $this->userWithRole('R02');
+        $legal = $this->userWithRole('R11');
+        Notification::fake();
+
+        $file = $this->passIntakeGate($this->requestAt('requirements_check', 'in_review', jurisdictionTest: $this->answers()));
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/requests/{$file->id}/transition", ['action' => 'approve'])
+            ->assertOk();
+
+        $this->assertSame(['registered', 'under_legal_review'], $file->statusHistory()
+            ->orderBy('id')->with('toStatus')->get()->pluck('toStatus.code')->all());
+        Notification::assertSentTo($legal, LegalReviewNotification::class);
+
+        Setting::where('key', Setting::LEGAL_REVIEW_BYPASS)->update(['value' => '1']);
+        $skipped = $this->passIntakeGate($this->requestAt('requirements_check', 'in_review', jurisdictionTest: $this->answers()));
+        $this->actingAs($reviewer, 'sanctum')
+            ->postJson("/api/requests/{$skipped->id}/transition", ['action' => 'approve'])
+            ->assertOk()
+            ->assertJsonPath('data.status.code', 'registered');
+    }
+
+    private function recordQaidCard(User $reviewer, Request $requestRecord, array $answers): TestResponse
+    {
+        return $this->actingAs($reviewer, 'sanctum')->patchJson("/api/requests/{$requestRecord->id}/intake-gate", [
+            'documents' => [],
+            'facts_verified' => true,
+            'jurisdiction_test' => $answers,
+        ]);
     }
 
     private function answers(): array

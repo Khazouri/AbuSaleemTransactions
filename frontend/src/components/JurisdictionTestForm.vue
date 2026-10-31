@@ -3,24 +3,24 @@
  * Stage 54 — [D] Art. 45's six-question jurisdiction test, answered once at
  * requirements_check. Lifted out of the request page so the decision wizard's
  * Checks step and the page's البوابات tab render one form, not two copies.
+ *
+ * 2026-10-31 — it no longer saves itself: the wizard's «فحص القيد» card
+ * submits it with بوابة 1's file review in one PATCH. `answers` carries the
+ * payload once all six are answered, and null until then.
  */
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import api from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 
 const props = defineProps({
   request: { type: Object, required: true },
-  // Decision wizard — sub-project 3. The gates tab shows the card only; its
-  // form lives in the wizard's Checks step.
+  // The gates tab shows the card only; it is answered in the wizard.
   readonly: { type: Boolean, default: false },
 })
-const emit = defineEmits(['updated'])
+const answers = defineModel('answers', { type: Object, default: null })
 
 const { t, locale } = useI18n()
 const auth = useAuthStore()
-const saving = ref(false)
-const error = ref('')
 const form = ref(fromRecord(props.request.jurisdiction_test))
 
 const YES_NO = ['has_legal_basis', 'employee_covered', 'within_municipal_jurisdiction', 'requires_central_approval']
@@ -53,25 +53,19 @@ watch(() => JSON.stringify(props.request.jurisdiction_test), () => {
   form.value = fromRecord(props.request.jurisdiction_test)
 })
 
-const dateTime = (value) => new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
-
-async function save() {
-  if (saving.value) return
-  saving.value = true
-  error.value = ''
-  try {
-    const payload = { final_approval_authority: form.value.final_approval_authority.trim() }
-    for (const key of [...YES_NO, 'committee_decides']) payload[key] = form.value[key] === 'yes'
-    const { data } = await api.patch(`/requests/${props.request.id}/jurisdiction-test`, payload)
-    emit('updated', data.data)
-  } catch (requestError) {
-    error.value = requestError.response?.data?.errors?.final_approval_authority?.[0]
-      ?? requestError.response?.data?.message
-      ?? t('requestDetail.jurisdictionTest.saveFailed')
-  } finally {
-    saving.value = false
+// Art. 45: classification is not final until every question is answered.
+watch(form, (value) => {
+  const authority = value.final_approval_authority.trim()
+  if (!authority || [...YES_NO, 'committee_decides'].some((key) => !value[key])) {
+    answers.value = null
+    return
   }
-}
+  const payload = { final_approval_authority: authority }
+  for (const key of [...YES_NO, 'committee_decides']) payload[key] = value[key] === 'yes'
+  answers.value = payload
+}, { deep: true, immediate: true })
+
+const dateTime = (value) => new Intl.DateTimeFormat(locale.value === 'ar' ? 'ar-LY' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 </script>
 
 <template>
@@ -88,7 +82,7 @@ async function save() {
     </p>
     <!-- Read-only without the save grant: since Stage 101 R12 can open a file at
          requirements_check, and editable fields with no save button lost its input on refresh. -->
-    <fieldset :disabled="readonly || saving || !auth.can('notes_attachments', 'edit')">
+    <fieldset :disabled="readonly || !auth.can('notes_attachments', 'edit')">
       <div class="grid">
         <label v-for="(key, index) in ['has_legal_basis', 'employee_covered', 'within_municipal_jurisdiction']" :key="key">
           {{ t(`requestDetail.jurisdictionTest.q${index + 1}`) }}
@@ -120,19 +114,14 @@ async function save() {
         </label>
       </div>
     </fieldset>
-    <p v-if="error" class="field-error" role="alert">{{ error }}</p>
-    <button v-if="!readonly" v-can="'notes_attachments.edit'" class="ghost" type="button" :disabled="saving" @click="save">
-      {{ saving ? t('requestDetail.jurisdictionTest.saving') : t('requestDetail.jurisdictionTest.save') }}
-    </button>
   </div>
 </template>
 
 <style scoped>
 .jurisdiction-test > p { margin: 0 0 var(--space-3); }
-fieldset { padding: 0; margin: 0; border: 0; }
+fieldset { padding: 0; margin: 0; border: 0; min-inline-size: 0; }
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 label { display: grid; gap: 0.3rem; color: var(--color-black-700); font-size: var(--text-sm); }
 select, input { padding: 0.5rem 0.6rem; border: 1px solid var(--color-border-hover); border-radius: var(--radius-lg); background: var(--color-surface); color: var(--color-foreground); font: inherit; }
-button { margin-top: var(--space-3); }
 @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
 </style>
