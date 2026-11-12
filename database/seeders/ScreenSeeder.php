@@ -151,6 +151,8 @@ class ScreenSeeder extends Seeder
             // --- Bottom of the menu: for everyone ------------------------------
             ['notifications',            'الإشعارات',                 'Notifications',                '/notifications',            'bell',         null],
             ['user_guide',               'دليل الاستخدام',             'User Guide',                   '/guide',                    'book',         null],
+            // Learning centre — narrated walkthroughs. Everyone watches; only R08 uploads.
+            ['learning_center',          'مركز التعلم',                'Learning Centre',              '/learning-center',          'play',         null],
         ];
 
         foreach ($screens as $i => [$code, $nameAr, $nameEn, $route, $icon, $group]) {

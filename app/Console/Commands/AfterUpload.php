@@ -20,7 +20,7 @@ class AfterUpload extends Command
 
     public function handle(WorkflowVersionValidator $validator): int
     {
-        foreach ([['migrate', ['--force' => true]], ['db:seed', ['--class' => 'WorkflowSeeder', '--force' => true]]] as [$command, $params]) {
+        foreach ([['migrate', ['--force' => true]], ['db:seed', ['--class' => 'WorkflowSeeder', '--force' => true]], ['db:seed', ['--class' => 'WalkthroughVideoSeeder', '--force' => true]]] as [$command, $params]) {
             if ($this->call($command, $params) !== self::SUCCESS) {
                 return self::FAILURE;
             }

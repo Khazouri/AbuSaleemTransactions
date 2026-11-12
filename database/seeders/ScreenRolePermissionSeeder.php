@@ -266,6 +266,8 @@ class ScreenRolePermissionSeeder extends Seeder
         // a self-service right, not an administrative one.
         'notifications' => ['view' => '*', 'edit' => '*'],
         'user_guide' => ['view' => '*', 'print' => '*'],
+        // Learning centre — narrated walkthroughs. No `edit` entry: uploading is R08-only.
+        'learning_center' => ['view' => '*'],
     ];
 
     /** Maps the short action names used above to the real column names. */

@@ -19,6 +19,29 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-11-12 15:16 EET — Claude — Implementation plan: a learning centre of narrated walkthrough videos (phase 1)
+
+User: record walkthroughs of every part of the system and keep them in a learning centre, where each employee sees
+only the videos for what they may use. Put to the user and answered: I script the recordings; caption bubbles plus an
+Arabic voice-over; a «مركز التعلم» page and a «شاهد الشرح» button on each screen; phase 1 builds the centre and four
+pilot clips, and the rest follows the user's feedback. Plan:
+- the recording toolkit lives outside the repo, in `C:\Users\Dev\walkthrough` (its own git repo): Playwright drives
+  Chrome, edge-tts speaks (`ar-LY-OmarNeural`) and FFmpeg mixes. Recordings run against a scratch SQLite database,
+  never the Homestead MySQL;
+- a seeded catalogue `walkthrough_videos` (`WalkthroughVideoSeeder`, also run by «بعد الرفع»), one row per clip. A
+  video shows to someone who holds its `action` on its `screen_code` (`User::screenPermissions()`) and, for a
+  workflow task, one of its `roles` (`manager` = has a live direct report). `WalkthroughVideo::isVisibleTo()` is the
+  only place that rule lives;
+- a new `learning_center` screen (view `*`, edit R08). R08 uploads each MP4 to the private `local` disk, and a viewer
+  plays it through a signed URL (about 2 h) whose stream re-checks the rule on every range request;
+- the SPA gets the screen and a «شاهد الشرح» button in the top bar;
+- pilots: filing a request (R01), the manager's forward, HR's employment-file preparation (R12), the Users screen (R08).
+
+Verify: new `LearningCenterTest` (RED then GREEN), full PHPUnit, Pint, migrate and seed on the real MySQL, build
+(`dist` committed), parity, aislop ci, check-layout. The user uploads the videos to production as R08.
+
+---
+
 ### 2026-10-31 11:10 EET — Claude — A lighter load for the مقرر (complete)
 
 Built per the plan below; no migration or seeder.
