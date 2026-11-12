@@ -267,6 +267,13 @@ const routes = [
         meta: { screenCode: 'user_guide' },
       },
       {
+        // Learning centre — narrated walkthroughs.
+        path: 'learning-center',
+        name: 'learning_center',
+        component: () => import('../views/LearningCenterView.vue'),
+        meta: { screenCode: 'learning_center' },
+      },
+      {
         // Stage 58, Track J — appeals against an already-decided request.
         path: 'appeals',
         name: 'appeals',

@@ -2329,5 +2329,36 @@
     "confirmTitle": "Confirm the decision on the selected files ({count})?",
     "consequence": "The authority's decision becomes the final result of {count} files, and each employee is told the result of their request.",
     "done": "Decisions confirmed."
+  },
+  "learningCenter": {
+    "title": "Learning Centre",
+    "general": "General",
+    "empty": "No videos are available to you yet.",
+    "tabs": {
+      "videos": "Videos",
+      "manage": "Manage videos"
+    },
+    "col": {
+      "video": "Video",
+      "screen": "Screen",
+      "state": "Status",
+      "size": "Size",
+      "uploaded": "Uploaded"
+    },
+    "hasFile": "Uploaded",
+    "noFile": "Not uploaded",
+    "upload": "Upload",
+    "replace": "Replace",
+    "removeFile": "Delete file",
+    "file": "Video file (MP4)",
+    "mb": "MB",
+    "limitHint": "Maximum size: {limit}.",
+    "durationRead": "Video length: {duration}",
+    "tooLarge": "The file is larger than the allowed limit ({limit}).",
+    "unreadable": "The file could not be read as an MP4 video.",
+    "uploadFailed": "Could not upload the video. Try again.",
+    "deleteFailed": "Could not delete the file.",
+    "loadFailed": "Could not load the videos.",
+    "playFailed": "Could not play the video."
   }
 }

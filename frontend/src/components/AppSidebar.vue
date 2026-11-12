@@ -73,6 +73,7 @@ const ICON_BY_CODE = {
   backup: 'database',
   maintenance: 'terminal',
   user_guide: 'help-circle',
+  learning_center: 'play',
 }
 const iconFor = (code) => ICON_BY_CODE[code] || 'dot'
 
