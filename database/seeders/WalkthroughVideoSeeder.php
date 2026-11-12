@@ -48,7 +48,7 @@ class WalkthroughVideoSeeder extends Seeder
         ['screen.registers', 'registers', 'view', null, 'السجلات الرسمية', 'Official registers', 'السجلات الرسمية للجنة وكيف تتصفحها.'],
         ['screen.reports', 'reports', 'view', null, 'التقارير والإحصائيات', 'Reports and statistics', 'قراءة المؤشرات وتصفيتها حسب الفترة والنوع.'],
         ['screen.audit_log', 'audit_log', 'view', null, 'سجل التدقيق', 'The audit log', 'كيف تبحث في سجل التغييرات وتعرف من غيّر ماذا ومتى.'],
-        ['screen.users', 'users', 'view', null, 'المستخدمون', 'Users', 'قائمة المستخدمين وطرق عرضها والبحث فيها.'],
+        ['screen.users', 'users', 'view', null, 'المستخدمون', 'Users', 'قائمة المستخدمين وعرضها حسب الإدارة وفتح حساب أحدهم.'],
         ['screen.departments', 'departments', 'view', null, 'الإدارات والأقسام', 'Departments', 'الهيكل التنظيمي للإدارات وما يمكن فعله بكل إدارة.'],
         ['screen.roles_permissions', 'roles_permissions', 'view', null, 'الأدوار والصلاحيات', 'Roles and permissions', 'جدول الصلاحيات: ما يستطيعه كل دور في كل شاشة.'],
         ['screen.committee_roles', 'committee_roles', 'view', null, 'المناصب الفردية', 'Sole-holder posts', 'من يشغل كل منصب فردي في اللجنة.'],
