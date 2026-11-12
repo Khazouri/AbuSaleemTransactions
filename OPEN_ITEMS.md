@@ -13,6 +13,36 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### Phase 2 walkthrough clips — learning centre — opened 2026-11-12
+Only four pilot clips exist (filing a request, the manager's forward, HR's employment-file preparation, the Users
+screen). The other 43 catalogue codes have a row and no video. **To close:** the user reviews the pilots, then the
+remaining clips are scripted and recorded with the toolkit in `C:\Users\Dev\walkthrough`.
+
+### The four pilot MP4s are not on production — learning centre — opened 2026-11-12
+The videos are not in the repo and not on the host. «بعد الرفع» does not run `ScreenSeeder`, so until «إعادة زراعة
+الشاشات» runs the `learning_center` screen and its grants do not exist on the host and everyone gets 403. **To close, in
+this order:** (1) upload the backend and `frontend/dist`; (2) run «بعد الرفع»; (3) run «إعادة زراعة الشاشات»; (4) as R08,
+upload the four MP4s on «إدارة الفيديوهات».
+
+### The user guide has no learning-centre section — learning centre — opened 2026-11-12
+`USER_GUIDE.ar.md` and the role test plans do not mention «مركز التعلم» or «شاهد الشرح». Doc edits are paused until the
+user says continue. **To close:** add the section once docs resume.
+
+### The upload cap follows the host's PHP limits — learning centre — opened 2026-11-12
+`max_upload_bytes` is derived from `upload_max_filesize` and `post_max_size`; cPanel defaults can be small for an MP4.
+**To close:** if a pilot upload is refused, read the limits from the maintenance console's `EnvironmentProbe` and raise
+them in the host's PHP settings.
+
+### Learning-centre review leftovers (Tasks 2-5) — learning centre — opened 2026-11-12
+Deferred minors, none blocking:
+- `LearningCenterTest`'s after-upload case discards the exit code (use `assertSuccessful`); `AfterUpload`'s description omits the catalogue;
+- `roles: []` would mean nobody (the seeder never writes it); the seeder writes no `description_en`, so the SPA falls back to Arabic;
+- concurrent uploads orphan the loser's file; a body over `post_max_size` answers 413 before validation (the SPA pre-checks); `url()` follows the request scheme, so behind a TLS proxy without `trustProxies` it could return http (the relative signature still verifies);
+- the upload form: a NaN/Infinity duration makes Save look dead (add an `isFinite` guard), the duration probe has no stale-pick guard, a cleared required file input may stack the browser message with the alert;
+- `VideoPlayerModal` has no `@error`, so an expired URL after 2 h shows no message; the management table shows the raw `screen_code` for screens outside the viewer's list;
+- the icon-only watch button below 640px has a `title` but no `aria-label`; a cached `[]` from a transient failure persists for the session.
+The final review may fix some of these.
+
 ### The guide still describes the مقرر's old steps — lighter مقرر load — opened 2026-10-31
 The قيد now sends the file to the legal member itself. The jurisdiction test and بوابة 1 are one card. The مقرر
 confirms جهة الاعتماد's decisions several at a time from the meeting page. `USER_GUIDE.ar.md`, its PDF and the role

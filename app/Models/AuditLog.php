@@ -60,6 +60,8 @@ class AuditLog extends Model
         ScreenRolePermission::class,
         Setting::class,
         GuideArticle::class,
+        // Learning centre — narrated walkthroughs: who attached or removed a video.
+        WalkthroughVideo::class,
 
         // Stage 26 — taking or destroying a snapshot of the whole system is
         // exactly the low-volume, high-consequence write this trail is for.

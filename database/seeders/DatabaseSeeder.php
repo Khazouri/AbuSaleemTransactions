@@ -55,6 +55,8 @@ class DatabaseSeeder extends Seeder
             SettingSeeder::class,
             ScreenSeeder::class,
             ScreenRolePermissionSeeder::class,
+            // Learning centre — narrated walkthroughs.
+            WalkthroughVideoSeeder::class,
         ]));
     }
 }

@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\ErpAuthController;
 use App\Http\Controllers\Api\ErpSummaryController;
 use App\Http\Controllers\Api\GuideArticleController;
+use App\Http\Controllers\Api\LearningCenterController;
 use App\Http\Controllers\Api\MaintenanceController;
 use App\Http\Controllers\Api\MeetingController;
 use App\Http\Controllers\Api\MeetingDutiesController;
@@ -139,6 +140,12 @@ Route::prefix('auth')->group(function () {
 // ERP employee summary — the ERP reads one employee's tasks, requests, meetings
 // and notifications with that employee's own ERP token (no Sanctum token).
 Route::get('erp/summary', ErpSummaryController::class)->middleware('throttle:60,1');
+
+// Learning centre — narrated walkthroughs. Public on purpose: a <video> element
+// cannot send a bearer token, so the signature minted by `play` is the
+// credential, and the controller re-checks the viewer's grant on every request.
+Route::get('learning-center/{walkthroughVideo}/stream', [LearningCenterController::class, 'stream'])
+    ->middleware('signed:relative')->name('learning-center.stream');
 
 /*
  * Signed-in application routes.
@@ -752,6 +759,18 @@ Route::middleware('auth:sanctum')->group(function () {
         ->put('guide-articles/{guideArticle}', [GuideArticleController::class, 'update']);
     Route::middleware('screen.permission:user_guide,delete')
         ->delete('guide-articles/{guideArticle}', [GuideArticleController::class, 'destroy']);
+
+    // Learning centre — narrated walkthroughs. View is every role; upload and
+    // removal are the screen's `edit` (R08).
+    Route::middleware('screen.permission:learning_center,view')->group(function () {
+        Route::get('learning-center', [LearningCenterController::class, 'index']);
+        Route::get('learning-center/screens/{screenCode}', [LearningCenterController::class, 'forScreen']);
+        Route::get('learning-center/{walkthroughVideo}/play', [LearningCenterController::class, 'play']);
+    });
+    Route::middleware('screen.permission:learning_center,edit')->group(function () {
+        Route::post('learning-center/{walkthroughVideo}/file', [LearningCenterController::class, 'upload']);
+        Route::delete('learning-center/{walkthroughVideo}/file', [LearningCenterController::class, 'destroyFile']);
+    });
 
     /*
      * Stage 26 — backups. Every verb here is R08-only, which is what the

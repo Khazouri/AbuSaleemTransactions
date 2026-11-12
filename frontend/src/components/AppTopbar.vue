@@ -19,7 +19,10 @@ import { applyLocale, SUPPORTED_LOCALES } from '../i18n'
 import { theme, toggleTheme } from '../lib/theme'
 import { erpConfig, startErpSignIn } from '../lib/erpSso'
 import { playChime } from '../lib/chime'
+import api from '../lib/api'
 import AppIcon from './AppIcon.vue'
+import AppModal from './AppModal.vue'
+import VideoPlayerModal from './VideoPlayerModal.vue'
 
 defineProps({
   /** Rail state, forwarded from the layout — flips the toggle's aria-label. */
@@ -48,6 +51,50 @@ const currentTitle = computed(() => {
     ? screen.name_ar || screen.name_en
     : screen.name_en || screen.name_ar
 })
+
+// Learning centre — «شاهد الشرح». Looked up once per user and screen; keyed by
+// user id so a different account on the same tab never inherits the lookups,
+// including after a 401 auto-logout that bypasses signOut().
+const walkthroughCache = new Map()
+const walkthroughs = ref([])
+const picking = ref(false)
+const playing = ref(null)
+
+watch(
+  () => [route.meta.screenCode, auth.user?.id],
+  async ([code, userId]) => {
+    walkthroughs.value = []
+    if (!code || !userId || !auth.can('learning_center', 'view')) return
+    const key = `${userId}:${code}`
+    if (!walkthroughCache.has(key)) {
+      try {
+        const { data } = await api.get(`/learning-center/screens/${code}`)
+        walkthroughCache.set(key, data.data)
+      } catch {
+        // Nothing here is actionable for the viewer, so an empty list, which
+        // hides the button, is the right degraded state.
+        walkthroughCache.set(key, [])
+      }
+    }
+    if (route.meta.screenCode === code && auth.user?.id === userId) {
+      walkthroughs.value = walkthroughCache.get(key)
+    }
+  },
+  { immediate: true },
+)
+
+const videoTitle = (v) => (locale.value === 'en' ? v.title_en || v.title_ar : v.title_ar)
+const clock = (s) => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : '')
+
+function watchWalkthrough() {
+  if (walkthroughs.value.length === 1) playing.value = walkthroughs.value[0]
+  else picking.value = true
+}
+
+function play(video) {
+  picking.value = false
+  playing.value = video
+}
 
 /** The language we'd switch TO — with only two locales, it's the other one. */
 const otherLocale = computed(() => (locale.value === 'ar' ? 'en' : 'ar'))
@@ -212,6 +259,17 @@ async function signOut() {
         <AppIcon name="menu" />
       </button>
       <h1 class="title">{{ currentTitle }}</h1>
+      <button
+        v-if="walkthroughs.length"
+        class="watch"
+        type="button"
+        :title="t('learningCenter.watch')"
+        :aria-label="t('learningCenter.watch')"
+        @click="watchWalkthrough"
+      >
+        <AppIcon name="play" :size="16" />
+        <span class="watch-label">{{ t('learningCenter.watch') }}</span>
+      </button>
     </div>
 
     <div class="side">
@@ -360,6 +418,17 @@ async function signOut() {
       </div>
     </div>
   </header>
+
+  <AppModal v-if="picking" :title="t('learningCenter.pick')" @close="picking = false">
+    <div class="pick-list">
+      <button v-for="v in walkthroughs" :key="v.id" class="dropdown-item" type="button" @click="play(v)">
+        <AppIcon name="play" :size="16" />
+        <span>{{ videoTitle(v) }}</span>
+        <small v-if="clock(v.duration_seconds)" class="pick-dur">{{ clock(v.duration_seconds) }}</small>
+      </button>
+    </div>
+  </AppModal>
+  <VideoPlayerModal v-if="playing" :video="playing" @close="playing = null" />
 </template>
 
 <style scoped>
@@ -384,6 +453,30 @@ async function signOut() {
   font-size: var(--text-lg);
   font-weight: 600;
   color: var(--color-foreground);
+}
+
+/* «شاهد الشرح»: a pill beside the title; below 640px only the icon stays. */
+.watch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-brand-text);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.watch:hover {
+  background: var(--color-black-100);
+}
+.pick-dur {
+  margin-inline-start: auto;
+  color: var(--color-muted);
 }
 
 /* -- Icon buttons --------------------------------------------------------- */
@@ -676,6 +769,9 @@ async function signOut() {
   }
   .side:first-child {
     min-width: 0;
+  }
+  .watch-label {
+    display: none;
   }
   .title {
     overflow: hidden;

@@ -363,6 +363,11 @@ Key architectural facts worth knowing before changing things:
   it for whoever is offered a checked outcome; `actorMayUse()` keeps the filer
   and صاحب العلاقة off those outcomes.
 
+- **Learning centre (user decision 2026-11-12)**: «مركز التعلم» lists narrated walkthrough videos. The catalogue is
+  `walkthrough_videos`, seeded by `WalkthroughVideoSeeder` (also run by «بعد الرفع»), one row per clip.
+  `WalkthroughVideo::isVisibleTo()` is the only place the visibility rule lives (the `action` on its `screen_code`,
+  plus `roles` for a workflow task). R08 uploads each MP4 to the private `local` disk, and playback is a relatively
+  signed stream URL whose handler re-checks the rule on every range request. Don't serve the files from `public`.
 - **Staged build-out**: [STAGE_PLAN.md](STAGE_PLAN.md) is the source of truth
   for what each stage number means (goal, what gets built, done-when) —
   consult it before starting or referencing a stage. **Tracks A–O (Stages
@@ -478,6 +483,9 @@ Key architectural facts worth knowing before changing things:
   AGENT_NOTES.md entry in the same commit as the work it
   describes, so the record and the change cannot drift apart. Pushing and
   opening a PR stay on explicit request — this covers committing only.
+- **A task that changes what a screen shows names the clips to re-record**: add an OPEN_ITEMS entry listing the
+  `walkthrough_videos` codes affected. The recording toolkit lives outside the repo in `C:\Users\Dev\walkthrough`
+  and runs only against a scratch SQLite database.
 - **One branch per task** (user decision 2026-10-09): start every new task on
   a fresh branch cut from `main` (`git switch main && git switch -c
   <type>/<short-name>`). When the task is verified, commit on that branch,
