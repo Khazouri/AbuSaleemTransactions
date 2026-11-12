@@ -2331,6 +2331,8 @@
     "done": "Decisions confirmed."
   },
   "learningCenter": {
+    "watch": "Watch the walkthrough",
+    "pick": "Choose a walkthrough",
     "title": "Learning Centre",
     "general": "General",
     "empty": "No videos are available to you yet.",
