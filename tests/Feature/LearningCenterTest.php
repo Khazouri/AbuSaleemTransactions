@@ -175,7 +175,6 @@ class LearningCenterTest extends TestCase
         $first = $video->fresh()->path;
         Storage::disk('local')->assertExists($first);
 
-        $this->travel(2)->seconds();
         $admin->postJson($url, ['file' => $mp4(), 'duration_seconds' => 90])->assertOk();
         $second = $video->fresh()->path;
         $this->assertNotSame($first, $second);
@@ -208,6 +207,10 @@ class LearningCenterTest extends TestCase
 
         $this->app['auth']->forgetGuards();
         $this->get($url, ['Range' => 'bytes=0-9'])->assertStatus(206)->assertHeader('Accept-Ranges', 'bytes');
+
+        // The signature covers path and query only, so a proxy's different host still streams.
+        $relative = parse_url($url, PHP_URL_PATH).'?'.parse_url($url, PHP_URL_QUERY);
+        $this->get('http://other.test'.$relative, ['Range' => 'bytes=0-9'])->assertStatus(206);
     }
 
     public function test_play_404s_for_a_video_the_viewer_may_not_watch(): void
@@ -239,6 +242,27 @@ class LearningCenterTest extends TestCase
         $url = $this->actingAs($hr)->getJson("/api/learning-center/{$video->id}/play")->json('url');
 
         $hr->roles()->detach(Role::where('code', 'R12')->value('id'));
+
+        $this->get($url)->assertNotFound();
+    }
+
+    public function test_the_stream_404s_when_the_file_is_missing_on_disk(): void
+    {
+        $video = $this->uploaded('screen.request_intake');
+        $url = $this->actingAs($this->account('r01.employee'))
+            ->getJson("/api/learning-center/{$video->id}/play")->json('url');
+
+        $this->get($url)->assertNotFound();
+    }
+
+    public function test_the_stream_refuses_an_inactive_user(): void
+    {
+        $video = $this->uploaded('task.hr_prepare_file');
+        Storage::disk('local')->put($video->path, 'x');
+        $hr = $this->account('r12.hr');
+        $url = $this->actingAs($hr)->getJson("/api/learning-center/{$video->id}/play")->json('url');
+
+        $hr->update(['is_active' => false]);
 
         $this->get($url)->assertNotFound();
     }

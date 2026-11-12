@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 // Learning centre — narrated walkthroughs.
@@ -46,7 +47,7 @@ class LearningCenterController extends Controller
     {
         $file = $request->file('file');
         $old = [$walkthroughVideo->disk, $walkthroughVideo->path];
-        $path = $file->storeAs('walkthrough-videos', "{$walkthroughVideo->id}-".now()->timestamp.'.mp4', 'local');
+        $path = $file->storeAs('walkthrough-videos', "{$walkthroughVideo->id}-".Str::uuid().'.mp4', 'local');
 
         $walkthroughVideo->forceFill([
             'disk' => 'local',
@@ -58,7 +59,7 @@ class LearningCenterController extends Controller
             'uploaded_at' => now(),
         ])->save();
 
-        // After the row points at the new file, so a failed save never orphans the old clip.
+        // Only once the row points at the new file: a failed save must not cost us the old clip.
         $this->forget(...$old);
 
         return new WalkthroughVideoResource($walkthroughVideo);
@@ -82,11 +83,16 @@ class LearningCenterController extends Controller
     {
         abort_unless($walkthroughVideo->isVisibleTo($request->user()), 404);
 
-        return response()->json(['url' => URL::temporarySignedRoute(
+        // Signed relative: behind a TLS-terminating proxy the request's scheme and
+        // host differ from what the browser calls, which would break an absolute signature.
+        $path = URL::temporarySignedRoute(
             'learning-center.stream',
             now()->addHours(2),
             ['walkthroughVideo' => $walkthroughVideo->id, 'user' => $request->user()->id],
-        )]);
+            absolute: false,
+        );
+
+        return response()->json(['url' => url($path)]);
     }
 
     /**
@@ -98,6 +104,8 @@ class LearningCenterController extends Controller
     {
         $user = User::find($request->query('user'));
         abort_unless($user && $user->is_active && $walkthroughVideo->isVisibleTo($user), 404);
+
+        abort_unless(Storage::disk($walkthroughVideo->disk)->exists($walkthroughVideo->path), 404);
 
         return response()->file(
             Storage::disk($walkthroughVideo->disk)->path($walkthroughVideo->path),

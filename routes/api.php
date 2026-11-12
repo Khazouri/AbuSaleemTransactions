@@ -145,7 +145,7 @@ Route::get('erp/summary', ErpSummaryController::class)->middleware('throttle:60,
 // cannot send a bearer token, so the signature minted by `play` is the
 // credential, and the controller re-checks the viewer's grant on every request.
 Route::get('learning-center/{walkthroughVideo}/stream', [LearningCenterController::class, 'stream'])
-    ->middleware('signed')->name('learning-center.stream');
+    ->middleware('signed:relative')->name('learning-center.stream');
 
 /*
  * Signed-in application routes.
