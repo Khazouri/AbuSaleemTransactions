@@ -264,6 +264,7 @@ async function signOut() {
         class="watch"
         type="button"
         :title="t('learningCenter.watch')"
+        :aria-label="t('learningCenter.watch')"
         @click="watchWalkthrough"
       >
         <AppIcon name="play" :size="16" />

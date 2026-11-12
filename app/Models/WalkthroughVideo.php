@@ -41,13 +41,18 @@ class WalkthroughVideo extends Model
 
     /**
      * A row with no file is invisible to everyone; otherwise the viewer needs
-     * the row's action on its screen (so the designer flag, stand-in grants and
+     * the learning centre itself and the row's action on its screen (so the designer flag, stand-in grants and
      * every other rule folded into screenPermissions() apply for free) and,
      * when `roles` is set, one of those roles or the manager token.
      */
     public function isVisibleTo(User $user): bool
     {
         if ($this->path === null) {
+            return false;
+        }
+
+        // The stream trusts this method alone, so revoking the centre itself must end playback too.
+        if (! $user->hasScreenPermission('learning_center', 'can_view')) {
             return false;
         }
 

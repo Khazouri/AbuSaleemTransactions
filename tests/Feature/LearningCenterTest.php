@@ -12,7 +12,6 @@ use Database\Seeders\TestUserSeeder;
 use Database\Seeders\WalkthroughVideoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -115,7 +114,7 @@ class LearningCenterTest extends TestCase
     {
         DB::table('walkthrough_videos')->delete();
 
-        Artisan::call('maintenance:after-upload');
+        $this->artisan('maintenance:after-upload')->assertSuccessful();
 
         $this->assertSame(count(WalkthroughVideoSeeder::VIDEOS), WalkthroughVideo::count());
     }
@@ -241,6 +240,8 @@ class LearningCenterTest extends TestCase
         $hr = $this->account('r12.hr');
         $url = $this->actingAs($hr)->getJson("/api/learning-center/{$video->id}/play")->json('url');
 
+        $this->get($url)->assertOk();
+
         $hr->roles()->detach(Role::where('code', 'R12')->value('id'));
 
         $this->get($url)->assertNotFound();
@@ -262,9 +263,47 @@ class LearningCenterTest extends TestCase
         $hr = $this->account('r12.hr');
         $url = $this->actingAs($hr)->getJson("/api/learning-center/{$video->id}/play")->json('url');
 
+        $this->get($url)->assertOk();
+
         $hr->update(['is_active' => false]);
 
         $this->get($url)->assertNotFound();
+    }
+
+    public function test_the_stream_refuses_a_deleted_user(): void
+    {
+        $video = $this->uploaded('task.hr_prepare_file');
+        Storage::disk('local')->put($video->path, 'x');
+        $hr = $this->account('r12.hr');
+        $url = $this->actingAs($hr)->getJson("/api/learning-center/{$video->id}/play")->json('url');
+
+        $this->get($url)->assertOk();
+
+        $hr->delete();
+
+        $this->get($url)->assertNotFound();
+    }
+
+    public function test_the_stream_refuses_once_the_screen_is_revoked(): void
+    {
+        $video = $this->uploaded('task.hr_prepare_file');
+        Storage::disk('local')->put($video->path, 'x');
+        $url = $this->actingAs($this->account('r12.hr'))->getJson("/api/learning-center/{$video->id}/play")->json('url');
+
+        $this->get($url)->assertOk();
+
+        ScreenRolePermission::where('screen_id', Screen::where('code', 'learning_center')->value('id'))->update(['can_view' => false]);
+
+        $this->get($url)->assertNotFound();
+    }
+
+    public function test_the_stream_is_private_to_shared_caches(): void
+    {
+        $video = $this->uploaded('screen.request_intake');
+        Storage::disk('local')->put($video->path, 'x');
+        $url = $this->actingAs($this->account('r01.employee'))->getJson("/api/learning-center/{$video->id}/play")->json('url');
+
+        $this->assertStringContainsString('private', $this->get($url)->assertOk()->headers->get('Cache-Control'));
     }
 
     /** Marks a catalogue row as having a file, without going through the upload API. */

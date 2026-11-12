@@ -101,9 +101,14 @@ function onPick(event) {
   probe.preload = 'metadata'
   const objectUrl = URL.createObjectURL(picked)
   probe.onloadedmetadata = () => {
+    URL.revokeObjectURL(objectUrl)
+    // A stream or odd container can report Infinity/NaN; Save would then do nothing, silently.
+    if (!Number.isFinite(probe.duration)) {
+      formError.value = t('learningCenter.unreadable')
+      return
+    }
     duration.value = Math.max(1, Math.round(probe.duration))
     file.value = picked
-    URL.revokeObjectURL(objectUrl)
   }
   probe.onerror = () => {
     formError.value = t('learningCenter.unreadable')
@@ -237,8 +242,8 @@ onMounted(load)
 </template>
 
 <style scoped>
-.view-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); }
-.group { margin-bottom: var(--space-6, 1.5rem); }
+.view-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-block-end: var(--space-4); }
+.group { margin-block-end: var(--space-6); }
 .group h3 { margin-block-end: var(--space-3); color: var(--color-brand-text); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); gap: var(--space-3); }
 .video-card {
@@ -260,9 +265,8 @@ onMounted(load)
   background: var(--color-brand);
   color: var(--color-on-brand);
 }
-/* The triangle's visual centre sits off its box; nudge it, mirrored in RTL. */
-.play svg { margin-inline-start: 2px; }
-:root[dir='rtl'] .play svg { transform: scaleX(-1); }
+/* The triangle's visual centre sits off its box; nudge it. Media icons point right in both directions, so a transform, not a logical margin. */
+.play svg { transform: translateX(2px); }
 .meta { display: flex; flex-direction: column; gap: 0.25rem; min-inline-size: 0; }
 .desc { font-size: var(--text-sm); color: var(--color-muted); overflow-wrap: anywhere; }
 .dur { font-size: var(--text-xs); color: var(--color-muted); font-variant-numeric: tabular-nums; }

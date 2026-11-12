@@ -19,8 +19,10 @@ screen). The other 43 catalogue codes have a row and no video. **To close:** the
 remaining clips are scripted and recorded with the toolkit in `C:\Users\Dev\walkthrough`.
 
 ### The four pilot MP4s are not on production — learning centre — opened 2026-11-12
-The videos are not in the repo and not on the host. **To close:** after deploying, the user uploads each as R08 on
-«إدارة الفيديوهات».
+The videos are not in the repo and not on the host. «بعد الرفع» does not run `ScreenSeeder`, so until «إعادة زراعة
+الشاشات» runs the `learning_center` screen and its grants do not exist on the host and everyone gets 403. **To close, in
+this order:** (1) upload the backend and `frontend/dist`; (2) run «بعد الرفع»; (3) run «إعادة زراعة الشاشات»; (4) as R08,
+upload the four MP4s on «إدارة الفيديوهات».
 
 ### The user guide has no learning-centre section — learning centre — opened 2026-11-12
 `USER_GUIDE.ar.md` and the role test plans do not mention «مركز التعلم» or «شاهد الشرح». Doc edits are paused until the

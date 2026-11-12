@@ -16,20 +16,40 @@ const failed = ref(false)
 
 const title = computed(() => (locale.value === 'en' ? props.video.title_en || props.video.title_ar : props.video.title_ar))
 
+async function fetchUrl() {
+  const { data } = await api.get(`/learning-center/${props.video.id}/play`)
+  url.value = data.url
+}
+
 onMounted(async () => {
   try {
-    const { data } = await api.get(`/learning-center/${props.video.id}/play`)
-    url.value = data.url
+    await fetchUrl()
   } catch {
     failed.value = true
   }
 })
+
+// A signed URL lives 2 h and the stream re-checks the grant, so a failing <video>
+// first gets one fresh URL; a second failure means the clip really is unavailable.
+let retried = false
+async function onVideoError() {
+  if (retried) {
+    failed.value = true
+    return
+  }
+  retried = true
+  try {
+    await fetchUrl()
+  } catch {
+    failed.value = true
+  }
+}
 </script>
 
 <template>
   <AppModal :title="title" wide @close="emit('close')">
     <p v-if="failed" class="alert">{{ t('learningCenter.playFailed') }}</p>
-    <video v-else-if="url" class="player" controls autoplay playsinline :src="url" />
+    <video v-else-if="url" class="player" controls autoplay playsinline :src="url" @error="onVideoError" />
     <p v-else class="hint">{{ t('common.loading') }}</p>
     <div class="modal-actions">
       <button class="ghost" type="button" @click="emit('close')">{{ t('common.close') }}</button>

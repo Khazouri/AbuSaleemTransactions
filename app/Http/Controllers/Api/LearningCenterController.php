@@ -110,7 +110,7 @@ class LearningCenterController extends Controller
         return response()->file(
             Storage::disk($walkthroughVideo->disk)->path($walkthroughVideo->path),
             ['Content-Type' => 'video/mp4'],
-        );
+        )->setPrivate(); // a credential-gated file must never sit in a shared cache
     }
 
     private function forget(?string $disk, ?string $path): void

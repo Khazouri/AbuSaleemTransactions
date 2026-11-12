@@ -28,7 +28,14 @@ holds 47 catalogue rows (`WalkthroughVideoSeeder`).
   never writes into the checkout; the voice-over is synced to a corner mark painted into the page, not to timers.
 - **Pilots:** filing a request (R01), the manager's forward, HR's employment-file preparation (R12) and the Users
   screen (R08). The user uploads the four MP4s on production as R08; the other 43 clips wait on the user's feedback.
-- **Verified:** PHPUnit in two processes (counts in the task report); Pint clean; build passes (`dist` committed,
+- **Deploy order on the host:** «بعد الرفع» does not run `ScreenSeeder`, so the `learning_center` screen and its grants
+  are missing (everyone gets 403) until «إعادة زراعة الشاشات» runs. So: (1) upload the backend and `frontend/dist`;
+  (2) run «بعد الرفع»; (3) run «إعادة زراعة الشاشات»; (4) upload the four MP4s as R08.
+- **Final-review fixes:** the video modal retries `/play` once on a `<video>` error; `isVisibleTo()` also needs the
+  `learning_center` view grant; the stream answers `Cache-Control: private`; the upload form guards a non-finite
+  duration.
+- **Verified:** PHPUnit in two processes: 883 tests / 7823 assertions + the two Maintenance files 29 / 197 (the rest of
+  the suite hits the 330 s limit in one process, so it ran as two halves, 426 / 3155 and 457 / 4668); Pint clean; build passes (`dist` committed,
   production API URL in the bundle); parity 1896; `aislop ci` exit 0 (98); nothing pending to migrate.
 
 ---
@@ -54,7 +61,6 @@ Verify: new `LearningCenterTest` (RED then GREEN), full PHPUnit, Pint, migrate a
 (`dist` committed), parity, aislop ci, check-layout. The user uploads the videos to production as R08.
 
 ---
-
 ### 2026-10-31 11:10 EET — Claude — A lighter load for the مقرر (complete)
 
 Built per the plan below; no migration or seeder.
