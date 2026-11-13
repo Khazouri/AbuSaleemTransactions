@@ -7,6 +7,8 @@ use Illuminate\Validation\Rule;
 
 class StoreMeetingRequest extends FormRequest
 {
+    use StoresMeetingTimesInUtc;
+
     public function authorize(): bool
     {
         return true;
