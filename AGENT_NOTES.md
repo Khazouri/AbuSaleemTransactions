@@ -19,6 +19,47 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-11-13 16:40 EET — Claude — The seven high-severity open items (complete)
+
+Built per the plan below on `fix/high-open-items`. Migration `add_replaces_attachment_id_to_attachments_table` is
+applied to the real MySQL, and `WorkflowSeeder` + `SettingSeeder` ran there: the 8 `deadline_expired` rows and the
+`task_color_overdue` setting are gone, no open file had been escalated, and `publishedErrors()` is `[]`. The real DB
+has 5 meetings, all from the test-data button or the scripted walk, so no stored time needed shifting.
+- **Deviations:**
+  - the replaceable files are served by `GET requests/{r}/document-options` (`replaceable`), which `FileUpload`
+    reads, not by `control_gates`;
+  - a closed file's two record acts are now listed as blocked with the endpoint's reason, not hidden;
+  - the escalated-file tests keep their subject through `HoldsPaperMeetings::escalatedBeforeTheRemoval()`.
+- **Final-review fix:** a version copied before today keeps its `deadline_expired` rows (the seeder writes Standard
+  v1 only), and the overdue guard went with the escalation. `WorkflowService::REMOVED_ACTIONS` now keeps such rows from
+  being offered, applied or granting sight of a file.
+- **Gotcha:** the meeting Form Requests rewrite an offset time as UTC (`StoresMeetingTimesInUtc`) before validation;
+  an hours-only offset such as `+02` is still read as wall time (the SPA always sends `Z`).
+
+Verified: each fix RED then GREEN; full suite 894 + 29 green after the review fix; Pint clean; build passes (`dist`
+committed, production API URL in the bundle); parity 1895; `aislop ci` exit 0 (98); node tests 17/17. Not checked in a
+browser. The clips to re-check are in OPEN_ITEMS.
+
+---
+### 2026-11-13 15:42 EET — Claude — Implementation plan: the seven high-severity open items
+
+User: list the open items by severity, then plan a fix for the high ones. Their decisions: a formally rejected file is
+closable and appealable, a replacement upload names the rejected «مستند آخر» file it replaces, meetings may not be
+dated in the past, and the overdue escalation is removed. Plan (`docs/superpowers/plans/2026-11-13-high-severity-open-items.md`,
+branch `fix/high-open-items`, one commit per fix):
+- meeting times are sent with their zone and stored as UTC;
+- the request page refuses the committee's three outcomes (the meeting page writes them), and the decide prompt reads
+  «هذا الملف ينتظر قرارك» only when a real decision is available;
+- `rejected` joins the closable and appealable statuses;
+- a migration adds `attachments.replaces_attachment_id`, which takes the replaced file out of both gates' review;
+- `scheduled_at` must be `after:now` on create and on a date change;
+- the `deadline_expired` rules, the overdue task and its colour go; overdue stays a flag;
+- `record_document_conflict` / `record_special_case` refuse a closed file at the endpoint.
+
+Verify: each fix RED then GREEN, full PHPUnit (two processes), Pint, migrate, WorkflowSeeder + SettingSeeder on the
+real DB, build (`dist` committed), parity, aislop ci.
+
+---
 ### 2026-11-13 14:02 EET — Claude — Learning centre phase 2: the remaining clips (complete)
 
 Built per the plan below: 42 clips recorded in one serial run, so 46 of the 47 catalogue codes have an MP4 in

@@ -20,6 +20,13 @@ task that changes what a screen shows adds the affected codes here instead (one 
 - `screen.maintenance`: shows the recording machine's server checks (a scratch SQLite path, environment `local`)
   (2026-11-13).
 
+### Walkthrough clips to check after the high-severity fixes — fix/high-open-items — opened 2026-11-13
+These screens changed: meeting times now show in local time, the request page's decide card has a second prompt and no
+longer offers the committee's outcomes, Settings and «المهام المعلقة» lost the overdue source, the overdue notice no
+longer mentions escalation, and the upload form can name a rejected file. **To close:** watch these clips and re-record
+any that shows the old screen: `task.rapporteur_schedule_meeting`, `screen.meetings`, `screen.request_details`,
+`screen.notes_attachments`, `screen.settings`, `screen.my_tasks`.
+
 ### Screen faults found while scripting the clips — learning centre phase 2 — opened 2026-11-13
 None was fixed and none is narrated. **To close:** take them one by one; several are leftovers of the paper-meeting
 and legal-recommendation changes.
@@ -63,6 +70,7 @@ and legal-recommendation changes.
   wraps mid-number; a meeting's agenda row runs the reference into the title; committee-roles rows with no button draw
   a broken border.
 - **Test data:** `TestRequestSeeder` picks title and type independently, and descriptions quote the raw stage code.
+**Partly resolved (2026-11-13, fix/high-open-items):** Behaviour's first two bullets. The SPA sends meeting times as UTC instants and the API stores any offset time as UTC. The request page refuses the committee's three outcomes (`RequestController::committeeStageRefusal()`), and the decide card reads «هذا الملف ينتظر قرارك» only when a decision is available. The rest of this list stays open.
 
 ### Intake can create two drafts and submit the one without the files — learning centre phase 2 — opened 2026-11-13
 `RequestIntakeView`'s `ensureDraft()` has no guard for a create already in flight. The debounced autosave (800 ms) and
@@ -152,6 +160,7 @@ execution time of 330 seconds exceeded», and no test fails. For now, run it as 
 `StoreMeetingRequest` takes any `scheduled_at`, so the مقرر can create a meeting dated an hour ago, collect two
 acceptances and enter its results at once. The live walk did exactly that. **To close:** ask whether `scheduled_at`
 must be `after_or_equal:now` (and on `update()`), or whether back-dating a paper meeting held offline is intended.
+**Resolved (2026-11-13, fix/high-open-items).** User decision: blocked. `scheduled_at` is `after:now` on create and on a date change.
 
 ### The test accounts break the sole-post and R01 rules — end-to-end walk — opened 2026-10-30
 On the real DB, `TestUserSeeder`'s accounts hold R04 four times and R03 twice, while each is meant to have one holder.
@@ -265,6 +274,7 @@ R08's `deadline_expired` exception moves an overdue file from any open stage to 
 `in_review`. That stage now belongs to الوزير, so an escalated file lands on the minister's desk although the committee
 never sent it there. Left as it was, because escalation was out of scope. **To close:** ask the user where an overdue
 file should go, then re-point those seeded rows.
+**Resolved (2026-11-13, fix/high-open-items).** User decision: the escalation is removed. `WorkflowTransitionSeeder` deletes the `deadline_expired` rows (8 on the real MySQL, which had no open escalated file), and the R08 overdue task and its colour went. Overdue stays a flag on the dashboard and in reports.
 
 ### The user guide still says a meeting invites only the five seats — meeting extra invitees — opened 2026-10-16
 Since 2026-10-16 the مقرر may invite extra members, each with a صفة, who answer the date only (no vote, signature or
@@ -470,6 +480,7 @@ On both document gates a «غير معتمد» file blocks until a newer upload 
 and attachments are never deleted, so once rejected it holds the gate. The reviewer's only way out is to mark it
 approved after all. **To close:** decide how such a file leaves the review: a «superseded by» link chosen at upload,
 removal by the reviewer, or a third verdict such as «مستبعد».
+**Resolved (2026-11-13, fix/high-open-items).** User decision: the upload names the file it replaces. `attachments.replaces_attachment_id`; `DocumentReview::replaceable()` lists the rejected untyped/«مستند آخر» files (served by `document-options`), the upload form offers them, and a replaced file leaves both gates' review.
 
 ### HR's register no longer checks the service-file rows are present — per-file document review — opened 2026-10-09
 HR's «تجهيز الملف الوظيفي» card used to answer each الملف الوظيفي row of Appendix 57's matrix. Since 2026-10-09 it
@@ -550,6 +561,7 @@ unlike its sibling `declare_no_jurisdiction`, which can be closed and appealed. 
 were closable and appealable; the new one says only what the code does. Not checked: whether R02's other
 stage-5 actions are still offered on a `rejected` file. **To close:** a process decision on whether [D]
 treats الرفض الشكلي as closable/appealable, then add the status to the lists that should hold it.
+**Resolved (2026-11-13, fix/high-open-items).** User decision: closable and appealable. `rejected` is in `RequestClosureService::CLOSABLE_STATUSES` (no archive owed, as for a pre-committee عدم اختصاص) and in `AppealEligibility`'s list.
 
 ### A committee's creator stays a seatless member and is counted in the quorum — found while updating the test plans — opened 2026-10-02 — **Resolved (2026-10-18, paper meeting slice 2):** no quorum is counted in the system any more; the readiness and tally services are deleted.
 `CommitteeController::store()` adds whoever creates a committee as a member with no seat, and
@@ -608,6 +620,7 @@ a caller that skips it can still record a conflict or special case on a closed f
 `closed_at === null` guard to both endpoints (or a shared refusal method `RequestActs` can call instead of
 restating the condition inline, matching how every other act's blocked reason is sourced from its own
 endpoint).
+**Resolved (2026-11-13, fix/high-open-items).** Both endpoints refuse a closed file through `RequestLifecycleController::closedFileRefusal()`, which `RequestActs` reads, so the wizard shows them blocked with the same reason.
 
 ### Eleven request endpoints skip `RequestVisibility` — decision wizard sub-project 3 — opened 2026-09-28
 The after-decision lifecycle writes (`close`, both archive endpoints, execution soundness, execute,
