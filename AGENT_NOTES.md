@@ -19,6 +19,42 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-11-13 14:02 EET — Claude — Learning centre phase 2: the remaining clips (complete)
+
+Built per the plan below: 42 clips recorded in one serial run, so 46 of the 47 catalogue codes have an MP4 in
+`C:\Users\Dev\walkthrough\out\` (toolkit commits `0409b9d`, `5458ce0`, `147b52a`). The catalogue is unchanged.
+- **App fix:** `RequestIntakeView`'s `ensureDraft()` shares one in-flight create. The autosave and an upload each
+  created a draft, so the files went to one draft and the submit sent the other, and the request arrived without its
+  attachments. This was found while replaying intake.
+- **Findings:** the screen faults the clips ran into are listed in one OPEN_ITEMS entry, and none was fixed here.
+  `screen.workflow_designer` is skipped (OPEN_ITEMS).
+- **Toolkit:** each recording starts 1.5 s before step one (a slow first load had left up to 20 s of silence), and the
+  session runs with `APP_DEBUG=false`. The maintenance clip still shows the scratch DB path and `local`.
+
+Verified:
+- all 42 clips pass `check-sync`, with every step's voice within 244 ms of its first frame;
+- frames of the order-dependent clips were read, and the learning-centre player was seen playing;
+- build passes (`dist` committed, production API URL in the bundle); `aislop ci` exit 0. Parity is unchanged, since no
+  locale changed. PHPUnit was not run, since no PHP changed.
+
+The user uploads the 46 MP4s as R08 (OPEN_ITEMS lists the order).
+
+---
+### 2026-11-13 09:18 EET — Claude — Implementation plan: learning centre phase 2 (the remaining clips)
+
+User: the pilots are good, continue to phase 2. Scope: script and record the other catalogue clips with the toolkit in
+`C:\Users\Dev\walkthrough` (its own repo). No app code is planned; a bug a clip finds is reported first.
+- **Toolkit:** each session also runs `TestRequestSeeder` and `TestMeetingSeeder`, so a clip can start from a seeded
+  file at its stage instead of a 40-link chain. A clip may name the clips it continues (`after`); recording a subset
+  replays those headless, with no video or voice. Ports and the output folder come from the environment, so clips can be
+  scripted in parallel sessions. One final serial run records every clip;
+- **skipped:** `screen.workflow_designer`. The designer is off by default, and turning it on for the session would show
+  its button on other clips' screens (OPEN_ITEMS);
+- the catalogue and the app are unchanged. The user uploads the MP4s as R08.
+
+Verify: every clip passes `check-sync` and its frames are read; the full serial run passes.
+
+---
 ### 2026-11-12 19:35 EET — Claude — A learning centre of narrated walkthrough videos (complete, phase 1)
 
 Built per the plan below on `feat/learning-center`; migration `walkthrough_videos` is applied to the real MySQL, which
@@ -2162,18 +2198,5 @@ preview. Plan, in three parts:
 
 Verify: AppealFileTest/RequestTimelineTest cases (RED then GREEN), full PHPUnit, Pint, build (`dist` committed),
 parity, aislop ci, and a headless check. (Clock note: the machine reads 17:31, behind the entries below.)
-
----
-### 2026-10-09 17:45 EET — Claude — Attachment preview on hover, full preview on click (complete)
-
-Built per the plan below. `AttachmentLink.vue` is used on the request page, the decision wizard's Review step, the
-live runner's attachments tab and the appeal documents. Their Preview/Download buttons, the request page's own modal
-and two local helpers are gone, along with the dead keys `attachments.preview` and
-`appeals.file.documents.previewFailed`. Names use `dir="auto"`, not `.ltr`, because stored names are now Arabic
-document names. A PDF sheet fades at its foot, because Chrome's viewer ignores `view=Fit` and pages are not all A4, so
-page 2 peeked in. Verified: build passes (`dist` committed), parity 2088, `aislop ci` exit 0 (97). Headless Chrome on
-request 51 (ar/en 1280, ar 375) showed the sheet on hover, the dialog on click with focus on Close, and Escape closing it
-without re-opening the sheet. There were no console errors. Not covered: intake and `FileUpload` (local files
-have no `preview_url`), the timeline's document rows (no URL in that payload) and the memo's key-document lists.
 
 ---

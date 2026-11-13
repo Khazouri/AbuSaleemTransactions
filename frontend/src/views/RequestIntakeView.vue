@@ -280,15 +280,30 @@ function declaredDocument(attachment) {
 
 // ---------------------------------------------------------------- drafts
 
-/** Create the draft on demand, so an untouched form leaves nothing behind. */
+let creatingDraft = null
+
+/**
+ * Create the draft on demand, so an untouched form leaves nothing behind.
+ *
+ * Every caller shares one create while it is in flight. The debounced autosave
+ * and a file upload both land here, and on a slow connection two creates made
+ * two drafts: the files went to one and the submit sent the other's id, so the
+ * request arrived without its attachments.
+ */
 async function ensureDraft() {
   if (!canDraft.value) return null
   if (draftId.value) return draftId.value
 
-  const { data } = await api.post('/requests/drafts', draftPayload())
-  draftId.value = data.data.id
+  creatingDraft ??= api.post('/requests/drafts', draftPayload())
+    .then(({ data }) => {
+      draftId.value = data.data.id
+      return draftId.value
+    })
+    .finally(() => {
+      creatingDraft = null
+    })
 
-  return draftId.value
+  return creatingDraft
 }
 
 function draftPayload() {

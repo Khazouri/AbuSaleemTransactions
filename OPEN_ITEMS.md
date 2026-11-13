@@ -13,12 +13,77 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### Screen faults found while scripting the clips — learning centre phase 2 — opened 2026-11-13
+None was fixed and none is narrated. **To close:** take them one by one; several are leftovers of the paper-meeting
+and legal-recommendation changes.
+- **Reads an old field:**
+  - the agenda builder's «الرأي القانوني» and «جهة الاعتماد المتوقعة» read `verdict`/`approving_body`, so a recorded
+    توصية shows «غير مسجل» (`AgendaOrderingService::appendixTwentyFourFields`);
+  - the decisions register's «جهة الاعتماد» reads `referred_to_body` (`DecisionsRegister.php:116`);
+  - the appeals list's «مرجع القرار» shows «—» when the appeal is linked to a recorded decision.
+- **Wrong or stale text:**
+  - `myTasks.actions.confirm_decision` is missing, so the مقرر's tasks show the raw key;
+  - `meetings.wizard.acceptanceHint` says all five seats must accept (it is Settings' number);
+  - the guest hint and the decisions subtitle still mention voting and signing;
+  - the قيد's destination line omits the automatic hand-off to legal review;
+  - Settings' bypass hint mentions only the agenda;
+  - the sole-post refusal and `seatRoleHint` leave out الوزير;
+  - Request Types' grade hint says the chair decides;
+  - the meetings list labels invitees «حاضر»;
+  - an empty appeal-documents list says «لا توجد تظلمات بعد.»;
+  - the reports source shows «Art. 107»/«Appendix 39» in English;
+  - a dean-stage status reads «بانتظار اعتماد البلدية»;
+  - the request page's «نتيجة اللجنة: تمت الموافقة» reads as a decision, and two fields are both «تاريخ القرار».
+- **Removed features still shown:** the dashboard's «تحت التنفيذ» bucket, the reports' execution counts, the time
+  card's «T9 مدة التنفيذ», and a completed meeting's «إضافة بند», agenda builder link and status select.
+- **Behaviour:**
+  - the scheduling wizard sends `datetime-local` without a zone, so 10:00 is stored and shown as 12:00;
+  - «هذا الملف ينتظر قرارك» shows when only a note or withdrawal is available (the filer, HR, a closed file), and
+    right after the قيد the مقرر is offered the committee's defer/reject while the file is under legal review;
+  - the employee's «إرفاق مستند» lists HR's «البيانات الوظيفية» as missing;
+  - «متابعة طلباتي» shows «اعتمدتها جهة الاعتماد — بانتظار تدقيق المقرر» before the مقرر confirms;
+  - «استلام الطلب في المسار الرسمي» quotes the intake receipt after the file has its reference;
+  - the account menu's «الإعدادات» does nothing for an R01;
+  - the appeal wizard gives no feedback after «رفع الملفات»;
+  - the candidates filter lacks `registered` and `deferred`, the statuses the list holds;
+  - the maintenance probe prints raw ANSI codes in the composer row;
+  - audit-log booleans show «0» old and «مفعّلة» new;
+  - a meeting invitation task shows «منذ 0 يوم»;
+  - nothing seeds the user guide's articles, so «دليل الاستخدام» is empty until R08 writes them, and readers see each
+    article's internal code (`requests.filing`);
+  - the count under «الطلبات» has no label, and the «الاعتمادات» tab lists «المقرر» twice (levels 1 and 2).
+- **Layout at 1280 px:** the requests and reports tables squeeze columns to a letter per line; the appeals reference
+  wraps mid-number; a meeting's agenda row runs the reference into the title; committee-roles rows with no button draw
+  a broken border.
+- **Test data:** `TestRequestSeeder` picks title and type independently, and descriptions quote the raw stage code.
+
+### Intake can create two drafts and submit the one without the files — learning centre phase 2 — opened 2026-11-13
+`RequestIntakeView`'s `ensureDraft()` has no guard for a create already in flight. The debounced autosave (800 ms) and
+a file upload can each POST `/requests/drafts`, so the files land on one draft and the submit sends the other's
+`draft_id`. The scripted replay hit it by typing fast; a real employee on a slow connection who drops files right
+after typing could too. **To close:** keep the pending create's promise in `ensureDraft()` and return it to every
+caller, with a test (no JS runner, so a manual or headless check).
+**Resolved (2026-11-13, learning centre phase 2):** `ensureDraft()` shares one in-flight create with every caller. It
+was hit again under load (three creates in one second, the files on draft 1 and the submit on draft 3), so it was fixed
+rather than worked around; the headless intake replay is the check.
+
+### No clip for the workflow designer — learning centre phase 2 — opened 2026-11-13
+`screen.workflow_designer` has a catalogue row but no recording: the designer is off by default
+(`WORKFLOW_DESIGNER_ENABLED`), and turning it on for the recording session would also show its button on other clips'
+screens. The row stays invisible until a file is attached. **To close:** if the designer is ever switched on in
+production, record it in a session of its own with the flag set.
+
 ### Phase 2 walkthrough clips — learning centre — opened 2026-11-12
 Only four pilot clips exist (filing a request, the manager's forward, HR's employment-file preparation, the Users
 screen). The other 43 catalogue codes have a row and no video. **To close:** the user reviews the pilots, then the
 remaining clips are scripted and recorded with the toolkit in `C:\Users\Dev\walkthrough`.
+**Resolved (2026-11-13, learning centre phase 2):** 42 more clips recorded, so 46 of the 47 codes have an MP4 in
+`C:\Users\Dev\walkthrough\out\<code>.mp4`; only `screen.workflow_designer` is left (its own entry above).
 
 ### The four pilot MP4s are not on production — learning centre — opened 2026-11-12
+**Updated 2026-11-13:** this now covers all 46 MP4s in `C:\Users\Dev\walkthrough\out\` (`<code>.mp4`).
+`screen.maintenance` shows the recording machine's server checks (a scratch SQLite path, environment `local`); re-record
+it against a production-like session if that matters.
 The videos are not in the repo and not on the host. «بعد الرفع» does not run `ScreenSeeder`, so until «إعادة زراعة
 الشاشات» runs the `learning_center` screen and its grants do not exist on the host and everyone gets 403. **To close, in
 this order:** (1) upload the backend and `frontend/dist`; (2) run «بعد الرفع»; (3) run «إعادة زراعة الشاشات»; (4) as R08,
