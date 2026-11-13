@@ -135,9 +135,7 @@ class RapporteurDecisionReviewTest extends TestCase
     public function test_an_escalated_file_goes_back_to_the_ministry_as_it_was(): void
     {
         $file = $this->fileAt('approval_by_authority', 'awaiting_municipal_approval', 'dean');
-        $file->forceFill(['overdue_at' => now()])->save();
-        app(WorkflowService::class)->transition($file, 'deadline_expired', $this->userWith('R08'), 'تجاوز المهلة');
-        $file = $this->authority('R06', $file->fresh(), 'approve');
+        $file = $this->authority('R06', $this->escalatedBeforeTheRemoval($file), 'approve');
         $this->assertSame('rapporteur_decision_review', $file->currentStage->code);
 
         $this->act($this->rapporteur, $file, 'return_to_authority', 'يرجى مراجعة القرار')->assertOk();

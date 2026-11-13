@@ -315,10 +315,6 @@ class RequestVisibility
                         $status->whereNull('workflow_transitions.required_status_id')
                             ->orWhereColumn('workflow_transitions.required_status_id', 'requests.status_id');
                     })
-                    ->where(function ($overdue) {
-                        $overdue->where('workflow_transitions.action', '!=', 'deadline_expired')
-                            ->orWhereNotNull('requests.overdue_at');
-                    })
                     ->whereNotIn('requests.status_id', $terminalStatusIds);
             });
         });

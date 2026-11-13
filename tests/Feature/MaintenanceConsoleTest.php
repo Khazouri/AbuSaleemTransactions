@@ -129,7 +129,8 @@ class MaintenanceConsoleTest extends TestCase
 
     public function test_after_upload_fails_and_names_what_the_reseed_left_broken(): void
     {
-        WorkflowTransition::query()->where('action', 'deadline_expired')->firstOrFail()->replicate()->save();
+        // An exception row, which the reseed's generic delete leaves alone.
+        WorkflowTransition::query()->where('action', 'return_to_study')->firstOrFail()->replicate()->save();
 
         $response = $this->actingAs($this->admin(), 'sanctum')
             ->postJson('/api/maintenance/run', ['command' => 'after-upload'])

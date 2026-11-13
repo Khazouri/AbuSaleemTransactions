@@ -8,6 +8,7 @@ use App\Models\RequestStatus;
 use App\Models\RequestType;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Models\WorkflowTransition;
 use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -47,35 +48,23 @@ class RequestSlaTest extends TestCase
         $this->assertNull($closed->overdue_at);
     }
 
-    public function test_only_flagged_overdue_work_exposes_and_executes_the_deadline_escalation_path(): void
+    /**
+     * High open items (2026-11-13) — overdue is a flag on the dashboard and
+     * in reports, not a move (user decision). R08's escalation sent every
+     * late file to الوزير's stage although no committee had sent it there.
+     */
+    public function test_an_overdue_file_is_flagged_but_not_escalated(): void
     {
         $this->seed(DatabaseSeeder::class);
         Carbon::setTestNow('2026-01-20 08:00:00');
         $requestRecord = $this->request('requirements_check', 'in_review', '2026-01-01 10:00:00');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
-        $service = app(WorkflowService::class);
-
-        $this->assertNotContains('deadline_expired', $service->availableActions($requestRecord, $admin));
 
         $this->artisan('requests:flag-overdue')->assertExitCode(0);
 
-        $this->assertContains('deadline_expired', $service->availableActions($requestRecord->refresh(), $admin));
-
-        $requestRecord = $service->transition(
-            $requestRecord,
-            'deadline_expired',
-            $admin,
-            'انتهت المهلة النظامية للطلب.',
-        );
-
-        $this->assertSame('local_governance_ministry', $requestRecord->currentStage->code);
-        $this->assertSame('in_review', $requestRecord->status->code);
-        $this->assertDatabaseHas('request_stage_logs', [
-            'request_id' => $requestRecord->id,
-            'action' => 'deadline_expired',
-            'comment' => 'انتهت المهلة النظامية للطلب.',
-            'to_stage_id' => WorkflowStage::where('code', 'local_governance_ministry')->value('id'),
-        ]);
+        $this->assertTrue($requestRecord->refresh()->isOverdue());
+        $this->assertNotContains('deadline_expired', app(WorkflowService::class)->availableActions($requestRecord, $admin));
+        $this->assertSame(0, WorkflowTransition::where('action', 'deadline_expired')->count());
     }
 
     private function request(string $stageCode, string $status, string $submittedAt): Request

@@ -55,7 +55,6 @@ class SettingSeeder extends Seeder
             'meeting_due' => '#0277bd',
             'completion' => '#ef6c00',
             'workflow_step' => '#558b2f',
-            'overdue' => '#c62828',
             'meeting_duty' => '#00695c',
             'post_decision' => '#4527a0',
             'open_record' => '#795548',
@@ -63,5 +62,9 @@ class SettingSeeder extends Seeder
         ] as $source => $color) {
             Setting::firstOrCreate(['key' => Setting::TASK_COLOR_PREFIX.$source], ['value' => $color]);
         }
+
+        // High open items (2026-11-13) — the overdue escalation is gone, and
+        // with it that inbox source; Settings lists every task_color_* row.
+        Setting::where('key', Setting::TASK_COLOR_PREFIX.'overdue')->delete();
     }
 }

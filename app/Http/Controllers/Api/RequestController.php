@@ -94,9 +94,9 @@ class RequestController extends Controller
      * MeetingResultsController::recordAuthorityDecisions() takes it instead.
      *
      * Only for a file a meeting actually recommended on: one R08 escalated by
-     * `deadline_expired` reaches the ministry with no توصية (or only a
-     * deferral), so no meeting page can take it, and refusing it here too
-     * left it decidable nowhere.
+     * `deadline_expired` (removed 2026-11-13; such files may still be open)
+     * reached the ministry with no توصية (or only a deferral), so no meeting
+     * page can take it, and refusing it here too left it decidable nowhere.
      */
     public static function authorityStageRefusal(Request $requestRecord, string $action): ?string
     {

@@ -11,7 +11,7 @@
  *   one nothing reaches whose rules only let files already parked there
  *   leave (a "drain", e.g. administrative_routing since the manager's
  *   one-click approve). An edge to or from the side column is `aside`;
- * - a rule that stays on its stage (cancel, defer, deadline_expired) is
+ * - a rule that stays on its stage (cancel, defer) is
  *   listed on the node — Vue Flow draws a self-loop as a dot on the node;
  * - rules between the same two stages share one edge;
  * - an edge to the next stage runs down the middle; one that skips stages

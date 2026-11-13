@@ -184,8 +184,6 @@ class WorkflowValidatorTest extends TestCase
             ->where('action', 'register')
             ->delete();
 
-        // final_approval_archiving stays reachable here: every open stage's
-        // `deadline_expired` exception leads to the ministry, which approves into it.
         $this->assertContains(['unreachable', 'receive_from_committee'], $this->errorCodes());
     }
 

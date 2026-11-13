@@ -9,7 +9,6 @@ use App\Models\Role;
 use App\Models\User;
 use App\Notifications\ActionRequiredNotification;
 use App\Notifications\RequestNoticeCopyNotification;
-use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -258,11 +257,9 @@ class AuthorityDecisionTest extends TestCase
         $this->recordResults($rapporteur, $meeting, [$item->id => ['recommendation' => 'defer', 'note' => 'يؤجل']])->assertOk();
         $deferred = $item->request->fresh();
 
-        $admin = $this->userWith('R08');
         $office = $this->userWith('R06');
         foreach ([$unlisted, $deferred] as $file) {
-            $file->forceFill(['overdue_at' => now()])->save();
-            app(WorkflowService::class)->transition($file->fresh(), 'deadline_expired', $admin, 'انتهت المهلة النظامية.');
+            $this->escalatedBeforeTheRemoval($file);
 
             $this->actingAs($office, 'sanctum')
                 ->getJson("/api/requests/{$file->id}")
