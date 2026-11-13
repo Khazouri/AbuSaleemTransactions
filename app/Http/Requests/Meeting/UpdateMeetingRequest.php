@@ -22,7 +22,8 @@ class UpdateMeetingRequest extends FormRequest
             // store() mints it, the same "never client-supplied when derivable"
             // rule appellant_user_id and original_decision_id already follow.
             'title' => ['sometimes', 'required', 'string', 'max:255'],
-            'scheduled_at' => ['sometimes', 'required', 'date'],
+            // High open items (2026-11-13) — a date change cannot move it into the past either.
+            'scheduled_at' => ['sometimes', 'required', 'date', 'after:now'],
             'location' => ['nullable', 'string', 'max:255'],
             'expected_duration_minutes' => ['nullable', 'integer', 'min:1'],
             'agenda_deadline' => ['nullable', 'date'],
@@ -43,6 +44,7 @@ class UpdateMeetingRequest extends FormRequest
         return [
             'title.required' => 'عنوان الاجتماع مطلوب.',
             'scheduled_at.required' => 'موعد الاجتماع مطلوب.',
+            'scheduled_at.after' => 'يجب أن يكون موعد الاجتماع في المستقبل.',
             'status.in' => 'حالة الاجتماع غير صالحة.',
         ];
     }

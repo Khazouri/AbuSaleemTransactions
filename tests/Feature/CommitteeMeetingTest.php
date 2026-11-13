@@ -101,6 +101,47 @@ class CommitteeMeetingTest extends TestCase
             ->assertJsonPath('data.agenda_deadline', "{$day}T07:00:00+00:00");
     }
 
+    /** High open items (2026-11-13) — a meeting is scheduled before it is held. */
+    public function test_a_meeting_cannot_be_scheduled_in_the_past(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $rapporteur = $this->userWithRole('R02');
+        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
+        $this->fillFiveSeats($committee, ['rapporteur' => $rapporteur]);
+
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson('/api/meetings', [
+                'committee_id' => $committee->id,
+                'title' => 'اجتماع بتاريخ سابق',
+                'scheduled_at' => now()->subHour()->toIso8601String(),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['scheduled_at' => 'يجب أن يكون موعد الاجتماع في المستقبل.']);
+    }
+
+    public function test_a_meeting_date_cannot_be_moved_into_the_past(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $rapporteur = $this->userWithRole('R02');
+        $committee = Committee::create(['name_ar' => 'لجنة شؤون الموظفين']);
+        $this->fillFiveSeats($committee, ['rapporteur' => $rapporteur]);
+        $meetingId = $this->actingAs($rapporteur, 'sanctum')
+            ->postJson('/api/meetings', [
+                'committee_id' => $committee->id,
+                'title' => 'اجتماع قادم',
+                'scheduled_at' => now()->addDay()->toIso8601String(),
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->actingAs($rapporteur, 'sanctum')
+            ->putJson("/api/meetings/{$meetingId}", ['scheduled_at' => now()->subDay()->toIso8601String()])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['scheduled_at' => 'يجب أن يكون موعد الاجتماع في المستقبل.']);
+    }
+
     /**
      * Stage 84 — you may not convene a committee you do not sit on. [D] Art.
      * 12 (أ) 1 gives الدعوة إلى اجتماعات اللجنة to that committee's own chair
