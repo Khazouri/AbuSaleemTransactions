@@ -733,6 +733,8 @@
     "fileSection": "قسم الملف (الملحق 14)",
     "chooseFileSection": "اختر القسم…",
     "fileSectionHint": "يمنع حفظ الملفات بصورة عشوائية دون تصنيف.",
+    "replaces": "يحل محل المستند المرفوض",
+    "replacesNone": "لا يحل محل مستند",
     "documentType": "نوع المستند",
     "chooseDocumentType": "اختر المستند…",
     "documentTypeHint": "حدد لكل ملف أي مستند من مستندات نوع الطلب يقدمه.",

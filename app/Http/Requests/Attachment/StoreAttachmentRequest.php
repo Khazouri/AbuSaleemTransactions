@@ -56,6 +56,15 @@ class StoreAttachmentRequest extends FormRequest
                 'nullable',
                 Rule::in(array_keys(Attachment::FILE_SECTIONS)),
             ],
+            // High open items (2026-11-13) — the rejected «مستند آخر» this
+            // upload replaces. Only an untyped upload names one: a typed
+            // document already replaces its own type. Which files qualify is
+            // the controller's check (DocumentReview::replaceable()).
+            'replaces_attachment_id' => [
+                Rule::prohibitedIf(fn (): bool => $this->input('required_document_key') !== RequestType::OTHER_DOCUMENT),
+                'nullable',
+                'integer',
+            ],
         ];
     }
 
@@ -71,6 +80,8 @@ class StoreAttachmentRequest extends FormRequest
             'required_document_key.in' => 'نوع المستند المحدد لا يخص نوع هذا الطلب.',
             'file_section.required' => 'يجب تحديد قسم الملف الذي يحفظ فيه المستند.',
             'file_section.in' => 'قسم الملف غير صالح.',
+            'replaces_attachment_id.prohibited' => 'لا يحل محل المستند المرفوض إلا مستند من نوع «مستند آخر».',
+            'replaces_attachment_id.integer' => 'المستند المستبدل غير صالح.',
         ];
     }
 

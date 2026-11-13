@@ -16,6 +16,8 @@ use App\Services\DocumentCompletenessService;
 use App\Services\DocumentReview;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -147,6 +149,69 @@ class DocumentReviewTest extends TestCase
             ->assertJsonCount(1, 'data.control_gates.intake.record.items');
     }
 
+    /**
+     * High open items (2026-11-13) — a «مستند آخر» has no type for a newer
+     * upload to replace it under, so the filer names the file it replaces
+     * (user decision). The named file leaves the review; it stays on the file.
+     */
+    public function test_a_rejected_other_document_is_replaced_by_the_upload_naming_it(): void
+    {
+        Storage::fake('local');
+        $reviewer = $this->userWithRole('R02');
+        $requestRecord = $this->filedBySomeoneWithAnEmployeeNumber();
+        $rejected = $this->attach($requestRecord, 'مستند إضافي.pdf', RequestType::OTHER_DOCUMENT);
+        $this->preview($reviewer, $rejected);
+        $this->recordIntake($reviewer, $requestRecord, [$rejected->id => 'not_approved']);
+
+        // Returned to the filer for استكمال النواقص, the only stage they attach at.
+        $requestRecord->update(['current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id')]);
+        $filer = $requestRecord->createdBy;
+
+        $this->actingAs($filer, 'sanctum')
+            ->getJson("/api/requests/{$requestRecord->id}/document-options")
+            ->assertOk()
+            ->assertJsonPath('data.replaceable', [['id' => $rejected->id, 'name' => 'مستند إضافي.pdf']]);
+
+        $replacementId = $this->upload($filer, $requestRecord, ['replaces_attachment_id' => $rejected->id])
+            ->assertCreated()
+            ->json('data.id');
+
+        $requestRecord->update(['current_stage_id' => WorkflowStage::where('code', 'requirements_check')->value('id')]);
+        $this->preview($reviewer, Attachment::findOrFail($replacementId));
+
+        $this->recordIntake($reviewer, $requestRecord, [$replacementId => 'approved'])
+            ->assertJsonPath('data.control_gates.intake.refusal', null)
+            ->assertJsonCount(1, 'data.control_gates.intake.record.items')
+            ->assertJsonPath('data.control_gates.intake.record.items.0.attachment_id', $replacementId);
+    }
+
+    public function test_a_replacement_must_name_a_rejected_other_document_of_this_request(): void
+    {
+        Storage::fake('local');
+        $reviewer = $this->userWithRole('R02');
+        $requestRecord = $this->filedBySomeoneWithAnEmployeeNumber();
+        $approved = $this->attach($requestRecord, 'مقبول.pdf', RequestType::OTHER_DOCUMENT);
+        $rejected = $this->attach($requestRecord, 'مرفوض.pdf', RequestType::OTHER_DOCUMENT);
+        $this->preview($reviewer, $approved);
+        $this->preview($reviewer, $rejected);
+        $this->recordIntake($reviewer, $requestRecord, [$approved->id => 'approved', $rejected->id => 'not_approved']);
+        $elsewhere = $this->attach($this->filedBySomeoneWithAnEmployeeNumber(), 'ملف آخر.pdf', RequestType::OTHER_DOCUMENT);
+
+        $requestRecord->update(['current_stage_id' => WorkflowStage::where('code', 'receive_from_municipality')->value('id')]);
+        $filer = $requestRecord->createdBy;
+
+        foreach ([$approved->id, $elsewhere->id] as $notReplaceable) {
+            $this->upload($filer, $requestRecord, ['replaces_attachment_id' => $notReplaceable])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('replaces_attachment_id');
+        }
+
+        $this->upload($filer, $requestRecord, [
+            'replaces_attachment_id' => $rejected->id,
+            'required_document_key' => array_key_first($requestRecord->requestType->documentOptions()),
+        ])->assertStatus(422)->assertJsonValidationErrors('replaces_attachment_id');
+    }
+
     public function test_a_file_added_after_the_review_reopens_it_and_unknown_ids_are_dropped(): void
     {
         $reviewer = $this->userWithRole('R02');
@@ -253,6 +318,26 @@ class DocumentReviewTest extends TestCase
                 'requires_central_approval' => false,
             ],
         ]);
+    }
+
+    /** A file at the قيد whose subject can attach (Attachment::NO_EMPLOYEE_NUMBER). */
+    private function filedBySomeoneWithAnEmployeeNumber(): Request
+    {
+        $requestRecord = $this->requestAt('requirements_check', 'in_review');
+        $requestRecord->createdBy->update(['employee_number' => (string) fake()->unique()->numberBetween(10000, 99999)]);
+        $requestRecord->update(['subject_user_id' => $requestRecord->created_by_user_id]);
+
+        return $requestRecord->fresh();
+    }
+
+    private function upload(User $filer, Request $requestRecord, array $fields)
+    {
+        return $this->actingAs($filer, 'sanctum')->post("/api/requests/{$requestRecord->id}/attachments", [
+            'file' => UploadedFile::fake()->create('بديل.pdf', 10, 'application/pdf'),
+            'required_document_key' => RequestType::OTHER_DOCUMENT,
+            'file_section' => Attachment::DEFAULT_SUBMITTER_SECTION,
+            ...$fields,
+        ], ['Accept' => 'application/json']);
     }
 
     private function attach(Request $requestRecord, string $name, ?string $key = null): Attachment

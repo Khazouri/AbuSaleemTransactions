@@ -18,7 +18,9 @@ use Illuminate\Support\Collection;
  * Attachments are never deleted, so a rejected file could hold a gate forever.
  * A newer upload of the same document type replaces it in the list instead;
  * the rejected copy stays on the file as history. Untyped files and «مستند آخر»
- * have no type to be replaced under, so each is its own row.
+ * have no type to be replaced under, so each is its own row, and the upload
+ * that replaces one names it (`replaces_attachment_id`, user decision
+ * 2026-11-13; see replaceable()).
  */
 class DocumentReview
 {
@@ -57,6 +59,7 @@ class DocumentReview
     {
         $files = $requestRecord->attachments()
             ->when($this->onlyKeys !== null, fn ($query) => $query->whereIn('required_document_key', $this->onlyKeys))
+            ->whereNotIn('id', $requestRecord->attachments()->whereNotNull('replaces_attachment_id')->select('replaces_attachment_id'))
             ->orderBy('id')
             ->get(['id', 'request_id', 'original_name', 'required_document_key']);
 
@@ -68,6 +71,26 @@ class DocumentReview
         return $files
             ->filter(fn (Attachment $file): bool => ! $this->isTyped($file)
                 || $latestPerType[$file->required_document_key] === $file->id)
+            ->values();
+    }
+
+    /**
+     * High open items (2026-11-13) — the files under review that only a
+     * named replacement can take out: untyped or «مستند آخر», and marked
+     * «غير معتمد» on either gate's card.
+     *
+     * @return Collection<int, Attachment>
+     */
+    public function replaceable(Request $requestRecord): Collection
+    {
+        $rejected = collect([$requestRecord->intake_gate['documents'] ?? null, $requestRecord->employment_file['documents'] ?? null])
+            ->filter(fn (mixed $verdicts): bool => is_array($verdicts))
+            ->flatMap(fn (array $verdicts): array => array_keys($verdicts, 'not_approved', true))
+            ->map(fn (int|string $id): int => (int) $id)
+            ->all();
+
+        return $this->attachments($requestRecord)
+            ->filter(fn (Attachment $file): bool => ! $this->isTyped($file) && in_array($file->id, $rejected, true))
             ->values();
     }
 

@@ -733,6 +733,8 @@
     "fileSection": "File section (Appendix 14)",
     "chooseFileSection": "Choose a section…",
     "fileSectionHint": "Documents may not be stored without a classification.",
+    "replaces": "Replaces the rejected document",
+    "replacesNone": "Replaces no document",
     "documentType": "Document",
     "chooseDocumentType": "Choose the document…",
     "documentTypeHint": "For each file, say which of the request type's documents it provides.",

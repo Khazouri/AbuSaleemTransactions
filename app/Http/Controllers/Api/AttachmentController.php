@@ -10,12 +10,14 @@ use App\Models\AttachmentPreview;
 use App\Models\Request;
 use App\Models\RequestType;
 use App\Services\DocumentCompletenessService;
+use App\Services\DocumentReview;
 use App\Services\EmploymentFilePreparationService;
 use App\Services\RequestVisibility;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -57,6 +59,13 @@ class AttachmentController extends Controller
             return response()->json(['message' => Attachment::NO_EMPLOYEE_NUMBER], 422);
         }
 
+        // High open items (2026-11-13) — only a file still holding a gate
+        // as a rejected «مستند آخر» of this request can be replaced.
+        $replaces = $request->validated('replaces_attachment_id');
+        if ($replaces !== null && ! app(DocumentReview::class)->replaceable($requestRecord)->contains('id', (int) $replaces)) {
+            throw ValidationException::withMessages(['replaces_attachment_id' => ['لا يمكن استبدال هذا المستند.']]);
+        }
+
         $file = $request->file('file');
         $disk = 'local';
 
@@ -84,6 +93,7 @@ class AttachmentController extends Controller
                 'required_document_key' => $documentKey,
                 // Stage 80 — Appendix 14's folder for this document.
                 'file_section' => $fileSection,
+                'replaces_attachment_id' => $replaces,
                 'uploaded_by_user_id' => $request->user()->id,
             ]);
         } catch (Throwable $exception) {
@@ -136,6 +146,10 @@ class AttachmentController extends Controller
                 'outstanding' => collect($completeness->uncovered($type, $coveredKeys))
                     ->map(fn (array $document, string $key): array => ['key' => $key, ...$document])
                     ->values(),
+                // High open items (2026-11-13) — the rejected «مستند آخر» files an upload may name as replaced.
+                'replaceable' => app(DocumentReview::class)->replaceable($requestRecord)
+                    ->map(fn (Attachment $file): array => ['id' => $file->id, 'name' => $file->original_name])
+                    ->all(),
             ],
         ]);
     }
