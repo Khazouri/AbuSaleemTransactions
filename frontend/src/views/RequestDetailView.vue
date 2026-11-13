@@ -315,7 +315,7 @@ function onWizardUpdated(updated) {
       <!-- Decision wizard — sub-project 1. -->
       <section v-if="canDecide" class="card card-flat card-pad decide">
         <div class="decide-head">
-          <p>{{ t('decisionWizard.prompt') }}</p>
+          <p>{{ t(quickChoices.length ? 'decisionWizard.prompt' : 'decisionWizard.promptOther') }}</p>
           <button class="primary" type="button" @click="wizardOpen = true">{{ t('decisionWizard.open') }}</button>
         </div>
         <ul v-if="quickChoices.length" class="decide-options" :aria-label="t('decisionWizard.quick.label')">

@@ -108,6 +108,21 @@ class RequestController extends Controller
     }
 
     /**
+     * High open items (2026-11-13) — the committee's three توصيات are written
+     * only by MeetingResultsController::store() (the paper sitting,
+     * 2026-10-18), which applies them through WorkflowService directly. The
+     * rows stay R02's so that path can pick them, so the request page has to
+     * refuse them itself; it offered defer/reject even during legal review.
+     */
+    public static function committeeStageRefusal(Request $requestRecord, string $action): ?string
+    {
+        return in_array($action, DecisionController::ACTIONS, true)
+            && $requestRecord->currentStage()->value('code') === 'receive_from_committee'
+            ? 'تُسجَّل توصية اللجنة من صفحة الاجتماع.'
+            : null;
+    }
+
+    /**
      * Stage 78 — [D] Appendix 63's own sentence, enforced: "وتمنع المنظومة
      * الإلكترونية الانتقال إذا كانت متطلبات البوابة غير مكتملة".
      *
@@ -186,7 +201,8 @@ class RequestController extends Controller
      */
     private function blockReason(Request $requestRecord, string $action, bool $hasOpenApprovalReturn): ?string
     {
-        if (($meetingPage = self::authorityStageRefusal($requestRecord, $action)) !== null) {
+        if (($meetingPage = self::committeeStageRefusal($requestRecord, $action)
+            ?? self::authorityStageRefusal($requestRecord, $action)) !== null) {
             return $meetingPage;
         }
 
