@@ -483,9 +483,11 @@ Key architectural facts worth knowing before changing things:
   AGENT_NOTES.md entry in the same commit as the work it
   describes, so the record and the change cannot drift apart. Pushing and
   opening a PR stay on explicit request — this covers committing only.
-- **A task that changes what a screen shows names the clips to re-record**: add an OPEN_ITEMS entry listing the
-  `walkthrough_videos` codes affected. The recording toolkit lives outside the repo in `C:\Users\Dev\walkthrough`
-  and runs only against a scratch SQLite database.
+- **A task that changes what a screen shows names the clips to re-record**: add the affected `walkthrough_videos`
+  codes to the OPEN_ITEMS entry «Walkthrough clips waiting to be re-recorded». **Re-recording is halted** (user
+  decision 2026-11-13): don't script, record or replace any clip until the user says to resume. Only add to that list.
+  The recording toolkit lives outside the repo in `C:\Users\Dev\walkthrough` and runs only against a scratch SQLite
+  database.
 - **One branch per task** (user decision 2026-10-09): start every new task on
   a fresh branch cut from `main` (`git switch main && git switch -c
   <type>/<short-name>`). When the task is verified, commit on that branch,
