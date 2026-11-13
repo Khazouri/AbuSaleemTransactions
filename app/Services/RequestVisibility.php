@@ -315,6 +315,7 @@ class RequestVisibility
                         $status->whereNull('workflow_transitions.required_status_id')
                             ->orWhereColumn('workflow_transitions.required_status_id', 'requests.status_id');
                     })
+                    ->whereNotIn('workflow_transitions.action', WorkflowService::REMOVED_ACTIONS)
                     ->whereNotIn('requests.status_id', $terminalStatusIds);
             });
         });

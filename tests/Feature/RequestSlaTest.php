@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\WorkflowTransitionException;
 use App\Models\Department;
 use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
+use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
 use App\Models\WorkflowTransition;
@@ -65,6 +67,35 @@ class RequestSlaTest extends TestCase
         $this->assertTrue($requestRecord->refresh()->isOverdue());
         $this->assertNotContains('deadline_expired', app(WorkflowService::class)->availableActions($requestRecord, $admin));
         $this->assertSame(0, WorkflowTransition::where('action', 'deadline_expired')->count());
+    }
+
+    /**
+     * A version copied before the removal keeps its `deadline_expired` rows,
+     * which the seeder (Standard v1 only) does not clean. The engine refuses
+     * the action by name, so such a row can never move a file.
+     */
+    public function test_a_leftover_escalation_rule_is_never_offered_or_applied(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $requestRecord = $this->request('requirements_check', 'in_review', now()->toDateTimeString());
+        $requestRecord->forceFill(['overdue_at' => now()])->save();
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        WorkflowTransition::create([
+            'from_stage_id' => $requestRecord->current_stage_id,
+            'to_stage_id' => WorkflowStage::where('code', 'local_governance_ministry')->value('id'),
+            'action' => 'deadline_expired',
+            'required_role_id' => Role::where('code', 'R08')->value('id'),
+            'set_status_id' => RequestStatus::where('code', 'in_review')->value('id'),
+            'is_exception' => true,
+            'requires_comment' => true,
+            'order_no' => 90,
+        ]);
+        $service = app(WorkflowService::class);
+
+        $this->assertNotContains('deadline_expired', $service->availableActions($requestRecord->refresh(), $admin));
+
+        $this->expectException(WorkflowTransitionException::class);
+        $service->transition($requestRecord, 'deadline_expired', $admin, 'انتهت المهلة.');
     }
 
     private function request(string $stageCode, string $status, string $submittedAt): Request

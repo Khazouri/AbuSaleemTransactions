@@ -176,7 +176,6 @@ class RequestLifecycleController extends Controller
         ]]);
     }
 
-    /** [D] Appendix 30 step 1. */
     /**
      * High open items (2026-11-13) — a closed file takes no new conflict or
      * special case. The wizard always withheld both; the endpoints did not,
@@ -188,6 +187,7 @@ class RequestLifecycleController extends Controller
         return $requestRecord->closed_at !== null ? 'لا يجوز التسجيل على معاملة مقفلة.' : null;
     }
 
+    /** [D] Appendix 30 step 1. */
     public function storeDocumentConflict(
         StoreDocumentConflictRequest $request,
         Request $requestRecord,

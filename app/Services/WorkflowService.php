@@ -48,6 +48,14 @@ class WorkflowService
     // standard has no third post-committee approver, only the mayor and, when
     // required, the ministry (see AGENT_NOTES.md). A full chain is now 5
     // levels, not 6.
+    /**
+     * High open items (2026-11-13) — actions the engine no longer takes. The
+     * seeder deletes R08's `deadline_expired` from Standard v1 only, so a
+     * version copied before then keeps the rows; refusing the action by name
+     * means no such row can be offered, applied, or grant sight of a file.
+     */
+    public const REMOVED_ACTIONS = ['deadline_expired'];
+
     private const APPROVAL_LEVELS = [
         'requirements_check' => 1,
         'receive_from_committee' => 2,
@@ -122,6 +130,7 @@ class WorkflowService
 
         return WorkflowTransition::query()
             ->where('from_stage_id', $requestRecord->current_stage_id)
+            ->whereNotIn('action', self::REMOVED_ACTIONS)
             ->where(function ($query) use ($requestRecord) {
                 $query->whereNull('request_type_id');
 
@@ -837,6 +846,7 @@ class WorkflowService
         $candidates = WorkflowTransition::query()
             ->where('from_stage_id', $requestRecord->current_stage_id)
             ->where('action', $action)
+            ->whereNotIn('action', self::REMOVED_ACTIONS)
             ->where(function ($query) use ($requestRecord) {
                 $query->whereNull('request_type_id');
 
