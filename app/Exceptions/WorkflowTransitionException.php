@@ -13,11 +13,6 @@ use DomainException;
  */
 class WorkflowTransitionException extends DomainException
 {
-    public static function deadlineNotExpired(): self
-    {
-        return new self('لا يمكن تصعيد الطلب قبل انتهاء مهلة الإنجاز.');
-    }
-
     public static function requestNotPersisted(): self
     {
         return new self('يجب حفظ الطلب قبل تنفيذ إجراء سير العمل.');

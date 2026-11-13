@@ -13,7 +13,7 @@ const RECOMMENDATIONS = ['approve', 'decline']
 
 // Asked once more in a dialog before they run (user decision 2026-10-26): they
 // end, refuse, return or escalate the file, or make its result final.
-const CONFIRMED = [...DESTRUCTIVE, 'deadline_expired', 'confirm_decision', 'require_completion',
+const CONFIRMED = [...DESTRUCTIVE, 'confirm_decision', 'require_completion',
   'return_to_employee', 'return_missing_docs', 'return_to_study', 'return_to_authority']
 
 export const needsConfirm = (item) => (item?.kind === 'act'

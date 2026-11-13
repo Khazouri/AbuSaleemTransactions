@@ -90,7 +90,6 @@ class PendingTaskCollector
             $this->meetingsDue($actor),
             $this->myCompletions($actor),
             $this->workflowSteps($actor),
-            $this->overdue($actor),
             $this->meetingDuties($actor),
             $this->postDecision($actor),
             $this->openRecords($actor),
@@ -355,32 +354,6 @@ class PendingTaskCollector
             $actor,
             $this->visibleRequests($actor)->whereIn('current_stage_id', $stageIds),
             $isStep,
-        ));
-    }
-
-    /**
-     * My-tasks completeness (2026-09-26) — an overdue file R08 may escalate.
-     * The ministry's own `deadline_expired` row loops onto its own stage, and
-     * nothing clears `overdue_at`, so a file there would be a task forever.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function overdue(User $actor): ?array
-    {
-        $rules = WorkflowTransition::query()
-            ->where('action', 'deadline_expired')
-            ->whereColumn('to_stage_id', '!=', 'from_stage_id');
-
-        if (! $actor->roles()->whereIn('roles.id', (clone $rules)->select('required_role_id'))->exists()) {
-            return null;
-        }
-
-        return $this->tasks('overdue', $this->requestsOfferingAction(
-            $actor,
-            $this->visibleRequests($actor)
-                ->whereNotNull('overdue_at')
-                ->whereIn('current_stage_id', $rules->pluck('from_stage_id')),
-            fn (WorkflowTransition $rule) => $rule->action === 'deadline_expired',
         ));
     }
 

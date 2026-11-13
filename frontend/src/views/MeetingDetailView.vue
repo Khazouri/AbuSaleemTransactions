@@ -13,6 +13,7 @@ import AppModal from '../components/AppModal.vue'
 import AuthorityDecisionForm from '../components/AuthorityDecisionForm.vue'
 import ConfirmDecisionsForm from '../components/ConfirmDecisionsForm.vue'
 import GuestInviteForm from '../components/GuestInviteForm.vue'
+import { toApiDateTime, toLocalInput } from '../lib/dateInput'
 import ImageSlideshow from '../components/ImageSlideshow.vue'
 import MeetingDutiesCard from '../components/MeetingDutiesCard.vue'
 import api from '../lib/api'
@@ -100,15 +101,14 @@ const canProposeDate = computed(() => meeting.value
 
 watch(meeting, (value) => {
   if (!value?.scheduled_at) return
-  const at = new Date(value.scheduled_at)
-  newDate.value = new Date(at.getTime() - at.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  newDate.value = toLocalInput(value.scheduled_at)
 })
 
 async function proposeDate() {
   savingMeeting.value = true
   actionError.value = ''
   try {
-    const { data } = await api.put(`/meetings/${meeting.value.id}`, { scheduled_at: newDate.value })
+    const { data } = await api.put(`/meetings/${meeting.value.id}`, { scheduled_at: toApiDateTime(newDate.value) })
     meeting.value = data.data
     showProposeDate.value = false
   } catch (requestError) {

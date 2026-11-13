@@ -176,12 +176,25 @@ class RequestLifecycleController extends Controller
         ]]);
     }
 
+    /**
+     * High open items (2026-11-13) — a closed file takes no new conflict or
+     * special case. The wizard always withheld both; the endpoints did not,
+     * so a caller that skipped it could still write them. RequestActs reads
+     * this same refusal.
+     */
+    public static function closedFileRefusal(Request $requestRecord): ?string
+    {
+        return $requestRecord->closed_at !== null ? 'لا يجوز التسجيل على معاملة مقفلة.' : null;
+    }
+
     /** [D] Appendix 30 step 1. */
     public function storeDocumentConflict(
         StoreDocumentConflictRequest $request,
         Request $requestRecord,
         DocumentConflictService $conflicts,
     ): JsonResponse {
+        abort_if(($closed = self::closedFileRefusal($requestRecord)) !== null, 422, (string) $closed);
+
         $conflict = $conflicts->record($requestRecord, $request->validated(), $request->user());
 
         return response()->json(['data' => ['id' => $conflict->id]], 201);
@@ -207,6 +220,8 @@ class RequestLifecycleController extends Controller
         Request $requestRecord,
         SpecialCaseRules $rules,
     ): JsonResponse {
+        abort_if(($closed = self::closedFileRefusal($requestRecord)) !== null, 422, (string) $closed);
+
         $data = $request->validated();
 
         if (($refusal = $rules->refusalReason($data['case_kind'], $data['determinations'])) !== null) {

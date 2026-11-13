@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\WorkflowTransitionException;
 use App\Models\Department;
 use App\Models\Request;
 use App\Models\RequestStatus;
 use App\Models\RequestType;
+use App\Models\Role;
 use App\Models\User;
 use App\Models\WorkflowStage;
+use App\Models\WorkflowTransition;
 use App\Services\WorkflowService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -47,35 +50,52 @@ class RequestSlaTest extends TestCase
         $this->assertNull($closed->overdue_at);
     }
 
-    public function test_only_flagged_overdue_work_exposes_and_executes_the_deadline_escalation_path(): void
+    /**
+     * High open items (2026-11-13) — overdue is a flag on the dashboard and
+     * in reports, not a move (user decision). R08's escalation sent every
+     * late file to الوزير's stage although no committee had sent it there.
+     */
+    public function test_an_overdue_file_is_flagged_but_not_escalated(): void
     {
         $this->seed(DatabaseSeeder::class);
         Carbon::setTestNow('2026-01-20 08:00:00');
         $requestRecord = $this->request('requirements_check', 'in_review', '2026-01-01 10:00:00');
         $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
-        $service = app(WorkflowService::class);
-
-        $this->assertNotContains('deadline_expired', $service->availableActions($requestRecord, $admin));
 
         $this->artisan('requests:flag-overdue')->assertExitCode(0);
 
-        $this->assertContains('deadline_expired', $service->availableActions($requestRecord->refresh(), $admin));
+        $this->assertTrue($requestRecord->refresh()->isOverdue());
+        $this->assertNotContains('deadline_expired', app(WorkflowService::class)->availableActions($requestRecord, $admin));
+        $this->assertSame(0, WorkflowTransition::where('action', 'deadline_expired')->count());
+    }
 
-        $requestRecord = $service->transition(
-            $requestRecord,
-            'deadline_expired',
-            $admin,
-            'انتهت المهلة النظامية للطلب.',
-        );
-
-        $this->assertSame('local_governance_ministry', $requestRecord->currentStage->code);
-        $this->assertSame('in_review', $requestRecord->status->code);
-        $this->assertDatabaseHas('request_stage_logs', [
-            'request_id' => $requestRecord->id,
-            'action' => 'deadline_expired',
-            'comment' => 'انتهت المهلة النظامية للطلب.',
+    /**
+     * A version copied before the removal keeps its `deadline_expired` rows,
+     * which the seeder (Standard v1 only) does not clean. The engine refuses
+     * the action by name, so such a row can never move a file.
+     */
+    public function test_a_leftover_escalation_rule_is_never_offered_or_applied(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $requestRecord = $this->request('requirements_check', 'in_review', now()->toDateTimeString());
+        $requestRecord->forceFill(['overdue_at' => now()])->save();
+        $admin = User::where('email', 'admin@abusaleem.test')->firstOrFail();
+        WorkflowTransition::create([
+            'from_stage_id' => $requestRecord->current_stage_id,
             'to_stage_id' => WorkflowStage::where('code', 'local_governance_ministry')->value('id'),
+            'action' => 'deadline_expired',
+            'required_role_id' => Role::where('code', 'R08')->value('id'),
+            'set_status_id' => RequestStatus::where('code', 'in_review')->value('id'),
+            'is_exception' => true,
+            'requires_comment' => true,
+            'order_no' => 90,
         ]);
+        $service = app(WorkflowService::class);
+
+        $this->assertNotContains('deadline_expired', $service->availableActions($requestRecord->refresh(), $admin));
+
+        $this->expectException(WorkflowTransitionException::class);
+        $service->transition($requestRecord, 'deadline_expired', $admin, 'انتهت المهلة.');
     }
 
     private function request(string $stageCode, string $status, string $submittedAt): Request

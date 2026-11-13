@@ -6,6 +6,7 @@ use App\Models\Appeal;
 use App\Models\AppealStatus;
 use App\Models\Committee;
 use App\Models\Decision;
+use App\Models\RequestStatus;
 use App\Models\WorkflowStage;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -68,6 +69,46 @@ class PaperMeetingResultsTest extends TestCase
         $this->actingAs($rapporteur, 'sanctum')
             ->get("/api/meetings/{$meeting->id}/minutes-file")
             ->assertOk();
+    }
+
+    /**
+     * High open items (2026-11-13) — the committee's three outcomes are
+     * written only by the results form, so the request page never offers
+     * them, at any status the file holds at the committee stage.
+     */
+    public function test_the_request_page_refuses_the_committees_outcomes(): void
+    {
+        [$rapporteur] = $this->paperMeeting(0);
+        $refusal = 'تُسجَّل توصية اللجنة من صفحة الاجتماع.';
+
+        foreach (['under_legal_review', 'ready'] as $status) {
+            $file = $this->committeeFile();
+            $file->update(['status_id' => RequestStatus::where('code', $status)->value('id')]);
+
+            $page = $this->actingAs($rapporteur, 'sanctum')->getJson("/api/requests/{$file->id}")->assertOk();
+
+            $this->assertEmpty(array_intersect(['approve', 'defer', 'reject_by_committee'], $page->json('data.available_actions')), $status);
+            $blocked = collect($page->json('data.blocked_transitions'))->pluck('reason', 'action');
+            foreach (['defer', 'reject_by_committee'] as $action) {
+                $this->assertSame($refusal, $blocked[$action] ?? null, "{$status}: {$action}");
+            }
+
+            $this->actingAs($rapporteur, 'sanctum')
+                ->postJson("/api/requests/{$file->id}/transition", ['action' => 'defer', 'comment' => 'تأجيل'])
+                ->assertStatus(422)
+                ->assertJsonFragment(['message' => $refusal]);
+        }
+    }
+
+    public function test_results_still_apply_after_the_request_page_refusal(): void
+    {
+        [$rapporteur, $meeting, [$item]] = $this->paperMeeting();
+
+        $this->recordResults($rapporteur, $meeting, [
+            $item->id => ['recommendation' => 'defer', 'note' => 'لحين استكمال المستندات'],
+        ])->assertOk();
+
+        $this->assertStage($item, 'receive_from_committee', 'deferred');
     }
 
     public function test_a_declined_minister_file_goes_to_the_ministry(): void

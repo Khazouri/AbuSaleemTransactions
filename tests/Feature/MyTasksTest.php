@@ -180,19 +180,13 @@ class MyTasksTest extends TestCase
         $this->assertArrayNotHasKey('workflow_step', $this->inbox($this->userWithRole('R01')));
     }
 
-    /** The ministry's own escalation loops onto itself, so it must not be a task forever. */
-    public function test_the_admin_is_offered_overdue_files_except_the_ministry_self_loop(): void
+    /** High open items (2026-11-13) — overdue is a flag, so it is nobody's task to escalate. */
+    public function test_an_overdue_file_is_no_task_of_the_admin(): void
     {
-        $admin = $this->userWithRole('R08');
         $late = $this->requestAt('requirements_check', 'in_review', $this->userWithRole('R01'));
         $late->forceFill(['overdue_at' => now()->subDay()])->save();
-        $looping = $this->requestAt('local_governance_ministry', 'awaiting_central_approval', $this->userWithRole('R01'));
-        $looping->forceFill(['overdue_at' => now()->subDay()])->save();
 
-        $titles = collect($this->inbox($admin)['overdue']['tasks'])->pluck('title');
-        $this->assertContains($late->title, $titles);
-        $this->assertNotContains($looping->title, $titles);
-        $this->assertArrayNotHasKey('overdue', $this->inbox($this->userWithRole('R02')));
+        $this->assertArrayNotHasKey('overdue', $this->inbox($this->userWithRole('R08')));
     }
 
     /** The paper sitting (2026-10-18): once the day has come, the seated مقرر owes the results. */

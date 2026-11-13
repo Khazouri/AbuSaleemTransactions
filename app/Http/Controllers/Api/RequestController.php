@@ -94,9 +94,9 @@ class RequestController extends Controller
      * MeetingResultsController::recordAuthorityDecisions() takes it instead.
      *
      * Only for a file a meeting actually recommended on: one R08 escalated by
-     * `deadline_expired` reaches the ministry with no توصية (or only a
-     * deferral), so no meeting page can take it, and refusing it here too
-     * left it decidable nowhere.
+     * `deadline_expired` (removed 2026-11-13; such files may still be open)
+     * reached the ministry with no توصية (or only a deferral), so no meeting
+     * page can take it, and refusing it here too left it decidable nowhere.
      */
     public static function authorityStageRefusal(Request $requestRecord, string $action): ?string
     {
@@ -104,6 +104,21 @@ class RequestController extends Controller
             && array_key_exists((string) $requestRecord->currentStage()->value('code'), MeetingDuties::AUTHORITY_STAGES)
             && in_array($requestRecord->latestDecidedItem()->first()?->decision?->outcome, ['approve', 'reject'], true)
             ? 'يُسجَّل قرار جهة الاعتماد من صفحة الاجتماع.'
+            : null;
+    }
+
+    /**
+     * High open items (2026-11-13) — the committee's three توصيات are written
+     * only by MeetingResultsController::store() (the paper sitting,
+     * 2026-10-18), which applies them through WorkflowService directly. The
+     * rows stay R02's so that path can pick them, so the request page has to
+     * refuse them itself; it offered defer/reject even during legal review.
+     */
+    public static function committeeStageRefusal(Request $requestRecord, string $action): ?string
+    {
+        return in_array($action, DecisionController::ACTIONS, true)
+            && $requestRecord->currentStage()->value('code') === 'receive_from_committee'
+            ? 'تُسجَّل توصية اللجنة من صفحة الاجتماع.'
             : null;
     }
 
@@ -186,7 +201,8 @@ class RequestController extends Controller
      */
     private function blockReason(Request $requestRecord, string $action, bool $hasOpenApprovalReturn): ?string
     {
-        if (($meetingPage = self::authorityStageRefusal($requestRecord, $action)) !== null) {
+        if (($meetingPage = self::committeeStageRefusal($requestRecord, $action)
+            ?? self::authorityStageRefusal($requestRecord, $action)) !== null) {
             return $meetingPage;
         }
 

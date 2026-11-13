@@ -8,7 +8,9 @@ use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Models\Request;
+use App\Models\RequestStageLog;
 use App\Models\RequestStatus;
+use App\Models\RequestStatusHistory;
 use App\Models\RequestType;
 use App\Models\Role;
 use App\Models\User;
@@ -113,6 +115,40 @@ trait HoldsPaperMeetings
         }
 
         return $this->actingAs($actor, 'sanctum')->post("/api/meetings/{$meeting->id}/results", $payload, ['Accept' => 'application/json']);
+    }
+
+    /**
+     * A file R08 escalated by `deadline_expired` before that rule was removed
+     * (2026-11-13). Such files may still be open: at the ministry's stage, in
+     * review, with the move logged the way WorkflowService wrote it.
+     */
+    protected function escalatedBeforeTheRemoval(Request $file): Request
+    {
+        $file = $file->fresh();
+        $admin = $this->userWith('R08');
+        $ministryId = WorkflowStage::where('code', 'local_governance_ministry')->value('id');
+        $inReviewId = RequestStatus::where('code', 'in_review')->value('id');
+
+        RequestStageLog::create([
+            'request_id' => $file->id,
+            'from_stage_id' => $file->current_stage_id,
+            'to_stage_id' => $ministryId,
+            'action' => 'deadline_expired',
+            'comment' => 'انتهت المهلة النظامية.',
+            'acted_by_user_id' => $admin->id,
+            'acted_at' => now(),
+        ]);
+        RequestStatusHistory::create([
+            'request_id' => $file->id,
+            'from_status_id' => $file->status_id,
+            'to_status_id' => $inReviewId,
+            'reason' => 'انتهت المهلة النظامية.',
+            'changed_by_user_id' => $admin->id,
+            'changed_at' => now(),
+        ]);
+        $file->forceFill(['current_stage_id' => $ministryId, 'status_id' => $inReviewId, 'overdue_at' => now()])->save();
+
+        return $file->fresh();
     }
 
     protected function userWith(string $roleCode): User

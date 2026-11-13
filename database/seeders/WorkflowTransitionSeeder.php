@@ -588,38 +588,17 @@ class WorkflowTransitionSeeder extends Seeder
             56,
         );
 
-        // Stage 17 — once the SLA sweep marks a breach, an administrator can
-        // route the case to ministry oversight. The deadline is a separate
-        // flag, so this does not disguise the actual workflow state as a
-        // reporting-only "overdue" status.
-        // Ordered by order_no rather than a numeric range, since stage codes
-        // (not literal integers) are now the identity key throughout.
-        //
-        // Diagram-alignment redesign: extended to also cover the three new
-        // front-half stages — any open stage before the final archiving step
-        // can breach its SLA and escalate, which was already this loop's
-        // intent for the original ten stages.
-        $openStageCodesForDeadlineEscalation = [
-            'receive_from_municipality',
-            'direct_manager_review',
-            'administrative_routing',
-            'receive_and_register',
-            'requirements_check',
-            'receive_from_committee',
-            'approval_by_authority',
-            'local_governance_ministry',
-        ];
-
-        foreach ($openStageCodesForDeadlineEscalation as $stageCode) {
-            $this->seedException(
-                $stages[$stageCode]->id,
-                $stages['local_governance_ministry']->id,
-                'deadline_expired',
-                $roles['R08']->id,
-                $statuses['in_review']->id,
-                90,
-            );
-        }
+        // Stage 17 let R08 escalate an overdue file to the ministry's stage.
+        // High open items (2026-11-13, user decision) — removed: that stage
+        // is الوزير's, so a late file landed on his desk though no committee
+        // sent it there. Overdue stays a flag (requests:flag-overdue) on the
+        // dashboard and in reports. Exception rows survive the generic
+        // delete, so the old ones go by name; their stage logs stay.
+        WorkflowTransition::query()
+            ->whereNull('request_type_id')
+            ->where('action', 'deadline_expired')
+            ->whereIn('from_stage_id', $stages->pluck('id'))
+            ->delete();
     }
 
     /**

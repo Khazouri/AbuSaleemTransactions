@@ -7,6 +7,8 @@ use Illuminate\Validation\Rule;
 
 class StoreMeetingRequest extends FormRequest
 {
+    use StoresMeetingTimesInUtc;
+
     public function authorize(): bool
     {
         return true;
@@ -25,7 +27,8 @@ class StoreMeetingRequest extends FormRequest
             // regular monthly sitting, chaired and reported by whoever holds
             // the chair and rapporteur seats (MeetingController::store()).
             'title' => ['required', 'string', 'max:255'],
-            'scheduled_at' => ['required', 'date'],
+            // High open items (2026-11-13) — a meeting is scheduled before it is held.
+            'scheduled_at' => ['required', 'date', 'after:now'],
             'location' => ['nullable', 'string', 'max:255'],
             'expected_duration_minutes' => ['nullable', 'integer', 'min:1'],
             'agenda_deadline' => ['nullable', 'date'],
@@ -45,6 +48,7 @@ class StoreMeetingRequest extends FormRequest
             'committee_id.exists' => 'اللجنة المحددة غير موجودة.',
             'title.required' => 'عنوان الاجتماع مطلوب.',
             'scheduled_at.required' => 'موعد الاجتماع مطلوب.',
+            'scheduled_at.after' => 'يجب أن يكون موعد الاجتماع في المستقبل.',
             'expected_duration_minutes.integer' => 'المدة المتوقعة يجب أن تكون رقماً.',
             'agenda_deadline.date' => 'الموعد النهائي لجدول الأعمال غير صالح.',
             'guests.*.user_id.required' => 'يجب اختيار المدعو.',

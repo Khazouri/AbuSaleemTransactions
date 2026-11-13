@@ -10,6 +10,7 @@ use App\Models\Meeting;
 use App\Models\MeetingRequest;
 use App\Models\Request;
 use App\Models\RequestCorrection;
+use App\Models\RequestSpecialCase;
 use App\Models\RequestStatus;
 use App\Models\RequestStatusHistory;
 use App\Models\RequestType;
@@ -220,11 +221,25 @@ class RequestRecordActsTest extends TestCase
 
         $this->assertContains('record_document_conflict', $this->available($rapporteur, $file));
 
+        // High open items (2026-11-13) — the endpoints refuse a closed file
+        // themselves, and the wizard shows the acts blocked with that reason.
         $file->update(['closed_at' => now()]);
-        $acts = $this->acts($rapporteur, $file);
-        $offered = array_column([...$acts['available'], ...$acts['blocked']], 'action');
-        $this->assertNotContains('record_document_conflict', $offered);
-        $this->assertNotContains('record_special_case', $offered);
+        $refusal = 'لا يجوز التسجيل على معاملة مقفلة.';
+        $this->assertSame($refusal, $this->blockedReason($rapporteur, $file, 'record_document_conflict'));
+        $this->assertSame($refusal, $this->blockedReason($rapporteur, $file, 'record_special_case'));
+
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson("/api/requests/{$file->id}/document-conflicts", ['conflict_kind' => 'grade', 'detail' => 'الدرجة'])
+            ->assertStatus(422)
+            ->assertJsonFragment(['message' => $refusal]);
+        $this->actingAs($rapporteur, 'sanctum')
+            ->postJson("/api/requests/{$file->id}/special-cases", [
+                'case_kind' => RequestSpecialCase::KIND_INVALID_DOCUMENT,
+                'determinations' => ['material' => 'no', 'referred_to' => 'الإدارة القانونية.'],
+            ])
+            ->assertStatus(422)
+            ->assertJsonFragment(['message' => $refusal]);
+        $this->assertSame(0, RequestSpecialCase::count());
     }
 
     // --- helpers ------------------------------------------------------------

@@ -3,6 +3,7 @@
 namespace App\Services\Tasks;
 
 use App\Http\Controllers\Api\RequestController;
+use App\Http\Controllers\Api\RequestLifecycleController;
 use App\Models\Request;
 use App\Models\RequestWithdrawal;
 use App\Models\User;
@@ -115,9 +116,10 @@ class RequestActs
     {
         $edit = $actor->hasScreenPermission('meeting_outputs', 'can_edit');
 
-        if ($edit && $r->closed_at === null) {
-            $this->offer($acts, 'records', 'record_document_conflict', null);
-            $this->offer($acts, 'records', 'record_special_case', null);
+        if ($edit) {
+            $closed = RequestLifecycleController::closedFileRefusal($r);
+            $this->offer($acts, 'records', 'record_document_conflict', $closed);
+            $this->offer($acts, 'records', 'record_special_case', $closed);
         }
 
         // Appendix 53 — a correction memo may follow closure.

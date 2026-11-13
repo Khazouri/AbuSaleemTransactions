@@ -48,8 +48,13 @@ class RequestClosureService
      * Art. 26 lists among التأجيل's reasons — a pending state, not a final
      * one. The genuinely final referral is `outside_jurisdiction` carrying
      * Stage 50's `referral_authority`.
+     *
+     * `rejected` (الرفض الشكلي at the قيد) joined on 2026-11-13 (user decision):
+     * Art. 38 has no code for it, but it is final, and without it the file
+     * could be neither closed nor appealed. Like a pre-committee عدم اختصاص it
+     * carries no decision, so no archive is owed.
      */
-    public const CLOSABLE_STATUSES = ['executed', 'final_approved', 'not_approved', 'outside_jurisdiction'];
+    public const CLOSABLE_STATUSES = ['executed', 'final_approved', 'not_approved', 'outside_jurisdiction', 'rejected'];
 
     /**
      * Appendix 47's قائمة التدقيق النهائية قبل الإقفال, verbatim and in the
@@ -181,7 +186,7 @@ class RequestClosureService
         }
 
         if (! in_array($statusCode, self::CLOSABLE_STATUSES, true)) {
-            return 'لا تعتبر المعاملة مقفلة إلا بعد تحقق أحد المسارات النهائية: اعتماد النتيجة، أو عدم الموافقة، أو عدم الاختصاص.';
+            return 'لا تعتبر المعاملة مقفلة إلا بعد تحقق أحد المسارات النهائية: اعتماد النتيجة، أو عدم الموافقة، أو عدم الاختصاص، أو الرفض الشكلي.';
         }
 
         // Appendix 48 condition 6 / Art. 37's fourth path — the file stays open

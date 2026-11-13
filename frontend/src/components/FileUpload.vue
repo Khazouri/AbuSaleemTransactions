@@ -39,6 +39,8 @@ const { t, locale } = useI18n()
 const rows = ref([])
 const documentOptions = ref([])
 const outstanding = ref([])
+// High open items (2026-11-13) — rejected «مستند آخر» files a new one may replace.
+const replaceable = ref([])
 const error = ref('')
 const uploading = ref(false)
 const progress = ref(0)
@@ -72,6 +74,7 @@ function choose(files) {
       label: '',
       fileSection: '',
       documentKey: '',
+      replaces: '',
       error: '',
       previewUrl: isPreviewable(file) ? URL.createObjectURL(file) : '',
     })
@@ -126,9 +129,11 @@ async function loadDocumentOptions() {
     const { data } = await api.get(`/requests/${props.requestId}/document-options`)
     documentOptions.value = data.data.document_options ?? []
     outstanding.value = data.data.outstanding ?? []
+    replaceable.value = data.data.replaceable ?? []
   } catch {
     documentOptions.value = []
     outstanding.value = []
+    replaceable.value = []
   }
 }
 
@@ -142,6 +147,7 @@ function uploadError(requestError) {
   return requestError.response?.data?.errors?.file?.[0]
     ?? requestError.response?.data?.errors?.required_document_key?.[0]
     ?? requestError.response?.data?.errors?.file_section?.[0]
+    ?? requestError.response?.data?.errors?.replaces_attachment_id?.[0]
     ?? requestError.response?.data?.message
     ?? t('attachments.uploadFailed')
 }
@@ -169,6 +175,7 @@ async function upload() {
     // Only مستند آخر carries a folder: a named row's own folder is derived
     // server-side, and sending one would be an answer that cannot be honoured.
     if (needsFileSection(row)) form.append('file_section', row.fileSection)
+    if (needsFileSection(row) && row.replaces) form.append('replaces_attachment_id', row.replaces)
 
     try {
       const { data } = await api.post(targetUrl.value, form)
@@ -236,6 +243,15 @@ async function upload() {
         </select>
       </label>
       <p v-if="needsFileSection(row)" class="hint">{{ t('attachments.fileSectionHint') }}</p>
+
+      <!-- A rejected «مستند آخر» has no type to be replaced under, so the new one names it. -->
+      <label v-if="needsFileSection(row) && replaceable.length">
+        {{ t('attachments.replaces') }}
+        <select v-model="row.replaces" :disabled="uploading">
+          <option value="">{{ t('attachments.replacesNone') }}</option>
+          <option v-for="file in replaceable" :key="file.id" :value="file.id">{{ file.name }}</option>
+        </select>
+      </label>
 
       <label>
         {{ t('attachments.label') }}

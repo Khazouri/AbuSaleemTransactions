@@ -14,6 +14,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { toApiDateTime } from '../lib/dateInput'
 import GuestInviteForm from './GuestInviteForm.vue'
 
 const SEAT_CODES = ['chair', 'legal', 'hr_director', 'ministry_delegate', 'rapporteur']
@@ -136,10 +137,10 @@ async function submit() {
     const payload = {
       committee_id: details.value.committee_id,
       title: details.value.title,
-      scheduled_at: details.value.scheduled_at,
+      scheduled_at: toApiDateTime(details.value.scheduled_at),
       location: details.value.location || null,
       expected_duration_minutes: details.value.expected_duration_minutes || null,
-      agenda_deadline: details.value.agenda_deadline || null,
+      agenda_deadline: toApiDateTime(details.value.agenda_deadline),
       description: details.value.description || null,
       guests: guests.value.map(({ user_id, guest_title }) => ({ user_id, guest_title })),
     }

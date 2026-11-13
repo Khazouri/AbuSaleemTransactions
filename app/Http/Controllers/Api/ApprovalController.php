@@ -118,7 +118,8 @@ class ApprovalController extends Controller
         // approved, so gating only the generic endpoint would leave both this
         // stage's new gates wide open here — the same reason the jurisdiction
         // and approval-return checks above are repeated.
-        if (($gateRefusal = RequestController::authorityStageRefusal($requestRecord, 'approve')
+        if (($gateRefusal = RequestController::committeeStageRefusal($requestRecord, 'approve')
+            ?? RequestController::authorityStageRefusal($requestRecord, 'approve')
             ?? RequestController::controlGateRefusal($requestRecord, 'approve')) !== null) {
             throw ValidationException::withMessages(['request' => [$gateRefusal]]);
         }
