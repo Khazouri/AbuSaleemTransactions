@@ -78,10 +78,10 @@ Only four pilot clips exist (filing a request, the manager's forward, HR's emplo
 screen). The other 43 catalogue codes have a row and no video. **To close:** the user reviews the pilots, then the
 remaining clips are scripted and recorded with the toolkit in `C:\Users\Dev\walkthrough`.
 **Resolved (2026-11-13, learning centre phase 2):** 42 more clips recorded, so 46 of the 47 codes have an MP4 in
-`C:\Users\Dev\walkthrough\out\<code>.mp4`; only `screen.workflow_designer` is left (its own entry above).
+`C:\Users\Dev\walkthrough\upload\<code>.mp4`; only `screen.workflow_designer` is left (its own entry above).
 
 ### The four pilot MP4s are not on production — learning centre — opened 2026-11-12
-**Updated 2026-11-13:** this now covers all 46 MP4s in `C:\Users\Dev\walkthrough\out\` (`<code>.mp4`).
+**Updated 2026-11-13:** this now covers all 46 MP4s in `C:\Users\Dev\walkthrough\upload\` (`<code>.mp4`).
 `screen.maintenance` shows the recording machine's server checks (a scratch SQLite path, environment `local`); re-record
 it against a production-like session if that matters.
 The videos are not in the repo and not on the host. «بعد الرفع» does not run `ScreenSeeder`, so until «إعادة زراعة
