@@ -13,6 +13,13 @@ What is open, why it was left, and what would close it.
 
 ---
 
+### Walkthrough clips waiting to be re-recorded — learning centre — opened 2026-11-13
+The user halted clip updates on 2026-11-13: no clip is scripted, recorded or replaced until they say to resume. Each
+task that changes what a screen shows adds the affected codes here instead (one line: code, what changed, date).
+**To close:** when the user resumes, re-record every code below in one serial run, then clear the list.
+- `screen.maintenance`: shows the recording machine's server checks (a scratch SQLite path, environment `local`)
+  (2026-11-13).
+
 ### Screen faults found while scripting the clips — learning centre phase 2 — opened 2026-11-13
 None was fixed and none is narrated. **To close:** take them one by one; several are leftovers of the paper-meeting
 and legal-recommendation changes.
