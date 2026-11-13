@@ -123,6 +123,55 @@ class RequestClosureTest extends TestCase
     }
 
     /**
+     * High open items (2026-11-13) — a الرفض الشكلي at the قيد is a final
+     * path (user decision): it closes like a pre-committee عدم اختصاص, with
+     * no decision and so no archive owed.
+     */
+    public function test_a_formally_rejected_file_is_closed_without_an_archive(): void
+    {
+        $closer = $this->userWithRole('R02');
+        $rejected = $this->requestAt('requirements_check', 'rejected');
+
+        $acts = $this->actingAs($closer, 'sanctum')->getJson("/api/requests/{$rejected->id}")->assertOk();
+        $close = collect($acts->json('data.acts.available'))->firstWhere('action', 'close');
+        $this->assertNotNull($close, 'close is offered with no refusal');
+
+        $this->actingAs($closer, 'sanctum')
+            ->patchJson("/api/requests/{$rejected->id}/close", $this->closurePayload(auditOverrides: [
+                'minutes_approved' => 'not_applicable',
+                'authority_approval_complete' => 'not_applicable',
+                'executed' => 'not_applicable',
+                'service_file_updated' => 'not_applicable',
+                'decision_copy_attached' => 'not_applicable',
+            ]))
+            ->assertOk()
+            ->assertJsonPath('data.status.code', 'completed_closed')
+            ->assertJsonPath('data.closure.final_result_code', 'rejected');
+    }
+
+    public function test_a_formally_rejected_file_with_an_open_appeal_is_not_closed(): void
+    {
+        $closer = $this->userWithRole('R02');
+        $employee = $this->userWithRole('R01');
+        $rejected = $this->requestAt('requirements_check', 'rejected', creator: $employee);
+
+        Appeal::create([
+            'appellant_user_id' => $employee->id,
+            'original_request_id' => $rejected->id,
+            'original_decision_reference' => 'رفض شكلي',
+            'known_at' => now()->subDay(),
+            'appeal_reasons' => 'اعتراض على الرفض الشكلي.',
+            'final_request' => 'قبول الطلب.',
+            'appeal_status_id' => AppealStatus::where('code', 'submitted')->value('id'),
+        ]);
+
+        $this->actingAs($closer, 'sanctum')
+            ->patchJson("/api/requests/{$rejected->id}/close", $this->closurePayload())
+            ->assertStatus(422)
+            ->assertJsonFragment(['message' => 'لا يجوز إقفال معاملة مرتبطة بتظلم مفتوح.']);
+    }
+
+    /**
      * Appendix 48's conditions 1–5, each refused in its own words rather than
      * behind one generic "not closable" message.
      */

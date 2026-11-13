@@ -40,6 +40,7 @@ class AppealEligibility
         'executed',                // 19 منفذة (Stage 69)
         'completed_closed',        // 20 مغلقة ومؤرشفة
         'archived',                // 20, legacy-only
+        'rejected',                // الرفض الشكلي at the قيد — no Art. 38 code; appealable by user decision 2026-11-13
         // `in_execution` (Art. 38 code 18) is deliberately excluded —
         // STAGE_PLAN's own code list skips it while naming 17/19/20 on
         // either side, so this honours that literally rather than guessing.

@@ -200,6 +200,20 @@ class AppealTest extends TestCase
         }
     }
 
+    /** High open items (2026-11-13) — a الرفض الشكلي is appealable (user decision). */
+    public function test_the_filer_may_appeal_a_formal_rejection(): void
+    {
+        $employee = $this->userWithRole('R01');
+        $rejected = $this->requestFixture($employee, 'rejected');
+
+        $this->actingAs($employee, 'sanctum')
+            ->postJson('/api/appeals', $this->payload($rejected->id, [
+                'original_decision_reference' => 'رفض شكلي عند القيد',
+            ]))
+            ->assertCreated()
+            ->assertJsonPath('data.original_request.id', $rejected->id);
+    }
+
     public function test_cancelled_only_qualifies_when_a_linked_committee_rejection_decision_exists(): void
     {
         $employee = $this->userWithRole('R01');
