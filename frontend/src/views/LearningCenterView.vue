@@ -1,8 +1,9 @@
 <script setup>
 // Learning centre — narrated walkthroughs.
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import api from '../lib/api'
+import { matchVideoFiles } from '../lib/bulkVideoUpload'
 import { confirmDelete } from '../lib/confirm'
 import { useScreensStore } from '../stores/screens'
 import AppModal from '../components/AppModal.vue'
@@ -84,56 +85,111 @@ function cancelUpload() {
   target.value = null
 }
 
+const tooLarge = (f) => maxBytes.value && f.size > maxBytes.value
+
 // The duration is read from the file itself, off-DOM, so the person never
 // types it and the server never has to probe the container.
-function onPick(event) {
+function readDuration(picked) {
+  return new Promise((resolve, reject) => {
+    const probe = document.createElement('video')
+    probe.preload = 'metadata'
+    const objectUrl = URL.createObjectURL(picked)
+    probe.onloadedmetadata = () => {
+      URL.revokeObjectURL(objectUrl)
+      // A stream or odd container can report Infinity/NaN; Save would then do nothing, silently.
+      if (Number.isFinite(probe.duration)) resolve(Math.max(1, Math.round(probe.duration)))
+      else reject(new Error(t('learningCenter.unreadable')))
+    }
+    probe.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error(t('learningCenter.unreadable')))
+    }
+    probe.src = objectUrl
+  })
+}
+
+const errorOf = (e) => {
+  const errors = e?.response?.data?.errors
+  return (errors && Object.values(errors).flat()[0]) || e?.response?.data?.message || e?.message || t('learningCenter.uploadFailed')
+}
+
+const sendVideo = (video, picked, seconds) => {
+  const body = new FormData()
+  body.append('file', picked)
+  body.append('duration_seconds', seconds)
+  return api.post(`/learning-center/${video.id}/file`, body)
+}
+
+async function onPick(event) {
   const picked = event.target.files?.[0] ?? null
   file.value = null
   duration.value = null
   formError.value = null
   if (!picked) return
-  if (maxBytes.value && picked.size > maxBytes.value) {
+  if (tooLarge(picked)) {
     formError.value = t('learningCenter.tooLarge', { limit: mb(maxBytes.value) })
     event.target.value = ''
     return
   }
-  const probe = document.createElement('video')
-  probe.preload = 'metadata'
-  const objectUrl = URL.createObjectURL(picked)
-  probe.onloadedmetadata = () => {
-    URL.revokeObjectURL(objectUrl)
-    // A stream or odd container can report Infinity/NaN; Save would then do nothing, silently.
-    if (!Number.isFinite(probe.duration)) {
-      formError.value = t('learningCenter.unreadable')
-      return
-    }
-    duration.value = Math.max(1, Math.round(probe.duration))
+  try {
+    duration.value = await readDuration(picked)
     file.value = picked
+  } catch (e) {
+    formError.value = e.message
   }
-  probe.onerror = () => {
-    formError.value = t('learningCenter.unreadable')
-    URL.revokeObjectURL(objectUrl)
-  }
-  probe.src = objectUrl
 }
 
 async function upload() {
   if (!file.value || !duration.value) return
   uploading.value = true
   formError.value = null
-  const body = new FormData()
-  body.append('file', file.value)
-  body.append('duration_seconds', duration.value)
   try {
-    await api.post(`/learning-center/${target.value.id}/file`, body)
+    await sendVideo(target.value, file.value, duration.value)
     cancelUpload()
     await load()
   } catch (e) {
-    const errors = e?.response?.data?.errors
-    formError.value = (errors && Object.values(errors).flat()[0]) || e?.response?.data?.message || t('learningCenter.uploadFailed')
+    formError.value = errorOf(e)
   } finally {
     uploading.value = false
   }
+}
+
+// Bulk upload — one pick of the recorded clips, each sent to the row its name matches.
+const bulkOpen = ref(false)
+const bulk = reactive({ matched: [], skipped: [], failed: [], done: 0, total: 0, current: '', running: false, finished: false })
+
+function openBulk() {
+  Object.assign(bulk, { matched: [], skipped: [], failed: [], done: 0, total: 0, current: '', running: false, finished: false })
+  bulkOpen.value = true
+}
+
+// Closing mid-run stops after the file in flight; the loop checks the flag between files.
+function closeBulk() {
+  bulkOpen.value = false
+}
+
+function onBulkPick(event) {
+  const { matched, skipped } = matchVideoFiles(Array.from(event.target.files ?? []), manage.value ?? [])
+  Object.assign(bulk, { matched, skipped })
+}
+
+// One at a time: a 5 MB request each stays well inside the host's limits, and a
+// failure costs that file only.
+async function runBulk(items) {
+  Object.assign(bulk, { failed: [], done: 0, total: items.length, running: true, finished: false })
+  for (const item of items) {
+    if (!bulkOpen.value) break
+    bulk.current = titleOf(item.video)
+    try {
+      if (tooLarge(item.file)) throw new Error(t('learningCenter.tooLarge', { limit: mb(maxBytes.value) }))
+      await sendVideo(item.video, item.file, await readDuration(item.file))
+    } catch (e) {
+      bulk.failed.push({ ...item, reason: errorOf(e) })
+    }
+    bulk.done++
+  }
+  Object.assign(bulk, { running: false, finished: true, current: '' })
+  await load()
 }
 
 async function removeFile(video) {
@@ -187,6 +243,9 @@ onMounted(load)
 
     <template v-else>
       <p v-if="actionError" class="alert">{{ actionError }}</p>
+      <div class="toolbar">
+        <button class="primary" type="button" @click="openBulk">{{ t('learningCenter.bulk.open') }}</button>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -237,6 +296,53 @@ onMounted(load)
       </form>
     </AppModal>
 
+    <AppModal v-if="bulkOpen" wide :title="t('learningCenter.bulk.open')" @close="closeBulk">
+      <div class="form">
+        <template v-if="!bulk.running && !bulk.finished">
+          <p class="hint">{{ t('learningCenter.bulk.intro') }}</p>
+          <label>
+            <span>{{ t('learningCenter.bulk.files') }}</span>
+            <input type="file" accept="video/mp4" multiple @change="onBulkPick" />
+            <small class="hint">{{ t('learningCenter.bulk.pickHint') }} {{ t('learningCenter.limitHint', { limit: mb(maxBytes) }) }}</small>
+          </label>
+          <p v-if="bulk.matched.length" class="hint">{{ t('learningCenter.bulk.ready', { count: bulk.matched.length }) }}</p>
+        </template>
+
+        <div v-if="bulk.running" class="progress" role="status">
+          <progress :value="bulk.done" :max="bulk.total"></progress>
+          <span class="count">{{ bulk.done }} / {{ bulk.total }}</span>
+          <span class="hint">{{ t('learningCenter.bulk.current', { title: bulk.current }) }}</span>
+        </div>
+
+        <template v-if="bulk.finished">
+          <p role="status">{{ t('learningCenter.bulk.uploaded', { count: bulk.total - bulk.failed.length }) }}</p>
+          <div v-if="bulk.failed.length" class="alert">
+            <p>{{ t('learningCenter.bulk.failed') }}</p>
+            <ul>
+              <li v-for="f in bulk.failed" :key="f.video.id"><span class="ltr">{{ f.file.name }}</span>: {{ f.reason }}</li>
+            </ul>
+          </div>
+        </template>
+
+        <div v-if="bulk.skipped.length && !bulk.running" class="skipped">
+          <p class="hint">{{ t('learningCenter.bulk.skipped') }}</p>
+          <ul>
+            <li v-for="f in bulk.skipped" :key="f.name"><span class="ltr">{{ f.name }}</span></li>
+          </ul>
+        </div>
+
+        <div class="modal-actions">
+          <button class="ghost" type="button" @click="closeBulk">{{ bulk.finished ? t('common.close') : t('common.cancel') }}</button>
+          <button v-if="bulk.finished && bulk.failed.length" class="primary" type="button" @click="runBulk(bulk.failed)">
+            {{ t('learningCenter.bulk.retry') }}
+          </button>
+          <button v-if="!bulk.finished && !bulk.running" class="primary" type="button" :disabled="!bulk.matched.length" @click="runBulk(bulk.matched)">
+            {{ t('learningCenter.bulk.start') }}
+          </button>
+        </div>
+      </div>
+    </AppModal>
+
     <VideoPlayerModal v-if="playing" :video="playing" @close="playing = null" />
   </section>
 </template>
@@ -273,4 +379,9 @@ onMounted(load)
 .code { display: block; color: var(--color-muted); }
 .row-actions { white-space: nowrap; }
 .empty { text-align: center; color: var(--color-muted); }
+.toolbar { display: flex; justify-content: flex-end; margin-block-end: var(--space-3); }
+.progress { display: grid; gap: var(--space-2); }
+.progress progress { inline-size: 100%; accent-color: var(--color-brand); }
+.count { font-variant-numeric: tabular-nums; font-weight: 600; }
+.skipped ul, .alert ul { margin: 0; padding-inline-start: var(--space-5); max-block-size: 12rem; overflow-y: auto; }
 </style>

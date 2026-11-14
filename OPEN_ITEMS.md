@@ -103,6 +103,9 @@ The videos are not in the repo and not on the host. «بعد الرفع» does n
 الشاشات» runs the `learning_center` screen and its grants do not exist on the host and everyone gets 403. **To close, in
 this order:** (1) upload the backend and `frontend/dist`; (2) run «بعد الرفع»; (3) run «إعادة زراعة الشاشات»; (4) as R08,
 upload the four MP4s on «إدارة الفيديوهات».
+**Updated 2026-11-14:** step (4) is now one pick: «رفع مجموعة فيديوهات» on «إدارة الفيديوهات», selecting every file in
+`C:\Users\Dev\walkthrough\upload\`. Each file goes to the row its name matches. The host's PHP limit was 2 MB, which
+refused every clip; the user raised `upload_max_filesize` and `post_max_size` to about 512M in cPanel.
 
 ### The user guide has no learning-centre section — learning centre — opened 2026-11-12
 `USER_GUIDE.ar.md` and the role test plans do not mention «مركز التعلم» or «شاهد الشرح». Doc edits are paused until the
