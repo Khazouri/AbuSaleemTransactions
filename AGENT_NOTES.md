@@ -19,6 +19,37 @@ What happened / what's left / what to watch out for. 2-4 sentences.
 ```
 
 ---
+### 2026-11-14 12:40 EET — Claude — The learning centre uploads a folder of videos at once (complete)
+
+Built per the plan below, frontend only: no server change, no migration. The single upload now shares `readDuration()`,
+`sendVideo()` and `errorOf()` with the bulk run. A file over the server's limit is refused in the page and listed as a
+failure, never sent. No clip needs re-recording, because the manage tab is R08's and no clip shows it.
+
+Verified:
+- `bulkVideoUpload.test.js` (4) went RED, then GREEN; all node tests 21/21;
+- build passes (`dist` committed, production API URL in the bundle); parity 1906; `aislop ci` exit 0;
+- headless Chrome against the toolkit's scratch session (scratch SQLite) picked the 46 clips plus `hello.mp4`: 46
+  matched, `hello.mp4` was skipped, all 46 rows got a file and a duration, and there were no page errors. The picked,
+  running and phone views were screenshotted.
+
+The failure and retry path was not exercised in a browser.
+
+---
+### 2026-11-14 12:07 EET — Claude — Implementation plan: the learning centre uploads a folder of videos at once
+
+User: uploading the 46 clips one by one failed with «حجم الملف أكبر من الحد المسموح (2 ميغابايت)». That limit is the
+host's PHP `upload_max_filesize`, which the user has since raised to about 512M in cPanel. They want the clips sorted
+into the catalogue automatically, and chose several files over a zip (a 221 MB request risks the host's time limit).
+Plan (spec and plan under `docs/superpowers/`, branch `feat/learning-center-bulk-upload`), frontend only:
+- `lib/bulkVideoUpload.js`'s `matchVideoFiles()` pairs each `<code>.mp4` with its catalogue row (case-insensitive);
+  an unknown name or a duplicate is skipped;
+- a «رفع مجموعة فيديوهات» modal on the manage tab sends each match, one at a time, through the existing
+  `POST learning-center/{id}/file`, with a counter, a summary and a retry for the failures.
+
+Verify: node tests (RED then GREEN), build (`dist` committed), parity, aislop ci, and a headless upload of the folder
+against a scratch API.
+
+---
 ### 2026-11-13 16:40 EET — Claude — The seven high-severity open items (complete)
 
 Built per the plan below on `fix/high-open-items`. Migration `add_replaces_attachment_id_to_attachments_table` is

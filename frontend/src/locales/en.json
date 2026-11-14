@@ -2360,6 +2360,19 @@
     "uploadFailed": "Could not upload the video. Try again.",
     "deleteFailed": "Could not delete the file.",
     "loadFailed": "Could not load the videos.",
-    "playFailed": "Could not play the video."
+    "playFailed": "Could not play the video.",
+    "bulk": {
+      "open": "Upload several videos",
+      "intro": "Pick the video files in one go. Each is uploaded to the walkthrough its name matches (such as screen.login.mp4), replacing any video uploaded before.",
+      "files": "Video files (MP4)",
+      "pickHint": "Open the videos folder and select every file (Ctrl+A).",
+      "ready": "Matching files ready to upload: {count}",
+      "skipped": "Files whose name matches no walkthrough, which will not be uploaded:",
+      "start": "Start upload",
+      "current": "Uploading: {title}",
+      "uploaded": "Videos uploaded: {count}",
+      "failed": "These files could not be uploaded:",
+      "retry": "Retry the failed files"
+    }
   }
 }
